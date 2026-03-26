@@ -41,6 +41,7 @@ The backstory sections form a **linked chain** across repositories.  Each sectio
 | 3 | NanoLang | https://github.com/jordanhubbard/nanolang |
 | 4 | Aviation | https://github.com/jordanhubbard/Aviation |
 | 5 | WebMux | https://github.com/jordanhubbard/webmux |
+| 6 | Theseus | https://github.com/jordanhubbard/theseus |
 | N | *(your new repo)* | *(add here when you chain it)* |
 
 When adding a new Part N:
