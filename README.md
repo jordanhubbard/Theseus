@@ -15,7 +15,7 @@
 
 ### Requirements
 
-- Python 3.10+
+- Python 3.9+
 - No third-party runtime dependencies (stdlib only)
 - `pytest` for running the test suite
 
@@ -99,11 +99,11 @@ No runtime configuration is required. The schema version is embedded in each rec
 
 ## Deployment
 
-Theseus is a local analysis toolchain. There is no server component and no deployment step. Run it anywhere Python 3.10+ is available.
+Theseus is a local analysis toolchain. There is no server component and no deployment step. Run it anywhere Python 3.9+ is available.
 
 ## License
 
-[MIT](LICENSE)
+[BSD 2-Clause](LICENSE)
 
 ---
 

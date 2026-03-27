@@ -6,8 +6,8 @@ CANDIDATES_OUT ?= ./reports/top-candidates.json
 
 all:
 	@python3 --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
-	@python3 -c "import sys; assert sys.version_info >= (3, 10), 'Python 3.10+ required'" 2>/dev/null \
-		|| (echo "Error: Python 3.10+ required" && exit 1)
+	@python3 -c "import sys; assert sys.version_info >= (3, 9), 'Python 3.9+ required'" 2>/dev/null \
+		|| (echo "Error: Python 3.9+ required" && exit 1)
 	@echo "Theseus is ready. No runtime dependencies to install (stdlib only)."
 	@echo "Run 'make test' to verify. Run 'make start' for a quick demo on examples/."
 
