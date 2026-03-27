@@ -84,14 +84,30 @@ _NIX_LICENSES: dict[str, str] = {
     "unlicense": "Unlicense",
 }
 
-# nativeBuildInputs token → build system name
+# nativeBuildInputs token OR builder keyword → build system name.
+# Order matters: more-specific entries first.
 _NIX_BUILD_SYSTEMS: dict[str, str] = {
     "cmake": "cmake",
     "meson": "meson",
     "waf": "waf",
+    "buildPerlPackage": "perl",
+    "buildPerlModule": "perl",
     "perl": "perl",
+    "buildPythonPackage": "python",
+    "buildPythonApplication": "python",
     "python3": "python",
+    "buildGoModule": "go",
+    "buildGoPackage": "go",
     "go": "go",
+    "buildRustPackage": "cargo",
+    "buildNpmPackage": "npm",
+    "buildNpmApplication": "npm",
+    "mkYarnPackage": "yarn",
+    "buildDunePackage": "dune",
+    "buildOcamlPackage": "ocaml",
+    "buildHaskellPackage": "cabal",
+    "buildRubyGem": "gem",
+    "buildPhpPackage": "php",
 }
 
 
@@ -131,10 +147,21 @@ def parse_nix_file(path: Path, nixpkgs_root: Path) -> dict | None:
     except OSError:
         return None
 
-    # Must resemble a derivation
+    # Must resemble a derivation. This list covers the most common Nixpkgs
+    # builders. Domain-specific builders not listed here are detected via the
+    # generic "Platform" / "mkDerivation" fallthrough below.
     if not any(kw in content for kw in (
-        "mkDerivation", "buildPythonPackage", "buildGoModule",
-        "buildRustPackage", "buildNpmPackage",
+        "mkDerivation",
+        "buildPythonPackage", "buildPythonApplication",
+        "buildGoModule", "buildGoPackage",
+        "buildRustPackage",
+        "buildNpmPackage", "mkYarnPackage", "buildNpmApplication",
+        "buildPerlPackage", "buildPerlModule",
+        "buildDunePackage", "buildOcamlPackage",
+        "buildHaskellPackage",
+        "buildRubyGem",
+        "buildPhpPackage",
+        "stdenv.mkDerivation",
     )):
         return None
 

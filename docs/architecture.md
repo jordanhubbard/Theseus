@@ -28,11 +28,27 @@ The canonical record format is defined in `schema/package-recipe.schema.json` (J
 - **`unmapped`** and **`warnings`** in `provenance` capture fields the importer saw but couldn't normalize. These are signals for future schema evolution.
 - The schema uses `additionalProperties: true` on most sub-objects. The canonical fields are required; extra fields are allowed. This makes forward-compatibility easier as ecosystems evolve.
 
+See `docs/schema-evolution.md` for versioning rules, the version history, and guidance on when and how to bump `schema_version`.
+
 ## Snapshot Format
 
 A snapshot is a directory tree of JSON files, one per record. File naming is arbitrary; tools discover records by walking the tree and checking for an `"identity"` key. The only reserved filename is `manifest.json` (skipped by all tools).
 
 Records from different ecosystems for the same canonical package are separate files. The overlap tool joins them by `canonical_name`.
+
+## Known importer limitations
+
+### Nixpkgs: regex-based parsing
+
+The Nixpkgs importer uses regex heuristics on `default.nix` files rather than evaluating Nix expressions. This means:
+
+- Values set by conditional expressions, `lib.optionalString`, or dynamic attribute paths may be parsed incorrectly or missed entirely.
+- The `confidence` score reflects field presence, not parse correctness. A record can have `confidence: 0.95` and still contain a wrong dependency list if the Nix source used a non-obvious pattern.
+- For higher accuracy, run `nix-instantiate --eval --json` against each package and feed the result to a future importer variant.
+
+### FreeBSD Ports: slave ports are not imported
+
+FreeBSD Ports uses a "slave port" pattern where a port sets `MASTERDIR` to point to a sibling directory and inherits most of its Makefile. Slave port Makefiles typically don't set `PORTNAME` directly, so the importer returns `None` for them and they are silently skipped. Slave ports are common for packages that build multiple variants (e.g. `openssl` vs `openssl-legacy`). A future importer should detect `MASTERDIR`, follow it, and merge the slave-specific variables into the inherited record.
 
 ## Tools
 
