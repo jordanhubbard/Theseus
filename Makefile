@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates help
+.PHONY: all start stop restart test clean report candidates validate diff help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -43,6 +43,14 @@ report:
 candidates:
 	python3 tools/top_candidates.py "$(SNAPSHOT)" --out "$(CANDIDATES_OUT)"
 
+validate:
+	python3 tools/validate_record.py $(or $(PATHS),examples/)
+
+diff:
+	@test -n "$(BEFORE)" || (echo "Usage: make diff BEFORE=<dir> AFTER=<dir> [OUT=<file>]" && exit 1)
+	@test -n "$(AFTER)"  || (echo "Usage: make diff BEFORE=<dir> AFTER=<dir> [OUT=<file>]" && exit 1)
+	python3 tools/diff_snapshots.py --before "$(BEFORE)" --after "$(AFTER)" $(if $(OUT),--out "$(OUT)")
+
 help:
 	@echo "Theseus — canonical package recipe toolchain"
 	@echo ""
@@ -55,8 +63,13 @@ help:
 	@echo "  make clean          Remove generated artifacts"
 	@echo "  make report         Run overlap report (requires SNAPSHOT=)"
 	@echo "  make candidates     Run candidate ranking (requires SNAPSHOT=)"
+	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
+	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""
 	@echo "Variables:"
 	@echo "  SNAPSHOT            Snapshot directory (default: ./snapshots/YYYY-MM-DD)"
 	@echo "  REPORT_OUT          Output dir for overlap report (default: ./reports/overlap)"
 	@echo "  CANDIDATES_OUT      Output file for ranking (default: ./reports/top-candidates.json)"
+	@echo "  PATHS               Path(s) for 'make validate' (default: examples/)"
+	@echo "  BEFORE / AFTER      Snapshot dirs for 'make diff'"
+	@echo "  OUT                 Output file for 'make diff'"

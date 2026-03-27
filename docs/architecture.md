@@ -8,14 +8,15 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 Source Trees (Nixpkgs, FreeBSD Ports)
         │
         ▼
-  bootstrap_canonical_recipes.py   ← not included in this repo; run by user
+  bootstrap_canonical_recipes.py   ← walks Nixpkgs and/or FreeBSD Ports; run by user
         │
         ▼
   snapshots/<date>/                ← one JSON file per package per ecosystem
         │
-        ▼
-  tools/overlap_report.py          ← compare ecosystems; write reports/overlap/
-  tools/top_candidates.py          ← rank packages; write reports/top-candidates.json
+        ├─► tools/overlap_report.py      ← compare ecosystems; write reports/overlap/
+        ├─► tools/top_candidates.py      ← rank packages; write reports/top-candidates.json
+        ├─► tools/validate_record.py     ← validate records against schema rules
+        └─► tools/diff_snapshots.py      ← diff two snapshots to track ecosystem drift
 ```
 
 ## Schema
@@ -60,10 +61,36 @@ Scoring heuristics (see source for current weights):
 | Dependency count | Fewer = better | Less surface area |
 | Patch count | More = worse | Patches signal divergence from upstream |
 
+### `tools/validate_record.py`
+
+Validates one or more canonical records (files or directories) against the schema rules. Stdlib-only structural validation — checks required fields, types, and value ranges. Exits non-zero if any record is invalid.
+
+```bash
+python3 tools/validate_record.py examples/
+python3 tools/validate_record.py --strict snapshot/
+python3 tools/validate_record.py record.json
+```
+
+`--strict` additionally flags empty summaries, empty homepages, and non-empty `unmapped`/`warnings` fields. Useful for catching low-quality importer output before feeding it into analysis tools.
+
+### `tools/diff_snapshots.py`
+
+Compares two snapshot directories (e.g. from consecutive bootstrap runs) and classifies every package as added, removed, version-changed, ecosystem-changed, or unchanged. Useful for tracking ecosystem drift over time.
+
+```bash
+python3 tools/diff_snapshots.py --before snapshots/2026-03-01 --after snapshots/2026-03-26
+python3 tools/diff_snapshots.py --before snapshots/old --after snapshots/new --out reports/drift.json
+```
+
+Output categories mirror those of `overlap_report.py`: the diff groups packages by their movement across the two snapshots rather than their movement across ecosystems.
+
 ## Tests
 
 Tests live in `tests/`. Run with `make test` (requires `pytest`).
 
 - `tests/test_schema.py` — validates the JSON schema structure and all example records
+- `tests/test_bootstrap.py` — unit tests for all bootstrap importer parsing functions and import runners
 - `tests/test_overlap_report.py` — unit tests for `overlap_report.py` logic using `tmp_path` fixtures
 - `tests/test_top_candidates.py` — unit tests for `top_candidates.py` scoring and ranking logic
+- `tests/test_validate_record.py` — unit tests for `validate_record.py` field and type checking
+- `tests/test_diff_snapshots.py` — unit tests for `diff_snapshots.py` snapshot comparison logic

@@ -10,6 +10,8 @@
 - **Bootstrap importer** (`bootstrap_canonical_recipes.py`) — walks Nixpkgs and FreeBSD Ports trees and emits canonical records into a snapshot directory
 - **Overlap report** (`tools/overlap_report.py`) — identifies packages present in both ecosystems, present only in one, and those with version skew
 - **Candidate ranker** (`tools/top_candidates.py`) — scores packages as first candidates for downstream extraction using heuristics: dual-ecosystem presence, provenance confidence, dependency count, test coverage, patch complexity
+- **Record validator** (`tools/validate_record.py`) — validates canonical records against schema rules; reports type errors, missing fields, and out-of-range confidence scores
+- **Snapshot diff** (`tools/diff_snapshots.py`) — compares two snapshot directories and classifies every package as added, removed, version-changed, or unchanged; tracks ecosystem drift between bootstrap runs
 
 ## Quick Start
 
