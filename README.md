@@ -24,9 +24,10 @@
 ### Install
 
 ```bash
-git clone https://github.com/jordanhubbard/theseus
-cd theseus
-make
+git clone https://github.com/jordanhubbard/Theseus
+cd Theseus
+pip install pytest   # only external dependency; needed for make test
+make                 # verifies Python version, prints usage
 ```
 
 ### Typical workflow
