@@ -99,13 +99,13 @@ class TestNixpkgsDepsOne:
         assert "mySpecialPkg" in " ".join(cmd)
 
     @patch("theseus.importer.subprocess.run")
-    def test_no_strict_flag(self, mock_run, tmp_path):
+    def test_strict_flag_present(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
             returncode=0, stdout='{"build":[],"host":[],"runtime":[]}', stderr=""
         )
         imp._nixpkgs_deps_one("curl", tmp_path)
         cmd = mock_run.call_args[0][0]
-        assert "--strict" not in cmd
+        assert "--strict" in cmd
 
     @patch("theseus.importer.subprocess.run")
     def test_custom_timeout_passed(self, mock_run, tmp_path):

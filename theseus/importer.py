@@ -830,9 +830,10 @@ _NIX_DEP_EXPR = r"""
 let
   pkgs = import {nixpkgs_path} {{}};
   p    = pkgs.{attr};
-  names = drv: builtins.filter (s: s != "") (
-    map (d: d.pname or d.name or "") drv
-  );
+  safeName = d:
+    let r = builtins.tryEval (d.pname or d.name or "");
+    in if r.success then r.value else "";
+  names = drv: builtins.filter (s: s != "") (map safeName drv);
 in {{
   build   = names (p.nativeBuildInputs or []);
   host    = names (p.buildInputs or []);
@@ -848,7 +849,9 @@ def _nixpkgs_deps_one(
     timeout: int = 30,
 ) -> dict | None:
     """
-    Evaluate dep lists for a single nixpkgs attribute without --strict.
+    Evaluate dep lists for a single nixpkgs attribute using --strict to force
+    full evaluation before JSON serialization.  Packages that cause infinite
+    recursion will time out and return None.
 
     Returns {"build": [...], "host": [...], "runtime": [...]} on success,
     or None if evaluation fails or times out.
@@ -859,7 +862,7 @@ def _nixpkgs_deps_one(
     )
     try:
         r = subprocess.run(
-            ["nix-instantiate", "--eval", "--json", "-E", expr],
+            ["nix-instantiate", "--strict", "--eval", "--json", "-E", expr],
             capture_output=True,
             text=True,
             timeout=timeout,
