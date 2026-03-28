@@ -1,8 +1,12 @@
-.PHONY: all start stop restart test clean report candidates validate diff help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate diff help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
 CANDIDATES_OUT ?= ./reports/top-candidates.json
+EXTRACT_OUT ?= ./reports/extractions
+EXTRACT_TOP ?= 50
+NIXPKGS_ROOT ?= ~/.nix-defexpr/channels/nixpkgs
+FILL_TIMEOUT ?= 30
 
 all:
 	@python3 --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
@@ -43,6 +47,15 @@ report:
 candidates:
 	python3 tools/top_candidates.py "$(SNAPSHOT)" --out "$(CANDIDATES_OUT)"
 
+extract:
+	python3 tools/extract_candidates.py "$(SNAPSHOT)" "$(CANDIDATES_OUT)" \
+		--out "$(EXTRACT_OUT)" --top "$(EXTRACT_TOP)"
+
+filldeps:
+	@test -n "$(SNAPSHOT)" || (echo "Usage: make filldeps SNAPSHOT=<dir> [NIXPKGS_ROOT=path] [FILL_TIMEOUT=30]" && exit 1)
+	python3 tools/fill_nixpkgs_deps.py "$(SNAPSHOT)/nixpkgs" "$(NIXPKGS_ROOT)" \
+		--timeout "$(FILL_TIMEOUT)" $(if $(OVERWRITE),--overwrite)
+
 validate:
 	python3 tools/validate_record.py $(or $(PATHS),examples/)
 
@@ -63,6 +76,8 @@ help:
 	@echo "  make clean          Remove generated artifacts"
 	@echo "  make report         Run overlap report (requires SNAPSHOT=)"
 	@echo "  make candidates     Run candidate ranking (requires SNAPSHOT=)"
+	@echo "  make extract        Run phase Z extraction (requires SNAPSHOT= and CANDIDATES_OUT)"
+	@echo "  make filldeps       Fill nixpkgs dep lists (requires SNAPSHOT= and NIXPKGS_ROOT=)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""
@@ -70,6 +85,10 @@ help:
 	@echo "  SNAPSHOT            Snapshot directory (default: ./snapshots/YYYY-MM-DD)"
 	@echo "  REPORT_OUT          Output dir for overlap report (default: ./reports/overlap)"
 	@echo "  CANDIDATES_OUT      Output file for ranking (default: ./reports/top-candidates.json)"
+	@echo "  EXTRACT_OUT         Output dir for phase Z extraction (default: ./reports/extractions)"
+	@echo "  EXTRACT_TOP         How many top candidates to extract (default: 50)"
+	@echo "  NIXPKGS_ROOT        nixpkgs checkout for filldeps (default: ~/.nix-defexpr/channels/nixpkgs)"
+	@echo "  FILL_TIMEOUT        Per-package dep eval timeout secs (default: 30)"
 	@echo "  PATHS               Path(s) for 'make validate' (default: examples/)"
 	@echo "  BEFORE / AFTER      Snapshot dirs for 'make diff'"
 	@echo "  OUT                 Output file for 'make diff'"
