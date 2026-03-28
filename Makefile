@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate diff help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -6,6 +6,7 @@ CANDIDATES_OUT ?= ./reports/top-candidates.json
 EXTRACT_OUT ?= ./reports/extractions
 EXTRACT_TOP ?= 50
 NIXPKGS_ROOT ?= ~/.nix-defexpr/channels/nixpkgs
+SYNC_TARGET ?= freebsd.local:Src/Theseus/
 FILL_TIMEOUT ?= 30
 
 all:
@@ -51,6 +52,16 @@ extract:
 	python3 tools/extract_candidates.py "$(SNAPSHOT)" "$(CANDIDATES_OUT)" \
 		--out "$(EXTRACT_OUT)" --top "$(EXTRACT_TOP)"
 
+sync:
+	rsync -av --delete \
+		--exclude='.git' \
+		--exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' \
+		--exclude='snapshots/' \
+		--exclude='output/' \
+		--exclude='stubs/' \
+		--exclude='/config.yaml' \
+		./ $(SYNC_TARGET)
+
 filldeps:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make filldeps SNAPSHOT=<dir> [NIXPKGS_ROOT=path] [FILL_TIMEOUT=30]" && exit 1)
 	python3 tools/fill_nixpkgs_deps.py "$(SNAPSHOT)/nixpkgs" "$(NIXPKGS_ROOT)" \
@@ -78,6 +89,7 @@ help:
 	@echo "  make candidates     Run candidate ranking (requires SNAPSHOT=)"
 	@echo "  make extract        Run phase Z extraction (requires SNAPSHOT= and CANDIDATES_OUT)"
 	@echo "  make filldeps       Fill nixpkgs dep lists (requires SNAPSHOT= and NIXPKGS_ROOT=)"
+	@echo "  make sync           Rsync code to SYNC_TARGET (safe: excludes snapshots, output, stubs)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""
