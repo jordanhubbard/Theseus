@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync rank help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -8,6 +8,9 @@ EXTRACT_TOP ?= 50
 NIXPKGS_ROOT ?= ~/.nix-defexpr/channels/nixpkgs
 SYNC_TARGET ?= freebsd.local:Src/Theseus/
 FILL_TIMEOUT ?= 30
+RANK_OUT ?= ./reports/ranked-by-deps.json
+RANK_TOP ?= 500
+RANK_MIN_REFS ?= 2
 
 all:
 	@python3 --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
@@ -67,6 +70,11 @@ filldeps:
 	python3 tools/fill_nixpkgs_deps.py "$(SNAPSHOT)/nixpkgs" "$(NIXPKGS_ROOT)" \
 		--timeout "$(FILL_TIMEOUT)" $(if $(OVERWRITE),--overwrite)
 
+rank:
+	@test -n "$(SNAPSHOT)" || (echo "Usage: make rank SNAPSHOT=<dir> [RANK_OUT=file] [RANK_TOP=500] [RANK_MIN_REFS=2]" && exit 1)
+	python3 tools/rank_by_deps.py "$(SNAPSHOT)" \
+		--out "$(RANK_OUT)" --top "$(RANK_TOP)" --min-refs "$(RANK_MIN_REFS)"
+
 validate:
 	python3 tools/validate_record.py $(or $(PATHS),examples/)
 
@@ -89,6 +97,7 @@ help:
 	@echo "  make candidates     Run candidate ranking (requires SNAPSHOT=)"
 	@echo "  make extract        Run phase Z extraction (requires SNAPSHOT= and CANDIDATES_OUT)"
 	@echo "  make filldeps       Fill nixpkgs dep lists (requires SNAPSHOT= and NIXPKGS_ROOT=)"
+	@echo "  make rank           Rank packages by reverse-dep fan-in (requires SNAPSHOT=)"
 	@echo "  make sync           Rsync code to SYNC_TARGET (safe: excludes snapshots, output, stubs)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
@@ -104,3 +113,6 @@ help:
 	@echo "  PATHS               Path(s) for 'make validate' (default: examples/)"
 	@echo "  BEFORE / AFTER      Snapshot dirs for 'make diff'"
 	@echo "  OUT                 Output file for 'make diff'"
+	@echo "  RANK_OUT            Output file for ranking (default: ./reports/ranked-by-deps.json)"
+	@echo "  RANK_TOP            How many top entries to emit (default: 500)"
+	@echo "  RANK_MIN_REFS       Minimum reverse-dep count to include (default: 2)"
