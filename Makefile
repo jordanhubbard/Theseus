@@ -83,7 +83,7 @@ rank:
 
 bulk-build:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make bulk-build SNAPSHOT=<dir> [BULK_RANKED=file] [BULK_TOP=100] [BULK_MIN_REFS=5] [BULK_JOBS=2]" && exit 1)
-	python3 tools/bulk_build.py "$(BULK_RANKED)" "$(SNAPSHOT)" \
+	python3 tools/bulk_build.py "$(BULK_RANKED)" "$(SNAPSHOT)/freebsd_ports" "$(SNAPSHOT)/nixpkgs" \
 		--top "$(BULK_TOP)" --min-refs "$(BULK_MIN_REFS)" \
 		--jobs "$(BULK_JOBS)" \
 		$(if $(DRIVERS),--drivers "$(DRIVERS)") \
@@ -113,8 +113,8 @@ help:
 	@echo "  make filldeps       Fill nixpkgs dep lists (requires SNAPSHOT= and NIXPKGS_ROOT=)"
 	@echo "  make rank           Rank packages by reverse-dep fan-in (requires SNAPSHOT=)"
 	@echo "  make sync           Rsync code to SYNC_TARGET (safe: excludes snapshots, output, stubs)"
-	@echo "  make bulk-build     Full pipeline: ranked list → specs/ (requires SNAPSHOT=)
-  make validate       Validate records (PATHS=dir or file, default: examples/)"
+	@echo "  make bulk-build     Full pipeline: ranked list -> specs/ (requires SNAPSHOT=)"
+	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""
 	@echo "Variables:"
