@@ -6,18 +6,22 @@ Post-import pass that fills in dependency lists for nixpkgs records that were
 imported without deps (the batch eval importer skips deps to avoid infinite
 recursion with --strict).
 
-Uses per-package nix-instantiate --eval (no --strict) with a timeout.
+Uses batched nix-instantiate eval: one nixpkgs import per batch, with
+per-package tryEval(toJSON(...)) protection so individual bad packages cannot
+kill the batch.
 
 Usage:
     python3 tools/fill_nixpkgs_deps.py SNAPSHOT_DIR NIXPKGS_ROOT
-                                        [--timeout SECS] [--overwrite]
+                                        [--timeout SECS] [--batch-size N]
+                                        [--overwrite]
 
 Arguments:
   SNAPSHOT_DIR   Directory containing nixpkgs *.json records to update
   NIXPKGS_ROOT   Path to a nixpkgs checkout (used for nix-instantiate eval)
 
 Options:
-  --timeout      Per-package eval timeout in seconds (default: 30)
+  --timeout      Per-batch eval timeout in seconds (default: 60)
+  --batch-size   Attrs to evaluate per nix-instantiate call (default: 50)
   --overwrite    Re-evaluate even for records that already have dep lists
 """
 from __future__ import annotations
@@ -34,15 +38,21 @@ from theseus.importer import fill_nixpkgs_deps, _nix_instantiate_available
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Fill nixpkgs dep lists via per-package nix-instantiate eval.",
+        description="Fill nixpkgs dep lists via batched nix-instantiate eval.",
     )
     parser.add_argument("snapshot_dir", help="Directory of nixpkgs *.json records")
     parser.add_argument("nixpkgs_root", help="Path to nixpkgs checkout")
     parser.add_argument(
         "--timeout",
         type=int,
-        default=30,
-        help="Per-package eval timeout in seconds (default: 30)",
+        default=60,
+        help="Per-batch eval timeout in seconds (default: 60)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        help="Attrs to evaluate per nix-instantiate call (default: 50)",
     )
     parser.add_argument(
         "--overwrite",
@@ -68,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         snapshot_dir,
         nixpkgs_root,
         timeout=args.timeout,
+        batch_size=args.batch_size,
         overwrite=args.overwrite,
     )
 

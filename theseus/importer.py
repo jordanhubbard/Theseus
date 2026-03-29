@@ -823,10 +823,54 @@ def import_nixpkgs_eval(nixpkgs_root: Path, out_dir: Path, commit: str | None) -
 
 
 # ---------------------------------------------------------------------------
-# Per-package dep fill (post-import pass)
+# Per-package dep fill (post-import pass) — batched evaluation
 # ---------------------------------------------------------------------------
+#
+# Key design: one nix-instantiate call evaluates a whole batch of packages,
+# amortising the ~5s nixpkgs import cost across BATCH_SIZE attrs.  Each attr
+# is protected by tryEval(toJSON(...)) so a single bad package cannot kill
+# the batch.  No --strict needed: toJSON forces full evaluation per-package,
+# and tryEval catches anything that blows up.
 
-_NIX_DEP_EXPR = r"""
+_NIX_DEP_BATCH_HEADER = r"""
+let
+  pkgs = import {nixpkgs_path} {{}};
+  safeName = d:
+    let r = builtins.tryEval (d.pname or d.name or "");
+    in if r.success then r.value else "";
+  names = drv: builtins.filter (s: s != "") (map safeName drv);
+  evalOne = attr:
+    let r = builtins.tryEval {{
+              build   = names (pkgs.${{attr}}.nativeBuildInputs or []);
+              host    = names (pkgs.${{attr}}.buildInputs or []);
+              runtime = names (pkgs.${{attr}}.propagatedBuildInputs or []);
+            }};
+    in if r.success then r.value
+       else {{ build = []; host = []; runtime = []; _failed = true; }};
+in {{
+"""
+
+_NIX_DEP_BATCH_FOOTER = "\n}\n"
+
+# Nix attr names safe for use as unquoted identifiers; fall back to quoted.
+_NIX_IDENT_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_\-\']*$')
+
+
+def _nix_attr_key(attr: str) -> str:
+    """Return a Nix attribute key expression for the given attr name."""
+    if _NIX_IDENT_RE.match(attr):
+        return attr
+    escaped = attr.replace('\\', '\\\\').replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _nix_str(attr: str) -> str:
+    """Return a Nix string literal for the given value (always quoted)."""
+    escaped = attr.replace('\\', '\\\\').replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+_NIX_DEP_SINGLE_EXPR = r"""
 let
   pkgs = import {nixpkgs_path} {{}};
   p    = pkgs.{attr};
@@ -842,21 +886,17 @@ in {{
 """
 
 
-def _nixpkgs_deps_one(
+def _nixpkgs_deps_one_direct(
     attr: str,
     nixpkgs_root: Path,
     *,
-    timeout: int = 30,
+    timeout: int = 15,
 ) -> dict | None:
     """
-    Evaluate dep lists for a single nixpkgs attribute using --strict to force
-    full evaluation before JSON serialization.  Packages that cause infinite
-    recursion will time out and return None.
-
-    Returns {"build": [...], "host": [...], "runtime": [...]} on success,
-    or None if evaluation fails or times out.
+    Evaluate deps for a single attr via --strict.  Used as fallback when batch
+    evaluation fails (e.g. one package in the batch causes infinite recursion).
     """
-    expr = _NIX_DEP_EXPR.format(
+    expr = _NIX_DEP_SINGLE_EXPR.format(
         nixpkgs_path=nixpkgs_root.resolve(),
         attr=attr,
     )
@@ -874,77 +914,155 @@ def _nixpkgs_deps_one(
         return None
 
 
+def _nixpkgs_deps_batch(
+    attrs: list[str],
+    nixpkgs_root: Path,
+    *,
+    timeout: int = 60,
+    fallback_timeout: int = 3,
+) -> dict[str, dict | None]:
+    """
+    Evaluate dep lists for a batch of nixpkgs attrs in a single nix-instantiate
+    call (amortising the ~5s nixpkgs import cost).
+
+    If the batch fails (e.g. one package causes infinite recursion that tryEval
+    cannot catch), falls back to per-package --strict evals so the rest of the
+    batch is not lost.
+
+    Returns {attr: {build,host,runtime}} for each attr, or {attr: None} on failure.
+    """
+    entries = "\n".join(
+        f"  {_nix_attr_key(a)} = evalOne {_nix_str(a)};"
+        for a in attrs
+    )
+    expr = (
+        _NIX_DEP_BATCH_HEADER.format(nixpkgs_path=nixpkgs_root.resolve())
+        + entries
+        + _NIX_DEP_BATCH_FOOTER
+    )
+    try:
+        r = subprocess.run(
+            ["nix-instantiate", "--strict", "--eval", "--json", "-E", expr],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if r.returncode == 0:
+            data = json.loads(r.stdout)
+            result = {}
+            for a in attrs:
+                v = data.get(a)
+                if v is None or v.get("_failed"):
+                    result[a] = None
+                else:
+                    result[a] = {
+                        "build":   v.get("build", []),
+                        "host":    v.get("host", []),
+                        "runtime": v.get("runtime", []),
+                    }
+            return result
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
+        pass
+
+    # Batch failed — fall back to per-package evals to isolate the bad one.
+    return {
+        a: _nixpkgs_deps_one_direct(a, nixpkgs_root, timeout=fallback_timeout)
+        for a in attrs
+    }
+
+
+# Public single-attr variant for ad-hoc use and tests.
+def _nixpkgs_deps_one(
+    attr: str,
+    nixpkgs_root: Path,
+    *,
+    timeout: int = 30,
+) -> dict | None:
+    """Evaluate deps for a single attr.  Thin wrapper around _nixpkgs_deps_batch."""
+    results = _nixpkgs_deps_batch([attr], nixpkgs_root, timeout=timeout)
+    return results.get(attr)
+
+
 def fill_nixpkgs_deps(
     snapshot_dir: Path,
     nixpkgs_root: Path,
     *,
-    timeout: int = 30,
+    timeout: int = 60,
+    batch_size: int = 50,
     overwrite: bool = False,
 ) -> tuple[int, int, int]:
     """
     Walk snapshot_dir for nixpkgs records whose deps are all empty and fill them
-    in using a per-package nix-instantiate eval (no --strict, so lazy eval avoids
-    most infinite-recursion cases).
+    in using batched nix-instantiate evaluation (one nixpkgs import per batch).
 
     Returns (filled, skipped_already_have_deps, failed).
-
     overwrite=True forces re-evaluation even for records that already have deps.
     """
     filled = 0
     skipped = 0
     failed = 0
 
+    # Collect records that need evaluation.
     records = sorted(snapshot_dir.glob("*.json"))
     total = len(records)
-    for i, path in enumerate(records, 1):
+
+    # Two-pass: first scan to split into skip/todo, then batch-evaluate todo.
+    todo: list[tuple[Path, dict, str]] = []   # (path, rec, attr)
+    for path in records:
         try:
             rec = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             failed += 1
             continue
-
         if rec.get("identity", {}).get("ecosystem") != "nixpkgs":
             skipped += 1
             continue
-
         deps = rec.get("dependencies", {})
         has_deps = any(deps.get(k) for k in ("build", "host", "runtime", "test"))
         if has_deps and not overwrite:
             skipped += 1
             continue
-
         attr = rec.get("extensions", {}).get("nixpkgs", {}).get("attr", "")
         if not attr:
             failed += 1
             continue
+        todo.append((path, rec, attr))
 
-        if i % 100 == 0 or i == total:
-            print(f"fill deps: {i}/{total} ({filled} filled, {failed} failed)",
-                  file=sys.stderr)
+    n_todo = len(todo)
+    print(f"fill deps: {skipped} skipped (already filled), {n_todo} to evaluate "
+          f"in batches of {batch_size}", file=sys.stderr)
 
-        result = _nixpkgs_deps_one(attr, nixpkgs_root, timeout=timeout)
-        if result is None:
-            # Remove the stale warning if it exists; leave deps empty
-            warnings = rec.get("provenance", {}).get("warnings", [])
-            rec.setdefault("provenance", {})["warnings"] = [
-                w for w in warnings
-                if "infinite recursion" not in w
-            ] + ["dep fill failed (eval timeout or error)"]
-            failed += 1
-        else:
-            rec["dependencies"]["build"] = result.get("build", [])
-            rec["dependencies"]["host"] = result.get("host", [])
-            rec["dependencies"]["runtime"] = result.get("runtime", [])
-            # Clear the stale warning
-            warnings = rec.get("provenance", {}).get("warnings", [])
-            rec.setdefault("provenance", {})["warnings"] = [
-                w for w in warnings
-                if "infinite recursion" not in w and "deps not extracted" not in w
-            ]
-            filled += 1
+    for batch_start in range(0, n_todo, batch_size):
+        batch = todo[batch_start: batch_start + batch_size]
+        attrs = [a for _, _, a in batch]
 
-        path.write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8")
+        results = _nixpkgs_deps_batch(attrs, nixpkgs_root, timeout=timeout)
+
+        for (path, rec, attr) in batch:
+            result = results.get(attr)
+            if result is None:
+                warnings = rec.get("provenance", {}).get("warnings", [])
+                rec.setdefault("provenance", {})["warnings"] = [
+                    w for w in warnings
+                    if "infinite recursion" not in w
+                ] + ["dep fill failed (eval timeout or error)"]
+                failed += 1
+            else:
+                rec["dependencies"]["build"] = result.get("build", [])
+                rec["dependencies"]["host"] = result.get("host", [])
+                rec["dependencies"]["runtime"] = result.get("runtime", [])
+                warnings = rec.get("provenance", {}).get("warnings", [])
+                rec.setdefault("provenance", {})["warnings"] = [
+                    w for w in warnings
+                    if "infinite recursion" not in w and "deps not extracted" not in w
+                ]
+                filled += 1
+            path.write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n",
+                            encoding="utf-8")
+
+        done = min(batch_start + batch_size, n_todo)
+        print(f"fill deps: {done}/{n_todo} evaluated "
+              f"({filled} filled, {failed} failed)", file=sys.stderr, flush=True)
 
     return filled, skipped, failed
 

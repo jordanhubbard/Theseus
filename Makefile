@@ -7,7 +7,8 @@ EXTRACT_OUT ?= ./reports/extractions
 EXTRACT_TOP ?= 50
 NIXPKGS_ROOT ?= ~/.nix-defexpr/channels/nixpkgs
 SYNC_TARGET ?= freebsd.local:Src/Theseus/
-FILL_TIMEOUT ?= 30
+FILL_TIMEOUT ?= 60
+FILL_BATCH_SIZE ?= 50
 RANK_OUT ?= ./reports/ranked-by-deps.json
 RANK_TOP ?= 500
 RANK_MIN_REFS ?= 2
@@ -68,7 +69,8 @@ sync:
 filldeps:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make filldeps SNAPSHOT=<dir> [NIXPKGS_ROOT=path] [FILL_TIMEOUT=30]" && exit 1)
 	python3 tools/fill_nixpkgs_deps.py "$(SNAPSHOT)/nixpkgs" "$(NIXPKGS_ROOT)" \
-		--timeout "$(FILL_TIMEOUT)" $(if $(OVERWRITE),--overwrite)
+		--timeout "$(FILL_TIMEOUT)" --batch-size "$(FILL_BATCH_SIZE)" \
+		$(if $(OVERWRITE),--overwrite)
 
 rank:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make rank SNAPSHOT=<dir> [RANK_OUT=file] [RANK_TOP=500] [RANK_MIN_REFS=2]" && exit 1)
