@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync rank bulk-build help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync rank bulk-build seed import-pypi import-npm help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -16,6 +16,11 @@ BULK_RANKED ?= ./reports/ranked-by-deps.json
 BULK_TOP ?= 100
 BULK_MIN_REFS ?= 5
 BULK_JOBS ?= 2
+PYPI_SEED ?= ./reports/pypi-seed.txt
+NPM_SEED ?= ./reports/npm-seed.txt
+NPM_TOP ?= 100
+IMPORT_OUT ?= ./snapshots/$(shell date +%Y-%m-%d)
+IMPORT_TIMEOUT ?= 15
 
 all:
 	@python3 --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
@@ -81,6 +86,21 @@ rank:
 	python3 tools/rank_by_deps.py "$(SNAPSHOT)" \
 		--out "$(RANK_OUT)" --top "$(RANK_TOP)" --min-refs "$(RANK_MIN_REFS)"
 
+seed:
+	@test -n "$(SNAPSHOT)" || (echo "Usage: make seed SNAPSHOT=<freebsd_ports_dir> [PYPI_SEED=file] [NPM_SEED=file] [NPM_TOP=100]" && exit 1)
+	python3 tools/seed_from_ports.py "$(SNAPSHOT)" \
+		--pypi-out "$(PYPI_SEED)" --npm-out "$(NPM_SEED)" --npm-top "$(NPM_TOP)"
+
+import-pypi:
+	@test -f "$(PYPI_SEED)" || (echo "Run 'make seed SNAPSHOT=...' first to generate $(PYPI_SEED)" && exit 1)
+	python3 theseus/importer.py --pypi-list "$(PYPI_SEED)" \
+		--out "$(IMPORT_OUT)" --timeout "$(IMPORT_TIMEOUT)"
+
+import-npm:
+	@test -f "$(NPM_SEED)" || (echo "Run 'make seed SNAPSHOT=...' first to generate $(NPM_SEED)" && exit 1)
+	python3 theseus/importer.py --npm-list "$(NPM_SEED)" \
+		--out "$(IMPORT_OUT)" --timeout "$(IMPORT_TIMEOUT)"
+
 bulk-build:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make bulk-build SNAPSHOT=<dir> [BULK_RANKED=file] [BULK_TOP=100] [BULK_MIN_REFS=5] [BULK_JOBS=2]" && exit 1)
 	python3 tools/bulk_build.py "$(BULK_RANKED)" "$(SNAPSHOT)/freebsd_ports" "$(SNAPSHOT)/nixpkgs" \
@@ -114,6 +134,9 @@ help:
 	@echo "  make rank           Rank packages by reverse-dep fan-in (requires SNAPSHOT=)"
 	@echo "  make sync           Rsync code to SYNC_TARGET (safe: excludes snapshots, output, stubs)"
 	@echo "  make bulk-build     Full pipeline: ranked list -> specs/ (requires SNAPSHOT=)"
+	@echo "  make seed           Generate PyPI/npm seed lists from freebsd_ports snapshot"
+	@echo "  make import-pypi    Fetch PyPI package metadata (requires pypi-seed.txt)"
+	@echo "  make import-npm     Fetch npm package metadata (requires npm-seed.txt)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""
@@ -137,3 +160,8 @@ help:
 	@echo "  BULK_JOBS           Parallel build threads (default: 2)"
 	@echo "  DRIVERS             Comma-separated drivers for bulk-build (default: freebsd_ports,nixpkgs)"
 	@echo "  DRY_RUN             Set to any value to pass --dry-run to bulk-build"
+	@echo "  PYPI_SEED           PyPI seed list file (default: ./reports/pypi-seed.txt)"
+	@echo "  NPM_SEED            npm seed list file (default: ./reports/npm-seed.txt)"
+	@echo "  NPM_TOP             Number of curated npm packages in seed (default: 100)"
+	@echo "  IMPORT_OUT          Output snapshot dir for import-pypi/npm (default: ./snapshots/YYYY-MM-DD)"
+	@echo "  IMPORT_TIMEOUT      HTTP timeout for PyPI/npm fetches in secs (default: 15)"
