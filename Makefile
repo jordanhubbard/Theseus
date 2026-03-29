@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync rank help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync rank bulk-build help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -12,6 +12,10 @@ FILL_BATCH_SIZE ?= 50
 RANK_OUT ?= ./reports/ranked-by-deps.json
 RANK_TOP ?= 500
 RANK_MIN_REFS ?= 2
+BULK_RANKED ?= ./reports/ranked-by-deps.json
+BULK_TOP ?= 100
+BULK_MIN_REFS ?= 5
+BULK_JOBS ?= 2
 
 all:
 	@python3 --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
@@ -77,6 +81,14 @@ rank:
 	python3 tools/rank_by_deps.py "$(SNAPSHOT)" \
 		--out "$(RANK_OUT)" --top "$(RANK_TOP)" --min-refs "$(RANK_MIN_REFS)"
 
+bulk-build:
+	@test -n "$(SNAPSHOT)" || (echo "Usage: make bulk-build SNAPSHOT=<dir> [BULK_RANKED=file] [BULK_TOP=100] [BULK_MIN_REFS=5] [BULK_JOBS=2]" && exit 1)
+	python3 tools/bulk_build.py "$(BULK_RANKED)" "$(SNAPSHOT)" \
+		--top "$(BULK_TOP)" --min-refs "$(BULK_MIN_REFS)" \
+		--jobs "$(BULK_JOBS)" \
+		$(if $(DRIVERS),--drivers "$(DRIVERS)") \
+		$(if $(DRY_RUN),--dry-run)
+
 validate:
 	python3 tools/validate_record.py $(or $(PATHS),examples/)
 
@@ -101,7 +113,8 @@ help:
 	@echo "  make filldeps       Fill nixpkgs dep lists (requires SNAPSHOT= and NIXPKGS_ROOT=)"
 	@echo "  make rank           Rank packages by reverse-dep fan-in (requires SNAPSHOT=)"
 	@echo "  make sync           Rsync code to SYNC_TARGET (safe: excludes snapshots, output, stubs)"
-	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
+	@echo "  make bulk-build     Full pipeline: ranked list → specs/ (requires SNAPSHOT=)
+  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""
 	@echo "Variables:"
@@ -118,3 +131,9 @@ help:
 	@echo "  RANK_OUT            Output file for ranking (default: ./reports/ranked-by-deps.json)"
 	@echo "  RANK_TOP            How many top entries to emit (default: 500)"
 	@echo "  RANK_MIN_REFS       Minimum reverse-dep count to include (default: 2)"
+	@echo "  BULK_RANKED         Ranked JSON input for bulk-build (default: ./reports/ranked-by-deps.json)"
+	@echo "  BULK_TOP            How many top packages to build (default: 100)"
+	@echo "  BULK_MIN_REFS       Minimum refs for bulk-build filter (default: 5)"
+	@echo "  BULK_JOBS           Parallel build threads (default: 2)"
+	@echo "  DRIVERS             Comma-separated drivers for bulk-build (default: freebsd_ports,nixpkgs)"
+	@echo "  DRY_RUN             Set to any value to pass --dry-run to bulk-build"
