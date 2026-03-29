@@ -89,7 +89,10 @@ def seed_pypi(snapshot_dir: Path) -> list[str]:
 
         # The canonical_name already has py- stripped by the importer
         pypi_name = canonical.lower().replace("_", "-")
-        if pypi_name and pypi_name not in seen:
+        # Skip Makefile variable expansion artifacts (e.g. ${PYPI_NAME:tl})
+        if not pypi_name or "$" in pypi_name or "{" in pypi_name:
+            continue
+        if pypi_name not in seen:
             seen.add(pypi_name)
             names.append(pypi_name)
 

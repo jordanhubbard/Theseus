@@ -400,3 +400,8 @@ class TestSeedFromPorts:
         names = seed_pypi(tmp_path)
         assert "some-package" in names
         assert "some_package" not in names
+
+    def test_skips_makefile_variable_artifacts(self, tmp_path):
+        _write_port_record(tmp_path, "${pypi-name:tl}", "devel/py-badport", pypi_source=True)
+        names = seed_pypi(tmp_path)
+        assert not any("$" in n for n in names)
