@@ -63,6 +63,17 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Path to config.yaml (default: ./config.yaml)",
     )
+    parser.add_argument(
+        "--cache-sources",
+        action="store_true",
+        default=None,
+        help="Upload generated source files to artifact store (overrides config.yaml)",
+    )
+    parser.add_argument(
+        "--no-cache-sources",
+        action="store_true",
+        help="Do not upload generated source files (overrides config.yaml)",
+    )
     args = parser.parse_args(argv)
 
     # Load config
@@ -130,34 +141,54 @@ def main(argv: list[str] | None = None) -> int:
 
     # Target dispatch
     store_url = args.store or cfg.get("artifact_store", {}).get("url", "")
+    all_targets = cfg.get("targets", [])
+
+    def _find_target(name: str | None, driver_name: str) -> dict | None:
+        """Return target config by explicit name, or auto-route by driver field."""
+        if name:
+            t = next((t for t in all_targets if t.get("name") == name), None)
+            if t is None:
+                print(f"WARNING: target '{name}' not found in config.yaml")
+            return t
+        # Auto-route: find first target whose 'driver' field matches driver_name.
+        return next((t for t in all_targets if t.get("driver") == driver_name), None)
 
     build_results = []
-    if args.target:
-        targets = cfg.get("targets", [])
-        target_cfg = next((t for t in targets if t.get("name") == args.target), None)
+    for driver_name in drivers_to_run:
+        out_dir = Path("output") / driver_name / canonical_name
+        target_cfg = _find_target(args.target, driver_name)
         if target_cfg is None:
-            print(f"WARNING: target '{args.target}' not found in config.yaml")
-        else:
-            for driver_name in drivers_to_run:
-                out_dir = Path("output") / driver_name / canonical_name
-                print(f"\nDispatching {driver_name} build to target '{args.target}'...")
-                result = remote_mod.build_on_target(
-                    driver_name, out_dir, canonical_name, target_cfg
-                )
-                build_results.append(result)
-                status = "OK" if result.success else "FAILED"
-                print(f"  [{status}] returncode={result.returncode}")
-                if result.stdout:
-                    print(result.stdout.rstrip())
-                if result.stderr:
-                    print(result.stderr.rstrip(), file=sys.stderr)
+            if args.target:
+                continue  # warning already printed
+            # No auto-routable target — skip remote dispatch for this driver.
+            continue
+        print(f"\nDispatching {driver_name} build to target '{target_cfg['name']}'...")
+        result = remote_mod.build_on_target(
+            driver_name, out_dir, canonical_name, target_cfg
+        )
+        build_results.append(result)
+        status = "OK" if result.success else "FAILED"
+        print(f"  [{status}] returncode={result.returncode}")
+        if result.stdout:
+            print(result.stdout.rstrip())
+        if result.stderr:
+            print(result.stderr.rstrip(), file=sys.stderr)
 
     # Artifact store
     store_cfg = cfg.get("artifact_store", {})
-    if store_url:
+
+    # Resolve cache_generated_sources: CLI flags override config, config defaults to False.
+    if args.no_cache_sources:
+        cache_sources = False
+    elif args.cache_sources:
+        cache_sources = True
+    else:
+        cache_sources = bool(store_cfg.get("cache_generated_sources", False))
+
+    if store_url and cache_sources:
         for driver_name in drivers_to_run:
             out_dir = Path("output") / driver_name / canonical_name
-            print(f"\nStoring {driver_name} artifacts to {store_url}...")
+            print(f"\nStoring {driver_name} generated sources to {store_url}...")
             ok, errmsg = store_mod.store(
                 store_url, canonical_name, driver_name, spec, out_dir, store_cfg
             )
@@ -165,6 +196,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  stored: {store_url}/{canonical_name}/{driver_name}/")
             else:
                 print(f"  WARNING: store failed: {errmsg}", file=sys.stderr)
+    elif store_url and not cache_sources:
+        print("\nGenerated sources not cached (cache_generated_sources=false)."
+              " Use --cache-sources to override.")
 
     print(f"\nSummary: {len(generated_files)} files generated for '{canonical_name}'")
     return 0
