@@ -2,11 +2,9 @@
 Tests for tools/validate_record.py.
 """
 import json
-import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 import validate_record as vr
 
@@ -20,7 +18,7 @@ def _make_record(
     confidence=0.95, license=None, sources=None, patches=None,
 ):
     return {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "identity": {
             "canonical_name": name,
             "canonical_id": f"pkg:{name}",
@@ -33,7 +31,9 @@ def _make_record(
             "homepage": "https://example.com/",
             "license": license if license is not None else ["MIT"],
             "categories": [],
+            "maintainers": [],
         },
+        "conflicts": [],
         "sources": sources if sources is not None else [{"type": "archive", "url": "https://example.com/pkg.tar.gz"}],
         "dependencies": {"build": [], "host": [], "runtime": [], "test": []},
         "build": {"system_kind": "autotools"},
@@ -176,6 +176,46 @@ def test_platforms_include_not_array():
     rec["platforms"]["include"] = "linux"
     issues = vr.validate_record(rec, "t.json")
     assert any("platforms.include" in i and "ERROR" in i for i in issues)
+
+
+def test_conflicts_not_array():
+    rec = _make_record()
+    rec["conflicts"] = "openssl30"
+    issues = vr.validate_record(rec, "t.json")
+    assert any("conflicts" in i and "ERROR" in i for i in issues)
+
+
+def test_conflicts_contains_non_string():
+    rec = _make_record()
+    rec["conflicts"] = [42]
+    issues = vr.validate_record(rec, "t.json")
+    assert any("conflicts[0]" in i and "ERROR" in i for i in issues)
+
+
+def test_conflicts_valid_list():
+    rec = _make_record()
+    rec["conflicts"] = ["openssl30", "libressl"]
+    assert _errors(vr.validate_record(rec, "t.json")) == []
+
+
+def test_maintainers_not_array():
+    rec = _make_record()
+    rec["descriptive"]["maintainers"] = "someone"
+    issues = vr.validate_record(rec, "t.json")
+    assert any("maintainers" in i and "ERROR" in i for i in issues)
+
+
+def test_deprecated_not_bool():
+    rec = _make_record()
+    rec["descriptive"]["deprecated"] = "yes"
+    issues = vr.validate_record(rec, "t.json")
+    assert any("deprecated" in i and "ERROR" in i for i in issues)
+
+
+def test_deprecated_valid_bool():
+    rec = _make_record()
+    rec["descriptive"]["deprecated"] = True
+    assert _errors(vr.validate_record(rec, "t.json")) == []
 
 
 # ---------------------------------------------------------------------------

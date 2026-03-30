@@ -5,9 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(REPO_ROOT / "tools"))
-
 import diff_snapshots as ds
 
 # ---------------------------------------------------------------------------

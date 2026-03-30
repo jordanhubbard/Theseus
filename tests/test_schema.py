@@ -10,15 +10,15 @@ EXAMPLES_DIR = REPO_ROOT / "examples"
 
 REQUIRED_TOP_LEVEL = [
     "schema_version", "identity", "descriptive", "sources",
-    "dependencies", "build", "features", "platforms", "patches",
-    "tests", "provenance", "extensions",
+    "dependencies", "build", "features", "platforms", "conflicts",
+    "patches", "tests", "provenance", "extensions",
 ]
 REQUIRED_IDENTITY = ["canonical_name", "canonical_id", "version", "ecosystem", "ecosystem_id"]
 REQUIRED_DEPS = ["build", "host", "runtime", "test"]
 
 
 def _examples():
-    return list(EXAMPLES_DIR.glob("*.json"))
+    return list(EXAMPLES_DIR.rglob("*.json"))
 
 
 def test_schema_is_valid_json():

@@ -28,8 +28,8 @@ from pathlib import Path
 
 REQUIRED_TOP = [
     "schema_version", "identity", "descriptive", "sources",
-    "dependencies", "build", "features", "platforms", "patches",
-    "tests", "provenance", "extensions",
+    "dependencies", "build", "features", "platforms", "conflicts",
+    "patches", "tests", "provenance", "extensions",
 ]
 
 REQUIRED_IDENTITY = [
@@ -90,13 +90,26 @@ def validate_record(rec: dict, filename: str, strict: bool = False) -> list[str]
     if not isinstance(desc, dict):
         e("descriptive", "must be an object")
     else:
-        for arr_field in ("license", "categories"):
+        for arr_field in ("license", "categories", "maintainers"):
             if arr_field in desc and not isinstance(desc[arr_field], list):
                 e(f"descriptive.{arr_field}", "must be an array")
+        if "deprecated" in desc and not isinstance(desc["deprecated"], bool):
+            e("descriptive.deprecated", "must be a boolean")
+        if "expiration_date" in desc and not isinstance(desc["expiration_date"], str):
+            e("descriptive.expiration_date", "must be a string")
         if strict and not desc.get("summary"):
             w("descriptive.summary", "empty — consider adding a description")
         if strict and not desc.get("homepage"):
             w("descriptive.homepage", "empty — consider adding a homepage URL")
+
+    # conflicts
+    conflicts = rec.get("conflicts", [])
+    if not isinstance(conflicts, list):
+        e("conflicts", "must be an array")
+    else:
+        for i, c in enumerate(conflicts):
+            if not isinstance(c, str):
+                e(f"conflicts[{i}]", f"must be a string, got {type(c).__name__}")
 
     # sources
     sources = rec.get("sources", [])

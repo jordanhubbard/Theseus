@@ -1,14 +1,10 @@
 """
-Tests for bootstrap_canonical_recipes.py.
+Tests for theseus/importer.py.
 """
 import json
-import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(REPO_ROOT))
-
-import bootstrap_canonical_recipes as bc
+import theseus.importer as bc
 
 # ---------------------------------------------------------------------------
 # Fixtures: minimal synthetic source content
@@ -105,6 +101,54 @@ LICENSE=\tMIT
 BUILD_DEPENDS=\t\\
 \t\tpkgconf:devel/pkgconf \\
 \t\tgmake:devel/gmake
+"""
+
+PORTS_WITH_MAINTAINER_CONFLICTS = """\
+PORTNAME=\toldssl
+PORTVERSION=\t1.0.0
+CATEGORIES=\tsecurity
+COMMENT=\tLegacy SSL library
+WWW=\thttps://example.com/
+LICENSE=\tOpenSSL
+MAINTAINER=\tsecurity@FreeBSD.org
+CONFLICTS=\topenssl-3* libressl-*
+CONFLICTS_INSTALL=\topenssl30
+DEPRECATED=\tUse security/openssl instead
+EXPIRATION_DATE=\t2026-12-31
+"""
+
+# Master port that slave ports inherit from
+PORTS_MASTER = """\
+PORTNAME?=\tsvxlink
+PORTVERSION=\t19.09.2
+CATEGORIES=\tcomms hamradio
+COMMENT?=\tGeneral purpose ham radio voice services
+WWW=\thttps://www.svxlink.org/
+LICENSE?=\tGPLv2
+LIB_DEPENDS?=\tlibcurl.so:ftp/curl libgsm.so:audio/gsm
+USES+=\tcmake gnome pkgconfig
+"""
+
+# Slave port that overrides PORTNAME and COMMENT from the master
+PORTS_SLAVE_SIBLING = """\
+PORTNAME=\tqtel
+COMMENT=\tQtel Echolink client
+LICENSE=\tGPLv2
+LIB_DEPENDS=\tlibecholib.so:comms/svxlink libgsm.so:audio/gsm
+MASTERDIR=\t${.CURDIR}/../svxlink
+USES=\tqt:5 gnome
+"""
+
+# Slave port with no PORTNAME of its own (inherits entirely from master)
+PORTS_SLAVE_NO_PORTNAME = """\
+CATEGORIES=\tportugese
+MASTERDIR=\t${.CURDIR}/../../www/webalizer
+WEBALIZER_LANG=\tportugese
+"""
+
+# Slave port with unresolvable MASTERDIR (e.g. uses unknown make variable)
+PORTS_SLAVE_BAD_MASTERDIR = """\
+MASTERDIR=\t${PORTSDIR}/comms/svxlink
 """
 
 
@@ -373,6 +417,292 @@ def test_parse_ports_makefile_confidence_range(tmp_path):
     rec = bc.parse_ports_makefile(mf, tmp_path)
     conf = rec["provenance"]["confidence"]
     assert 0.0 <= conf <= 1.0
+
+
+def test_parse_ports_makefile_maintainer(tmp_path):
+    """MAINTAINER variable is extracted into descriptive.maintainers."""
+    (tmp_path / "security" / "oldssl").mkdir(parents=True)
+    mf = tmp_path / "security" / "oldssl" / "Makefile"
+    mf.write_text(PORTS_WITH_MAINTAINER_CONFLICTS, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert rec["descriptive"]["maintainers"] == ["security@FreeBSD.org"]
+
+
+def test_parse_ports_makefile_conflicts(tmp_path):
+    """CONFLICTS and CONFLICTS_INSTALL are merged into top-level conflicts list."""
+    (tmp_path / "security" / "oldssl").mkdir(parents=True)
+    mf = tmp_path / "security" / "oldssl" / "Makefile"
+    mf.write_text(PORTS_WITH_MAINTAINER_CONFLICTS, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert isinstance(rec["conflicts"], list)
+    assert "openssl30" in rec["conflicts"]
+
+
+def test_parse_ports_makefile_deprecated(tmp_path):
+    """DEPRECATED variable sets descriptive.deprecated = True."""
+    (tmp_path / "security" / "oldssl").mkdir(parents=True)
+    mf = tmp_path / "security" / "oldssl" / "Makefile"
+    mf.write_text(PORTS_WITH_MAINTAINER_CONFLICTS, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert rec["descriptive"]["deprecated"] is True
+
+
+def test_parse_ports_makefile_expiration_date(tmp_path):
+    """EXPIRATION_DATE is stored in descriptive.expiration_date."""
+    (tmp_path / "security" / "oldssl").mkdir(parents=True)
+    mf = tmp_path / "security" / "oldssl" / "Makefile"
+    mf.write_text(PORTS_WITH_MAINTAINER_CONFLICTS, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert rec["descriptive"]["expiration_date"] == "2026-12-31"
+
+
+def test_parse_ports_makefile_no_maintainer_defaults_empty(tmp_path):
+    """When MAINTAINER is absent, maintainers is an empty list."""
+    (tmp_path / "ftp" / "curl").mkdir(parents=True)
+    mf = tmp_path / "ftp" / "curl" / "Makefile"
+    mf.write_text(PORTS_BASIC, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert rec["descriptive"]["maintainers"] == []
+
+
+def test_parse_ports_makefile_conflicts_field_always_present(tmp_path):
+    """conflicts top-level field is always present, even when empty."""
+    (tmp_path / "ftp" / "curl").mkdir(parents=True)
+    mf = tmp_path / "ftp" / "curl" / "Makefile"
+    mf.write_text(PORTS_BASIC, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert "conflicts" in rec
+    assert isinstance(rec["conflicts"], list)
+
+
+# ---------------------------------------------------------------------------
+# parse_ports_makefile — slave port support
+# ---------------------------------------------------------------------------
+
+def _setup_master(tmp_path):
+    """Create master port at comms/svxlink/Makefile."""
+    master_dir = tmp_path / "comms" / "svxlink"
+    master_dir.mkdir(parents=True)
+    (master_dir / "Makefile").write_text(PORTS_MASTER, encoding="utf-8")
+    return master_dir
+
+
+def test_parse_ports_makefile_slave_inherits_portname(tmp_path):
+    """Slave that sets PORTNAME overrides master's ?= PORTNAME."""
+    _setup_master(tmp_path)
+    slave_dir = tmp_path / "comms" / "qtel"
+    slave_dir.mkdir(parents=True)
+    mf = slave_dir / "Makefile"
+    mf.write_text(PORTS_SLAVE_SIBLING, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert rec["identity"]["canonical_name"] == "qtel"
+
+
+def test_parse_ports_makefile_slave_inherits_version_from_master(tmp_path):
+    """Slave without PORTVERSION gets it from master."""
+    _setup_master(tmp_path)
+    slave_dir = tmp_path / "comms" / "qtel"
+    slave_dir.mkdir(parents=True)
+    mf = slave_dir / "Makefile"
+    mf.write_text(PORTS_SLAVE_SIBLING, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert rec["identity"]["version"] == "19.09.2"
+
+
+def test_parse_ports_makefile_slave_overrides_comment(tmp_path):
+    """Slave COMMENT takes precedence over master's COMMENT?=."""
+    _setup_master(tmp_path)
+    slave_dir = tmp_path / "comms" / "qtel"
+    slave_dir.mkdir(parents=True)
+    mf = slave_dir / "Makefile"
+    mf.write_text(PORTS_SLAVE_SIBLING, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert rec["descriptive"]["summary"] == "Qtel Echolink client"
+
+
+def test_parse_ports_makefile_slave_no_portname_uses_master(tmp_path):
+    """Slave with no PORTNAME at all inherits it from the master."""
+    (tmp_path / "www" / "webalizer").mkdir(parents=True)
+    (tmp_path / "www" / "webalizer" / "Makefile").write_text(PORTS_MASTER, encoding="utf-8")
+    slave_dir = tmp_path / "portuguese" / "webalizer-pt"
+    slave_dir.mkdir(parents=True)
+    mf = slave_dir / "Makefile"
+    mf.write_text(PORTS_SLAVE_NO_PORTNAME, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert rec["identity"]["canonical_name"] == "svxlink"
+
+
+def test_parse_ports_makefile_slave_source_path_is_slave(tmp_path):
+    """provenance.source_path must point to the slave port, not the master."""
+    _setup_master(tmp_path)
+    slave_dir = tmp_path / "comms" / "qtel"
+    slave_dir.mkdir(parents=True)
+    mf = slave_dir / "Makefile"
+    mf.write_text(PORTS_SLAVE_SIBLING, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert "qtel" in rec["provenance"]["source_path"]
+    assert "svxlink" not in rec["provenance"]["source_path"]
+
+
+def test_parse_ports_makefile_slave_warns_about_merge(tmp_path):
+    """A slave port record must carry a warning about the merge."""
+    _setup_master(tmp_path)
+    slave_dir = tmp_path / "comms" / "qtel"
+    slave_dir.mkdir(parents=True)
+    mf = slave_dir / "Makefile"
+    mf.write_text(PORTS_SLAVE_SIBLING, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is not None
+    assert any("slave port" in w for w in rec["provenance"]["warnings"])
+
+
+def test_parse_ports_makefile_slave_unresolvable_masterdir(tmp_path):
+    """Slave with unresolvable MASTERDIR (unknown make var) returns None."""
+    mf_dir = tmp_path / "comms" / "badport"
+    mf_dir.mkdir(parents=True)
+    mf = mf_dir / "Makefile"
+    mf.write_text(PORTS_SLAVE_BAD_MASTERDIR, encoding="utf-8")
+    # No PORTNAME and MASTERDIR can't be resolved — should return None
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec is None
+
+
+def test_import_ports_includes_slave_ports(tmp_path):
+    """import_ports must count slave ports, not skip them."""
+    fake_ports = tmp_path / "ports"
+    master_dir = fake_ports / "comms" / "svxlink"
+    master_dir.mkdir(parents=True)
+    (master_dir / "Makefile").write_text(PORTS_MASTER, encoding="utf-8")
+    slave_dir = fake_ports / "comms" / "qtel"
+    slave_dir.mkdir(parents=True)
+    (slave_dir / "Makefile").write_text(PORTS_SLAVE_SIBLING, encoding="utf-8")
+    out = tmp_path / "out"
+    count = bc.import_ports(fake_ports, out, commit=None)
+    # Both master and slave should be imported
+    assert count == 2
+
+
+# ---------------------------------------------------------------------------
+# _nix_eval_to_record
+# ---------------------------------------------------------------------------
+
+_EVAL_RAW_FULL = {
+    "pname": "curl",
+    "version": "8.7.1",
+    "description": "Command line tool for transferring data with URLs",
+    "homepage": "https://curl.se/",
+    "license": ["curl"],
+    "maintainers": ["Scrumplex"],
+    "platforms": ["x86_64-linux"],
+    "position": "",
+}
+
+_EVAL_RAW_MINIMAL = {
+    "pname": "mypkg",
+    "version": "1.0",
+    "description": "",
+    "homepage": "",
+    "license": [],
+    "nativeBuildInputs": [],
+    "buildInputs": [],
+    "propagatedBuildInputs": [],
+    "maintainers": [],
+    "platforms": [],
+    "position": "",
+}
+
+
+def test_nix_eval_to_record_identity(tmp_path):
+    rec = bc._nix_eval_to_record("curl", _EVAL_RAW_FULL, tmp_path)
+    assert rec["identity"]["canonical_name"] == "curl"
+    assert rec["identity"]["version"] == "8.7.1"
+    assert rec["identity"]["ecosystem"] == "nixpkgs"
+    assert rec["identity"]["ecosystem_id"] == "curl"
+
+
+def test_nix_eval_to_record_descriptive(tmp_path):
+    rec = bc._nix_eval_to_record("curl", _EVAL_RAW_FULL, tmp_path)
+    assert rec["descriptive"]["summary"] == "Command line tool for transferring data with URLs"
+    assert rec["descriptive"]["homepage"] == "https://curl.se/"
+    assert "curl" in rec["descriptive"]["license"]
+
+
+def test_nix_eval_to_record_deps_empty(tmp_path):
+    """Eval importer leaves dep arrays empty (infinite recursion risk with --strict)."""
+    rec = bc._nix_eval_to_record("curl", _EVAL_RAW_FULL, tmp_path)
+    assert rec["dependencies"]["build"] == []
+    assert rec["dependencies"]["host"] == []
+    assert rec["dependencies"]["runtime"] == []
+    # A warning must be present about deps not being extracted
+    assert any("deps not extracted" in w for w in rec["provenance"]["warnings"])
+
+
+def test_nix_eval_to_record_confidence_range(tmp_path):
+    rec = bc._nix_eval_to_record("curl", _EVAL_RAW_FULL, tmp_path)
+    conf = rec["provenance"]["confidence"]
+    assert 0.0 <= conf <= 1.0
+
+
+def test_nix_eval_to_record_confidence_higher_than_regex_baseline(tmp_path):
+    """Eval-based records should have a higher base confidence than regex records."""
+    rec = bc._nix_eval_to_record("curl", _EVAL_RAW_FULL, tmp_path)
+    # regex baseline is 0.55; eval baseline is 0.70
+    assert rec["provenance"]["confidence"] >= 0.70
+
+
+def test_nix_eval_to_record_maintainers_in_descriptive(tmp_path):
+    rec = bc._nix_eval_to_record("curl", _EVAL_RAW_FULL, tmp_path)
+    assert "Scrumplex" in rec["descriptive"]["maintainers"]
+    assert rec["extensions"]["nixpkgs"]["attr"] == "curl"
+    assert "maintainers" not in rec["extensions"]["nixpkgs"]
+
+
+def test_nix_eval_to_record_conflicts_is_empty_list(tmp_path):
+    rec = bc._nix_eval_to_record("curl", _EVAL_RAW_FULL, tmp_path)
+    assert rec["conflicts"] == []
+
+
+def test_nix_eval_to_record_minimal_warns_missing_fields(tmp_path):
+    rec = bc._nix_eval_to_record("mypkg", _EVAL_RAW_MINIMAL, tmp_path)
+    unmapped = rec["provenance"]["unmapped"]
+    assert "meta.description" in unmapped
+    assert "meta.homepage" in unmapped
+    assert "meta.license" in unmapped
+
+
+def test_nix_eval_to_record_source_path_from_position(tmp_path):
+    raw = dict(_EVAL_RAW_FULL)
+    raw["position"] = f"{tmp_path}/pkgs/development/curl/default.nix:1"
+    rec = bc._nix_eval_to_record("curl", raw, tmp_path)
+    assert rec["provenance"]["source_path"] == "pkgs/development/curl/default.nix"
+
+
+def test_nix_eval_to_record_source_path_falls_back_to_attr(tmp_path):
+    rec = bc._nix_eval_to_record("curl", _EVAL_RAW_FULL, tmp_path)
+    # No position set → attr name used
+    assert rec["provenance"]["source_path"] == "curl"
+
+
+def test_nix_eval_batch_returns_dict_on_bad_input(tmp_path):
+    """_nix_eval_batch with an empty list should return an empty dict."""
+    result = bc._nix_eval_batch(tmp_path, [])
+    assert isinstance(result, dict)
+
+
+def test_nix_instantiate_available_returns_bool():
+    result = bc._nix_instantiate_available()
+    assert isinstance(result, bool)
 
 
 # ---------------------------------------------------------------------------

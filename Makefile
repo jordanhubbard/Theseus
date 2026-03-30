@@ -6,7 +6,7 @@ CANDIDATES_OUT ?= ./reports/top-candidates.json
 EXTRACT_OUT ?= ./reports/extractions
 EXTRACT_TOP ?= 50
 NIXPKGS_ROOT ?= ~/.nix-defexpr/channels/nixpkgs
-SYNC_TARGET ?= freebsd.local:Src/Theseus/
+SYNC_TARGETS ?= freebsd.local:Src/Theseus/ ubuntu.local:Src/Theseus/
 FILL_TIMEOUT ?= 60
 FILL_BATCH_SIZE ?= 50
 RANK_OUT ?= ./reports/ranked-by-deps.json
@@ -66,14 +66,17 @@ extract:
 		--out "$(EXTRACT_OUT)" --top "$(EXTRACT_TOP)"
 
 sync:
-	rsync -av --delete \
-		--exclude='.git' \
-		--exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' \
-		--exclude='snapshots/' \
-		--exclude='output/' \
-		--exclude='stubs/' \
-		--exclude='/config.yaml' \
-		./ $(SYNC_TARGET)
+	@for target in $(SYNC_TARGETS); do \
+		echo "Syncing to $$target ..."; \
+		rsync -av --delete \
+			--exclude='.git' \
+			--exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' \
+			--exclude='snapshots/' \
+			--exclude='output/' \
+			--exclude='stubs/' \
+			--exclude='/config.yaml' \
+			./ $$target; \
+	done
 
 filldeps:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make filldeps SNAPSHOT=<dir> [NIXPKGS_ROOT=path] [FILL_TIMEOUT=30]" && exit 1)
@@ -132,7 +135,7 @@ help:
 	@echo "  make extract        Run phase Z extraction (requires SNAPSHOT= and CANDIDATES_OUT)"
 	@echo "  make filldeps       Fill nixpkgs dep lists (requires SNAPSHOT= and NIXPKGS_ROOT=)"
 	@echo "  make rank           Rank packages by reverse-dep fan-in (requires SNAPSHOT=)"
-	@echo "  make sync           Rsync code to SYNC_TARGET (safe: excludes snapshots, output, stubs)"
+	@echo "  make sync           Rsync code to SYNC_TARGETS (safe: excludes snapshots, output, stubs)"
 	@echo "  make bulk-build     Full pipeline: ranked list -> specs/ (requires SNAPSHOT=)"
 	@echo "  make seed           Generate PyPI/npm seed lists from freebsd_ports snapshot"
 	@echo "  make import-pypi    Fetch PyPI package metadata (requires pypi-seed.txt)"
@@ -165,3 +168,4 @@ help:
 	@echo "  NPM_TOP             Number of curated npm packages in seed (default: 100)"
 	@echo "  IMPORT_OUT          Output snapshot dir for import-pypi/npm (default: ./snapshots/YYYY-MM-DD)"
 	@echo "  IMPORT_TIMEOUT      HTTP timeout for PyPI/npm fetches in secs (default: 15)"
+	@echo "  SYNC_TARGETS        Space-separated rsync destinations (default: freebsd.local ubuntu.local)"
