@@ -7,9 +7,10 @@
 ## Features
 
 - **Canonical JSON schema** (`schema/package-recipe.schema.json`) — covers identity, dependencies, build system, sources, patches, platforms, features, tests, and provenance
-- **Bootstrap importer** (`bootstrap_canonical_recipes.py`) — walks Nixpkgs and FreeBSD Ports trees and emits canonical records into a snapshot directory
+- **Bootstrap importer** (`tools/bootstrap_canonical_recipes.py`) — walks Nixpkgs and FreeBSD Ports trees and emits canonical records into a snapshot directory
 - **Overlap report** (`tools/overlap_report.py`) — identifies packages present in both ecosystems, present only in one, and those with version skew
 - **Candidate ranker** (`tools/top_candidates.py`) — scores packages as first candidates for downstream extraction using heuristics: dual-ecosystem presence, provenance confidence, dependency count, test coverage, patch complexity
+- **Phase Z extractor** (`tools/extract_candidates.py`) — takes the ranked candidate list and produces one merged record per top-N package: unified dependencies, maintainers, sources, and a structured analysis section covering version agreement, confidence, license agreement, and deprecation status across ecosystems
 - **Record validator** (`tools/validate_record.py`) — validates canonical records against schema rules; reports type errors, missing fields, and out-of-range confidence scores
 - **Snapshot diff** (`tools/diff_snapshots.py`) — compares two snapshot directories and classifies every package as added, removed, version-changed, or unchanged; tracks ecosystem drift between bootstrap runs
 
@@ -35,7 +36,7 @@ make                 # verifies Python version, prints usage
 **1. Bootstrap** canonical records from source trees:
 
 ```bash
-python3 bootstrap_canonical_recipes.py \
+python3 tools/bootstrap_canonical_recipes.py \
   --nixpkgs /path/to/nixpkgs \
   --ports /path/to/freebsd-ports \
   --out ./snapshots/$(date +%Y-%m-%d)
@@ -53,19 +54,29 @@ make report SNAPSHOT=./snapshots/2026-03-26
 make candidates SNAPSHOT=./snapshots/2026-03-26
 ```
 
-Reports land in `reports/`.
+**4. Extract top candidates (phase Z):**
+
+```bash
+make extract SNAPSHOT=./snapshots/2026-03-26
+```
+
+Reports land in `reports/`. Extractions land in `reports/extractions/`, one JSON per package plus a `manifest.json`.
 
 ## Project Layout
 
 ```
 theseus/
+  theseus/        — Python package: core importer logic (theseus/importer.py)
+  tools/          — CLI analysis scripts (overlap_report.py, top_candidates.py, …)
   schema/         — JSON Schema for canonical package recipe records
-  examples/       — Sample canonical records (zlib, curl, openssl)
-  tools/          — Analysis scripts (overlap_report.py, top_candidates.py)
+  examples/
+    freebsd_ports/ — Sample FreeBSD Ports canonical records (curl, openssl, zlib)
+    nixpkgs/       — Sample Nixpkgs canonical records (curl, openssl, zlib)
   snapshots/      — Generated: importer output (one subdirectory per run)
-  reports/        — Generated: overlap reports and candidate rankings
+  reports/        — Generated: overlap reports, rankings, extractions
   tests/          — Test suite
   docs/           — Architecture and design documentation
+  tools/bootstrap_canonical_recipes.py  — Entry-point shim (logic in theseus/importer.py)
 ```
 
 ## Schema

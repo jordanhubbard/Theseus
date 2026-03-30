@@ -1,6 +1,6 @@
 # Schema Evolution
 
-The canonical record schema (`schema/package-recipe.schema.json`) is versioned via the `schema_version` field present in every record. The current version is **`0.1`**.
+The canonical record schema (`schema/package-recipe.schema.json`) is versioned via the `schema_version` field present in every record. The current version is **`0.2`**.
 
 ## Compatibility rules
 
@@ -17,6 +17,7 @@ This means:
 
 | Version | Changes |
 |---------|---------|
+| 0.2 | Promoted `maintainers` (list of strings) into `descriptive`. Added `deprecated` (bool) and `expiration_date` (string, ISO-8601) to `descriptive`. Added `conflicts` (list of package name strings) as a required top-level field. |
 | 0.1 | Initial schema. All top-level required fields established. |
 
 ## When a version bump is needed
@@ -24,7 +25,7 @@ This means:
 Before bumping the version:
 
 1. Document the change in this file under a new row in the version history table.
-2. Update `SCHEMA_VERSION` in `bootstrap_canonical_recipes.py`.
+2. Update `SCHEMA_VERSION` in `tools/bootstrap_canonical_recipes.py`.
 3. Update `validate_record.py` if the new version adds required fields or changes type rules.
 4. Add or update example records in `examples/` to reflect the new schema.
 5. Run `make test` and `make validate`.
@@ -43,9 +44,6 @@ These fields appear in `unmapped` or `extensions` across real records and may be
 
 | Field | Ecosystem | Notes |
 |-------|-----------|-------|
-| `maintainers` | nixpkgs | List of maintainer GitHub handles |
 | `outputs` | nixpkgs | Multi-output derivations (dev, lib, doc, etc.) |
 | `passthru` | nixpkgs | Arbitrary attrs passed to dependents |
 | `PKGORIGIN` | freebsd_ports | Category/portname, useful for deduplication |
-| `CONFLICTS` | freebsd_ports | Ports that cannot be installed alongside this one |
-| `DEPRECATED` / `EXPIRATION_DATE` | freebsd_ports | Signals a port is end-of-life |
