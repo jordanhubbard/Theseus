@@ -22,9 +22,12 @@ import ctypes
 import ctypes.util
 import importlib
 import json
+import re as _re
+import shutil
 import struct as _struct
+import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -50,6 +53,12 @@ class Result:
     passed: bool
     message: str
     skip_reason: str | None = None
+
+
+@dataclass
+class CLIBackend:
+    """Represents a CLI tool loaded as a 'library' for the cli backend."""
+    command: str
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +100,14 @@ class LibraryLoader:
                 raise LibraryNotFoundError(
                     f"Cannot import Python module {module_name!r}: {exc}"
                 ) from exc
+        if backend == "cli":
+            cmd = lib_spec["command"]
+            found = shutil.which(cmd)
+            if not found:
+                raise LibraryNotFoundError(
+                    f"CLI command {cmd!r} not found in PATH"
+                )
+            return CLIBackend(command=found)
         return self._load_ctypes(lib_spec)
 
     def _load_ctypes(self, lib_spec: dict) -> ctypes.CDLL:
@@ -207,6 +224,12 @@ KNOWN_KINDS = {
     "python_call_raises",
     "python_encode_decode_roundtrip",
     "python_struct_roundtrip",
+    # CLI / subprocess kinds
+    "cli_exits_with",
+    "cli_stdout_eq",
+    "cli_stdout_contains",
+    "cli_stdout_matches",
+    "cli_stderr_contains",
 }
 
 
@@ -262,6 +285,12 @@ class PatternRegistry:
             "python_call_raises":             self._python_call_raises,
             "python_encode_decode_roundtrip": self._python_encode_decode_roundtrip,
             "python_struct_roundtrip":        self._python_struct_roundtrip,
+            # CLI / subprocess kinds
+            "cli_exits_with":                 self._cli_exits_with,
+            "cli_stdout_eq":                  self._cli_stdout_eq,
+            "cli_stdout_contains":            self._cli_stdout_contains,
+            "cli_stdout_matches":             self._cli_stdout_matches,
+            "cli_stderr_contains":            self._cli_stderr_contains,
         }
 
     def run(self, inv: dict) -> tuple[bool, str]:
@@ -761,6 +790,110 @@ class PatternRegistry:
                     f"{list(unpacked)} != {values}"
                 )
         return True, f"struct.unpack({fmt!r}, pack({fmt!r}, ...)) ok for {len(test_cases)} case(s)"
+
+    # -------------------------------------------------------------------------
+    # CLI / subprocess pattern handlers
+    # -------------------------------------------------------------------------
+
+    # Internal helper: run the CLI command and return the CompletedProcess.
+    # stdin_b64=None means no stdin is connected; stdin_b64="" means empty stdin.
+    def _cli_run(self, spec: dict) -> subprocess.CompletedProcess:
+        args = spec.get("args", [])
+        cmd = [self._lib.command] + [str(a) for a in args]
+        stdin_b64 = spec.get("stdin_b64")
+        stdin_data = (
+            base64.b64decode(stdin_b64) if stdin_b64 else b""
+        ) if stdin_b64 is not None else None
+        timeout = spec.get("timeout", 10)
+        return subprocess.run(
+            cmd, input=stdin_data, capture_output=True, timeout=timeout
+        )
+
+    # --- cli_exits_with ---
+    # Runs the command and checks its exit code equals expected_exit.
+    # Use expected_exit: 0 for success, any other value for expected failure.
+    def _cli_exits_with(self, spec: dict) -> tuple[bool, str]:
+        expected = spec["expected_exit"]
+        try:
+            proc = self._cli_run(spec)
+        except subprocess.TimeoutExpired:
+            return False, f"command timed out after {spec.get('timeout', 10)}s"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        if proc.returncode != expected:
+            stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+            return False, (
+                f"exit code {proc.returncode}, expected {expected}"
+                + (f" (stderr: {stderr!r})" if stderr else "")
+            )
+        return True, f"exit code {proc.returncode} as expected"
+
+    # --- cli_stdout_eq ---
+    # Runs the command and checks stdout (trailing whitespace stripped) equals
+    # the expected string exactly. Use cli_stdout_contains when the output format
+    # may vary across tool versions.
+    def _cli_stdout_eq(self, spec: dict) -> tuple[bool, str]:
+        expected = spec["expected"]
+        try:
+            proc = self._cli_run(spec)
+        except subprocess.TimeoutExpired:
+            return False, "command timed out"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        actual = proc.stdout.decode("utf-8", errors="replace").rstrip()
+        if actual != expected:
+            return False, f"stdout {actual!r}, expected {expected!r}"
+        return True, f"stdout == {expected!r}"
+
+    # --- cli_stdout_contains ---
+    # Runs the command and checks that the expected substring appears in stdout.
+    # Used for hash output where the algorithm-name prefix varies across
+    # OpenSSL/LibreSSL versions but the hex digest is always present.
+    def _cli_stdout_contains(self, spec: dict) -> tuple[bool, str]:
+        expected = spec["expected_substring"]
+        try:
+            proc = self._cli_run(spec)
+        except subprocess.TimeoutExpired:
+            return False, "command timed out"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        stdout = proc.stdout.decode("utf-8", errors="replace")
+        if expected not in stdout:
+            return False, f"expected {expected!r} not found in stdout {stdout!r}"
+        return True, f"stdout contains {expected!r}"
+
+    # --- cli_stdout_matches ---
+    # Runs the command and checks that stdout matches the given regular expression.
+    # Used when we need to verify the structure of the output, not just a substring.
+    def _cli_stdout_matches(self, spec: dict) -> tuple[bool, str]:
+        pattern = spec["pattern"]
+        flags = _re.MULTILINE if spec.get("multiline") else 0
+        try:
+            proc = self._cli_run(spec)
+        except subprocess.TimeoutExpired:
+            return False, "command timed out"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        stdout = proc.stdout.decode("utf-8", errors="replace")
+        if not _re.search(pattern, stdout, flags):
+            return False, f"stdout {stdout!r} does not match pattern {pattern!r}"
+        return True, f"stdout matches {pattern!r}"
+
+    # --- cli_stderr_contains ---
+    # Runs the command and checks that the expected substring appears in stderr.
+    # Used to verify error messages for invalid commands or arguments.
+    def _cli_stderr_contains(self, spec: dict) -> tuple[bool, str]:
+        expected = spec["expected_substring"]
+        try:
+            proc = self._cli_run(spec)
+        except subprocess.TimeoutExpired:
+            return False, "command timed out"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        stderr = proc.stderr.decode("utf-8", errors="replace")
+        if expected not in stderr:
+            return False, f"expected {expected!r} not found in stderr {stderr!r}"
+        return True, f"stderr contains {expected!r}"
 
 
 # ---------------------------------------------------------------------------
