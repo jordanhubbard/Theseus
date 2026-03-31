@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "behavioral-spec.schema.json",
+  "title": "Z-Layer Behavioral Specification",
+  "description": "Machine-readable behavioral contract for an OSS library or tool. Derived from public documentation only — not from source code. Used to verify conformance and to guide clean-room regeneration.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "identity",
+    "provenance",
+    "library",
+    "constants",
+    "types",
+    "functions",
+    "invariants",
+    "wire_formats",
+    "error_model"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this behavioral spec schema, e.g. '0.1'"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["canonical_name", "spec_for_versions"],
+      "properties": {
+        "canonical_name":    { "type": "string" },
+        "spec_for_versions": { "type": "string", "description": "Semver range this spec applies to" },
+        "rfc_references":    { "type": "array",  "items": { "type": "object" } },
+        "api_header":        { "type": "string", "description": "Public C header that defines the API surface" },
+        "public_docs_url":   { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["derived_from", "not_derived_from"],
+      "description": "Documents what sources the spec was derived from and what was explicitly excluded (clean-room boundary)",
+      "properties": {
+        "derived_from":     { "type": "array", "items": { "type": "string" } },
+        "not_derived_from": { "type": "array", "items": { "type": "string" } },
+        "spec_authors":     { "type": "array", "items": { "type": "string" } },
+        "created_at":       { "type": "string", "description": "ISO-8601 timestamp" }
+      }
+    },
+    "library": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["soname_patterns"],
+      "description": "Runtime library discovery hints for the verification harness",
+      "properties": {
+        "soname_patterns":    { "type": "array", "items": { "type": "string" }, "description": "Names to try with ctypes.util.find_library" },
+        "version_function":   { "type": "string", "description": "Function returning version as c_char_p" },
+        "min_version_prefix": { "type": "string", "description": "Version string prefix the library must match" }
+      }
+    },
+    "constants": {
+      "type": "object",
+      "description": "Named constants grouped by semantic category. Each group is an array of {name, value, description} objects.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["name", "value", "description"],
+          "additionalProperties": true,
+          "properties": {
+            "name":        { "type": "string" },
+            "value":       { "type": ["integer", "string"] },
+            "description": { "type": "string" }
+          }
+        }
+      }
+    },
+    "types": {
+      "type": "object",
+      "description": "C struct layouts required by the verification harness, expressed as ctypes field lists",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["description", "fields"],
+        "additionalProperties": true,
+        "properties": {
+          "description": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "ctype", "description"],
+              "additionalProperties": true,
+              "properties": {
+                "name":        { "type": "string" },
+                "ctype":       { "type": "string", "description": "ctypes type name: c_char_p, c_uint, c_ulong, c_int, c_void_p" },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "functions": {
+      "type": "object",
+      "description": "Public API functions. Keys are function names. Values describe signature, semantics, pre/postconditions.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["description", "parameters", "return_type"],
+        "additionalProperties": true,
+        "properties": {
+          "description":   { "type": "string" },
+          "parameters":    { "type": "array",  "items": { "type": "object" } },
+          "return_type":   { "type": "string" },
+          "return_values": { "type": "object", "additionalProperties": { "type": "string" } },
+          "preconditions": { "type": "array",  "items": { "type": "string" } },
+          "postconditions":{ "type": "array",  "items": { "type": "string" } },
+          "rfc_section":   { "type": "string" }
+        }
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "description": "Executable behavioral invariants. Each invariant has a kind that maps to a harness execution pattern, plus a spec block with kind-specific parameters.",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "category", "kind", "spec"],
+        "additionalProperties": true,
+        "properties": {
+          "id":            { "type": "string", "description": "Unique stable identifier, e.g. 'zlib.compress.roundtrip'" },
+          "description":   { "type": "string" },
+          "category":      { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "constant_eq",
+              "call_eq",
+              "call_returns",
+              "version_prefix",
+              "roundtrip",
+              "wire_bytes",
+              "error_on_bad_input",
+              "incremental_eq_oneshot",
+              "call_ge"
+            ]
+          },
+          "rfc_reference": { "type": "string" },
+          "spec":          { "type": "object", "description": "Kind-specific execution parameters" },
+          "skip_if":       { "type": "string", "description": "Python expression; skip if true. Variable: lib_version (string)." }
+        }
+      }
+    },
+    "wire_formats": {
+      "type": "object",
+      "description": "Byte-level format definitions (for documentation and LLM regeneration guidance). Keys are format names.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["description", "rfc_section", "fields"],
+        "additionalProperties": true,
+        "properties": {
+          "description":  { "type": "string" },
+          "rfc_section":  { "type": "string" },
+          "endianness":   { "type": "string", "enum": ["big", "little", "N/A"] },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "size_bits", "description"],
+              "additionalProperties": true,
+              "properties": {
+                "name":        { "type": "string" },
+                "offset":      { "type": ["integer", "string"] },
+                "size_bits":   { "type": "integer" },
+                "constraint":  { "type": "string" },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "error_model": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["return_code_semantics", "error_codes"],
+      "properties": {
+        "return_code_semantics": { "type": "string" },
+        "stream_error_field":    { "type": "string" },
+        "error_stickiness":      { "type": "string" },
+        "error_codes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "value", "meaning"],
+            "additionalProperties": true,
+            "properties": {
+              "name":         { "type": "string" },
+              "value":        { "type": "integer" },
+              "zError_string":{ "type": "string" },
+              "meaning":      { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

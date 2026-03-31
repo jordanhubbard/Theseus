@@ -1,0 +1,684 @@
+{
+  "schema_version": "0.1",
+
+  "identity": {
+    "canonical_name": "zlib",
+    "spec_for_versions": ">=1.2.0 <2.0.0",
+    "api_header": "zlib.h",
+    "public_docs_url": "https://zlib.net/manual.html",
+    "rfc_references": [
+      {
+        "rfc": "RFC1950",
+        "title": "ZLIB Compressed Data Format Specification version 3.3",
+        "url": "https://www.rfc-editor.org/rfc/rfc1950"
+      },
+      {
+        "rfc": "RFC1951",
+        "title": "DEFLATE Compressed Data Format Specification version 1.3",
+        "url": "https://www.rfc-editor.org/rfc/rfc1951"
+      },
+      {
+        "rfc": "RFC1952",
+        "title": "GZIP file format specification version 4.3",
+        "url": "https://www.rfc-editor.org/rfc/rfc1952"
+      }
+    ]
+  },
+
+  "provenance": {
+    "derived_from": [
+      "RFC 1950 — ZLIB Compressed Data Format Specification (May 1996)",
+      "RFC 1951 — DEFLATE Compressed Data Format Specification (May 1996)",
+      "RFC 1952 — GZIP file format specification (May 1996)",
+      "https://zlib.net/manual.html — zlib API manual (public documentation)",
+      "https://zlib.net/zlib.h — public header file (API declarations only, not implementation)"
+    ],
+    "not_derived_from": [
+      "zlib/deflate.c",
+      "zlib/inflate.c",
+      "zlib/deflate.h",
+      "zlib/inflate.h",
+      "zlib/inftrees.c",
+      "zlib/inffast.c",
+      "Any other zlib C implementation source file"
+    ],
+    "spec_authors": ["Theseus Z-layer"],
+    "created_at": "2026-03-30T00:00:00Z",
+    "notes": "This spec constitutes the clean-room boundary. The implementation team reads this spec only. The spec team read the public documentation listed above."
+  },
+
+  "library": {
+    "soname_patterns": ["z", "zlib", "zlib1"],
+    "version_function": "zlibVersion",
+    "min_version_prefix": "1.2"
+  },
+
+  "constants": {
+    "return_codes": [
+      { "name": "Z_OK",           "value":  0, "description": "Operation succeeded" },
+      { "name": "Z_STREAM_END",   "value":  1, "description": "End of compressed data stream reached; all input consumed and output produced" },
+      { "name": "Z_NEED_DICT",    "value":  2, "description": "Preset dictionary required; call inflateSetDictionary before continuing" },
+      { "name": "Z_ERRNO",        "value": -1, "description": "System I/O error; check errno for detail" },
+      { "name": "Z_STREAM_ERROR", "value": -2, "description": "Inconsistent stream state or invalid parameter (e.g. null strm, bad level)" },
+      { "name": "Z_DATA_ERROR",   "value": -3, "description": "Invalid or corrupt input data; checksum mismatch or invalid block type" },
+      { "name": "Z_MEM_ERROR",    "value": -4, "description": "Memory allocation failure in zalloc" },
+      { "name": "Z_BUF_ERROR",    "value": -5, "description": "Output buffer full (avail_out == 0) or no progress possible (avail_in and avail_out both 0)" },
+      { "name": "Z_VERSION_ERROR","value": -6, "description": "zlib library version incompatible with header version used at compile time" }
+    ],
+    "compression_levels": [
+      { "name": "Z_NO_COMPRESSION",      "value":  0, "description": "Store only — no compression applied; output is still a valid zlib stream" },
+      { "name": "Z_BEST_SPEED",          "value":  1, "description": "Fastest compression; minimum CPU, maximum output size" },
+      { "name": "Z_BEST_COMPRESSION",    "value":  9, "description": "Best compression ratio; maximum CPU, minimum output size" },
+      { "name": "Z_DEFAULT_COMPRESSION", "value": -1, "description": "Default compression level; equivalent to level 6 in current implementations" }
+    ],
+    "flush_modes": [
+      { "name": "Z_NO_FLUSH",      "value": 0, "description": "Normal operation; accumulate data and output as convenient" },
+      { "name": "Z_PARTIAL_FLUSH", "value": 1, "description": "Flush enough output to decompress to the next sync point (deprecated; use Z_SYNC_FLUSH)" },
+      { "name": "Z_SYNC_FLUSH",    "value": 2, "description": "Flush all pending output to the output buffer, aligned to a byte boundary" },
+      { "name": "Z_FULL_FLUSH",    "value": 3, "description": "Flush and reset compression state; allows recovery from corrupt data mid-stream" },
+      { "name": "Z_FINISH",        "value": 4, "description": "Finish and close the stream; all remaining input is consumed and output produced" },
+      { "name": "Z_BLOCK",         "value": 5, "description": "Stop at next DEFLATE block boundary" }
+    ],
+    "compression_strategies": [
+      { "name": "Z_FILTERED",      "value": 1, "description": "Data produced by a filter (small values with random distribution); Huffman-heavy" },
+      { "name": "Z_HUFFMAN_ONLY",  "value": 2, "description": "Force Huffman encoding only; no string matching" },
+      { "name": "Z_RLE",           "value": 3, "description": "Limit match distances to one; nearly as fast as Z_HUFFMAN_ONLY for PNG" },
+      { "name": "Z_FIXED",         "value": 4, "description": "Use fixed Huffman codes; produces reproducible output" },
+      { "name": "Z_DEFAULT_STRATEGY", "value": 0, "description": "Normal data; default strategy" }
+    ],
+    "data_types": [
+      { "name": "Z_BINARY",  "value": 0, "description": "Data appears to be binary" },
+      { "name": "Z_TEXT",    "value": 1, "description": "Data appears to be text (Z_ASCII alias exists)" },
+      { "name": "Z_UNKNOWN", "value": 2, "description": "Data type not yet determined" }
+    ],
+    "window_bits": [
+      { "name": "WBITS_MIN",         "value":  8, "description": "Minimum window bits for deflate (256-byte window)" },
+      { "name": "WBITS_MAX",         "value": 15, "description": "Maximum window bits for deflate (32768-byte window)" },
+      { "name": "WBITS_GZIP_OFFSET", "value": 16, "description": "Add to windowBits to produce gzip-format output (e.g. 15+16=31)" },
+      { "name": "WBITS_RAW_NEGATE",  "value": -15, "description": "Negate windowBits for raw deflate output (no zlib or gzip header)" }
+    ]
+  },
+
+  "types": {
+    "z_stream": {
+      "description": "Compression/decompression state. Must be zero-initialized before use. The zalloc, zfree, and opaque fields may be set before deflateInit/inflateInit; if left NULL the library uses its own allocator.",
+      "fields": [
+        { "name": "next_in",   "ctype": "c_char_p", "description": "Pointer to next available input byte" },
+        { "name": "avail_in",  "ctype": "c_uint",   "description": "Number of bytes remaining at next_in" },
+        { "name": "total_in",  "ctype": "c_ulong",  "description": "Total bytes consumed from input so far" },
+        { "name": "next_out",  "ctype": "c_char_p", "description": "Pointer to next output position" },
+        { "name": "avail_out", "ctype": "c_uint",   "description": "Remaining space at next_out" },
+        { "name": "total_out", "ctype": "c_ulong",  "description": "Total bytes written to output so far" },
+        { "name": "msg",       "ctype": "c_char_p", "description": "Last error message string, or NULL" },
+        { "name": "state",     "ctype": "c_void_p", "description": "Internal opaque state; must not be modified by application" },
+        { "name": "zalloc",    "ctype": "c_void_p", "description": "Application-supplied allocation function, or NULL for default" },
+        { "name": "zfree",     "ctype": "c_void_p", "description": "Application-supplied deallocation function, or NULL for default" },
+        { "name": "opaque",    "ctype": "c_void_p", "description": "Passed to zalloc/zfree as first argument" },
+        { "name": "data_type", "ctype": "c_int",    "description": "Library's best guess at input data type (Z_BINARY, Z_TEXT, Z_UNKNOWN)" },
+        { "name": "adler",     "ctype": "c_ulong",  "description": "Running Adler-32 checksum of uncompressed data (or CRC-32 in gzip mode)" },
+        { "name": "reserved",  "ctype": "c_ulong",  "description": "Reserved; must be zero" }
+      ],
+      "notes": "Pass ZLIB_VERSION string and sizeof(z_stream) to deflateInit_/inflateInit_ (the underlying functions behind the deflateInit/inflateInit macros) so the library can detect version and struct-size mismatches."
+    }
+  },
+
+  "functions": {
+    "compress": {
+      "description": "Single-call compression using default level. Equivalent to compress2 with level=Z_DEFAULT_COMPRESSION.",
+      "parameters": [
+        { "name": "dest",      "ctype": "c_char_p",         "direction": "out",   "description": "Output buffer" },
+        { "name": "destLen",   "ctype": "POINTER(c_ulong)", "direction": "inout", "description": "On entry: capacity of dest. On exit: actual compressed size." },
+        { "name": "source",    "ctype": "c_char_p",         "direction": "in",    "description": "Uncompressed input bytes" },
+        { "name": "sourceLen", "ctype": "c_ulong",          "direction": "in",    "description": "Number of bytes in source" }
+      ],
+      "return_type": "c_int",
+      "return_values": {
+        "Z_OK": "Success",
+        "Z_MEM_ERROR": "Insufficient memory",
+        "Z_BUF_ERROR": "Output buffer too small"
+      },
+      "postconditions": [
+        "On Z_OK, *destLen holds the actual compressed byte count",
+        "Output can be decompressed by uncompress() to recover the original bytes"
+      ],
+      "rfc_section": "RFC1950"
+    },
+    "compress2": {
+      "description": "Single-call compression with caller-specified compression level.",
+      "parameters": [
+        { "name": "dest",      "ctype": "c_char_p",         "direction": "out",   "description": "Output buffer" },
+        { "name": "destLen",   "ctype": "POINTER(c_ulong)", "direction": "inout", "description": "On entry: capacity. On exit: actual compressed size." },
+        { "name": "source",    "ctype": "c_char_p",         "direction": "in",    "description": "Uncompressed input" },
+        { "name": "sourceLen", "ctype": "c_ulong",          "direction": "in",    "description": "Input length" },
+        { "name": "level",     "ctype": "c_int",            "direction": "in",    "description": "Z_DEFAULT_COMPRESSION or integer 0–9" }
+      ],
+      "return_type": "c_int",
+      "return_values": {
+        "Z_OK": "Success",
+        "Z_MEM_ERROR": "Insufficient memory",
+        "Z_BUF_ERROR": "Output buffer too small",
+        "Z_STREAM_ERROR": "level is not Z_DEFAULT_COMPRESSION and not in [0,9]"
+      },
+      "preconditions": [
+        "level must be Z_DEFAULT_COMPRESSION (-1) or an integer in the range [0, 9]"
+      ],
+      "rfc_section": "RFC1950"
+    },
+    "uncompress": {
+      "description": "Single-call decompression. Caller must supply an output buffer large enough for the uncompressed result.",
+      "parameters": [
+        { "name": "dest",      "ctype": "c_char_p",         "direction": "out",   "description": "Output buffer for uncompressed data" },
+        { "name": "destLen",   "ctype": "POINTER(c_ulong)", "direction": "inout", "description": "On entry: capacity of dest. On exit: actual uncompressed size." },
+        { "name": "source",    "ctype": "c_char_p",         "direction": "in",    "description": "Compressed input (zlib format)" },
+        { "name": "sourceLen", "ctype": "c_ulong",          "direction": "in",    "description": "Length of compressed input" }
+      ],
+      "return_type": "c_int",
+      "return_values": {
+        "Z_OK": "Success",
+        "Z_MEM_ERROR": "Insufficient memory",
+        "Z_BUF_ERROR": "Output buffer too small or input was empty",
+        "Z_DATA_ERROR": "Input data is corrupt or was not compressed with zlib",
+        "Z_STREAM_ERROR": "dest or destLen is NULL"
+      },
+      "rfc_section": "RFC1950"
+    },
+    "compressBound": {
+      "description": "Returns an upper bound on the output buffer size required for compress() or compress2() with the given source length. Always call this to size the destination buffer rather than guessing.",
+      "parameters": [
+        { "name": "sourceLen", "ctype": "c_ulong", "direction": "in", "description": "Expected uncompressed input size" }
+      ],
+      "return_type": "c_ulong",
+      "return_values": {
+        "positive_value": "Upper bound in bytes; guaranteed >= actual compressed output size for any compression level"
+      },
+      "postconditions": [
+        "Return value >= actual compressed size for any valid sourceLen and any compression level"
+      ]
+    },
+    "crc32": {
+      "description": "Incremental CRC-32 computation. To start a new checksum, pass crc=0 and buf=non-NULL. To obtain the initial value, pass buf=NULL. Used in gzip format (RFC 1952).",
+      "parameters": [
+        { "name": "crc", "ctype": "c_ulong",  "direction": "in", "description": "Running CRC-32 value; use 0 to start a new checksum" },
+        { "name": "buf", "ctype": "c_char_p", "direction": "in", "description": "Input bytes, or NULL to retrieve the initial CRC value (0)" },
+        { "name": "len", "ctype": "c_uint",   "direction": "in", "description": "Number of bytes at buf" }
+      ],
+      "return_type": "c_ulong",
+      "return_values": {
+        "ulong": "Updated CRC-32 value"
+      },
+      "postconditions": [
+        "crc32(0, NULL, 0) == 0",
+        "crc32(crc32(0, A, lenA), B, lenB) == crc32(0, concat(A,B), lenA+lenB)"
+      ],
+      "rfc_section": "RFC1952 Section 8"
+    },
+    "adler32": {
+      "description": "Incremental Adler-32 computation. Initial value is 1 (not 0). Used in zlib format (RFC 1950).",
+      "parameters": [
+        { "name": "adler", "ctype": "c_ulong",  "direction": "in", "description": "Running Adler-32; use 1 to start a new checksum" },
+        { "name": "buf",   "ctype": "c_char_p", "direction": "in", "description": "Input bytes, or NULL to retrieve initial value (1)" },
+        { "name": "len",   "ctype": "c_uint",   "direction": "in", "description": "Number of bytes at buf" }
+      ],
+      "return_type": "c_ulong",
+      "return_values": {
+        "ulong": "Updated Adler-32 value"
+      },
+      "postconditions": [
+        "adler32(1, NULL, 0) == 1",
+        "adler32(adler32(1, A, lenA), B, lenB) == adler32(1, concat(A,B), lenA+lenB)"
+      ],
+      "rfc_section": "RFC1950 Section 9"
+    },
+    "zlibVersion": {
+      "description": "Returns the version string of the zlib library currently loaded at runtime. Used internally by deflateInit_/inflateInit_ for version compatibility checking.",
+      "parameters": [],
+      "return_type": "c_char_p",
+      "return_values": {
+        "non_null": "Null-terminated ASCII version string, e.g. '1.2.11' or '1.3'"
+      },
+      "postconditions": [
+        "Return value is non-NULL",
+        "Return value starts with '1.' for all 1.x releases"
+      ]
+    },
+    "zError": {
+      "description": "Maps a zlib return code to a human-readable error string.",
+      "parameters": [
+        { "name": "err", "ctype": "c_int", "direction": "in", "description": "A zlib return code (Z_OK, Z_DATA_ERROR, etc.)" }
+      ],
+      "return_type": "c_char_p",
+      "return_values": {
+        "non_null": "Null-terminated error description string"
+      }
+    }
+  },
+
+  "invariants": [
+    {
+      "id": "zlib.const.Z_OK",
+      "description": "Z_OK must equal 0",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_OK", "expected_value": 0 }
+    },
+    {
+      "id": "zlib.const.Z_STREAM_END",
+      "description": "Z_STREAM_END must equal 1",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_STREAM_END", "expected_value": 1 }
+    },
+    {
+      "id": "zlib.const.Z_NEED_DICT",
+      "description": "Z_NEED_DICT must equal 2",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_NEED_DICT", "expected_value": 2 }
+    },
+    {
+      "id": "zlib.const.Z_ERRNO",
+      "description": "Z_ERRNO must equal -1",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_ERRNO", "expected_value": -1 }
+    },
+    {
+      "id": "zlib.const.Z_STREAM_ERROR",
+      "description": "Z_STREAM_ERROR must equal -2",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_STREAM_ERROR", "expected_value": -2 }
+    },
+    {
+      "id": "zlib.const.Z_DATA_ERROR",
+      "description": "Z_DATA_ERROR must equal -3",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_DATA_ERROR", "expected_value": -3 }
+    },
+    {
+      "id": "zlib.const.Z_MEM_ERROR",
+      "description": "Z_MEM_ERROR must equal -4",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_MEM_ERROR", "expected_value": -4 }
+    },
+    {
+      "id": "zlib.const.Z_BUF_ERROR",
+      "description": "Z_BUF_ERROR must equal -5",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_BUF_ERROR", "expected_value": -5 }
+    },
+    {
+      "id": "zlib.const.Z_VERSION_ERROR",
+      "description": "Z_VERSION_ERROR must equal -6",
+      "category": "constant",
+      "kind": "constant_eq",
+      "spec": { "name": "Z_VERSION_ERROR", "expected_value": -6 }
+    },
+    {
+      "id": "zlib.version.not_null",
+      "description": "zlibVersion() must return a non-NULL string starting with '1.' for all 1.x releases",
+      "category": "version",
+      "kind": "version_prefix",
+      "spec": {
+        "function": "zlibVersion",
+        "expected_prefix_b64": "MS4="
+      }
+    },
+    {
+      "id": "zlib.crc32.empty",
+      "description": "crc32(0, NULL, 0) must return 0 — the initial CRC-32 value (RFC 1952 Section 8)",
+      "category": "checksum",
+      "kind": "call_eq",
+      "rfc_reference": "RFC1952 Section 8",
+      "spec": {
+        "function": "crc32",
+        "args": [0, null, 0],
+        "arg_types": ["int", "null", "int"],
+        "expected": 0
+      }
+    },
+    {
+      "id": "zlib.crc32.hello",
+      "description": "crc32(0, 'hello', 5) must equal 0x3610a686 (907060870) — standard test vector",
+      "category": "checksum",
+      "kind": "call_eq",
+      "rfc_reference": "RFC1952 Section 8",
+      "spec": {
+        "function": "crc32",
+        "args": [0, "aGVsbG8=", 5],
+        "arg_types": ["int", "bytes_b64", "int"],
+        "expected": 907060870
+      }
+    },
+    {
+      "id": "zlib.adler32.init",
+      "description": "adler32(1, NULL, 0) must return 1 — the initial Adler-32 value (RFC 1950 Section 9)",
+      "category": "checksum",
+      "kind": "call_eq",
+      "rfc_reference": "RFC1950 Section 9",
+      "spec": {
+        "function": "adler32",
+        "args": [1, null, 0],
+        "arg_types": ["int", "null", "int"],
+        "expected": 1
+      }
+    },
+    {
+      "id": "zlib.crc32.incremental",
+      "description": "Incremental CRC-32 over two chunks must equal one-shot CRC-32 of the concatenation",
+      "category": "checksum",
+      "kind": "incremental_eq_oneshot",
+      "rfc_reference": "RFC1952 Section 8",
+      "spec": {
+        "function": "crc32",
+        "init_value": 0,
+        "chunks": ["SGVs", "bG8="],
+        "full_data_b64": "SGVsbG8="
+      }
+    },
+    {
+      "id": "zlib.adler32.incremental",
+      "description": "Incremental Adler-32 over two chunks must equal one-shot Adler-32 of the concatenation",
+      "category": "checksum",
+      "kind": "incremental_eq_oneshot",
+      "rfc_reference": "RFC1950 Section 9",
+      "spec": {
+        "function": "adler32",
+        "init_value": 1,
+        "chunks": ["SGVs", "bG8="],
+        "full_data_b64": "SGVsbG8="
+      }
+    },
+    {
+      "id": "zlib.compress2.ok_on_valid_input",
+      "description": "compress2() returns Z_OK for valid input with sufficient output buffer",
+      "category": "compress",
+      "kind": "call_returns",
+      "rfc_reference": "RFC1950",
+      "spec": {
+        "function": "compress2",
+        "src_b64": "SGVsbG8gV29ybGQ=",
+        "level": -1,
+        "dst_capacity": 100,
+        "expected_return": "Z_OK"
+      }
+    },
+    {
+      "id": "zlib.compress2.stream_error_on_bad_level",
+      "description": "compress2() returns Z_STREAM_ERROR when level=10 (invalid; valid range is -1 or 0-9)",
+      "category": "compress",
+      "kind": "call_returns",
+      "spec": {
+        "function": "compress2",
+        "src_b64": "aGVsbG8=",
+        "level": 10,
+        "dst_capacity": 100,
+        "expected_return": "Z_STREAM_ERROR"
+      }
+    },
+    {
+      "id": "zlib.roundtrip.basic",
+      "description": "compress() then uncompress() must recover the original bytes exactly for any input",
+      "category": "roundtrip",
+      "kind": "roundtrip",
+      "rfc_reference": "RFC1950",
+      "spec": {
+        "inputs": [
+          {
+            "label": "empty",
+            "data_b64": ""
+          },
+          {
+            "label": "hello-world",
+            "data_b64": "SGVsbG8gV29ybGQ="
+          },
+          {
+            "label": "repeated-A-1000",
+            "data_b64": "QQ==",
+            "repeat": 1000
+          },
+          {
+            "label": "binary-zeros-256",
+            "data_b64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+          }
+        ]
+      }
+    },
+    {
+      "id": "zlib.wire.rfc1950.header_check",
+      "description": "First 2 bytes of zlib output: (CMF * 256 + FLG) % 31 == 0 — RFC 1950 Section 2.2 header checksum",
+      "category": "wire_format",
+      "kind": "wire_bytes",
+      "rfc_reference": "RFC1950 Section 2.2",
+      "spec": {
+        "produce_via": "compress2",
+        "produce_args": {
+          "data_b64": "SGVsbG8gV29ybGQ=",
+          "level": 6
+        },
+        "assertions": [
+          {
+            "description": "(CMF * 256 + FLG) % 31 == 0",
+            "offset": 0,
+            "length": 2,
+            "python_check": "(data[0] * 256 + data[1]) % 31 == 0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zlib.wire.rfc1950.cm_field",
+      "description": "CM field (lower 4 bits of first byte) must be 8, indicating DEFLATE compression method — RFC 1950 Section 2.2",
+      "category": "wire_format",
+      "kind": "wire_bytes",
+      "rfc_reference": "RFC1950 Section 2.2",
+      "spec": {
+        "produce_via": "compress2",
+        "produce_args": {
+          "data_b64": "SGVsbG8gV29ybGQ=",
+          "level": 6
+        },
+        "assertions": [
+          {
+            "description": "CM bits (CMF & 0x0f) must be 8 (DEFLATE)",
+            "offset": 0,
+            "length": 1,
+            "python_check": "(data[0] & 0x0f) == 8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zlib.wire.rfc1950.adler32_trailer",
+      "description": "Last 4 bytes of zlib output are the Adler-32 checksum of the uncompressed data in big-endian — RFC 1950 Section 2.2",
+      "category": "wire_format",
+      "kind": "wire_bytes",
+      "rfc_reference": "RFC1950 Section 2.2",
+      "spec": {
+        "produce_via": "compress2",
+        "produce_args": {
+          "data_b64": "SGVsbG8gV29ybGQ=",
+          "level": 6
+        },
+        "assertions": [
+          {
+            "description": "Last 4 bytes == Adler-32 of original input in big-endian",
+            "offset": -4,
+            "length": 4,
+            "python_check": "struct.unpack('>I', data)[0] == adler32_of_input"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zlib.uncompress.data_error_on_junk",
+      "description": "uncompress() must return Z_DATA_ERROR when source is not valid zlib-compressed data",
+      "category": "error_handling",
+      "kind": "error_on_bad_input",
+      "spec": {
+        "function": "uncompress",
+        "bad_input_b64": "bm90IHZhbGlkIHpsaWIgZGF0YQ==",
+        "expected_return": "Z_DATA_ERROR"
+      }
+    },
+    {
+      "id": "zlib.compressBound.is_sufficient",
+      "description": "compressBound(n) must return a value >= the actual compressed output size for any n-byte input at any compression level",
+      "category": "compress",
+      "kind": "call_ge",
+      "spec": {
+        "function": "compressBound",
+        "src_b64": "QQ==",
+        "src_repeat": 10000,
+        "compare_level": 9
+      }
+    }
+  ],
+
+  "wire_formats": {
+    "zlib_rfc1950": {
+      "description": "zlib compressed data format. All multi-byte integers are big-endian.",
+      "rfc_section": "RFC1950 Section 2",
+      "endianness": "big",
+      "fields": [
+        {
+          "name": "CMF",
+          "offset": 0,
+          "size_bits": 8,
+          "description": "Compression Method and Flags byte"
+        },
+        {
+          "name": "CM",
+          "offset": 0,
+          "size_bits": 4,
+          "bit_offset": 0,
+          "constraint": "value == 8",
+          "description": "Compression method. Must be 8 (DEFLATE). Values 0-7 and 9-15 are not defined."
+        },
+        {
+          "name": "CINFO",
+          "offset": 0,
+          "size_bits": 4,
+          "bit_offset": 4,
+          "constraint": "value <= 7",
+          "description": "Window size: 2^(CINFO+8). For CM=8, CINFO must not exceed 7 (32768-byte window). Value 8 and above are undefined."
+        },
+        {
+          "name": "FLG",
+          "offset": 1,
+          "size_bits": 8,
+          "description": "Flags byte"
+        },
+        {
+          "name": "FCHECK",
+          "offset": 1,
+          "size_bits": 5,
+          "bit_offset": 0,
+          "constraint": "(CMF * 256 + FLG) % 31 == 0",
+          "description": "Check bits. Set so that CMF*256+FLG is a multiple of 31."
+        },
+        {
+          "name": "FDICT",
+          "offset": 1,
+          "size_bits": 1,
+          "bit_offset": 5,
+          "description": "Preset dictionary flag. If 1, a DICTID follows the FLG byte. compress/compress2 always produce FDICT=0."
+        },
+        {
+          "name": "FLEVEL",
+          "offset": 1,
+          "size_bits": 2,
+          "bit_offset": 6,
+          "description": "Compression level indicator. 0=fastest, 1=fast, 2=default, 3=maximum. Informational only; does not affect decompression."
+        },
+        {
+          "name": "COMPRESSED_DATA",
+          "offset": 2,
+          "size_bits": -1,
+          "description": "DEFLATE compressed data stream (RFC 1951)"
+        },
+        {
+          "name": "ADLER32",
+          "offset": "end-4",
+          "size_bits": 32,
+          "constraint": "equals adler32 of the original uncompressed data, big-endian",
+          "description": "Adler-32 checksum of the uncompressed data, stored big-endian. Covers all uncompressed bytes."
+        }
+      ]
+    },
+    "gzip_rfc1952": {
+      "description": "gzip file format. Fixed 10-byte header, compressed data, then CRC-32 and ISIZE trailer.",
+      "rfc_section": "RFC1952 Section 2",
+      "endianness": "little",
+      "fields": [
+        { "name": "ID1",   "offset": 0, "size_bits": 8, "constraint": "value == 0x1f", "description": "Magic byte 1 (0x1f)" },
+        { "name": "ID2",   "offset": 1, "size_bits": 8, "constraint": "value == 0x8b", "description": "Magic byte 2 (0x8b)" },
+        { "name": "CM",    "offset": 2, "size_bits": 8, "constraint": "value == 8",    "description": "Compression method; must be 8 (DEFLATE)" },
+        { "name": "FLG",   "offset": 3, "size_bits": 8, "description": "Flags (FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT)" },
+        { "name": "MTIME", "offset": 4, "size_bits": 32, "description": "Modification time as Unix epoch seconds, little-endian. 0 if not available." },
+        { "name": "XFL",   "offset": 8, "size_bits": 8, "description": "Extra flags: 2=maximum compression, 4=fastest algorithm. 0 otherwise." },
+        { "name": "OS",    "offset": 9, "size_bits": 8, "description": "Operating system. 0=FAT, 3=Unix, 7=Macintosh, 11=NTFS, 255=unknown." },
+        {
+          "name": "CRC32",
+          "offset": "end-8",
+          "size_bits": 32,
+          "constraint": "equals crc32 of all uncompressed bytes, little-endian",
+          "description": "CRC-32 of the uncompressed data, little-endian"
+        },
+        {
+          "name": "ISIZE",
+          "offset": "end-4",
+          "size_bits": 32,
+          "constraint": "equals (uncompressed_size mod 2^32), little-endian",
+          "description": "Size of the original uncompressed input modulo 2^32, little-endian"
+        }
+      ]
+    },
+    "deflate_rfc1951": {
+      "description": "Raw DEFLATE compressed data. No header or checksum — just the compressed bit stream. Used as the payload inside both zlib (RFC 1950) and gzip (RFC 1952) formats.",
+      "rfc_section": "RFC1951 Section 3",
+      "endianness": "N/A",
+      "fields": [
+        {
+          "name": "BFINAL",
+          "offset": 0,
+          "size_bits": 1,
+          "description": "Set to 1 in the last block of the compressed data stream, 0 otherwise"
+        },
+        {
+          "name": "BTYPE",
+          "offset": 0,
+          "size_bits": 2,
+          "bit_offset": 1,
+          "description": "Block compression type: 00=no compression, 01=fixed Huffman, 10=dynamic Huffman, 11=reserved (error)"
+        },
+        {
+          "name": "BLOCK_DATA",
+          "offset": 0,
+          "size_bits": -1,
+          "description": "Block data; format depends on BTYPE. For BTYPE=00: 4-byte LEN/NLEN header then literal bytes. For BTYPE=01/10: Huffman-coded (length, distance) pairs and literals."
+        }
+      ]
+    }
+  },
+
+  "error_model": {
+    "return_code_semantics": "All zlib functions that can fail return a signed integer. Non-negative values are success or informational (Z_OK=0, Z_STREAM_END=1, Z_NEED_DICT=2). Negative values are errors. The convention is consistent across all API functions.",
+    "stream_error_field": "msg",
+    "error_stickiness": "After Z_DATA_ERROR or Z_STREAM_ERROR, the stream is invalid. The application must call deflateEnd or inflateEnd. Continuing to use the stream after an error produces undefined results. Z_BUF_ERROR is not fatal — it means no progress was made in the current call and the application should adjust avail_in or avail_out and retry.",
+    "error_codes": [
+      { "name": "Z_OK",           "value":  0, "zError_string": "",                      "meaning": "The operation completed without error" },
+      { "name": "Z_STREAM_END",   "value":  1, "zError_string": "stream end",             "meaning": "All input has been consumed and all output has been produced (only when flush=Z_FINISH)" },
+      { "name": "Z_NEED_DICT",    "value":  2, "zError_string": "need dictionary",        "meaning": "A preset dictionary is needed; call inflateSetDictionary with the same dictionary used during compression" },
+      { "name": "Z_ERRNO",        "value": -1, "zError_string": "file error",             "meaning": "A system-level I/O error occurred; check errno" },
+      { "name": "Z_STREAM_ERROR", "value": -2, "zError_string": "stream error",           "meaning": "The stream structure was inconsistent (e.g. next_in or next_out was NULL) or an invalid parameter was passed" },
+      { "name": "Z_DATA_ERROR",   "value": -3, "zError_string": "data error",             "meaning": "The input data was invalid or corrupt (bad block type, invalid code lengths, checksum mismatch)" },
+      { "name": "Z_MEM_ERROR",    "value": -4, "zError_string": "insufficient memory",    "meaning": "There was not enough memory to complete the operation" },
+      { "name": "Z_BUF_ERROR",    "value": -5, "zError_string": "buffer error",           "meaning": "No progress was possible (not fatal): avail_in=0 and avail_out=0, or output buffer was full. Adjust and retry." },
+      { "name": "Z_VERSION_ERROR","value": -6, "zError_string": "incompatible version",   "meaning": "The version of the zlib library linked at runtime does not match the version of zlib.h used to compile the application" }
+    ]
+  }
+}

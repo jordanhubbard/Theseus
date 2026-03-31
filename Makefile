@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync rank bulk-build seed import-pypi import-npm help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync rank bulk-build seed import-pypi import-npm verify-behavior help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -112,6 +112,12 @@ bulk-build:
 		$(if $(DRIVERS),--drivers "$(DRIVERS)") \
 		$(if $(DRY_RUN),--dry-run)
 
+verify-behavior:
+	python3 tools/verify_behavior.py $(or $(ZSPEC),zspecs/zlib.zspec.json) \
+		$(if $(FILTER),--filter "$(FILTER)") \
+		$(if $(VERBOSE),--verbose) \
+		$(if $(JSON_OUT),--json-out "$(JSON_OUT)")
+
 validate:
 	python3 tools/validate_record.py $(or $(PATHS),examples/)
 
@@ -140,6 +146,7 @@ help:
 	@echo "  make seed           Generate PyPI/npm seed lists from freebsd_ports snapshot"
 	@echo "  make import-pypi    Fetch PyPI package metadata (requires pypi-seed.txt)"
 	@echo "  make import-npm     Fetch npm package metadata (requires npm-seed.txt)"
+	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: zspecs/zlib.zspec.json)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""
