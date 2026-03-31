@@ -194,7 +194,7 @@ KNOWN_KINDS = {
     "error_on_bad_input",
     "incremental_eq_oneshot",
     "call_ge",
-    # Python-module kinds
+    # Python-module kinds (hashlib)
     "hash_known_vector",
     "hash_incremental",
     "hash_object_attr",
@@ -202,6 +202,11 @@ KNOWN_KINDS = {
     "hash_digest_consistency",
     "hash_copy_independence",
     "hash_api_equivalence",
+    # General Python-module kinds (base64, json, struct, …)
+    "python_call_eq",
+    "python_call_raises",
+    "python_encode_decode_roundtrip",
+    "python_struct_roundtrip",
 }
 
 
@@ -244,14 +249,19 @@ class PatternRegistry:
             "error_on_bad_input":     self._error_on_bad_input,
             "incremental_eq_oneshot": self._incremental_eq_oneshot,
             "call_ge":                self._call_ge,
-            # Python-module kinds
-            "hash_known_vector":      self._hash_known_vector,
-            "hash_incremental":       self._hash_incremental,
-            "hash_object_attr":       self._hash_object_attr,
-            "python_set_contains":    self._python_set_contains,
-            "hash_digest_consistency":self._hash_digest_consistency,
-            "hash_copy_independence": self._hash_copy_independence,
-            "hash_api_equivalence":   self._hash_api_equivalence,
+            # Python-module kinds (hashlib)
+            "hash_known_vector":              self._hash_known_vector,
+            "hash_incremental":               self._hash_incremental,
+            "hash_object_attr":               self._hash_object_attr,
+            "python_set_contains":            self._python_set_contains,
+            "hash_digest_consistency":        self._hash_digest_consistency,
+            "hash_copy_independence":         self._hash_copy_independence,
+            "hash_api_equivalence":           self._hash_api_equivalence,
+            # General Python-module kinds
+            "python_call_eq":                 self._python_call_eq,
+            "python_call_raises":             self._python_call_raises,
+            "python_encode_decode_roundtrip": self._python_encode_decode_roundtrip,
+            "python_struct_roundtrip":        self._python_struct_roundtrip,
         }
 
     def run(self, inv: dict) -> tuple[bool, str]:
@@ -607,6 +617,150 @@ class PatternRegistry:
         if via_new != via_constructor:
             return False, f"{alg}: new()={via_new} != {alg}()={via_constructor}"
         return True, f"{alg}: hashlib.new({alg!r}, ...) == hashlib.{alg}(...) == {via_new}"
+
+    # -------------------------------------------------------------------------
+    # General Python-module pattern handlers (base64, json, struct, …)
+    # -------------------------------------------------------------------------
+
+    # Typed-value resolver used by python_call_eq / python_call_raises.
+    # Supported type tokens:
+    #   "bytes_b64"   — base64-decode the value string to bytes
+    #   "bytes_ascii" — encode the value string as ASCII to bytes
+    #   "bytes_hex"   — hex-decode the value string to bytes
+    #   "str"         — use as-is (string)
+    #   "int"         — coerce to int
+    #   "float"       — coerce to float
+    #   "bool"        — coerce to bool
+    #   "null"        — return None
+    #   "tuple"       — convert list value to tuple
+    #   "json"        — pass through (already JSON-decoded)
+    # Raw JSON scalars (str, int, float, bool, None) are passed through unchanged.
+    def _resolve_typed(self, v):
+        if isinstance(v, dict) and "type" in v:
+            t = v["type"]
+            val = v.get("value")
+            if t == "bytes_b64":
+                return base64.b64decode(val) if val else b""
+            if t == "bytes_ascii":
+                return val.encode("ascii") if val else b""
+            if t == "bytes_hex":
+                return bytes.fromhex(val) if val else b""
+            if t == "str":
+                return str(val) if val is not None else ""
+            if t == "int":
+                return int(val)
+            if t == "float":
+                return float(val)
+            if t == "bool":
+                return bool(val)
+            if t == "null":
+                return None
+            if t == "tuple":
+                return tuple(val) if val is not None else ()
+            if t == "json":
+                return val
+        return v  # raw JSON scalar: str, int, float, bool, None pass through
+
+    # --- python_call_eq ---
+    # Calls module.function(*args, **kwargs) and checks the result equals expected.
+    # Handles tuple/list comparison symmetrically (struct.unpack returns tuples).
+    def _python_call_eq(self, spec: dict) -> tuple[bool, str]:
+        fn_name = spec["function"]
+        fn = getattr(self._lib, fn_name, None)
+        if fn is None:
+            return False, f"Module has no attribute {fn_name!r}"
+        args = [self._resolve_typed(a) for a in spec.get("args", [])]
+        kwargs = {k: self._resolve_typed(v) for k, v in spec.get("kwargs", {}).items()}
+        expected = self._resolve_typed(spec["expected"])
+        try:
+            result = fn(*args, **kwargs)
+        except Exception as exc:
+            return False, f"{fn_name}() raised: {exc}"
+        # Normalize: compare tuple results against list expectations by converting to list
+        r = list(result) if isinstance(result, tuple) and isinstance(expected, list) else result
+        e = list(expected) if isinstance(expected, tuple) and isinstance(result, list) else expected
+        if r != e:
+            return False, f"{fn_name}() returned {result!r}, expected {expected!r}"
+        return True, f"{fn_name}() == {result!r}"
+
+    # --- python_call_raises ---
+    # Calls module.function(*args, **kwargs) and checks that it raises the named exception.
+    # expected_exception may be a short name ("ValueError"), a qualified module name
+    # ("json.JSONDecodeError", "binascii.Error"), or the internal qualified name
+    # ("json.decoder.JSONDecodeError"). Matching uses isinstance() so re-exported
+    # exception classes (like json.JSONDecodeError -> json.decoder.JSONDecodeError) work.
+    def _python_call_raises(self, spec: dict) -> tuple[bool, str]:
+        fn_name = spec["function"]
+        fn = getattr(self._lib, fn_name, None)
+        if fn is None:
+            return False, f"Module has no attribute {fn_name!r}"
+        args = [self._resolve_typed(a) for a in spec.get("args", [])]
+        kwargs = {k: self._resolve_typed(v) for k, v in spec.get("kwargs", {}).items()}
+        expected_exc = spec["expected_exception"]
+        try:
+            result = fn(*args, **kwargs)
+        except Exception as exc:
+            qualname = f"{type(exc).__module__}.{type(exc).__qualname__}"
+            short = type(exc).__name__
+            # Fast path: match by name strings
+            if expected_exc in (qualname, short) or qualname.endswith(f".{expected_exc}"):
+                return True, f"{fn_name}() raised {short} as expected"
+            # Slow path: try to resolve the dotted name and use isinstance()
+            # Handles re-exports like json.JSONDecodeError -> json.decoder.JSONDecodeError
+            parts = expected_exc.rsplit(".", 1)
+            if len(parts) == 2:
+                try:
+                    mod = importlib.import_module(parts[0])
+                    cls = getattr(mod, parts[1])
+                    if isinstance(exc, cls):
+                        return True, f"{fn_name}() raised {short} as expected"
+                except (ImportError, AttributeError):
+                    pass
+            return False, f"{fn_name}() raised {qualname}, expected {expected_exc}"
+        return False, f"{fn_name}() returned {result!r} without raising"
+
+    # --- python_encode_decode_roundtrip ---
+    # Encodes each input with encode_fn, then decodes the result with decode_fn,
+    # and verifies the decoded output equals the original bytes.
+    # Used for base64 variants: b64encode/b64decode, urlsafe_b64encode/urlsafe_b64decode.
+    def _python_encode_decode_roundtrip(self, spec: dict) -> tuple[bool, str]:
+        enc = getattr(self._lib, spec["encode_fn"])
+        dec = getattr(self._lib, spec["decode_fn"])
+        inputs = spec["inputs_b64"]
+        for item in inputs:
+            original = base64.b64decode(item) if item else b""
+            try:
+                encoded = enc(original)
+                decoded = dec(encoded)
+            except Exception as exc:
+                return False, f"roundtrip raised for {original!r}: {exc}"
+            if decoded != original:
+                return False, (
+                    f"roundtrip mismatch for {original!r}: "
+                    f"encoded={encoded!r}, decoded={decoded!r}"
+                )
+        return True, f"all {len(inputs)} inputs round-tripped via {spec['encode_fn']}/{spec['decode_fn']}"
+
+    # --- python_struct_roundtrip ---
+    # For each entry in test_cases (a list of value-lists), packs with
+    # struct.pack(fmt, *values) then unpacks and verifies lossless recovery.
+    # Falls back to the "values" field (treated as a single test case) for
+    # multi-field formats where all values are packed together.
+    def _python_struct_roundtrip(self, spec: dict) -> tuple[bool, str]:
+        fmt = spec["format"]
+        test_cases = spec.get("test_cases") or [spec["values"]]
+        for values in test_cases:
+            try:
+                packed = self._lib.pack(fmt, *values)
+                unpacked = self._lib.unpack(fmt, packed)
+            except Exception as exc:
+                return False, f"struct roundtrip raised for {fmt!r} {values}: {exc}"
+            if list(unpacked) != values:
+                return False, (
+                    f"struct roundtrip failed for {fmt!r}: "
+                    f"{list(unpacked)} != {values}"
+                )
+        return True, f"struct.unpack({fmt!r}, pack({fmt!r}, ...)) ok for {len(test_cases)} case(s)"
 
 
 # ---------------------------------------------------------------------------
