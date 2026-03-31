@@ -20,6 +20,7 @@ import argparse
 import base64
 import ctypes
 import ctypes.util
+import importlib
 import json
 import struct as _struct
 import sys
@@ -78,9 +79,21 @@ def _resolve_arg(val, atype: str):
 # ---------------------------------------------------------------------------
 
 class LibraryLoader:
-    """Loads the target shared library and sets up ctypes function signatures."""
+    """Loads the target library — either a shared library via ctypes or a Python module."""
 
-    def load(self, lib_spec: dict) -> ctypes.CDLL:
+    def load(self, lib_spec: dict):
+        backend = lib_spec.get("backend", "ctypes")
+        if backend == "python_module":
+            module_name = lib_spec["module_name"]
+            try:
+                return importlib.import_module(module_name)
+            except ImportError as exc:
+                raise LibraryNotFoundError(
+                    f"Cannot import Python module {module_name!r}: {exc}"
+                ) from exc
+        return self._load_ctypes(lib_spec)
+
+    def _load_ctypes(self, lib_spec: dict) -> ctypes.CDLL:
         patterns = lib_spec.get("soname_patterns", [])
         for name in patterns:
             found = ctypes.util.find_library(name)
@@ -171,6 +184,7 @@ REQUIRED_SECTIONS = [
 ]
 
 KNOWN_KINDS = {
+    # ctypes / C-library kinds
     "constant_eq",
     "call_eq",
     "call_returns",
@@ -180,6 +194,14 @@ KNOWN_KINDS = {
     "error_on_bad_input",
     "incremental_eq_oneshot",
     "call_ge",
+    # Python-module kinds
+    "hash_known_vector",
+    "hash_incremental",
+    "hash_object_attr",
+    "python_set_contains",
+    "hash_digest_consistency",
+    "hash_copy_independence",
+    "hash_api_equivalence",
 }
 
 
@@ -208,10 +230,11 @@ class SpecLoader:
 # ---------------------------------------------------------------------------
 
 class PatternRegistry:
-    def __init__(self, lib: ctypes.CDLL, constants_map: dict):
+    def __init__(self, lib, constants_map: dict):
         self._lib = lib
         self._c = constants_map
         self._handlers = {
+            # ctypes kinds
             "constant_eq":            self._constant_eq,
             "call_eq":                self._call_eq,
             "call_returns":           self._call_returns,
@@ -221,6 +244,14 @@ class PatternRegistry:
             "error_on_bad_input":     self._error_on_bad_input,
             "incremental_eq_oneshot": self._incremental_eq_oneshot,
             "call_ge":                self._call_ge,
+            # Python-module kinds
+            "hash_known_vector":      self._hash_known_vector,
+            "hash_incremental":       self._hash_incremental,
+            "hash_object_attr":       self._hash_object_attr,
+            "python_set_contains":    self._python_set_contains,
+            "hash_digest_consistency":self._hash_digest_consistency,
+            "hash_copy_independence": self._hash_copy_independence,
+            "hash_api_equivalence":   self._hash_api_equivalence,
         }
 
     def run(self, inv: dict) -> tuple[bool, str]:
@@ -451,6 +482,132 @@ class PatternRegistry:
             return False, f"compressBound({len(src)})={bound} < actual={actual}: invariant violated"
         return True, f"compressBound({len(src)})={bound} >= actual={actual}"
 
+    # -------------------------------------------------------------------------
+    # Python-module pattern handlers (hashlib and similar OO APIs)
+    # -------------------------------------------------------------------------
+
+    # --- hash_known_vector ---
+    # Creates a fresh hash object, feeds the test input, and checks hexdigest
+    # against the known reference value from a published test vector.
+    def _hash_known_vector(self, spec: dict) -> tuple[bool, str]:
+        alg = spec["algorithm"]
+        data = base64.b64decode(spec["data_b64"]) if spec.get("data_b64") else b""
+        expected = spec["expected_hex"]
+        try:
+            h = self._lib.new(alg, data, usedforsecurity=False)
+            actual = h.hexdigest()
+        except Exception as exc:
+            return False, f"{alg}({data!r}) raised: {exc}"
+        if actual != expected:
+            return False, f"{alg}({data!r}): got {actual}, expected {expected}"
+        return True, f"{alg}({data!r}) == {expected}"
+
+    # --- hash_incremental ---
+    # Feeds data in multiple chunks and checks the result equals the one-shot digest.
+    # Verifies the core streaming property: update(a); update(b) == update(a+b).
+    def _hash_incremental(self, spec: dict) -> tuple[bool, str]:
+        alg = spec["algorithm"]
+        chunks = [base64.b64decode(c) for c in spec["chunks"]]
+        full = base64.b64decode(spec["full_data_b64"]) if spec.get("full_data_b64") else b""
+        try:
+            h_inc = self._lib.new(alg, usedforsecurity=False)
+            for chunk in chunks:
+                h_inc.update(chunk)
+            incremental = h_inc.hexdigest()
+
+            h_one = self._lib.new(alg, full, usedforsecurity=False)
+            oneshot = h_one.hexdigest()
+        except Exception as exc:
+            return False, f"{alg} incremental test raised: {exc}"
+        if incremental != oneshot:
+            return False, f"{alg}: incremental={incremental} != oneshot={oneshot}"
+        return True, f"{alg}: incremental == oneshot == {oneshot}"
+
+    # --- hash_object_attr ---
+    # Creates a fresh hash object and checks that a named attribute equals the expected value.
+    # Used to verify digest_size, block_size, and name attributes match the RFC specification.
+    def _hash_object_attr(self, spec: dict) -> tuple[bool, str]:
+        alg = spec["algorithm"]
+        attr = spec["attr"]
+        expected = spec["expected"]
+        try:
+            h = self._lib.new(alg, usedforsecurity=False)
+            actual = getattr(h, attr)
+        except Exception as exc:
+            return False, f"{alg}.{attr} raised: {exc}"
+        if actual != expected:
+            return False, f"{alg}.{attr} == {actual!r}, expected {expected!r}"
+        return True, f"{alg}.{attr} == {expected!r}"
+
+    # --- python_set_contains ---
+    # Reads a module-level set attribute and checks that all required members are present.
+    # Used to verify hashlib.algorithms_guaranteed contains the required algorithm names.
+    def _python_set_contains(self, spec: dict) -> tuple[bool, str]:
+        attr = spec["attribute"]
+        must_contain = spec["must_contain"]
+        try:
+            actual_set = getattr(self._lib, attr)
+        except AttributeError:
+            return False, f"Module has no attribute {attr!r}"
+        missing = [item for item in must_contain if item not in actual_set]
+        if missing:
+            return False, f"{attr} missing: {missing}"
+        return True, f"{attr} contains all required members"
+
+    # --- hash_digest_consistency ---
+    # Checks that h.digest() == bytes.fromhex(h.hexdigest()) — the two output
+    # representations of the same hash value must be bit-for-bit identical.
+    def _hash_digest_consistency(self, spec: dict) -> tuple[bool, str]:
+        alg = spec["algorithm"]
+        data = base64.b64decode(spec["data_b64"]) if spec.get("data_b64") else b""
+        try:
+            h = self._lib.new(alg, data, usedforsecurity=False)
+            raw = h.digest()
+            hex_str = h.hexdigest()
+        except Exception as exc:
+            return False, f"{alg} digest_consistency raised: {exc}"
+        from_hex = bytes.fromhex(hex_str)
+        if raw != from_hex:
+            return False, f"{alg}: digest()={raw.hex()} != bytes.fromhex(hexdigest())={from_hex.hex()}"
+        if len(raw) != h.digest_size:
+            return False, f"{alg}: len(digest())={len(raw)} != digest_size={h.digest_size}"
+        return True, f"{alg}: digest() == bytes.fromhex(hexdigest()) ({len(raw)} bytes)"
+
+    # --- hash_copy_independence ---
+    # Creates a hash, takes a copy, updates the copy with extra data, and verifies
+    # that the original's digest is unchanged. Proves copy() deep-copies the state.
+    def _hash_copy_independence(self, spec: dict) -> tuple[bool, str]:
+        alg = spec["algorithm"]
+        init_data = base64.b64decode(spec["initial_data_b64"]) if spec.get("initial_data_b64") else b""
+        extra_data = base64.b64decode(spec["extra_data_b64"]) if spec.get("extra_data_b64") else b""
+        try:
+            original = self._lib.new(alg, init_data, usedforsecurity=False)
+            before = original.hexdigest()
+            copy = original.copy()
+            copy.update(extra_data)
+            after = original.hexdigest()
+        except Exception as exc:
+            return False, f"{alg} copy_independence raised: {exc}"
+        if before != after:
+            return False, f"{alg}: original digest changed after updating copy: {before} -> {after}"
+        return True, f"{alg}: original digest unchanged after updating copy"
+
+    # --- hash_api_equivalence ---
+    # Verifies that hashlib.new(alg, data) produces the same digest as the
+    # algorithm-specific shorthand constructor (e.g. hashlib.sha256(data)).
+    def _hash_api_equivalence(self, spec: dict) -> tuple[bool, str]:
+        alg = spec["algorithm"]
+        data = base64.b64decode(spec["data_b64"]) if spec.get("data_b64") else b""
+        try:
+            via_new = self._lib.new(alg, data, usedforsecurity=False).hexdigest()
+            constructor = getattr(self._lib, alg)
+            via_constructor = constructor(data, usedforsecurity=False).hexdigest()
+        except Exception as exc:
+            return False, f"{alg} api_equivalence raised: {exc}"
+        if via_new != via_constructor:
+            return False, f"{alg}: new()={via_new} != {alg}()={via_constructor}"
+        return True, f"{alg}: hashlib.new({alg!r}, ...) == hashlib.{alg}(...) == {via_new}"
+
 
 # ---------------------------------------------------------------------------
 # Invariant runner
@@ -470,7 +627,7 @@ class InvariantRunner:
     def run_all(
         self,
         spec: dict,
-        lib: ctypes.CDLL,
+        lib,
         filter_category: str | None = None,
     ) -> list[Result]:
         cmap = self.build_constants_map(spec["constants"])
@@ -485,10 +642,13 @@ class InvariantRunner:
             skip_expr = inv.get("skip_if")
             if skip_expr:
                 try:
-                    ver_bytes = lib.zlibVersion() or b""
+                    # Try to get a version string from the library (ctypes backend only)
+                    ver_fn = getattr(lib, "zlibVersion", None)
+                    ver_bytes = ver_fn() if callable(ver_fn) else b""
+                    lib_version = (ver_bytes or b"").decode("ascii", errors="replace")
                     should_skip = bool(
                         eval(skip_expr, {"__builtins__": {}},  # noqa: S307
-                             {"lib_version": ver_bytes.decode("ascii", errors="replace")})
+                             {"lib_version": lib_version})
                     )
                 except Exception:
                     should_skip = False
