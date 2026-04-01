@@ -57,8 +57,13 @@ class Result:
 
 @dataclass
 class CLIBackend:
-    """Represents a CLI tool loaded as a 'library' for the cli backend."""
+    """Represents a CLI tool loaded as a 'library' for the cli backend.
+
+    module_name is set when the CLI tool is a Node.js runtime and the spec
+    targets a specific npm module (e.g. command='node', module_name='semver').
+    """
     command: str
+    module_name: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +112,20 @@ class LibraryLoader:
                 raise LibraryNotFoundError(
                     f"CLI command {cmd!r} not found in PATH"
                 )
-            return CLIBackend(command=found)
+            module_name = lib_spec.get("module_name")
+            if module_name:
+                # Verify the node module can be required before running any invariants
+                check = subprocess.run(
+                    [found, "-e", f"require({json.dumps(module_name)})"],
+                    capture_output=True,
+                )
+                if check.returncode != 0:
+                    err = check.stderr.decode("utf-8", errors="replace").strip()
+                    raise LibraryNotFoundError(
+                        f"Node module {module_name!r} not found "
+                        f"(is it installed?): {err}"
+                    )
+            return CLIBackend(command=found, module_name=module_name)
         return self._load_ctypes(lib_spec)
 
     def _load_ctypes(self, lib_spec: dict) -> ctypes.CDLL:
@@ -230,6 +248,8 @@ KNOWN_KINDS = {
     "cli_stdout_contains",
     "cli_stdout_matches",
     "cli_stderr_contains",
+    # Node.js module kinds
+    "node_module_call_eq",
 }
 
 
@@ -291,6 +311,8 @@ class PatternRegistry:
             "cli_stdout_contains":            self._cli_stdout_contains,
             "cli_stdout_matches":             self._cli_stdout_matches,
             "cli_stderr_contains":            self._cli_stderr_contains,
+            # Node.js module kinds
+            "node_module_call_eq":            self._node_module_call_eq,
         }
 
     def run(self, inv: dict) -> tuple[bool, str]:
@@ -894,6 +916,37 @@ class PatternRegistry:
         if expected not in stderr:
             return False, f"expected {expected!r} not found in stderr {stderr!r}"
         return True, f"stderr contains {expected!r}"
+
+    # --- node_module_call_eq ---
+    # Builds an inline node -e script that requires the npm module, calls the
+    # named function with JSON-serialised args, and compares the JSON.stringify
+    # of the return value against json.dumps(expected).  JSON is valid JavaScript
+    # so args round-trip without any transformation.
+    def _node_module_call_eq(self, spec: dict) -> tuple[bool, str]:
+        module   = spec.get("module") or getattr(self._lib, "module_name", None)
+        fn_name  = spec["function"]
+        args     = spec.get("args", [])
+        expected = spec["expected"]
+        args_js  = json.dumps(args)
+        script = (
+            f"const m=require({json.dumps(module)});"
+            f"process.stdout.write(JSON.stringify(m[{json.dumps(fn_name)}](...{args_js})))"
+        )
+        cmd = [self._lib.command, "-e", script]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, timeout=spec.get("timeout", 10))
+        except subprocess.TimeoutExpired:
+            return False, "node timed out"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        if proc.returncode != 0:
+            stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+            return False, f"node exited {proc.returncode}: {stderr!r}"
+        actual       = proc.stdout.decode("utf-8", errors="replace").strip()
+        expected_json = json.dumps(expected)
+        if actual != expected_json:
+            return False, f"{fn_name}({args!r}) returned {actual!r}, expected {expected_json!r}"
+        return True, f"{fn_name}({args!r}) == {expected!r}"
 
 
 # ---------------------------------------------------------------------------
