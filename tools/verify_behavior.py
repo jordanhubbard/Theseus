@@ -21,6 +21,7 @@ import base64
 import ctypes
 import ctypes.util
 import importlib
+import importlib.metadata
 import json
 import re as _re
 import shutil
@@ -251,6 +252,7 @@ KNOWN_KINDS = {
     "cli_stderr_contains",
     # Node.js module kinds
     "node_module_call_eq",
+    "node_constructor_call_eq",
 }
 
 
@@ -315,6 +317,7 @@ class PatternRegistry:
             "cli_stderr_contains":            self._cli_stderr_contains,
             # Node.js module kinds
             "node_module_call_eq":            self._node_module_call_eq,
+            "node_constructor_call_eq":       self._node_constructor_call_eq,
         }
 
     def run(self, inv: dict) -> tuple[bool, str]:
@@ -716,12 +719,17 @@ class PatternRegistry:
 
     # --- python_call_eq ---
     # Calls module.function(*args, **kwargs) and checks the result equals expected.
+    # function may be a dotted path (e.g. "date.fromisoformat") which is resolved
+    # by walking attribute access from the module root.
     # Handles tuple/list comparison symmetrically (struct.unpack returns tuples).
     def _python_call_eq(self, spec: dict) -> tuple[bool, str]:
         fn_name = spec["function"]
-        fn = getattr(self._lib, fn_name, None)
-        if fn is None:
-            return False, f"Module has no attribute {fn_name!r}"
+        obj = self._lib
+        for part in fn_name.split("."):
+            obj = getattr(obj, part, None)
+            if obj is None:
+                return False, f"Module has no attribute {fn_name!r}"
+        fn = obj
         args = [self._resolve_typed(a) for a in spec.get("args", [])]
         kwargs = {k: self._resolve_typed(v) for k, v in spec.get("kwargs", {}).items()}
         expected = self._resolve_typed(spec["expected"])
@@ -729,6 +737,33 @@ class PatternRegistry:
             result = fn(*args, **kwargs)
         except Exception as exc:
             return False, f"{fn_name}() raised: {exc}"
+        # Optional method chaining: call result.method(*method_args)
+        method = spec.get("method")
+        if method:
+            method_args = [self._resolve_typed(a) for a in spec.get("method_args", [])]
+            m = getattr(result, method, None)
+            if m is None:
+                return False, f"Result {result!r} has no attribute {method!r}"
+            if callable(m):
+                try:
+                    result = m(*method_args)
+                except Exception as exc:
+                    return False, f"{fn_name}().{method}() raised: {exc}"
+            else:
+                result = m
+            # Optional second chain: result.method_chain()
+            method_chain = spec.get("method_chain")
+            if method_chain:
+                mc = getattr(result, method_chain, None)
+                if mc is None:
+                    return False, f"Result {result!r} has no attribute {method_chain!r}"
+                if callable(mc):
+                    try:
+                        result = mc()
+                    except Exception as exc:
+                        return False, f".{method_chain}() raised: {exc}"
+                else:
+                    result = mc
         # Normalize: compare tuple results against list expectations by converting to list
         r = list(result) if isinstance(result, tuple) and isinstance(expected, list) else result
         e = list(expected) if isinstance(expected, tuple) and isinstance(result, list) else expected
@@ -744,9 +779,12 @@ class PatternRegistry:
     # exception classes (like json.JSONDecodeError -> json.decoder.JSONDecodeError) work.
     def _python_call_raises(self, spec: dict) -> tuple[bool, str]:
         fn_name = spec["function"]
-        fn = getattr(self._lib, fn_name, None)
-        if fn is None:
-            return False, f"Module has no attribute {fn_name!r}"
+        obj = self._lib
+        for part in fn_name.split("."):
+            obj = getattr(obj, part, None)
+            if obj is None:
+                return False, f"Module has no attribute {fn_name!r}"
+        fn = obj
         args = [self._resolve_typed(a) for a in spec.get("args", [])]
         kwargs = {k: self._resolve_typed(v) for k, v in spec.get("kwargs", {}).items()}
         expected_exc = spec["expected_exception"]
@@ -979,10 +1017,164 @@ class PatternRegistry:
             return False, f"{label}({args!r}) returned {actual!r}, expected {expected_json!r}"
         return True, f"{label}({args!r}) == {expected!r}"
 
+    # --- node_constructor_call_eq ---
+    # Instantiates a class from the npm module, calls a method on the instance,
+    # and optionally calls the result as a function (for compile-then-call APIs
+    # like Ajv).
+    #
+    # spec fields:
+    #   class       — property on the module to use as constructor (default "default")
+    #   ctor_args   — args to constructor (default [])
+    #   method      — method to call on the instance
+    #   args        — args to pass to the method
+    #   then_call   — if true, call the method result as a function with then_args
+    #   then_args   — args to pass to the chained call (default [])
+    #   expected    — expected final value
+    def _node_constructor_call_eq(self, spec: dict) -> tuple[bool, str]:
+        module     = spec.get("module") or getattr(self._lib, "module_name", None)
+        cls_name   = spec.get("class", "default")
+        ctor_args  = spec.get("ctor_args", [])
+        method     = spec["method"]
+        args       = spec.get("args", [])
+        then_call  = spec.get("then_call", False)
+        then_args  = spec.get("then_args", [])
+        expected   = spec["expected"]
+
+        ctor_js      = json.dumps(ctor_args)
+        method_js    = json.dumps(method)
+        args_js      = json.dumps(args)
+        then_args_js = json.dumps(then_args)
+
+        if then_call:
+            result_expr = f"inst[{method_js}](...{args_js})(...{then_args_js})"
+        else:
+            result_expr = f"inst[{method_js}](...{args_js})"
+
+        script = (
+            f"const m=require({json.dumps(module)});"
+            f"const Cls=m[{json.dumps(cls_name)}];"
+            f"const inst=new Cls(...{ctor_js});"
+            f"process.stdout.write(JSON.stringify({result_expr}))"
+        )
+        cmd = [self._lib.command, "-e", script]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, timeout=spec.get("timeout", 10))
+        except subprocess.TimeoutExpired:
+            return False, "node timed out"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        if proc.returncode != 0:
+            stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+            return False, f"node exited {proc.returncode}: {stderr!r}"
+        actual        = proc.stdout.decode("utf-8", errors="replace").strip()
+        expected_json = json.dumps(expected, separators=(",", ":"))
+        label         = f"new {cls_name}().{method}"
+        if actual != expected_json:
+            return False, f"{label}({args!r}) returned {actual!r}, expected {expected_json!r}"
+        return True, f"{label}({args!r}) == {expected!r}"
+
 
 # ---------------------------------------------------------------------------
 # Invariant runner
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Version detection helpers
+# ---------------------------------------------------------------------------
+
+def _get_lib_version(lib_spec: dict, lib) -> str:
+    """Return the installed version of the library as a string, or '' if unknown.
+
+    Strategy per backend:
+    - ctypes: call lib.<version_function>() if specified in the spec
+    - python_module: try importlib.metadata.version(module_name), then sys.version for stdlib
+    - cli (node): run `node -e "process.stdout.write(require('<mod>/package.json').version)"`
+    """
+    backend = lib_spec.get("backend", "ctypes")
+    module_name = lib_spec.get("module_name", "")
+
+    if backend == "python_module":
+        try:
+            return importlib.metadata.version(module_name)
+        except importlib.metadata.PackageNotFoundError:
+            pass
+        # stdlib modules don't appear in metadata; use the Python version as a proxy
+        vi = sys.version_info
+        return f"{vi.major}.{vi.minor}.{vi.micro}"
+
+    if backend == "cli" and module_name:
+        # Ask node to read the package.json version
+        cmd = lib_spec.get("command", "node")
+        script = (
+            f"try{{process.stdout.write(require({json.dumps(module_name + '/package.json')}).version)}}"
+            f"catch(e){{process.exit(1)}}"
+        )
+        try:
+            r = subprocess.run([cmd, "-e", script], capture_output=True, timeout=5)
+            if r.returncode == 0:
+                return r.stdout.decode("utf-8", errors="replace").strip()
+        except Exception:
+            pass
+        return ""
+
+    if backend == "ctypes":
+        ver_fn_name = lib_spec.get("version_function")
+        if ver_fn_name:
+            try:
+                ver_fn = getattr(lib, ver_fn_name)
+                ver_fn.restype = ctypes.c_char_p
+                result = ver_fn()
+                return (result or b"").decode("ascii", errors="replace")
+            except Exception:
+                pass
+
+    return ""
+
+
+def _check_spec_version(spec_for_versions: str, lib_version: str) -> tuple[bool, str]:
+    """Check whether lib_version satisfies spec_for_versions range.
+
+    Returns (ok, warning_message). ok=True means satisfied or cannot determine.
+    Uses packaging.specifiers if available; falls back to a simple prefix check.
+    """
+    if not spec_for_versions or spec_for_versions.startswith("N/A") or not lib_version:
+        return True, ""
+
+    try:
+        from packaging.specifiers import SpecifierSet  # type: ignore
+        from packaging.version import Version, InvalidVersion  # type: ignore
+        try:
+            # Normalize space-separated specifiers to comma-separated (packaging requires commas)
+            normalized = _re.sub(r"\s+(?=[<>=!])", ",", spec_for_versions.strip())
+            spec_set = SpecifierSet(normalized)
+            ver = Version(lib_version)
+            ok = ver in spec_set
+            if not ok:
+                return False, (
+                    f"Library version {lib_version!r} does not satisfy "
+                    f"spec_for_versions {spec_for_versions!r}"
+                )
+            return True, ""
+        except InvalidVersion:
+            return True, ""  # can't parse version — skip check
+    except ImportError:
+        pass
+
+    # Fallback: handle simple ">=X.Y" by comparing major.minor
+    m = _re.match(r"^>=(\d+)\.(\d+)", spec_for_versions)
+    if m:
+        req_major, req_minor = int(m.group(1)), int(m.group(2))
+        vm = _re.match(r"^(\d+)\.(\d+)", lib_version)
+        if vm:
+            inst_major, inst_minor = int(vm.group(1)), int(vm.group(2))
+            ok = (inst_major, inst_minor) >= (req_major, req_minor)
+            if not ok:
+                return False, (
+                    f"Library version {lib_version!r} does not satisfy "
+                    f"spec_for_versions {spec_for_versions!r}"
+                )
+    return True, ""
+
 
 class InvariantRunner:
     def build_constants_map(self, constants: dict) -> dict:
@@ -1000,6 +1192,7 @@ class InvariantRunner:
         spec: dict,
         lib,
         filter_category: str | None = None,
+        lib_version: str = "",
     ) -> list[Result]:
         cmap = self.build_constants_map(spec["constants"])
         registry = PatternRegistry(lib, cmap)
@@ -1013,10 +1206,6 @@ class InvariantRunner:
             skip_expr = inv.get("skip_if")
             if skip_expr:
                 try:
-                    # Try to get a version string from the library (ctypes backend only)
-                    ver_fn = getattr(lib, "zlibVersion", None)
-                    ver_bytes = ver_fn() if callable(ver_fn) else b""
-                    lib_version = (ver_bytes or b"").decode("ascii", errors="replace")
                     should_skip = bool(
                         eval(skip_expr, {"__builtins__": {}},  # noqa: S307
                              {"lib_version": lib_version})
@@ -1092,8 +1281,18 @@ def main(argv=None) -> int:
             )
         return 0
 
+    lib_version = _get_lib_version(spec["library"], lib)
+    ver_ok, ver_warn = _check_spec_version(
+        spec.get("identity", {}).get("spec_for_versions", ""),
+        lib_version,
+    )
+    if lib_version:
+        print(f"Library version: {lib_version}")
+    if not ver_ok:
+        print(f"WARNING: {ver_warn}", file=sys.stderr)
+
     runner = InvariantRunner()
-    results = runner.run_all(spec, lib, filter_category=args.filter_category)
+    results = runner.run_all(spec, lib, filter_category=args.filter_category, lib_version=lib_version)
 
     passed  = sum(1 for r in results if r.passed and not r.skip_reason)
     failed  = sum(1 for r in results if not r.passed)

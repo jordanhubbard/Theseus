@@ -59,6 +59,7 @@ KNOWN_KINDS = {
     "cli_exits_with", "cli_stdout_eq", "cli_stdout_contains",
     "cli_stdout_matches", "cli_stderr_contains",
     "node_module_call_eq",
+    "node_constructor_call_eq",
 }
 
 
