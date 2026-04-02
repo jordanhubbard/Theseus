@@ -1,0 +1,399 @@
+{
+  "schema_version": "0.1",
+  "identity": {
+    "canonical_name": "sqlite3",
+    "spec_for_versions": ">=3.9",
+    "api_header": "N/A \u2014 Python stdlib module",
+    "public_docs_url": "https://docs.python.org/3/library/sqlite3.html",
+    "rfc_references": []
+  },
+  "provenance": {
+    "derived_from": [
+      "https://docs.python.org/3/library/sqlite3.html \u2014 Python sqlite3 documentation",
+      "https://www.sqlite.org/lang.html \u2014 SQLite Language Reference",
+      "Test vectors verified by running Python 3.14.3 sqlite3 module on macOS/Darwin 25.4.0, 2026-04-01"
+    ],
+    "not_derived_from": [
+      "CPython source: Modules/_sqlite/",
+      "SQLite source: sqlite3.c"
+    ],
+    "spec_authors": [
+      "Theseus Z-layer"
+    ],
+    "created_at": "2026-04-01T00:00:00Z",
+    "notes": [
+      "All roundtrip tests use ':memory:' databases \u2014 no filesystem state is retained between tests.",
+      "complete_statement() returns True only when the SQL string ends with a semicolon and constitutes a syntactically complete statement.",
+      "Row values returned by fetchall() are tuples; the python_sqlite_roundtrip handler converts each row to a list for JSON comparison.",
+      "sqlite3.OperationalError is a subclass of sqlite3.DatabaseError, which is a subclass of Exception."
+    ]
+  },
+  "library": {
+    "backend": "python_module",
+    "soname_patterns": [],
+    "version_function": null,
+    "notes": "sqlite3 is a Python stdlib module wrapping the bundled SQLite library. The bundled SQLite version may differ from the system-installed one. All behavioral invariants here use the in-process ':memory:' mode.",
+    "module_name": "sqlite3"
+  },
+  "constants": {
+    "special_values": [
+      {
+        "name": "PARSE_DECLTYPES",
+        "value": 1,
+        "description": "Flag: parse declared column types for type detection"
+      },
+      {
+        "name": "PARSE_COLNAMES",
+        "value": 2,
+        "description": "Flag: parse column names for type detection"
+      }
+    ]
+  },
+  "types": {
+    "connection": {
+      "description": "Database connection returned by sqlite3.connect(). Must be closed or used as a context manager when done.",
+      "fields": []
+    },
+    "cursor": {
+      "description": "Cursor object for executing SQL statements and iterating results.",
+      "fields": []
+    }
+  },
+  "functions": {
+    "sqlite3.connect": {
+      "description": "Open a connection to an SQLite database. ':memory:' creates a transient in-process database that is destroyed when the connection closes.",
+      "parameters": [
+        {
+          "name": "database",
+          "ctype": "str",
+          "direction": "in",
+          "description": "Path to database file, or ':memory:' for an in-process database."
+        }
+      ],
+      "return_type": "connection"
+    },
+    "sqlite3.complete_statement": {
+      "description": "Return True if the string sql contains one or more complete SQL statements terminated by semicolons. This does not parse or validate the SQL; it only checks for syntactic completeness.",
+      "parameters": [
+        {
+          "name": "sql",
+          "ctype": "str",
+          "direction": "in",
+          "description": "SQL string to test for completeness."
+        }
+      ],
+      "return_type": "bool"
+    },
+    "connection.execute": {
+      "description": "Shorthand for creating a cursor and calling its execute() method. Returns the cursor.",
+      "parameters": [
+        {
+          "name": "sql",
+          "ctype": "str",
+          "direction": "in",
+          "description": "SQL statement to execute."
+        },
+        {
+          "name": "parameters",
+          "ctype": "tuple|list",
+          "direction": "in",
+          "description": "Optional sequence of bind parameters."
+        }
+      ],
+      "return_type": "cursor"
+    },
+    "cursor.fetchall": {
+      "description": "Fetch all remaining rows of a query result, returning a list of tuples. Returns an empty list if no rows are available.",
+      "parameters": [],
+      "return_type": "list"
+    }
+  },
+  "invariants": [
+    {
+      "id": "sqlite3.complete_statement.with_semicolon",
+      "description": "complete_statement('SELECT 1;') == True \u2014 semicolon-terminated statement is complete",
+      "category": "complete_statement",
+      "kind": "python_call_eq",
+      "spec": {
+        "function": "complete_statement",
+        "args": [
+          {
+            "type": "str",
+            "value": "SELECT 1;"
+          }
+        ],
+        "expected": {
+          "type": "bool",
+          "value": true
+        }
+      }
+    },
+    {
+      "id": "sqlite3.complete_statement.without_semicolon",
+      "description": "complete_statement('SELECT 1') == False \u2014 statement missing semicolon is not complete",
+      "category": "complete_statement",
+      "kind": "python_call_eq",
+      "spec": {
+        "function": "complete_statement",
+        "args": [
+          {
+            "type": "str",
+            "value": "SELECT 1"
+          }
+        ],
+        "expected": {
+          "type": "bool",
+          "value": false
+        }
+      }
+    },
+    {
+      "id": "sqlite3.complete_statement.select_star",
+      "description": "complete_statement('SELECT * FROM t;') == True \u2014 complete SELECT with semicolon",
+      "category": "complete_statement",
+      "kind": "python_call_eq",
+      "spec": {
+        "function": "complete_statement",
+        "args": [
+          {
+            "type": "str",
+            "value": "SELECT * FROM t;"
+          }
+        ],
+        "expected": {
+          "type": "bool",
+          "value": true
+        }
+      }
+    },
+    {
+      "id": "sqlite3.complete_statement.unclosed_values",
+      "description": "complete_statement('INSERT INTO t VALUES (1') == False \u2014 unclosed parenthesis is incomplete",
+      "category": "complete_statement",
+      "kind": "python_call_eq",
+      "spec": {
+        "function": "complete_statement",
+        "args": [
+          {
+            "type": "str",
+            "value": "INSERT INTO t VALUES (1"
+          }
+        ],
+        "expected": {
+          "type": "bool",
+          "value": false
+        }
+      }
+    },
+    {
+      "id": "sqlite3.complete_statement.empty_string",
+      "description": "complete_statement('') == False \u2014 empty string is not a complete statement",
+      "category": "complete_statement",
+      "kind": "python_call_eq",
+      "spec": {
+        "function": "complete_statement",
+        "args": [
+          {
+            "type": "str",
+            "value": ""
+          }
+        ],
+        "expected": {
+          "type": "bool",
+          "value": false
+        }
+      }
+    },
+    {
+      "id": "sqlite3.roundtrip.integer_and_text",
+      "description": "CREATE TABLE with INTEGER and TEXT columns, INSERT two rows, SELECT returns both rows in order",
+      "category": "roundtrip",
+      "kind": "python_sqlite_roundtrip",
+      "spec": {
+        "setup_sql": [
+          "CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)",
+          "INSERT INTO t VALUES (1, 'foo')",
+          "INSERT INTO t VALUES (2, 'bar')"
+        ],
+        "query_sql": "SELECT id, val FROM t ORDER BY id",
+        "expected_rows": [
+          [
+            1,
+            "foo"
+          ],
+          [
+            2,
+            "bar"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "sqlite3.roundtrip.null_value",
+      "description": "NULL is stored and retrieved as Python None \u2014 NULL semantics preserved through roundtrip",
+      "category": "roundtrip",
+      "kind": "python_sqlite_roundtrip",
+      "spec": {
+        "setup_sql": [
+          "CREATE TABLE nulltest (id INTEGER, val TEXT)",
+          "INSERT INTO nulltest VALUES (1, NULL)"
+        ],
+        "query_sql": "SELECT id, val FROM nulltest",
+        "expected_rows": [
+          [
+            1,
+            null
+          ]
+        ]
+      }
+    },
+    {
+      "id": "sqlite3.roundtrip.real_column",
+      "description": "REAL column stores and retrieves floating-point values accurately",
+      "category": "roundtrip",
+      "kind": "python_sqlite_roundtrip",
+      "spec": {
+        "setup_sql": [
+          "CREATE TABLE prices (item TEXT, price REAL)",
+          "INSERT INTO prices VALUES ('apple', 1.99)",
+          "INSERT INTO prices VALUES ('banana', 0.5)"
+        ],
+        "query_sql": "SELECT item, price FROM prices ORDER BY item",
+        "expected_rows": [
+          [
+            "apple",
+            1.99
+          ],
+          [
+            "banana",
+            0.5
+          ]
+        ]
+      }
+    },
+    {
+      "id": "sqlite3.roundtrip.aggregation_count",
+      "description": "COUNT(*) aggregate over inserted rows returns correct integer count",
+      "category": "roundtrip",
+      "kind": "python_sqlite_roundtrip",
+      "spec": {
+        "setup_sql": [
+          "CREATE TABLE items (name TEXT)",
+          "INSERT INTO items VALUES ('a')",
+          "INSERT INTO items VALUES ('b')",
+          "INSERT INTO items VALUES ('c')"
+        ],
+        "query_sql": "SELECT COUNT(*) FROM items",
+        "expected_rows": [
+          [
+            3
+          ]
+        ]
+      }
+    },
+    {
+      "id": "sqlite3.roundtrip.where_filter",
+      "description": "WHERE clause correctly filters rows \u2014 only matching rows are returned",
+      "category": "roundtrip",
+      "kind": "python_sqlite_roundtrip",
+      "spec": {
+        "setup_sql": [
+          "CREATE TABLE scores (name TEXT, score INTEGER)",
+          "INSERT INTO scores VALUES ('alice', 90)",
+          "INSERT INTO scores VALUES ('bob', 70)",
+          "INSERT INTO scores VALUES ('carol', 85)"
+        ],
+        "query_sql": "SELECT name FROM scores WHERE score >= 85 ORDER BY name",
+        "expected_rows": [
+          [
+            "alice"
+          ],
+          [
+            "carol"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "sqlite3.roundtrip.empty_result",
+      "description": "SELECT that matches no rows returns empty list \u2014 not an error",
+      "category": "roundtrip",
+      "kind": "python_sqlite_roundtrip",
+      "spec": {
+        "setup_sql": [
+          "CREATE TABLE empty_table (id INTEGER)"
+        ],
+        "query_sql": "SELECT id FROM empty_table",
+        "expected_rows": []
+      }
+    },
+    {
+      "id": "sqlite3.roundtrip.order_by_desc",
+      "description": "ORDER BY DESC returns rows in descending order",
+      "category": "roundtrip",
+      "kind": "python_sqlite_roundtrip",
+      "spec": {
+        "setup_sql": [
+          "CREATE TABLE nums (n INTEGER)",
+          "INSERT INTO nums VALUES (3)",
+          "INSERT INTO nums VALUES (1)",
+          "INSERT INTO nums VALUES (2)"
+        ],
+        "query_sql": "SELECT n FROM nums ORDER BY n DESC",
+        "expected_rows": [
+          [
+            3
+          ],
+          [
+            2
+          ],
+          [
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "id": "sqlite3.error.complete_statement_non_string",
+      "description": "complete_statement(42) raises TypeError \u2014 argument must be str, not int",
+      "category": "error",
+      "kind": "python_call_raises",
+      "spec": {
+        "function": "complete_statement",
+        "args": [
+          {
+            "type": "int",
+            "value": 42
+          }
+        ],
+        "expected_exception": "TypeError"
+      }
+    }
+  ],
+  "wire_formats": {},
+  "error_model": {
+    "return_code_semantics": "sqlite3 uses Python exceptions rather than integer return codes.",
+    "stream_error_field": "N/A",
+    "error_stickiness": "Connection and cursor objects do not enter a permanent error state; individual operations raise exceptions but the connection remains usable.",
+    "error_codes": [
+      {
+        "name": "sqlite3.OperationalError",
+        "value": -1,
+        "zError_string": "sqlite3.OperationalError",
+        "meaning": "Raised for SQL-level errors: invalid syntax, missing tables, constraint violations, etc."
+      },
+      {
+        "name": "sqlite3.DatabaseError",
+        "value": -2,
+        "zError_string": "sqlite3.DatabaseError",
+        "meaning": "Base class for all database-related errors. sqlite3.OperationalError is a subclass."
+      },
+      {
+        "name": "sqlite3.IntegrityError",
+        "value": -3,
+        "zError_string": "sqlite3.IntegrityError",
+        "meaning": "Raised when a database integrity constraint (PRIMARY KEY, UNIQUE, FOREIGN KEY, NOT NULL, CHECK) is violated."
+      }
+    ]
+  }
+}

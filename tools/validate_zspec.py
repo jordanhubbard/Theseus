@@ -55,7 +55,7 @@ KNOWN_KINDS = {
     "python_set_contains", "hash_digest_consistency", "hash_copy_independence",
     "hash_api_equivalence",
     "python_call_eq", "python_call_raises", "python_encode_decode_roundtrip",
-    "python_struct_roundtrip",
+    "python_struct_roundtrip", "python_sqlite_roundtrip",
     "cli_exits_with", "cli_stdout_eq", "cli_stdout_contains",
     "cli_stdout_matches", "cli_stderr_contains",
     "node_module_call_eq",

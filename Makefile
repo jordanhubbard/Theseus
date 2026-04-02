@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm verify-behavior help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm verify-behavior verify-all-specs help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -122,6 +122,20 @@ verify-behavior:
 		$(if $(VERBOSE),--verbose) \
 		$(if $(JSON_OUT),--json-out "$(JSON_OUT)")
 
+verify-all-specs:
+	@total=0; passed=0; failed=0; \
+	for spec in zspecs/*.zspec.json; do \
+		echo "--- $$spec ---"; \
+		if python3 tools/verify_behavior.py "$$spec" $(if $(VERBOSE),--verbose); then \
+			passed=$$((passed+1)); \
+		else \
+			failed=$$((failed+1)); \
+		fi; \
+		total=$$((total+1)); \
+	done; \
+	echo ""; \
+	echo "=== verify-all-specs: $$total specs, $$passed passed, $$failed failed ===";
+
 validate:
 	python3 tools/validate_record.py $(or $(PATHS),examples/)
 
@@ -152,6 +166,7 @@ help:
 	@echo "  make import-pypi    Fetch PyPI package metadata (requires pypi-seed.txt)"
 	@echo "  make import-npm     Fetch npm package metadata (requires npm-seed.txt)"
 	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: zspecs/zlib.zspec.json)"
+	@echo "  make verify-all-specs Run every spec in zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""

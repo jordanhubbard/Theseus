@@ -21,6 +21,18 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _find_behavioral_spec(canonical_name: str) -> str | None:
+    """Return a repo-relative path to a matching Z-spec, or None."""
+    zspecs_dir = REPO_ROOT / "zspecs"
+    # Exact name match first (e.g. "openssl" → "zspecs/openssl.zspec.json")
+    candidate = zspecs_dir / f"{canonical_name}.zspec.json"
+    if candidate.exists():
+        return f"zspecs/{canonical_name}.zspec.json"
+    return None
+
 
 def load_records_by_name(snapshot_root: Path) -> dict[str, list[dict]]:
     """Return all canonical records in snapshot_root grouped by canonical_name."""
@@ -162,7 +174,9 @@ def extract_candidate(name: str, records: list[dict], score: float) -> dict:
         records, version_agreement, versions_by_eco, dep_count_by_eco, deprecated_in
     )
 
-    return {
+    bspec = _find_behavioral_spec(name)
+
+    result = {
         "canonical_name": name,
         "score": score,
         "ecosystems": ecosystems,
@@ -196,6 +210,9 @@ def extract_candidate(name: str, records: list[dict], score: float) -> dict:
             "notes": notes,
         },
     }
+    if bspec:
+        result["behavioral_spec"] = bspec
+    return result
 
 
 def main() -> None:

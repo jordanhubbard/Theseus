@@ -474,3 +474,33 @@ def test_main_skips_missing_candidates(tmp_path):
     manifest = json.loads((out_dir / "manifest.json").read_text())
     assert len(manifest) == 1
     assert manifest[0]["canonical_name"] == "zlib"
+
+
+# ---------------------------------------------------------------------------
+# behavioral_spec auto-injection
+# ---------------------------------------------------------------------------
+
+def test_find_behavioral_spec_known_library():
+    """Libraries with a matching zspec get a behavioral_spec path."""
+    assert ec._find_behavioral_spec("openssl") == "zspecs/openssl.zspec.json"
+    assert ec._find_behavioral_spec("zlib")    == "zspecs/zlib.zspec.json"
+    assert ec._find_behavioral_spec("curl")    == "zspecs/curl.zspec.json"
+    assert ec._find_behavioral_spec("sqlite3") == "zspecs/sqlite3.zspec.json"
+
+
+def test_find_behavioral_spec_unknown_library():
+    assert ec._find_behavioral_spec("no_such_package_xyz") is None
+
+
+def test_extract_candidate_includes_behavioral_spec():
+    """extract_candidate sets behavioral_spec when a matching zspec exists."""
+    rec = _record("openssl", "nixpkgs", "3.0.0")
+    result = ec.extract_candidate("openssl", [rec], 80.0)
+    assert result.get("behavioral_spec") == "zspecs/openssl.zspec.json"
+
+
+def test_extract_candidate_no_behavioral_spec_when_none():
+    """extract_candidate omits behavioral_spec when no matching zspec exists."""
+    rec = _record("no_such_package_xyz", "nixpkgs", "1.0.0")
+    result = ec.extract_candidate("no_such_package_xyz", [rec], 50.0)
+    assert "behavioral_spec" not in result

@@ -237,11 +237,12 @@ KNOWN_KINDS = {
     "hash_digest_consistency",
     "hash_copy_independence",
     "hash_api_equivalence",
-    # General Python-module kinds (base64, json, struct, …)
+    # General Python-module kinds (base64, json, struct, sqlite3, …)
     "python_call_eq",
     "python_call_raises",
     "python_encode_decode_roundtrip",
     "python_struct_roundtrip",
+    "python_sqlite_roundtrip",
     # CLI / subprocess kinds
     "cli_exits_with",
     "cli_stdout_eq",
@@ -305,6 +306,7 @@ class PatternRegistry:
             "python_call_raises":             self._python_call_raises,
             "python_encode_decode_roundtrip": self._python_encode_decode_roundtrip,
             "python_struct_roundtrip":        self._python_struct_roundtrip,
+            "python_sqlite_roundtrip":        self._python_sqlite_roundtrip,
             # CLI / subprocess kinds
             "cli_exits_with":                 self._cli_exits_with,
             "cli_stdout_eq":                  self._cli_stdout_eq,
@@ -812,6 +814,28 @@ class PatternRegistry:
                     f"{list(unpacked)} != {values}"
                 )
         return True, f"struct.unpack({fmt!r}, pack({fmt!r}, ...)) ok for {len(test_cases)} case(s)"
+
+    # --- python_sqlite_roundtrip ---
+    # Opens an in-memory SQLite database, executes setup_sql statements, runs
+    # query_sql, fetches all rows, converts each row to a plain list, and
+    # compares against expected_rows.  Works with any python_module spec that
+    # has access to sqlite3 (the stdlib module).
+    def _python_sqlite_roundtrip(self, spec: dict) -> tuple[bool, str]:
+        import sqlite3 as _sqlite3
+        setup_sql    = spec.get("setup_sql", [])
+        query_sql    = spec["query_sql"]
+        expected_rows = spec["expected_rows"]
+        try:
+            con = _sqlite3.connect(":memory:")
+            for stmt in setup_sql:
+                con.execute(stmt)
+            rows = [list(r) for r in con.execute(query_sql).fetchall()]
+            con.close()
+        except Exception as exc:
+            return False, f"sqlite3 raised: {exc}"
+        if rows != expected_rows:
+            return False, f"query returned {rows!r}, expected {expected_rows!r}"
+        return True, f"sqlite3 roundtrip ok: {len(rows)} row(s)"
 
     # -------------------------------------------------------------------------
     # CLI / subprocess pattern handlers
