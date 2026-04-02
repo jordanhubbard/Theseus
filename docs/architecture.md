@@ -47,9 +47,16 @@ The Nixpkgs importer uses regex heuristics on `default.nix` files rather than ev
 - The `confidence` score reflects field presence, not parse correctness. A record can have `confidence: 0.95` and still contain a wrong dependency list if the Nix source used a non-obvious pattern.
 - For higher accuracy, run `nix-instantiate --eval --json` against each package and feed the result to a future importer variant.
 
-### FreeBSD Ports: slave ports are not imported
+### FreeBSD Ports: slave port support
 
-FreeBSD Ports uses a "slave port" pattern where a port sets `MASTERDIR` to point to a sibling directory and inherits most of its Makefile. Slave port Makefiles typically don't set `PORTNAME` directly, so the importer returns `None` for them and they are silently skipped. Slave ports are common for packages that build multiple variants (e.g. `openssl` vs `openssl-legacy`). A future importer should detect `MASTERDIR`, follow it, and merge the slave-specific variables into the inherited record.
+FreeBSD Ports uses a "slave port" pattern where a port sets `MASTERDIR` to point to a sibling directory and inherits most of its Makefile. The importer handles this via `_resolve_masterdir()` (see `theseus/importer.py`): when `MASTERDIR` is detected, the master Makefile is loaded and its variables are merged as defaults, with the slave's own variables taking precedence. The slave's source path is preserved in `provenance.warnings` for traceability.
+
+Three common `MASTERDIR` patterns are resolved:
+- `${.CURDIR}/../<portname>` — sibling in same category
+- `${.CURDIR}/../../<cat>/<portname>` — port in a different category
+- `${.CURDIR:H:H}/<cat>/<portname>` — using `:H` (head = parent) modifiers
+
+If `MASTERDIR` contains unresolvable make variables or the resolved path does not exist, the port is still imported with a warning rather than silently skipped.
 
 ## Tools
 
