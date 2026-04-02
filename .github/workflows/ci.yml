@@ -8,11 +8,12 @@ on:
 
 jobs:
   test:
-    name: "Python ${{ matrix.python-version }}"
-    runs-on: ubuntu-latest
+    name: "Python ${{ matrix.python-version }} / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
@@ -22,11 +23,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install test dependencies
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Python test dependencies
         run: pip install pytest
+
+      - name: Install Node.js test dependencies (semver)
+        run: npm install
+
+      - name: Validate Z-spec files
+        run: make validate-zspecs
 
       - name: Run tests
         run: make test
 
       - name: Validate example records
-        run: make validate --quiet
+        run: python3 tools/validate_record.py examples/ --quiet
