@@ -6,28 +6,42 @@
 
 ## Features
 
+### Package recipe pipeline
+
 - **Canonical JSON schema** (`schema/package-recipe.schema.json`) — covers identity, dependencies, build system, sources, patches, platforms, features, tests, and provenance
 - **Bootstrap importer** (`tools/bootstrap_canonical_recipes.py`) — walks Nixpkgs and FreeBSD Ports trees and emits canonical records into a snapshot directory
 - **Overlap report** (`tools/overlap_report.py`) — identifies packages present in both ecosystems, present only in one, and those with version skew
 - **Candidate ranker** (`tools/top_candidates.py`) — scores packages as first candidates for downstream extraction using heuristics: dual-ecosystem presence, provenance confidence, dependency count, test coverage, patch complexity
-- **Phase Z extractor** (`tools/extract_candidates.py`) — takes the ranked candidate list and produces one merged record per top-N package: unified dependencies, maintainers, sources, and a structured analysis section covering version agreement, confidence, license agreement, and deprecation status across ecosystems
-- **Record validator** (`tools/validate_record.py`) — validates canonical records against schema rules; reports type errors, missing fields, and out-of-range confidence scores
+- **Phase Z extractor** (`tools/extract_candidates.py`) — takes the ranked candidate list and produces one merged record per top-N package: unified dependencies, maintainers, sources, and a structured analysis section covering version agreement, confidence, license agreement, and deprecation status across ecosystems; auto-injects `behavioral_spec` for any candidate that has a matching Z-spec
+- **Record validator** (`tools/validate_record.py`) — validates canonical records against schema rules; reports type errors, missing fields, and out-of-range confidence scores; runs the behavioral spec harness for records with a `behavioral_spec` field
 - **Snapshot diff** (`tools/diff_snapshots.py`) — compares two snapshot directories and classifies every package as added, removed, version-changed, or unchanged; tracks ecosystem drift between bootstrap runs
+
+### Z-layer behavioral spec system
+
+- **15 behavioral specs** (`zspecs/*.zspec.json`) — machine-readable contracts covering zlib, hashlib, base64, json, struct, datetime, pathlib, re, sqlite3, openssl, curl, semver, ajv, uuid, minimist
+- **Verification harness** (`tools/verify_behavior.py`) — runs every invariant against the real installed library; supports ctypes (C shared libs), python_module (Python stdlib/packages), and cli (subprocesses + Node.js npm packages) backends
+- **Spec validator** (`tools/validate_zspec.py`) — validates spec files against `zspecs/schema/behavioral-spec.schema.json`
+- **Batch runner** (`tools/verify_all_specs.py`) — runs all specs and writes a JSON results file for CI dashboards and regression tracking
+- **Coverage reporter** (`tools/spec_coverage.py`) — shows which extracted candidates have a behavioral spec and which are gaps
+- **Watch mode** (`--watch`) — polls the spec file and reruns on every save for TDD-style authoring
+- **Baseline/diff mode** (`--baseline`) — diffs a run against a saved results file, reports regressions
 
 ## Quick Start
 
 ### Requirements
 
 - Python 3.9+
-- No third-party runtime dependencies (stdlib only)
+- Node.js 22+ and npm (for Node.js-backed Z-specs: semver, ajv, uuid, minimist)
 - `pytest` for running the test suite
+- `packaging` (optional; improves `spec_for_versions` range checking — usually already installed with pip)
 
 ### Install
 
 ```bash
 git clone https://github.com/jordanhubbard/Theseus
 cd Theseus
-pip install pytest   # only external dependency; needed for make test
+pip install pytest   # needed for make test
+npm install          # installs semver, ajv, uuid, minimist (needed for Node.js Z-specs)
 make                 # verifies Python version, prints usage
 ```
 
@@ -62,21 +76,46 @@ make extract SNAPSHOT=./snapshots/2026-03-26
 
 Reports land in `reports/`. Extractions land in `reports/extractions/`, one JSON per package plus a `manifest.json`.
 
+**5. Run behavioral spec verification** (optional but recommended):
+
+```bash
+make verify-all-specs            # run all 15 specs, text summary
+make verify-all-specs-json       # same, writes JSON results file
+python3 tools/verify_behavior.py zspecs/zlib.zspec.json --watch   # TDD mode
+```
+
+**6. Check which candidates have behavioral specs:**
+
+```bash
+make spec-coverage EXTRACTION_DIR=reports/extractions/
+```
+
 ## Project Layout
 
 ```
 theseus/
   theseus/        — Python package: core importer logic (theseus/importer.py)
-  tools/          — CLI analysis scripts (overlap_report.py, top_candidates.py, …)
+  tools/          — CLI analysis and verification scripts
+    bootstrap_canonical_recipes.py  — entry-point shim (logic in theseus/importer.py)
+    overlap_report.py               — compare ecosystems
+    top_candidates.py               — rank packages by score
+    extract_candidates.py           — phase Z: merge top candidates
+    validate_record.py              — validate canonical records
+    diff_snapshots.py               — diff two snapshot directories
+    verify_behavior.py              — Z-spec harness: run invariants against library
+    validate_zspec.py               — Z-spec static schema validator
+    verify_all_specs.py             — run all specs, write JSON results
+    spec_coverage.py                — report covered vs gap candidates
   schema/         — JSON Schema for canonical package recipe records
+  zspecs/         — Z-layer behavioral spec files (*.zspec.json)
+    schema/       — JSON Schema for Z-spec files (behavioral-spec.schema.json)
   examples/
     freebsd_ports/ — Sample FreeBSD Ports canonical records (curl, openssl, zlib)
     nixpkgs/       — Sample Nixpkgs canonical records (curl, openssl, zlib)
   snapshots/      — Generated: importer output (one subdirectory per run)
   reports/        — Generated: overlap reports, rankings, extractions
-  tests/          — Test suite
+  tests/          — Test suite (1025 tests)
   docs/           — Architecture and design documentation
-  tools/bootstrap_canonical_recipes.py  — Entry-point shim (logic in theseus/importer.py)
 ```
 
 ## Schema
@@ -96,6 +135,7 @@ The canonical schema (`schema/package-recipe.schema.json`) captures:
 | `tests` | Test phase presence and structure |
 | `provenance` | Source path, commit, importer, confidence score, warnings, unmapped fields |
 | `extensions` | Ecosystem-specific extra fields (passthrough, no normalization) |
+| `behavioral_spec` | Optional: repo-relative path to a matching `zspecs/*.zspec.json` (auto-injected by extractor) |
 
 The schema is intentionally modest. It captures enough structure to compare ecosystems, rank packages, and feed later extraction phases while preserving provenance and lossiness signals. It is not a full semantic model of Nix or FreeBSD Ports.
 

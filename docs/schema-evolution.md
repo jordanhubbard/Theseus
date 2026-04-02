@@ -17,7 +17,7 @@ This means:
 
 | Version | Changes |
 |---------|---------|
-| 0.2 | Promoted `maintainers` (list of strings) into `descriptive`. Added `deprecated` (bool) and `expiration_date` (string, ISO-8601) to `descriptive`. Added `conflicts` (list of package name strings) as a required top-level field. |
+| 0.2 | Promoted `maintainers` (list of strings) into `descriptive`. Added `deprecated` (bool) and `expiration_date` (string, ISO-8601) to `descriptive`. Added `conflicts` (list of package name strings) as a required top-level field. Added `behavioral_spec` (string, optional) — repo-relative path to a matching Z-layer behavioral spec file. |
 | 0.1 | Initial schema. All top-level required fields established. |
 
 ## When a version bump is needed
@@ -47,3 +47,21 @@ These fields appear in `unmapped` or `extensions` across real records and may be
 | `outputs` | nixpkgs | Multi-output derivations (dev, lib, doc, etc.) |
 | `passthru` | nixpkgs | Arbitrary attrs passed to dependents |
 | `PKGORIGIN` | freebsd_ports | Category/portname, useful for deduplication |
+
+---
+
+## Z-Layer Behavioral Spec Schema
+
+The behavioral spec system has its own schema, separate from the package recipe schema. It lives in `zspecs/schema/behavioral-spec.schema.json` and is also versioned.
+
+| Version | Changes |
+|---------|---------|
+| 0.1 | Initial schema. Defines `identity`, `provenance`, `library`, `constants`, `types`, `functions`, `invariants`, `wire_formats`, `error_model`. Invariant `kind` enum covers 30 execution patterns across ctypes, python_module, cli, and node backends. |
+
+The Z-spec schema uses `additionalProperties: true` on most sub-objects so that spec authors can annotate invariants with `rfc_reference`, `skip_if`, or other metadata without requiring a schema bump. A bump is needed only if the `kind` enum, required invariant fields, or required top-level fields change.
+
+When adding a new invariant `kind`:
+1. Add it to the `kind` enum in `zspecs/schema/behavioral-spec.schema.json`.
+2. Add it to `KNOWN_KINDS` in `tools/verify_behavior.py` and `tools/validate_zspec.py` (kept in sync by comment).
+3. Implement a `_<kind>` handler method in `PatternRegistry`.
+4. Write tests in the appropriate `tests/test_verify_behavior_*.py` file.
