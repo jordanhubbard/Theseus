@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate diff sync rank bulk-build seed import-pypi import-npm verify-behavior help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm verify-behavior help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -47,7 +47,11 @@ stop:
 restart: stop start
 
 test:
+	python3 tools/validate_zspec.py
 	python3 -m pytest tests/ -v
+
+validate-zspecs:
+	python3 tools/validate_zspec.py $(ZSPECS)
 
 clean:
 	rm -rf snapshots/ reports/demo-overlap reports/demo-candidates.json
@@ -134,7 +138,8 @@ help:
 	@echo "  make start          Run analysis (SNAPSHOT=path, or demo on examples/)"
 	@echo "  make stop           No-op (batch tool, no daemon)"
 	@echo "  make restart        stop + start"
-	@echo "  make test           Run test suite (requires pytest)"
+	@echo "  make test           Validate Z-specs then run test suite (requires pytest)"
+	@echo "  make validate-zspecs  Validate Z-spec JSON files against schema (ZSPECS=path optional)"
 	@echo "  make clean          Remove generated artifacts"
 	@echo "  make report         Run overlap report (requires SNAPSHOT=)"
 	@echo "  make candidates     Run candidate ranking (requires SNAPSHOT=)"
