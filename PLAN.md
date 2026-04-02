@@ -1,128 +1,118 @@
 # Theseus — Next Steps
 
-Current state: The Z-layer behavioral spec system (`zspecs/`, `tools/verify_behavior.py`) is working
-across three backends (ctypes, python_module, cli) with 7 specs and 744 tests passing. The core
-Theseus pipeline (bootstrap → overlap → rank → extract) is also working. The two systems have not
-yet been connected.
+Current state (2026-04-01): 12 Z-layer specs, 216 invariants, 907 tests passing.
+Backends: ctypes, python_module, cli (node included). Schema validation, cross-spec
+interoperability, behavioral_spec wired into recipe records and extraction, CI on
+linux+macos, --baseline/--diff mode, make verify-all-specs all in place.
 
 ---
 
-## 1. Connect Z-specs to Package Recipes
+## 1. More Z-Specs: Fill Out the Candidate Library
 
-The behavioral spec system was built in isolation. The payoff comes when a `package-recipe.schema.json`
-record can reference the Z-spec that governs it.
+The extraction pipeline now auto-injects `behavioral_spec` for any library that has a
+matching spec. High-value additions:
 
-- Add an optional `"behavioral_spec"` field to `schema/package-recipe.schema.json` pointing to a
-  relative path like `"zspecs/openssl.zspec.json"`.
-- Update `tools/validate_record.py` to, when `behavioral_spec` is present, load the spec and run
-  `verify_behavior.py` against it as part of validation.
-- Update `examples/` records for `openssl`, `zlib`, and `curl` (once a curl spec exists) to
-  reference their specs.
-
-**Why now:** The Z-spec system has proven it scales. Wiring it into record validation closes the
-loop: a canonical record is only trustworthy if the library it describes passes its own behavioral
-invariants on the current machine.
-
----
-
-## 2. Write Z-Specs for the Remaining Candidate Libraries
-
-The top extraction candidates (curl, zlib, openssl) are already in `examples/`. Only zlib and
-openssl have Z-specs. Priority order:
-
-| Library     | Backend       | Key invariants to cover                              |
-|-------------|---------------|------------------------------------------------------|
-| `curl`      | cli           | `--version` exits 0, HTTP GET returns 200, TLS works |
-| `sqlite3`   | python_module | `connect()`, `execute()`, round-trip insert/select   |
-| `libz`/zlib | ctypes        | already done — extend with `uncompress` roundtrip    |
-| `re` (stdlib)| python_module | `match`, `search`, `sub`, `compile` + flags          |
-
-**Why:** Having Z-specs for the top-N candidates means `extract_candidates.py` can emit records that
-carry verified behavioral contracts, not just metadata.
+| Library       | Backend       | Notes                                              |
+|---------------|---------------|----------------------------------------------------|
+| `zstd`        | ctypes        | Compression library; cross-spec invariant vs zlib  |
+| `libssl`      | ctypes        | Low-level TLS; cross-spec vs openssl CLI spec      |
+| `pathlib`     | python_module | stdlib Path API; pure functions, easy              |
+| `datetime`    | python_module | stdlib; parsing, formatting, arithmetic            |
+| `hashlib` ext | python_module | Already done; add sha3_256, blake2b vectors        |
+| `chalk`       | cli (node)    | ANSI stripping when NO_COLOR is set                |
+| `ajv`         | cli (node)    | Requires new `node_constructor_call_eq` kind for `new Ajv()` |
 
 ---
 
-## 3. Schema Validation of `.zspec.json` Files
+## 2. `node_constructor_call_eq` Kind
 
-`zspecs/schema/behavioral-spec.schema.json` exists but is not enforced anywhere.
+Some npm packages export a class rather than plain functions (Ajv, Winston, etc.).
+The current `node_module_call_eq` handler calls `m[fn](...args)` which doesn't work
+for constructor-based APIs.
 
-- Add a `tools/validate_zspec.py` script that validates all `zspecs/*.zspec.json` files against
-  the schema using stdlib `json` + a minimal JSON Schema validator, or `jsonschema` if it is
-  available.
-- Add `make validate-zspecs` target to the Makefile.
-- Run `validate_zspec.py` as part of `make test`.
-
-**Why:** Currently the spec files are only validated structurally by `SpecLoader` at runtime. Static
-schema validation catches typos and missing fields before the harness ever runs.
-
----
-
-## 4. Multi-Platform CI Verification
-
-The `verify_behavior.py` harness exists to catch platform divergence. It only has value if it runs
-on all three platforms (macOS, Linux, FreeBSD).
-
-- Add a CI job (GitHub Actions) that runs `make test` on ubuntu-latest.
-- Add a CI job that SSHes to `freebsd.local` and runs `make test` there (or use the existing
-  FreeBSD worker setup documented in memory).
-- Flag any invariant that passes on one platform but not another as a **known divergence** — add a
-  `platform_notes` field to the invariant in the spec.
-
-**Why:** The whole point of the Z-layer is cross-platform behavioral contracts. A spec that only
-runs on macOS isn't verifying much.
+- Add a `node_constructor_call_eq` kind that calls `new m.ClassName(ctorArgs)` to
+  create an instance, then calls `instance[method](...args)` and compares the result.
+- Register in KNOWN_KINDS, PatternRegistry, schema enum, validator.
+- Write `zspecs/ajv.zspec.json` using it: compile a schema, validate passing and
+  failing objects.
 
 ---
 
-## 5. Slave Port Support in the FreeBSD Importer
+## 3. Snapshot-Level Z-Spec Coverage Report
 
-Documented in `docs/architecture.md` as a known limitation. Slave ports are silently skipped,
-which means variants like `openssl-legacy` are invisible to the ranker and extractor.
+`extract_candidates.py` auto-injects `behavioral_spec` for known libraries. But there
+is no visibility into which fraction of the top-N candidates have a spec.
 
-- In `theseus/importer.py`, detect `MASTERDIR =` in the Makefile.
-- Follow the path, load the master Makefile, merge slave-specific variables on top.
-- Emit a record with `provenance.notes` indicating it is a slave port.
-
-**Why:** Several high-value packages (openssl variants, python versions) use this pattern. Skipping
-them skews the overlap report and ranking.
-
----
-
-## 6. `node_module_call_eq` — Expand to More npm Packages
-
-The Node.js backend works. Natural next specs:
-
-| Package   | Key invariants                                      |
-|-----------|-----------------------------------------------------|
-| `uuid`    | `v4()` returns a valid UUID, `validate()` works     |
-| `ajv`     | Schema validation passes/fails as expected          |
-| `chalk`   | Color output strips ANSI when `NO_COLOR` is set     |
-| `minimist`| Argument parsing (flags, values, `--` separator)    |
-
-These are useful for two reasons: (1) they stress-test the `node_module_call_eq` kind with more
-complex return types, and (2) they generate Z-specs for the npm packages that Theseus will
-eventually normalize across registries.
+- Add a `--coverage-report` flag to `extract_candidates.py` (or a new
+  `tools/spec_coverage.py`) that scans the extraction output and prints:
+  - Total candidates extracted
+  - Candidates with a behavioral_spec (covered)
+  - Candidates without (gap list, sorted by score)
+- Add a `make spec-coverage` Makefile target.
 
 ---
 
-## 7. `verify_behavior --diff` Mode
+## 4. `verify_behavior` Watch Mode
 
-When a spec is re-run after a library upgrade, it would be useful to see which invariants changed
-status (pass→fail or fail→pass) rather than just the current pass/fail count.
+For development of new specs, re-running the harness manually after each edit is
+friction. Add a `--watch` flag that uses `watchfiles` (or stdlib polling) to re-run
+the spec on every save.
 
-- Add a `--baseline` flag to `verify_behavior.py` that reads a previous `--json-out` file.
-- Print a diff: invariants that flipped from pass to fail (regressions), fail to pass (fixes), and
-  newly added or removed invariants.
+- Add `--watch` to `verify_behavior.py` argument parser.
+- On each file-change event, clear the terminal and re-run the spec.
+- Useful for TDD-style spec authoring: edit → save → see results instantly.
 
-**Why:** This makes the harness useful for tracking upgrade safety — the same use case as the
-`diff_snapshots.py` tool but for behavioral contracts rather than metadata.
+---
+
+## 5. FreeBSD CI Job
+
+The GitHub Actions workflow now covers ubuntu-latest and macos-latest. FreeBSD
+behavioral divergences (LibreSSL vs OpenSSL, different libc errno values) are only
+caught locally via the self-hosted worker.
+
+- Add a GitHub Actions job using `cross-platform-actions/action@v0.25.0` (free,
+  runs FreeBSD in a VM) to run `make test` on FreeBSD 14.
+- On failure, compare JSON output against the macOS baseline and report divergences
+  with the --baseline flag.
+- Document any platform-specific `skip_if` conditions needed in the specs.
+
+---
+
+## 6. Spec Versioning and `spec_for_versions` Enforcement
+
+Every spec has a `spec_for_versions` range (e.g. `">=1.3.0"`) but the harness never
+checks it against the actual installed library version.
+
+- In `LibraryLoader`, after loading the library, call the `version_function` (if set)
+  to get the installed version string.
+- If the version does not satisfy `spec_for_versions`, emit a warning and optionally
+  exit with a dedicated exit code.
+- Add `skip_if` support for version-gated invariants: if an invariant's `skip_if`
+  expression evaluates to True given `lib_version`, skip it with a clear message.
+
+`skip_if` support is already present in `InvariantRunner` but the version string is
+hardcoded to `""` — just wire in the real version.
+
+---
+
+## 7. Export `verify-all-specs` Results to JSON
+
+`make verify-all-specs` prints a text summary but throws away the per-spec results.
+Useful for CI dashboards and regression tracking.
+
+- Add a `tools/verify_all_specs.py` script that runs all specs in `zspecs/` and
+  writes a single JSON file with per-spec results, per-invariant pass/fail, and an
+  aggregate summary.
+- Add `make verify-all-specs-json OUT=<file>` Makefile target.
+- This output can feed the `--baseline` mode for cross-version comparisons.
 
 ---
 
 ## Order of Attack
 
-1. **Schema validation** (step 3) — quick, high-value, unblocks everything else.
-2. **Connect specs to recipes** (step 1) — closes the loop between the two systems.
-3. **curl Z-spec** (step 2) — the most visible missing spec given `curl` is in examples/.
-4. **Slave port support** (step 5) — improves data quality for the ranker.
-5. **Multi-platform CI** (step 4) — validates the cross-platform story.
-6. **diff mode** (step 7) and **more npm specs** (step 6) — once the core is solid.
+1. **node_constructor_call_eq** (step 2) + **ajv spec** — extends the Node backend.
+2. **More stdlib specs** (datetime, pathlib) from step 1 — low effort, high coverage.
+3. **spec_for_versions enforcement** (step 6) — closes a correctness gap.
+4. **spec_coverage report** (step 3) — visibility into the gap list.
+5. **verify-all-specs JSON export** (step 7) — feeds the CI dashboard story.
+6. **FreeBSD CI** (step 5) and **watch mode** (step 4) — polish.
