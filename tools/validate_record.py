@@ -18,9 +18,12 @@ Options:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ---------------------------------------------------------------------------
 # Schema rules (derived from schema/package-recipe.schema.json)
@@ -194,7 +197,50 @@ def validate_record(rec: dict, filename: str, strict: bool = False) -> list[str]
         if val is not None and not isinstance(val, dict):
             e(field, "must be an object")
 
+    # behavioral_spec — optional; when present, run verify_behavior and report failures
+    bspec = rec.get("behavioral_spec")
+    if bspec is not None:
+        if not isinstance(bspec, str):
+            e("behavioral_spec", "must be a string path to a .zspec.json file")
+        else:
+            bspec_path = REPO_ROOT / bspec
+            if not bspec_path.exists():
+                e("behavioral_spec", f"file not found: {bspec_path}")
+            else:
+                issues += _run_behavioral_spec(bspec_path, filename)
+
     return issues
+
+
+def _run_behavioral_spec(spec_path: Path, record_name: str) -> list[str]:
+    """
+    Load and run verify_behavior against spec_path.
+    Returns a list of ERROR strings for any invariants that fail or if the
+    library cannot be loaded (treated as a WARN — the library may not be
+    installed on the validating machine).
+    """
+    vb_path = REPO_ROOT / "tools" / "verify_behavior.py"
+    spec = importlib.util.spec_from_file_location("verify_behavior", vb_path)
+    vb = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(vb)  # type: ignore[union-attr]
+
+    try:
+        zspec = vb.SpecLoader().load(spec_path)
+        lib   = vb.LibraryLoader().load(zspec["library"])
+    except vb.LibraryNotFoundError as exc:
+        return [f"  WARN   {record_name}:behavioral_spec: library not available — {exc}"]
+    except Exception as exc:
+        return [f"  ERROR  {record_name}:behavioral_spec: failed to load spec — {exc}"]
+
+    runner  = vb.InvariantRunner()
+    results = runner.run_all(zspec, lib)
+    failed  = [r for r in results if not r.passed and not r.skip_reason]
+    if not failed:
+        return []
+    lines = [f"  ERROR  {record_name}:behavioral_spec: {len(failed)} invariant(s) failed:"]
+    for r in failed:
+        lines.append(f"           FAIL  {r.inv_id}: {r.message}")
+    return lines
 
 
 # ---------------------------------------------------------------------------

@@ -348,3 +348,47 @@ def test_validate_nonexistent_path(tmp_path):
     missing = tmp_path / "does_not_exist.json"
     invalid, total = vr.validate_paths([missing], strict=False, quiet=True)
     assert invalid >= 1
+
+
+# ---------------------------------------------------------------------------
+# behavioral_spec field tests
+# ---------------------------------------------------------------------------
+
+def test_behavioral_spec_not_a_string_is_error():
+    rec = _make_record()
+    rec["behavioral_spec"] = 123
+    issues = vr.validate_record(rec, "test.json")
+    assert any("behavioral_spec" in i and "string" in i for i in issues)
+
+
+def test_behavioral_spec_missing_file_is_error(tmp_path):
+    rec = _make_record()
+    rec["behavioral_spec"] = "zspecs/does_not_exist.zspec.json"
+    issues = vr.validate_record(rec, "test.json")
+    assert any("behavioral_spec" in i and "not found" in i for i in issues)
+
+
+def test_behavioral_spec_valid_zlib_passes():
+    """A record pointing at the real zlib spec should produce no behavioral errors."""
+    rec = _make_record()
+    rec["behavioral_spec"] = "zspecs/zlib.zspec.json"
+    issues = vr.validate_record(rec, "test.json")
+    # Filter to just behavioral_spec issues (non-WARN)
+    errors = [i for i in issues if "behavioral_spec" in i and "ERROR" in i]
+    assert not errors, errors
+
+
+def test_behavioral_spec_valid_openssl_passes():
+    """A record pointing at the real openssl spec should produce no behavioral errors."""
+    rec = _make_record()
+    rec["behavioral_spec"] = "zspecs/openssl.zspec.json"
+    issues = vr.validate_record(rec, "test.json")
+    errors = [i for i in issues if "behavioral_spec" in i and "ERROR" in i]
+    assert not errors, errors
+
+
+def test_examples_with_behavioral_spec_pass():
+    """All example records that have behavioral_spec set should validate cleanly."""
+    examples_dir = REPO_ROOT / "examples"
+    invalid, total = vr.validate_paths([examples_dir], strict=False, quiet=True)
+    assert invalid == 0
