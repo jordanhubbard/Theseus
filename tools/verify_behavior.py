@@ -1259,6 +1259,13 @@ def main(argv=None) -> int:
             "Exits non-zero if there are any regressions."
         ),
     )
+    parser.add_argument(
+        "--watch", action="store_true",
+        help=(
+            "Re-run the spec automatically whenever the .zspec.json file is saved. "
+            "Clears the terminal before each run. Press Ctrl-C to stop."
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -1281,55 +1288,92 @@ def main(argv=None) -> int:
             )
         return 0
 
-    lib_version = _get_lib_version(spec["library"], lib)
-    ver_ok, ver_warn = _check_spec_version(
-        spec.get("identity", {}).get("spec_for_versions", ""),
-        lib_version,
-    )
-    if lib_version:
-        print(f"Library version: {lib_version}")
-    if not ver_ok:
-        print(f"WARNING: {ver_warn}", file=sys.stderr)
+    def _run_once() -> int:
+        lib_version = _get_lib_version(spec["library"], lib)
+        ver_ok, ver_warn = _check_spec_version(
+            spec.get("identity", {}).get("spec_for_versions", ""),
+            lib_version,
+        )
+        if lib_version:
+            print(f"Library version: {lib_version}")
+        if not ver_ok:
+            print(f"WARNING: {ver_warn}", file=sys.stderr)
 
-    runner = InvariantRunner()
-    results = runner.run_all(spec, lib, filter_category=args.filter_category, lib_version=lib_version)
+        runner = InvariantRunner()
+        results = runner.run_all(spec, lib, filter_category=args.filter_category, lib_version=lib_version)
 
-    passed  = sum(1 for r in results if r.passed and not r.skip_reason)
-    failed  = sum(1 for r in results if not r.passed)
-    skipped = sum(1 for r in results if r.skip_reason)
+        passed  = sum(1 for r in results if r.passed and not r.skip_reason)
+        failed  = sum(1 for r in results if not r.passed)
+        skipped = sum(1 for r in results if r.skip_reason)
 
-    for r in results:
-        if r.skip_reason:
-            tag = "SKIP"
-        elif r.passed:
-            tag = "PASS"
-        else:
-            tag = "FAIL"
-        if not r.passed or r.skip_reason or args.verbose:
-            print(f"  {tag}  {r.inv_id}: {r.message}")
+        for r in results:
+            if r.skip_reason:
+                tag = "SKIP"
+            elif r.passed:
+                tag = "PASS"
+            else:
+                tag = "FAIL"
+            if not r.passed or r.skip_reason or args.verbose:
+                print(f"  {tag}  {r.inv_id}: {r.message}")
 
-    print(f"\n{len(results)} invariants: {passed} passed, {failed} failed, {skipped} skipped")
+        print(f"\n{len(results)} invariants: {passed} passed, {failed} failed, {skipped} skipped")
 
-    out = [
-        {
-            "id": r.inv_id,
-            "passed": r.passed,
-            "message": r.message,
-            "skip_reason": r.skip_reason,
-        }
-        for r in results
-    ]
+        out = [
+            {
+                "id": r.inv_id,
+                "passed": r.passed,
+                "message": r.message,
+                "skip_reason": r.skip_reason,
+            }
+            for r in results
+        ]
 
-    if args.json_out:
-        args.json_out.write_text(json.dumps(out, indent=2), encoding="utf-8")
+        if args.json_out:
+            args.json_out.write_text(json.dumps(out, indent=2), encoding="utf-8")
 
-    if args.baseline:
-        regressions = _diff_results(args.baseline, out)
-        if regressions > 0:
-            return 1
+        if args.baseline:
+            regressions = _diff_results(args.baseline, out)
+            if regressions > 0:
+                return 1
+            return 0
+
+        return 1 if failed > 0 else 0
+
+    if not args.watch:
+        return _run_once()
+
+    # --watch mode: poll the spec file for changes and re-run on every save
+    import time as _time
+    import os as _os
+    spec_file = args.spec.resolve()
+    try:
+        last_mtime = spec_file.stat().st_mtime
+    except OSError:
+        last_mtime = 0.0
+    print(f"Watching {spec_file} — press Ctrl-C to stop.\n")
+    # Run immediately on startup
+    _os.system("clear" if sys.platform != "win32" else "cls")
+    _run_once()
+    try:
+        while True:
+            _time.sleep(0.5)
+            try:
+                mtime = spec_file.stat().st_mtime
+            except OSError:
+                continue
+            if mtime != last_mtime:
+                last_mtime = mtime
+                _os.system("clear" if sys.platform != "win32" else "cls")
+                # Reload spec from disk on each change
+                try:
+                    spec.update(SpecLoader().load(spec_file))
+                except SpecError as exc:
+                    print(f"ERROR reloading spec: {exc}", file=sys.stderr)
+                    continue
+                _run_once()
+    except KeyboardInterrupt:
+        print("\nWatch mode stopped.")
         return 0
-
-    return 1 if failed > 0 else 0
 
 
 def _diff_results(baseline_path: Path, current: list[dict]) -> int:

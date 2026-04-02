@@ -1,6 +1,7 @@
 # Theseus — Next Steps
 
-Current state (2026-04-02): 15 Z-layer specs, 257 invariants, 1018 tests passing.
+Current state (2026-04-02): 15 Z-layer specs, 257 invariants, 1025 tests passing.
+All 6 planned items from this cycle completed.
 Backends: ctypes, python_module, cli (node included). Schema validation, cross-spec
 interoperability, behavioral_spec wired into recipe records and extraction, CI on
 linux+macos, --baseline/--diff mode, make verify-all-specs all in place.
@@ -116,4 +117,4 @@ Useful for CI dashboards and regression tracking.
 3. ~~**spec_for_versions enforcement** (step 6) — closes a correctness gap.~~ ✓ DONE
 4. ~~**spec_coverage report** (step 3) — visibility into the gap list.~~ ✓ DONE
 5. ~~**verify-all-specs JSON export** (step 7) — feeds the CI dashboard story.~~ ✓ DONE
-6. **FreeBSD CI** (step 5) and **watch mode** (step 4) — polish.
+6. ~~**FreeBSD CI** (step 5) and **watch mode** (step 4) — polish.~~ ✓ DONE
