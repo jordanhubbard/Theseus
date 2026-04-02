@@ -924,13 +924,18 @@ class PatternRegistry:
     # so args round-trip without any transformation.
     def _node_module_call_eq(self, spec: dict) -> tuple[bool, str]:
         module   = spec.get("module") or getattr(self._lib, "module_name", None)
-        fn_name  = spec["function"]
+        fn_name  = spec.get("function")   # None → call the module itself as a function
         args     = spec.get("args", [])
         expected = spec["expected"]
         args_js  = json.dumps(args)
+        # When fn_name is None the module is a plain callable (e.g. minimist).
+        if fn_name:
+            call_expr = f"m[{json.dumps(fn_name)}](...{args_js})"
+        else:
+            call_expr = f"m(...{args_js})"
         script = (
             f"const m=require({json.dumps(module)});"
-            f"process.stdout.write(JSON.stringify(m[{json.dumps(fn_name)}](...{args_js})))"
+            f"process.stdout.write(JSON.stringify({call_expr}))"
         )
         cmd = [self._lib.command, "-e", script]
         try:
@@ -942,11 +947,13 @@ class PatternRegistry:
         if proc.returncode != 0:
             stderr = proc.stderr.decode("utf-8", errors="replace").strip()
             return False, f"node exited {proc.returncode}: {stderr!r}"
-        actual       = proc.stdout.decode("utf-8", errors="replace").strip()
-        expected_json = json.dumps(expected)
+        actual        = proc.stdout.decode("utf-8", errors="replace").strip()
+        # Use compact separators to match JSON.stringify's no-space output.
+        expected_json = json.dumps(expected, separators=(",", ":"))
+        label         = fn_name or "<module>"
         if actual != expected_json:
-            return False, f"{fn_name}({args!r}) returned {actual!r}, expected {expected_json!r}"
-        return True, f"{fn_name}({args!r}) == {expected!r}"
+            return False, f"{label}({args!r}) returned {actual!r}, expected {expected_json!r}"
+        return True, f"{label}({args!r}) == {expected!r}"
 
 
 # ---------------------------------------------------------------------------
