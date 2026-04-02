@@ -1031,6 +1031,14 @@ def main(argv=None) -> int:
         "--json-out", type=Path,
         help="Write results as JSON to this file",
     )
+    parser.add_argument(
+        "--baseline", type=Path,
+        help=(
+            "Compare results against a previous --json-out file. "
+            "Prints regressions (pass→fail), fixes (fail→pass), and new/removed invariants. "
+            "Exits non-zero if there are any regressions."
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -1072,19 +1080,85 @@ def main(argv=None) -> int:
 
     print(f"\n{len(results)} invariants: {passed} passed, {failed} failed, {skipped} skipped")
 
+    out = [
+        {
+            "id": r.inv_id,
+            "passed": r.passed,
+            "message": r.message,
+            "skip_reason": r.skip_reason,
+        }
+        for r in results
+    ]
+
     if args.json_out:
-        out = [
-            {
-                "id": r.inv_id,
-                "passed": r.passed,
-                "message": r.message,
-                "skip_reason": r.skip_reason,
-            }
-            for r in results
-        ]
         args.json_out.write_text(json.dumps(out, indent=2), encoding="utf-8")
 
+    if args.baseline:
+        regressions = _diff_results(args.baseline, out)
+        if regressions > 0:
+            return 1
+        return 0
+
     return 1 if failed > 0 else 0
+
+
+def _diff_results(baseline_path: Path, current: list[dict]) -> int:
+    """
+    Load baseline results from baseline_path, diff against current results,
+    print a summary, and return the number of regressions (pass→fail).
+    """
+    try:
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"ERROR reading baseline {baseline_path}: {exc}", file=sys.stderr)
+        return 1
+
+    b_by_id = {r["id"]: r for r in baseline}
+    c_by_id = {r["id"]: r for r in current}
+
+    regressions: list[str] = []
+    fixes:       list[str] = []
+    added:       list[str] = []
+    removed:     list[str] = []
+
+    for inv_id, cur in c_by_id.items():
+        if inv_id not in b_by_id:
+            added.append(inv_id)
+        else:
+            b_passed = b_by_id[inv_id]["passed"]
+            c_passed = cur["passed"]
+            if b_passed and not c_passed:
+                regressions.append(f"  REGRESSION  {inv_id}: {cur['message']}")
+            elif not b_passed and c_passed:
+                fixes.append(f"  FIXED       {inv_id}: {cur['message']}")
+
+    for inv_id in b_by_id:
+        if inv_id not in c_by_id:
+            removed.append(inv_id)
+
+    if regressions:
+        print(f"\nRegressions ({len(regressions)}):")
+        for line in regressions:
+            print(line)
+    if fixes:
+        print(f"\nFixes ({len(fixes)}):")
+        for line in fixes:
+            print(line)
+    if added:
+        print(f"\nNew invariants ({len(added)}): {', '.join(added)}")
+    if removed:
+        print(f"\nRemoved invariants ({len(removed)}): {', '.join(removed)}")
+
+    if not regressions and not fixes and not added and not removed:
+        print("\nDiff: no changes vs baseline.")
+    else:
+        print(
+            f"\nDiff vs {baseline_path.name}: "
+            f"{len(regressions)} regression(s), {len(fixes)} fix(es), "
+            f"{len(added)} added, {len(removed)} removed"
+        )
+
+    return len(regressions)
 
 
 if __name__ == "__main__":

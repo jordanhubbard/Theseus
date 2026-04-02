@@ -13,6 +13,7 @@ Organized as:
   - openssl spec integration: all 16 invariants pass
   - CLI end-to-end: verify-behavior runs openssl.zspec.json
 """
+import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -444,3 +445,131 @@ class TestOpensslCLI:
         data = json.loads(out_file.read_text())
         assert len(data) == 16
         assert all(r["passed"] for r in data)
+
+
+# ---------------------------------------------------------------------------
+# TestBaselineDiff
+# ---------------------------------------------------------------------------
+
+class TestBaselineDiff:
+    """Tests for --baseline / --diff mode in verify_behavior.main()."""
+
+    def _write_baseline(self, tmp_path, results: list[dict]) -> Path:
+        p = tmp_path / "baseline.json"
+        p.write_text(json.dumps(results), encoding="utf-8")
+        return p
+
+    def test_baseline_identical_no_regressions(self, tmp_path, capsys):
+        """Running against its own output reports no changes and exits 0."""
+        out = tmp_path / "baseline.json"
+        vb.main([str(OPENSSL_SPEC_PATH), "--json-out", str(out)])
+        rc = vb.main([str(OPENSSL_SPEC_PATH), "--baseline", str(out)])
+        assert rc == 0
+        captured = capsys.readouterr().out
+        assert "no changes" in captured
+
+    def test_baseline_fix_detected(self, tmp_path, capsys):
+        """An invariant that was failing in the baseline but passes now is a fix."""
+        # Build real current results first
+        out = tmp_path / "current.json"
+        vb.main([str(OPENSSL_SPEC_PATH), "--json-out", str(out)])
+        current = json.loads(out.read_text())
+
+        # Simulate baseline where first entry was failing
+        baseline = [dict(r) for r in current]
+        baseline[0]["passed"] = False
+        baseline[0]["message"] = "old failure"
+        bl_file = self._write_baseline(tmp_path, baseline)
+
+        rc = vb.main([str(OPENSSL_SPEC_PATH), "--baseline", str(bl_file)])
+        assert rc == 0  # fix, not regression
+        captured = capsys.readouterr().out
+        assert "FIXED" in captured
+
+    def test_baseline_regression_exits_1(self, tmp_path, capsys):
+        """An invariant that was passing in the baseline but fails now is a regression."""
+        out = tmp_path / "current.json"
+        vb.main([str(OPENSSL_SPEC_PATH), "--json-out", str(out)])
+        current = json.loads(out.read_text())
+
+        # Simulate baseline where first entry was passing (it is) but we mark
+        # the current as failing by injecting a modified entry into a fake baseline
+        # where a formerly-failing invariant is now passing — test via _diff_results
+        # directly to avoid actually breaking a spec.
+        passing_baseline = [dict(r) for r in current]
+        # Mark one as "was passing" in baseline, but make current show it as failing
+        faked_current = [dict(r) for r in current]
+        faked_current[0]["passed"] = False
+        faked_current[0]["message"] = "now failing"
+
+        bl_file = self._write_baseline(tmp_path, passing_baseline)
+        regressions = vb._diff_results(bl_file, faked_current)
+        assert regressions == 1
+
+    def test_baseline_added_invariants(self, tmp_path, capsys):
+        """New invariants (present in current but not baseline) are reported."""
+        out = tmp_path / "current.json"
+        vb.main([str(OPENSSL_SPEC_PATH), "--json-out", str(out)])
+        current = json.loads(out.read_text())
+
+        # Baseline is missing the last entry
+        baseline = current[:-1]
+        bl_file = self._write_baseline(tmp_path, baseline)
+
+        rc = vb.main([str(OPENSSL_SPEC_PATH), "--baseline", str(bl_file)])
+        assert rc == 0  # added entries are not regressions
+        captured = capsys.readouterr().out
+        assert "New invariants" in captured
+
+    def test_baseline_removed_invariants(self, tmp_path, capsys):
+        """Invariants in baseline but not in current are reported as removed."""
+        out = tmp_path / "current.json"
+        vb.main([str(OPENSSL_SPEC_PATH), "--json-out", str(out)])
+        current = json.loads(out.read_text())
+
+        # Baseline has an extra entry that no longer exists
+        baseline = list(current) + [
+            {"id": "openssl.removed.test", "passed": True, "message": "old", "skip_reason": None}
+        ]
+        bl_file = self._write_baseline(tmp_path, baseline)
+
+        rc = vb.main([str(OPENSSL_SPEC_PATH), "--baseline", str(bl_file)])
+        assert rc == 0
+        captured = capsys.readouterr().out
+        assert "Removed invariants" in captured
+
+    def test_baseline_missing_file_exits_nonzero(self, tmp_path):
+        """A missing baseline file should exit non-zero."""
+        missing = tmp_path / "no_such_file.json"
+        rc = vb.main([str(OPENSSL_SPEC_PATH), "--baseline", str(missing)])
+        assert rc != 0
+
+    def test_baseline_invalid_json_exits_nonzero(self, tmp_path):
+        """A baseline file with invalid JSON should exit non-zero."""
+        bad = tmp_path / "bad.json"
+        bad.write_text("{not json")
+        rc = vb.main([str(OPENSSL_SPEC_PATH), "--baseline", str(bad)])
+        assert rc != 0
+
+    def test_diff_results_direct_no_changes(self, tmp_path):
+        """_diff_results returns 0 when baseline and current are identical."""
+        out = tmp_path / "current.json"
+        vb.main([str(OPENSSL_SPEC_PATH), "--json-out", str(out)])
+        current = json.loads(out.read_text())
+        bl_file = self._write_baseline(tmp_path, current)
+        assert vb._diff_results(bl_file, current) == 0
+
+    def test_diff_results_counts_regressions(self, tmp_path):
+        """_diff_results returns the correct regression count."""
+        current = [
+            {"id": "a", "passed": False, "message": "fail", "skip_reason": None},
+            {"id": "b", "passed": False, "message": "fail", "skip_reason": None},
+            {"id": "c", "passed": True,  "message": "ok",   "skip_reason": None},
+        ]
+        baseline = [
+            {"id": "a", "passed": True, "message": "ok", "skip_reason": None},
+            {"id": "b", "passed": True, "message": "ok", "skip_reason": None},
+            {"id": "c", "passed": True, "message": "ok", "skip_reason": None},
+        ]
+        bl_file = self._write_baseline(tmp_path, baseline)
+        assert vb._diff_results(bl_file, current) == 2
