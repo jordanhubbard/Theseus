@@ -1,0 +1,90 @@
+spec: urllib_parse
+version: ">=3.4"
+backend: python_module(urllib.parse)
+
+docs: https://docs.python.org/3/library/urllib.parse.html
+rfcs:
+  - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax"
+  - "RFC 1808 — Relative Uniform Resource Locators"
+
+provenance:
+  derived_from:
+    - "Python 3 urllib.parse documentation — https://docs.python.org/3/library/urllib.parse.html"
+    - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.3.0, 2026-04-02"
+  not_derived_from:
+    - "CPython source: Lib/urllib/parse.py"
+  notes:
+    - "urlparse returns a ParseResult named-tuple; attributes accessed via method chaining"
+    - "urlencode uses insertion-order dict (Python 3.7+); use fixed-order dicts in specs"
+    - "quote() does not encode '/' by default (safe='/')"
+    - "parse_qs returns lists for each key (multi-value aware)"
+  created_at: "2026-04-02T00:00:00Z"
+
+error_model: python_exceptions
+
+table urllib_parse.urlparse.components:
+  kind: python_call_eq
+  category: urlparse
+  id_prefix: urlparse
+  function: urlparse
+  args: ["https://example.com:8080/path?q=1&r=2#frag"]
+
+  columns: [id, method, expected]
+  rows:
+    - [scheme,   scheme,   "https"            ]
+    - [netloc,   netloc,   "example.com:8080" ]
+    - [path,     path,     "/path"            ]
+    - [query,    query,    "q=1&r=2"          ]
+    - [fragment, fragment, "frag"             ]
+    - [port,     port,     8080               ]
+
+invariant urllib_parse.urlparse.userinfo:
+  category: urlparse
+  call: urlparse("https://user:pass@host.example.com/resource").username
+  eq: "user"
+
+# Quoting table: IDs embed the function name (e.g. quote.spaces, unquote.percent_encoded)
+table urllib_parse.quoting:
+  kind: python_call_eq
+  category: quoting
+
+  columns: [id, function, args, kwargs, expected]
+  rows:
+    - [quote.spaces,       quote,       ["/path with spaces"],     {safe: "/"},   "/path%20with%20spaces"]
+    - [quote.empty_safe,   quote,       ["/path"],                 {safe: ""},    "%2Fpath"              ]
+    - [quote_plus.spaces,  quote_plus,  ["hello world"],           ~,             "hello+world"          ]
+    - [unquote.percent_encoded, unquote, ["%2Fpath%20with%20spaces"], ~,          "/path with spaces"    ]
+    - [unquote_plus.plus_to_space, unquote_plus, ["a=1&b=hello+world"], ~,        "a=1&b=hello world"    ]
+
+invariant urllib_parse.quote_unquote_roundtrip:
+  category: roundtrip
+  call: unquote("%2Fpath%20with%20spaces")
+  eq: "/path with spaces"
+
+table urllib_parse.joining:
+  kind: python_call_eq
+  category: joining
+  id_prefix: urljoin
+  function: urljoin
+
+  columns: [id, args, expected]
+  rows:
+    - [relative,          ["https://example.com/base/", "../other"],              "https://example.com/other"  ]
+    - [absolute_overrides,["https://example.com/base/", "https://other.com/page"],"https://other.com/page"    ]
+
+invariant urllib_parse.urlencode.simple:
+  category: encoding
+  call: 'urlencode({"a": "1", "b": "2"})'
+  eq: "a=1&b=2"
+
+table urllib_parse.parse_qs:
+  kind: python_call_eq
+  category: parsing
+  id_prefix: parse_qs
+  function: parse_qs
+
+  columns: [id, args, expected]
+  rows:
+    - [multi_value,  ["a=1&b=2&a=3"], {a: ["1", "3"], b: ["2"]}]
+    - [single_value, ["key=value"],   {key: ["value"]}          ]

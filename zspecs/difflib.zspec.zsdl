@@ -1,0 +1,87 @@
+spec: difflib
+version: ">=3.2"
+backend: python_module(difflib)
+
+docs: https://docs.python.org/3/library/difflib.html
+
+provenance:
+  derived_from:
+    - "Python 3 difflib documentation — https://docs.python.org/3/library/difflib.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.3.0, 2026-04-02"
+  not_derived_from:
+    - "CPython source: Lib/difflib.py"
+  notes:
+    - "SequenceMatcher is a class; calling it via python_call_eq constructs an instance; 'method' chains to ratio(), quick_ratio(), etc."
+    - "ratio() returns a float in [0.0, 1.0]. Only exact values (0.0, 1.0) are tested to avoid floating-point representation issues."
+    - "get_close_matches() returns a plain list — compatible with python_call_eq expected array comparison."
+    - "IS_CHARACTER_JUNK and IS_LINE_JUNK are module-level callable objects tested via python_call_eq."
+    - "ndiff(), unified_diff(), and context_diff() return generators and are not tested here."
+    - "find_longest_match() returns a Match named-tuple; individual .a/.b/.size attributes are tested via method chaining."
+    - "isjunk parameter is JSON null → Python None (no junk filter)."
+  created_at: "2026-04-02T00:00:00Z"
+
+error_model: python_exceptions
+
+table difflib.sequence_matcher.ratio:
+  kind: python_call_eq
+  category: ratio
+  id_prefix: sequence_matcher
+  function: SequenceMatcher
+
+  columns: [id, args, method, expected]
+  rows:
+    - [ratio_identical,          [null, "abcde", "abcde"], ratio,           1.0]
+    - [ratio_disjoint,           [null, "abc",   "xyz"  ], ratio,           0.0]
+    - [ratio_empty,              [null, "",      ""     ], ratio,           1.0]
+    - [quick_ratio_identical,    [null, "hello", "hello"], quick_ratio,     1.0]
+    - [real_quick_ratio_identical,[null, "hello","hello"], real_quick_ratio, 1.0]
+
+table difflib.sequence_matcher.find_longest:
+  kind: python_call_eq
+  category: matching
+  id_prefix: sequence_matcher
+  function: SequenceMatcher
+  args: [null, "ABCDBDE", "BCDE"]
+  method: find_longest_match
+
+  columns: [id, method_chain, expected]
+  rows:
+    - [find_longest_match_size,    size, 3]
+    - [find_longest_match_b_index, b,    0]
+
+table difflib.get_close_matches:
+  kind: python_call_eq
+  category: close_matches
+  id_prefix: get_close_matches
+  function: get_close_matches
+
+  columns: [id, args, expected]
+  rows:
+    - [match_found,  ["appel", ["apple", "peach", "puppy"]], ["apple"]]
+    - [no_match,     ["xyz",   ["apple", "peach"]],          []       ]
+    - [exact_match,  ["apple", ["apple", "peach", "puppy"]], ["apple"]]
+    - [n_limits_results, ["orange", ["apple", "orange", "grape"]], ["orange"], {kwargs: {n: 1}}]
+
+table difflib.is_character_junk:
+  kind: python_call_eq
+  category: junk
+  id_prefix: is_character_junk
+  function: IS_CHARACTER_JUNK
+
+  columns: [id, args, expected]
+  rows:
+    - [space,  [" "],  true ]
+    - [tab,    ["\t"], true ]
+    - [letter, ["a"],  false]
+
+table difflib.is_line_junk:
+  kind: python_call_eq
+  category: junk
+  id_prefix: is_line_junk
+  function: IS_LINE_JUNK
+
+  columns: [id, args, expected]
+  rows:
+    - [blank,     ["\n"],   true ]
+    - [hash_only, ["#\n"],  true ]
+    - [code_line, ["x = 1\n"], false]

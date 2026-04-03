@@ -1,0 +1,84 @@
+spec: zstd
+version: ">=1.4.0"
+backend: ctypes(zstd)
+version_function: ZSTD_versionString
+min_version_prefix: "1."
+
+api_header: zstd.h
+docs: https://facebook.github.io/zstd/zstd_manual.html
+rfcs:
+  - "RFC 8878 — Zstandard Compression and the application/zstd Media Type"
+
+provenance:
+  derived_from:
+    - "RFC 8878 — Zstandard Compression and application/zstd Media Type (February 2021)"
+    - "https://facebook.github.io/zstd/zstd_manual.html — public API manual"
+    - "https://github.com/facebook/zstd/blob/dev/lib/zstd.h — public header (API declarations only)"
+    - "https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md — zstd compression format specification (public documentation)"
+  not_derived_from:
+    - "zstd/lib/compress/zstd_compress.c"
+    - "zstd/lib/decompress/zstd_decompress.c"
+    - "Any other zstd C implementation source file"
+  notes:
+    - "Clean-room boundary: spec team read only public documentation listed above"
+    - "zstd errors are size_t values near SIZE_MAX; use ZSTD_isError(code) to test"
+  created_at: "2026-04-02T00:00:00Z"
+
+constants:
+  compression_levels:
+    ZSTD_CLEVEL_DEFAULT: {value: 3,  description: "Default compression level; equivalent to level 3 in current implementations"}
+    ZSTD_minCLevel:      {value: 1,  description: "Minimum compression level (fastest)"}
+    ZSTD_maxCLevel:      {value: 22, description: "Maximum compression level; corresponds to --ultra mode in the CLI"}
+  magic_numbers:
+    ZSTD_MAGICNUMBER:           {value: "0xFD2FB528", description: "Magic number for zstd compressed frames (little-endian in the wire format)"}
+    ZSTD_MAGIC_SKIPPABLE_START: {value: "0x184D2A50", description: "First magic number in the skippable frame range"}
+    ZSTD_MAGIC_DICTIONARY:      {value: "0xEC30A437", description: "Magic number for zstd dictionary files"}
+  error_sentinels:
+    ZSTD_CONTENTSIZE_UNKNOWN: {value: -1, description: "Returned by ZSTD_getFrameContentSize when content size is not stored in the frame header"}
+    ZSTD_CONTENTSIZE_ERROR:   {value: -2, description: "Returned by ZSTD_getFrameContentSize when the input is not a valid zstd frame"}
+
+error_model:
+  semantics: "zstd functions that return size_t encode errors as large values near SIZE_MAX. Use ZSTD_isError(code) to test for errors."
+  stickiness: "Streaming contexts must be reset after error; single-call functions are stateless"
+  stderr: "ZSTD_getErrorName(code)"
+  codes:
+    ZSTD_error_no_error:         {value: 0,  meaning: "Operation completed successfully"}
+    ZSTD_error_GENERIC:          {value: 1,  meaning: "Unspecified generic error"}
+    ZSTD_error_prefix_unknown:   {value: 10, meaning: "Source data does not begin with a valid zstd frame magic"}
+    ZSTD_error_dstSize_tooSmall: {value: 70, meaning: "Destination buffer is too small to hold the output"}
+    ZSTD_error_srcSize_wrong:    {value: 72, meaning: "Content size in header does not match actual data"}
+
+invariant zstd.version.prefix:
+  description: "ZSTD_versionString() must return a non-NULL string starting with '1.' for all 1.x releases"
+  category: version
+  kind: version_prefix
+  function: ZSTD_versionString
+  expected_prefix_b64: MS4=
+
+table zstd.api.eq:
+  kind: call_eq
+  category: api
+
+  columns: [id, function, args, arg_types, expected]
+  rows:
+    - [maxCLevel.eq_22,              ZSTD_maxCLevel,    [],      [],         22  ]
+    - [isError.zero_not_error,       ZSTD_isError,      [0],     [size_t],   0   ]
+    - [isError.small_values_not_error,ZSTD_isError,     [1],     [size_t],   0   ]
+    - [compressBound.known_value,    ZSTD_compressBound,[35],   [size_t],   98  ]
+    - [compressBound.not_error,      ZSTD_isError,      [98],    [size_t],   0   ]
+    - [maxCLevel.is_not_error,       ZSTD_isError,      [22],    [size_t],   0   ]
+    - [versionNumber.not_error,      ZSTD_isError,      [10507], [size_t],   0   ]
+    - [isError.near_size_max,        ZSTD_isError,      [18446744073709551614], [size_t], 1]
+
+table zstd.api.ge:
+  kind: call_ge
+  category: api
+
+  columns: [id, function, args, arg_types, expected_min]
+  rows:
+    - [compressBound.nonzero_input,ZSTD_compressBound, [35],      [size_t], 36      ]
+    - [compressBound.zero_input,   ZSTD_compressBound, [0],       [size_t], 1       ]
+    - [compressBound.large_input,  ZSTD_compressBound, [1048576], [size_t], 1048577 ]
+    - [compressBound.256bytes,     ZSTD_compressBound, [256],     [size_t], 257     ]
+    - [compressBound.monotone,     ZSTD_compressBound, [1024],    [size_t], 98      ]
+    - [versionNumber.range,        ZSTD_versionNumber, [],        [],       10400   ]

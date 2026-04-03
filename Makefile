@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm verify-behavior verify-all-specs verify-all-specs-json spec-coverage help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -116,6 +116,9 @@ bulk-build:
 		$(if $(DRIVERS),--drivers "$(DRIVERS)") \
 		$(if $(DRY_RUN),--dry-run)
 
+compile-zsdl:
+	python3 tools/zsdl_compile.py $(if $(ZSDL),$(ZSDL),--all)
+
 verify-behavior:
 	python3 tools/verify_behavior.py $(or $(ZSPEC),zspecs/zlib.zspec.json) \
 		$(if $(FILTER),--filter "$(FILTER)") \
@@ -172,10 +175,11 @@ help:
 	@echo "  make seed           Generate PyPI/npm seed lists from freebsd_ports snapshot"
 	@echo "  make import-pypi    Fetch PyPI package metadata (requires pypi-seed.txt)"
 	@echo "  make import-npm     Fetch npm package metadata (requires npm-seed.txt)"
+	@echo "  make compile-zsdl   Compile *.zspec.zsdl → *.zspec.json (ZSDL=file to compile one)"
 	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: zspecs/zlib.zspec.json)"
-	@echo "  make verify-all-specs Run every spec in zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)
-  make verify-all-specs-json  Run all specs and write JSON results (OUT=file optional, SPECS=paths optional)
-  make spec-coverage    Report which extracted candidates have a behavioral spec (EXTRACTION_DIR= required)"
+	@echo "  make verify-all-specs Run every spec in zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)"
+	@echo "  make verify-all-specs-json  Run all specs and write JSON results (OUT=file optional, SPECS=paths optional)"
+	@echo "  make spec-coverage    Report which extracted candidates have a behavioral spec (EXTRACTION_DIR= required)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""
