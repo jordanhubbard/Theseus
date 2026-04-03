@@ -448,7 +448,7 @@ class TestHashlibInvariantRunner:
     def test_invariant_count(self, hashlib_spec, hashlib_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(hashlib_spec, hashlib_mod)
-        assert len(results) == 23
+        assert len(results) == 41
 
     def test_no_skips(self, hashlib_spec, hashlib_mod):
         runner = vb.InvariantRunner()
@@ -459,13 +459,15 @@ class TestHashlibInvariantRunner:
     def test_filter_by_category(self, hashlib_spec, hashlib_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(hashlib_spec, hashlib_mod, filter_category="known_vector")
-        assert len(results) == 10  # 3 SHA-256, 2 SHA-1, 3 MD5, 2 SHA-512
+        # SHA-256(3) + SHA-1(2) + MD5(3) + SHA-512(2) + SHA3-256(3) + SHA3-512(1) + BLAKE2b(2) + BLAKE2s(2) = 18
+        assert len(results) == 18
         assert all(r.passed for r in results)
 
     def test_filter_incremental(self, hashlib_spec, hashlib_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(hashlib_spec, hashlib_mod, filter_category="incremental")
-        assert len(results) == 3
+        # SHA-256, SHA-1, MD5, SHA3-256, BLAKE2b = 5
+        assert len(results) == 5
         assert all(r.passed for r in results)
 
 
@@ -482,7 +484,7 @@ class TestHashlibCLI:
         vb.main([str(HASHLIB_SPEC_PATH), "--verbose"])
         out = capsys.readouterr().out
         assert "PASS" in out
-        assert "23 invariants" in out
+        assert "41 invariants" in out
 
     def test_list_flag(self, capsys):
         rc = vb.main([str(HASHLIB_SPEC_PATH), "--list"])
@@ -502,5 +504,5 @@ class TestHashlibCLI:
         vb.main([str(HASHLIB_SPEC_PATH), "--json-out", str(out_file)])
         data = json.loads(out_file.read_text())
         assert isinstance(data, list)
-        assert len(data) == 23
+        assert len(data) == 41
         assert all(r["passed"] for r in data)

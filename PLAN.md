@@ -1,8 +1,8 @@
 # Theseus — Plan and State
 
-## Current State (2026-04-02)
+## Current State (2026-04-03)
 
-**15 Z-layer specs · 257 invariants · 1025 tests · 3 CI platforms (ubuntu, macos, freebsd)**
+**19 Z-layer specs · 349 invariants · 1118 tests · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -12,7 +12,7 @@
 
 | Component | Description |
 |-----------|-------------|
-| `zspecs/*.zspec.json` | 15 machine-readable behavioral contracts for OSS libraries |
+| `zspecs/*.zspec.json` | 19 machine-readable behavioral contracts for OSS libraries |
 | `tools/verify_behavior.py` | Harness: loads a spec, runs every invariant against the installed library, reports pass/fail/skip |
 | `tools/validate_zspec.py` | Static validation of spec files against `zspecs/schema/behavioral-spec.schema.json` |
 | `tools/verify_all_specs.py` | Runs all specs in one pass; writes a JSON results file for CI dashboards and `--baseline` |
@@ -53,7 +53,8 @@
 | `base64` | python_module | 20 | encode/decode roundtrips, padding |
 | `curl` | cli | 12 | offline-safe: version, --help, flag parsing |
 | `datetime` | python_module | 15 | date/datetime attrs, strftime, method chaining |
-| `hashlib` | python_module | 23 | SHA-256/SHA-1 vectors, incremental, copy independence |
+| `difflib` | python_module | 17 | SequenceMatcher, get_close_matches, junk predicates |
+| `hashlib` | python_module | 41 | SHA-256/SHA-1/MD5/SHA-512 + SHA-3/BLAKE2 extensions |
 | `json` | python_module | 22 | dumps/loads roundtrip, indent, sort_keys, error cases |
 | `minimist` | cli/node | 9 | arg parsing, `function: null` direct-call pattern |
 | `openssl` | cli | 16 | version, hash, rand, enc; cross-spec with hashlib |
@@ -62,8 +63,10 @@
 | `semver` | cli/node | 24 | valid, clean, satisfies, compare, range ops |
 | `sqlite3` | python_module | 13 | DDL, DML, types, `python_sqlite_roundtrip` |
 | `struct` | python_module | 24 | pack/unpack, calcsize, error cases |
+| `urllib_parse` | python_module | 18 | urlparse, quote/unquote, urljoin, urlencode, parse_qs |
 | `uuid` | cli/node | 8 | validate, version detection |
 | `zlib` | ctypes | 23 | compress/decompress roundtrip, crc32, adler32 |
+| `zstd` | ctypes | 15 | versionString, maxCLevel, compressBound, isError |
 
 **CI**: GitHub Actions matrix on ubuntu-latest + macos-latest (Python 3.9–3.12, Node 22) plus a separate FreeBSD 14.2 job via `cross-platform-actions/action@v0.25.0`.
 
@@ -77,6 +80,9 @@ Added: ctypes backend (zlib), python_module backend (base64, json, hashlib, stru
 ### Cycle 2 (2026-04-02)
 Added: `node_constructor_call_eq` kind + ajv spec, datetime + pathlib specs, `python_call_eq` method/method_chain chaining, `spec_for_versions` enforcement + version detection for all backends, `spec_coverage.py`, `verify_all_specs.py`, `--watch` mode, FreeBSD CI job.
 
+### Cycle 3 (2026-04-03)
+Added: hashlib SHA-3/BLAKE2 extensions (41 total invariants), `urllib_parse` spec (18 invariants), `difflib` spec (17 invariants), `zstd` ctypes spec (15 invariants). Harness fixes: `_setup()` uses `hasattr` guards for non-zlib ctypes libs; `_call_ge` supports simple `expected_min` mode (vs zlib compress2 mode); `_version_prefix` sets `restype=c_char_p` for ctypes version functions.
+
 ---
 
 ## Next Steps (Candidate Items)
@@ -85,12 +91,8 @@ Added: `node_constructor_call_eq` kind + ajv spec, datetime + pathlib specs, `py
 
 | Library | Backend | Notes |
 |---------|---------|-------|
-| `zstd` | ctypes | Compression; cross-spec invariant vs zlib |
 | `libssl` | ctypes | Low-level TLS; cross-spec vs openssl CLI |
 | `chalk` | cli/node | ANSI stripping; `NO_COLOR` env var behavior |
-| `hashlib` ext | python_module | Add sha3_256, blake2b vectors to existing spec |
-| `urllib.parse` | python_module | URL parsing; stdlib, pure functions |
-| `difflib` | python_module | Sequence diff; stdlib, deterministic |
 
 ### B. `skip_if` Expression Language
 

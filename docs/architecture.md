@@ -346,7 +346,8 @@ The per-invariant list format is compatible with `--baseline` (same `{id, passed
 | `base64` | python_module | 20 | encode/decode, urlsafe, padding edge cases |
 | `curl` | cli | 12 | offline-safe: version flags, help output, --max-time |
 | `datetime` | python_module | 15 | date/datetime attrs, strftime, `method`/`method_args` chaining |
-| `hashlib` | python_module | 23 | SHA-256/SHA-1 known vectors, incremental, copy independence |
+| `difflib` | python_module | 17 | SequenceMatcher ratio, find_longest_match, get_close_matches, junk predicates |
+| `hashlib` | python_module | 41 | SHA-256/SHA-1/MD5/SHA-512 vectors; SHA-3/BLAKE2b/BLAKE2s extensions; incremental, copy independence |
 | `json` | python_module | 22 | dumps/loads roundtrip, indent, sort_keys, unicode, error cases |
 | `minimist` | cli/node | 9 | CLI arg parsing; `function: null` for direct-callable modules |
 | `openssl` | cli | 16 | version, dgst, rand, enc; cross-spec vector shared with hashlib |
@@ -355,8 +356,10 @@ The per-invariant list format is compatible with `--baseline` (same `{id, passed
 | `semver` | cli/node | 24 | valid, clean, satisfies, gt/lt/eq, compare, range ops |
 | `sqlite3` | python_module | 13 | DDL, DML, `python_sqlite_roundtrip` for row comparison |
 | `struct` | python_module | 24 | pack/unpack formats, calcsize, big/little endian, error cases |
+| `urllib_parse` | python_module | 18 | urlparse attributes, quote/unquote, urljoin, urlencode, parse_qs |
 | `uuid` | cli/node | 8 | validate v4, version detection |
 | `zlib` | ctypes | 23 | compress/decompress roundtrip, crc32, adler32, error codes |
+| `zstd` | ctypes | 15 | ZSTD_versionString, maxCLevel, compressBound, isError; `call_ge` simple mode |
 
 ---
 
@@ -389,11 +392,13 @@ Tests live in `tests/`. Run with `make test` (requires `pytest`).
 | `tests/test_verify_behavior_stdlib.py` | base64, json, hashlib, struct, sqlite3 specs |
 | `tests/test_verify_behavior_stdlib2.py` | re, sqlite3 python_sqlite_roundtrip |
 | `tests/test_verify_behavior_stdlib3.py` | datetime, pathlib; method chaining unit tests |
+| `tests/test_verify_behavior_stdlib4.py` | hashlib SHA-3/BLAKE2 extensions, urllib_parse, difflib specs |
+| `tests/test_verify_behavior_zstd.py` | zstd ctypes spec; call_ge simple mode, version_prefix |
 | `tests/test_verify_behavior_version.py` | Version detection, spec_for_versions enforcement |
 | `tests/test_verify_behavior_watch.py` | --watch mode (subprocess + unit) |
 | `tests/test_validate_zspec.py` | Z-spec static validator |
 | `tests/test_spec_coverage.py` | spec_coverage.py report generation |
-| `tests/test_verify_all_specs.py` | verify_all_specs.py, integration: all 15 specs pass |
+| `tests/test_verify_all_specs.py` | verify_all_specs.py, integration: all 19 specs pass |
 
 ---
 

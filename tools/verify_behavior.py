@@ -159,54 +159,59 @@ class LibraryLoader:
         )
 
     def _setup(self, lib: ctypes.CDLL) -> None:
-        """Bind argtypes and restypes for the zlib API functions used by invariants."""
-        # compress(dest, &destLen, source, sourceLen) -> int
-        lib.compress.argtypes = [
-            ctypes.c_char_p,
-            ctypes.POINTER(ctypes.c_ulong),
-            ctypes.c_char_p,
-            ctypes.c_ulong,
-        ]
-        lib.compress.restype = ctypes.c_int
+        """Bind argtypes and restypes for well-known C API functions used by invariants.
 
-        # compress2(dest, &destLen, source, sourceLen, level) -> int
-        lib.compress2.argtypes = [
-            ctypes.c_char_p,
-            ctypes.POINTER(ctypes.c_ulong),
-            ctypes.c_char_p,
-            ctypes.c_ulong,
-            ctypes.c_int,
-        ]
-        lib.compress2.restype = ctypes.c_int
+        Each block is guarded so that loading a library that does not export a given
+        function (e.g. zstd instead of zlib) does not raise AttributeError.
+        """
+        # zlib API — only bound when the library exports these symbols
+        if hasattr(lib, "compress"):
+            lib.compress.argtypes = [
+                ctypes.c_char_p,
+                ctypes.POINTER(ctypes.c_ulong),
+                ctypes.c_char_p,
+                ctypes.c_ulong,
+            ]
+            lib.compress.restype = ctypes.c_int
 
-        # uncompress(dest, &destLen, source, sourceLen) -> int
-        lib.uncompress.argtypes = [
-            ctypes.c_char_p,
-            ctypes.POINTER(ctypes.c_ulong),
-            ctypes.c_char_p,
-            ctypes.c_ulong,
-        ]
-        lib.uncompress.restype = ctypes.c_int
+        if hasattr(lib, "compress2"):
+            lib.compress2.argtypes = [
+                ctypes.c_char_p,
+                ctypes.POINTER(ctypes.c_ulong),
+                ctypes.c_char_p,
+                ctypes.c_ulong,
+                ctypes.c_int,
+            ]
+            lib.compress2.restype = ctypes.c_int
 
-        # compressBound(sourceLen) -> ulong
-        lib.compressBound.argtypes = [ctypes.c_ulong]
-        lib.compressBound.restype = ctypes.c_ulong
+        if hasattr(lib, "uncompress"):
+            lib.uncompress.argtypes = [
+                ctypes.c_char_p,
+                ctypes.POINTER(ctypes.c_ulong),
+                ctypes.c_char_p,
+                ctypes.c_ulong,
+            ]
+            lib.uncompress.restype = ctypes.c_int
 
-        # crc32(crc, buf, len) -> ulong
-        lib.crc32.argtypes = [ctypes.c_ulong, ctypes.c_char_p, ctypes.c_uint]
-        lib.crc32.restype = ctypes.c_ulong
+        if hasattr(lib, "compressBound"):
+            lib.compressBound.argtypes = [ctypes.c_ulong]
+            lib.compressBound.restype = ctypes.c_ulong
 
-        # adler32(adler, buf, len) -> ulong
-        lib.adler32.argtypes = [ctypes.c_ulong, ctypes.c_char_p, ctypes.c_uint]
-        lib.adler32.restype = ctypes.c_ulong
+        if hasattr(lib, "crc32"):
+            lib.crc32.argtypes = [ctypes.c_ulong, ctypes.c_char_p, ctypes.c_uint]
+            lib.crc32.restype = ctypes.c_ulong
 
-        # zlibVersion() -> const char*
-        lib.zlibVersion.argtypes = []
-        lib.zlibVersion.restype = ctypes.c_char_p
+        if hasattr(lib, "adler32"):
+            lib.adler32.argtypes = [ctypes.c_ulong, ctypes.c_char_p, ctypes.c_uint]
+            lib.adler32.restype = ctypes.c_ulong
 
-        # zError(err) -> const char*
-        lib.zError.argtypes = [ctypes.c_int]
-        lib.zError.restype = ctypes.c_char_p
+        if hasattr(lib, "zlibVersion"):
+            lib.zlibVersion.argtypes = []
+            lib.zlibVersion.restype = ctypes.c_char_p
+
+        if hasattr(lib, "zError"):
+            lib.zError.argtypes = [ctypes.c_int]
+            lib.zError.restype = ctypes.c_char_p
 
 
 # ---------------------------------------------------------------------------
@@ -388,7 +393,12 @@ class PatternRegistry:
     def _version_prefix(self, spec: dict) -> tuple[bool, str]:
         fn_name = spec["function"]
         prefix = base64.b64decode(spec["expected_prefix_b64"])
-        result = getattr(self._lib, fn_name)()
+        fn = getattr(self._lib, fn_name)
+        # For ctypes libraries the default restype is c_int; version functions
+        # return a C string, so we set c_char_p here if not already set.
+        if hasattr(fn, "restype") and fn.restype is not ctypes.c_char_p:
+            fn.restype = ctypes.c_char_p
+        result = fn()
         if result is None:
             return False, f"{fn_name}() returned NULL"
         if not result.startswith(prefix):
@@ -528,8 +538,28 @@ class PatternRegistry:
         return True, f"{fn_name}: incremental == oneshot == {oneshot}"
 
     # --- call_ge ---
-    # Verifies that compressBound(n) >= actual compressed size for a real input.
+    # Two modes:
+    #   Simple: spec has "function", "args", "arg_types", "expected_min" — calls the function
+    #           and checks the return value >= expected_min.  Used by zstd.
+    #   zlib:   spec has "src_b64" / "src_repeat" — compresses with compress2 and verifies
+    #           that compressBound >= the actual compressed size.
     def _call_ge(self, spec: dict) -> tuple[bool, str]:
+        if "expected_min" in spec:
+            # Simple mode: call function(args) and check >= expected_min
+            fn_name = spec["function"]
+            raw_args = spec.get("args", [])
+            atypes = spec.get("arg_types", ["int"] * len(raw_args))
+            args = [_resolve_arg(v, t) for v, t in zip(raw_args, atypes)]
+            expected_min = spec["expected_min"]
+            try:
+                result = int(getattr(self._lib, fn_name)(*args))
+            except Exception as exc:
+                return False, f"Call to {fn_name}() raised: {exc}"
+            if result < expected_min:
+                return False, f"{fn_name}({raw_args}) returned {result}, expected >= {expected_min}"
+            return True, f"{fn_name}({raw_args}) == {result} >= {expected_min}"
+
+        # zlib mode: compress with compress2, verify compressBound >= actual compressed size
         Z_OK = self._c.get("Z_OK", 0)
         src_raw = base64.b64decode(spec.get("src_b64", "")) if spec.get("src_b64") else b""
         src = src_raw * spec.get("src_repeat", 1)

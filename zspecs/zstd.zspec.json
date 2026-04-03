@@ -1,0 +1,572 @@
+{
+  "schema_version": "0.1",
+
+  "identity": {
+    "canonical_name": "zstd",
+    "spec_for_versions": ">=1.4.0",
+    "api_header": "zstd.h",
+    "public_docs_url": "https://facebook.github.io/zstd/zstd_manual.html",
+    "rfc_references": [
+      {
+        "rfc": "RFC8878",
+        "title": "Zstandard Compression and the application/zstd Media Type",
+        "url": "https://www.rfc-editor.org/rfc/rfc8878"
+      }
+    ]
+  },
+
+  "provenance": {
+    "derived_from": [
+      "RFC 8878 — Zstandard Compression and the application/zstd Media Type (February 2021)",
+      "https://facebook.github.io/zstd/zstd_manual.html — zstd API manual (public documentation)",
+      "https://github.com/facebook/zstd/blob/dev/lib/zstd.h — public header file (API declarations only, not implementation)",
+      "https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md — zstd compression format specification (public documentation)"
+    ],
+    "not_derived_from": [
+      "zstd/lib/compress/zstd_compress.c",
+      "zstd/lib/decompress/zstd_decompress.c",
+      "zstd/lib/compress/zstd_compress_internal.h",
+      "zstd/lib/decompress/zstd_decompress_internal.h",
+      "zstd/lib/compress/zstd_fast.c",
+      "zstd/lib/compress/zstd_lazy.c",
+      "zstd/lib/compress/zstd_opt.c",
+      "Any other zstd C implementation source file"
+    ],
+    "spec_authors": ["Theseus Z-layer"],
+    "created_at": "2026-04-02T00:00:00Z",
+    "notes": "This spec constitutes the clean-room boundary. The implementation team reads this spec only. The spec team read the public documentation listed above. Cross-spec note: the raw content of any zstd-decompressed output can be independently verified using zlib's adler32 checksum against the original plaintext, since both operate on raw byte sequences."
+  },
+
+  "library": {
+    "soname_patterns": ["zstd"],
+    "version_function": "ZSTD_versionString",
+    "min_version_prefix": "1."
+  },
+
+  "constants": {
+    "compression_levels": [
+      { "name": "ZSTD_CLEVEL_DEFAULT", "value":  3, "description": "Default compression level; equivalent to level 3 in current implementations" },
+      { "name": "ZSTD_minCLevel",      "value":  1, "description": "Minimum compression level (fastest); negative levels exist as ultra-fast modes but level 1 is the minimum for standard API" },
+      { "name": "ZSTD_maxCLevel",      "value": 22, "description": "Maximum compression level; corresponds to --ultra mode in the CLI" }
+    ],
+    "magic_numbers": [
+      { "name": "ZSTD_MAGICNUMBER",        "value": "0xFD2FB528", "description": "Magic number for zstd compressed frames (little-endian in the wire format)" },
+      { "name": "ZSTD_MAGIC_SKIPPABLE_START", "value": "0x184D2A50", "description": "First magic number in the skippable frame range; range covers 0x184D2A50–0x184D2A5F" },
+      { "name": "ZSTD_MAGIC_DICTIONARY",   "value": "0xEC30A437", "description": "Magic number for zstd dictionary files" }
+    ],
+    "block_types": [
+      { "name": "ZSTD_bt_raw",       "value": 0, "description": "Raw block: uncompressed literal data stored as-is" },
+      { "name": "ZSTD_bt_rle",       "value": 1, "description": "RLE block: single repeated byte, size stored separately" },
+      { "name": "ZSTD_bt_compressed", "value": 2, "description": "Compressed block: Huffman + FSE encoded literals and sequences" },
+      { "name": "ZSTD_bt_reserved",  "value": 3, "description": "Reserved; must not appear in valid frames" }
+    ],
+    "error_sentinels": [
+      { "name": "ZSTD_CONTENTSIZE_UNKNOWN", "value": -1, "description": "Returned by ZSTD_getFrameContentSize when content size is not stored in the frame header" },
+      { "name": "ZSTD_CONTENTSIZE_ERROR",   "value": -2, "description": "Returned by ZSTD_getFrameContentSize when the input is not a valid zstd frame" }
+    ]
+  },
+
+  "types": {
+    "ZSTD_parameters": {
+      "description": "Aggregate of compression and frame parameters for advanced single-pass API. Not used in simple API but documents the parameter surface.",
+      "fields": [
+        { "name": "cParams", "ctype": "c_void_p", "description": "ZSTD_compressionParameters: windowLog, chainLog, hashLog, searchLog, minMatch, targetLength, strategy" },
+        { "name": "fParams", "ctype": "c_void_p", "description": "ZSTD_frameParameters: contentSizeFlag, checksumFlag, noDictIDFlag" }
+      ]
+    },
+    "ZSTD_inBuffer": {
+      "description": "Input descriptor for streaming API. Points into a caller-managed buffer.",
+      "fields": [
+        { "name": "src",  "ctype": "c_void_p", "description": "Pointer to start of input buffer" },
+        { "name": "size", "ctype": "c_size_t", "description": "Total size of the input buffer in bytes" },
+        { "name": "pos",  "ctype": "c_size_t", "description": "Current read position within src; advanced by the library on each call" }
+      ]
+    },
+    "ZSTD_outBuffer": {
+      "description": "Output descriptor for streaming API. Points into a caller-managed buffer.",
+      "fields": [
+        { "name": "dst",  "ctype": "c_void_p", "description": "Pointer to start of output buffer" },
+        { "name": "size", "ctype": "c_size_t", "description": "Total capacity of the output buffer in bytes" },
+        { "name": "pos",  "ctype": "c_size_t", "description": "Current write position within dst; advanced by the library on each call" }
+      ]
+    }
+  },
+
+  "functions": {
+    "ZSTD_versionString": {
+      "description": "Returns the version string of the zstd library currently loaded at runtime. Useful for display and runtime version checks.",
+      "parameters": [],
+      "return_type": "c_char_p",
+      "return_values": {
+        "non_null": "Null-terminated ASCII version string, e.g. '1.5.7'"
+      },
+      "postconditions": [
+        "Return value is non-NULL",
+        "Return value starts with '1.' for all 1.x releases"
+      ]
+    },
+    "ZSTD_versionNumber": {
+      "description": "Returns the version number as an integer: major*100*100 + minor*100 + release. For version 1.5.7 returns 10507.",
+      "parameters": [],
+      "return_type": "c_uint",
+      "return_values": {
+        "positive": "Encoded version integer: major*10000 + minor*100 + release"
+      }
+    },
+    "ZSTD_maxCLevel": {
+      "description": "Returns the maximum compression level supported by this build of zstd. Compression levels range from 1 to this value. Passing a higher level to ZSTD_compress is undefined behavior.",
+      "parameters": [],
+      "return_type": "c_int",
+      "return_values": {
+        "22": "Current maximum compression level (as of zstd 1.4.x and later)"
+      },
+      "postconditions": [
+        "Return value >= 22 for all builds covering spec_for_versions"
+      ]
+    },
+    "ZSTD_compressBound": {
+      "description": "Returns an upper bound on the compressed output size for an input of srcSize bytes. Always call this to size the destination buffer before calling ZSTD_compress. Never returns an error code.",
+      "parameters": [
+        { "name": "srcSize", "ctype": "c_size_t", "direction": "in", "description": "Expected uncompressed input size in bytes" }
+      ],
+      "return_type": "c_size_t",
+      "return_values": {
+        "positive": "Upper bound in bytes; guaranteed >= actual compressed output for any input of the given size"
+      },
+      "postconditions": [
+        "Return value > srcSize for any srcSize > 0 (compressed bound always exceeds raw size due to frame overhead)",
+        "Return value is never an error code (ZSTD_isError returns 0 for this value)"
+      ]
+    },
+    "ZSTD_compress": {
+      "description": "Single-call compression. Compresses src into dst at the given compressionLevel. dst must be at least ZSTD_compressBound(srcSize) bytes.",
+      "parameters": [
+        { "name": "dst",              "ctype": "c_void_p", "direction": "out",  "description": "Output buffer; must be at least ZSTD_compressBound(srcSize) bytes" },
+        { "name": "dstCapacity",      "ctype": "c_size_t", "direction": "in",   "description": "Size of the output buffer in bytes" },
+        { "name": "src",              "ctype": "c_void_p", "direction": "in",   "description": "Uncompressed input bytes" },
+        { "name": "srcSize",          "ctype": "c_size_t", "direction": "in",   "description": "Number of bytes in src" },
+        { "name": "compressionLevel", "ctype": "c_int",    "direction": "in",   "description": "Compression level: 1 (fastest) to ZSTD_maxCLevel() (best ratio). Use 3 for default." }
+      ],
+      "return_type": "c_size_t",
+      "return_values": {
+        "positive": "Number of bytes written to dst (the compressed size)",
+        "error_code": "An error code that ZSTD_isError returns 1 for; e.g. if dstCapacity is too small"
+      },
+      "preconditions": [
+        "dstCapacity >= ZSTD_compressBound(srcSize)",
+        "compressionLevel in [1, ZSTD_maxCLevel()]"
+      ],
+      "postconditions": [
+        "ZSTD_isError(return_value) == 0 on success",
+        "Output can be decompressed by ZSTD_decompress to recover the original bytes exactly"
+      ]
+    },
+    "ZSTD_decompress": {
+      "description": "Single-call decompression. Caller must supply an output buffer large enough for the uncompressed result. If the original size was stored in the frame header (the default), use ZSTD_getFrameContentSize to determine the required buffer size.",
+      "parameters": [
+        { "name": "dst",            "ctype": "c_void_p", "direction": "out",  "description": "Output buffer for uncompressed data" },
+        { "name": "dstCapacity",    "ctype": "c_size_t", "direction": "in",   "description": "Size of the output buffer in bytes" },
+        { "name": "src",            "ctype": "c_void_p", "direction": "in",   "description": "Compressed input (valid zstd frame)" },
+        { "name": "compressedSize", "ctype": "c_size_t", "direction": "in",   "description": "Exact size of the compressed frame; must not include trailing garbage" }
+      ],
+      "return_type": "c_size_t",
+      "return_values": {
+        "positive":    "Number of bytes written to dst (the uncompressed size)",
+        "error_code":  "An error code that ZSTD_isError returns 1 for; e.g. if dst is too small or src is corrupt"
+      },
+      "preconditions": [
+        "src must point to a valid, complete zstd frame",
+        "dstCapacity must be >= the actual uncompressed content size"
+      ],
+      "postconditions": [
+        "ZSTD_isError(return_value) == 0 on success",
+        "Output bytes exactly match the original plaintext that was compressed"
+      ]
+    },
+    "ZSTD_isError": {
+      "description": "Tests whether a size_t return value represents an error code. zstd encodes errors as large size_t values near SIZE_MAX. Use this after every call to ZSTD_compress, ZSTD_decompress, or any streaming function.",
+      "parameters": [
+        { "name": "code", "ctype": "c_size_t", "direction": "in", "description": "A return value from any zstd function" }
+      ],
+      "return_type": "c_uint",
+      "return_values": {
+        "0": "code is a valid (non-error) result",
+        "1": "code is an error; call ZSTD_getErrorName(code) for a description"
+      },
+      "postconditions": [
+        "ZSTD_isError(0) == 0 — zero is never an error",
+        "ZSTD_isError(ZSTD_compressBound(n)) == 0 for any n — compressBound never returns an error code"
+      ]
+    },
+    "ZSTD_getErrorName": {
+      "description": "Maps a zstd error code to a human-readable string. Safe to call with any size_t value, including non-error values.",
+      "parameters": [
+        { "name": "code", "ctype": "c_size_t", "direction": "in", "description": "A return value from any zstd function" }
+      ],
+      "return_type": "c_char_p",
+      "return_values": {
+        "non_null": "Null-terminated ASCII description, e.g. 'No error' or 'Destination buffer is too small'"
+      },
+      "postconditions": [
+        "Return value is never NULL",
+        "For non-error codes, returns a string describing the operation (e.g. 'No error')"
+      ]
+    },
+    "ZSTD_getFrameContentSize": {
+      "description": "Reads the uncompressed content size stored in the frame header. ZSTD_compress stores it by default. Use the result to size the decompression output buffer.",
+      "parameters": [
+        { "name": "src",     "ctype": "c_void_p", "direction": "in", "description": "Pointer to the start of a zstd frame" },
+        { "name": "srcSize", "ctype": "c_size_t", "direction": "in", "description": "Number of bytes available at src; must cover at least the frame header" }
+      ],
+      "return_type": "c_uint64",
+      "return_values": {
+        "positive":                    "Uncompressed content size in bytes",
+        "ZSTD_CONTENTSIZE_UNKNOWN(-1)": "Content size not stored in the frame header; must use streaming decompression or over-allocate",
+        "ZSTD_CONTENTSIZE_ERROR(-2)":   "src does not begin with a valid zstd frame magic number"
+      }
+    }
+  },
+
+  "invariants": [
+    {
+      "id": "zstd.version.prefix",
+      "description": "ZSTD_versionString() must return a non-NULL string starting with '1.' for all 1.x releases covered by this spec",
+      "category": "version",
+      "kind": "version_prefix",
+      "spec": {
+        "function": "ZSTD_versionString",
+        "expected_prefix_b64": "MS4="
+      }
+    },
+    {
+      "id": "zstd.maxCLevel.eq_22",
+      "description": "ZSTD_maxCLevel() must return 22 for all zstd builds in spec range",
+      "category": "api",
+      "kind": "call_eq",
+      "spec": {
+        "function": "ZSTD_maxCLevel",
+        "args": [],
+        "arg_types": [],
+        "expected": 22
+      }
+    },
+    {
+      "id": "zstd.isError.zero_not_error",
+      "description": "ZSTD_isError(0) must return 0 — zero is never an error code in the zstd API",
+      "category": "error_handling",
+      "kind": "call_eq",
+      "spec": {
+        "function": "ZSTD_isError",
+        "args": [0],
+        "arg_types": ["size_t"],
+        "expected": 0
+      }
+    },
+    {
+      "id": "zstd.isError.small_values_not_error",
+      "description": "ZSTD_isError(1) must return 0 — small positive values are valid compressed sizes, not errors",
+      "category": "error_handling",
+      "kind": "call_eq",
+      "spec": {
+        "function": "ZSTD_isError",
+        "args": [1],
+        "arg_types": ["size_t"],
+        "expected": 0
+      }
+    },
+    {
+      "id": "zstd.compressBound.nonzero_input",
+      "description": "ZSTD_compressBound(35) must return a value >= 36 — the compressed bound always exceeds the input size due to frame overhead",
+      "category": "api",
+      "kind": "call_ge",
+      "spec": {
+        "function": "ZSTD_compressBound",
+        "args": [35],
+        "arg_types": ["size_t"],
+        "expected_min": 36
+      }
+    },
+    {
+      "id": "zstd.compressBound.known_value",
+      "description": "ZSTD_compressBound(35) must return exactly 98 — the documented upper bound for a 35-byte input",
+      "category": "api",
+      "kind": "call_eq",
+      "spec": {
+        "function": "ZSTD_compressBound",
+        "args": [35],
+        "arg_types": ["size_t"],
+        "expected": 98
+      }
+    },
+    {
+      "id": "zstd.compressBound.zero_input",
+      "description": "ZSTD_compressBound(0) must return a value > 0 — even an empty input incurs frame overhead",
+      "category": "api",
+      "kind": "call_ge",
+      "spec": {
+        "function": "ZSTD_compressBound",
+        "args": [0],
+        "arg_types": ["size_t"],
+        "expected_min": 1
+      }
+    },
+    {
+      "id": "zstd.compressBound.not_error",
+      "description": "ZSTD_isError(ZSTD_compressBound(35)) must return 0 — compressBound never produces an error code",
+      "category": "error_handling",
+      "kind": "call_eq",
+      "spec": {
+        "function": "ZSTD_isError",
+        "args": [98],
+        "arg_types": ["size_t"],
+        "expected": 0
+      }
+    },
+    {
+      "id": "zstd.compressBound.large_input",
+      "description": "ZSTD_compressBound(1048576) must return a value >= 1048577 — bound always exceeds source size",
+      "category": "api",
+      "kind": "call_ge",
+      "spec": {
+        "function": "ZSTD_compressBound",
+        "args": [1048576],
+        "arg_types": ["size_t"],
+        "expected_min": 1048577
+      }
+    },
+    {
+      "id": "zstd.versionNumber.range",
+      "description": "ZSTD_versionNumber() must return a value >= 10400 (encoding version 1.4.0) for the spec range",
+      "category": "version",
+      "kind": "call_ge",
+      "spec": {
+        "function": "ZSTD_versionNumber",
+        "args": [],
+        "arg_types": [],
+        "expected_min": 10400
+      }
+    },
+    {
+      "id": "zstd.isError.near_size_max",
+      "description": "ZSTD_isError for a known zstd error sentinel (SIZE_MAX - 1 cast as size_t) must return 1 — large values near SIZE_MAX are error codes",
+      "category": "error_handling",
+      "kind": "call_eq",
+      "spec": {
+        "function": "ZSTD_isError",
+        "args": [18446744073709551614],
+        "arg_types": ["size_t"],
+        "expected": 1
+      }
+    },
+    {
+      "id": "zstd.maxCLevel.is_not_error",
+      "description": "ZSTD_isError(ZSTD_maxCLevel()) must return 0 — the max compression level integer is not an error code",
+      "category": "error_handling",
+      "kind": "call_eq",
+      "spec": {
+        "function": "ZSTD_isError",
+        "args": [22],
+        "arg_types": ["size_t"],
+        "expected": 0
+      }
+    },
+    {
+      "id": "zstd.compressBound.monotone",
+      "description": "ZSTD_compressBound(1024) must return a value >= ZSTD_compressBound(35) — bound is monotonically non-decreasing with input size",
+      "category": "api",
+      "kind": "call_ge",
+      "spec": {
+        "function": "ZSTD_compressBound",
+        "args": [1024],
+        "arg_types": ["size_t"],
+        "expected_min": 98
+      }
+    },
+    {
+      "id": "zstd.versionNumber.not_error",
+      "description": "ZSTD_isError(ZSTD_versionNumber()) must return 0 — the version integer is not in the error range",
+      "category": "version",
+      "kind": "call_eq",
+      "spec": {
+        "function": "ZSTD_isError",
+        "args": [10507],
+        "arg_types": ["size_t"],
+        "expected": 0
+      }
+    },
+    {
+      "id": "zstd.compressBound.256bytes",
+      "description": "ZSTD_compressBound(256) must return a value >= 257 and be free of error",
+      "category": "api",
+      "kind": "call_ge",
+      "spec": {
+        "function": "ZSTD_compressBound",
+        "args": [256],
+        "arg_types": ["size_t"],
+        "expected_min": 257
+      }
+    }
+  ],
+
+  "wire_formats": {
+    "zstd_frame": {
+      "description": "zstd compressed frame format. All multi-byte integers are little-endian unless otherwise noted. A complete zstd stream consists of one or more frames. The standard compressed frame begins with a 4-byte magic number and a variable-length Frame_Header.",
+      "rfc_section": "RFC8878 Section 3.1",
+      "endianness": "little",
+      "fields": [
+        {
+          "name": "Magic_Number",
+          "offset": 0,
+          "size_bits": 32,
+          "constraint": "value == 0xFD2FB528",
+          "description": "Frame magic number, little-endian. Always 0xFD2FB528. Bytes on wire: 0x28 0xB5 0x2F 0xFD."
+        },
+        {
+          "name": "Frame_Header_Descriptor",
+          "offset": 4,
+          "size_bits": 8,
+          "description": "One byte encoding FCS_Field_Size (bits 7-6), Single_Segment_Flag (bit 5), Content_Checksum_Flag (bit 2), DictID_Flag (bits 1-0). Controls which optional Frame_Header fields are present."
+        },
+        {
+          "name": "Window_Descriptor",
+          "offset": "5 (conditional)",
+          "size_bits": 8,
+          "description": "Present only when Single_Segment_Flag == 0. Encodes the minimum decompressor window size as Mantissa * 2^(Exponent+10). High 3 bits = Exponent, low 5 bits = Mantissa."
+        },
+        {
+          "name": "Dictionary_ID",
+          "offset": "variable",
+          "size_bits": -1,
+          "description": "Present only when DictID_Flag != 0. Size is 0, 1, 2, or 4 bytes as indicated by DictID_Flag. Identifies the dictionary required for decompression."
+        },
+        {
+          "name": "Frame_Content_Size",
+          "offset": "variable",
+          "size_bits": -1,
+          "description": "Present only when FCS_Field_Size != 0 (or when Single_Segment_Flag == 1). Size is 1, 2, 4, or 8 bytes as indicated by FCS_Field_Size. Stores the uncompressed content size. ZSTD_compress always stores this field."
+        },
+        {
+          "name": "Data_Block_Header",
+          "offset": "variable",
+          "size_bits": 24,
+          "description": "3-byte block header. Bits 0: Last_Block flag (1 = this is the last block). Bits 2-1: Block_Type (0=Raw, 1=RLE, 2=Compressed, 3=Reserved). Bits 23-3: Block_Size in bytes."
+        },
+        {
+          "name": "Block_Data",
+          "offset": "variable",
+          "size_bits": -1,
+          "description": "Block payload. For Raw blocks: literal bytes. For RLE blocks: a single byte repeated Block_Size times. For Compressed blocks: Huffman-coded literals section followed by FSE-coded sequences section."
+        },
+        {
+          "name": "Content_Checksum",
+          "offset": "end-4",
+          "size_bits": 32,
+          "description": "Present only when Content_Checksum_Flag == 1 in the Frame_Header_Descriptor. XXHash64 of the decompressed content, truncated to the low 32 bits, stored little-endian. ZSTD_compress does not store this by default (use advanced API to enable)."
+        }
+      ]
+    },
+    "zstd_skippable_frame": {
+      "description": "Skippable frame format. Used to embed arbitrary metadata in a zstd stream without affecting decompression. Any magic number in the range 0x184D2A50–0x184D2A5F identifies a skippable frame.",
+      "rfc_section": "RFC8878 Section 3.2",
+      "endianness": "little",
+      "fields": [
+        {
+          "name": "Magic_Number",
+          "offset": 0,
+          "size_bits": 32,
+          "constraint": "0x184D2A50 <= value <= 0x184D2A5F",
+          "description": "Skippable frame magic number. Any value in the range 0x184D2A50 to 0x184D2A5F (inclusive) is valid."
+        },
+        {
+          "name": "Frame_Size",
+          "offset": 4,
+          "size_bits": 32,
+          "description": "Size of the User_Data field in bytes, little-endian. May be zero."
+        },
+        {
+          "name": "User_Data",
+          "offset": 8,
+          "size_bits": -1,
+          "description": "Arbitrary application data of Frame_Size bytes. Decompressors must skip this frame entirely."
+        }
+      ]
+    },
+    "zstd_block_compressed": {
+      "description": "Layout of a Compressed block payload (Block_Type == 2). Consists of a Literals Section followed by a Sequences Section. Both sections use entropy coding (Huffman for literals, FSE for sequence codes).",
+      "rfc_section": "RFC8878 Section 3.1.1.3",
+      "endianness": "little",
+      "fields": [
+        {
+          "name": "Literals_Section_Header",
+          "offset": 0,
+          "size_bits": -1,
+          "description": "1–5 bytes encoding Literals_Block_Type (bits 1-0: Raw=0, RLE=1, Compressed=2, Treeless=3) and the compressed/regenerated size of the literals."
+        },
+        {
+          "name": "Huffman_Tree_Description",
+          "offset": "variable",
+          "size_bits": -1,
+          "description": "Present when Literals_Block_Type == Compressed and a new tree is defined. Encodes the Huffman tree used to decode the literals stream."
+        },
+        {
+          "name": "Literals_Stream",
+          "offset": "variable",
+          "size_bits": -1,
+          "description": "Huffman-coded (or raw/RLE) literal bytes."
+        },
+        {
+          "name": "Sequences_Section_Header",
+          "offset": "variable",
+          "size_bits": -1,
+          "description": "1–3 bytes. First byte encodes the sequence count: 0 means no sequences (literals only). Then per-symbol-type flags for Literals_Lengths, Offsets, Match_Lengths FSE tables."
+        },
+        {
+          "name": "FSE_Tables",
+          "offset": "variable",
+          "size_bits": -1,
+          "description": "Optional FSE table descriptions for Literals_Lengths, Offsets, and Match_Lengths symbol types."
+        },
+        {
+          "name": "Sequences_Bitstream",
+          "offset": "variable",
+          "size_bits": -1,
+          "description": "FSE-coded sequence commands. Each sequence encodes a literal length, a match offset, and a match length used to reconstruct the original data."
+        }
+      ]
+    }
+  },
+
+  "error_model": {
+    "return_code_semantics": "zstd functions that return size_t encode errors as large values near SIZE_MAX. Specifically, an error code E satisfies: E > (SIZE_MAX / 2). Use ZSTD_isError(code) to test for errors. Non-error return values are valid sizes and are always in the range [0, SIZE_MAX/2]. This is distinct from zlib's signed-integer error convention.",
+    "stream_error_field": "ZSTD_getErrorName(code)",
+    "error_stickiness": "For streaming contexts (ZSTD_CCtx, ZSTD_DCtx), once an error is returned the context is in an unspecified state and must be reset with ZSTD_CCtx_reset or ZSTD_DCtx_reset before reuse. Single-call functions (ZSTD_compress, ZSTD_decompress) do not maintain persistent state, so each call is independent.",
+    "error_codes": [
+      { "name": "ZSTD_error_no_error",                   "value":  0,  "meaning": "Operation completed successfully; return value is a valid size" },
+      { "name": "ZSTD_error_GENERIC",                    "value":  1,  "meaning": "Unspecified generic error" },
+      { "name": "ZSTD_error_prefix_unknown",             "value":  10, "meaning": "Source data does not begin with a valid zstd or skippable frame magic number" },
+      { "name": "ZSTD_error_version_unsupported",        "value":  12, "meaning": "Frame was produced by a newer version of zstd and uses features not supported by this build" },
+      { "name": "ZSTD_error_frameParameter_unsupported", "value":  14, "meaning": "Frame header contains a parameter value not supported by this implementation" },
+      { "name": "ZSTD_error_frameParameter_windowTooLarge", "value": 16, "meaning": "Frame requires a decompression window larger than ZSTD_MAXWINDOWSIZE" },
+      { "name": "ZSTD_error_corruption_detected",        "value":  20, "meaning": "Compressed data is corrupt: invalid block type, bad checksum, or truncated stream" },
+      { "name": "ZSTD_error_checksum_wrong",             "value":  22, "meaning": "Content checksum mismatch: frame checksum does not match decompressed content (only when Content_Checksum_Flag was set)" },
+      { "name": "ZSTD_error_literals_headerWrong",       "value":  24, "meaning": "Literals section header is invalid" },
+      { "name": "ZSTD_error_dictionary_corrupted",       "value":  30, "meaning": "The dictionary file is corrupt or has an invalid magic number" },
+      { "name": "ZSTD_error_dictionary_wrong",           "value":  32, "meaning": "Frame was compressed with a different dictionary than what was provided for decompression" },
+      { "name": "ZSTD_error_dictionaryCreation_failed",  "value":  34, "meaning": "Dictionary training or creation failed" },
+      { "name": "ZSTD_error_parameter_unsupported",      "value":  40, "meaning": "A compression or decompression parameter value is outside the supported range" },
+      { "name": "ZSTD_error_parameter_combination_unsupported", "value": 41, "meaning": "A combination of parameters is not supported together" },
+      { "name": "ZSTD_error_parameter_outOfBound",       "value":  42, "meaning": "A parameter value is outside its valid bounds" },
+      { "name": "ZSTD_error_tableLog_tooLarge",          "value":  44, "meaning": "FSE table log is too large for this build" },
+      { "name": "ZSTD_error_maxSymbolValue_tooLarge",    "value":  46, "meaning": "Symbol value exceeds the supported maximum in an FSE or Huffman table" },
+      { "name": "ZSTD_error_maxSymbolValue_tooSmall",    "value":  48, "meaning": "Maximum symbol value is too small for the data being compressed" },
+      { "name": "ZSTD_error_stabilityCondition_notRespected", "value": 50, "meaning": "Input or output buffer was moved or resized during an in-place operation" },
+      { "name": "ZSTD_error_stage_wrong",                "value":  60, "meaning": "Function called at the wrong stage of the streaming API lifecycle" },
+      { "name": "ZSTD_error_init_missing",               "value":  62, "meaning": "Context was not initialized before use" },
+      { "name": "ZSTD_error_memory_allocation",          "value":  64, "meaning": "Memory allocation failed (malloc returned NULL)" },
+      { "name": "ZSTD_error_workSpace_tooSmall",         "value":  66, "meaning": "Provided static workspace is too small for the requested operation" },
+      { "name": "ZSTD_error_dstSize_tooSmall",           "value":  70, "meaning": "Destination buffer is too small to hold the compressed or decompressed output" },
+      { "name": "ZSTD_error_srcSize_wrong",              "value":  72, "meaning": "Source size declared in the frame header does not match the actual amount of data provided" },
+      { "name": "ZSTD_error_dstBuffer_null",             "value":  74, "meaning": "Destination buffer pointer is NULL but dstCapacity > 0" }
+    ]
+  }
+}
