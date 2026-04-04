@@ -1,0 +1,217 @@
+spec: zlib
+version: ">=1.2.0 <2.0.0"
+backend: ctypes(z)
+version_function: zlibVersion
+min_version_prefix: "1.2"
+
+api_header: zlib.h
+docs: https://zlib.net/manual.html
+rfcs:
+  - "RFC1950 — ZLIB Compressed Data Format Specification version 3.3"
+  - "RFC1951 — DEFLATE Compressed Data Format Specification version 1.3"
+  - "RFC1952 — GZIP file format specification version 4.3"
+
+provenance:
+  derived_from:
+    - "RFC 1950 — ZLIB Compressed Data Format Specification (May 1996)"
+    - "RFC 1951 — DEFLATE Compressed Data Format Specification (May 1996)"
+    - "RFC 1952 — GZIP file format specification (May 1996)"
+    - "https://zlib.net/manual.html — zlib API manual (public documentation)"
+    - "https://zlib.net/zlib.h — public header file (API declarations only, not implementation)"
+  not_derived_from:
+    - "zlib/deflate.c"
+    - "zlib/inflate.c"
+    - "zlib/deflate.h"
+    - "zlib/inflate.h"
+    - "zlib/inftrees.c"
+    - "zlib/inffast.c"
+    - "Any other zlib C implementation source file"
+  notes: "This spec constitutes the clean-room boundary. The implementation team reads this spec only. The spec team read the public documentation listed above."
+  created_at: "2026-03-30T00:00:00Z"
+
+constants:
+  return_codes:
+    Z_OK:            {value:  0, description: "Operation completed successfully"}
+    Z_STREAM_END:    {value:  1, description: "End of compressed data reached"}
+    Z_NEED_DICT:     {value:  2, description: "A preset dictionary is needed"}
+    Z_ERRNO:         {value: -1, description: "File operation error; check errno"}
+    Z_STREAM_ERROR:  {value: -2, description: "Invalid stream state or parameter"}
+    Z_DATA_ERROR:    {value: -3, description: "Invalid or incomplete compressed data"}
+    Z_MEM_ERROR:     {value: -4, description: "Insufficient memory"}
+    Z_BUF_ERROR:     {value: -5, description: "Output buffer was full"}
+    Z_VERSION_ERROR: {value: -6, description: "zlib library version mismatch"}
+
+table zlib.const:
+  kind: constant_eq
+  category: constant
+  id_prefix: const
+  id_from: name
+  describe: "Library constant {name} == {expected_value}"
+
+  columns: [name, expected_value]
+  rows:
+    - [Z_OK,            0]
+    - [Z_STREAM_END,    1]
+    - [Z_NEED_DICT,     2]
+    - [Z_ERRNO,        -1]
+    - [Z_STREAM_ERROR, -2]
+    - [Z_DATA_ERROR,   -3]
+    - [Z_MEM_ERROR,    -4]
+    - [Z_BUF_ERROR,    -5]
+    - [Z_VERSION_ERROR,-6]
+
+invariant zlib.version.not_null:
+  description: "zlibVersion() must return a non-NULL string starting with '1.' for all 1.x releases"
+  category: version
+  kind: version_prefix
+  function: zlibVersion
+  expected_prefix_b64: MS4=
+
+invariant zlib.crc32.empty:
+  description: "crc32(0, NULL, 0) must return 0 — the initial CRC-32 value (RFC 1952 Section 8)"
+  category: checksum
+  rfc: "RFC1952 Section 8"
+  kind: call_eq
+  function: crc32
+  args: [0, null, 0]
+  arg_types: [int, "null", int]
+  expected: 0
+
+invariant zlib.crc32.hello:
+  description: "crc32(0, 'hello', 5) must equal 0x3610a686 (907060870) — standard test vector"
+  category: checksum
+  rfc: "RFC1952 Section 8"
+  kind: call_eq
+  function: crc32
+  args: [0, "aGVsbG8=", 5]
+  arg_types: [int, bytes_b64, int]
+  expected: 907060870
+
+invariant zlib.adler32.init:
+  description: "adler32(1, NULL, 0) must return 1 — the initial Adler-32 value (RFC 1950 Section 9)"
+  category: checksum
+  rfc: "RFC1950 Section 9"
+  kind: call_eq
+  function: adler32
+  args: [1, null, 0]
+  arg_types: [int, "null", int]
+  expected: 1
+
+invariant zlib.crc32.incremental:
+  description: "Incremental CRC-32 over two chunks must equal one-shot CRC-32 of the concatenation"
+  category: checksum
+  rfc: "RFC1952 Section 8"
+  kind: incremental_eq_oneshot
+  function: crc32
+  init_value: 0
+  chunks: [SGVs, bG8=]
+  full_data_b64: SGVsbG8=
+
+invariant zlib.adler32.incremental:
+  description: "Incremental Adler-32 over two chunks must equal one-shot Adler-32 of the concatenation"
+  category: checksum
+  rfc: "RFC1950 Section 9"
+  kind: incremental_eq_oneshot
+  function: adler32
+  init_value: 1
+  chunks: [SGVs, bG8=]
+  full_data_b64: SGVsbG8=
+
+invariant zlib.compress2.ok_on_valid_input:
+  description: "compress2() returns Z_OK for valid input with sufficient output buffer"
+  category: compress
+  rfc: "RFC1950"
+  kind: call_returns
+  function: compress2
+  src_b64: SGVsbG8gV29ybGQ=
+  level: -1
+  dst_capacity: 100
+  expected_return: Z_OK
+
+invariant zlib.compress2.stream_error_on_bad_level:
+  description: "compress2() returns Z_STREAM_ERROR when level=10 (invalid; valid range is -1 or 0-9)"
+  category: compress
+  kind: call_returns
+  function: compress2
+  src_b64: aGVsbG8=
+  level: 10
+  dst_capacity: 100
+  expected_return: Z_STREAM_ERROR
+
+invariant zlib.roundtrip.basic:
+  description: "compress() then uncompress() must recover the original bytes exactly for any input"
+  category: roundtrip
+  rfc: "RFC1950"
+  kind: roundtrip
+  inputs:
+    - label: empty
+      data_b64: ""
+    - label: hello-world
+      data_b64: SGVsbG8gV29ybGQ=
+    - label: repeated-A-1000
+      data_b64: QQ==
+      repeat: 1000
+    - label: binary-zeros-256
+      data_b64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+
+invariant zlib.wire.rfc1950.header_check:
+  description: "First 2 bytes of zlib output: (CMF * 256 + FLG) % 31 == 0 — RFC 1950 Section 2.2 header checksum"
+  category: wire_format
+  rfc: "RFC1950 Section 2.2"
+  kind: wire_bytes
+  produce_via: compress2
+  produce_args:
+    data_b64: SGVsbG8gV29ybGQ=
+    level: 6
+  assertions:
+    - description: "(CMF * 256 + FLG) % 31 == 0"
+      offset: 0
+      length: 2
+      python_check: "(data[0] * 256 + data[1]) % 31 == 0"
+
+invariant zlib.wire.rfc1950.cm_field:
+  description: "CM field (lower 4 bits of first byte) must be 8, indicating DEFLATE compression method — RFC 1950 Section 2.2"
+  category: wire_format
+  rfc: "RFC1950 Section 2.2"
+  kind: wire_bytes
+  produce_via: compress2
+  produce_args:
+    data_b64: SGVsbG8gV29ybGQ=
+    level: 6
+  assertions:
+    - description: "CM bits (CMF & 0x0f) must be 8 (DEFLATE)"
+      offset: 0
+      length: 1
+      python_check: "(data[0] & 0x0f) == 8"
+
+invariant zlib.wire.rfc1950.adler32_trailer:
+  description: "Last 4 bytes of zlib output are the Adler-32 checksum of the uncompressed data in big-endian — RFC 1950 Section 2.2"
+  category: wire_format
+  rfc: "RFC1950 Section 2.2"
+  kind: wire_bytes
+  produce_via: compress2
+  produce_args:
+    data_b64: SGVsbG8gV29ybGQ=
+    level: 6
+  assertions:
+    - description: "Last 4 bytes == Adler-32 of original input in big-endian"
+      offset: -4
+      length: 4
+      python_check: "struct.unpack('>I', data)[0] == adler32_of_input"
+
+invariant zlib.uncompress.data_error_on_junk:
+  description: "uncompress() must return Z_DATA_ERROR when source is not valid zlib-compressed data"
+  category: error_handling
+  kind: error_on_bad_input
+  function: uncompress
+  bad_input_b64: bm90IHZhbGlkIHpsaWIgZGF0YQ==
+  expected_return: Z_DATA_ERROR
+
+invariant zlib.compressBound.is_sufficient:
+  description: "compressBound(n) must return a value >= the actual compressed output size for any n-byte input at any compression level"
+  category: compress
+  kind: call_ge
+  function: compressBound
+  src_b64: QQ==
+  src_repeat: 10000
+  compare_level: 9

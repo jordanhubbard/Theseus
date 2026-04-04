@@ -1,0 +1,106 @@
+spec: struct
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic (for float format strings)"
+    - "Test vectors verified by running Python 3.14.3 struct module on macOS/Darwin 25.3.0, 2026-03-30"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "struct.pack() and struct.unpack() convert between Python values and C struct layout in binary form."
+    - "Format string prefixes: '>' = big-endian (most significant byte first), '<' = little-endian, '!' = network byte order (= big-endian, RFC 1700), '=' = native byte order without alignment, '@' = native byte order with alignment. This spec uses '>' and '<' and '!' exclusively."
+    - "Format characters used in this spec: B=uint8, b=int8, H=uint16, h=int16, I=uint32, i=int32, Q=uint64, q=int64, f=float32, d=float64."
+    - "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception (not ValueError)."
+    - "calcsize(fmt) returns the number of bytes struct.pack(fmt, ...) would produce."
+  created_at: "2026-03-31T00:00:00Z"
+
+error_model: python_exceptions
+
+table struct.pack.vectors:
+  kind: python_call_eq
+  category: pack_vector
+  id_prefix: pack
+  function: pack
+
+  columns: [id, args, expected]
+  rows:
+    - [big_endian_uint16_zero,              [">H", 0],         !hex 0000      ]
+    - [big_endian_uint16_256,               [">H", 256],       !hex 0100      ]
+    - [little_endian_uint16_256,            ["<H", 256],       !hex 0001      ]
+    - [network_byte_order_equals_big_endian,["!H", 256],       !hex 0100      ]
+    - [big_endian_uint32,                   [">I", 305419896], !hex 12345678  ]
+    - [little_endian_uint32,                ["<I", 305419896], !hex 78563412  ]
+    - [uint8_max,                           [">B", 255],       !hex ff        ]
+    - [int8_minus1,                         [">b", -1],        !hex ff        ]
+    - [big_endian_uint16_max,               [">H", 65535],     !hex ffff      ]
+
+table struct.calcsize.vectors:
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: calcsize
+
+  columns: [id, args, expected]
+  rows:
+    - [H,   [">H"],   2]
+    - [I,   [">I"],   4]
+    - [Q,   [">Q"],   8]
+    - [HI,  [">HI"],  6]
+    - [HIQ, [">HIQ"], 14]
+
+table struct.unpack.vectors:
+  kind: python_call_eq
+  category: unpack_vector
+  id_prefix: unpack
+  function: unpack
+
+  columns: [id, args, expected]
+  rows:
+    - [big_endian_uint16,  [">H",  !hex 0100],     [256]        ]
+    - [little_endian_uint16,["<H", !hex 0001],     [256]        ]
+    - [big_endian_uint32,  [">I",  !hex 12345678], [305419896]  ]
+    - [two_uint16,         [">2H", !hex 00010002], [1, 2]       ]
+    - [mixed_BH,           [">BH", !hex ff0100],   [255, 256]   ]
+
+invariant struct.roundtrip.uint16_big_endian:
+  description: "pack then unpack is lossless for '>H' across the full range of representative values"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: ">H"
+  test_cases: [[0], [1], [256], [1000], [65535]]
+
+invariant struct.roundtrip.uint32_little_endian:
+  description: "pack then unpack is lossless for '<I'"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: "<I"
+  test_cases: [[0], [1], [305419896], [4294967295]]
+
+invariant struct.roundtrip.mixed_BHI:
+  description: "pack then unpack is lossless for '>BHI' — three fields of different sizes in one call"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: ">BHI"
+  values: [255, 1000, 305419896]
+
+invariant struct.unpack.wrong_size_raises:
+  description: "unpack('>H', b'\\x00') raises struct.error — buffer must be exactly calcsize('>H')=2 bytes"
+  category: error
+  kind: python_call_raises
+  function: unpack
+  args: [">H", !hex 00]
+  expected_exception: struct.error
+
+invariant struct.unpack.too_many_bytes_raises:
+  description: "unpack('>H', b'\\x00\\x01\\x02') raises struct.error — buffer has 3 bytes but format requires exactly 2"
+  category: error
+  kind: python_call_raises
+  function: unpack
+  args: [">H", !hex 000102]
+  expected_exception: struct.error

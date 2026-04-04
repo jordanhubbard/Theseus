@@ -1,0 +1,121 @@
+spec: ajv
+version: ">=8.0.0"
+backend: node(ajv)
+
+docs: https://ajv.js.org/
+rfcs:
+  - "JSON Schema draft-07 — JSON Schema: A Media Type for Describing JSON Documents — https://json-schema.org/draft-07/schema"
+
+provenance:
+  derived_from:
+    - "Ajv documentation — https://ajv.js.org/"
+    - "JSON Schema draft-07 specification"
+    - "Test vectors verified with ajv@8.x via Node.js 22.20.0 on macOS/Darwin 25.3.0, 2026-04-02"
+  not_derived_from:
+    - "ajv package source"
+  notes:
+    - "Ajv v8 exports the class as both 'Ajv' and 'default'. Invariants use class: 'default'."
+    - "The typical pattern is: new Ajv() → instance; instance.compile(schema) → validateFn; validateFn(data) → boolean."
+    - "node_constructor_call_eq with then_call: true handles the compile+validate two-step."
+    - "validateSchema() is a single-step method call (no then_call)."
+    - "allErrors option makes Ajv collect all errors rather than stopping at the first."
+  created_at: "2026-04-02T00:00:00Z"
+
+error_model:
+  semantics: "compile().validate() returns boolean; never throws for type mismatches. node exits 0 for all invariants in this spec."
+  stderr: "null"
+  stickiness: "N/A — each Ajv instance and compile call is independent."
+  codes: {}
+
+table ajv.object_schema:
+  kind: node_constructor_call_eq
+  category: object_schema
+  class: default
+  ctor_args: [{}]
+  method: compile
+  then_call: true
+  id_prefix: object_schema
+
+  columns: [id, args, then_args, expected]
+  rows:
+    - [valid_object,
+       [{type: object, properties: {foo: {type: integer}}, required: [foo], additionalProperties: false}],
+       [{foo: 1}],
+       true,
+       {rfc: "JSON Schema draft-07 §6.5"}]
+    - [missing_required,
+       [{type: object, properties: {foo: {type: integer}}, required: [foo]}],
+       [{}],
+       false,
+       {rfc: "JSON Schema draft-07 §6.5.3"}]
+    - [wrong_type,
+       [{type: object, properties: {foo: {type: integer}}, required: [foo]}],
+       [{foo: "not an integer"}],
+       false,
+       {rfc: "JSON Schema draft-07 §6.1.1"}]
+    - [additional_properties_rejected,
+       [{type: object, properties: {foo: {type: integer}}, required: [foo], additionalProperties: false}],
+       [{foo: 1, extra: true}],
+       false,
+       {rfc: "JSON Schema draft-07 §6.5.6"}]
+
+table ajv.number_schema:
+  kind: node_constructor_call_eq
+  category: primitive_schema
+  class: default
+  ctor_args: [{}]
+  method: compile
+  then_call: true
+  id_prefix: number_schema
+
+  columns: [id, args, then_args, expected]
+  rows:
+    - [valid_number,   [{type: number}], [42],      true ]
+    - [string_rejected,[{type: number}], ["hello"],  false]
+
+table ajv.string_schema:
+  kind: node_constructor_call_eq
+  class: default
+  ctor_args: [{}]
+  method: compile
+  then_call: true
+  id_prefix: string_schema
+
+  columns: [id, category, args, then_args, expected]
+  rows:
+    - [valid_string,   primitive_schema, [{type: string}],              ["hello"], true ]
+    - [minLength_pass, string_schema,    [{type: string, minLength: 3}], ["abc"],   true,
+       {rfc: "JSON Schema draft-07 §6.3.2"}]
+    - [minLength_fail, string_schema,    [{type: string, minLength: 3}], ["ab"],    false,
+       {rfc: "JSON Schema draft-07 §6.3.2"}]
+
+table ajv.array_schema:
+  kind: node_constructor_call_eq
+  category: array_schema
+  class: default
+  ctor_args: [{}]
+  method: compile
+  then_call: true
+  id_prefix: array_schema
+
+  columns: [id, args, then_args, expected]
+  rows:
+    - [valid_array,
+       [{type: array, items: {type: string}, minItems: 1}],
+       [["a", "b"]],
+       true]
+    - [empty_fails_minItems,
+       [{type: array, items: {type: string}, minItems: 1}],
+       [[]],
+       false,
+       {rfc: "JSON Schema draft-07 §6.4.4"}]
+
+invariant ajv.validateSchema.valid_schema:
+  kind: node_constructor_call_eq
+  category: meta_validation
+  class: default
+  ctor_args: [{}]
+  method: validateSchema
+  args: [{type: string}]
+  then_call: false
+  expected: true

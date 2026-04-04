@@ -1,0 +1,107 @@
+spec: re
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re documentation"
+    - "Test vectors verified by running Python 3.14.3 re module on macOS/Darwin 25.4.0, 2026-04-01"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "All test vectors were verified by running the Python 3.14.3 re module interactively."
+    - "re.findall() with capturing groups returns a list of tuples; the harness serialises these as lists of lists in JSON."
+    - "re.sub() backreferences and named groups are tested to verify PCRE-compatible group syntax."
+    - "re.escape() output format: Python 3.7+ only escapes characters that have special meaning in regex patterns."
+  created_at: "2026-04-01T00:00:00Z"
+
+error_model: python_exceptions
+
+# --- sub ---
+
+table re.sub:
+  kind: python_call_eq
+  category: substitution
+  id_prefix: sub
+  function: sub
+
+  columns: [id, args, expected]
+  rows:
+    - [whitespace_to_dash,    ["\\s+", "-",    "hello world foo"], "hello-world-foo"  ]
+    - [digit_to_X,            ["\\d",  "X",    "a1b2c3"         ], "aXbXcX"          ]
+    - [backreference_group1,  ["(foo)", "[\\1]", "foo bar foo"  ], "[foo] bar [foo]"  ]
+    - [no_match_noop,         ["x",    "y",    "no match here"  ], "no match here"    ]
+    - [named_group,           ["(?P<word>\\w+)", "\\g<word>!\\g<word>", "hi"], "hi!hi"]
+    - [empty_string_input,    ["\\d",  "X",    ""               ], ""                ]
+
+# --- findall ---
+
+table re.findall:
+  kind: python_call_eq
+  category: findall
+  id_prefix: findall
+  function: findall
+
+  columns: [id, args, expected]
+  rows:
+    - [digits_multiple,         ["\\d+",  "a1b22c333"     ], ["1", "22", "333"]      ]
+    - [uppercase_letters,       ["[A-Z]", "Hello World"   ], ["H", "W"]              ]
+    - [no_match_empty_list,     ["\\d+",  "no digits"     ], []                      ]
+    - [single_group_list,       ["\\w+",  "one two three" ], ["one", "two", "three"] ]
+    - [word_chars,              ["\\w+",  "one two three" ], ["one", "two", "three"] ]
+
+# --- split ---
+
+table re.split:
+  kind: python_call_eq
+  category: split
+  id_prefix: split
+  function: split
+
+  columns: [id, args, expected]
+  rows:
+    - [whitespace,                      ["\\s+", "hello world foo"], ["hello", "world", "foo"]]
+    - [comma,                           [",",    "a,b,c"          ], ["a", "b", "c"]          ]
+    - [pipe_delimiter,                  ["\\|",  "one|two|three"  ], ["one", "two", "three"]  ]
+    - [leading_delimiter_produces_empty_first, ["\\s+", "  leading"], ["", "leading"]         ]
+
+# --- escape ---
+
+table re.escape:
+  kind: python_call_eq
+  category: escape
+  id_prefix: escape
+  function: escape
+
+  columns: [id, args, expected]
+  rows:
+    - [dot_parens,              ["foo.bar(baz)"], "foo\\.bar\\(baz\\)"  ]
+    - [space,                   ["hello world"], "hello\\ world"        ]
+    - [math_operators,          ["1+1=2"       ], "1\\+1=2"            ]
+    - [plain_alphanumeric_unchanged, ["abc123" ], "abc123"             ]
+
+# --- error: invalid patterns ---
+
+invariant re.error.invalid_pattern_compile:
+  kind: python_call_raises
+  category: error
+  function: compile
+  args: ["[invalid"]
+  expected_exception: "re.error"
+
+invariant re.error.unmatched_paren:
+  kind: python_call_raises
+  category: error
+  function: compile
+  args: ["(unclosed"]
+  expected_exception: "re.error"
+
+invariant re.error.invalid_quantifier:
+  kind: python_call_raises
+  category: error
+  function: compile
+  args: ["*foo"]
+  expected_exception: "re.error"

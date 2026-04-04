@@ -1,0 +1,113 @@
+spec: semver
+version: ">=7.0.0"
+backend: node(semver)
+
+docs: https://github.com/npm/node-semver#readme
+rfcs:
+  - "Semantic Versioning 2.0.0 — Semantic Versioning Specification — https://semver.org/spec/v2.0.0.html"
+
+provenance:
+  derived_from:
+    - "Semantic Versioning 2.0.0 — https://semver.org/spec/v2.0.0.html"
+    - "npm semver package README — https://github.com/npm/node-semver#readme"
+    - "Test vectors verified by running semver@7.x via Node.js 22.20.0 on macOS/Darwin 25.3.0, 2026-03-31"
+  not_derived_from:
+    - "semver package source: semver.js"
+  notes:
+    - "This spec exercises the semver npm package via node -e inline scripts. It is a CLI-backend spec with module_name, invoking node with require('semver')."
+    - "All invariants use node_module_call_eq: the function is called with JSON args, the return value is JSON.stringify'd, and compared against json.dumps(expected)."
+    - "null return values: semver.valid() returns null for invalid version strings. JSON.stringify(null) == 'null' == json.dumps(None)."
+    - "Boolean return values: semver.gt/lt/eq/satisfies return true/false. JSON.stringify(true) == 'true' == json.dumps(True)."
+    - "Integer return values: semver.compare returns 0, 1, or -1. semver.major/minor/patch return integers."
+    - "String return values: semver.valid, semver.inc, semver.maxSatisfying, semver.minSatisfying, semver.clean return strings or null."
+  created_at: "2026-03-31T00:00:00Z"
+
+error_model:
+  semantics: "Functions return null for invalid input rather than throwing. node exits 0 for all invariants in this spec."
+  stderr: "null — functions return null on invalid input"
+  stickiness: "N/A — each function call is stateless."
+  codes: {}
+
+table semver.valid:
+  kind: node_module_call_eq
+  category: valid
+  function: valid
+  id_prefix: valid
+
+  columns: [id, args, expected]
+  rows:
+    - [valid_string, ["1.2.3"],         "1.2.3",       {rfc: "Semantic Versioning 2.0.0"}]
+    - [invalid_string,["not-a-version"], ~]
+    - [v_prefix,     ["v1.2.3"],        "1.2.3",       {rfc: "Semantic Versioning 2.0.0"}]
+    - [prerelease,   ["1.2.3-alpha.1"], "1.2.3-alpha.1",{rfc: "Semantic Versioning 2.0.0 §9"}]
+
+table semver.comparison:
+  kind: node_module_call_eq
+  category: comparison
+  id_prefix: ~
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gt.true,      gt,      ["2.0.0", "1.9.9"], true ]
+    - [gt.false,     gt,      ["1.0.0", "2.0.0"], false]
+    - [lt.true,      lt,      ["1.0.0", "2.0.0"], true ]
+    - [eq.true,      eq,      ["1.2.3", "1.2.3"], true ]
+    - [eq.false,     eq,      ["1.2.3", "1.2.4"], false]
+    - [compare.equal,  compare, ["1.2.3", "1.2.3"], 0]
+    - [compare.greater,compare, ["2.0.0", "1.0.0"], 1]
+    - [compare.less,   compare, ["1.0.0", "2.0.0"], -1]
+
+table semver.range:
+  kind: node_module_call_eq
+  category: range
+  function: satisfies
+  id_prefix: satisfies
+
+  columns: [id, args, expected]
+  rows:
+    - [caret_in_range,    ["1.2.3", "^1.0.0"],         true ]
+    - [caret_out_of_range,["2.0.0", "^1.0.0"],         false]
+    - [compound_range,    ["1.5.0", ">=1.0.0 <2.0.0"], true ]
+
+table semver.fields:
+  kind: node_module_call_eq
+  category: fields
+  id_prefix: ~
+
+  columns: [id, function, args, expected]
+  rows:
+    - [major.extract, major, ["1.2.3"], 1]
+    - [minor.extract, minor, ["1.2.3"], 2]
+    - [patch.extract, patch, ["1.2.3"], 3]
+
+table semver.increment:
+  kind: node_module_call_eq
+  category: increment
+  function: inc
+  id_prefix: inc
+
+  columns: [id, args, expected]
+  rows:
+    - [major, ["1.2.3", "major"], "2.0.0"]
+    - [minor, ["1.2.3", "minor"], "1.3.0"]
+    - [patch, ["1.2.3", "patch"], "1.2.4"]
+
+table semver.collection:
+  kind: node_module_call_eq
+  category: collection
+  id_prefix: ~
+
+  columns: [id, function, args, expected]
+  rows:
+    - [maxSatisfying.caret, maxSatisfying, [["1.0.0", "1.2.3", "2.0.0"], "^1.0.0"], "1.2.3"]
+    - [minSatisfying.caret, minSatisfying, [["1.0.0", "1.2.3", "2.0.0"], "^1.0.0"], "1.0.0"]
+
+table semver.cleanup:
+  kind: node_module_call_eq
+  category: cleanup
+  function: clean
+  id_prefix: clean
+
+  columns: [id, args, expected]
+  rows:
+    - [eq_v_prefix, ["  =v1.5.0  "], "1.5.0"]

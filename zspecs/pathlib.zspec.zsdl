@@ -1,0 +1,150 @@
+spec: pathlib
+version: ">=3.4"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "Python 3 pathlib documentation — https://docs.python.org/3/library/pathlib.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.3.0, 2026-04-02"
+  not_derived_from:
+    - "CPython pathlib source: Lib/pathlib/"
+  notes:
+    - "All invariants use PurePosixPath — a pure, platform-independent class requiring no filesystem access."
+    - "PurePosixPath is deterministic and safe to run anywhere; no real filesystem operations are performed."
+    - "Dotted function names (e.g. 'PurePosixPath') are resolved by the harness via chained getattr from the module root."
+    - "String coercion: PurePosixPath objects compare correctly against str via str() or the 'method: __str__' pattern."
+  created_at: "2026-04-02T00:00:00Z"
+
+error_model: python_exceptions
+
+# --- Component access ---
+
+table pathlib.purepath.components:
+  kind: python_call_eq
+  category: components
+  id_prefix: purepath
+  function: PurePosixPath
+
+  columns: [id, args, method, expected]
+  rows:
+    - [name,     ["/etc/passwd"],     name,     "passwd"          ]
+    - [stem,     ["archive.tar.gz"],  stem,     "archive.tar"     ]
+    - [suffix,   ["archive.tar.gz"],  suffix,   ".gz"             ]
+    - [suffixes, ["archive.tar.gz"],  suffixes, [".tar", ".gz"]   ]
+    - [root,     ["/etc/passwd"],     root,     "/"               ]
+    - [no_suffix,["Makefile"],        suffix,   ""                ]
+
+# --- Parent (needs method_chain __str__) ---
+
+invariant pathlib.purepath.parent:
+  kind: python_call_eq
+  category: components
+  function: PurePosixPath
+  args: ["/etc/passwd"]
+  method: parent
+  method_chain: __str__
+  expected: "/etc"
+
+# --- Parts tuple ---
+
+invariant pathlib.purepath.parts:
+  kind: python_call_eq
+  category: components
+  function: PurePosixPath
+  args: ["/usr/bin/python"]
+  method: parts
+  expected: ["/", "usr", "bin", "python"]
+
+# --- Predicates ---
+
+invariant pathlib.purepath.is_absolute:
+  kind: python_call_eq
+  category: predicates
+  function: PurePosixPath
+  args: ["/etc/passwd"]
+  method: is_absolute
+  expected: true
+
+invariant pathlib.purepath.is_relative_false:
+  kind: python_call_eq
+  category: predicates
+  function: PurePosixPath
+  args: ["relative/path"]
+  method: is_absolute
+  expected: false
+
+# --- Manipulation ---
+
+invariant pathlib.purepath.with_suffix:
+  kind: python_call_eq
+  category: manipulation
+  function: PurePosixPath
+  args: ["report.txt"]
+  method: with_suffix
+  method_args: [".md"]
+  method_chain: __str__
+  expected: "report.md"
+
+invariant pathlib.purepath.with_name:
+  kind: python_call_eq
+  category: manipulation
+  function: PurePosixPath
+  args: ["/etc/passwd"]
+  method: with_name
+  method_args: ["shadow"]
+  method_chain: __str__
+  expected: "/etc/shadow"
+
+# --- Joining ---
+
+invariant pathlib.purepath.joinpath:
+  kind: python_call_eq
+  category: joining
+  function: PurePosixPath
+  args: ["/etc"]
+  method: joinpath
+  method_args: ["passwd"]
+  method_chain: __str__
+  expected: "/etc/passwd"
+
+invariant pathlib.purepath.joinpath_slash:
+  kind: python_call_eq
+  category: joining
+  function: PurePosixPath
+  args: ["/usr"]
+  method: __truediv__
+  method_args: ["bin/python"]
+  method_chain: __str__
+  expected: "/usr/bin/python"
+
+# --- String representations ---
+
+invariant pathlib.purepath.str:
+  kind: python_call_eq
+  category: construction
+  function: PurePosixPath
+  args: ["/etc/passwd"]
+  method: __str__
+  expected: "/etc/passwd"
+
+invariant pathlib.purepath.as_posix:
+  kind: python_call_eq
+  category: construction
+  function: PurePosixPath
+  args: ["/etc/passwd"]
+  method: as_posix
+  expected: "/etc/passwd"
+
+# --- Relative manipulation ---
+
+invariant pathlib.purepath.relative_to:
+  kind: python_call_eq
+  category: manipulation
+  function: PurePosixPath
+  args: ["/etc/passwd"]
+  method: relative_to
+  method_args: ["/etc"]
+  method_chain: __str__
+  expected: "passwd"

@@ -1,0 +1,123 @@
+spec: datetime
+version: ">=3.7"
+backend: python_module(datetime)
+
+docs: https://docs.python.org/3/library/datetime.html
+rfcs:
+  - "RFC 3339 — Date and Time on the Internet: Timestamps"
+  - "ISO 8601 — Date and time — Representations for information interchange"
+
+provenance:
+  derived_from:
+    - "Python 3 datetime documentation — https://docs.python.org/3/library/datetime.html"
+    - "ISO 8601 date/time format specification"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.3.0, 2026-04-02"
+  not_derived_from:
+    - "CPython datetime source: Modules/_datetimemodule.c"
+  notes:
+    - "All invariants use fixed dates/times to avoid non-determinism. date.today() and datetime.now() are not tested."
+    - "Dotted function names (e.g. 'date.fromisoformat') are resolved by the harness via chained getattr from the module root."
+    - "date objects compare equal to other date objects with the same year/month/day; isoformat() is used for serialisable comparison."
+    - "timedelta arithmetic is tested via date + timedelta → isoformat() since the harness needs a serialisable result."
+    - "weekday() returns 0=Monday through 6=Sunday (ISO convention)."
+  created_at: "2026-04-02T00:00:00Z"
+
+error_model: python_exceptions
+
+invariant datetime.date.isoformat:
+  description: "date(2024, 3, 15).isoformat() returns '2024-03-15'"
+  category: date_construction
+  rfc: "ISO 8601"
+  kind: python_call_eq
+  function: date.fromisoformat
+  args: ["2024-03-15"]
+  method: isoformat
+  expected: "2024-03-15"
+
+table datetime.date.attributes:
+  kind: python_call_eq
+  category: date_attributes
+  id_prefix: date
+  function: date.fromisoformat
+  args: ["2024-03-15"]
+
+  columns: [id, method, expected]
+  rows:
+    - [year_attr,  year,    2024]
+    - [month_attr, month,   3]
+    - [day_attr,   day,     15]
+    - [weekday,    weekday, 4]
+
+invariant datetime.date.strftime:
+  description: "date.fromisoformat('2024-03-15').strftime('%Y/%m/%d') returns '2024/03/15'"
+  category: formatting
+  kind: python_call_eq
+  function: date.fromisoformat
+  args: ["2024-03-15"]
+  method: strftime
+  method_args: ["%Y/%m/%d"]
+  expected: "2024/03/15"
+
+invariant datetime.date.fromordinal_epoch:
+  description: "date.fromordinal(1) is 0001-01-01 — the proleptic Gregorian calendar epoch"
+  category: date_construction
+  kind: python_call_eq
+  function: date.fromordinal
+  args: [1]
+  method: isoformat
+  expected: "0001-01-01"
+
+invariant datetime.date.fromisoformat_roundtrip:
+  description: "date.fromisoformat(d.isoformat()) == d for a fixed date"
+  category: roundtrip
+  rfc: "ISO 8601"
+  kind: python_call_eq
+  function: date.fromisoformat
+  args: ["2000-01-01"]
+  method: isoformat
+  expected: "2000-01-01"
+
+invariant datetime.datetime.isoformat:
+  description: "datetime.fromisoformat('2024-03-15T12:30:45').isoformat() roundtrips correctly"
+  category: datetime_construction
+  rfc: "RFC 3339"
+  kind: python_call_eq
+  function: datetime.fromisoformat
+  args: ["2024-03-15T12:30:45"]
+  method: isoformat
+  expected: "2024-03-15T12:30:45"
+
+table datetime.datetime.attributes:
+  kind: python_call_eq
+  category: datetime_attributes
+  id_prefix: datetime
+  function: datetime.fromisoformat
+  args: ["2024-03-15T12:30:45"]
+
+  columns: [id, method, expected]
+  rows:
+    - [hour_attr,   hour,   12]
+    - [minute_attr, minute, 30]
+    - [second_attr, second, 45]
+
+invariant datetime.datetime.strftime:
+  description: "datetime.fromisoformat('2024-03-15T12:30:45').strftime('%H:%M:%S') == '12:30:45'"
+  category: formatting
+  kind: python_call_eq
+  function: datetime.fromisoformat
+  args: ["2024-03-15T12:30:45"]
+  method: strftime
+  method_args: ["%H:%M:%S"]
+  expected: "12:30:45"
+
+table datetime.date.errors:
+  kind: python_call_raises
+  category: error
+  id_prefix: date
+  function: date
+  expected_exception: ValueError
+
+  columns: [id, args, description]
+  rows:
+    - [invalid_month_raises, [2024, 13, 1],  "date(2024, 13, 1) raises ValueError — month 13 does not exist"]
+    - [invalid_day_raises,   [2024, 2, 30],  "date(2024, 2, 30) raises ValueError — Feb 30 does not exist"]

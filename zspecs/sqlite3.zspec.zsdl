@@ -1,0 +1,130 @@
+spec: sqlite3
+version: ">=3.9"
+backend: python_module(sqlite3)
+
+docs: https://docs.python.org/3/library/sqlite3.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sqlite3.html — Python sqlite3 documentation"
+    - "https://www.sqlite.org/lang.html — SQLite Language Reference"
+    - "Test vectors verified by running Python 3.14.3 sqlite3 module on macOS/Darwin 25.4.0, 2026-04-01"
+  not_derived_from:
+    - "CPython source: Modules/_sqlite/"
+    - "SQLite source: sqlite3.c"
+  notes:
+    - "All roundtrip tests use ':memory:' databases — no filesystem state is retained between tests."
+    - "complete_statement() returns True only when the SQL string ends with a semicolon and constitutes a syntactically complete statement."
+    - "Row values returned by fetchall() are tuples; the python_sqlite_roundtrip handler converts each row to a list for JSON comparison."
+    - "sqlite3.OperationalError is a subclass of sqlite3.DatabaseError, which is a subclass of Exception."
+  created_at: "2026-04-01T00:00:00Z"
+
+error_model: python_exceptions
+
+# --- complete_statement ---
+
+table sqlite3.complete_statement:
+  kind: python_call_eq
+  category: complete_statement
+  id_prefix: complete_statement
+  function: complete_statement
+
+  columns: [id, args, expected]
+  rows:
+    - [with_semicolon,       ["SELECT 1;"              ], true ]
+    - [without_semicolon,    ["SELECT 1"               ], false]
+    - [select_star,          ["SELECT * FROM t;"       ], true ]
+    - [unclosed_values,      ["INSERT INTO t VALUES (1"], false]
+    - [empty_string,         [""                       ], false]
+
+# --- roundtrip ---
+
+invariant sqlite3.roundtrip.integer_and_text:
+  kind: python_sqlite_roundtrip
+  category: roundtrip
+  setup_sql:
+    - "CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)"
+    - "INSERT INTO t VALUES (1, 'foo')"
+    - "INSERT INTO t VALUES (2, 'bar')"
+  query_sql: "SELECT id, val FROM t ORDER BY id"
+  expected_rows:
+    - [1, "foo"]
+    - [2, "bar"]
+
+invariant sqlite3.roundtrip.null_value:
+  kind: python_sqlite_roundtrip
+  category: roundtrip
+  setup_sql:
+    - "CREATE TABLE nulltest (id INTEGER, val TEXT)"
+    - "INSERT INTO nulltest VALUES (1, NULL)"
+  query_sql: "SELECT id, val FROM nulltest"
+  expected_rows:
+    - [1, null]
+
+invariant sqlite3.roundtrip.real_column:
+  kind: python_sqlite_roundtrip
+  category: roundtrip
+  setup_sql:
+    - "CREATE TABLE prices (item TEXT, price REAL)"
+    - "INSERT INTO prices VALUES ('apple', 1.99)"
+    - "INSERT INTO prices VALUES ('banana', 0.5)"
+  query_sql: "SELECT item, price FROM prices ORDER BY item"
+  expected_rows:
+    - ["apple",  1.99]
+    - ["banana", 0.5 ]
+
+invariant sqlite3.roundtrip.aggregation_count:
+  kind: python_sqlite_roundtrip
+  category: roundtrip
+  setup_sql:
+    - "CREATE TABLE items (name TEXT)"
+    - "INSERT INTO items VALUES ('a')"
+    - "INSERT INTO items VALUES ('b')"
+    - "INSERT INTO items VALUES ('c')"
+  query_sql: "SELECT COUNT(*) FROM items"
+  expected_rows:
+    - [3]
+
+invariant sqlite3.roundtrip.where_filter:
+  kind: python_sqlite_roundtrip
+  category: roundtrip
+  setup_sql:
+    - "CREATE TABLE scores (name TEXT, score INTEGER)"
+    - "INSERT INTO scores VALUES ('alice', 90)"
+    - "INSERT INTO scores VALUES ('bob', 70)"
+    - "INSERT INTO scores VALUES ('carol', 85)"
+  query_sql: "SELECT name FROM scores WHERE score >= 85 ORDER BY name"
+  expected_rows:
+    - ["alice"]
+    - ["carol"]
+
+invariant sqlite3.roundtrip.empty_result:
+  kind: python_sqlite_roundtrip
+  category: roundtrip
+  setup_sql:
+    - "CREATE TABLE empty_table (id INTEGER)"
+  query_sql: "SELECT id FROM empty_table"
+  expected_rows: []
+
+invariant sqlite3.roundtrip.order_by_desc:
+  kind: python_sqlite_roundtrip
+  category: roundtrip
+  setup_sql:
+    - "CREATE TABLE nums (n INTEGER)"
+    - "INSERT INTO nums VALUES (3)"
+    - "INSERT INTO nums VALUES (1)"
+    - "INSERT INTO nums VALUES (2)"
+  query_sql: "SELECT n FROM nums ORDER BY n DESC"
+  expected_rows:
+    - [3]
+    - [2]
+    - [1]
+
+# --- error ---
+
+invariant sqlite3.error.complete_statement_non_string:
+  kind: python_call_raises
+  category: error
+  function: complete_statement
+  args: [42]
+  expected_exception: "TypeError"

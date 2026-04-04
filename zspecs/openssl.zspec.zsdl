@@ -1,0 +1,160 @@
+spec: openssl
+version: ">=1.1.0"
+backend: cli(openssl)
+
+docs: https://www.openssl.org/docs/man3.0/man1/openssl-dgst.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "RFC 1321 — The MD5 Message-Digest Algorithm"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "RFC 1321 — The MD5 Message-Digest Algorithm, April 1992"
+    - "https://www.openssl.org/docs/man3.0/man1/openssl-dgst.html — openssl dgst man page"
+    - "Test vectors verified by running OpenSSL 3.6.1 on macOS/Darwin 25.3.0, 2026-03-31"
+    - "Cross-checked against Python 3.14.3 hashlib module (see zspecs/hashlib.zspec.json)"
+  not_derived_from:
+    - "OpenSSL source: crypto/sha/sha256.c"
+    - "OpenSSL source: crypto/md5/md5.c"
+    - "OpenSSL source: apps/dgst.c"
+  notes:
+    - "This spec exercises the openssl CLI tool via subprocess. It is a CLI-backend spec — the 'library' is the installed openssl binary, not a shared library or Python module."
+    - "Output format of 'openssl dgst': the algorithm prefix varies by OpenSSL version and fork. OpenSSL 3.x uses 'SHA2-256', older versions use 'SHA256', LibreSSL uses 'SHA256'. The hex digest value is always present in the output regardless of prefix. All hash invariants use cli_stdout_contains on the hex digest only."
+    - "Cross-spec interoperability: the hash values in this spec are identical to those in zspecs/hashlib.zspec.json. This is a fundamental invariant: openssl and Python hashlib must produce the same output for the same input on the same algorithm. They do."
+    - "The 'openssl dgst -r' (raw) format outputs '<hexdigest> *stdin' — useful for piping but less human-readable."
+    - "SHA-256('abc') = ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad — same value verified in hashlib.zspec.json provenance notes."
+  created_at: "2026-03-31T00:00:00Z"
+
+invariant openssl.version.exits_zero:
+  description: "openssl version exits with code 0"
+  category: health
+  kind: cli_exits_with
+  args: [version]
+  expected_exit: 0
+
+invariant openssl.version.stdout_contains_ssl:
+  description: "openssl version stdout contains 'SSL' — works for both 'OpenSSL' and 'LibreSSL'"
+  category: health
+  kind: cli_stdout_contains
+  args: [version]
+  expected_substring: SSL
+
+invariant openssl.dgst.sha256.empty:
+  description: "SHA-256 of empty input == e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 — cross-checks hashlib.sha256.empty"
+  category: sha256_vector
+  rfc: "FIPS 180-4"
+  kind: cli_stdout_contains
+  args: [dgst, -sha256]
+  stdin_b64: ""
+  expected_substring: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+invariant openssl.dgst.sha256.abc:
+  description: "SHA-256 of b'abc' == ba7816bf... — cross-checks hashlib.sha256.abc"
+  category: sha256_vector
+  rfc: "FIPS 180-4"
+  kind: cli_stdout_contains
+  args: [dgst, -sha256]
+  stdin_b64: YWJj
+  expected_substring: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+
+invariant openssl.dgst.sha256.fips_message2:
+  description: "SHA-256 of 56-byte FIPS 180-4 Appendix B message — cross-checks hashlib.sha256.fips_message2"
+  category: sha256_vector
+  rfc: "FIPS 180-4 Appendix B"
+  kind: cli_stdout_contains
+  args: [dgst, -sha256]
+  stdin_b64: YWJjZGJjZGVjZGVmZGVmZ2VmZ2hmZ2hpZ2hpamhpamtpamtsamtsbWtsbW5sbW5vbW5vcG5vcHE=
+  expected_substring: 248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1
+
+invariant openssl.dgst.sha1.empty:
+  description: "SHA-1 of empty input == da39a3ee5e6b4b0d3255bfef95601890afd80709 — cross-checks hashlib.sha1.empty"
+  category: sha1_vector
+  rfc: "FIPS 180-4"
+  kind: cli_stdout_contains
+  args: [dgst, -sha1]
+  stdin_b64: ""
+  expected_substring: da39a3ee5e6b4b0d3255bfef95601890afd80709
+
+invariant openssl.dgst.sha1.abc:
+  description: "SHA-1 of b'abc' == a9993e364706816aba3e25717850c26c9cd0d89d — cross-checks hashlib.sha1.abc"
+  category: sha1_vector
+  rfc: "FIPS 180-4"
+  kind: cli_stdout_contains
+  args: [dgst, -sha1]
+  stdin_b64: YWJj
+  expected_substring: a9993e364706816aba3e25717850c26c9cd0d89d
+
+invariant openssl.dgst.md5.empty:
+  description: "MD5 of empty input == d41d8cd98f00b204e9800998ecf8427e — cross-checks hashlib.md5.empty"
+  category: md5_vector
+  rfc: "RFC 1321 A.5"
+  kind: cli_stdout_contains
+  args: [dgst, -md5]
+  stdin_b64: ""
+  expected_substring: d41d8cd98f00b204e9800998ecf8427e
+
+invariant openssl.dgst.md5.abc:
+  description: "MD5 of b'abc' == 900150983cd24fb0d6963f7d28e17f72 — cross-checks hashlib.md5.abc"
+  category: md5_vector
+  rfc: "RFC 1321 A.5"
+  kind: cli_stdout_contains
+  args: [dgst, -md5]
+  stdin_b64: YWJj
+  expected_substring: 900150983cd24fb0d6963f7d28e17f72
+
+invariant openssl.dgst.md5.quick_brown_fox:
+  description: "MD5 of the quick-brown-fox string == 9e107d9d372bb6826bd81d3542a419d6 — cross-checks hashlib.md5.quick_brown_fox"
+  category: md5_vector
+  kind: cli_stdout_contains
+  args: [dgst, -md5]
+  stdin_b64: VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw==
+  expected_substring: 9e107d9d372bb6826bd81d3542a419d6
+
+invariant openssl.dgst.sha512.empty:
+  description: "SHA-512 of empty input — cross-checks hashlib.sha512.empty"
+  category: sha512_vector
+  rfc: "FIPS 180-4"
+  kind: cli_stdout_contains
+  args: [dgst, -sha512]
+  stdin_b64: ""
+  expected_substring: cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e
+
+invariant openssl.dgst.sha512.abc:
+  description: "SHA-512 of b'abc' — cross-checks hashlib.sha512.abc"
+  category: sha512_vector
+  rfc: "FIPS 180-4"
+  kind: cli_stdout_contains
+  args: [dgst, -sha512]
+  stdin_b64: YWJj
+  expected_substring: ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f
+
+invariant openssl.dgst.sha256.raw_format:
+  description: "openssl dgst -sha256 -r outputs '<hexdigest> *stdin' on a single line (raw format, no algorithm prefix)"
+  category: output_format
+  kind: cli_stdout_matches
+  args: [dgst, -sha256, -r]
+  stdin_b64: YWJj
+  pattern: "^ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad[ *]"
+
+invariant openssl.dgst.sha256.exits_zero:
+  description: "openssl dgst -sha256 exits 0 on valid input"
+  category: health
+  kind: cli_exits_with
+  args: [dgst, -sha256]
+  stdin_b64: YWJj
+  expected_exit: 0
+
+invariant openssl.badcmd.exits_nonzero:
+  description: "openssl with an invalid subcommand exits 1"
+  category: error
+  kind: cli_exits_with
+  args: [no_such_subcommand_xyz]
+  expected_exit: 1
+
+invariant openssl.badcmd.stderr_contains_invalid:
+  description: "openssl with an invalid subcommand writes an error message to stderr"
+  category: error
+  kind: cli_stderr_contains
+  args: [no_such_subcommand_xyz]
+  expected_substring: Invalid

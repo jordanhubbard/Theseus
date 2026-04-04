@@ -1,0 +1,109 @@
+spec: curl
+version: ">=7.0.0"
+backend: cli(curl)
+
+docs: https://curl.se/docs/manpage.html
+rfcs:
+  - "RFC 7230 — HTTP/1.1 Message Syntax and Routing"
+  - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax"
+
+provenance:
+  derived_from:
+    - "curl man page — https://curl.se/docs/manpage.html"
+    - "curl --help output"
+    - "curl exit code reference — https://curl.se/docs/manpage.html#EXIT_CODES"
+    - "Test vectors verified with curl 8.13.0 on macOS/Darwin 25.3.0, 2026-03-31"
+  not_derived_from:
+    - "curl source: lib/transfer.c, lib/url.c"
+  notes:
+    - "All invariants in this spec are offline-safe: they use --version, --help, file://, or connect to localhost on a port that is guaranteed to refuse connections. No external network access is required."
+    - "Exit code 1 = unsupported protocol; exit code 7 = connection refused / failed to connect."
+    - "file:// protocol is supported on all major platforms (macOS, Linux, FreeBSD)."
+    - "The stdin_b64 trick is not used here; curl reads from URLs, not stdin by default."
+    - "version_string invariants test that key substrings appear in 'curl --version' stdout. The exact version number is intentionally not tested so the spec works across versions."
+  created_at: "2026-03-31T00:00:00Z"
+
+invariant curl.version.exits_0:
+  description: "--version exits with code 0"
+  category: health
+  kind: cli_exits_with
+  args: [--version]
+  expected_exit: 0
+
+invariant curl.version.contains_curl:
+  description: "--version stdout contains 'curl'"
+  category: health
+  kind: cli_stdout_contains
+  args: [--version]
+  expected_substring: curl
+
+invariant curl.version.contains_libcurl:
+  description: "--version stdout contains 'libcurl'"
+  category: health
+  kind: cli_stdout_contains
+  args: [--version]
+  expected_substring: libcurl
+
+invariant curl.version.contains_protocols:
+  description: "--version stdout contains 'Protocols:' listing"
+  category: health
+  kind: cli_stdout_contains
+  args: [--version]
+  expected_substring: "Protocols:"
+
+invariant curl.version.contains_http:
+  description: "--version Protocols: section lists http"
+  category: health
+  kind: cli_stdout_contains
+  args: [--version]
+  expected_substring: " http"
+
+invariant curl.help.exits_0:
+  description: "--help exits with code 0"
+  category: health
+  kind: cli_exits_with
+  args: [--help]
+  expected_exit: 0
+
+invariant curl.help.contains_usage:
+  description: "--help stdout contains 'Usage:'"
+  category: health
+  kind: cli_stdout_contains
+  args: [--help]
+  expected_substring: "Usage:"
+
+invariant curl.file.read_exits_0:
+  description: "curl can read a local file via file:// and exits 0"
+  category: file_protocol
+  kind: cli_exits_with
+  args: [--silent, --output, /dev/null, "file:///etc/hosts"]
+  expected_exit: 0
+
+invariant curl.file.read_stdout:
+  description: "curl file:// output contains the file contents"
+  category: file_protocol
+  kind: cli_stdout_contains
+  args: [--silent, "file:///etc/hosts"]
+  expected_substring: localhost
+
+invariant curl.error.unsupported_protocol_exits_1:
+  description: "An unsupported protocol scheme causes exit code 1"
+  category: error_behavior
+  kind: cli_exits_with
+  args: [--silent, "badproto://example.com"]
+  expected_exit: 1
+
+invariant curl.error.unsupported_protocol_stderr:
+  description: "An unsupported protocol scheme writes a message containing 'Protocol' to stderr"
+  category: error_behavior
+  kind: cli_stderr_contains
+  args: ["badproto://example.com"]
+  expected_substring: Protocol
+
+invariant curl.error.connection_refused_exits_7:
+  description: "Connecting to a port with no listener exits with code 7 (connection refused)"
+  category: error_behavior
+  kind: cli_exits_with
+  args: [--silent, --max-time, "2", "http://localhost:19999"]
+  expected_exit: 7
+  timeout: 5

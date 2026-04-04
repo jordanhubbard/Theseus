@@ -1,0 +1,99 @@
+spec: json
+version: ">=3.9"
+backend: python_module(json)
+
+docs: https://docs.python.org/3/library/json.html
+rfcs:
+  - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format"
+  - "ECMA-404 — The JSON Data Interchange Syntax"
+
+provenance:
+  derived_from:
+    - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format, December 2017"
+    - "ECMA-404 2nd Edition — The JSON Data Interchange Syntax, December 2017"
+    - "https://docs.python.org/3/library/json.html — Python json module documentation"
+    - "Test vectors verified by running Python 3.14.3 json module on macOS/Darwin 25.3.0, 2026-03-30"
+  not_derived_from:
+    - "CPython source: Lib/json/__init__.py"
+    - "CPython source: Lib/json/encoder.py"
+    - "CPython source: Lib/json/decoder.py"
+    - "CPython source: Modules/_json.c"
+  notes:
+    - "Python's json.dumps uses default separators (', ', ': ') which produce spaces after commas and colons. All dumps expected values in this spec use the default separators."
+    - "JSON object key order: Python 3.7+ preserves insertion order of dict. The spec test dicts have a single key to avoid order sensitivity."
+    - "RFC 8259 requires that JSON text be encoded in UTF-8, UTF-16, or UTF-32. Python's json module uses UTF-8 by default (ensure_ascii=True converts non-ASCII to \\uXXXX)."
+    - "NaN and Infinity are not valid JSON (RFC 8259 §6) but Python's json module accepts them by default when allow_nan=True. This spec only tests RFC-compliant behavior."
+    - "json.JSONDecodeError is a subclass of ValueError."
+  created_at: "2026-03-31T00:00:00Z"
+
+error_model: python_exceptions
+
+table json.dumps.primitives:
+  kind: python_call_eq
+  category: dumps_primitives
+  rfc: "RFC 8259 §3"
+  id_prefix: dumps
+  function: dumps
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - ["null",   [~],     "null",   ~]
+    - ["true",   [true],  "true",   ~]
+    - ["false",  [false], "false",  ~]
+    - [zero,     [0],     "0",      "RFC 8259 §6"]
+    - [integer,  [42],    "42",     "RFC 8259 §6"]
+    - [negative, [-7],    "-7",     "RFC 8259 §6"]
+    - [string,   ["hello"], "\"hello\"", "RFC 8259 §7"]
+
+table json.dumps.compound:
+  kind: python_call_eq
+  category: dumps_compound
+  id_prefix: dumps
+  function: dumps
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [empty_array, [[]],       "[]",        "RFC 8259 §5"]
+    - [array,       [[1, 2, 3]], "[1, 2, 3]", "RFC 8259 §5"]
+    - [object,      [{a: 1}],   "{\"a\": 1}", "RFC 8259 §4"]
+    - [compact_separators, [[1, 2, 3]], "[1,2,3]", "RFC 8259 §2", {kwargs: {separators: !tuple [",", ":"]}}]
+
+table json.loads.primitives:
+  kind: python_call_eq
+  category: loads_primitives
+  rfc: "RFC 8259 §3"
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - ["null",   ["null"],  ~,     ~]
+    - ["true",   ["true"],  true,  ~]
+    - ["false",  ["false"], false, ~]
+    - [integer,  ["42"],    42,    "RFC 8259 §6"]
+    - [string,   ["\"hello\""], "hello", "RFC 8259 §7"]
+
+table json.loads.compound:
+  kind: python_call_eq
+  category: loads_compound
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [array,  ["[1, 2, 3]"],   [1, 2, 3],  "RFC 8259 §5"]
+    - [object, ["{\"a\": 1}"],  {a: 1},     "RFC 8259 §4"]
+
+table json.loads.errors:
+  kind: python_call_raises
+  category: error
+  id_prefix: loads
+  function: loads
+  expected_exception: json.JSONDecodeError
+
+  columns: [id, args, rfc]
+  rows:
+    - [empty_string_raises,   [""],              "RFC 8259 §2"]
+    - [truncated_raises,      ["{"],             "RFC 8259 §4"]
+    - [nan_raises,            ["nan"],           "RFC 8259 §6"]
+    - [trailing_garbage_raises, ["{\"a\": 1} extra"], "RFC 8259 §2"]
