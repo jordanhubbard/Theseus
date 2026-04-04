@@ -22,7 +22,7 @@ import pytest
 REPO_ROOT    = Path(__file__).resolve().parent.parent
 PYTHON       = sys.executable
 HARNESS      = str(REPO_ROOT / "tools" / "verify_behavior.py")
-DT_SPEC_PATH = str(REPO_ROOT / "zspecs" / "datetime.zspec.json")
+DT_SPEC_PATH = str(REPO_ROOT / "_build" / "zspecs" / "datetime.zspec.json")
 
 
 def _run_watch(spec_path: str, timeout: float = 5.0) -> tuple[str, int | None]:

@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT    = Path(__file__).resolve().parent.parent
-ZSPECS_DIR   = REPO_ROOT / "zspecs"
+ZSPECS_DIR   = REPO_ROOT / "_build" / "zspecs"
 
 
 def _has_spec(canonical_name: str) -> bool:

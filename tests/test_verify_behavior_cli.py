@@ -25,7 +25,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 import verify_behavior as vb
 
-OPENSSL_SPEC_PATH = REPO_ROOT / "zspecs" / "openssl.zspec.json"
+OPENSSL_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "openssl.zspec.json"
 
 
 # ---------------------------------------------------------------------------
@@ -394,7 +394,7 @@ class TestOpensslSpecIntegration:
     def test_cross_spec_sha256_abc_matches_hashlib(self):
         """The SHA-256('abc') value in openssl.zspec.json must equal the value
         in hashlib.zspec.json — this is the interoperability invariant."""
-        hashlib_spec = vb.SpecLoader().load(REPO_ROOT / "zspecs" / "hashlib.zspec.json")
+        hashlib_spec = vb.SpecLoader().load(REPO_ROOT / "_build" / "zspecs" / "hashlib.zspec.json")
         openssl_spec  = vb.SpecLoader().load(OPENSSL_SPEC_PATH)
 
         def get_hash(spec, inv_id):

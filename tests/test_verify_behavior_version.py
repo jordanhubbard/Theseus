@@ -17,9 +17,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import verify_behavior as vb
 
-DT_SPEC_PATH = REPO_ROOT / "zspecs" / "datetime.zspec.json"
-SEMVER_SPEC_PATH = REPO_ROOT / "zspecs" / "semver.zspec.json"
-ZLIB_SPEC_PATH = REPO_ROOT / "zspecs" / "zlib.zspec.json"
+DT_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "datetime.zspec.json"
+SEMVER_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "semver.zspec.json"
+ZLIB_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "zlib.zspec.json"
 
 
 # ---------------------------------------------------------------------------

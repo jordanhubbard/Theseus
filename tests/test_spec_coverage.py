@@ -26,7 +26,7 @@ def write_record(tmp_path: Path, name: str, score: float, has_bspec: bool = Fals
         "analysis": {"composite_score": score},
     }
     if has_bspec:
-        data["behavioral_spec"] = f"zspecs/{name}.zspec.json"
+        data["behavioral_spec"] = f"_build/zspecs/{name}.zspec.json"
     path = tmp_path / f"{name}.json"
     path.write_text(json.dumps(data))
     return path
@@ -145,7 +145,7 @@ class TestBuildReport:
         # "zlib" has a real zspec
         records = [{"identity": {"canonical_name": "zlib"}, "analysis": {"composite_score": 0.99}}]
         r = sc.build_report(records, top=None)
-        assert r["covered"] == 1, "zlib should be covered because zspecs/zlib.zspec.json exists"
+        assert r["covered"] == 1, "zlib should be covered because _build/zspecs/zlib.zspec.json exists"
 
     def test_nonexistent_spec_not_covered(self, tmp_path):
         records = [{"identity": {"canonical_name": "definitely_no_spec_xyz"}, "analysis": {"composite_score": 0.5}}]

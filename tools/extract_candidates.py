@@ -26,11 +26,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def _find_behavioral_spec(canonical_name: str) -> str | None:
     """Return a repo-relative path to a matching Z-spec, or None."""
-    zspecs_dir = REPO_ROOT / "zspecs"
-    # Exact name match first (e.g. "openssl" → "zspecs/openssl.zspec.json")
-    candidate = zspecs_dir / f"{canonical_name}.zspec.json"
+    build_dir = REPO_ROOT / "_build" / "zspecs"
+    # Exact name match first (e.g. "openssl" → "_build/zspecs/openssl.zspec.json")
+    candidate = build_dir / f"{canonical_name}.zspec.json"
     if candidate.exists():
-        return f"zspecs/{canonical_name}.zspec.json"
+        return f"_build/zspecs/{canonical_name}.zspec.json"
     return None
 
 

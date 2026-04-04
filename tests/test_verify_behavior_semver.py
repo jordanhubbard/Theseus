@@ -18,7 +18,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 import verify_behavior as vb
 
-SEMVER_SPEC_PATH = REPO_ROOT / "zspecs" / "semver.zspec.json"
+SEMVER_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "semver.zspec.json"
 
 
 # ---------------------------------------------------------------------------

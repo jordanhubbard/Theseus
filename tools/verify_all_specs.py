@@ -2,7 +2,7 @@
 """
 verify_all_specs.py — Run every Z-layer spec and emit a JSON results file.
 
-Runs InvariantRunner on every *.zspec.json file in zspecs/ (or the paths
+Runs InvariantRunner on every *.zspec.json file in _build/zspecs/ (or the paths
 provided on the command line) and writes a single JSON document containing:
   - per-spec results with per-invariant pass/fail details
   - an aggregate summary (total specs, invariants, pass/fail/skip counts)
@@ -13,7 +13,7 @@ Usage:
   python3 tools/verify_all_specs.py [--out FILE] [spec ...]
 
   --out FILE   Write JSON to FILE (default: verify_all_specs_out.json)
-  spec         One or more .zspec.json paths; defaults to zspecs/*.zspec.json
+  spec         One or more .zspec.json paths; defaults to _build/zspecs/*.zspec.json
 
 Exit codes:
   0  All invariants passed
@@ -29,7 +29,7 @@ import time
 from pathlib import Path
 
 REPO_ROOT   = Path(__file__).resolve().parent.parent
-ZSPECS_GLOB = "zspecs/*.zspec.json"
+ZSPECS_GLOB = "_build/zspecs/*.zspec.json"
 
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import verify_behavior as vb
@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "specs", nargs="*",
-        help="Spec files or directories (default: zspecs/*.zspec.json)"
+        help="Spec files or directories (default: _build/zspecs/*.zspec.json)"
     )
     args = parser.parse_args(argv)
 

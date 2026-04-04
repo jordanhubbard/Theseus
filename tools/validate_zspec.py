@@ -2,7 +2,7 @@
 """
 validate_zspec.py — Static schema validation for Z-layer behavioral spec files.
 
-Validates every *.zspec.json file in zspecs/ against
+Validates every *.zspec.json file in _build/zspecs/ against
 zspecs/schema/behavioral-spec.schema.json using jsonschema if available,
 falling back to a minimal stdlib structural check otherwise.
 
@@ -14,8 +14,7 @@ Exit codes:
 Usage:
   python3 tools/validate_zspec.py [spec_file_or_dir ...]
 
-  If no paths are given, defaults to the zspecs/ directory alongside this file's
-  repo root.
+  If no paths are given, defaults to _build/zspecs/ (run 'make compile-zsdl' first).
 """
 from __future__ import annotations
 
@@ -25,7 +24,7 @@ from pathlib import Path
 
 REPO_ROOT    = Path(__file__).resolve().parent.parent
 SCHEMA_PATH  = REPO_ROOT / "zspecs" / "schema" / "behavioral-spec.schema.json"
-DEFAULT_GLOB = "zspecs/*.zspec.json"
+DEFAULT_GLOB = "_build/zspecs/*.zspec.json"
 
 REQUIRED_TOP_LEVEL = [
     "schema_version",

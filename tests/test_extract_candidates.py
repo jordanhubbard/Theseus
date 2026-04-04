@@ -482,10 +482,10 @@ def test_main_skips_missing_candidates(tmp_path):
 
 def test_find_behavioral_spec_known_library():
     """Libraries with a matching zspec get a behavioral_spec path."""
-    assert ec._find_behavioral_spec("openssl") == "zspecs/openssl.zspec.json"
-    assert ec._find_behavioral_spec("zlib")    == "zspecs/zlib.zspec.json"
-    assert ec._find_behavioral_spec("curl")    == "zspecs/curl.zspec.json"
-    assert ec._find_behavioral_spec("sqlite3") == "zspecs/sqlite3.zspec.json"
+    assert ec._find_behavioral_spec("openssl") == "_build/zspecs/openssl.zspec.json"
+    assert ec._find_behavioral_spec("zlib")    == "_build/zspecs/zlib.zspec.json"
+    assert ec._find_behavioral_spec("curl")    == "_build/zspecs/curl.zspec.json"
+    assert ec._find_behavioral_spec("sqlite3") == "_build/zspecs/sqlite3.zspec.json"
 
 
 def test_find_behavioral_spec_unknown_library():
@@ -496,7 +496,7 @@ def test_extract_candidate_includes_behavioral_spec():
     """extract_candidate sets behavioral_spec when a matching zspec exists."""
     rec = _record("openssl", "nixpkgs", "3.0.0")
     result = ec.extract_candidate("openssl", [rec], 80.0)
-    assert result.get("behavioral_spec") == "zspecs/openssl.zspec.json"
+    assert result.get("behavioral_spec") == "_build/zspecs/openssl.zspec.json"
 
 
 def test_extract_candidate_no_behavioral_spec_when_none():

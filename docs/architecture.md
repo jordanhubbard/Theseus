@@ -28,7 +28,8 @@ Source Trees (Nixpkgs, FreeBSD Ports)
                 │
                 └─► tools/spec_coverage.py  ← report covered vs gap candidates
 
-zspecs/*.zspec.json                      ← behavioral contracts (one per library)
+zspecs/*.zspec.zsdl                      ← behavioral contract sources (one per library, committed)
+_build/zspecs/*.zspec.json               ← compiled from ZSDL (build artifact, not committed)
         │
         ├─► tools/verify_behavior.py     ← harness: run invariants against installed library
         ├─► tools/validate_zspec.py      ← static JSON schema validation of spec files
@@ -137,7 +138,7 @@ Each extraction record contains three sections:
 - **`per_ecosystem`** — the full original canonical record for each ecosystem, keyed by ecosystem name.
 - **`analysis`** — structured comparison: version agreement, confidence averages, dependency counts, license agreement, deprecation status, and human-readable notes.
 
-A `manifest.json` is written alongside the per-package files. The tool also auto-injects `behavioral_spec` pointing to `zspecs/<canonical_name>.zspec.json` for any candidate whose name matches a spec file.
+A `manifest.json` is written alongside the per-package files. The tool also auto-injects `behavioral_spec` pointing to `_build/zspecs/<canonical_name>.zspec.json` for any candidate whose name matches a spec file.
 
 #### `tools/spec_coverage.py`
 
@@ -282,13 +283,13 @@ The detected version is:
 Primary verification harness. Loads a single spec, resolves the library, and runs all invariants.
 
 ```bash
-python3 tools/verify_behavior.py zspecs/zlib.zspec.json
-python3 tools/verify_behavior.py zspecs/zlib.zspec.json --filter checksum
-python3 tools/verify_behavior.py zspecs/zlib.zspec.json --verbose
-python3 tools/verify_behavior.py zspecs/zlib.zspec.json --list
-python3 tools/verify_behavior.py zspecs/zlib.zspec.json --json-out results.json
-python3 tools/verify_behavior.py zspecs/zlib.zspec.json --baseline baseline.json
-python3 tools/verify_behavior.py zspecs/zlib.zspec.json --watch
+python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json
+python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json --filter checksum
+python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json --verbose
+python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json --list
+python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json --json-out results.json
+python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json --baseline baseline.json
+python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json --watch
 ```
 
 Exit codes: `0` all passed, `1` one or more failed, `2` harness error.
@@ -302,8 +303,8 @@ Exit codes: `0` all passed, `1` one or more failed, `2` harness error.
 Static validator for spec files. Uses `jsonschema` if installed, stdlib structural checks otherwise.
 
 ```bash
-python3 tools/validate_zspec.py                   # validate all zspecs/*.zspec.json
-python3 tools/validate_zspec.py zspecs/zlib.zspec.json
+python3 tools/validate_zspec.py                   # validate all _build/zspecs/*.zspec.json
+python3 tools/validate_zspec.py _build/zspecs/zlib.zspec.json
 make validate-zspecs
 ```
 
@@ -311,12 +312,12 @@ Exit codes: `0` all valid, `1` one or more invalid, `2` usage error.
 
 #### `tools/verify_all_specs.py`
 
-Runs every spec in `zspecs/` and writes a single JSON results document. Suitable for CI dashboards and `--baseline` regression tracking.
+Runs every spec in `_build/zspecs/` and writes a single JSON results document. Suitable for CI dashboards and `--baseline` regression tracking.
 
 ```bash
 python3 tools/verify_all_specs.py
 python3 tools/verify_all_specs.py --out reports/results.json
-python3 tools/verify_all_specs.py zspecs/zlib.zspec.json zspecs/re.zspec.json
+python3 tools/verify_all_specs.py _build/zspecs/zlib.zspec.json _build/zspecs/re.zspec.json
 make verify-all-specs-json OUT=reports/results.json
 ```
 
@@ -327,7 +328,7 @@ Output JSON structure:
   "summary": { "total_specs": 15, "specs_ok": 15, "specs_failed": 0,
                 "total_invariants": 257, "passed": 257, "failed": 0, "skipped": 0 },
   "specs": [
-    { "spec": "zspecs/zlib.zspec.json", "canonical_name": "zlib",
+    { "spec": "_build/zspecs/zlib.zspec.json", "canonical_name": "zlib",
       "lib_version": "1.2.12", "error": null,
       "summary": { "total": 23, "passed": 23, "failed": 0, "skipped": 0 },
       "invariants": [ { "id": "zlib.compress.roundtrip", "passed": true, ... } ]

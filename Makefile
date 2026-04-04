@@ -46,15 +46,15 @@ stop:
 
 restart: stop start
 
-test:
+test: compile-zsdl
 	python3 tools/validate_zspec.py
 	python3 -m pytest tests/ -v
 
-validate-zspecs:
+validate-zspecs: compile-zsdl
 	python3 tools/validate_zspec.py $(ZSPECS)
 
 clean:
-	rm -rf snapshots/ reports/demo-overlap reports/demo-candidates.json
+	rm -rf _build/ snapshots/ reports/demo-overlap reports/demo-candidates.json
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 	rm -rf .pytest_cache
@@ -117,17 +117,18 @@ bulk-build:
 		$(if $(DRY_RUN),--dry-run)
 
 compile-zsdl:
+	@mkdir -p _build/zspecs
 	python3 tools/zsdl_compile.py $(if $(ZSDL),$(ZSDL),--all)
 
-verify-behavior:
-	python3 tools/verify_behavior.py $(or $(ZSPEC),zspecs/zlib.zspec.json) \
+verify-behavior: compile-zsdl
+	python3 tools/verify_behavior.py $(or $(ZSPEC),_build/zspecs/zlib.zspec.json) \
 		$(if $(FILTER),--filter "$(FILTER)") \
 		$(if $(VERBOSE),--verbose) \
 		$(if $(JSON_OUT),--json-out "$(JSON_OUT)")
 
-verify-all-specs:
+verify-all-specs: compile-zsdl
 	@total=0; passed=0; failed=0; \
-	for spec in zspecs/*.zspec.json; do \
+	for spec in _build/zspecs/*.zspec.json; do \
 		echo "--- $$spec ---"; \
 		if python3 tools/verify_behavior.py "$$spec" $(if $(VERBOSE),--verbose); then \
 			passed=$$((passed+1)); \
@@ -175,9 +176,9 @@ help:
 	@echo "  make seed           Generate PyPI/npm seed lists from freebsd_ports snapshot"
 	@echo "  make import-pypi    Fetch PyPI package metadata (requires pypi-seed.txt)"
 	@echo "  make import-npm     Fetch npm package metadata (requires npm-seed.txt)"
-	@echo "  make compile-zsdl   Compile *.zspec.zsdl → *.zspec.json (ZSDL=file to compile one)"
-	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: zspecs/zlib.zspec.json)"
-	@echo "  make verify-all-specs Run every spec in zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)"
+	@echo "  make compile-zsdl   Compile zspecs/*.zspec.zsdl → _build/zspecs/*.zspec.json (ZSDL=file for one)"
+	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: _build/zspecs/zlib.zspec.json)"
+	@echo "  make verify-all-specs Run every spec in _build/zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)"
 	@echo "  make verify-all-specs-json  Run all specs and write JSON results (OUT=file optional, SPECS=paths optional)"
 	@echo "  make spec-coverage    Report which extracted candidates have a behavioral spec (EXTRACTION_DIR= required)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"

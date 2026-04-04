@@ -25,9 +25,9 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 import verify_behavior as vb
 
-BASE64_SPEC = REPO_ROOT / "zspecs" / "base64.zspec.json"
-JSON_SPEC   = REPO_ROOT / "zspecs" / "json.zspec.json"
-STRUCT_SPEC = REPO_ROOT / "zspecs" / "struct.zspec.json"
+BASE64_SPEC = REPO_ROOT / "_build" / "zspecs" / "base64.zspec.json"
+JSON_SPEC   = REPO_ROOT / "_build" / "zspecs" / "json.zspec.json"
+STRUCT_SPEC = REPO_ROOT / "_build" / "zspecs" / "struct.zspec.json"
 
 
 # ---------------------------------------------------------------------------

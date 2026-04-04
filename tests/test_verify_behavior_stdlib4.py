@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT         = Path(__file__).resolve().parent.parent
-HL_SPEC_PATH      = REPO_ROOT / "zspecs" / "hashlib.zspec.json"
-URL_SPEC_PATH     = REPO_ROOT / "zspecs" / "urllib_parse.zspec.json"
-DL_SPEC_PATH      = REPO_ROOT / "zspecs" / "difflib.zspec.json"
+HL_SPEC_PATH      = REPO_ROOT / "_build" / "zspecs" / "hashlib.zspec.json"
+URL_SPEC_PATH     = REPO_ROOT / "_build" / "zspecs" / "urllib_parse.zspec.json"
+DL_SPEC_PATH      = REPO_ROOT / "_build" / "zspecs" / "difflib.zspec.json"
 
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import verify_behavior as vb

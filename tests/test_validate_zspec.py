@@ -246,7 +246,7 @@ class TestBadJSON:
 # ---------------------------------------------------------------------------
 
 class TestRealSpecs:
-    @pytest.mark.parametrize("spec_path", sorted(REPO_ROOT.glob("zspecs/*.zspec.json")))
+    @pytest.mark.parametrize("spec_path", sorted(REPO_ROOT.glob("_build/zspecs/*.zspec.json")))
     def test_real_spec_is_valid(self, spec_path):
         errors = vz.validate_file(spec_path, schema=None, use_jsonschema=False)
         assert not errors, f"{spec_path.name}:\n" + "\n".join(f"  {e}" for e in errors)
@@ -262,7 +262,7 @@ class TestMain:
         assert rc == 0
 
     def test_main_explicit_file_exit_0(self):
-        rc = vz.main([str(REPO_ROOT / "zspecs" / "zlib.zspec.json")])
+        rc = vz.main([str(REPO_ROOT / "_build" / "zspecs" / "zlib.zspec.json")])
         assert rc == 0
 
     def test_main_bad_spec_exit_1(self, tmp_path):

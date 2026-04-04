@@ -720,6 +720,10 @@ class ZSDLCompiler:
 # CLI
 # ---------------------------------------------------------------------------
 
+REPO_ROOT  = Path(__file__).resolve().parent.parent
+BUILD_DIR  = REPO_ROOT / "_build" / "zspecs"
+
+
 def _compile_one(path: Path, stdout_only: bool = False) -> bool:
     compiler = ZSDLCompiler()
     try:
@@ -731,9 +735,12 @@ def _compile_one(path: Path, stdout_only: bool = False) -> bool:
     if stdout_only:
         print(json_str)
         return True
-    out_path = path.with_suffix("")  # strip .zsdl → .json
-    if not out_path.suffix == ".json":
-        out_path = path.with_name(path.stem + ".json")
+    # Output goes to _build/zspecs/ — never alongside the .zsdl source
+    BUILD_DIR.mkdir(parents=True, exist_ok=True)
+    stem = path.name  # e.g. hashlib.zspec.zsdl
+    if stem.endswith(".zsdl"):
+        stem = stem[:-5]  # strip .zsdl → hashlib.zspec
+    out_path = BUILD_DIR / (stem if stem.endswith(".json") else stem + ".json")
     out_path.write_text(json_str + "\n", encoding="utf-8")
     print(f"  {path} → {out_path}  ({len(result['invariants'])} invariants)")
     return True
@@ -741,7 +748,7 @@ def _compile_one(path: Path, stdout_only: bool = False) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Compile *.zspec.zsdl → *.zspec.json"
+        description="Compile *.zspec.zsdl → _build/zspecs/*.zspec.json"
     )
     parser.add_argument("files", nargs="*", help="ZSDL file(s) to compile")
     parser.add_argument("--all", action="store_true",
@@ -753,7 +760,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.all:
-        here = Path(__file__).parent.parent
+        here = REPO_ROOT
         files = sorted(here.glob("zspecs/*.zspec.zsdl"))
         if not files:
             print("No .zspec.zsdl files found in zspecs/", file=sys.stderr)

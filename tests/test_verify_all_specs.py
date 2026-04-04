@@ -13,8 +13,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import verify_all_specs as vas
 
-DT_SPEC_PATH = REPO_ROOT / "zspecs" / "datetime.zspec.json"
-PL_SPEC_PATH = REPO_ROOT / "zspecs" / "pathlib.zspec.json"
+DT_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "datetime.zspec.json"
+PL_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "pathlib.zspec.json"
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ class TestCollectSpecs:
         assert specs[0] == DT_SPEC_PATH
 
     def test_directory_glob(self):
-        zspecs_dir = REPO_ROOT / "zspecs"
+        zspecs_dir = REPO_ROOT / "_build" / "zspecs"
         specs = vas.collect_specs([str(zspecs_dir)])
         assert len(specs) >= 10  # at least 10 specs present
 

@@ -1,6 +1,6 @@
 # ZSDL — Z-Spec Definition Language: Design Document
 
-**Status:** Design (pre-implementation)
+**Status:** Implemented (all 18 specs authored in ZSDL)
 **Replaces:** hand-authored `*.zspec.json` files
 **Compile target:** existing `*.zspec.json` schema (unchanged, lossless)
 
@@ -30,14 +30,15 @@ ZSDL is purely a write-time concern.
 ### File extension and layout
 
 ```
-zspecs/hashlib.zspec.zsdl     ← authoring source
-zspecs/hashlib.zspec.json     ← compiled output (what the harness reads)
+zspecs/hashlib.zspec.zsdl          ← authoring source (committed to git)
+_build/zspecs/hashlib.zspec.json   ← compiled output (build artifact, not committed)
 ```
 
-One `.zsdl` file per spec, one-to-one with the JSON. The JSON files are generated
-artifacts; source of truth is ZSDL once migration is complete. The compiler is
-`tools/zsdl_compile.py`. The Makefile adds a `make compile-zsdl` target that
-regenerates all JSON from all ZSDL files.
+One `.zsdl` file per spec, one-to-one with the JSON. The JSON files are build
+artifacts (like `.o` files); never committed to git. The source of truth is the
+`.zsdl` file. Run `make compile-zsdl` to regenerate all JSON, or
+`make compile-zsdl ZSDL=zspecs/hashlib.zspec.zsdl` for a single file.
+`make clean` removes `_build/` entirely.
 
 ---
 

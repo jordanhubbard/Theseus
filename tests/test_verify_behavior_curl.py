@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT      = Path(__file__).resolve().parent.parent
-CURL_SPEC_PATH = REPO_ROOT / "zspecs" / "curl.zspec.json"
+CURL_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "curl.zspec.json"
 
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import verify_behavior as vb

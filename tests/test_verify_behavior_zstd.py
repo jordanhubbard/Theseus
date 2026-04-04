@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ZSTD_SPEC_PATH = REPO_ROOT / "zspecs" / "zstd.zspec.json"
+ZSTD_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "zstd.zspec.json"
 
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import verify_behavior as vb

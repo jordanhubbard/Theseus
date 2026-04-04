@@ -363,7 +363,7 @@ def test_behavioral_spec_not_a_string_is_error():
 
 def test_behavioral_spec_missing_file_is_error(tmp_path):
     rec = _make_record()
-    rec["behavioral_spec"] = "zspecs/does_not_exist.zspec.json"
+    rec["behavioral_spec"] = "_build/zspecs/does_not_exist.zspec.json"
     issues = vr.validate_record(rec, "test.json")
     assert any("behavioral_spec" in i and "not found" in i for i in issues)
 
@@ -371,7 +371,7 @@ def test_behavioral_spec_missing_file_is_error(tmp_path):
 def test_behavioral_spec_valid_zlib_passes():
     """A record pointing at the real zlib spec should produce no behavioral errors."""
     rec = _make_record()
-    rec["behavioral_spec"] = "zspecs/zlib.zspec.json"
+    rec["behavioral_spec"] = "_build/zspecs/zlib.zspec.json"
     issues = vr.validate_record(rec, "test.json")
     # Filter to just behavioral_spec issues (non-WARN)
     errors = [i for i in issues if "behavioral_spec" in i and "ERROR" in i]
@@ -381,7 +381,7 @@ def test_behavioral_spec_valid_zlib_passes():
 def test_behavioral_spec_valid_openssl_passes():
     """A record pointing at the real openssl spec should produce no behavioral errors."""
     rec = _make_record()
-    rec["behavioral_spec"] = "zspecs/openssl.zspec.json"
+    rec["behavioral_spec"] = "_build/zspecs/openssl.zspec.json"
     issues = vr.validate_record(rec, "test.json")
     errors = [i for i in issues if "behavioral_spec" in i and "ERROR" in i]
     assert not errors, errors

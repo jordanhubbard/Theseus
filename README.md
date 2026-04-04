@@ -18,7 +18,7 @@
 
 ### Z-layer behavioral spec system
 
-- **15 behavioral specs** (`zspecs/*.zspec.json`) — machine-readable contracts covering zlib, hashlib, base64, json, struct, datetime, pathlib, re, sqlite3, openssl, curl, semver, ajv, uuid, minimist
+- **18 behavioral specs** (`zspecs/*.zspec.zsdl`) — machine-readable contracts covering zlib, hashlib, base64, json, struct, datetime, pathlib, re, sqlite3, openssl, curl, semver, ajv, uuid, minimist, urllib_parse, difflib, zstd; compiled to `_build/zspecs/`
 - **Verification harness** (`tools/verify_behavior.py`) — runs every invariant against the real installed library; supports ctypes (C shared libs), python_module (Python stdlib/packages), and cli (subprocesses + Node.js npm packages) backends
 - **Spec validator** (`tools/validate_zspec.py`) — validates spec files against `zspecs/schema/behavioral-spec.schema.json`
 - **Batch runner** (`tools/verify_all_specs.py`) — runs all specs and writes a JSON results file for CI dashboards and regression tracking
@@ -81,7 +81,7 @@ Reports land in `reports/`. Extractions land in `reports/extractions/`, one JSON
 ```bash
 make verify-all-specs            # run all 15 specs, text summary
 make verify-all-specs-json       # same, writes JSON results file
-python3 tools/verify_behavior.py zspecs/zlib.zspec.json --watch   # TDD mode
+python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json --watch   # TDD mode
 ```
 
 **6. Check which candidates have behavioral specs:**
@@ -107,7 +107,8 @@ theseus/
     verify_all_specs.py             — run all specs, write JSON results
     spec_coverage.py                — report covered vs gap candidates
   schema/         — JSON Schema for canonical package recipe records
-  zspecs/         — Z-layer behavioral spec files (*.zspec.json)
+  zspecs/         — Z-layer spec sources (*.zspec.zsdl) and schema (schema/)
+  _build/zspecs/  — compiled spec files (*.zspec.json, build artifacts — not in git)
     schema/       — JSON Schema for Z-spec files (behavioral-spec.schema.json)
   examples/
     freebsd_ports/ — Sample FreeBSD Ports canonical records (curl, openssl, zlib)
@@ -135,7 +136,7 @@ The canonical schema (`schema/package-recipe.schema.json`) captures:
 | `tests` | Test phase presence and structure |
 | `provenance` | Source path, commit, importer, confidence score, warnings, unmapped fields |
 | `extensions` | Ecosystem-specific extra fields (passthrough, no normalization) |
-| `behavioral_spec` | Optional: repo-relative path to a matching `zspecs/*.zspec.json` (auto-injected by extractor) |
+| `behavioral_spec` | Optional: repo-relative path to a matching `_build/zspecs/*.zspec.json` (auto-injected by extractor) |
 
 The schema is intentionally modest. It captures enough structure to compare ecosystems, rank packages, and feed later extraction phases while preserving provenance and lossiness signals. It is not a full semantic model of Nix or FreeBSD Ports.
 

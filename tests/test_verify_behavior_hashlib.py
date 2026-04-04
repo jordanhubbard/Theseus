@@ -19,7 +19,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 import verify_behavior as vb
 
-HASHLIB_SPEC_PATH = REPO_ROOT / "zspecs" / "hashlib.zspec.json"
+HASHLIB_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "hashlib.zspec.json"
 
 
 # ---------------------------------------------------------------------------

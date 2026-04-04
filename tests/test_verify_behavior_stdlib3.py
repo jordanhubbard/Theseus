@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT         = Path(__file__).resolve().parent.parent
-DT_SPEC_PATH      = REPO_ROOT / "zspecs" / "datetime.zspec.json"
-PL_SPEC_PATH      = REPO_ROOT / "zspecs" / "pathlib.zspec.json"
+DT_SPEC_PATH      = REPO_ROOT / "_build" / "zspecs" / "datetime.zspec.json"
+PL_SPEC_PATH      = REPO_ROOT / "_build" / "zspecs" / "pathlib.zspec.json"
 
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import verify_behavior as vb
