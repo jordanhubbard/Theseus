@@ -276,6 +276,34 @@ The detected version is:
 2. Checked against `identity.spec_for_versions` (a semver range). Mismatches emit a `WARNING` to stderr. Parsing uses `packaging.specifiers.SpecifierSet` if available, with a stdlib fallback for simple `>=X.Y` ranges.
 3. Passed as `lib_version` to all `skip_if` expressions, enabling version-gated invariants.
 
+### `skip_if` Expression Language
+
+`skip_if` is an optional field on any invariant. When present, it is evaluated as a Python expression; if it is truthy the invariant is marked skipped (not failed). The expression context provides:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `lib_version` | `str` | Library version string (e.g. `"1.2.12"`; empty if not detected) |
+| `platform` | `str` | OS identifier: `"darwin"`, `"linux"`, `"freebsd"`, `"win32"` |
+| `semver_satisfies(v, c)` | `bool` | True if version string `v` satisfies constraint `c` (e.g. `">=1.3"`, `">=1.2 <2.0"`) |
+
+Examples in ZSDL:
+
+```yaml
+# Skip on versions before gzip support was added
+skip_if: 'semver_satisfies(lib_version, "<1.3")'
+
+# Skip a test known to fail on FreeBSD due to different libc behavior
+skip_if: 'platform == "freebsd"'
+
+# Skip on any non-Linux platform
+skip_if: 'platform != "linux"'
+
+# Skip an old-API test on modern versions
+skip_if: 'semver_satisfies(lib_version, ">=2.0")'
+```
+
+`semver_satisfies` uses `packaging.specifiers` if available; falls back to a simple `>=X.Y` prefix check. A malformed version returns `False` (the invariant runs).
+
 ### Harness Tools
 
 #### `tools/verify_behavior.py`

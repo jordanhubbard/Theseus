@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -140,12 +140,16 @@ verify-all-specs: compile-zsdl
 	echo ""; \
 	echo "=== verify-all-specs: $$total specs, $$passed passed, $$failed failed ===";
 
-verify-all-specs-json:
+verify-all-specs-json: compile-zsdl
 	python3 tools/verify_all_specs.py $(if $(SPECS),$(SPECS)) $(if $(OUT),--out $(OUT))
 
 spec-coverage:
 	@test -n "$(EXTRACTION_DIR)" || (echo "Usage: make spec-coverage EXTRACTION_DIR=<dir> [TOP=N] [JSON=1]" && exit 1)
 	python3 tools/spec_coverage.py "$(EXTRACTION_DIR)" $(if $(TOP),--top $(TOP)) $(if $(JSON),--json)
+
+orphan-specs: compile-zsdl
+	@test -n "$(EXTRACTION_DIR)" || (echo "Usage: make orphan-specs EXTRACTION_DIR=<dir>" && exit 1)
+	python3 tools/orphan_specs.py "$(EXTRACTION_DIR)" $(if $(JSON),--json)
 
 validate:
 	python3 tools/validate_record.py $(or $(PATHS),examples/)
@@ -181,6 +185,7 @@ help:
 	@echo "  make verify-all-specs Run every spec in _build/zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)"
 	@echo "  make verify-all-specs-json  Run all specs and write JSON results (OUT=file optional, SPECS=paths optional)"
 	@echo "  make spec-coverage    Report which extracted candidates have a behavioral spec (EXTRACTION_DIR= required)"
+	@echo "  make orphan-specs     Report which compiled specs have no matching extraction record (EXTRACTION_DIR= required)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo ""

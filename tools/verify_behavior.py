@@ -1206,6 +1206,56 @@ def _check_spec_version(spec_for_versions: str, lib_version: str) -> tuple[bool,
     return True, ""
 
 
+def _semver_satisfies(version_str: str, constraint: str) -> bool:
+    """Return True if version_str satisfies the semver constraint.
+
+    Constraint syntax: standard specifier set, e.g. ">=1.2", ">=1.2 <2.0".
+    Uses packaging.specifiers if available; falls back to a simple prefix check.
+    Returns False (do not skip) when version_str is empty or unparseable.
+    """
+    if not version_str or not constraint:
+        return False
+    try:
+        from packaging.specifiers import SpecifierSet  # type: ignore
+        from packaging.version import Version, InvalidVersion  # type: ignore
+        try:
+            normalized = _re.sub(r"\s+(?=[<>=!])", ",", constraint.strip())
+            return Version(version_str) in SpecifierSet(normalized)
+        except (InvalidVersion, ValueError):
+            return False
+    except ImportError:
+        pass
+    # Fallback: handle simple ">=X.Y" by comparing major.minor
+    m = _re.match(r"^>=(\d+)\.(\d+)", constraint)
+    if m:
+        req = (int(m.group(1)), int(m.group(2)))
+        vm = _re.match(r"^(\d+)\.(\d+)", version_str)
+        if vm:
+            return (int(vm.group(1)), int(vm.group(2))) >= req
+    return False
+
+
+def _build_skip_context(lib_version: str) -> dict:
+    """Build the evaluation context for skip_if expressions.
+
+    Available variables:
+      lib_version          — library version string (e.g. "1.2.12")
+      platform             — OS identifier: "darwin", "linux", "freebsd", "win32"
+      semver_satisfies(v, c) — True if version string v satisfies constraint c
+                               e.g. semver_satisfies(lib_version, ">=1.3")
+    """
+    import sys as _sys
+    platform_str = _sys.platform  # "darwin", "linux", "freebsd", "win32", ...
+    # Normalize "linux2" → "linux" for cleaner expressions
+    if platform_str.startswith("linux"):
+        platform_str = "linux"
+    return {
+        "lib_version": lib_version,
+        "platform": platform_str,
+        "semver_satisfies": _semver_satisfies,
+    }
+
+
 class InvariantRunner:
     def build_constants_map(self, constants: dict) -> dict:
         """Flatten grouped constants {group: [{name, value, ...}]} to {name: value}."""
@@ -1238,7 +1288,7 @@ class InvariantRunner:
                 try:
                     should_skip = bool(
                         eval(skip_expr, {"__builtins__": {}},  # noqa: S307
-                             {"lib_version": lib_version})
+                             _build_skip_context(lib_version))
                     )
                 except Exception:
                     should_skip = False

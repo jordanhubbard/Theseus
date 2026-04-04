@@ -532,6 +532,57 @@ class TestInvariantRunner:
         results = vb.InvariantRunner().run_all(spec_copy, zlib_lib)
         assert results[0].skip_reason is not None
 
+    def test_skip_if_lib_version_comparison(self, zlib_spec, zlib_lib):
+        # skip_if using lib_version string comparison — real zlib is >=1.0
+        spec_copy = dict(zlib_spec, invariants=[
+            dict(zlib_spec["invariants"][0], skip_if='lib_version >= "1.0"')
+        ])
+        results = vb.InvariantRunner().run_all(spec_copy, zlib_lib, lib_version="1.2.12")
+        assert results[0].skip_reason is not None
+
+    def test_skip_if_platform_variable(self, zlib_spec, zlib_lib):
+        import sys
+        expected_platform = sys.platform
+        if expected_platform.startswith("linux"):
+            expected_platform = "linux"
+        spec_copy = dict(zlib_spec, invariants=[
+            dict(zlib_spec["invariants"][0], skip_if=f'platform == "{expected_platform}"')
+        ])
+        results = vb.InvariantRunner().run_all(spec_copy, zlib_lib, lib_version="1.2.12")
+        assert results[0].skip_reason is not None  # should be skipped on this platform
+
+    def test_skip_if_platform_other_does_not_skip(self, zlib_spec, zlib_lib):
+        spec_copy = dict(zlib_spec, invariants=[
+            dict(zlib_spec["invariants"][0], skip_if='platform == "nonexistent_os"')
+        ])
+        results = vb.InvariantRunner().run_all(spec_copy, zlib_lib, lib_version="1.2.12")
+        assert results[0].skip_reason is None  # not skipped — platform doesn't match
+
+    def test_skip_if_semver_satisfies_true(self, zlib_spec, zlib_lib):
+        spec_copy = dict(zlib_spec, invariants=[
+            dict(zlib_spec["invariants"][0], skip_if='semver_satisfies(lib_version, ">=1.2")')
+        ])
+        results = vb.InvariantRunner().run_all(spec_copy, zlib_lib, lib_version="1.2.12")
+        assert results[0].skip_reason is not None  # 1.2.12 satisfies >=1.2
+
+    def test_skip_if_semver_satisfies_false(self, zlib_spec, zlib_lib):
+        spec_copy = dict(zlib_spec, invariants=[
+            dict(zlib_spec["invariants"][0], skip_if='semver_satisfies(lib_version, ">=9.0")')
+        ])
+        results = vb.InvariantRunner().run_all(spec_copy, zlib_lib, lib_version="1.2.12")
+        assert results[0].skip_reason is None  # 1.2.12 does not satisfy >=9.0
+
+    def test_result_count_with_skip(self, zlib_spec, zlib_lib):
+        # skipped invariants still appear in results list
+        spec_copy = dict(zlib_spec, invariants=[
+            dict(zlib_spec["invariants"][0], skip_if="True"),
+            zlib_spec["invariants"][1],
+        ])
+        results = vb.InvariantRunner().run_all(spec_copy, zlib_lib, lib_version="1.2.12")
+        assert len(results) == 2
+        assert results[0].skip_reason is not None
+        assert results[1].skip_reason is None
+
     def test_harness_error_produces_failed_result(self, zlib_spec, zlib_lib):
         bad_inv = {
             "id": "test.bad",
@@ -548,6 +599,51 @@ class TestInvariantRunner:
     def test_result_count_matches_invariant_count(self, zlib_spec, zlib_lib):
         results = vb.InvariantRunner().run_all(zlib_spec, zlib_lib)
         assert len(results) == len(zlib_spec["invariants"])
+
+
+# ---------------------------------------------------------------------------
+# skip_if expression language
+# ---------------------------------------------------------------------------
+
+class TestSkipIfContext:
+    def test_semver_satisfies_ge(self):
+        assert vb._semver_satisfies("1.2.12", ">=1.2") is True
+
+    def test_semver_satisfies_lt(self):
+        assert vb._semver_satisfies("1.1.0", ">=1.2") is False
+
+    def test_semver_satisfies_range(self):
+        assert vb._semver_satisfies("1.5.0", ">=1.2 <2.0") is True
+        assert vb._semver_satisfies("2.0.0", ">=1.2 <2.0") is False
+
+    def test_semver_satisfies_empty_version(self):
+        assert vb._semver_satisfies("", ">=1.2") is False
+
+    def test_semver_satisfies_empty_constraint(self):
+        assert vb._semver_satisfies("1.2.0", "") is False
+
+    def test_semver_satisfies_unparseable(self):
+        # Unparseable version string — should not raise, return False
+        assert vb._semver_satisfies("not-a-version", ">=1.0") is False
+
+    def test_build_skip_context_keys(self):
+        ctx = vb._build_skip_context("1.2.12")
+        assert ctx["lib_version"] == "1.2.12"
+        assert "platform" in ctx
+        assert callable(ctx["semver_satisfies"])
+
+    def test_build_skip_context_platform_normalized(self):
+        import sys
+        ctx = vb._build_skip_context("1.0")
+        if sys.platform.startswith("linux"):
+            assert ctx["platform"] == "linux"
+        else:
+            assert ctx["platform"] == sys.platform
+
+    def test_build_skip_context_semver_callable(self):
+        ctx = vb._build_skip_context("2.5.0")
+        assert ctx["semver_satisfies"]("2.5.0", ">=2.0") is True
+        assert ctx["semver_satisfies"]("2.5.0", ">=3.0") is False
 
 
 # ---------------------------------------------------------------------------
