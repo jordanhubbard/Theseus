@@ -1,0 +1,162 @@
+spec: libcrypto
+version: "N/A — version detected via OPENSSL_version_major() invariant"
+backend: ctypes(crypto)
+
+api_header: openssl/crypto.h
+docs: https://www.openssl.org/docs/man3.0/man3/OpenSSL_version.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "RFC 1321 — The MD5 Message-Digest Algorithm"
+  - "NIST SP 800-90A — Recommendation for Random Number Generation Using DRBGs"
+
+provenance:
+  derived_from:
+    - "OpenSSL 3.x man pages: OpenSSL_version(3), RAND_bytes(3), OBJ_txt2nid(3)"
+    - "OpenSSL wiki: https://wiki.openssl.org/index.php/API"
+    - "Test vectors cross-checked against openssl CLI spec and Python hashlib spec"
+    - "Verified with OpenSSL 3.6.1 via ctypes on macOS/Darwin 25.4.0, 2026-04-03"
+  not_derived_from:
+    - "OpenSSL source: crypto/version.c"
+    - "OpenSSL source: crypto/rand/rand_lib.c"
+    - "Any other OpenSSL C source file"
+  notes:
+    - "This spec exercises libcrypto directly via ctypes, complementing zspecs/openssl.zspec.zsdl which tests the CLI tool."
+    - "SHA-256 and MD5 hash vectors are cross-validated in openssl.zspec.zsdl and hashlib.zspec.zsdl. SHA256() and MD5() one-shot functions write to an output buffer argument rather than returning the digest — not verifiable via call_eq. Digest cross-validation is therefore delegated to the CLI and python_module specs."
+    - "SHA256 known vectors (for cross-reference): SHA256(b'') = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; SHA256(b'abc') = ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad."
+    - "MD5 known vectors (for cross-reference): MD5(b'') = d41d8cd98f00b204e9800998ecf8427e; MD5(b'abc') = 900150983cd24fb0d6963f7d28e17f72."
+    - "OpenSSL_version(OPENSSL_VERSION) == OpenSSL_version(0) returns the human-readable version string. The harness calls version_prefix functions with no positional args; on x86-64/arm64 this is equivalent to OpenSSL_version(0) — verified empirically."
+    - "OpenSSL_version_num() returns a packed ulong: 0xMNN00PPF where M=major, NN=minor, PP=patch. For 3.6.1: 0x30600010 = 811597840."
+    - "OPENSSL_version_major/minor/patch() are OpenSSL 3.0+ additions that return the numeric version components individually."
+    - "RAND_bytes(NULL, 0) returns 1 (success) for a zero-length request — no bytes generated."
+    - "RAND_status() returns 1 when the PRNG is properly seeded and ready."
+    - "OBJ_txt2nid maps an OID dotted-decimal string to a numeric NID. NIDs are stable across OpenSSL 3.x for standard algorithms."
+  created_at: "2026-04-04T00:00:00Z"
+
+# ---------------------------------------------------------------------------
+# Version invariants
+# ---------------------------------------------------------------------------
+
+invariant libcrypto.version.string_prefix:
+  description: "OpenSSL_version(OPENSSL_VERSION) returns a string starting with 'OpenSSL 3.' on OpenSSL 3.x builds"
+  category: version
+  kind: version_prefix
+  function: OpenSSL_version
+  expected_prefix_b64: T3BlblNTTCAzLg==
+
+invariant libcrypto.version.num_ge_3:
+  description: "OpenSSL_version_num() >= 0x30000000 (805306368) — confirms OpenSSL 3.x or later"
+  category: version
+  kind: call_ge
+  function: OpenSSL_version_num
+  args: []
+  arg_types: []
+  expected_min: 805306368
+
+invariant libcrypto.version.major_eq_3:
+  description: "OPENSSL_version_major() == 3 — this spec targets the OpenSSL 3.x series"
+  category: version
+  kind: call_eq
+  function: OPENSSL_version_major
+  args: []
+  arg_types: []
+  expected: 3
+
+invariant libcrypto.version.minor_ge_0:
+  description: "OPENSSL_version_minor() >= 0 — minor version is always non-negative"
+  category: version
+  kind: call_ge
+  function: OPENSSL_version_minor
+  args: []
+  arg_types: []
+  expected_min: 0
+
+invariant libcrypto.version.patch_ge_0:
+  description: "OPENSSL_version_patch() >= 0 — patch version is always non-negative"
+  category: version
+  kind: call_ge
+  function: OPENSSL_version_patch
+  args: []
+  arg_types: []
+  expected_min: 0
+
+# ---------------------------------------------------------------------------
+# RAND_bytes / RAND_status — random number generator surface
+# ---------------------------------------------------------------------------
+
+invariant libcrypto.rand.status_seeded:
+  description: "RAND_status() == 1 — PRNG is seeded and ready on a normal system (NIST SP 800-90A)"
+  category: rand
+  kind: call_eq
+  function: RAND_status
+  args: []
+  arg_types: []
+  expected: 1
+
+invariant libcrypto.rand.bytes_zero_len:
+  description: "RAND_bytes(NULL, 0) == 1 — zero-length request succeeds with no bytes generated"
+  category: rand
+  kind: call_eq
+  function: RAND_bytes
+  args: [null, 0]
+  arg_types: ["null", int]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# Crypto library initialization
+# ---------------------------------------------------------------------------
+
+invariant libcrypto.init.crypto_ok:
+  description: "OPENSSL_init_crypto(0, NULL) == 1 — library auto-initialization succeeds (idempotent)"
+  category: init
+  kind: call_eq
+  function: OPENSSL_init_crypto
+  args: [0, null]
+  arg_types: [int, "null"]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# OID / NID registry — OBJ_txt2nid maps standard algorithm OIDs to NIDs
+# NIDs for widely-used algorithms are stable across OpenSSL 3.x releases.
+# References: OpenSSL man page OBJ_txt2nid(3); IANA OID registry.
+# ---------------------------------------------------------------------------
+
+table libcrypto.oid.nid:
+  kind: call_eq
+  category: oid
+  function: OBJ_txt2nid
+  id_prefix: nid
+
+  columns: [id, args, arg_types, expected]
+  rows:
+    - [sha256, ["Mi4xNi44NDAuMS4xMDEuMy40LjIuMQ=="], [bytes_b64], 672]
+    - [md5,    ["MS4yLjg0MC4xMTM1NDkuMi41"],         [bytes_b64], 4  ]
+    - [rsa,    ["MS4yLjg0MC4xMTM1NDkuMS4xLjE="],     [bytes_b64], 6  ]
+
+# ---------------------------------------------------------------------------
+# OBJ_sn2nid — short name to NID mapping
+# Short names are the conventional algorithm names used in PEM headers and CLI.
+# ---------------------------------------------------------------------------
+
+table libcrypto.sn.nid:
+  kind: call_eq
+  category: oid
+  function: OBJ_sn2nid
+  id_prefix: sn
+
+  columns: [id, args, arg_types, expected]
+  rows:
+    - [sha256, ["U0hBMjU2"],     [bytes_b64], 672]
+    - [md5,    ["TUQ1"],         [bytes_b64], 4  ]
+
+# ---------------------------------------------------------------------------
+# Error state — ERR_peek_error on a clean library should return 0
+# ---------------------------------------------------------------------------
+
+invariant libcrypto.err.peek_clean:
+  description: "ERR_peek_error() returns 0 when the error queue is empty — no pending errors"
+  category: error
+  kind: call_eq
+  function: ERR_peek_error
+  args: []
+  arg_types: []
+  expected: 0

@@ -357,13 +357,16 @@ class ZSDLCompiler:
 
         if backend_str.startswith("node(") and backend_str.endswith(")"):
             mod = backend_str[len("node("):-1]
-            return {
+            lib: dict = {
                 "backend": "cli",
                 "command": "node",
                 "module_name": mod,
                 "soname_patterns": [],
                 **extra,
             }
+            if doc.get("esm"):
+                lib["esm"] = True
+            return lib
 
         # Fallback: ctypes with no known pattern
         return {"soname_patterns": [], **extra}

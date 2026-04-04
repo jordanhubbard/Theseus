@@ -62,9 +62,13 @@ class CLIBackend:
 
     module_name is set when the CLI tool is a Node.js runtime and the spec
     targets a specific npm module (e.g. command='node', module_name='semver').
+
+    esm=True means the module is ESM-only (no require()). Node handler methods
+    will use dynamic import() wrapped in an async IIFE instead of require().
     """
     command: str
     module_name: str | None = None
+    esm: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -114,10 +118,19 @@ class LibraryLoader:
                     f"CLI command {cmd!r} not found in PATH"
                 )
             module_name = lib_spec.get("module_name")
+            esm = bool(lib_spec.get("esm", False))
             if module_name:
-                # Verify the node module can be required before running any invariants
+                # Verify the module is loadable before running any invariants.
+                # ESM-only modules must use dynamic import(); CJS uses require().
+                if esm:
+                    check_script = (
+                        f"(async()=>{{await import({json.dumps(module_name)});"
+                        f"process.exit(0)}})().catch(()=>process.exit(1))"
+                    )
+                else:
+                    check_script = f"require({json.dumps(module_name)})"
                 check = subprocess.run(
-                    [found, "-e", f"require({json.dumps(module_name)})"],
+                    [found, "-e", check_script],
                     capture_output=True,
                 )
                 if check.returncode != 0:
@@ -126,7 +139,7 @@ class LibraryLoader:
                         f"Node module {module_name!r} not found "
                         f"(is it installed?): {err}"
                     )
-            return CLIBackend(command=found, module_name=module_name)
+            return CLIBackend(command=found, module_name=module_name, esm=esm)
         return self._load_ctypes(lib_spec)
 
     def _load_ctypes(self, lib_spec: dict) -> ctypes.CDLL:
@@ -1025,10 +1038,16 @@ class PatternRegistry:
             call_expr = f"m[{json.dumps(fn_name)}](...{args_js})"
         else:
             call_expr = f"m(...{args_js})"
-        script = (
-            f"const m=require({json.dumps(module)});"
-            f"process.stdout.write(JSON.stringify({call_expr}))"
-        )
+        if getattr(self._lib, "esm", False):
+            script = (
+                f"(async()=>{{const m=await import({json.dumps(module)});"
+                f"process.stdout.write(JSON.stringify({call_expr}))}})();"
+            )
+        else:
+            script = (
+                f"const m=require({json.dumps(module)});"
+                f"process.stdout.write(JSON.stringify({call_expr}))"
+            )
         cmd = [self._lib.command, "-e", script]
         try:
             proc = subprocess.run(cmd, capture_output=True, timeout=spec.get("timeout", 10))
@@ -1080,12 +1099,20 @@ class PatternRegistry:
         else:
             result_expr = f"inst[{method_js}](...{args_js})"
 
-        script = (
-            f"const m=require({json.dumps(module)});"
-            f"const Cls=m[{json.dumps(cls_name)}];"
-            f"const inst=new Cls(...{ctor_js});"
-            f"process.stdout.write(JSON.stringify({result_expr}))"
-        )
+        if getattr(self._lib, "esm", False):
+            script = (
+                f"(async()=>{{const m=await import({json.dumps(module)});"
+                f"const Cls=m[{json.dumps(cls_name)}];"
+                f"const inst=new Cls(...{ctor_js});"
+                f"process.stdout.write(JSON.stringify({result_expr}))}})();"
+            )
+        else:
+            script = (
+                f"const m=require({json.dumps(module)});"
+                f"const Cls=m[{json.dumps(cls_name)}];"
+                f"const inst=new Cls(...{ctor_js});"
+                f"process.stdout.write(JSON.stringify({result_expr}))"
+            )
         cmd = [self._lib.command, "-e", script]
         try:
             proc = subprocess.run(cmd, capture_output=True, timeout=spec.get("timeout", 10))
