@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-04)
 
-**33 Z-layer specs · 579 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**37 Z-layer specs · 650 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -99,6 +99,9 @@ lz4 (8, ctypes + new `lz4_roundtrip` kind), express (16, node/CJS + new `node_fa
 
 ### Cycle 9 (2026-04-05)
 pcre2 (16, ctypes + new `pcre2_match` kind), markupsafe (21), msgpack (22). Pipeline coverage 6% → 22% → 24% (12/50). Total: 33 specs · 579 invariants · 1777 tests.
+
+### Cycle 10 (2026-04-05)
+attrs (14), chardet (16), pyparsing (15), tomli/tomllib (22). Pipeline coverage → 34% (17/50). Total: 37 specs · 650 invariants · 1880 tests.
 
 ---
 
