@@ -20,7 +20,7 @@ import validate_zspec as vz
 def _minimal_spec(**overrides) -> dict:
     """Return a minimal valid spec, with optional field overrides."""
     spec = {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "identity": {
             "canonical_name": "test_lib",
             "spec_for_versions": ">=1.0.0",
@@ -267,7 +267,7 @@ class TestMain:
 
     def test_main_bad_spec_exit_1(self, tmp_path):
         bad = tmp_path / "bad.zspec.json"
-        bad.write_text(json.dumps({"schema_version": "0.1"}))
+        bad.write_text(json.dumps({"schema_version": "0.2"}))
         rc = vz.main([str(bad)])
         assert rc == 1
 
@@ -276,3 +276,109 @@ class TestMain:
         bad.write_text("{oops")
         rc = vz.main([str(bad)])
         assert rc == 1
+
+
+# ---------------------------------------------------------------------------
+# TestSchemaV02Features
+# ---------------------------------------------------------------------------
+
+class TestSchemaV02Features:
+    """Tests for schema v0.2 additions: esm, skip_if type enforcement, arg_types length."""
+
+    def _inv(self, **kwargs) -> dict:
+        """Build a minimal valid invariant with optional overrides."""
+        base = {
+            "id": "test.inv",
+            "description": "d",
+            "category": "c",
+            "kind": "call_eq",
+            "spec": {},
+        }
+        base.update(kwargs)
+        return base
+
+    # --- schema_version ---
+
+    def test_compiled_specs_carry_v02(self):
+        """All compiled specs in _build/zspecs/ must now carry schema_version '0.2'."""
+        build_dir = REPO_ROOT / "_build" / "zspecs"
+        specs = sorted(build_dir.glob("*.zspec.json"))
+        assert specs, "No compiled specs found; run 'make compile-zsdl' first"
+        for path in specs:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            assert data.get("schema_version") == "0.2", (
+                f"{path.name}: expected schema_version '0.2', "
+                f"got {data.get('schema_version')!r}"
+            )
+
+    def test_schema_version_01_still_accepted_by_stdlib(self):
+        """schema_version '0.1' is still structurally valid (backward compat)."""
+        spec = _minimal_spec(schema_version="0.1")
+        errors = _validate(spec)
+        assert errors == [], f"Expected 0.1 to be accepted by stdlib validator: {errors}"
+
+    # --- esm field on library ---
+
+    def test_esm_true_on_library_passes(self):
+        spec = _minimal_spec()
+        spec["library"]["esm"] = True
+        errors = _validate(spec)
+        assert errors == [], f"esm:true should be valid: {errors}"
+
+    def test_esm_false_on_library_passes(self):
+        spec = _minimal_spec()
+        spec["library"]["esm"] = False
+        errors = _validate(spec)
+        assert errors == [], f"esm:false should be valid: {errors}"
+
+    # --- skip_if type on invariant ---
+
+    def test_skip_if_string_passes(self):
+        spec = _minimal_spec()
+        inv = self._inv(skip_if="lib_version < '1.0'")
+        spec["invariants"] = [inv]
+        errors = _validate(spec)
+        assert errors == [], f"skip_if as string should be valid: {errors}"
+
+    # --- arg_types length check (programmatic) ---
+
+    def test_arg_types_matching_length_passes(self):
+        spec = _minimal_spec()
+        inv = self._inv(spec={"function": "foo", "args": [1, 2], "arg_types": ["int", "int"], "expected": 0})
+        spec["invariants"] = [inv]
+        errors = vz._check_arg_types_length(spec)
+        assert errors == [], f"Matching lengths should produce no errors: {errors}"
+
+    def test_arg_types_mismatched_length_fails(self):
+        spec = _minimal_spec()
+        inv = self._inv(spec={"function": "foo", "args": [1, 2, 3], "arg_types": ["int", "int"], "expected": 0})
+        spec["invariants"] = [inv]
+        errors = vz._check_arg_types_length(spec)
+        assert errors, "Mismatched arg_types/args lengths should produce an error"
+        assert any("arg_types length" in e for e in errors)
+
+    def test_arg_types_without_args_no_error(self):
+        """arg_types alone (no args) should not trigger the length check."""
+        spec = _minimal_spec()
+        inv = self._inv(spec={"function": "foo", "arg_types": ["int"], "expected": 0})
+        spec["invariants"] = [inv]
+        errors = vz._check_arg_types_length(spec)
+        assert errors == []
+
+    def test_args_without_arg_types_no_error(self):
+        """args alone (no arg_types) should not trigger the length check."""
+        spec = _minimal_spec()
+        inv = self._inv(spec={"function": "foo", "args": [1, 2], "expected": 0})
+        spec["invariants"] = [inv]
+        errors = vz._check_arg_types_length(spec)
+        assert errors == []
+
+    def test_arg_types_mismatch_propagates_through_validate_file(self, tmp_path):
+        """validate_file must surface arg_types length mismatches end-to-end."""
+        spec = _minimal_spec()
+        inv = self._inv(spec={"function": "foo", "args": [1], "arg_types": ["int", "int"], "expected": 0})
+        spec["invariants"] = [inv]
+        path = tmp_path / "test.zspec.json"
+        path.write_text(json.dumps(spec))
+        errors = vz.validate_file(path, schema=None, use_jsonschema=False)
+        assert any("arg_types length" in e for e in errors)

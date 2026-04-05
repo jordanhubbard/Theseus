@@ -126,6 +126,37 @@ def _stdlib_validate(spec: dict, path: Path) -> list[str]:
     if isinstance(spec.get("error_model"), dict):
         errors += _check_required(spec["error_model"], REQUIRED_ERROR, "error_model")
 
+    # Programmatic cross-field check: arg_types length must match args length
+    errors += _check_arg_types_length(spec)
+
+    return errors
+
+
+def _check_arg_types_length(spec: dict) -> list[str]:
+    """Return errors for any invariant where len(arg_types) != len(args)."""
+    errors: list[str] = []
+    invariants = spec.get("invariants")
+    if not isinstance(invariants, list):
+        return errors
+    for i, inv in enumerate(invariants):
+        if not isinstance(inv, dict):
+            continue
+        spec_block = inv.get("spec")
+        if not isinstance(spec_block, dict):
+            continue
+        args = spec_block.get("args")
+        arg_types = spec_block.get("arg_types")
+        if args is None or arg_types is None:
+            continue
+        if not isinstance(args, list) or not isinstance(arg_types, list):
+            continue
+        if len(args) != len(arg_types):
+            inv_id = inv.get("id", f"<index {i}>")
+            errors.append(
+                f"invariants[{i}] (id={inv_id!r}): "
+                f"arg_types length ({len(arg_types)}) does not match "
+                f"args length ({len(args)})"
+            )
     return errors
 
 
@@ -185,7 +216,9 @@ def validate_file(path: Path, schema: dict | None, use_jsonschema: bool) -> list
         return ["top-level value must be a JSON object"]
 
     if use_jsonschema and schema is not None:
-        return _jsonschema_validate(spec, schema, path)
+        errors = _jsonschema_validate(spec, schema, path)
+        errors += _check_arg_types_length(spec)
+        return errors
     return _stdlib_validate(spec, path)
 
 

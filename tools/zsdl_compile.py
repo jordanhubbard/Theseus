@@ -259,7 +259,7 @@ class ZSDLCompiler:
         invs     = self._compile_all_invariants(doc, canonical_name)
 
         return {
-            "schema_version": "0.1",
+            "schema_version": "0.2",
             "identity": identity,
             "provenance": prov,
             "library": library,

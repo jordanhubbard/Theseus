@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -150,6 +150,9 @@ spec-coverage:
 orphan-specs: compile-zsdl
 	@test -n "$(EXTRACTION_DIR)" || (echo "Usage: make orphan-specs EXTRACTION_DIR=<dir>" && exit 1)
 	python3 tools/orphan_specs.py "$(EXTRACTION_DIR)" $(if $(JSON),--json)
+
+spec-vector-coverage: compile-zsdl
+	python3 tools/spec_vector_coverage.py $(if $(SPECS),$(SPECS)) $(if $(JSON),--json) $(if $(MIN_SCORE),--min-score $(MIN_SCORE))
 
 validate:
 	python3 tools/validate_record.py $(or $(PATHS),examples/)

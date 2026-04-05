@@ -97,7 +97,7 @@ class TestSpecLoader:
             vb.SpecLoader().load(spec_file)
 
     def test_schema_version_present(self, zlib_spec):
-        assert zlib_spec["schema_version"] == "0.1"
+        assert zlib_spec["schema_version"] == "0.2"
 
     def test_all_invariant_ids_unique(self, zlib_spec):
         ids = [inv["id"] for inv in zlib_spec["invariants"]]

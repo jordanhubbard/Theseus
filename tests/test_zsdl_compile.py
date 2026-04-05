@@ -525,7 +525,7 @@ class TestFullCompilerOutput:
     def test_schema_version(self):
         text = _minimal_header() + "\ninvariant mylib.x:\n  kind: call_eq\n  function: f\n  args: []\n  expected: 0\n"
         out = _compile_text(text)
-        assert out["schema_version"] == "0.1"
+        assert out["schema_version"] == "0.2"
 
     def test_identity_fields(self):
         text = _minimal_header("docs: https://example.com\n") + "\ninvariant mylib.x:\n  kind: call_eq\n  function: f\n  args: []\n  expected: 0\n"
@@ -572,7 +572,7 @@ def test_zsdl_compile_and_verify(spec_name, expected_invariants, tmp_path):
     compiler = zc.ZSDLCompiler()
     compiled = compiler.compile_file(zsdl_path)
 
-    assert compiled["schema_version"] == "0.1"
+    assert compiled["schema_version"] == "0.2"
     assert compiled["identity"]["canonical_name"] == spec_name
     assert len(compiled["invariants"]) == expected_invariants
 
