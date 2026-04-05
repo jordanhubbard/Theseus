@@ -1,0 +1,165 @@
+spec: setuptools
+version: ">=40.0"
+backend: python_module(setuptools)
+
+docs: https://setuptools.pypa.io/en/latest/
+
+provenance:
+  derived_from:
+    - "setuptools documentation — https://setuptools.pypa.io/en/latest/"
+    - "PEP 517 — A build-system independent format for source trees"
+    - "PEP 518 — Specifying Minimum Build System Requirements for Python Projects"
+    - "packaging library documentation — https://packaging.pypa.io/en/stable/"
+    - "Test vectors verified with setuptools 82.0.1 on Python 3.14.3 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "setuptools source: setuptools/__init__.py"
+    - "setuptools source: setuptools/dist.py"
+    - "setuptools source: setuptools/extension.py"
+    - "setuptools source: setuptools/_vendor/packaging/version.py"
+  notes:
+    - "pkg_resources is not available as a separate module in setuptools >= 62.0 on Python 3.14; use setuptools._vendor.packaging instead."
+    - "The _vendor.packaging.version.Version class is accessible as a dotted attribute path from the setuptools module object."
+    - "find_packages and find_namespace_packages are callable attributes of the setuptools module; exact return values depend on the working directory and are not tested here."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a string containing a dot
+# ---------------------------------------------------------------------------
+
+invariant setuptools.version.contains_dot:
+  description: "__version__ contains a dot (e.g. '82.0.1')"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+invariant setuptools.version.is_string:
+  description: "__version__.__class__.__name__ == 'str'"
+  category: version
+  kind: python_call_eq
+  function: __version__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant setuptools.version.has_three_parts:
+  description: "__version__.split('.') has exactly 3 parts (MAJOR.MINOR.PATCH)"
+  category: version
+  kind: python_call_eq
+  function: __version__.split
+  args: ["."]
+  method: __len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# api — find_packages, find_namespace_packages, setup are callable
+# ---------------------------------------------------------------------------
+
+invariant setuptools.api.find_packages_callable:
+  description: "setuptools.find_packages is callable (bound PackageFinder.find method)"
+  category: api
+  kind: python_call_eq
+  function: find_packages.__class__.__name__.__eq__
+  args: ["method"]
+  expected: true
+
+invariant setuptools.api.find_namespace_packages_callable:
+  description: "setuptools.find_namespace_packages is callable (bound PEP420PackageFinder.find method)"
+  category: api
+  kind: python_call_eq
+  function: find_namespace_packages.__class__.__name__.__eq__
+  args: ["method"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# packaging — _vendor.packaging.version.Version round-trip
+# ---------------------------------------------------------------------------
+
+invariant setuptools.packaging.version_str_roundtrip:
+  description: "str(Version('1.2.3')) == '1.2.3' — version string preserved"
+  category: packaging
+  kind: python_call_eq
+  function: _vendor.packaging.version.Version
+  args: ["1.2.3"]
+  method: __str__
+  method_args: []
+  expected: "1.2.3"
+
+invariant setuptools.packaging.version_major:
+  description: "Version('1.2.3').major == 1"
+  category: packaging
+  kind: python_call_eq
+  function: _vendor.packaging.version.Version
+  args: ["1.2.3"]
+  method: major
+  expected: 1
+
+invariant setuptools.packaging.version_minor:
+  description: "Version('1.2.3').minor == 2"
+  category: packaging
+  kind: python_call_eq
+  function: _vendor.packaging.version.Version
+  args: ["1.2.3"]
+  method: minor
+  expected: 2
+
+invariant setuptools.packaging.version_micro:
+  description: "Version('1.2.3').micro == 3"
+  category: packaging
+  kind: python_call_eq
+  function: _vendor.packaging.version.Version
+  args: ["1.2.3"]
+  method: micro
+  expected: 3
+
+invariant setuptools.packaging.version_epoch_zero:
+  description: "Version('1.2.3').epoch == 0 — no epoch in plain version strings"
+  category: packaging
+  kind: python_call_eq
+  function: _vendor.packaging.version.Version
+  args: ["1.2.3"]
+  method: epoch
+  expected: 0
+
+invariant setuptools.packaging.version_stable_not_prerelease:
+  description: "Version('1.2.3').is_prerelease == False — stable version is not pre-release"
+  category: packaging
+  kind: python_call_eq
+  function: _vendor.packaging.version.Version
+  args: ["1.2.3"]
+  method: is_prerelease
+  expected: false
+
+invariant setuptools.packaging.version_prerelease_detected:
+  description: "Version('1.0.0a1').is_prerelease == True — alpha version is pre-release"
+  category: packaging
+  kind: python_call_eq
+  function: _vendor.packaging.version.Version
+  args: ["1.0.0a1"]
+  method: is_prerelease
+  expected: true
+
+invariant setuptools.packaging.prerelease_str_normalized:
+  description: "str(Version('1.0.0a1')) == '1.0.0a1' — PEP 440 alpha pre-release preserved"
+  category: packaging
+  kind: python_call_eq
+  function: _vendor.packaging.version.Version
+  args: ["1.0.0a1"]
+  method: __str__
+  method_args: []
+  expected: "1.0.0a1"
+
+# ---------------------------------------------------------------------------
+# extension — Extension object carries its name
+# ---------------------------------------------------------------------------
+
+invariant setuptools.extension.name_attribute:
+  description: "Extension('mymodule', ['mymodule.c']).name == 'mymodule'"
+  category: extension
+  kind: python_call_eq
+  function: Extension
+  args: ["mymodule", ["mymodule.c"]]
+  method: name
+  expected: "mymodule"

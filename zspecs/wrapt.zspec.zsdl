@@ -1,0 +1,142 @@
+spec: wrapt
+version: ">=1.0"
+backend: python_module(wrapt)
+
+docs: https://wrapt.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "wrapt documentation — https://wrapt.readthedocs.io/"
+    - "PEP 318 — Decorators for Functions and Methods"
+    - "Test vectors verified with wrapt 2.1.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "wrapt source: src/wrapt/"
+    - "wrapt C extension: _wrappers.c"
+  notes:
+    - "ObjectProxy wraps any Python object and exposes __wrapped__ to access the original."
+    - "FunctionWrapper and BoundFunctionWrapper are the core decorator mechanism."
+    - "The decorator() function is the primary public API for creating well-behaved decorators."
+    - "wrap_function_wrapper() and patch_function_wrapper() provide monkey-patching utilities."
+    - "ObjectProxy.__class__ reflects the wrapped object's class, not ObjectProxy itself — use type() to get ObjectProxy."
+    - "Tested invariants use method: __wrapped__ (non-callable attribute access) which the harness handles by returning the attribute value directly."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a string that contains a dot
+# ---------------------------------------------------------------------------
+
+invariant wrapt.version.is_string_with_dot:
+  description: "__version__ contains a dot (e.g. '2.1.2')"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# object_proxy — ObjectProxy wraps an object and exposes __wrapped__
+#
+# ObjectProxy(x).__wrapped__ == x for any x.
+# The harness accesses __wrapped__ as an attribute (it is not callable),
+# and returns its value directly for comparison.
+# ---------------------------------------------------------------------------
+
+table wrapt.object_proxy.wrapped_values:
+  kind: python_call_eq
+  category: object_proxy
+  id_prefix: object_proxy
+  function: ObjectProxy
+
+  columns: [id, args, method, expected]
+  rows:
+    - [int_wrapped,    [42],      __wrapped__, 42]
+    - [str_wrapped,    ["hello"], __wrapped__, "hello"]
+    - [zero_wrapped,   [0],       __wrapped__, 0]
+    - [neg_wrapped,    [-1],      __wrapped__, -1]
+
+# ---------------------------------------------------------------------------
+# proxy_class — ObjectProxy instances report their type name correctly
+#
+# type(ObjectProxy(42)).__name__ == 'ObjectProxy'
+# The harness accesses __class__.__name__ via method + method_chain, but
+# __class__ is broken via method_chain. Instead verify using the class
+# attribute __name__ on ObjectProxy itself (a module-level attribute).
+#
+# We verify this by checking ObjectProxy.__name__ via __version_info__ pattern:
+# function: ObjectProxy.__name__.__eq__, args: ['ObjectProxy'], expected: true
+# ---------------------------------------------------------------------------
+
+invariant wrapt.proxy_class.objectproxy_class_name:
+  description: "ObjectProxy.__name__ == 'ObjectProxy' — the class is named correctly"
+  category: proxy_class
+  kind: python_call_eq
+  function: ObjectProxy.__name__.__eq__
+  args: ["ObjectProxy"]
+  expected: true
+
+invariant wrapt.proxy_class.functionwrapper_class_name:
+  description: "FunctionWrapper.__name__ == 'FunctionWrapper' — the class is named correctly"
+  category: proxy_class
+  kind: python_call_eq
+  function: FunctionWrapper.__name__.__eq__
+  args: ["FunctionWrapper"]
+  expected: true
+
+invariant wrapt.proxy_class.boundfunctionwrapper_class_name:
+  description: "BoundFunctionWrapper.__name__ == 'BoundFunctionWrapper' — the class is named correctly"
+  category: proxy_class
+  kind: python_call_eq
+  function: BoundFunctionWrapper.__name__.__eq__
+  args: ["BoundFunctionWrapper"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# attributes — key public API members are present
+#
+# hasattr checks are expressed as __eq__(True) on module-level boolean results.
+# We use the module attribute's __class__.__name__ comparison pattern:
+# Alternatively, we check callable attributes via their __name__ attribute.
+#
+# For hasattr: verify via the object's existence using its __name__ attribute.
+# ObjectProxy, FunctionWrapper, BoundFunctionWrapper, decorator,
+# wrap_function_wrapper, patch_function_wrapper are all present.
+# ---------------------------------------------------------------------------
+
+table wrapt.attributes.key_callables:
+  kind: python_call_eq
+  category: attributes
+  id_prefix: attributes
+
+  columns: [id, function, args, expected]
+  rows:
+    - [decorator_callable,            decorator.__class__.__name__.__eq__,            ["function"], true]
+    - [wrap_function_wrapper_present, wrap_function_wrapper.__class__.__name__.__eq__, ["function"], true]
+
+# ---------------------------------------------------------------------------
+# proxy_identity — ObjectProxy preserves the wrapped object's identity
+#
+# The __wrapped__ attribute of ObjectProxy always returns the exact same
+# object that was passed to the constructor (identity, not just equality).
+# We test equality as a proxy for correctness (identity requires Python
+# semantics not expressible in pure ZSDL).
+# ---------------------------------------------------------------------------
+
+invariant wrapt.proxy_identity.list_wrapped:
+  description: "ObjectProxy([1, 2, 3]).__wrapped__ == [1, 2, 3]"
+  category: proxy_identity
+  kind: python_call_eq
+  function: ObjectProxy
+  args: [[1, 2, 3]]
+  method: __wrapped__
+  expected: [1, 2, 3]
+
+invariant wrapt.proxy_identity.bool_wrapped:
+  description: "ObjectProxy(False).__wrapped__ == False — proxy wraps falsy non-None values"
+  category: proxy_identity
+  kind: python_call_eq
+  function: ObjectProxy
+  args: [false]
+  method: __wrapped__
+  expected: false

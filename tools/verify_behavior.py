@@ -125,6 +125,13 @@ class LibraryLoader:
                     "packaging.utils",
                     "packaging.requirements",
                 ],
+                "setuptools": [
+                    "setuptools._vendor",
+                    "setuptools._vendor.packaging",
+                    "setuptools._vendor.packaging.version",
+                    "setuptools._vendor.packaging.specifiers",
+                    "setuptools._vendor.packaging.requirements",
+                ],
             }
             for sub in _SUBMODULE_PRELOADS.get(module_name, []):
                 try:

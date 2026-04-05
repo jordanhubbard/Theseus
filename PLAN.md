@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-04)
 
-**42 Z-layer specs · 732 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**47 Z-layer specs · 797 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -105,6 +105,9 @@ attrs (14), chardet (16), pyparsing (15), tomli/tomllib (22). Pipeline coverage 
 
 ### Cycle 11 (2026-04-05)
 six (11), decorator (12), idna (16), platformdirs (13), pytz (16). Pipeline coverage → 44% (22/50). Total: 42 specs · 732 invariants · 2088 tests.
+
+### Cycle 12 (2026-04-05)
+setuptools (14), typing_extensions (13), tzdata (13), wrapt (12), pluggy (13). Added `setuptools` to `_SUBMODULE_PRELOADS` in verify_behavior.py for `_vendor.packaging` access. tzdata backend uses `python_module(zoneinfo)` — tzdata is a pure data package; behavioral surface is zoneinfo. Pipeline coverage → 52% (26/50). Total: 47 specs · 797 invariants · 2309 tests.
 
 ---
 
