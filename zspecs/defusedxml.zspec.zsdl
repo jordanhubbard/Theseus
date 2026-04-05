@@ -1,0 +1,168 @@
+spec: defusedxml
+version: ">=0.7"
+backend: python_module(defusedxml)
+
+docs: https://github.com/tiran/defusedxml
+
+rfcs:
+  - "OWASP XXE Prevention Cheat Sheet — https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+
+provenance:
+  derived_from:
+    - "defusedxml documentation — https://github.com/tiran/defusedxml/blob/main/README.md"
+    - "defusedxml PyPI page — https://pypi.org/project/defusedxml/"
+    - "OWASP XXE Prevention Cheat Sheet — https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+    - "Test vectors verified with defusedxml 0.7.1 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "defusedxml source: defusedxml/__init__.py"
+    - "defusedxml source: defusedxml/common.py"
+    - "defusedxml source: defusedxml/ElementTree.py"
+  notes:
+    - "defusedxml.ElementTree is a submodule; it is pre-imported by the harness so its attributes are accessible as defusedxml.ElementTree.fromstring etc."
+    - "The spec uses backend: python_module(defusedxml) and accesses ElementTree functions via the preloaded submodule attribute."
+    - "XXE and billion-laughs attacks both raise EntitiesForbidden (not DTDForbidden) by default; DTDForbidden requires forbid_dtd=True."
+    - "All defusedxml exception classes are subclasses of DefusedXmlException, which is itself a subclass of ValueError."
+    - "Exception class __name__ attributes are tested directly as module-level attributes of defusedxml."
+    - "defusedxml.ElementTree.fromstring is accessed via dotted attribute path through the preloaded submodule."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+# ---------------------------------------------------------------------------
+
+invariant defusedxml.version.contains_dot:
+  description: "__version__ contains a dot (dotted version string)"
+  category: version
+  kind: python_call_eq
+  function: "__version__.__contains__"
+  args: ["."]
+  expected: true
+
+invariant defusedxml.version.is_string:
+  description: "__version__.__class__.__name__ == 'str'"
+  category: version
+  kind: python_call_eq
+  function: "__version__.__class__.__name__.__eq__"
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# parse (category: parse)
+# Uses defusedxml.ElementTree.fromstring (preloaded submodule).
+# ---------------------------------------------------------------------------
+
+invariant defusedxml.parse.fromstring_item_tag:
+  description: "ElementTree.fromstring('<item>hello</item>').tag == 'item'"
+  category: parse
+  kind: python_call_eq
+  function: "ElementTree.fromstring"
+  args: ["<item>hello</item>"]
+  method: tag
+  expected: "item"
+
+invariant defusedxml.parse.fromstring_item_text:
+  description: "ElementTree.fromstring('<item>hello</item>').text == 'hello'"
+  category: parse
+  kind: python_call_eq
+  function: "ElementTree.fromstring"
+  args: ["<item>hello</item>"]
+  method: text
+  expected: "hello"
+
+invariant defusedxml.parse.fromstring_root_tag:
+  description: "ElementTree.fromstring('<root><child/></root>').tag == 'root'"
+  category: parse
+  kind: python_call_eq
+  function: "ElementTree.fromstring"
+  args: ["<root><child/></root>"]
+  method: tag
+  expected: "root"
+
+invariant defusedxml.parse.fromstring_get_attribute:
+  description: "ElementTree.fromstring('<el name=\"foo\"/>').get('name') == 'foo'"
+  category: parse
+  kind: python_call_eq
+  function: "ElementTree.fromstring"
+  args: ['<el name="foo"/>']
+  method: get
+  method_args: ["name"]
+  expected: "foo"
+
+invariant defusedxml.parse.fromstring_child_count:
+  description: "ElementTree.fromstring('<root><a/><b/></root>') has 2 children"
+  category: parse
+  kind: python_call_eq
+  function: "ElementTree.fromstring"
+  args: ["<root><a/><b/></root>"]
+  method: "__len__"
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# security (category: security)
+# Verifies that XXE and entity-expansion attacks are blocked.
+# ---------------------------------------------------------------------------
+
+invariant defusedxml.security.xxe_raises_entities_forbidden:
+  description: "XXE attack (SYSTEM entity referencing file://) raises EntitiesForbidden"
+  category: security
+  kind: python_call_raises
+  function: "ElementTree.fromstring"
+  args: ['<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><root>&xxe;</root>']
+  expected_exception: "EntitiesForbidden"
+
+invariant defusedxml.security.billion_laughs_raises_entities_forbidden:
+  description: "Billion-laughs entity expansion attack raises EntitiesForbidden"
+  category: security
+  kind: python_call_raises
+  function: "ElementTree.fromstring"
+  args: ['<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;">]><root>&lol2;</root>']
+  expected_exception: "EntitiesForbidden"
+
+invariant defusedxml.security.dtd_forbidden_with_flag:
+  description: "Explicit forbid_dtd=True raises DTDForbidden for any DOCTYPE"
+  category: security
+  kind: python_call_raises
+  function: "ElementTree.fromstring"
+  args: ['<?xml version="1.0"?><!DOCTYPE foo []><root>text</root>']
+  kwargs:
+    forbid_dtd: true
+  expected_exception: "DTDForbidden"
+
+# ---------------------------------------------------------------------------
+# exceptions (category: exceptions)
+# Verifies exception class names and inheritance hierarchy.
+# ---------------------------------------------------------------------------
+
+invariant defusedxml.exceptions.dtd_forbidden_name:
+  description: "DTDForbidden.__name__ == 'DTDForbidden'"
+  category: exceptions
+  kind: python_call_eq
+  function: "DTDForbidden.__name__.__eq__"
+  args: ["DTDForbidden"]
+  expected: true
+
+invariant defusedxml.exceptions.entities_forbidden_name:
+  description: "EntitiesForbidden.__name__ == 'EntitiesForbidden'"
+  category: exceptions
+  kind: python_call_eq
+  function: "EntitiesForbidden.__name__.__eq__"
+  args: ["EntitiesForbidden"]
+  expected: true
+
+invariant defusedxml.exceptions.external_reference_forbidden_name:
+  description: "ExternalReferenceForbidden.__name__ == 'ExternalReferenceForbidden'"
+  category: exceptions
+  kind: python_call_eq
+  function: "ExternalReferenceForbidden.__name__.__eq__"
+  args: ["ExternalReferenceForbidden"]
+  expected: true
+
+invariant defusedxml.exceptions.defused_xml_exception_name:
+  description: "DefusedXmlException.__name__ == 'DefusedXmlException'"
+  category: exceptions
+  kind: python_call_eq
+  function: "DefusedXmlException.__name__.__eq__"
+  args: ["DefusedXmlException"]
+  expected: true

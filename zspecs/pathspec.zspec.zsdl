@@ -1,0 +1,188 @@
+spec: pathspec
+version: ">=0.9"
+backend: python_module(pathspec)
+
+docs: https://python-path-specification.readthedocs.io/en/latest/
+
+provenance:
+  derived_from:
+    - "pathspec documentation — https://python-path-specification.readthedocs.io/en/latest/"
+    - "pathspec PyPI page — https://pypi.org/project/pathspec/"
+    - "gitignore specification — https://git-scm.com/docs/gitignore"
+    - "Test vectors verified with pathspec 1.0.4 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "pathspec source: pathspec/pathspec.py"
+    - "pathspec source: pathspec/patterns/gitwildmatch.py"
+  notes:
+    - "PathSpec.from_lines is a class method; the harness resolves dotted paths via getattr chain."
+    - "match_file returns bool True/False — not truthy/falsy."
+    - "match_files returns a generator; tests use list() to materialise it."
+    - "GitWildMatchPattern ('gitwildmatch') is deprecated in 1.0.x; 'gitignore' is preferred. Both work."
+    - "Negation patterns (! prefix) exclude previously matched files."
+    - "lookup_pattern('gitwildmatch') returns the GitWildMatchPattern class."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a string containing a dot
+# ---------------------------------------------------------------------------
+
+invariant pathspec.version.is_string:
+  description: "__version__ is a non-empty string"
+  category: version
+  kind: python_call_eq
+  function: __version__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant pathspec.version.contains_dot:
+  description: "__version__ contains a dot (e.g. '1.0.4')"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# match_file — PathSpec.from_lines(...).match_file(path)
+#
+# from_lines(pattern_type, patterns) constructs a PathSpec.
+# method: match_file + method_args: [path] exercises the primary API.
+# ---------------------------------------------------------------------------
+
+invariant pathspec.match_file.py_matches:
+  description: "PathSpec.from_lines('gitwildmatch', ['*.py']).match_file('hello.py') == True"
+  category: match_file
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitwildmatch", ["*.py"]]
+  method: match_file
+  method_args: ["hello.py"]
+  expected: true
+
+invariant pathspec.match_file.py_no_match_txt:
+  description: "PathSpec.from_lines('gitwildmatch', ['*.py']).match_file('hello.txt') == False"
+  category: match_file
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitwildmatch", ["*.py"]]
+  method: match_file
+  method_args: ["hello.txt"]
+  expected: false
+
+invariant pathspec.match_file.txt_matches:
+  description: "PathSpec.from_lines('gitwildmatch', ['*.txt']).match_file('readme.txt') == True"
+  category: match_file
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitwildmatch", ["*.txt"]]
+  method: match_file
+  method_args: ["readme.txt"]
+  expected: true
+
+invariant pathspec.match_file.txt_no_match_py:
+  description: "PathSpec.from_lines('gitwildmatch', ['*.txt']).match_file('readme.py') == False"
+  category: match_file
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitwildmatch", ["*.txt"]]
+  method: match_file
+  method_args: ["readme.py"]
+  expected: false
+
+invariant pathspec.match_file.negation_excludes:
+  description: "Negation pattern !test_*.py excludes test_foo.py from *.py spec"
+  category: match_file
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitwildmatch", ["*.py", "!test_*.py"]]
+  method: match_file
+  method_args: ["test_foo.py"]
+  expected: false
+
+invariant pathspec.match_file.negation_keeps_non_test:
+  description: "Negation pattern !test_*.py still matches hello.py"
+  category: match_file
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitwildmatch", ["*.py", "!test_*.py"]]
+  method: match_file
+  method_args: ["hello.py"]
+  expected: true
+
+invariant pathspec.match_file.gitignore_backend:
+  description: "PathSpec.from_lines('gitignore', ['*.py']).match_file('app.py') == True"
+  category: match_file
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitignore", ["*.py"]]
+  method: match_file
+  method_args: ["app.py"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# directory — directory pattern matches files under that directory
+# ---------------------------------------------------------------------------
+
+invariant pathspec.directory.src_matches_file_under_src:
+  description: "PathSpec.from_lines('gitwildmatch', ['src/']).match_file('src/foo.py') == True"
+  category: directory
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitwildmatch", ["src/"]]
+  method: match_file
+  method_args: ["src/foo.py"]
+  expected: true
+
+invariant pathspec.directory.src_no_match_other:
+  description: "PathSpec.from_lines('gitwildmatch', ['src/']).match_file('other/foo.py') == False"
+  category: directory
+  kind: python_call_eq
+  function: PathSpec.from_lines
+  args: ["gitwildmatch", ["src/"]]
+  method: match_file
+  method_args: ["other/foo.py"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# patterns — GitWildMatchPattern in pathspec.patterns submodule
+#
+# Access via patterns.GitWildMatchPattern('*.py').regex.pattern — a string
+# that contains 'py' (the escaped glob literal) confirming the pattern compiled.
+# ---------------------------------------------------------------------------
+
+invariant pathspec.patterns.gitwildmatch_regex_contains_literal:
+  description: "GitWildMatchPattern('*.py').regex.pattern contains 'py' — glob compiled to regex"
+  category: patterns
+  kind: python_call_eq
+  function: patterns.GitWildMatchPattern
+  args: ["*.py"]
+  method: regex
+  method_chain: pattern
+  expected: "^(?:.+/)?[^/]*\\.py(?:(?P<ps_d>/)|$)"
+
+# ---------------------------------------------------------------------------
+# lookup_pattern — maps pattern type name to class
+# ---------------------------------------------------------------------------
+
+invariant pathspec.lookup_pattern.gitwildmatch_name:
+  description: "lookup_pattern('gitwildmatch').__name__ == 'GitWildMatchPattern'"
+  category: lookup_pattern
+  kind: python_call_eq
+  function: lookup_pattern
+  args: ["gitwildmatch"]
+  method: __name__
+  expected: "GitWildMatchPattern"
+
+# ---------------------------------------------------------------------------
+# error — invalid pattern type raises KeyError
+# ---------------------------------------------------------------------------
+
+invariant pathspec.error.invalid_pattern_type:
+  description: "PathSpec.from_lines with unknown pattern type raises KeyError"
+  category: error
+  kind: python_call_raises
+  function: PathSpec.from_lines
+  args: ["nonexistent_pattern_type", ["*.py"]]
+  expected_exception: "KeyError"

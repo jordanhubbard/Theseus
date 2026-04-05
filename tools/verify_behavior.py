@@ -132,6 +132,9 @@ class LibraryLoader:
                     "setuptools._vendor.packaging.specifiers",
                     "setuptools._vendor.packaging.requirements",
                 ],
+                "defusedxml": [
+                    "defusedxml.ElementTree",
+                ],
             }
             for sub in _SUBMODULE_PRELOADS.get(module_name, []):
                 try:

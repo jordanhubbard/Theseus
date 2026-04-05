@@ -1,0 +1,163 @@
+spec: filelock
+version: ">=3.0"
+backend: python_module(filelock)
+
+docs: https://py-filelock.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "filelock documentation — https://py-filelock.readthedocs.io/"
+    - "PyPI filelock project page — https://pypi.org/project/filelock/"
+    - "Test vectors verified with filelock 3.25.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "filelock source: src/filelock/__init__.py"
+    - "filelock source: src/filelock/_api.py"
+    - "filelock source: src/filelock/_unix.py"
+  notes:
+    - "FileLock.__name__ is 'UnixFileLock' on POSIX systems and 'WindowsFileLock' on Windows — not 'FileLock'."
+    - "SoftFileLock.__name__ is always 'SoftFileLock' on all platforms."
+    - "BaseFileLock.__name__ is always 'BaseFileLock' on all platforms."
+    - "Default timeout for FileLock and SoftFileLock is -1 (wait forever, no timeout)."
+    - "Timeout inherits from TimeoutError (which inherits from OSError and Exception)."
+    - "lock_file and is_locked are properties on BaseFileLock; timeout is also a property."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a string containing a dot
+# ---------------------------------------------------------------------------
+
+invariant filelock.version.is_str:
+  description: "__version__.__class__.__name__ == 'str'"
+  category: version
+  kind: python_call_eq
+  function: __version__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant filelock.version.contains_dot:
+  description: "__version__ contains a version separator dot"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# classes — class name attributes on the public API classes
+#
+# Note: FileLock.__name__ is platform-specific (UnixFileLock / WindowsFileLock).
+# SoftFileLock and BaseFileLock names are stable across platforms.
+# ---------------------------------------------------------------------------
+
+invariant filelock.classes.softfilelock_name:
+  description: "SoftFileLock.__name__ == 'SoftFileLock'"
+  category: classes
+  kind: python_call_eq
+  function: SoftFileLock.__name__.__eq__
+  args: ["SoftFileLock"]
+  expected: true
+
+invariant filelock.classes.basefilelock_name:
+  description: "BaseFileLock.__name__ == 'BaseFileLock'"
+  category: classes
+  kind: python_call_eq
+  function: BaseFileLock.__name__.__eq__
+  args: ["BaseFileLock"]
+  expected: true
+
+invariant filelock.classes.timeout_name:
+  description: "Timeout.__name__ == 'Timeout'"
+  category: classes
+  kind: python_call_eq
+  function: Timeout.__name__.__eq__
+  args: ["Timeout"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# timeout_exception — Timeout inherits from TimeoutError
+#
+# Timeout.__bases__[0].__name__ == 'TimeoutError'
+# Pattern: function resolves Timeout.__bases__.__getitem__; call with [0] returns
+# the TimeoutError class; method: __name__ reads the non-callable name string.
+# ---------------------------------------------------------------------------
+
+invariant filelock.timeout_exception.bases_first_name:
+  description: "Timeout.__bases__[0].__name__ == 'TimeoutError'"
+  category: timeout_exception
+  kind: python_call_eq
+  function: Timeout.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "TimeoutError"
+
+# ---------------------------------------------------------------------------
+# lock_attrs — FileLock instance attributes: lock_file, is_locked, timeout
+#
+# FileLock('/tmp/t.lock').lock_file == '/tmp/t.lock'
+# FileLock('/tmp/t.lock').is_locked == False   (not acquired yet)
+# FileLock('/tmp/t.lock').timeout == -1        (no timeout by default)
+# ---------------------------------------------------------------------------
+
+invariant filelock.lock_attrs.lock_file_path:
+  description: "FileLock('/tmp/t.lock').lock_file == '/tmp/t.lock'"
+  category: lock_attrs
+  kind: python_call_eq
+  function: FileLock
+  args: ["/tmp/t.lock"]
+  method: lock_file
+  expected: "/tmp/t.lock"
+
+invariant filelock.lock_attrs.is_locked_false_initially:
+  description: "FileLock('/tmp/t.lock').is_locked == False before acquisition"
+  category: lock_attrs
+  kind: python_call_eq
+  function: FileLock
+  args: ["/tmp/t.lock"]
+  method: is_locked
+  expected: false
+
+invariant filelock.lock_attrs.default_timeout_is_minus_one:
+  description: "FileLock('/tmp/t.lock').timeout == -1 (no timeout by default)"
+  category: lock_attrs
+  kind: python_call_eq
+  function: FileLock
+  args: ["/tmp/t.lock"]
+  method: timeout
+  expected: -1
+
+# ---------------------------------------------------------------------------
+# softlock_attrs — SoftFileLock instance attributes mirror FileLock
+#
+# SoftFileLock('/tmp/s.lock').lock_file == '/tmp/s.lock'
+# SoftFileLock('/tmp/s.lock').is_locked == False   (not acquired yet)
+# SoftFileLock('/tmp/s.lock').timeout == -1        (no timeout by default)
+# ---------------------------------------------------------------------------
+
+invariant filelock.softlock_attrs.lock_file_path:
+  description: "SoftFileLock('/tmp/s.lock').lock_file == '/tmp/s.lock'"
+  category: softlock_attrs
+  kind: python_call_eq
+  function: SoftFileLock
+  args: ["/tmp/s.lock"]
+  method: lock_file
+  expected: "/tmp/s.lock"
+
+invariant filelock.softlock_attrs.is_locked_false_initially:
+  description: "SoftFileLock('/tmp/s.lock').is_locked == False before acquisition"
+  category: softlock_attrs
+  kind: python_call_eq
+  function: SoftFileLock
+  args: ["/tmp/s.lock"]
+  method: is_locked
+  expected: false
+
+invariant filelock.softlock_attrs.default_timeout_is_minus_one:
+  description: "SoftFileLock('/tmp/s.lock').timeout == -1 (no timeout by default)"
+  category: softlock_attrs
+  kind: python_call_eq
+  function: SoftFileLock
+  args: ["/tmp/s.lock"]
+  method: timeout
+  expected: -1

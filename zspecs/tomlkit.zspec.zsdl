@@ -1,0 +1,157 @@
+spec: tomlkit
+version: ">=0.11"
+backend: python_module(tomlkit)
+
+docs: https://tomlkit.readthedocs.io/en/latest/
+
+provenance:
+  derived_from:
+    - "tomlkit documentation — https://tomlkit.readthedocs.io/en/latest/"
+    - "TOML specification v1.0.0 — https://toml.io/en/v1.0.0"
+    - "Test vectors verified with tomlkit 0.14.0 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "tomlkit source: tomlkit/api.py"
+    - "tomlkit source: tomlkit/parser.py"
+    - "tomlkit source: tomlkit/container.py"
+  notes:
+    - "tomlkit preserves formatting on roundtrip (loads then dumps returns identical text for simple inputs)."
+    - "loads() and parse() are separate callables but behave identically."
+    - "document() returns a TOMLDocument instance; table() returns a Table instance."
+    - "Error types derive from ParseError which inherits from both ValueError and TOMLKitError."
+    - "UnexpectedCharError is raised for unclosed arrays; EmptyKeyError for missing key before '='."
+    - "Float values are returned as tomlkit Float (a float subclass); booleans are plain Python bool."
+    - "Trailing newlines are optional in loads() input."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+# ---------------------------------------------------------------------------
+
+invariant tomlkit.version.is_string:
+  description: "tomlkit.__version__ is a str"
+  category: version
+  kind: python_call_eq
+  function: __version__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant tomlkit.version.contains_dot:
+  description: "tomlkit.__version__ contains a dot (e.g. '0.14.0')"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# loads — scalars (category: loads)
+# ---------------------------------------------------------------------------
+
+table tomlkit.loads.scalars:
+  kind: python_call_eq
+  category: loads
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [integer,    ["a = 42"],      get, ["a"], 42    ]
+    - [float,      ["a = 3.14"],    get, ["a"], 3.14  ]
+    - [true_bool,  ["a = true"],    get, ["a"], true  ]
+    - [false_bool, ["a = false"],   get, ["a"], false ]
+    - [string,     ['a = "Bob"'],   get, ["a"], "Bob" ]
+
+# ---------------------------------------------------------------------------
+# loads — structures (category: loads)
+# ---------------------------------------------------------------------------
+
+invariant tomlkit.loads.structures.empty:
+  description: "loads('') returns an empty document with length 0"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: [""]
+  method: __len__
+  expected: 0
+
+invariant tomlkit.loads.structures.array:
+  description: "loads('x = [1, 2, 3]').get('x') == [1, 2, 3]"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = [1, 2, 3]"]
+  method: get
+  method_args: ["x"]
+  expected: [1, 2, 3]
+
+invariant tomlkit.loads.structures.inline_table:
+  description: "loads('p = {x=1, y=2}').get('p') == {'x': 1, 'y': 2}"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["p = {x=1, y=2}"]
+  method: get
+  method_args: ["p"]
+  expected: {x: 1, y: 2}
+
+# ---------------------------------------------------------------------------
+# dumps (category: dumps)
+# ---------------------------------------------------------------------------
+
+invariant tomlkit.dumps.is_callable:
+  description: "tomlkit.dumps is a function (callable)"
+  category: dumps
+  kind: python_call_eq
+  function: dumps.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# document (category: document)
+# ---------------------------------------------------------------------------
+
+invariant tomlkit.document.class_name:
+  description: "TOMLDocument class name is 'TOMLDocument'"
+  category: document
+  kind: python_call_eq
+  function: TOMLDocument.__name__.__eq__
+  args: ["TOMLDocument"]
+  expected: true
+
+invariant tomlkit.document.empty_len:
+  description: "document() returns an empty document with length 0"
+  category: document
+  kind: python_call_eq
+  function: document
+  method: __len__
+  expected: 0
+
+invariant tomlkit.document.table_callable:
+  description: "table() is callable and returns an object (truthy check on type name)"
+  category: document
+  kind: python_call_eq
+  function: table.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# error (category: error)
+# ---------------------------------------------------------------------------
+
+invariant tomlkit.error.unclosed_array_raises:
+  description: "loads('x = [unclosed') raises ParseError (unclosed array)"
+  category: error
+  kind: python_call_raises
+  function: loads
+  args: ["x = [unclosed"]
+  expected_exception: tomlkit.exceptions.ParseError
+
+invariant tomlkit.error.empty_key_raises:
+  description: "loads('= nope') raises ParseError (empty key before '=')"
+  category: error
+  kind: python_call_raises
+  function: loads
+  args: ["= nope"]
+  expected_exception: tomlkit.exceptions.ParseError
