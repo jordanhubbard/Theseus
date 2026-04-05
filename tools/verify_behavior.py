@@ -105,11 +105,33 @@ class LibraryLoader:
         if backend == "python_module":
             module_name = lib_spec["module_name"]
             try:
-                return importlib.import_module(module_name)
+                mod = importlib.import_module(module_name)
             except ImportError as exc:
                 raise LibraryNotFoundError(
                     f"Cannot import Python module {module_name!r}: {exc}"
                 ) from exc
+            # Pre-import well-known submodules so they are accessible as attributes
+            # of the top-level module via getattr (side-effect of import).
+            _SUBMODULE_PRELOADS: dict[str, list[str]] = {
+                "pygments": [
+                    "pygments.lexers",
+                    "pygments.formatters",
+                    "pygments.token",
+                    "pygments.styles",
+                ],
+                "packaging": [
+                    "packaging.version",
+                    "packaging.specifiers",
+                    "packaging.utils",
+                    "packaging.requirements",
+                ],
+            }
+            for sub in _SUBMODULE_PRELOADS.get(module_name, []):
+                try:
+                    importlib.import_module(sub)
+                except ImportError:
+                    pass
+            return mod
         if backend == "cli":
             cmd = lib_spec["command"]
             found = shutil.which(cmd)

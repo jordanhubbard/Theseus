@@ -1,0 +1,165 @@
+spec: pygments
+version: ">=2.0"
+backend: python_module(pygments)
+
+docs: https://pygments.org/docs/
+
+provenance:
+  derived_from:
+    - "Pygments documentation — https://pygments.org/docs/"
+    - "Pygments token types — https://pygments.org/docs/tokens/"
+    - "Test vectors verified with Pygments 2.19.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "Pygments source: pygments/lexers/"
+    - "Pygments source: pygments/formatters/"
+  notes:
+    - "NullFormatter strips all markup — highlight() with NullFormatter returns the source text unchanged."
+    - "Token type string representation is stable across Pygments 2.x versions."
+    - "Token types are _TokenType instances (not classes); Token.Keyword.__str__() returns 'Token.Keyword'."
+    - "HtmlFormatter().cssclass defaults to 'highlight' — the CSS class applied to the outer div."
+    - "get_style_by_name() returns a class (StyleMeta), not an instance; .__name__ and .background_color are class attributes."
+    - "Dotted function names (e.g. 'lexers.get_lexer_by_name') are resolved by the harness via chained getattr from the module root."
+    - "Token __str__ methods are accessed via dotted path: 'token.Token.Keyword.__str__' walks token -> Token -> Keyword -> __str__."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a non-empty version string beginning with a digit
+# ---------------------------------------------------------------------------
+
+invariant pygments.version.starts_with_digit:
+  description: "__version__ is a non-empty string beginning with a digit"
+  category: version
+  kind: python_call_eq
+  function: __version__.startswith
+  args: ["2"]
+  expected: true
+
+invariant pygments.version.contains_dot:
+  description: "__version__ contains a dot separator between major and minor"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# highlight — HtmlFormatter structural defaults that underpin highlight() output
+# ---------------------------------------------------------------------------
+
+invariant pygments.highlight.html_formatter_name:
+  description: "HtmlFormatter().name == 'HTML' — formatter self-identifies as HTML output"
+  category: highlight
+  kind: python_call_eq
+  function: formatters.HtmlFormatter
+  args: []
+  method: name
+  expected: "HTML"
+
+invariant pygments.highlight.html_formatter_cssclass:
+  description: "HtmlFormatter().cssclass == 'highlight' — default CSS class on output div"
+  category: highlight
+  kind: python_call_eq
+  function: formatters.HtmlFormatter
+  args: []
+  method: cssclass
+  expected: "highlight"
+
+invariant pygments.highlight.null_formatter_name:
+  description: "NullFormatter().name == 'Text only' — NullFormatter strips all markup"
+  category: highlight
+  kind: python_call_eq
+  function: formatters.NullFormatter
+  args: []
+  method: name
+  expected: "Text only"
+
+# ---------------------------------------------------------------------------
+# lexers — get_lexer_by_name() returns lexers with stable .name values
+# ---------------------------------------------------------------------------
+
+table pygments.lexers.name:
+  kind: python_call_eq
+  category: lexers
+  id_prefix: lexer
+  function: lexers.get_lexer_by_name
+  method: name
+
+  columns: [id, args, expected]
+  rows:
+    - [python,     ["python"],     "Python"    ]
+    - [json,       ["json"],       "JSON"      ]
+    - [bash,       ["bash"],       "Bash"      ]
+    - [javascript, ["javascript"], "JavaScript"]
+
+# ---------------------------------------------------------------------------
+# formatters — formatter class-level properties
+# ---------------------------------------------------------------------------
+
+invariant pygments.formatters.html_linenostart_default:
+  description: "HtmlFormatter().linenostart == 1 — line numbers start at 1 by default"
+  category: formatters
+  kind: python_call_eq
+  function: formatters.HtmlFormatter
+  args: []
+  method: linenostart
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# tokens — Token type string representations are stable across Pygments 2.x
+# ---------------------------------------------------------------------------
+
+table pygments.tokens.str:
+  kind: python_call_eq
+  category: tokens
+  id_prefix: token
+  args: []
+
+  columns: [id, function, expected]
+  rows:
+    - [token,     "token.Token.__str__",         "Token"        ]
+    - [keyword,   "token.Token.Keyword.__str__",  "Token.Keyword"]
+    - [name,      "token.Token.Name.__str__",     "Token.Name"   ]
+    - [comment,   "token.Token.Comment.__str__",  "Token.Comment"]
+    - [text,      "token.Token.Text.__str__",     "Token.Text"   ]
+
+# ---------------------------------------------------------------------------
+# styles — get_style_by_name() returns style classes with known properties
+# ---------------------------------------------------------------------------
+
+invariant pygments.styles.default_name:
+  description: "get_style_by_name('default') returns DefaultStyle class"
+  category: styles
+  kind: python_call_eq
+  function: styles.get_style_by_name
+  args: ["default"]
+  method: __name__
+  expected: "DefaultStyle"
+
+invariant pygments.styles.default_background:
+  description: "DefaultStyle has a light background (#f8f8f8)"
+  category: styles
+  kind: python_call_eq
+  function: styles.get_style_by_name
+  args: ["default"]
+  method: background_color
+  expected: "#f8f8f8"
+
+invariant pygments.styles.monokai_name:
+  description: "get_style_by_name('monokai') returns MonokaiStyle class"
+  category: styles
+  kind: python_call_eq
+  function: styles.get_style_by_name
+  args: ["monokai"]
+  method: __name__
+  expected: "MonokaiStyle"
+
+invariant pygments.styles.monokai_background:
+  description: "MonokaiStyle has a dark background (#272822)"
+  category: styles
+  kind: python_call_eq
+  function: styles.get_style_by_name
+  args: ["monokai"]
+  method: background_color
+  expected: "#272822"

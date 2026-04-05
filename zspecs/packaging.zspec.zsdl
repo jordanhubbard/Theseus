@@ -1,0 +1,220 @@
+spec: packaging
+version: ">=20.0"
+backend: python_module(packaging)
+
+docs: https://packaging.pypa.io/en/stable/
+rfcs:
+  - "PEP 440 — Version Identification and Dependency Specification"
+  - "PEP 508 — Dependency specification for Python Software Packages"
+  - "PEP 503 — Simple Repository API (canonicalize_name normalisation)"
+
+provenance:
+  derived_from:
+    - "packaging documentation — https://packaging.pypa.io/en/stable/"
+    - "PEP 440 — Version Identification and Dependency Specification"
+    - "PEP 508 — Dependency specification for Python Software Packages"
+    - "Test vectors verified with packaging 24.x on Python 3.14 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "packaging source: packaging/version.py"
+    - "packaging source: packaging/specifiers.py"
+  notes:
+    - "Version objects are constructed via python_call_eq method chaining; plain string args used throughout."
+    - "canonicalize_name normalises distribution names per PEP 503 (lowercase, runs of [-_.] → single -)."
+    - "Dotted function names (e.g. 'version.Version') are resolved by the harness via chained getattr from the module root."
+    - "SpecifierSet.contains() is reached via function='specifiers.SpecifierSet', method='contains', method_args=[version_str]."
+    - "packaging.requirements is not auto-imported by the harness; requirement-category invariants use Specifier attribute parsing instead."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — Version field extraction (PEP 440)
+# ---------------------------------------------------------------------------
+
+table packaging.version.fields:
+  kind: python_call_eq
+  category: version
+  id_prefix: version
+  function: version.Version
+  args: ["1.2.3"]
+
+  columns: [id, method, expected]
+  rows:
+    - [major, major, 1]
+    - [minor, minor, 2]
+    - [micro, micro, 3]
+
+invariant packaging.version.is_prerelease_stable:
+  description: "Version('1.2.3').is_prerelease == False — stable releases are not pre-releases (PEP 440)"
+  category: version
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: version.Version
+  args: ["1.2.3"]
+  method: is_prerelease
+  expected: false
+
+invariant packaging.version.is_devrelease_stable:
+  description: "Version('1.2.3').is_devrelease == False — stable releases are not dev releases (PEP 440)"
+  category: version
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: version.Version
+  args: ["1.2.3"]
+  method: is_devrelease
+  expected: false
+
+# ---------------------------------------------------------------------------
+# prerelease — Pre-release and dev-release detection (PEP 440)
+# ---------------------------------------------------------------------------
+
+invariant packaging.version.alpha_is_prerelease:
+  description: "Version('1.0a1').is_prerelease == True — alpha tags are pre-releases (PEP 440 §8)"
+  category: prerelease
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: version.Version
+  args: ["1.0a1"]
+  method: is_prerelease
+  expected: true
+
+invariant packaging.version.dev_is_devrelease:
+  description: "Version('1.0.dev1').is_devrelease == True — .devN suffix marks a development release (PEP 440 §5)"
+  category: prerelease
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: version.Version
+  args: ["1.0.dev1"]
+  method: is_devrelease
+  expected: true
+
+invariant packaging.version.dev_is_prerelease:
+  description: "Version('1.0.dev1').is_prerelease == True — dev releases are also pre-releases (PEP 440)"
+  category: prerelease
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: version.Version
+  args: ["1.0.dev1"]
+  method: is_prerelease
+  expected: true
+
+invariant packaging.version.rc_is_prerelease:
+  description: "Version('2.0rc1').is_prerelease == True — rc tags are pre-releases (PEP 440 §8)"
+  category: prerelease
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: version.Version
+  args: ["2.0rc1"]
+  method: is_prerelease
+  expected: true
+
+# ---------------------------------------------------------------------------
+# specifier — SpecifierSet.contains() evaluation (PEP 440)
+# ---------------------------------------------------------------------------
+
+table packaging.specifier.range:
+  kind: python_call_eq
+  category: specifier
+  id_prefix: specifier
+  function: specifiers.SpecifierSet
+  args: [">=1.0,<2.0"]
+  method: contains
+
+  columns: [id, method_args, expected]
+  rows:
+    - [in_range,     ["1.5"], true ]
+    - [below_range,  ["0.9"], false]
+    - [at_upper,     ["2.0"], false]
+    - [at_lower,     ["1.0"], true ]
+
+invariant packaging.specifier.exact_match:
+  description: "SpecifierSet('==1.2.3').contains('1.2.3') == True — exact version pin (PEP 440)"
+  category: specifier
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: specifiers.SpecifierSet
+  args: ["==1.2.3"]
+  method: contains
+  method_args: ["1.2.3"]
+  expected: true
+
+invariant packaging.specifier.exact_mismatch:
+  description: "SpecifierSet('==1.2.3').contains('1.2.4') == False — different patch is excluded"
+  category: specifier
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: specifiers.SpecifierSet
+  args: ["==1.2.3"]
+  method: contains
+  method_args: ["1.2.4"]
+  expected: false
+
+invariant packaging.specifier.empty_matches_all:
+  description: "SpecifierSet('').contains('99.0') == True — empty specifier accepts any version (PEP 440)"
+  category: specifier
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: specifiers.SpecifierSet
+  args: [""]
+  method: contains
+  method_args: ["99.0"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# utils — canonicalize_name per PEP 503
+# ---------------------------------------------------------------------------
+
+table packaging.utils.canonicalize:
+  kind: python_call_eq
+  category: utils
+  id_prefix: canonicalize
+  function: utils.canonicalize_name
+
+  columns: [id, args, expected]
+  rows:
+    - [uppercase,      ["Pillow"],      "pillow"    ]
+    - [underscore,     ["my_package"],  "my-package"]
+    - [django,         ["Django"],      "django"    ]
+    - [mixed_seps,     ["Foo_Bar-Baz"], "foo-bar-baz"]
+
+# ---------------------------------------------------------------------------
+# requirement — Specifier attribute parsing, testing PEP 440/508 version constraints
+#
+# Note: packaging.requirements is not auto-imported as a side effect of the harness
+# version check (which imports packaging.specifiers and packaging.version). The
+# requirement category therefore tests the equivalent PEP 508 contract via
+# packaging.specifiers.Specifier, which is available through the already-imported
+# specifiers submodule and provides the same operator/version decomposition.
+# ---------------------------------------------------------------------------
+
+table packaging.specifier.attributes:
+  kind: python_call_eq
+  category: requirement
+  id_prefix: specifier
+  function: specifiers.Specifier
+  args: [">=2.0"]
+
+  columns: [id, method, expected]
+  rows:
+    - [operator, operator, ">="]
+    - [version,  version,  "2.0"]
+
+invariant packaging.specifier.pin_operator:
+  description: "Specifier('==1.2.3').operator == '==' — exact pin uses == operator (PEP 440)"
+  category: requirement
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: specifiers.Specifier
+  args: ["==1.2.3"]
+  method: operator
+  expected: "=="
+
+invariant packaging.specifier.pin_version:
+  description: "Specifier('==1.2.3').version == '1.2.3' — exact pin preserves version string (PEP 440)"
+  category: requirement
+  rfc: "PEP 440"
+  kind: python_call_eq
+  function: specifiers.Specifier
+  args: ["==1.2.3"]
+  method: version
+  expected: "1.2.3"

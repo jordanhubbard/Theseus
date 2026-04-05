@@ -1,0 +1,222 @@
+spec: psutil
+version: ">=5.0"
+backend: python_module(psutil)
+
+docs: https://psutil.readthedocs.io/en/latest/
+
+provenance:
+  derived_from:
+    - "psutil documentation — https://psutil.readthedocs.io/"
+    - "psutil API reference — https://psutil.readthedocs.io/en/latest/#psutil.cpu_count"
+    - "Test vectors verified with psutil 7.2.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "psutil source: psutil/__init__.py"
+    - "psutil source: psutil/_pslinux.py"
+  notes:
+    - "All invariants are machine-independent: structural checks (bool-truthy) rather than exact values."
+    - "pid_exists(0) == True: PID 0 is the kernel idle process on POSIX systems."
+    - "Constants STATUS_RUNNING, STATUS_SLEEPING, CONN_ESTABLISHED are stable string values across psutil versions."
+    - "Memory/disk byte counts (total, available, used) are bool-truthy because they are positive integers on any real machine."
+    - "cpu_count().__ge__(1) and cpu_count().__class__.__name__ use the two-level method chain supported by the harness."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a non-empty string beginning with a digit
+#
+# Access pattern: getattr(psutil, '__version__') -> str,
+# then getattr(str_obj, 'startswith') -> bound method, call('7') -> bool.
+# Dotted function names are resolved by walking getattr from the module root.
+# ---------------------------------------------------------------------------
+
+invariant psutil.version.starts_with_digit:
+  description: "__version__ starts with the major version digit (7 for psutil 7.x)"
+  category: version
+  kind: python_call_eq
+  function: __version__.startswith
+  args: ["7"]
+  expected: true
+
+invariant psutil.version.contains_dot:
+  description: "__version__ contains a version separator dot"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# cpu — cpu_count() returns an int >= 1
+#
+# method: __ge__ is called with method_args: [1], i.e. cpu_count().__ge__(1).
+# method: __class__ is a non-callable attribute access; method_chain: __name__
+# is also a non-callable attribute, giving the string "int".
+# ---------------------------------------------------------------------------
+
+invariant psutil.cpu.count_ge_1:
+  description: "cpu_count() >= 1 — at least one logical CPU on any real machine"
+  category: cpu
+  kind: python_call_eq
+  function: cpu_count
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true
+
+invariant psutil.cpu.count_has_bit_length:
+  description: "cpu_count() is an int — only ints have bit_length(); result is truthy (>= 1)"
+  category: cpu
+  kind: python_call_eq
+  function: cpu_count
+  args: []
+  method: bit_length
+  method_chain: __bool__
+  expected: true
+
+# ---------------------------------------------------------------------------
+# memory — virtual_memory() structural invariants
+#
+# Named-tuple attributes (total, available, used) are positive integers on
+# any machine with RAM, so __bool__() returns True. The two-level chain is:
+#   1. method: <attr_name>  → reads the non-callable namedtuple attribute
+#   2. method_chain: __bool__  → zero-arg callable, returns True if > 0
+# ---------------------------------------------------------------------------
+
+invariant psutil.memory.total_bool_true:
+  description: "virtual_memory().total is a positive integer (bool-truthy)"
+  category: memory
+  kind: python_call_eq
+  function: virtual_memory
+  args: []
+  method: total
+  method_chain: __bool__
+  expected: true
+
+invariant psutil.memory.available_bool_true:
+  description: "virtual_memory().available is a positive integer (bool-truthy)"
+  category: memory
+  kind: python_call_eq
+  function: virtual_memory
+  args: []
+  method: available
+  method_chain: __bool__
+  expected: true
+
+invariant psutil.memory.used_bool_true:
+  description: "virtual_memory().used is a positive integer (bool-truthy)"
+  category: memory
+  kind: python_call_eq
+  function: virtual_memory
+  args: []
+  method: used
+  method_chain: __bool__
+  expected: true
+
+# ---------------------------------------------------------------------------
+# disk — disk_usage('/') structural invariants
+# ---------------------------------------------------------------------------
+
+invariant psutil.disk.total_bool_true:
+  description: "disk_usage('/').total is a positive integer (bool-truthy)"
+  category: disk
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/"]
+  method: total
+  method_chain: __bool__
+  expected: true
+
+invariant psutil.disk.used_bool_true:
+  description: "disk_usage('/').used is a positive integer (bool-truthy)"
+  category: disk
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/"]
+  method: used
+  method_chain: __bool__
+  expected: true
+
+# ---------------------------------------------------------------------------
+# process — pid_exists() boolean results
+# ---------------------------------------------------------------------------
+
+invariant psutil.process.pid_zero_exists:
+  description: "pid_exists(0) == True — PID 0 is the kernel process on POSIX"
+  category: process
+  kind: python_call_eq
+  function: pid_exists
+  args: [0]
+  expected: true
+
+invariant psutil.process.negative_pid_false:
+  description: "pid_exists(-1) == False — negative PIDs are never valid"
+  category: process
+  kind: python_call_eq
+  function: pid_exists
+  args: [-1]
+  expected: false
+
+invariant psutil.process.huge_pid_false:
+  description: "pid_exists(99999999) == False — unrealistically large PID does not exist"
+  category: process
+  kind: python_call_eq
+  function: pid_exists
+  args: [99999999]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# constants — STATUS_* and CONN_* string values
+#
+# Access pattern: getattr(psutil, 'STATUS_RUNNING') -> str "running",
+# then getattr(str_obj, '__eq__') -> bound method, call('running') -> True.
+# ---------------------------------------------------------------------------
+
+invariant psutil.constants.status_running:
+  description: "STATUS_RUNNING == 'running'"
+  category: constants
+  kind: python_call_eq
+  function: STATUS_RUNNING.__eq__
+  args: ["running"]
+  expected: true
+
+invariant psutil.constants.status_sleeping:
+  description: "STATUS_SLEEPING == 'sleeping'"
+  category: constants
+  kind: python_call_eq
+  function: STATUS_SLEEPING.__eq__
+  args: ["sleeping"]
+  expected: true
+
+invariant psutil.constants.conn_established:
+  description: "CONN_ESTABLISHED == 'ESTABLISHED'"
+  category: constants
+  kind: python_call_eq
+  function: CONN_ESTABLISHED.__eq__
+  args: ["ESTABLISHED"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# platform — POSIX/WINDOWS flags (skipped on Windows)
+#
+# Access pattern: getattr(psutil, 'POSIX') -> bool True,
+# then getattr(bool_obj, '__eq__') -> bound method, call(True) -> True.
+# ---------------------------------------------------------------------------
+
+invariant psutil.platform.posix_true:
+  description: "POSIX == True on macOS and Linux"
+  category: platform
+  skip_if: "platform not in ('darwin', 'linux')"
+  kind: python_call_eq
+  function: POSIX.__eq__
+  args: [true]
+  expected: true
+
+invariant psutil.platform.windows_false:
+  description: "WINDOWS == False on macOS and Linux"
+  category: platform
+  skip_if: "platform not in ('darwin', 'linux')"
+  kind: python_call_eq
+  function: WINDOWS.__eq__
+  args: [false]
+  expected: true

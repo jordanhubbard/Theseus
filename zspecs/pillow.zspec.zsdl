@@ -1,0 +1,130 @@
+spec: pillow
+version: ">=9.0"
+backend: python_module(PIL.Image)
+
+docs: https://pillow.readthedocs.io/en/stable/reference/Image.html
+
+provenance:
+  derived_from:
+    - "Pillow documentation — https://pillow.readthedocs.io/"
+    - "Pillow Image module reference — https://pillow.readthedocs.io/en/stable/reference/Image.html"
+    - "Test vectors verified with Pillow 12.1.1 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "Pillow source: src/PIL/Image.py"
+    - "Pillow source: src/PIL/ImageColor.py"
+  notes:
+    - "All images created in memory with Image.new() — no file I/O required."
+    - "Size tuples are represented as lists in JSON args; PIL.Image.new accepts both."
+    - "getpixel returns a tuple for RGB/RGBA; represented as list in expected values."
+    - "Color args for Image.new must be a tuple (not list); use {type: tuple, value: [...]} in args."
+    - "Image.Resampling enum was introduced in Pillow 9.1.0; NEAREST=0, BICUBIC=3, LANCZOS=1."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# image_new — Image.new() creates images with correct mode and dimensions
+# ---------------------------------------------------------------------------
+
+table pillow.image_new.mode:
+  kind: python_call_eq
+  category: image_new
+  id_prefix: image_new
+  function: new
+
+  columns: [id, args, method, expected]
+  rows:
+    - [rgb_mode,  ["RGB",  [10, 10]], mode, "RGB" ]
+    - [l_mode,    ["L",    [4,  4 ]], mode, "L"   ]
+    - [rgba_mode, ["RGBA", [2,  2 ]], mode, "RGBA"]
+
+table pillow.image_new.dimensions:
+  kind: python_call_eq
+  category: image_new
+  id_prefix: image_new
+  function: new
+
+  columns: [id, args, method, expected]
+  rows:
+    - [rgb_width,  ["RGB", [10, 7]], width,  10]
+    - [rgb_height, ["RGB", [10, 7]], height, 7 ]
+
+invariant pillow.image_new.size_tuple:
+  description: "Image.new('RGB', [10, 10]).size returns (10, 10) as a 2-tuple of ints"
+  category: image_new
+  kind: python_call_eq
+  function: new
+  args: ["RGB", [10, 10]]
+  method: size
+  expected: [10, 10]
+
+# ---------------------------------------------------------------------------
+# pixel — getpixel() returns the correct pixel value for solid-color images
+# ---------------------------------------------------------------------------
+
+table pillow.pixel.getpixel:
+  kind: python_call_eq
+  category: pixel
+  id_prefix: pixel
+  function: new
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [rgb_red,   ["RGB",  [1, 1], !tuple [255, 0, 0]     ], getpixel, [[0, 0]], [255, 0, 0]      ]
+    - [rgb_green, ["RGB",  [1, 1], !tuple [0, 255, 0]     ], getpixel, [[0, 0]], [0, 255, 0]      ]
+    - [rgb_blue,  ["RGB",  [1, 1], !tuple [0, 0, 255]     ], getpixel, [[0, 0]], [0, 0, 255]      ]
+    - [rgba_val,  ["RGBA", [1, 1], !tuple [10, 20, 30, 128]], getpixel, [[0, 0]], [10, 20, 30, 128]]
+
+# ---------------------------------------------------------------------------
+# convert — convert() changes image mode
+# ---------------------------------------------------------------------------
+
+table pillow.convert.mode:
+  kind: python_call_eq
+  category: convert
+  id_prefix: convert
+  function: new
+
+  columns: [id, args, method, method_args, method_chain, expected]
+  rows:
+    - [rgb_to_l,   ["RGB", [4, 4]], convert, ["L"],   mode, "L"  ]
+    - [l_to_rgb,   ["L",   [4, 4]], convert, ["RGB"], mode, "RGB"]
+    - [rgb_to_rgba,["RGB", [4, 4]], convert, ["RGBA"],mode, "RGBA"]
+
+# ---------------------------------------------------------------------------
+# resize — resize() produces an image with the requested dimensions
+# ---------------------------------------------------------------------------
+
+table pillow.resize.size:
+  kind: python_call_eq
+  category: resize
+  id_prefix: resize
+  function: new
+
+  columns: [id, args, method, method_args, method_chain, expected]
+  rows:
+    - [half,     ["RGB", [10, 10]], resize, [[5,  5 ]], size,   [5,  5 ]]
+    - [upscale,  ["RGB", [4,  4 ]], resize, [[8,  8 ]], size,   [8,  8 ]]
+    - [one_by_one,["RGB", [10, 10]], resize, [[1, 1 ]], size,   [1,  1 ]]
+    - [width,    ["RGB", [10, 10]], resize, [[5,  5 ]], width,  5       ]
+    - [height,   ["RGB", [10, 10]], resize, [[5,  7 ]], height, 7       ]
+
+# ---------------------------------------------------------------------------
+# constants — Image.Resampling enum values
+#
+# Image.Resampling is an IntEnum (introduced in Pillow 9.1).
+# Access by name via Resampling.__getitem__('NAME'), then .value for the int.
+# ---------------------------------------------------------------------------
+
+table pillow.constants.resampling:
+  kind: python_call_eq
+  category: constants
+  id_prefix: constants
+  function: Resampling.__getitem__
+  method: value
+
+  columns: [id, args, expected]
+  rows:
+    - [nearest_value, ["NEAREST"], 0]
+    - [bicubic_value, ["BICUBIC"], 3]
+    - [lanczos_value, ["LANCZOS"], 1]

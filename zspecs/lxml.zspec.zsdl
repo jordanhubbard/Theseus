@@ -1,0 +1,254 @@
+spec: lxml
+version: ">=1.0"
+backend: python_module(lxml.etree)
+
+docs: https://lxml.de/apidoc/lxml.etree.html
+
+rfcs:
+  - "W3C XML specification — https://www.w3.org/TR/xml/"
+
+provenance:
+  derived_from:
+    - "lxml documentation — https://lxml.de/tutorial.html"
+    - "lxml API reference — https://lxml.de/apidoc/lxml.etree.html"
+    - "W3C XML specification — https://www.w3.org/TR/xml/"
+    - "Test vectors verified with lxml 6.0.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "lxml source: src/lxml/etree.pyx"
+  notes:
+    - "fromstring accepts both str and bytes; string args used for readability."
+    - "tostring returns bytes; tested via python_encode_decode_roundtrip with fromstring as the encoder and tostring as the decoder (fromstring(bytes) -> Element -> tostring -> bytes)."
+    - "XPath count() returns float in lxml."
+    - "The module is lxml.etree; function names in invariants are relative to that module."
+    - "Element().tag is tested via method chaining (function: Element, method: tag)."
+    - "Attribute get() is tested via method chaining on fromstring result."
+    - "LIBXML_VERSION tuple length is exactly 3: (major, minor, patch)."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+# ---------------------------------------------------------------------------
+
+invariant lxml.version.contains_dot:
+  description: "lxml.etree.__version__ contains a dot (dotted version string)"
+  category: version
+  kind: python_call_eq
+  function: "__version__.__contains__"
+  args: ["."]
+  expected: true
+
+invariant lxml.version.libxml_version_is_tuple:
+  description: "LIBXML_VERSION is a tuple of exactly 3 elements (major, minor, patch)"
+  category: version
+  kind: python_call_eq
+  function: "LIBXML_VERSION.__len__"
+  args: []
+  expected: 3
+
+invariant lxml.version.libxml_major_ge_2:
+  description: "LIBXML_VERSION major component is >= 2 (libxml2)"
+  category: version
+  kind: python_call_eq
+  function: "LIBXML_VERSION.__getitem__"
+  args: [0]
+  method: "__ge__"
+  method_args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# parse (category: parse)
+# Verifies fromstring parses XML and exposes element properties via chaining.
+# ---------------------------------------------------------------------------
+
+table lxml.parse.fromstring_tag:
+  description: "fromstring(xml).tag returns the local element name"
+  kind: python_call_eq
+  category: parse
+  id_prefix: fromstring
+  function: fromstring
+  method: tag
+
+  columns: [id, args, expected]
+  rows:
+    - [root,      ["<root/>"],    "root"]
+    - [child,     ["<child/>"],   "child"]
+    - [element,   ["<element/>"], "element"]
+
+invariant lxml.parse.fromstring.text:
+  description: "fromstring('<el>text</el>').text == 'text'"
+  category: parse
+  call: 'fromstring("<el>text</el>").text'
+  eq: "text"
+
+invariant lxml.parse.fromstring.text_upper:
+  description: "fromstring('<el>hello</el>').text.upper() == 'HELLO': text is accessible and is a str"
+  category: parse
+  call: 'fromstring("<el>hello</el>").text.upper()'
+  eq: "HELLO"
+
+invariant lxml.parse.fromstring.get_attribute:
+  description: "fromstring('<el id=\"42\"/>').get('id') == '42'"
+  category: parse
+  kind: python_call_eq
+  function: fromstring
+  args: ['<el id="42"/>']
+  method: get
+  method_args: ["id"]
+  expected: "42"
+
+invariant lxml.parse.fromstring.child_count:
+  description: "len(fromstring('<r><a/><b/></r>')) == 2"
+  category: parse
+  kind: python_call_eq
+  function: fromstring
+  args: ["<r><a/><b/></r>"]
+  method: "__len__"
+  expected: 2
+
+invariant lxml.parse.namespace_clark_notation:
+  description: "Namespace prefix expands into Clark notation {uri}localname"
+  category: parse
+  kind: python_call_eq
+  function: fromstring
+  args: ['<ns:root xmlns:ns="http://example.com"/>']
+  method: tag
+  expected: "{http://example.com}root"
+
+# ---------------------------------------------------------------------------
+# tostring (category: tostring)
+# tostring(Element) returns bytes; tested via encode/decode roundtrip:
+# fromstring(bytes) -> Element, tostring(Element) -> bytes.
+# The roundtrip encodes bytes to Element and decodes Element back to bytes.
+# ---------------------------------------------------------------------------
+
+invariant lxml.tostring.roundtrip_root:
+  description: "tostring(fromstring(b)) == b for self-closing root elements"
+  category: tostring
+  kind: python_encode_decode_roundtrip
+  encode_fn: fromstring
+  decode_fn: tostring
+  inputs_b64:
+    - PHJvb3QvPg==
+    - PGZvby8+
+    - PGEvPg==
+
+invariant lxml.tostring.element_tag:
+  description: "Element('foo').tag == 'foo': the factory sets the tag attribute"
+  category: tostring
+  kind: python_call_eq
+  function: Element
+  args: ["foo"]
+  method: tag
+  expected: "foo"
+
+invariant lxml.tostring.element_no_children:
+  description: "Element('bar') has no children: len() == 0"
+  category: tostring
+  kind: python_call_eq
+  function: Element
+  args: ["bar"]
+  method: "__len__"
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# element (category: element)
+# Verifies Element() factory and element child access via len().
+# ---------------------------------------------------------------------------
+
+table lxml.element.tag:
+  description: "Element(tag).tag returns the tag name passed to the factory"
+  kind: python_call_eq
+  category: element
+  id_prefix: element
+  function: Element
+  method: tag
+
+  columns: [id, args, expected]
+  rows:
+    - [alpha, ["alpha"], "alpha"]
+    - [beta,  ["beta"],  "beta"]
+    - [gamma, ["gamma"], "gamma"]
+
+invariant lxml.element.child_count_two:
+  description: "Parsed document with two children has len == 2"
+  category: element
+  kind: python_call_eq
+  function: fromstring
+  args: ["<r><a/><b/></r>"]
+  method: "__len__"
+  expected: 2
+
+invariant lxml.element.child_count_one:
+  description: "Parsed document with one child has len == 1"
+  category: element
+  kind: python_call_eq
+  function: fromstring
+  args: ["<r><a/></r>"]
+  method: "__len__"
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# xpath (category: xpath)
+# Verifies XPath expressions on parsed elements.
+# ---------------------------------------------------------------------------
+
+invariant lxml.xpath.attribute_value:
+  description: "XPath attribute selection returns a list of strings"
+  category: xpath
+  kind: python_call_eq
+  function: fromstring
+  args: ['<r><c id="1"/></r>']
+  method: xpath
+  method_args: ["c/@id"]
+  expected: ["1"]
+
+invariant lxml.xpath.count_returns_float:
+  description: "XPath count() returns a float in lxml"
+  category: xpath
+  kind: python_call_eq
+  function: fromstring
+  args: ["<r><a/><b/></r>"]
+  method: xpath
+  method_args: ["count(*)"]
+  expected: 2.0
+
+invariant lxml.xpath.no_match_empty_list:
+  description: "XPath with no match returns an empty list"
+  category: xpath
+  kind: python_call_eq
+  function: fromstring
+  args: ["<r/>"]
+  method: xpath
+  method_args: ["child/@id"]
+  expected: []
+
+# ---------------------------------------------------------------------------
+# errors (category: errors)
+# Verifies XMLSyntaxError is raised for malformed XML.
+# ---------------------------------------------------------------------------
+
+invariant lxml.errors.unclosed_tag:
+  description: "fromstring('<unclosed') raises XMLSyntaxError"
+  category: errors
+  kind: python_call_raises
+  function: fromstring
+  args: ["<unclosed"]
+  expected_exception: "lxml.etree.XMLSyntaxError"
+
+invariant lxml.errors.mismatched_tags:
+  description: "fromstring('<a></b>') raises XMLSyntaxError"
+  category: errors
+  kind: python_call_raises
+  function: fromstring
+  args: ["<a></b>"]
+  expected_exception: "lxml.etree.XMLSyntaxError"
+
+invariant lxml.errors.empty_string:
+  description: "fromstring('') raises XMLSyntaxError"
+  category: errors
+  kind: python_call_raises
+  function: fromstring
+  args: [""]
+  expected_exception: "lxml.etree.XMLSyntaxError"
