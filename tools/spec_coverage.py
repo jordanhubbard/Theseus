@@ -28,13 +28,25 @@ REPO_ROOT    = Path(__file__).resolve().parent.parent
 ZSPECS_DIR   = REPO_ROOT / "_build" / "zspecs"
 
 
+# PyPI package name → spec file stem (when the import name differs from the package name)
+_PACKAGE_ALIASES: dict[str, str] = {
+    "python-dotenv": "dotenv",
+    "python_dotenv": "dotenv",
+    "pillow": "pillow",          # PIL; spec file is pillow
+    "tomli": "tomllib",          # tomllib spec covers both
+}
+
+
 def _has_spec(canonical_name: str) -> bool:
     # PyPI uses dashes; Python modules use underscores — check both normalizations.
     normalized = canonical_name.replace("-", "_")
-    return (
-        (ZSPECS_DIR / f"{canonical_name}.zspec.json").exists()
-        or (ZSPECS_DIR / f"{normalized}.zspec.json").exists()
-    )
+    candidates = {canonical_name, normalized}
+    # Also check known aliases
+    if canonical_name in _PACKAGE_ALIASES:
+        candidates.add(_PACKAGE_ALIASES[canonical_name])
+    if normalized in _PACKAGE_ALIASES:
+        candidates.add(_PACKAGE_ALIASES[normalized])
+    return any((ZSPECS_DIR / f"{c}.zspec.json").exists() for c in candidates)
 
 
 def load_extraction_records(extraction_dir: Path) -> list[dict]:
