@@ -296,6 +296,8 @@ KNOWN_KINDS = {
     "node_factory_call_eq",
     # lz4-specific ctypes roundtrip
     "lz4_roundtrip",
+    # pcre2-specific ctypes compile+match
+    "pcre2_match",
 }
 
 
@@ -364,6 +366,8 @@ class PatternRegistry:
             "node_factory_call_eq":           self._node_factory_call_eq,
             # lz4-specific ctypes roundtrip
             "lz4_roundtrip":                  self._lz4_roundtrip,
+            # pcre2-specific ctypes compile+match
+            "pcre2_match":                    self._pcre2_match,
         }
 
     def run(self, inv: dict) -> tuple[bool, str]:
@@ -956,6 +960,97 @@ class PatternRegistry:
                     f"expected {src_size}"
                 )
         return True, f"all {len(inputs)} inputs round-tripped via LZ4_compress_default/LZ4_decompress_safe"
+
+    # --- pcre2_match ---
+    # Compiles a PCRE2 pattern with pcre2_compile_8, creates match data with
+    # pcre2_match_data_create_from_pattern_8, runs pcre2_match_8, and checks
+    # that the return code equals expected_rc.
+    #
+    # On a successful match, pcre2_match_8 returns the number of pairs in the
+    # ovector (capture count + 1, >= 1).  On no match it returns
+    # PCRE2_ERROR_NOMATCH (-1).
+    #
+    # spec fields:
+    #   pattern_b64  — base64-encoded UTF-8 pattern string
+    #   subject_b64  — base64-encoded subject string to match against
+    #   expected_rc  — expected pcre2_match_8 return code
+    def _pcre2_match(self, spec: dict) -> tuple[bool, str]:
+        lib = self._lib
+        pattern = base64.b64decode(spec["pattern_b64"])
+        subject = base64.b64decode(spec["subject_b64"])
+        expected_rc = spec["expected_rc"]
+
+        # Set up pcre2_compile_8 signature
+        compile_fn = lib.pcre2_compile_8
+        compile_fn.restype = ctypes.c_void_p
+        compile_fn.argtypes = [
+            ctypes.c_char_p,           # pattern
+            ctypes.c_size_t,           # length (PCRE2_ZERO_TERMINATED = ~0)
+            ctypes.c_uint32,           # options
+            ctypes.POINTER(ctypes.c_int),        # errorcode output
+            ctypes.POINTER(ctypes.c_size_t),     # erroroffset output
+            ctypes.c_void_p,           # compile context (NULL)
+        ]
+
+        errorcode = ctypes.c_int(0)
+        erroroffset = ctypes.c_size_t(0)
+        PCRE2_ZERO_TERMINATED = ctypes.c_size_t(~0)
+
+        code = compile_fn(
+            pattern, PCRE2_ZERO_TERMINATED, 0,
+            ctypes.byref(errorcode), ctypes.byref(erroroffset), None,
+        )
+        if code is None or code == 0:
+            # Compile failed; get error message for diagnostics
+            try:
+                errbuf = ctypes.create_string_buffer(256)
+                lib.pcre2_get_error_message_8.restype = ctypes.c_int
+                lib.pcre2_get_error_message_8(errorcode.value, errbuf, 256)
+                errmsg = errbuf.value.decode("ascii", errors="replace")
+            except Exception:
+                errmsg = f"errorcode={errorcode.value}"
+            return False, (
+                f"pcre2_compile_8({pattern!r}) failed at offset {erroroffset.value}: {errmsg}"
+            )
+
+        try:
+            # Create match data block
+            md_fn = lib.pcre2_match_data_create_from_pattern_8
+            md_fn.restype = ctypes.c_void_p
+            md_fn.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+            md = md_fn(code, None)
+            if md is None or md == 0:
+                return False, "pcre2_match_data_create_from_pattern_8() returned NULL"
+
+            try:
+                # Run match
+                match_fn = lib.pcre2_match_8
+                match_fn.restype = ctypes.c_int
+                match_fn.argtypes = [
+                    ctypes.c_void_p,   # code
+                    ctypes.c_char_p,   # subject
+                    ctypes.c_size_t,   # length
+                    ctypes.c_size_t,   # startoffset
+                    ctypes.c_uint32,   # options
+                    ctypes.c_void_p,   # match_data
+                    ctypes.c_void_p,   # match context (NULL)
+                ]
+                rc = int(match_fn(code, subject, len(subject), 0, 0, md, None))
+            finally:
+                lib.pcre2_match_data_free_8.argtypes = [ctypes.c_void_p]
+                lib.pcre2_match_data_free_8(md)
+        finally:
+            lib.pcre2_code_free_8.argtypes = [ctypes.c_void_p]
+            lib.pcre2_code_free_8(code)
+
+        if rc != expected_rc:
+            return False, (
+                f"pcre2_match_8({pattern!r}, {subject!r}) returned {rc}, "
+                f"expected {expected_rc}"
+            )
+        return True, (
+            f"pcre2_match_8({pattern!r}, {subject!r}) == {expected_rc}"
+        )
 
     # --- python_struct_roundtrip ---
     # For each entry in test_cases (a list of value-lists), packs with

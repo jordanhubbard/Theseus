@@ -1,0 +1,171 @@
+spec: msgpack
+version: ">=1.0"
+backend: python_module(msgpack)
+
+docs: https://msgpack-python.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "MessagePack specification — https://github.com/msgpack/msgpack/blob/master/spec.md"
+    - "msgpack-python documentation — https://msgpack-python.readthedocs.io/"
+    - "Test vectors derived from the MessagePack type system specification"
+    - "Verified with msgpack 1.1.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "msgpack source: msgpack/_cmsgpack.pyx"
+    - "msgpack source: msgpack/fallback.py"
+  notes:
+    - "Wire format values are stable across all msgpack implementations (spec-compliant)."
+    - "packb(None)==b'\\xc0', packb(False)==b'\\xc2', packb(True)==b'\\xc3' are mandated by the msgpack spec."
+    - "unpackb raw=False decodes bytes keys/values as str (Python 3 default since msgpack 1.0)."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — msgpack.version is a tuple; major version >= 1
+# ---------------------------------------------------------------------------
+
+invariant msgpack.version.major:
+  description: "msgpack.version[0] == 1 — major version is 1 (msgpack-python 1.x series)"
+  category: version
+  kind: python_call_eq
+  function: version.__getitem__
+  args: [0]
+  expected: 1
+
+invariant msgpack.version.length:
+  description: "msgpack.version has 3 elements (major, minor, patch)"
+  category: version
+  kind: python_call_eq
+  function: version.__len__
+  args: []
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# pack_scalars — known msgpack wire format for simple values
+# ---------------------------------------------------------------------------
+
+table msgpack.packb.scalars:
+  kind: python_call_eq
+  category: pack
+  id_prefix: packb
+  function: packb
+
+  columns: [id, args, expected]
+  rows:
+    - [none,  [~],     !b64 wA==]
+    - [false, [false], !b64 wg==]
+    - [true,  [true],  !b64 ww==]
+    - [zero,  [0],     !b64 AA==]
+    - [one,   [1],     !b64 AQ==]
+    - [int127, [127],  !b64 fw==]
+    - [int_minus1, [-1], !b64 /w==]
+
+# ---------------------------------------------------------------------------
+# pack_strings — msgpack fixstr wire format
+# ---------------------------------------------------------------------------
+
+table msgpack.packb.strings:
+  kind: python_call_eq
+  category: pack_strings
+  id_prefix: packb
+  function: packb
+
+  columns: [id, args, expected]
+  rows:
+    - [empty_str,  [""],      !b64 oA==]
+    - [str_a,      ["a"],     !b64 oWE=]
+    - [str_hello,  ["hello"], !b64 pWhlbGxv]
+
+# ---------------------------------------------------------------------------
+# pack_collections — msgpack fixarray wire format
+# ---------------------------------------------------------------------------
+
+table msgpack.packb.collections:
+  kind: python_call_eq
+  category: pack_collections
+  id_prefix: packb
+  function: packb
+
+  columns: [id, args, expected]
+  rows:
+    - [empty_list,  [[]], !b64 kA==]
+    - [list_one,    [[1]], !b64 kQE=]
+
+# ---------------------------------------------------------------------------
+# unpack — decode known msgpack wire bytes to Python values
+# ---------------------------------------------------------------------------
+
+invariant msgpack.unpackb.none:
+  description: "unpackb(b'\\xc0') == None"
+  category: unpack
+  kind: python_call_eq
+  function: unpackb
+  args: [!b64 wA==]
+  expected: ~
+
+invariant msgpack.unpackb.true:
+  description: "unpackb(b'\\xc3') == True"
+  category: unpack
+  kind: python_call_eq
+  function: unpackb
+  args: [!b64 ww==]
+  expected: true
+
+invariant msgpack.unpackb.one:
+  description: "unpackb(b'\\x01') == 1"
+  category: unpack
+  kind: python_call_eq
+  function: unpackb
+  args: [!b64 AQ==]
+  expected: 1
+
+invariant msgpack.unpackb.string_with_raw_false:
+  description: "unpackb(b'\\xa5hello', raw=False) == 'hello'"
+  category: unpack
+  kind: python_call_eq
+  function: unpackb
+  args: [!b64 pWhlbGxv]
+  kwargs:
+    raw: false
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# roundtrip — packb then unpackb is lossless for scalars, strings, lists
+# ---------------------------------------------------------------------------
+
+invariant msgpack.roundtrip.integer_42:
+  description: "packb then unpackb is lossless for integer 42"
+  category: roundtrip
+  kind: python_call_eq
+  function: unpackb
+  args: [!b64 Kg==]
+  expected: 42
+
+invariant msgpack.roundtrip.integer_negative:
+  description: "packb then unpackb is lossless for negative integer -128"
+  category: roundtrip
+  kind: python_call_eq
+  function: unpackb
+  args: [!b64 0IA=]
+  expected: -128
+
+invariant msgpack.roundtrip.string_world:
+  description: "packb then unpackb is lossless for string 'world'"
+  category: roundtrip
+  kind: python_call_eq
+  function: unpackb
+  args: [!b64 pXdvcmxk]
+  kwargs:
+    raw: false
+  expected: "world"
+
+invariant msgpack.roundtrip.list_1_2_3:
+  description: "packb then unpackb is lossless for list [1, 2, 3]"
+  category: roundtrip
+  kind: python_call_eq
+  function: unpackb
+  args: [!b64 kwECAw==]
+  kwargs:
+    raw: false
+  expected: [1, 2, 3]

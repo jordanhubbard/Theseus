@@ -1,0 +1,215 @@
+spec: pcre2
+version: ">=10.0"
+backend: ctypes(pcre2-8)
+
+api_header: pcre2.h
+docs: https://www.pcre.org/current/doc/html/pcre2api.html
+rfcs:
+  - "PCRE2 documentation — https://www.pcre.org/current/doc/html/pcre2api.html"
+  - "PCRE2 config reference — https://www.pcre.org/current/doc/html/pcre2_config.html"
+
+provenance:
+  derived_from:
+    - "PCRE2 documentation — https://www.pcre.org/current/doc/html/pcre2api.html"
+    - "PCRE2 config reference — https://www.pcre.org/current/doc/html/pcre2_config.html"
+    - "Test vectors cross-checked against Python re module spec (zspecs/re.zspec.zsdl)"
+    - "Verified with pcre2 10.47 on macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "PCRE2 source: src/pcre2_config.c"
+    - "PCRE2 source: src/pcre2_compile.c"
+  notes:
+    - "pcre2 has no version_function returning char*; version checked via pcre2_config_8(PCRE2_CONFIG_VERSION=11, NULL) which returns the string length."
+    - "PCRE2_ERROR_NOMATCH = -1 is stable across all pcre2 versions."
+    - "Config constants from pcre2.h: PCRE2_CONFIG_BSR=0, PCRE2_CONFIG_JIT=1, PCRE2_CONFIG_JITTARGET=2, PCRE2_CONFIG_LINKSIZE=3, PCRE2_CONFIG_MATCHLIMIT=4, PCRE2_CONFIG_NEWLINE=5, PCRE2_CONFIG_PARENSLIMIT=6, PCRE2_CONFIG_DEPTHLIMIT=7, PCRE2_CONFIG_UNICODE=9, PCRE2_CONFIG_UNICODE_VERSION=10, PCRE2_CONFIG_VERSION=11."
+    - "pcre2_config_8(what, NULL) returns the byte size needed to store the result for string configs, or 4 (sizeof(uint32_t)) for integer configs, or PCRE2_ERROR_BADOPTION(-34) for unknown constants."
+    - "pcre2_match_8 returns the number of capture groups + 1 on a match (>= 1), or PCRE2_ERROR_NOMATCH (-1) on no match."
+    - "PCRE2_ZERO_TERMINATED = ~0 (SIZE_MAX) signals that a pattern/subject is NUL-terminated."
+  created_at: "2026-04-05T00:00:00Z"
+
+constants:
+  error_codes:
+    PCRE2_ERROR_NOMATCH:    {value: -1,  description: "No match found"}
+    PCRE2_ERROR_BADOPTION:  {value: -34, description: "Invalid option or config constant"}
+  config_constants:
+    PCRE2_CONFIG_BSR:             {value:  0,  description: "What \\R matches: 0=Unicode, 1=ANYCRLF"}
+    PCRE2_CONFIG_JIT:             {value:  1,  description: "JIT compiler availability (1=available)"}
+    PCRE2_CONFIG_JITTARGET:       {value:  2,  description: "JIT target architecture string"}
+    PCRE2_CONFIG_LINKSIZE:        {value:  3,  description: "Internal link size (2, 3, or 4)"}
+    PCRE2_CONFIG_MATCHLIMIT:      {value:  4,  description: "Default match limit"}
+    PCRE2_CONFIG_NEWLINE:         {value:  5,  description: "Default newline sequence"}
+    PCRE2_CONFIG_PARENSLIMIT:     {value:  6,  description: "Maximum nested parentheses"}
+    PCRE2_CONFIG_DEPTHLIMIT:      {value:  7,  description: "Default depth/backtracking limit"}
+    PCRE2_CONFIG_UNICODE:         {value:  9,  description: "Unicode support (1=enabled)"}
+    PCRE2_CONFIG_UNICODE_VERSION: {value: 10,  description: "Unicode version string"}
+    PCRE2_CONFIG_VERSION:         {value: 11,  description: "PCRE2 version string"}
+
+# ---------------------------------------------------------------------------
+# constants (category: constant)
+# ---------------------------------------------------------------------------
+
+table pcre2.const:
+  kind: constant_eq
+  category: constant
+  id_prefix: const
+  id_from: name
+  describe: "Library constant {name} == {expected_value}"
+
+  columns: [name, expected_value]
+  rows:
+    - [PCRE2_ERROR_NOMATCH,    -1]
+    - [PCRE2_ERROR_BADOPTION, -34]
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+#
+# pcre2 has no char*-returning version function safe to use as version_function.
+# Instead we use pcre2_config_8(PCRE2_CONFIG_VERSION=11, NULL) which returns
+# the byte length of the version string (including NUL terminator).
+# On pcre2 10.x the version string is "10.47 2025-10-21" (17 bytes including NUL).
+# We verify length >= 4 (minimum for any "X.Y" version string + NUL).
+# ---------------------------------------------------------------------------
+
+invariant pcre2.version.string_size_ge:
+  description: "pcre2_config_8(PCRE2_CONFIG_VERSION=11, NULL) returns the version string size; must be >= 4 (any 'X.Y' + NUL)"
+  category: version
+  kind: call_ge
+  function: pcre2_config_8
+  args: [11, null]
+  arg_types: [int, "null"]
+  expected_min: 4
+
+invariant pcre2.version.unicode_string_size_ge:
+  description: "pcre2_config_8(PCRE2_CONFIG_UNICODE_VERSION=10, NULL) returns the Unicode version string size; must be >= 4 (any 'X.Y' + NUL)"
+  category: version
+  kind: call_ge
+  function: pcre2_config_8
+  args: [10, null]
+  arg_types: [int, "null"]
+  expected_min: 4
+
+# ---------------------------------------------------------------------------
+# config (category: config)
+#
+# pcre2_config_8(what, NULL) with NULL second arg:
+#   - Returns 4 for integer config values (size of uint32_t).
+#   - Returns string byte length for string config values.
+#   - Returns PCRE2_ERROR_BADOPTION (-34) for unknown config constants.
+# This makes config presence/type testable via call_eq.
+# ---------------------------------------------------------------------------
+
+invariant pcre2.config.bsr_is_integer:
+  description: "pcre2_config_8(PCRE2_CONFIG_BSR=0, NULL) == 4 — BSR config is an integer (uint32) config option"
+  category: config
+  kind: call_eq
+  function: pcre2_config_8
+  args: [0, null]
+  arg_types: [int, "null"]
+  expected: 4
+
+invariant pcre2.config.jit_is_integer:
+  description: "pcre2_config_8(PCRE2_CONFIG_JIT=1, NULL) == 4 — JIT config is an integer (uint32) config option"
+  category: config
+  kind: call_eq
+  function: pcre2_config_8
+  args: [1, null]
+  arg_types: [int, "null"]
+  expected: 4
+
+invariant pcre2.config.unicode_is_integer:
+  description: "pcre2_config_8(PCRE2_CONFIG_UNICODE=9, NULL) == 4 — Unicode config is an integer (uint32) config option"
+  category: config
+  kind: call_eq
+  function: pcre2_config_8
+  args: [9, null]
+  arg_types: [int, "null"]
+  expected: 4
+
+invariant pcre2.config.unknown_returns_badoption:
+  description: "pcre2_config_8(999, NULL) == PCRE2_ERROR_BADOPTION (-34) — unknown config constant returns error"
+  category: config
+  kind: call_eq
+  function: pcre2_config_8
+  args: [999, null]
+  arg_types: [int, "null"]
+  expected: -34
+
+# ---------------------------------------------------------------------------
+# error_message (category: error)
+#
+# pcre2_get_error_message_8(errorcode, buffer, bufflen) writes a human-readable
+# error description into the buffer and returns the number of characters written
+# (excluding the NUL terminator), or PCRE2_ERROR_BADOPTION if the error code
+# is not known.
+# ---------------------------------------------------------------------------
+
+invariant pcre2.error.nomatch_message_size:
+  description: "pcre2_get_error_message_8(PCRE2_ERROR_NOMATCH=-1, buf, 256) returns 8 — 'no match' is 8 characters"
+  category: error
+  kind: call_eq
+  function: pcre2_get_error_message_8
+  args: [-1, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==", 256]
+  arg_types: [int, bytes_b64, int]
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# match (category: match)
+#
+# pcre2_match kind: compiles a pattern, creates match data, runs a match,
+# and checks the return value (number of captures+1 on match, -1 on no-match).
+# ---------------------------------------------------------------------------
+
+invariant pcre2.match.simple_match:
+  description: "Matching 'hello' against 'say hello world' returns 1 (one capture group = full match)"
+  category: match
+  kind: pcre2_match
+  pattern_b64: aGVsbG8=
+  subject_b64: c2F5IGhlbGxvIHdvcmxk
+  expected_rc: 1
+
+invariant pcre2.match.no_match:
+  description: "Matching 'hello' against 'goodbye world' returns PCRE2_ERROR_NOMATCH (-1)"
+  category: match
+  kind: pcre2_match
+  pattern_b64: aGVsbG8=
+  subject_b64: Z29vZGJ5ZSB3b3JsZA==
+  expected_rc: -1
+
+invariant pcre2.match.anchor_match:
+  description: "Anchored pattern '^hello' matches 'hello world' at start"
+  category: match
+  kind: pcre2_match
+  pattern_b64: XmhlbGxv
+  subject_b64: aGVsbG8gd29ybGQ=
+  expected_rc: 1
+
+invariant pcre2.match.anchor_no_match:
+  description: "Anchored pattern '^hello' does not match 'say hello world' (not at start)"
+  category: match
+  kind: pcre2_match
+  pattern_b64: XmhlbGxv
+  subject_b64: c2F5IGhlbGxvIHdvcmxk
+  expected_rc: -1
+
+invariant pcre2.match.capture_groups:
+  description: "Pattern '(hel)(lo)' in 'hello' returns 3 (full match + 2 capture groups)"
+  category: match
+  kind: pcre2_match
+  pattern_b64: KGhlbCkobG8p
+  subject_b64: aGVsbG8=
+  expected_rc: 3
+
+invariant pcre2.match.digit_pattern:
+  description: "Pattern '\\d+' matches '42' — digit class works"
+  category: match
+  kind: pcre2_match
+  pattern_b64: XGQr
+  subject_b64: NDI=
+  expected_rc: 1
+
+invariant pcre2.match.alternation:
+  description: "Pattern 'cat|dog' matches 'my dog ate' — alternation works"
+  category: match
+  kind: pcre2_match
+  pattern_b64: Y2F0fGRvZw==
+  subject_b64: bXkgZG9nIGF0ZQ==
+  expected_rc: 1

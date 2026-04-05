@@ -1,0 +1,111 @@
+spec: markupsafe
+version: ">=2.0"
+backend: python_module(markupsafe)
+
+docs: https://markupsafe.palletsprojects.com/
+
+provenance:
+  derived_from:
+    - "MarkupSafe documentation — https://markupsafe.palletsprojects.com/"
+    - "HTML 5 named character references — https://html.spec.whatwg.org/multipage/named-characters.html"
+    - "Test vectors verified with MarkupSafe 3.x on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "MarkupSafe source: src/markupsafe/__init__.py"
+    - "MarkupSafe source: src/markupsafe/_speedups.c"
+  notes:
+    - "escape() returns Markup (str subclass); == comparison with plain str works."
+    - "MarkupSafe uses &#34; for double-quote and &#39; for single-quote (not &quot;/&apos;)."
+    - "escape_silent(None) returns Markup('') rather than raising TypeError."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# --- escape ---
+
+table markupsafe.escape.html_special_chars:
+  kind: python_call_eq
+  category: escape
+  id_prefix: escape
+  function: escape
+
+  columns: [id, args, expected]
+  rows:
+    - [lt_gt,          ["<b>hello</b>"],  "&lt;b&gt;hello&lt;/b&gt;"]
+    - [ampersand,      ["a & b"],         "a &amp; b"]
+    - [double_quote,   ["\"quoted\""],    "&#34;quoted&#34;"]
+    - [single_quote,   ["'apostrophe'"],  "&#39;apostrophe&#39;"]
+    - [plain_text,     ["no special chars"], "no special chars"]
+    - [empty_string,   [""],              ""]
+
+# --- markup: striptags and unescape ---
+
+table markupsafe.markup.striptags:
+  kind: python_call_eq
+  category: markup
+  id_prefix: markup
+  function: Markup
+  method: striptags
+
+  columns: [id, args, expected]
+  rows:
+    - [striptags_bold,    ["<b>bold</b>"],           "bold"]
+    - [striptags_nested,  ["<em><b>x</b></em>"],     "x"]
+    - [striptags_plain,   ["no tags here"],           "no tags here"]
+
+table markupsafe.markup.unescape:
+  kind: python_call_eq
+  category: markup
+  id_prefix: markup
+  function: Markup
+  method: unescape
+
+  columns: [id, args, expected]
+  rows:
+    - [unescape_lt_gt,    ["&lt;b&gt;"],    "<b>"]
+    - [unescape_amp,      ["a &amp; b"],    "a & b"]
+    - [unescape_plain,    ["plain text"],   "plain text"]
+
+invariant markupsafe.markup.escape_classmethod:
+  description: "Markup.escape('<x>') returns Markup('&lt;x&gt;') — class method produces same result as module-level escape()"
+  category: markup
+  kind: python_call_eq
+  function: Markup.escape
+  args: ["<x>"]
+  expected: "&lt;x&gt;"
+
+invariant markupsafe.markup.escape_classmethod_amp:
+  description: "Markup.escape handles ampersand same as module-level escape()"
+  category: markup
+  kind: python_call_eq
+  function: Markup.escape
+  args: ["hello & world"]
+  expected: "hello &amp; world"
+
+# --- escape_silent ---
+
+table markupsafe.escape_silent.cases:
+  kind: python_call_eq
+  category: escape_silent
+  id_prefix: escape_silent
+  function: escape_silent
+
+  columns: [id, args, expected]
+  rows:
+    - [none_returns_empty,  [~],     ""]
+    - [html_chars_escaped,  ["<b>"], "&lt;b&gt;"]
+    - [plain_passthrough,   ["hi"],  "hi"]
+
+# --- soft_str ---
+
+table markupsafe.soft_str.cases:
+  kind: python_call_eq
+  category: soft_str
+  id_prefix: soft_str
+  function: soft_str
+
+  columns: [id, args, expected]
+  rows:
+    - [string_passthrough, ["hello"], "hello"]
+    - [int_to_str,         [42],      "42"]
+    - [none_to_str,        [~],       "None"]
+    - [float_to_str,       [3.14],    "3.14"]
