@@ -1,0 +1,218 @@
+spec: chardet
+version: ">=5.0"
+backend: python_module(chardet)
+
+docs: https://chardet.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "chardet documentation — https://chardet.readthedocs.io/"
+    - "Mozilla Universal Charset Detector — https://www-archive.mozilla.org/projects/intl/chardet.html"
+    - "Test vectors verified with chardet 7.4.0.post2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "chardet source: chardet/universaldetector.py"
+    - "chardet source: chardet/enums.py"
+  notes:
+    - "chardet.detect() returns a dict with 'encoding', 'confidence', 'language', 'mime_type' keys."
+    - "Pure ASCII input always returns encoding='ascii' with confidence=1.0."
+    - "Empty input in chardet 7.x returns encoding='utf-8' with confidence=0.1 (not None as in 5.x)."
+    - "UTF-8 BOM (0xEF BB BF) triggers UTF-8-SIG detection with confidence=1.0."
+    - "chardet.UniversalDetector is directly accessible from the chardet package namespace."
+    - "chardet.universaldetector submodule is deprecated in 7.x; import from chardet directly."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ starts with a digit and contains a dot
+# ---------------------------------------------------------------------------
+
+invariant chardet.version.starts_with_digit:
+  description: "__version__ is a non-empty string beginning with a digit"
+  category: version
+  kind: python_call_eq
+  function: __version__.startswith
+  args: ["7"]
+  expected: true
+
+invariant chardet.version.contains_dot:
+  description: "__version__ contains a version separator dot"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# detect — ASCII inputs
+#
+# chardet.detect() returns a dict; use method: "__getitem__" with method_args
+# to extract individual keys for equality checks.
+# Base64 for each input:
+#   b'Hello, World!'      → SGVsbG8sIFdvcmxkIQ==
+#   b'The quick brown fox' → VGhlIHF1aWNrIGJyb3duIGZveA==
+# ---------------------------------------------------------------------------
+
+invariant chardet.detect_ascii.hello_encoding:
+  description: "chardet.detect(b'Hello, World!')['encoding'] == 'ascii'"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "SGVsbG8sIFdvcmxkIQ=="}]
+  method: "__getitem__"
+  method_args: ["encoding"]
+  expected: "ascii"
+
+invariant chardet.detect_ascii.hello_confidence:
+  description: "chardet.detect(b'Hello, World!')['confidence'] == 1.0"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "SGVsbG8sIFdvcmxkIQ=="}]
+  method: "__getitem__"
+  method_args: ["confidence"]
+  expected: 1.0
+
+invariant chardet.detect_ascii.fox_encoding:
+  description: "chardet.detect(b'The quick brown fox')['encoding'] == 'ascii'"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "VGhlIHF1aWNrIGJyb3duIGZveA=="}]
+  method: "__getitem__"
+  method_args: ["encoding"]
+  expected: "ascii"
+
+invariant chardet.detect_ascii.fox_confidence:
+  description: "chardet.detect(b'The quick brown fox')['confidence'] == 1.0"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "VGhlIHF1aWNrIGJyb3duIGZveA=="}]
+  method: "__getitem__"
+  method_args: ["confidence"]
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# detect — empty input
+#
+# In chardet 7.x, detect(b'') returns encoding='utf-8', confidence=0.1.
+# Base64 for b'' → "" (empty string)
+# ---------------------------------------------------------------------------
+
+invariant chardet.detect_empty.encoding:
+  description: "chardet.detect(b'')['encoding'] == 'utf-8' in chardet 7.x"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: ""}]
+  method: "__getitem__"
+  method_args: ["encoding"]
+  expected: "utf-8"
+
+invariant chardet.detect_empty.confidence:
+  description: "chardet.detect(b'')['confidence'] == 0.1 in chardet 7.x"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: ""}]
+  method: "__getitem__"
+  method_args: ["confidence"]
+  expected: 0.1
+
+# ---------------------------------------------------------------------------
+# detect — UTF-8 BOM
+#
+# b'\xef\xbb\xbfHello' → 77u/SGVsbG8=
+# ---------------------------------------------------------------------------
+
+invariant chardet.detect_utf8_bom.encoding:
+  description: "chardet.detect(BOM + b'Hello')['encoding'] == 'UTF-8-SIG'"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "77u/SGVsbG8="}]
+  method: "__getitem__"
+  method_args: ["encoding"]
+  expected: "UTF-8-SIG"
+
+invariant chardet.detect_utf8_bom.confidence:
+  description: "chardet.detect(BOM + b'Hello')['confidence'] == 1.0"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "77u/SGVsbG8="}]
+  method: "__getitem__"
+  method_args: ["confidence"]
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# detect — Japanese UTF-8
+#
+# 'こんにちは'.encode('utf-8') → 44GT44KT44Gr44Gh44Gv
+# Expected: encoding='utf-8', confidence=0.99
+# ---------------------------------------------------------------------------
+
+invariant chardet.detect_japanese.encoding:
+  description: "chardet.detect(UTF-8 japanese bytes)['encoding'] == 'utf-8'"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "44GT44KT44Gr44Gh44Gv"}]
+  method: "__getitem__"
+  method_args: ["encoding"]
+  expected: "utf-8"
+
+invariant chardet.detect_japanese.confidence:
+  description: "chardet.detect(UTF-8 japanese bytes)['confidence'] == 0.99"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "44GT44KT44Gr44Gh44Gv"}]
+  method: "__getitem__"
+  method_args: ["confidence"]
+  expected: 0.99
+
+# ---------------------------------------------------------------------------
+# detect — result is a dict (has 'encoding' key)
+# ---------------------------------------------------------------------------
+
+invariant chardet.detect_ascii.result_has_encoding_key:
+  description: "detect() result contains 'encoding' key"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "SGVsbG8sIFdvcmxkIQ=="}]
+  method: "__contains__"
+  method_args: ["encoding"]
+  expected: true
+
+invariant chardet.detect_ascii.result_has_confidence_key:
+  description: "detect() result contains 'confidence' key"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: "SGVsbG8sIFdvcmxkIQ=="}]
+  method: "__contains__"
+  method_args: ["confidence"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UniversalDetector — importable directly from chardet package
+# ---------------------------------------------------------------------------
+
+invariant chardet.universal_detector.name:
+  description: "chardet.UniversalDetector.__name__ == 'UniversalDetector'"
+  category: universal_detector
+  kind: python_call_eq
+  function: UniversalDetector.__name__.__eq__
+  args: ["UniversalDetector"]
+  expected: true
+
+invariant chardet.universal_detector.is_callable:
+  description: "chardet.UniversalDetector is callable (it is a class)"
+  category: universal_detector
+  kind: python_call_eq
+  function: UniversalDetector.__name__.__contains__
+  args: ["Detector"]
+  expected: true

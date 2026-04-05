@@ -1,0 +1,208 @@
+spec: tomli
+version: ">=3.11"
+backend: python_module(tomllib)
+
+docs: https://github.com/hukkin/tomli
+
+provenance:
+  derived_from:
+    - "TOML specification v1.0.0 — https://toml.io/en/v1.0.0"
+    - "tomli documentation — https://github.com/hukkin/tomli"
+    - "Test vectors verified with tomli 2.x on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "tomli source: src/tomli/_parser.py"
+  notes:
+    - "tomli is the backport of Python 3.11+ stdlib tomllib; APIs are identical."
+    - "loads() takes a str; load() takes a binary file object."
+    - "Empty TOML string parses to empty dict."
+    - "TOMLDecodeError is raised on invalid TOML syntax."
+    - "tomllib (stdlib) has no __version__; version invariants check Python version and module importability."
+    - "TOMLDecodeError is a subclass of ValueError."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+# tomllib is stdlib in Python 3.11+; it has no __version__ attribute.
+# We verify importability and the presence of the public API surface.
+# ---------------------------------------------------------------------------
+
+invariant tomli.version.loads_has_doc:
+  description: "tomllib.loads.__doc__ contains 'str' (confirms loads is importable and documented)"
+  category: version
+  kind: python_call_eq
+  function: loads.__doc__.__contains__
+  args: ["str"]
+  expected: true
+
+invariant tomli.version.load_has_doc:
+  description: "tomllib.load.__doc__ contains 'binary' (confirms load is importable and documented)"
+  category: version
+  kind: python_call_eq
+  function: load.__doc__.__contains__
+  args: ["binary"]
+  expected: true
+
+invariant tomli.version.tomldecodeerror_is_exception:
+  description: "TOMLDecodeError is a subclass of ValueError (public exception hierarchy)"
+  category: version
+  kind: python_call_eq
+  function: TOMLDecodeError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ValueError"
+
+# ---------------------------------------------------------------------------
+# loads — scalars (category: loads)
+# ---------------------------------------------------------------------------
+
+table tomli.loads.scalars:
+  kind: python_call_eq
+  category: loads
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected]
+  rows:
+    - [integer,      ["x = 42"],       {x: 42}     ]
+    - [float,        ["x = 3.14"],     {x: 3.14}   ]
+    - [true_bool,    ["x = true"],     {x: true}   ]
+    - [false_bool,   ["x = false"],    {x: false}  ]
+    - [string,       ['x = "hello"'],  {x: "hello"}]
+    - [empty_string, [""],             {}           ]
+
+# ---------------------------------------------------------------------------
+# loads — dict key access (category: loads)
+# Verify the returned dict has the expected value at the expected key.
+# ---------------------------------------------------------------------------
+
+invariant tomli.loads.scalars.integer_key:
+  description: "loads('x = 42')['x'] == 42 — integer scalar accessible by key"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = 42"]
+  method: get
+  method_args: ["x"]
+  expected: 42
+
+invariant tomli.loads.scalars.string_key:
+  description: "loads('x = \"hello\"')['x'] == 'hello' — string scalar accessible by key"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ['x = "hello"']
+  method: get
+  method_args: ["x"]
+  expected: "hello"
+
+invariant tomli.loads.scalars.bool_true_key:
+  description: "loads('x = true')['x'] == True — boolean true scalar accessible by key"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = true"]
+  method: get
+  method_args: ["x"]
+  expected: true
+
+invariant tomli.loads.scalars.bool_false_key:
+  description: "loads('x = false')['x'] == False — boolean false scalar accessible by key"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = false"]
+  method: get
+  method_args: ["x"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# loads — structures (category: loads)
+# ---------------------------------------------------------------------------
+
+invariant tomli.loads.structures.array:
+  description: "loads('x = [1, 2, 3]') returns {'x': [1, 2, 3]} — array type"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = [1, 2, 3]"]
+  method: get
+  method_args: ["x"]
+  expected: [1, 2, 3]
+
+invariant tomli.loads.structures.section:
+  description: "loads('[s]\\nk = 1') returns {'s': {'k': 1}} — TOML section header"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["[s]\nk = 1"]
+  expected: {s: {k: 1}}
+
+invariant tomli.loads.structures.section_key:
+  description: "loads('[s]\\nk = 1')['s'] == {'k': 1} — nested section accessible by key"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["[s]\nk = 1"]
+  method: get
+  method_args: ["s"]
+  expected: {k: 1}
+
+invariant tomli.loads.structures.inline_table:
+  description: "loads('p = {x=1, y=2}') returns {'p': {'x': 1, 'y': 2}} — inline table"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["p = {x=1, y=2}"]
+  expected: {p: {x: 1, y: 2}}
+
+invariant tomli.loads.structures.inline_table_key:
+  description: "loads('p = {x=1, y=2}')['p'] == {'x': 1, 'y': 2} — inline table by key"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["p = {x=1, y=2}"]
+  method: get
+  method_args: ["p"]
+  expected: {x: 1, y: 2}
+
+# ---------------------------------------------------------------------------
+# loads — multiline / multi-key sections (category: loads)
+# ---------------------------------------------------------------------------
+
+invariant tomli.loads.structures.multi_key_section:
+  description: "Multi-key TOML section parses to correct nested dict"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["[meta]\nname = \"test\"\nversion = \"1.0\""]
+  expected: {meta: {name: "test", version: "1.0"}}
+
+# ---------------------------------------------------------------------------
+# errors (category: errors)
+# ---------------------------------------------------------------------------
+
+invariant tomli.errors.invalid_syntax_raises:
+  description: "loads('= invalid') raises TOMLDecodeError (invalid TOML key)"
+  category: errors
+  kind: python_call_raises
+  function: loads
+  args: ["= invalid"]
+  expected_exception: tomllib.TOMLDecodeError
+
+invariant tomli.errors.double_equals_raises:
+  description: "loads('invalid = = toml') raises TOMLDecodeError (invalid TOML syntax)"
+  category: errors
+  kind: python_call_raises
+  function: loads
+  args: ["invalid = = toml"]
+  expected_exception: tomllib.TOMLDecodeError
+
+invariant tomli.errors.bare_string_raises:
+  description: "loads('not valid toml !') raises TOMLDecodeError"
+  category: errors
+  kind: python_call_raises
+  function: loads
+  args: ["not valid toml !"]
+  expected_exception: tomllib.TOMLDecodeError

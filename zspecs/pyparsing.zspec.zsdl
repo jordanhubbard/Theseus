@@ -1,0 +1,160 @@
+spec: pyparsing
+version: ">=3.0"
+backend: python_module(pyparsing)
+
+docs: https://pyparsing-docs.readthedocs.io/en/latest/pyparsing.html
+
+provenance:
+  derived_from:
+    - "pyparsing documentation — https://pyparsing-docs.readthedocs.io/"
+    - "pyparsing classes reference — https://pyparsing-docs.readthedocs.io/en/latest/pyparsing.html"
+    - "Test vectors verified with pyparsing 3.3.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "pyparsing source: pyparsing/core.py"
+    - "pyparsing source: pyparsing/common.py"
+  notes:
+    - "parseString() is deprecated in 3.x; parse_string() is the current API."
+    - "parse_string() returns ParseResults — a list-like object; .as_list() converts to plain list."
+    - "pyparsing_common.integer parses integers; .signed_integer handles negative values."
+    - "pyparsing_common.number parses floats (returns float)."
+    - "ParseException is raised on pattern mismatch — not directly testable via python_call_raises because parse_string is a method, not a module-level function."
+    - "srange('[a-z]') expands character range notation to the corresponding character string."
+    - "col(loc, strg) returns the 1-based column number at character offset loc."
+    - "lineno(loc, strg) returns the 1-based line number at character offset loc."
+    - "pp.alphas = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz' (uppercase first)."
+    - "pp.nums = '0123456789'; pp.alphanums = alphas + nums."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# srange — character-range expansion utility
+# ---------------------------------------------------------------------------
+
+table pyparsing.srange:
+  kind: python_call_eq
+  category: srange
+  id_prefix: srange
+  function: srange
+
+  columns: [id, args, expected]
+  rows:
+    - [lowercase,  ["[a-z]"], "abcdefghijklmnopqrstuvwxyz"]
+    - [uppercase,  ["[A-Z]"], "ABCDEFGHIJKLMNOPQRSTUVWXYZ"]
+    - [digits,     ["[0-9]"], "0123456789"                ]
+
+# ---------------------------------------------------------------------------
+# col — column-number utility
+# ---------------------------------------------------------------------------
+
+table pyparsing.col:
+  kind: python_call_eq
+  category: position
+  id_prefix: col
+  function: col
+
+  columns: [id, args, expected]
+  rows:
+    - [start_of_string,  [0, "hello"], 1]
+    - [mid_string,       [3, "hello"], 4]
+
+# ---------------------------------------------------------------------------
+# lineno — line-number utility
+# ---------------------------------------------------------------------------
+
+table pyparsing.lineno:
+  kind: python_call_eq
+  category: position
+  id_prefix: lineno
+  function: lineno
+
+  columns: [id, args, expected]
+  rows:
+    - [first_line,   [0, "hello\nworld"], 1]
+    - [second_line,  [6, "hello\nworld"], 2]
+
+# ---------------------------------------------------------------------------
+# Literal — single-token parser
+# ---------------------------------------------------------------------------
+
+invariant pyparsing.literal.parse_hello:
+  description: "Literal('hello').parse_string('hello world').as_list() == ['hello'] — matches the exact token"
+  category: literal
+  call: Literal('hello').parse_string('hello world').as_list()
+  eq: ["hello"]
+
+# ---------------------------------------------------------------------------
+# Regex — regular-expression parser
+# ---------------------------------------------------------------------------
+
+invariant pyparsing.regex.digits:
+  description: "Regex(r'\\d+').parse_string('42').as_list() == ['42'] — matches digit sequence as string"
+  category: regex
+  call: 'Regex("\\d+").parse_string("42").as_list()'
+  eq: ["42"]
+
+# ---------------------------------------------------------------------------
+# Word — parser for sequences of characters from a set
+# ---------------------------------------------------------------------------
+
+invariant pyparsing.word.nums:
+  description: "Word('0123456789').parse_string('123').as_list() == ['123'] — consumes digit characters"
+  category: word
+  call: 'Word("0123456789").parse_string("123").as_list()'
+  eq: ["123"]
+
+# ---------------------------------------------------------------------------
+# QuotedString — strips surrounding quotes from parsed token
+# ---------------------------------------------------------------------------
+
+invariant pyparsing.quoted_string.double_quote:
+  description: 'QuotedString(chr(34)).parse_string("\"hello\"").as_list() == ["hello"] — removes enclosing quotes'
+  category: quoted_string
+  kind: python_call_eq
+  function: QuotedString
+  args: ["\""]
+  method: parse_string
+  method_args: ["\"hello\""]
+  method_chain: as_list
+  expected: ["hello"]
+
+# ---------------------------------------------------------------------------
+# Keyword — matches whole-word tokens only
+# ---------------------------------------------------------------------------
+
+invariant pyparsing.keyword.exact:
+  description: "Keyword('if').parse_string('if').as_list() == ['if'] — exact keyword match"
+  category: keyword
+  call: "Keyword('if').parse_string('if').as_list()"
+  eq: ["if"]
+
+# ---------------------------------------------------------------------------
+# pyparsing_common — pre-built parsers for common data types
+# ---------------------------------------------------------------------------
+
+invariant pyparsing.common.integer:
+  description: "pyparsing_common.integer.parse_string('42').as_list() == [42] — integer value as int"
+  category: common
+  kind: python_call_eq
+  function: pyparsing_common.integer.parse_string
+  args: ["42"]
+  method: as_list
+  expected: [42]
+
+invariant pyparsing.common.signed_integer:
+  description: "pyparsing_common.signed_integer.parse_string('-5').as_list() == [-5] — negative integer"
+  category: common
+  kind: python_call_eq
+  function: pyparsing_common.signed_integer.parse_string
+  args: ["-5"]
+  method: as_list
+  expected: [-5]
+
+invariant pyparsing.common.number_float:
+  description: "pyparsing_common.number.parse_string('3.14').as_list() == [3.14] — float value"
+  category: common
+  kind: python_call_eq
+  function: pyparsing_common.number.parse_string
+  args: ["3.14"]
+  method: as_list
+  expected: [3.14]
