@@ -1,0 +1,158 @@
+spec: idna
+version: ">=3.0"
+backend: python_module(idna)
+
+docs: https://github.com/kjd/idna
+rfcs:
+  - "RFC 5891 — Internationalized Domain Names in Applications (IDNA) 2008"
+  - "RFC 5892 — The Unicode Code Points and Internationalized Domain Names for Applications (IDNA)"
+  - "RFC 3492 — Punycode: A Bootstring encoding of Unicode for Internationalized Domain Names in Applications (IDNA)"
+
+provenance:
+  derived_from:
+    - "idna documentation — https://github.com/kjd/idna"
+    - "RFC 5891 — Internationalized Domain Names in Applications (IDNA) 2008"
+    - "RFC 3492 — Punycode: A Bootstring encoding of Unicode"
+    - "Test vectors verified with idna 3.x on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "idna source: idna/core.py"
+  notes:
+    - "idna 3.x implements IDNA 2008 (RFC 5891); earlier versions used IDNA 2003."
+    - "encode() returns bytes; decode() returns str."
+    - "Pure ASCII labels pass through unchanged."
+    - "idna.decode() only accepts ACE (ASCII-compatible encoding) byte strings; passing UTF-8-encoded non-ASCII bytes raises IDNAError."
+    - "idna.core.alabel() encodes a single domain label (no dots); idna.core.ulabel() decodes a single label."
+    - "idna.core.valid_label_length() returns True for labels <= 63 characters, False otherwise."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+# idna.__version__ is a PEP 440 version string like "3.11".
+# ---------------------------------------------------------------------------
+
+invariant idna.version.is_string:
+  description: "__version__ is a str (confirms the attribute exists and is a string)"
+  category: version
+  kind: python_call_eq
+  function: __version__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant idna.version.contains_dot:
+  description: "__version__ contains a dot (is a dotted version string like '3.11')"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# encode (category: encode)
+# encode(unicode_domain) → bytes in ACE (ASCII-Compatible Encoding) form.
+# Pure ASCII labels pass through unchanged.
+# ---------------------------------------------------------------------------
+
+table idna.encode.vectors:
+  kind: python_call_eq
+  category: encode
+  id_prefix: encode
+  function: encode
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [ascii_passthrough,   ["python.org"],   !b64 cHl0aG9uLm9yZw==,   ~]
+    - [umlaut_german,       ["münchen.de"],   !b64 eG4tLW1uY2hlbi0zeWEuZGU=, "RFC 5891"]
+    - [cjk_japanese,        ["例え.jp"],      !b64 eG4tLXI4ano0NWcuanA=, "RFC 3492"]
+    - [ace_passthrough,     ["xn--nxasmq6b.com"], !b64 eG4tLW54YXNtcTZiLmNvbQ==, ~]
+
+# ---------------------------------------------------------------------------
+# decode (category: decode)
+# decode(ace_bytes) → unicode domain name string.
+# Pure ASCII labels (no xn-- prefix) pass through unchanged.
+# ---------------------------------------------------------------------------
+
+table idna.decode.vectors:
+  kind: python_call_eq
+  category: decode
+  id_prefix: decode
+  function: decode
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [ascii_passthrough,  [!b64 cHl0aG9uLm9yZw==],   "python.org",  ~]
+    - [umlaut_german,      [!b64 eG4tLW1uY2hlbi0zeWEuZGU=], "münchen.de", "RFC 5891"]
+    - [cjk_japanese,       [!b64 eG4tLXI4ano0NWcuanA=],    "例え.jp",  "RFC 3492"]
+
+# ---------------------------------------------------------------------------
+# core (category: core)
+# idna.core.alabel(label) → bytes ACE label for a single domain label (no dots).
+# idna.core.ulabel(label) → str unicode label for a single ACE label.
+# idna.core.valid_label_length(label) → True/False.
+# ---------------------------------------------------------------------------
+
+invariant idna.core.alabel.ascii_passthrough:
+  description: "alabel('python') returns b'python' — pure ASCII label passes through unchanged"
+  category: core
+  kind: python_call_eq
+  function: core.alabel
+  args: ["python"]
+  expected: !b64 cHl0aG9u
+
+invariant idna.core.alabel.unicode_to_ace:
+  description: "alabel('münchen') returns b'xn--mnchen-3ya' — unicode label encoded to ACE (RFC 5891)"
+  category: core
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: core.alabel
+  args: ["münchen"]
+  expected: !b64 eG4tLW1uY2hlbi0zeWE=
+
+invariant idna.core.ulabel.ascii_passthrough:
+  description: "ulabel(b'python') returns 'python' — pure ASCII ACE label passes through unchanged"
+  category: core
+  kind: python_call_eq
+  function: core.ulabel
+  args: [!b64 cHl0aG9u]
+  expected: "python"
+
+invariant idna.core.ulabel.ace_to_unicode:
+  description: "ulabel(b'xn--mnchen-3ya') returns 'münchen' — ACE label decoded to unicode (RFC 5891)"
+  category: core
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: core.ulabel
+  args: [!b64 eG4tLW1uY2hlbi0zeWE=]
+  expected: "münchen"
+
+invariant idna.core.valid_label_length.short_label:
+  description: "valid_label_length('python') returns True — 6-char label is within the 63-char limit"
+  category: core
+  kind: python_call_eq
+  function: core.valid_label_length
+  args: ["python"]
+  expected: true
+
+invariant idna.core.valid_label_length.overlength_label:
+  description: "valid_label_length of a 64-character label returns False — exceeds RFC 5891 63-char limit"
+  category: core
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: core.valid_label_length
+  args: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# error (category: error)
+# IDNAError is raised on structurally invalid domains.
+# ---------------------------------------------------------------------------
+
+invariant idna.error.trailing_hyphen_in_ace_label:
+  description: "encode('xn--nxasmq6b-.com') raises IDNAError — A-label must not end with a hyphen (RFC 5891 §4.2.3.1)"
+  category: error
+  rfc: "RFC 5891"
+  kind: python_call_raises
+  function: encode
+  args: ["xn--nxasmq6b-.com"]
+  expected_exception: idna.core.IDNAError

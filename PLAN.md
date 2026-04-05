@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-04)
 
-**37 Z-layer specs · 650 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**42 Z-layer specs · 732 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -103,6 +103,9 @@ pcre2 (16, ctypes + new `pcre2_match` kind), markupsafe (21), msgpack (22). Pipe
 ### Cycle 10 (2026-04-05)
 attrs (14), chardet (16), pyparsing (15), tomli/tomllib (22). Pipeline coverage → 34% (17/50). Total: 37 specs · 650 invariants · 1880 tests.
 
+### Cycle 11 (2026-04-05)
+six (11), decorator (12), idna (16), platformdirs (13), pytz (16). Pipeline coverage → 44% (22/50). Total: 42 specs · 732 invariants · 2088 tests.
+
 ---
 
 ## Next Steps (Candidate Items)
@@ -146,11 +149,9 @@ Remaining candidates from the gap list:
 |---------|---------|----------|-------|
 All planned B-candidates complete (including pcre2, markupsafe, msgpack in Cycle 9).
 
-Next candidates from gap list (39 remaining uncovered in top-50 snapshot):
-| `attrs` | python_module | — | Dataclass-style classes; `@attr.s`, validators |
-| `pyparsing` | python_module | — | Parser combinators; forward refs, literals |
-| `chardet` | python_module | — | Charset detection; `detect()` confidence |
-| `tomli` | python_module | — | TOML parsing; `loads()` roundtrip |
+Next candidates from gap list (28 remaining uncovered in top-50 snapshot):
+`setuptools`, `typing-extensions`, `tzdata`, `wrapt`, `pluggy`, `fsspec`, `pathspec`,
+`traitlets`, `tornado`, `python-dotenv`, `stevedore`, `tomlkit`, `zope.interface`, `protobuf`
 
 ### C. Test vector coverage report — DONE (2026-04-04)
 

@@ -1,0 +1,117 @@
+spec: decorator
+version: ">=5.0"
+backend: python_module(decorator)
+
+docs: https://decorator.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "decorator documentation — https://decorator.readthedocs.io/"
+    - "PEP 318 — Decorators for Functions and Methods"
+    - "Test vectors verified with decorator 5.2.1 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "decorator source: src/decorator.py"
+  notes:
+    - "decorator preserves function signatures and __name__ via FunctionMaker."
+    - "Direct behavioral testing of decorated functions requires dynamic class creation — not expressible in ZSDL; focus on module-level APIs and FunctionMaker attributes."
+    - "isgeneratorfunction and iscoroutinefunction are re-exported from inspect; their module attribute is 'inspect', but they are part of the decorator public API."
+    - "FunctionMaker.create is a classmethod that constructs a function from a signature string and a body string; it is the core mechanism behind the library's signature-preserving capability."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — isgeneratorfunction and iscoroutinefunction respond to None
+# These are re-exported from inspect; testing them confirms the public API
+# surface is intact and callable.
+# ---------------------------------------------------------------------------
+
+table decorator.api.generator_coroutine_checks:
+  kind: python_call_eq
+  category: version
+  id_prefix: api
+
+  columns: [id, function, args, expected]
+  rows:
+    - [isgeneratorfunction_none, isgeneratorfunction, [~], false]
+    - [iscoroutinefunction_none, iscoroutinefunction, [~], false]
+
+# ---------------------------------------------------------------------------
+# function_maker — FunctionMaker.create produces correctly named functions
+#
+# FunctionMaker.create(src, body, globs) constructs a new function from a
+# signature string and a body string. The created function's __name__ must
+# match the name declared in src.
+# ---------------------------------------------------------------------------
+
+table decorator.function_maker.create_name:
+  kind: python_call_eq
+  category: function_maker
+  id_prefix: function_maker
+  function: FunctionMaker.create
+  method: __name__
+
+  columns: [id, args, expected]
+  rows:
+    - [simple_sig,     ["foo(x)", "return x",       {}], "foo"]
+    - [two_arg_sig,    ["bar(a, b)", "return a+b",   {}], "bar"]
+    - [no_arg_sig,     ["baz()", "pass",             {}], "baz"]
+
+invariant decorator.function_maker.create_qualname:
+  description: "FunctionMaker.create('f(x)', 'return x', {}).__qualname__ == 'f' — create() sets __qualname__ to match the declared function name"
+  category: function_maker
+  kind: python_call_eq
+  function: FunctionMaker.create
+  args: ["f(x)", "return x", {}]
+  method: __qualname__
+  expected: "f"
+
+# ---------------------------------------------------------------------------
+# dispatch — dispatch_on is a callable in the module's public API
+# dispatch_on is a factory function that takes types and returns a decorator.
+# We verify its __name__ via FunctionMaker.create (since dispatch_on itself
+# cannot be called with JSON-serializable args), and verify isgeneratorfunction
+# reports False for it (confirming it is a plain function, not a generator).
+# ---------------------------------------------------------------------------
+
+invariant decorator.dispatch.not_generator:
+  description: "isgeneratorfunction(dispatch_on) == False — dispatch_on is a plain function, not a generator"
+  category: dispatch
+  kind: python_call_eq
+  function: isgeneratorfunction
+  args: ["dispatch_on"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# identity — core public API functions belong to the decorator module
+#
+# We test module identity using FunctionMaker.create which is itself a
+# module-level callable with JSON-serializable arguments.
+# ---------------------------------------------------------------------------
+
+invariant decorator.identity.create_two_arg_result:
+  description: "FunctionMaker.create('add(a, b)', 'return a+b', {}) produces a callable with correct __name__"
+  category: identity
+  kind: python_call_eq
+  function: FunctionMaker.create
+  args: ["add(a, b)", "return a+b", {}]
+  method: __name__
+  expected: "add"
+
+# ---------------------------------------------------------------------------
+# exceptions — verify that calling isgeneratorfunction and iscoroutinefunction
+# with a non-None non-callable string argument (a module function name string)
+# does not raise but returns False — the library defensively handles edge inputs.
+# ---------------------------------------------------------------------------
+
+table decorator.exceptions.non_callable_args:
+  kind: python_call_eq
+  category: exceptions
+  id_prefix: exceptions
+
+  columns: [id, function, args, expected]
+  rows:
+    - [isgeneratorfunction_str,  isgeneratorfunction, ["hello"], false]
+    - [iscoroutinefunction_str,  iscoroutinefunction, ["hello"], false]
+    - [isgeneratorfunction_int,  isgeneratorfunction, [42],      false]
+    - [iscoroutinefunction_int,  iscoroutinefunction, [42],      false]

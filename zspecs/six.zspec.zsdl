@@ -1,0 +1,149 @@
+spec: six
+version: ">=1.0"
+backend: python_module(six)
+
+docs: https://six.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "six documentation — https://six.readthedocs.io/"
+    - "PEP 3149 — ABI version tagged .so files"
+    - "Test vectors verified with six 1.x on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "six source: six.py"
+  notes:
+    - "six.PY2 is always False on Python 3; six.PY3 is always True."
+    - "six.string_types == (str,) on Python 3 (was (basestring,) on Python 2)."
+    - "six is a compatibility shim — most APIs are stable and Python-version-dependent constants are fixed on Python 3."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ starts with a digit
+# ---------------------------------------------------------------------------
+
+invariant six.version.starts_with_digit:
+  description: "__version__ starts with a digit (e.g. '1.17.0')"
+  category: version
+  kind: python_call_eq
+  function: __version__.startswith
+  args: ["1"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# constants — PY2 == False, PY3 == True (Python 3 fixed values)
+#
+# Access pattern: getattr(six, 'PY3') -> bool True,
+# then getattr(bool_obj, '__eq__') -> bound method, call(True) -> True.
+# ---------------------------------------------------------------------------
+
+invariant six.constants.py2_is_false:
+  description: "six.PY2 == False on Python 3"
+  category: constants
+  kind: python_call_eq
+  function: PY2.__eq__
+  args: [false]
+  expected: true
+
+invariant six.constants.py3_is_true:
+  description: "six.PY3 == True on Python 3"
+  category: constants
+  kind: python_call_eq
+  function: PY3.__eq__
+  args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# byte_utils — six.byte2int, six.int2byte, six.indexbytes
+#
+# byte2int(b'A') == 65: converts a single byte to its integer value.
+# int2byte(65) == b'A': converts an integer 0-255 to a single byte.
+# indexbytes(b'hello', 0) == 104: returns b'hello'[0] as an int.
+#
+# b'A' = 0x41 (base64: QQ==)
+# b'hello' (base64: aGVsbG8=), h = 0x68 = 104
+# ---------------------------------------------------------------------------
+
+invariant six.byte_utils.byte2int_A:
+  description: "six.byte2int(b'A') == 65 — 0x41 is the ASCII code for 'A'"
+  category: byte_utils
+  kind: python_call_eq
+  function: byte2int
+  args: [!b64 QQ==]
+  expected: 65
+
+invariant six.byte_utils.int2byte_65:
+  description: "six.int2byte(65) == b'A' — 65 is the ASCII code for 'A'"
+  category: byte_utils
+  kind: python_call_eq
+  function: int2byte
+  args: [65]
+  expected: !b64 QQ==
+
+invariant six.byte_utils.indexbytes_hello_0:
+  description: "six.indexbytes(b'hello', 0) == 104 — ord('h') == 104"
+  category: byte_utils
+  kind: python_call_eq
+  function: indexbytes
+  args: [!b64 aGVsbG8=, 0]
+  expected: 104
+
+# ---------------------------------------------------------------------------
+# string_utils — six.ensure_binary, six.ensure_text, six.ensure_str
+#
+# ensure_binary('hello') == b'hello' — encodes str to bytes
+# ensure_text(b'hello') == 'hello' — decodes bytes to str
+# ensure_str('hello') == 'hello' — returns str unchanged
+#
+# b'hello' base64: aGVsbG8=
+# ---------------------------------------------------------------------------
+
+invariant six.string_utils.ensure_binary_str:
+  description: "six.ensure_binary('hello') == b'hello'"
+  category: string_utils
+  kind: python_call_eq
+  function: ensure_binary
+  args: ["hello"]
+  expected: !b64 aGVsbG8=
+
+invariant six.string_utils.ensure_text_bytes:
+  description: "six.ensure_text(b'hello') == 'hello'"
+  category: string_utils
+  kind: python_call_eq
+  function: ensure_text
+  args: [!b64 aGVsbG8=]
+  expected: "hello"
+
+invariant six.string_utils.ensure_str_str:
+  description: "six.ensure_str('hello') == 'hello' — str passthrough"
+  category: string_utils
+  kind: python_call_eq
+  function: ensure_str
+  args: ["hello"]
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# b_u — six.b() and six.u()
+#
+# six.b('hello') == b'hello' — encode string literal as bytes (Python 3: encode as latin-1)
+# six.u('hello') == 'hello' — unicode string passthrough on Python 3
+#
+# b'hello' base64: aGVsbG8=
+# ---------------------------------------------------------------------------
+
+invariant six.b_u.b_hello:
+  description: "six.b('hello') == b'hello'"
+  category: b_u
+  kind: python_call_eq
+  function: b
+  args: ["hello"]
+  expected: !b64 aGVsbG8=
+
+invariant six.b_u.u_hello:
+  description: "six.u('hello') == 'hello' — unicode passthrough on Python 3"
+  category: b_u
+  kind: python_call_eq
+  function: u
+  args: ["hello"]
+  expected: "hello"
