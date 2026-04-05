@@ -1,0 +1,183 @@
+spec: more_itertools
+version: ">=9.0"
+backend: python_module(more_itertools)
+
+docs: https://more-itertools.readthedocs.io/en/stable/
+
+provenance:
+  derived_from:
+    - "more-itertools documentation — https://more-itertools.readthedocs.io/en/stable/"
+    - "Test vectors verified with more-itertools 11.0.1 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "more_itertools source: more_itertools/more.py"
+    - "more_itertools source: more_itertools/recipes.py"
+  notes:
+    - "chunked([1,2,3,4], 2) returns a callable_iterator of lists; __next__ yields [1,2]."
+    - "take(n, iterable) returns a plain list directly (uses islice internally)."
+    - "tail(n, iterable) returns an islice; __next__ yields the 7th element of range(10) when n=3."
+    - "first() and last() return scalar values — straightforward python_call_eq."
+    - "unique_everseen returns a generator; __next__ yields the first unique element."
+    - "batched() returns itertools.batched; __next__ yields a tuple (1,2) for args [1,2,3,4], 2."
+    - "interleave() returns itertools.chain; __next__ yields the first interleaved element."
+    - "All expected values verified by running Python 3.14.3 + more-itertools 11.0.1 on macOS/Darwin 25.4.0, 2026-04-05."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a string containing a dot
+# ---------------------------------------------------------------------------
+
+invariant more_itertools.version.is_string:
+  description: "__version__ is a non-empty string"
+  category: version
+  kind: python_call_eq
+  function: __version__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant more_itertools.version.contains_dot:
+  description: "__version__ contains a dot (e.g. '11.0.1')"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# chunked — splits an iterable into lists of size n
+#
+# chunked([1,2,3,4], 2) → iterator of [1,2] then [3,4]
+# First chunk via __next__: [1, 2]
+# ---------------------------------------------------------------------------
+
+invariant more_itertools.chunked.first_chunk:
+  description: "chunked([1,2,3,4], 2) first chunk is [1,2]"
+  category: chunked
+  kind: python_call_eq
+  function: chunked
+  args: [[1, 2, 3, 4], 2]
+  method: __next__
+  expected: [1, 2]
+
+invariant more_itertools.chunked.even_split:
+  description: "chunked(range(6), 3) first chunk is [0,1,2]"
+  category: chunked
+  kind: python_call_eq
+  function: chunked
+  args: [[0, 1, 2, 3, 4, 5], 3]
+  method: __next__
+  expected: [0, 1, 2]
+
+# ---------------------------------------------------------------------------
+# first_last — first() and last() on a finite sequence
+#
+# first([10,20,30]) == 10
+# last([10,20,30]) == 30
+# first([], default=99) == 99
+# ---------------------------------------------------------------------------
+
+table more_itertools.first_last.scalars:
+  kind: python_call_eq
+  category: first_last
+  id_prefix: first_last
+
+  columns: [id, function, args, kwargs, expected]
+  rows:
+    - [first_of_three,   first, [[10, 20, 30]], {},          10]
+    - [last_of_three,    last,  [[10, 20, 30]], {},          30]
+    - [first_default_99, first, [[]],           {default: 99}, 99]
+
+# ---------------------------------------------------------------------------
+# flatten — flatten one level of nesting
+#
+# flatten([[1,2],[3,4]]) → iterator; first element is 1
+# ---------------------------------------------------------------------------
+
+invariant more_itertools.flatten.first_element:
+  description: "flatten([[1,2],[3,4]]) first element is 1"
+  category: flatten
+  kind: python_call_eq
+  function: flatten
+  args: [[[1, 2], [3, 4]]]
+  method: __next__
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# take_tail — take(n, iterable) returns list; tail(n, iterable) is an iterator
+#
+# take(3, [0,1,2,3,4]) == [0,1,2]  (returns a list directly)
+# tail(3, range(10)) first element via __next__ == 7
+# ---------------------------------------------------------------------------
+
+invariant more_itertools.take.three_from_list:
+  description: "take(3, [0,1,2,3,4]) == [0,1,2]"
+  category: take_tail
+  kind: python_call_eq
+  function: take
+  args: [3, [0, 1, 2, 3, 4]]
+  expected: [0, 1, 2]
+
+invariant more_itertools.tail.first_of_last_three:
+  description: "tail(3, range(10)) first element is 7 (last three are 7,8,9)"
+  category: take_tail
+  kind: python_call_eq
+  function: tail
+  args: [3, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]]
+  method: __next__
+  expected: 7
+
+# ---------------------------------------------------------------------------
+# one — returns the only element of a length-1 iterable
+#
+# one([42]) == 42
+# one([10]) == 10
+# ---------------------------------------------------------------------------
+
+invariant more_itertools.one.single_element:
+  description: "one([42]) == 42"
+  category: one
+  kind: python_call_eq
+  function: one
+  args: [[42]]
+  expected: 42
+
+invariant more_itertools.nth.second_element:
+  description: "nth([10,20,30], 1) == 20 (zero-indexed)"
+  category: one
+  kind: python_call_eq
+  function: nth
+  args: [[10, 20, 30], 1]
+  expected: 20
+
+# ---------------------------------------------------------------------------
+# unique — unique_everseen removes duplicates preserving order
+#
+# unique_everseen([1,2,1,3]) first element is 1 (first unique seen)
+# unique_everseen([1,2,1,3]) second element (after advancing past 1) is 2
+# ---------------------------------------------------------------------------
+
+invariant more_itertools.unique.first_unique:
+  description: "unique_everseen([1,2,1,3]) first element is 1"
+  category: unique
+  kind: python_call_eq
+  function: unique_everseen
+  args: [[1, 2, 1, 3]]
+  method: __next__
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# batched — batched([1,2,3,4], 2) yields tuples of size 2
+#
+# First chunk via __next__: (1, 2) — the harness normalizes tuple→list when
+# expected is a list, so we write expected as [1, 2].
+# ---------------------------------------------------------------------------
+
+invariant more_itertools.batched.first_chunk:
+  description: "batched([1,2,3,4], 2) first chunk is (1,2)"
+  category: batched
+  kind: python_call_eq
+  function: batched
+  args: [[1, 2, 3, 4], 2]
+  method: __next__
+  expected: [1, 2]

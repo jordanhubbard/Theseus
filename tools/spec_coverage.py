@@ -29,7 +29,12 @@ ZSPECS_DIR   = REPO_ROOT / "_build" / "zspecs"
 
 
 def _has_spec(canonical_name: str) -> bool:
-    return (ZSPECS_DIR / f"{canonical_name}.zspec.json").exists()
+    # PyPI uses dashes; Python modules use underscores — check both normalizations.
+    normalized = canonical_name.replace("-", "_")
+    return (
+        (ZSPECS_DIR / f"{canonical_name}.zspec.json").exists()
+        or (ZSPECS_DIR / f"{normalized}.zspec.json").exists()
+    )
 
 
 def load_extraction_records(extraction_dir: Path) -> list[dict]:

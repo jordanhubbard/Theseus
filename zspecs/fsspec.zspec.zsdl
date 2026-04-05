@@ -1,0 +1,157 @@
+spec: fsspec
+version: ">=2022.0"
+backend: python_module(fsspec)
+
+docs: https://filesystem-spec.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "fsspec documentation — https://filesystem-spec.readthedocs.io/"
+    - "fsspec API reference — https://filesystem-spec.readthedocs.io/en/latest/api.html"
+    - "Test vectors verified with fsspec 2026.3.0 on Python 3.14.3 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "fsspec source: fsspec/spec.py"
+    - "fsspec source: fsspec/implementations/local.py"
+    - "fsspec source: fsspec/implementations/memory.py"
+  notes:
+    - "fsspec.filesystem('file').protocol is a tuple ('file', 'local') on 2026.3.0."
+    - "fsspec.filesystem('memory').protocol is the string 'memory' (not a tuple)."
+    - "available_implementations() was removed; use available_protocols() instead."
+    - "get_filesystem_class returns the class object; __name__ is checked as an exact string."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a non-empty string containing a dot
+# ---------------------------------------------------------------------------
+
+invariant fsspec.version.is_str:
+  description: "__version__.__class__.__name__ == 'str'"
+  category: version
+  kind: python_call_eq
+  function: __version__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant fsspec.version.contains_dot:
+  description: "__version__ contains a dot (e.g. '2026.3.0')"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# filesystem — filesystem() factory returns correct class for 'file' and 'memory'
+# ---------------------------------------------------------------------------
+
+invariant fsspec.filesystem.file_protocol:
+  description: "filesystem('file').protocol == ('file', 'local') — both aliases are registered"
+  category: filesystem
+  kind: python_call_eq
+  function: filesystem
+  args: ["file"]
+  method: protocol
+  expected: ["file", "local"]
+
+invariant fsspec.filesystem.memory_protocol:
+  description: "filesystem('memory').protocol == 'memory'"
+  category: filesystem
+  kind: python_call_eq
+  function: filesystem
+  args: ["memory"]
+  method: protocol
+  expected: "memory"
+
+invariant fsspec.filesystem.file_protocol_len:
+  description: "filesystem('file').protocol has length 2 (both 'file' and 'local' aliases)"
+  category: filesystem
+  kind: python_call_eq
+  function: filesystem
+  args: ["file"]
+  method: protocol
+  method_chain: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# get_class — get_filesystem_class() returns correct class for 'file' and 'memory'
+# ---------------------------------------------------------------------------
+
+invariant fsspec.get_class.file:
+  description: "get_filesystem_class('file').__name__ == 'LocalFileSystem'"
+  category: get_class
+  kind: python_call_eq
+  function: get_filesystem_class
+  args: ["file"]
+  method: __name__
+  expected: "LocalFileSystem"
+
+invariant fsspec.get_class.memory:
+  description: "get_filesystem_class('memory').__name__ == 'MemoryFileSystem'"
+  category: get_class
+  kind: python_call_eq
+  function: get_filesystem_class
+  args: ["memory"]
+  method: __name__
+  expected: "MemoryFileSystem"
+
+# ---------------------------------------------------------------------------
+# implementations — available_protocols() lists 'file' and 'memory'
+# ---------------------------------------------------------------------------
+
+invariant fsspec.implementations.file_in_protocols:
+  description: "'file' is in available_protocols()"
+  category: implementations
+  kind: python_call_eq
+  function: available_protocols
+  args: []
+  method: __contains__
+  method_args: ["file"]
+  expected: true
+
+invariant fsspec.implementations.memory_in_protocols:
+  description: "'memory' is in available_protocols()"
+  category: implementations
+  kind: python_call_eq
+  function: available_protocols
+  args: []
+  method: __contains__
+  method_args: ["memory"]
+  expected: true
+
+invariant fsspec.implementations.ftp_in_protocols:
+  description: "'ftp' is in available_protocols() — a well-known built-in protocol"
+  category: implementations
+  kind: python_call_eq
+  function: available_protocols
+  args: []
+  method: __contains__
+  method_args: ["ftp"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abstract_fs — AbstractFileSystem is the base class with the expected name
+# ---------------------------------------------------------------------------
+
+invariant fsspec.abstract_fs.name:
+  description: "AbstractFileSystem.__name__ == 'AbstractFileSystem'"
+  category: abstract_fs
+  kind: python_call_eq
+  function: AbstractFileSystem.__name__.__eq__
+  args: ["AbstractFileSystem"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# url_to_fs — url_to_fs() parses URLs and returns (fs, path) tuples
+# ---------------------------------------------------------------------------
+
+invariant fsspec.url_to_fs.memory_path:
+  description: "url_to_fs('memory://foo/bar')[1] == '/foo/bar' — strips scheme, yields path"
+  category: url_to_fs
+  kind: python_call_eq
+  function: url_to_fs
+  args: ["memory://foo/bar"]
+  method: __getitem__
+  method_args: [1]
+  expected: "/foo/bar"
