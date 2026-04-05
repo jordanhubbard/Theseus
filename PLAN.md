@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-04)
 
-**28 Z-layer specs · 514 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**30 Z-layer specs · 540 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -94,6 +94,9 @@ Real-data pipeline run (141 records, 4 ecosystems); numpy spec (20 invariants), 
 ### Cycle 7 (2026-04-04)
 lxml (25), packaging (24), pillow (21), psutil (17), pygments (19). Added `packaging` submodule preloads to `verify_behavior.py` alongside existing `pygments` preloads. Total: 28 specs · 514 invariants · 1628 tests.
 
+### Cycle 8 (2026-04-04)
+lz4 (8, ctypes + new `lz4_roundtrip` kind), express (16, node/CJS + new `node_factory_call_eq` kind). Total: 30 specs · 540 invariants · 1675 tests.
+
 ---
 
 ## Next Steps (Candidate Items)
@@ -127,7 +130,7 @@ python3 tools/spec_coverage.py reports/extractions/
 python3 tools/orphan_specs.py reports/extractions/
 ```
 
-### B. More Z-specs — DONE (high-priority, 2026-04-04)
+### B. More Z-specs — DONE (all priorities, 2026-04-04)
 
 numpy (20), pyyaml (18), urllib3 (18) added in Cycle 6.
 
@@ -135,9 +138,10 @@ Remaining candidates from the gap list:
 
 | Library | Backend | Priority | Notes |
 |---------|---------|----------|-------|
-| `lz4` | ctypes | low | Fast compression; similar pattern to zstd |
-| `pcre2` | ctypes | low | Regex engine; cross-spec vs Python re |
-| `express` | node/CJS | low | HTTP framework; needs a mock server pattern |
+All planned B-candidates complete. Next candidates (if needed):
+| `pcre2` | ctypes | — | Regex engine; cross-spec vs Python re |
+| `markupsafe` | python_module | — | HTML escaping; Jinja2 dependency |
+| `msgpack` | python_module | — | Binary serialization; pack/unpack roundtrip |
 
 ### C. Test vector coverage report — DONE (2026-04-04)
 
