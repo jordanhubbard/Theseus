@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-04)
 
-**23 Z-layer specs · 408 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**28 Z-layer specs · 514 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -91,6 +91,9 @@ Added: `skip_if` expression language (`platform`, `semver_satisfies`), spec auth
 ### Cycle 6 (2026-04-04)
 Real-data pipeline run (141 records, 4 ecosystems); numpy spec (20 invariants), pyyaml spec (18 invariants), urllib3 spec (18 invariants); `tools/spec_vector_coverage.py` (item C); schema v0.2 with `esm`/`arg_types`/length validation (item D). Total: 23 specs · 408 invariants · 1398 tests.
 
+### Cycle 7 (2026-04-04)
+lxml (25), packaging (24), pillow (21), psutil (17), pygments (19). Added `packaging` submodule preloads to `verify_behavior.py` alongside existing `pygments` preloads. Total: 28 specs · 514 invariants · 1628 tests.
+
 ---
 
 ## Next Steps (Candidate Items)
@@ -132,11 +135,6 @@ Remaining candidates from the gap list:
 
 | Library | Backend | Priority | Notes |
 |---------|---------|----------|-------|
-| `lxml` | python_module | medium | XML/HTML parsing, XPath |
-| `pillow` | python_module | medium | Image I/O, mode/size/format |
-| `psutil` | python_module | medium | System info: cpu_count, virtual_memory |
-| `pygments` | python_module | medium | Syntax highlighting; lexer/formatter |
-| `packaging` | python_module | medium | Version parsing/comparison |
 | `lz4` | ctypes | low | Fast compression; similar pattern to zstd |
 | `pcre2` | ctypes | low | Regex engine; cross-spec vs Python re |
 | `express` | node/CJS | low | HTTP framework; needs a mock server pattern |
