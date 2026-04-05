@@ -1,0 +1,138 @@
+spec: numpy
+version: ">=1.20"
+backend: python_module(numpy)
+
+docs: https://numpy.org/doc/stable/reference/
+
+provenance:
+  derived_from:
+    - "NumPy documentation — https://numpy.org/doc/stable/reference/"
+    - "NumPy dtype reference — https://numpy.org/doc/stable/reference/arrays.dtypes.html"
+    - "Test vectors verified with numpy 2.x on Python 3.14 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "NumPy source: numpy/core/"
+    - "NumPy source: numpy/lib/"
+  notes:
+    - "All args are plain Python values (lists, numbers, strings); no np.array objects in invariant args."
+    - "dtype invariants use method chaining to reach scalar attributes like .itemsize."
+    - "numpy scalar return values (numpy.int64, numpy.float64) compare equal to Python int/float via !=."
+    - "np.shape() and np.ndim() are module-level functions accepting plain lists."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# dtype / itemsize
+# ---------------------------------------------------------------------------
+
+table numpy.dtype.itemsize:
+  kind: python_call_eq
+  category: dtype
+  function: dtype
+  method: itemsize
+  id_prefix: dtype
+
+  columns: [id, args, expected]
+  rows:
+    - [float64,    ["float64"],    8]
+    - [int32,      ["int32"],      4]
+    - [bool,       ["bool"],       1]
+    - [complex128, ["complex128"], 16]
+
+# ---------------------------------------------------------------------------
+# array shape / ndim using module-level functions np.shape() and np.ndim()
+# ---------------------------------------------------------------------------
+
+table numpy.shape.vectors:
+  kind: python_call_eq
+  category: array
+  function: shape
+  id_prefix: shape
+
+  columns: [id, args, expected]
+  rows:
+    - [1d_three,   [[1, 2, 3]],          [3]]
+    - [2d_two_by_three, [[[1,2,3],[4,5,6]]], [2, 3]]
+
+table numpy.ndim.vectors:
+  kind: python_call_eq
+  category: array
+  function: ndim
+  id_prefix: ndim
+
+  columns: [id, args, expected]
+  rows:
+    - [2d_array,   [[[1, 2], [3, 4]]],  2]
+    - [1d_array,   [[1, 2, 3]],         1]
+
+invariant numpy.size.empty:
+  description: "np.size([]) == 0 — empty list has zero elements"
+  category: array
+  kind: python_call_eq
+  function: size
+  args: [[]]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# math constants via deterministic function calls
+# ---------------------------------------------------------------------------
+
+invariant numpy.constants.pi:
+  description: "np.arccos(-1) == np.pi — canonical identity for pi"
+  category: constants
+  kind: python_call_eq
+  function: arccos
+  args: [-1.0]
+  expected: 3.141592653589793
+
+invariant numpy.constants.e:
+  description: "np.exp(1) == np.e — canonical identity for Euler's number"
+  category: constants
+  kind: python_call_eq
+  function: exp
+  args: [1.0]
+  expected: 2.718281828459045
+
+# ---------------------------------------------------------------------------
+# arithmetic
+# ---------------------------------------------------------------------------
+
+table numpy.arithmetic.vectors:
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: arithmetic
+
+  columns: [id, function, args, expected]
+  rows:
+    - [add_3_4,       add,      [3, 4],   7]
+    - [multiply_6_7,  multiply, [6, 7],   42]
+    - [power_2_10,    power,    [2, 10],  1024]
+    - [abs_neg5,      abs,      [-5],     5]
+
+# ---------------------------------------------------------------------------
+# array ops (all using plain list args)
+# ---------------------------------------------------------------------------
+
+table numpy.ops.vectors:
+  kind: python_call_eq
+  category: ops
+  id_prefix: ops
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sum_1to5,     sum,  [[1, 2, 3, 4, 5]], 15]
+    - [max_sequence, max,  [[3, 1, 4, 1, 5]], 5]
+    - [min_sequence, min,  [[3, 1, 4, 1, 5]], 1]
+    - [mean_1to5,    mean, [[1, 2, 3, 4, 5]], 3.0]
+
+# ---------------------------------------------------------------------------
+# error cases
+# ---------------------------------------------------------------------------
+
+invariant numpy.errors.reshape_mismatch:
+  description: "np.reshape([1,2,3], [2,2]) raises ValueError — size 3 cannot reshape to (2,2)"
+  category: errors
+  kind: python_call_raises
+  function: reshape
+  args: [[1, 2, 3], [2, 2]]
+  expected_exception: ValueError

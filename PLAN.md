@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-04)
 
-**20 Z-layer specs · 371 invariants · 1240 tests · 3 CI platforms (ubuntu, macos, freebsd)**
+**23 Z-layer specs · 408 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -50,11 +50,14 @@
 | `minimist` | node/CJS | 9 | arg parsing, `function: null` direct-call pattern |
 | `openssl` | cli | 16 | version, hash, rand, enc; cross-spec with hashlib |
 | `pathlib` | python_module | 17 | PurePosixPath: components, predicates, manipulation |
+| `numpy` | python_module | 20 | dtype/itemsize, shape/ndim, constants, arithmetic, array ops, errors |
+| `pyyaml` | python_module | 18 | safe_load scalars+structures, dump, safe_dump, errors |
 | `re` | python_module | 22 | sub, findall, split, escape, error on bad pattern |
 | `semver` | node/CJS | 24 | valid, clean, satisfies, compare, range ops |
 | `sqlite3` | python_module | 13 | DDL, DML, types, `python_sqlite_roundtrip` |
 | `struct` | python_module | 24 | pack/unpack, calcsize, error cases |
 | `urllib_parse` | python_module | 18 | urlparse, quote/unquote, urljoin, urlencode, parse_qs |
+| `urllib3` | python_module | 18 | URL parse, Retry config, exceptions, version, request headers |
 | `uuid` | node/CJS | 8 | validate, version detection |
 | `zlib` | ctypes | 23 | compress/decompress roundtrip, crc32, adler32 |
 | `zstd` | ctypes | 15 | versionString, maxCLevel, compressBound, isError |
@@ -85,37 +88,58 @@ Added: ZSDL compiler (`tools/zsdl_compile.py`), all 18 specs converted to ZSDL, 
 ### Cycle 5 (2026-04-03 → 2026-04-04)
 Added: `skip_if` expression language (`platform`, `semver_satisfies`), spec authoring guide (`docs/writing-specs.md`), `tools/orphan_specs.py`, CI artifact upload (verify-all-specs JSON), ESM node backend support (`esm: true`), chalk spec (10 invariants), libcrypto ctypes spec (14 invariants).
 
+### Cycle 6 (2026-04-04)
+Real-data pipeline run (141 records, 4 ecosystems); numpy spec (20 invariants), pyyaml spec (18 invariants), urllib3 spec (18 invariants). Total: 23 specs · 408 invariants.
+
 ---
 
 ## Next Steps (Candidate Items)
 
-### A. Real-data pipeline run
+### A. Real-data pipeline run — DONE (2026-04-04)
 
-All tooling is in place but no real snapshot has been imported. To exercise the full pipeline:
+Pipeline exercised against a real snapshot (`snapshots/2026-04-03/`): 141 canonical records
+across nixpkgs (3), freebsd_ports (3), pypi (99), npm (36).
 
+**Results:**
+- 136 unique candidates ranked; top 50 extracted to `reports/extractions/`
+- Spec coverage: **3/50 (6%)** — curl, openssl, zlib covered
+- Orphan specs: 17/20 specs have no extraction record — all Python stdlib and most Node specs
+  are absent from PyPI/npm snapshots (stdlib is not a package; semver/chalk ranked #94/#115)
+
+**Gap list highlights** (top uncovered PyPI candidates):
+lxml, numpy, pillow, psutil, pygments, pyyaml, urllib3, packaging, markupsafe, msgpack
+
+**Key insight:** Python stdlib specs (base64, datetime, hashlib, json, pathlib, re, sqlite3,
+struct, urllib_parse, difflib) cannot appear in a PyPI snapshot — they are built-in. Orphan
+coverage for those specs is expected and correct.
+
+**To reproduce:**
 ```bash
-# 1. Import a nixpkgs or FreeBSD ports snapshot
-make import-npm NPM_SEED=reports/npm-seed.txt      # or import-pypi
-# 2. Extract Z-layer candidates
-make extract SNAPSHOT=snapshots/YYYY-MM-DD CANDIDATES_OUT=reports/top-candidates.json
-# 3. Check coverage
-make spec-coverage EXTRACTION_DIR=reports/extractions/
-# 4. Find orphans
-make orphan-specs EXTRACTION_DIR=reports/extractions/
+python3 theseus/importer.py --nixpkgs output/nixpkgs/ --out snapshots/2026-04-03/
+python3 theseus/importer.py --pypi-list /tmp/pypi-packages.txt --out snapshots/2026-04-03/
+python3 theseus/importer.py --npm-list /tmp/npm-packages.txt --out snapshots/2026-04-03/
+python3 tools/top_candidates.py snapshots/2026-04-03/ --out reports/top-candidates.json
+python3 tools/extract_candidates.py snapshots/2026-04-03/ reports/top-candidates.json --top 50 --out reports/extractions/
+python3 tools/spec_coverage.py reports/extractions/
+python3 tools/orphan_specs.py reports/extractions/
 ```
 
-The gap list from `spec-coverage` will show which high-priority candidates need specs next.
+### B. More Z-specs — DONE (high-priority, 2026-04-04)
 
-### B. More Z-specs
+numpy (20), pyyaml (18), urllib3 (18) added in Cycle 6.
 
-Candidates based on dependency fan-in (once a real snapshot is available):
+Remaining candidates from the gap list:
 
-| Library | Backend | Notes |
-|---------|---------|-------|
-| `lz4` | ctypes | Fast compression; similar pattern to zstd |
-| `pcre2` | ctypes | Regex engine; cross-spec vs Python re |
-| `zlib-ng` | ctypes | Drop-in zlib replacement; test version detection |
-| `express` | node/CJS | HTTP framework; needs a mock server pattern |
+| Library | Backend | Priority | Notes |
+|---------|---------|----------|-------|
+| `lxml` | python_module | medium | XML/HTML parsing, XPath |
+| `pillow` | python_module | medium | Image I/O, mode/size/format |
+| `psutil` | python_module | medium | System info: cpu_count, virtual_memory |
+| `pygments` | python_module | medium | Syntax highlighting; lexer/formatter |
+| `packaging` | python_module | medium | Version parsing/comparison |
+| `lz4` | ctypes | low | Fast compression; similar pattern to zstd |
+| `pcre2` | ctypes | low | Regex engine; cross-spec vs Python re |
+| `express` | node/CJS | low | HTTP framework; needs a mock server pattern |
 
 ### C. Test vector coverage report
 

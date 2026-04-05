@@ -1,0 +1,121 @@
+spec: pyyaml
+version: ">=3.9"
+backend: python_module(yaml)
+
+docs: https://pyyaml.org/wiki/PyYAMLDocumentation
+
+provenance:
+  derived_from:
+    - "PyYAML documentation — https://pyyaml.org/wiki/PyYAMLDocumentation"
+    - "YAML 1.1 specification — https://yaml.org/spec/1.1/"
+    - "Test vectors verified with PyYAML 6.0.3 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "PyYAML source: yaml/__init__.py"
+    - "PyYAML source: yaml/constructor.py"
+  notes:
+    - "yaml.dump output format is YAML 1.1 by default; scalar style may vary by value type."
+    - "safe_load/safe_dump use SafeLoader/SafeDumper — no arbitrary Python object deserialization."
+    - "yaml.dump(42) produces '42\\n...\\n' (block scalar with YAML document-end marker)."
+    - "yaml.dump(None) produces 'null\\n...\\n' (block scalar with YAML document-end marker)."
+    - "yaml.dump sorts dict keys alphabetically by default (sort_keys=True)."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# safe_load — scalars
+# ---------------------------------------------------------------------------
+
+table pyyaml.safe_load.scalars:
+  kind: python_call_eq
+  category: load
+  id_prefix: safe_load
+  function: safe_load
+
+  columns: [id, args, expected]
+  rows:
+    - [integer,       ["42"],        42      ]
+    - [float,         ["3.14"],      3.14    ]
+    - [true_bool,     ["true"],      true    ]
+    - [false_bool,    ["false"],     false   ]
+    - ["null_scalar", ["null"],      ~       ]
+    - [quoted_string, ['"hello"'],   "hello" ]
+    - [bare_string,   ["hello"],     "hello" ]
+
+# ---------------------------------------------------------------------------
+# safe_load — structures
+# ---------------------------------------------------------------------------
+
+table pyyaml.safe_load.structures:
+  kind: python_call_eq
+  category: load
+  id_prefix: safe_load
+  function: safe_load
+
+  columns: [id, args, expected]
+  rows:
+    - [mapping,      ["key: value"],       {key: "value"}   ]
+    - [inline_list,  ["[1, 2, 3]"],        [1, 2, 3]        ]
+    - [block_list,   ["- a\n- b\n- c"],   ["a", "b", "c"]  ]
+
+# ---------------------------------------------------------------------------
+# dump
+# ---------------------------------------------------------------------------
+
+table pyyaml.dump:
+  kind: python_call_eq
+  category: dump
+  id_prefix: dump
+  function: dump
+
+  columns: [id, args, expected]
+  rows:
+    - [dict,          [{"key": "value"}],  "key: value\n"      ]
+    - [list,          [[1, 2, 3]],         "- 1\n- 2\n- 3\n"  ]
+    - [integer,       [42],                "42\n...\n"          ]
+    - ["null_value",  [~],                 "null\n...\n"        ]
+
+invariant pyyaml.dump.sorted_keys:
+  description: "yaml.dump sorts dict keys alphabetically by default (sort_keys=True)"
+  category: dump
+  kind: python_call_eq
+  function: dump
+  args: [{"b": 1, "a": 2}]
+  kwargs: {default_flow_style: false}
+  expected: "a: 2\nb: 1\n"
+
+# ---------------------------------------------------------------------------
+# safe_dump
+# ---------------------------------------------------------------------------
+
+invariant pyyaml.safe_dump.simple_dict:
+  description: "yaml.safe_dump({'x': 1}) returns 'x: 1\\n'"
+  category: dump
+  kind: python_call_eq
+  function: safe_dump
+  args: [{"x": 1}]
+  expected: "x: 1\n"
+
+# ---------------------------------------------------------------------------
+# error cases
+# ---------------------------------------------------------------------------
+
+invariant pyyaml.errors.malformed_raises:
+  description: "yaml.safe_load(':') raises yaml.scanner.ScannerError (a subclass of yaml.YAMLError)"
+  category: errors
+  kind: python_call_raises
+  function: safe_load
+  args: [":"]
+  expected_exception: yaml.parser.ParserError
+
+# ---------------------------------------------------------------------------
+# Additional load: nested mapping
+# ---------------------------------------------------------------------------
+
+invariant pyyaml.safe_load.nested_mapping:
+  description: "yaml.safe_load parses a two-level nested mapping"
+  category: load
+  kind: python_call_eq
+  function: safe_load
+  args: ["outer:\n  inner: 42"]
+  expected: {"outer": {"inner": 42}}

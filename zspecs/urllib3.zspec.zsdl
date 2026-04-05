@@ -1,0 +1,145 @@
+spec: urllib3
+version: ">=1.26"
+backend: python_module(urllib3)
+
+docs: https://urllib3.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "urllib3 documentation — https://urllib3.readthedocs.io/"
+    - "urllib3 changelog — https://github.com/urllib3/urllib3/blob/main/CHANGES.rst"
+    - "Test vectors verified with urllib3 2.6.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "urllib3 source: src/urllib3/"
+  notes:
+    - "All invariants are offline-safe: no network requests made."
+    - "URL parsing via urllib3.util.parse_url; Retry config via urllib3.util.retry.Retry."
+    - "urllib3 2.x removed the top-level PoolManager convenience functions; use urllib3.PoolManager() for requests."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Version (category: version)
+# ---------------------------------------------------------------------------
+
+invariant urllib3.version.starts_with_2:
+  description: "urllib3.__version__ starts with '2.'"
+  category: version
+  kind: python_call_eq
+  function: "__version__.startswith"
+  args: ["2."]
+  expected: true
+
+invariant urllib3.version.contains_dot:
+  description: "urllib3.__version__ contains a dot (is a dotted version string)"
+  category: version
+  kind: python_call_eq
+  function: "__version__.__contains__"
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# URL parsing (category: url) — urllib3.util.parse_url
+# ---------------------------------------------------------------------------
+
+table urllib3.url.parse_components:
+  kind: python_call_eq
+  category: url
+  id_prefix: parse_url
+  function: util.parse_url
+  args: ["http://example.com:8080/path"]
+
+  columns: [id, method, expected]
+  rows:
+    - [host,   host,   "example.com"]
+    - [port,   port,   8080         ]
+    - [scheme, scheme, "http"       ]
+    - [path,   path,   "/path"      ]
+
+invariant urllib3.url.parse_url.simple_host:
+  description: "parse_url without port — host attribute"
+  category: url
+  call: util.parse_url("http://example.com/path").host
+  eq: "example.com"
+
+invariant urllib3.url.parse_url.simple_scheme:
+  description: "parse_url — scheme attribute"
+  category: url
+  call: util.parse_url("http://example.com/path").scheme
+  eq: "http"
+
+invariant urllib3.url.parse_url.simple_path:
+  description: "parse_url — path attribute"
+  category: url
+  call: util.parse_url("http://example.com/path").path
+  eq: "/path"
+
+invariant urllib3.url.parse_url.auth:
+  description: "parse_url — auth attribute from userinfo"
+  category: url
+  call: util.parse_url("https://user:pass@host/").auth
+  eq: "user:pass"
+
+# ---------------------------------------------------------------------------
+# Retry (category: retry) — urllib3.util.retry.Retry
+# ---------------------------------------------------------------------------
+
+table urllib3.retry.total:
+  kind: python_call_eq
+  category: retry
+  id_prefix: retry
+  function: util.retry.Retry
+
+  columns: [id, args, method, expected]
+  rows:
+    - [total_3, [3], total, 3]
+    - [total_0, [0], total, 0]
+
+invariant urllib3.retry.read_attr:
+  description: "Retry(total=5, read=2).read == 2"
+  category: retry
+  kind: python_call_eq
+  function: util.retry.Retry
+  kwargs: {total: 5, read: 2}
+  method: read
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# Exceptions (category: exceptions) — urllib3.exceptions
+# ---------------------------------------------------------------------------
+
+table urllib3.exceptions.class_names:
+  kind: python_call_eq
+  category: exceptions
+  id_prefix: exception_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [MaxRetryError,        "exceptions.MaxRetryError.__name__.__eq__",        ["MaxRetryError"],        true]
+    - [ConnectTimeoutError,  "exceptions.ConnectTimeoutError.__name__.__eq__",  ["ConnectTimeoutError"],  true]
+    - [HTTPError,            "exceptions.HTTPError.__name__.__eq__",            ["HTTPError"],            true]
+
+# ---------------------------------------------------------------------------
+# Request helpers (category: request) — urllib3.util.request.make_headers
+# ---------------------------------------------------------------------------
+
+invariant urllib3.request.make_headers.keep_alive:
+  description: "make_headers(keep_alive=True) returns dict with 'connection' key"
+  category: request
+  kind: python_call_eq
+  function: util.request.make_headers
+  kwargs: {keep_alive: true}
+  method: "__contains__"
+  method_args: ["connection"]
+  expected: true
+
+invariant urllib3.request.make_headers.keep_alive_value:
+  description: "make_headers(keep_alive=True)['connection'] == 'keep-alive'"
+  category: request
+  kind: python_call_eq
+  function: util.request.make_headers
+  kwargs: {keep_alive: true}
+  method: "__getitem__"
+  method_args: ["connection"]
+  expected: "keep-alive"
