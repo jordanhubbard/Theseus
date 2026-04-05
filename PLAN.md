@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-04)
 
-**30 Z-layer specs · 540 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**33 Z-layer specs · 579 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -97,6 +97,9 @@ lxml (25), packaging (24), pillow (21), psutil (17), pygments (19). Added `packa
 ### Cycle 8 (2026-04-04)
 lz4 (8, ctypes + new `lz4_roundtrip` kind), express (16, node/CJS + new `node_factory_call_eq` kind). Total: 30 specs · 540 invariants · 1675 tests.
 
+### Cycle 9 (2026-04-05)
+pcre2 (16, ctypes + new `pcre2_match` kind), markupsafe (21), msgpack (22). Pipeline coverage 6% → 22% → 24% (12/50). Total: 33 specs · 579 invariants · 1777 tests.
+
 ---
 
 ## Next Steps (Candidate Items)
@@ -138,10 +141,13 @@ Remaining candidates from the gap list:
 
 | Library | Backend | Priority | Notes |
 |---------|---------|----------|-------|
-All planned B-candidates complete. Next candidates (if needed):
-| `pcre2` | ctypes | — | Regex engine; cross-spec vs Python re |
-| `markupsafe` | python_module | — | HTML escaping; Jinja2 dependency |
-| `msgpack` | python_module | — | Binary serialization; pack/unpack roundtrip |
+All planned B-candidates complete (including pcre2, markupsafe, msgpack in Cycle 9).
+
+Next candidates from gap list (39 remaining uncovered in top-50 snapshot):
+| `attrs` | python_module | — | Dataclass-style classes; `@attr.s`, validators |
+| `pyparsing` | python_module | — | Parser combinators; forward refs, literals |
+| `chardet` | python_module | — | Charset detection; `detect()` confidence |
+| `tomli` | python_module | — | TOML parsing; `loads()` roundtrip |
 
 ### C. Test vector coverage report — DONE (2026-04-04)
 
