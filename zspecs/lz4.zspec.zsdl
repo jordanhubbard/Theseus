@@ -1,0 +1,111 @@
+spec: lz4
+version: ">=1.9.0"
+backend: ctypes(lz4)
+version_function: LZ4_versionString
+min_version_prefix: "1."
+
+api_header: lz4.h
+docs: https://github.com/lz4/lz4/blob/dev/lib/lz4.h
+
+provenance:
+  derived_from:
+    - "LZ4 documentation — https://github.com/lz4/lz4/blob/dev/lib/lz4.h"
+    - "LZ4 format spec — https://github.com/lz4/lz4/blob/dev/doc/lz4_Frame_format.md"
+    - "Test vectors verified with lz4 1.10.0 on macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "LZ4 source: lib/lz4.c"
+    - "LZ4 source: lib/lz4.h"
+  notes:
+    - "LZ4_versionString() returns char* and is safe as version_function."
+    - "LZ4_versionNumber() returns int encoding M*10000 + m*100 + p (e.g. 11000 for 1.10.0; 10900 for 1.9.0)."
+    - "LZ4_compressBound(0) == 16 on lz4 1.x (overhead bytes; not 0 like some docs suggest)."
+    - "LZ4_compressBound(-1) == 0: returns 0 for invalid (negative) input size."
+    - "compress/decompress roundtrip tested via lz4_roundtrip kind."
+  created_at: "2026-04-04T00:00:00Z"
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+# ---------------------------------------------------------------------------
+
+invariant lz4.version.prefix:
+  description: "LZ4_versionString() must return a non-NULL string starting with '1.' for all 1.x releases"
+  category: version
+  kind: version_prefix
+  function: LZ4_versionString
+  expected_prefix_b64: MS4=
+
+invariant lz4.version.number_ge_10000:
+  description: "LZ4_versionNumber() >= 10000 — confirms any 1.x release (encoding: M*10000 + m*100 + p)"
+  category: version
+  kind: call_ge
+  function: LZ4_versionNumber
+  args: []
+  arg_types: []
+  expected_min: 10000
+
+invariant lz4.version.number_ge_10900:
+  description: "LZ4_versionNumber() >= 10900 — confirms 1.9.x or later"
+  category: version
+  kind: call_ge
+  function: LZ4_versionNumber
+  args: []
+  arg_types: []
+  expected_min: 10900
+  skip_if: "not semver_satisfies(lib_version, '>=1.9.0')"
+
+# ---------------------------------------------------------------------------
+# compress_bound (category: compress_bound)
+# ---------------------------------------------------------------------------
+
+invariant lz4.compress_bound.zero_input:
+  description: "LZ4_compressBound(0) == 16 — zero-length input yields fixed overhead bound on lz4 1.x"
+  category: compress_bound
+  kind: call_eq
+  function: LZ4_compressBound
+  args: [0]
+  arg_types: [int]
+  expected: 16
+
+invariant lz4.compress_bound.ge_100:
+  description: "LZ4_compressBound(100) >= 100 — output bound is always >= input size"
+  category: compress_bound
+  kind: call_ge
+  function: LZ4_compressBound
+  args: [100]
+  arg_types: [int]
+  expected_min: 100
+
+invariant lz4.compress_bound.ge_1000:
+  description: "LZ4_compressBound(1000) >= 1000 — output bound is always >= input size"
+  category: compress_bound
+  kind: call_ge
+  function: LZ4_compressBound
+  args: [1000]
+  arg_types: [int]
+  expected_min: 1000
+
+# ---------------------------------------------------------------------------
+# error (category: error)
+# ---------------------------------------------------------------------------
+
+invariant lz4.error.compress_bound_negative:
+  description: "LZ4_compressBound(-1) == 0 — returns 0 for invalid negative input size"
+  category: error
+  kind: call_eq
+  function: LZ4_compressBound
+  args: [-1]
+  arg_types: [int]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# roundtrip (category: roundtrip)
+# ---------------------------------------------------------------------------
+
+invariant lz4.roundtrip.basic:
+  description: "LZ4_compress_default then LZ4_decompress_safe must recover the original bytes exactly"
+  category: roundtrip
+  kind: lz4_roundtrip
+  inputs_b64:
+    - aGVsbG8=
+    - dGhlIHF1aWNrIGJyb3duIGZveA==
+    - aGVsbG8gd29ybGRoZWxsbyB3b3JsZGhlbGxvIHdvcmxkaGVsbG8gd29ybGRoZWxsbyB3b3JsZGhlbGxvIHdvcmxkaGVsbG8gd29ybGRoZWxsbyB3b3JsZGhlbGxvIHdvcmxkaGVsbG8gd29ybGQ=

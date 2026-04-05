@@ -1,0 +1,132 @@
+spec: express
+version: ">=4.0.0"
+backend: node(express)
+
+docs: https://expressjs.com/en/4x/api.html
+rfcs:
+  - "Express.js — https://expressjs.com/"
+  - "Node.js HTTP module — https://nodejs.org/api/http.html"
+
+provenance:
+  derived_from:
+    - "Express documentation — https://expressjs.com/en/4x/api.html"
+    - "Express GitHub — https://github.com/expressjs/express"
+    - "Test vectors verified with Express 4.22.1 on Node.js v22 / macOS Darwin 25.4.0, 2026-04-04"
+  not_derived_from:
+    - "Express source: lib/express.js"
+    - "Express source: lib/application.js"
+  notes:
+    - "All invariants are offline-safe: no HTTP server is started."
+    - "Default app settings tested via app.get(settingName) on a fresh express() instance."
+    - "express.Router() returns a function (middleware-style router), not a plain object."
+    - "node_factory_call_eq calls the module (or a named property) as a plain function and then calls a method on the result — used for express() app and express.Router() router creation."
+    - "The 'env' setting mirrors process.env.NODE_ENV; it is not tested here to keep invariants environment-independent."
+  created_at: "2026-04-04T00:00:00Z"
+
+error_model:
+  semantics: "express() and express.Router() never throw on construction. node exits 0 for all invariants in this spec."
+  stderr: "null"
+  stickiness: "N/A — each factory call creates an independent instance."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# App settings — defaults on a fresh express() instance
+# node_factory_call_eq: express() -> app -> app.get(setting)
+# ---------------------------------------------------------------------------
+
+table express.app_defaults:
+  kind: node_factory_call_eq
+  category: app_settings
+  factory: ~
+  factory_args: []
+  method: get
+  id_prefix: app_default
+
+  columns: [id, method_args, expected]
+  rows:
+    - [etag,                 ["etag"],                 "weak"]
+    - [x_powered_by,         ["x-powered-by"],         true]
+    - [query_parser,         ["query parser"],         "extended"]
+    - [jsonp_callback_name,  ["jsonp callback name"],  "callback"]
+    - [subdomain_offset,     ["subdomain offset"],     2]
+    - [trust_proxy,          ["trust proxy"],          false]
+
+# ---------------------------------------------------------------------------
+# App enabled/disabled helpers — node_factory_call_eq: express() -> app -> app.enabled/disabled
+# ---------------------------------------------------------------------------
+
+invariant express.app.enabled_x_powered_by:
+  kind: node_factory_call_eq
+  category: app_settings
+  factory: ~
+  factory_args: []
+  method: enabled
+  method_args: ["x-powered-by"]
+  expected: true
+
+invariant express.app.disabled_trust_proxy:
+  kind: node_factory_call_eq
+  category: app_settings
+  factory: ~
+  factory_args: []
+  method: disabled
+  method_args: ["trust proxy"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Router — new express.Router() creates a router; .route(path) returns a Route object
+# node_constructor_call_eq: new express.Router().route(path)
+# ---------------------------------------------------------------------------
+
+invariant express.router.fresh_route:
+  kind: node_constructor_call_eq
+  category: router
+  class: Router
+  ctor_args: []
+  method: route
+  args: ["/api"]
+  expected: {path: "/api", stack: [], methods: {}}
+
+invariant express.router.root_route:
+  kind: node_constructor_call_eq
+  category: router
+  class: Router
+  ctor_args: []
+  method: route
+  args: ["/"]
+  expected: {path: "/", stack: [], methods: {}}
+
+# ---------------------------------------------------------------------------
+# Route — new express.Route(path): path-matching and handler-absence checks
+# node_constructor_call_eq: new express.Route(path)._handles_method(verb)
+# ---------------------------------------------------------------------------
+
+table express.route.handles_method:
+  kind: node_constructor_call_eq
+  category: routing
+  class: Route
+  ctor_args: ["/items"]
+  method: _handles_method
+  id_prefix: route_handles
+
+  columns: [id, args, expected]
+  rows:
+    - [GET_no_handlers,    ["GET"],    false]
+    - [POST_no_handlers,   ["POST"],   false]
+    - [PUT_no_handlers,    ["PUT"],    false]
+    - [DELETE_no_handlers, ["DELETE"], false]
+    - [all_no_handlers,    ["all"],    false]
+
+# ---------------------------------------------------------------------------
+# Factory functions — express.Router() as a factory call returning a route
+# node_factory_call_eq: express.Router() -> router -> router.route(path)
+# ---------------------------------------------------------------------------
+
+invariant express.factory.router_route_shape:
+  kind: node_factory_call_eq
+  category: router
+  factory: Router
+  factory_args: []
+  method: route
+  method_args: ["/users"]
+  expected: {path: "/users", stack: [], methods: {}}

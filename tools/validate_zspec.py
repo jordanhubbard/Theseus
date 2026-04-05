@@ -59,6 +59,8 @@ KNOWN_KINDS = {
     "cli_stdout_matches", "cli_stderr_contains",
     "node_module_call_eq",
     "node_constructor_call_eq",
+    "node_factory_call_eq",
+    "lz4_roundtrip",
 }
 
 

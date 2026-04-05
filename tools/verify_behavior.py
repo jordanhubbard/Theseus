@@ -293,6 +293,9 @@ KNOWN_KINDS = {
     # Node.js module kinds
     "node_module_call_eq",
     "node_constructor_call_eq",
+    "node_factory_call_eq",
+    # lz4-specific ctypes roundtrip
+    "lz4_roundtrip",
 }
 
 
@@ -358,6 +361,9 @@ class PatternRegistry:
             # Node.js module kinds
             "node_module_call_eq":            self._node_module_call_eq,
             "node_constructor_call_eq":       self._node_constructor_call_eq,
+            "node_factory_call_eq":           self._node_factory_call_eq,
+            # lz4-specific ctypes roundtrip
+            "lz4_roundtrip":                  self._lz4_roundtrip,
         }
 
     def run(self, inv: dict) -> tuple[bool, str]:
@@ -897,6 +903,60 @@ class PatternRegistry:
                 )
         return True, f"all {len(inputs)} inputs round-tripped via {spec['encode_fn']}/{spec['decode_fn']}"
 
+    # --- lz4_roundtrip ---
+    # Calls LZ4_compressBound to size the output buffer, then LZ4_compress_default
+    # to compress, then LZ4_decompress_safe to decompress, and verifies byte-perfect
+    # recovery for each input in spec["inputs_b64"] (base64-encoded byte strings).
+    def _lz4_roundtrip(self, spec: dict) -> tuple[bool, str]:
+        lib = self._lib
+        # Set up function signatures
+        compress_bound = lib.LZ4_compressBound
+        compress_bound.restype = ctypes.c_int
+        compress_bound.argtypes = [ctypes.c_int]
+
+        compress_fn = lib.LZ4_compress_default
+        compress_fn.restype = ctypes.c_int
+        compress_fn.argtypes = [
+            ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_int
+        ]
+
+        decompress_fn = lib.LZ4_decompress_safe
+        decompress_fn.restype = ctypes.c_int
+        decompress_fn.argtypes = [
+            ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_int
+        ]
+
+        inputs = spec.get("inputs_b64", [])
+        for item in inputs:
+            original = base64.b64decode(item) if item else b""
+            src_size = len(original)
+
+            # Compress
+            bound = int(compress_bound(max(src_size, 1)))
+            dst = ctypes.create_string_buffer(bound)
+            comp_size = int(compress_fn(original, dst, src_size, bound))
+            if comp_size <= 0:
+                return False, (
+                    f"LZ4_compress_default() returned {comp_size} for "
+                    f"{src_size}-byte input; expected > 0"
+                )
+
+            # Decompress
+            rec_cap = max(src_size * 2 + 64, 64)
+            rec = ctypes.create_string_buffer(rec_cap)
+            dec_size = int(decompress_fn(dst.raw[:comp_size], rec, comp_size, rec_cap))
+            if dec_size < 0:
+                return False, (
+                    f"LZ4_decompress_safe() returned {dec_size}; expected >= 0"
+                )
+            recovered = rec.raw[:dec_size]
+            if recovered != original:
+                return False, (
+                    f"roundtrip mismatch: recovered {dec_size} bytes, "
+                    f"expected {src_size}"
+                )
+        return True, f"all {len(inputs)} inputs round-tripped via LZ4_compress_default/LZ4_decompress_safe"
+
     # --- python_struct_roundtrip ---
     # For each entry in test_cases (a list of value-lists), packs with
     # struct.pack(fmt, *values) then unpacks and verifies lossless recovery.
@@ -1151,6 +1211,67 @@ class PatternRegistry:
         if actual != expected_json:
             return False, f"{label}({args!r}) returned {actual!r}, expected {expected_json!r}"
         return True, f"{label}({args!r}) == {expected!r}"
+
+    # --- node_factory_call_eq ---
+    # Calls the module (or a named factory function on the module) as a plain
+    # function (no 'new'), then calls a method on the returned instance, and
+    # compares the JSON-stringified result against the expected value.
+    #
+    # This covers factory-function APIs where the module itself is the factory
+    # (e.g. express()) or where a named factory is called without 'new'
+    # (e.g. express.Router()).
+    #
+    # spec fields:
+    #   factory     — property on the module to call as factory; null → call m() directly
+    #   factory_args — args to the factory call (default [])
+    #   method       — method to call on the returned instance
+    #   method_args  — args to pass to the method (default [])
+    #   expected     — expected final value
+    def _node_factory_call_eq(self, spec: dict) -> tuple[bool, str]:
+        module       = spec.get("module") or getattr(self._lib, "module_name", None)
+        factory      = spec.get("factory")          # None → call m() directly
+        factory_args = spec.get("factory_args", [])
+        method       = spec["method"]
+        method_args  = spec.get("method_args", [])
+        expected     = spec["expected"]
+
+        factory_args_js = json.dumps(factory_args)
+        method_js       = json.dumps(method)
+        method_args_js  = json.dumps(method_args)
+
+        if factory:
+            inst_expr = f"m[{json.dumps(factory)}](...{factory_args_js})"
+        else:
+            inst_expr = f"m(...{factory_args_js})"
+
+        result_expr = f"({inst_expr})[{method_js}](...{method_args_js})"
+
+        if getattr(self._lib, "esm", False):
+            script = (
+                f"(async()=>{{const m=await import({json.dumps(module)});"
+                f"process.stdout.write(JSON.stringify({result_expr}))}})();"
+            )
+        else:
+            script = (
+                f"const m=require({json.dumps(module)});"
+                f"process.stdout.write(JSON.stringify({result_expr}))"
+            )
+        cmd = [self._lib.command, "-e", script]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, timeout=spec.get("timeout", 10))
+        except subprocess.TimeoutExpired:
+            return False, "node timed out"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        if proc.returncode != 0:
+            stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+            return False, f"node exited {proc.returncode}: {stderr!r}"
+        actual        = proc.stdout.decode("utf-8", errors="replace").strip()
+        expected_json = json.dumps(expected, separators=(",", ":"))
+        label         = f"{factory or '<module>'}().{method}"
+        if actual != expected_json:
+            return False, f"{label}({method_args!r}) returned {actual!r}, expected {expected_json!r}"
+        return True, f"{label}({method_args!r}) == {expected!r}"
 
 
 # ---------------------------------------------------------------------------
