@@ -89,7 +89,7 @@ Added: ZSDL compiler (`tools/zsdl_compile.py`), all 18 specs converted to ZSDL, 
 Added: `skip_if` expression language (`platform`, `semver_satisfies`), spec authoring guide (`docs/writing-specs.md`), `tools/orphan_specs.py`, CI artifact upload (verify-all-specs JSON), ESM node backend support (`esm: true`), chalk spec (10 invariants), libcrypto ctypes spec (14 invariants).
 
 ### Cycle 6 (2026-04-04)
-Real-data pipeline run (141 records, 4 ecosystems); numpy spec (20 invariants), pyyaml spec (18 invariants), urllib3 spec (18 invariants). Total: 23 specs · 408 invariants.
+Real-data pipeline run (141 records, 4 ecosystems); numpy spec (20 invariants), pyyaml spec (18 invariants), urllib3 spec (18 invariants); `tools/spec_vector_coverage.py` (item C); schema v0.2 with `esm`/`arg_types`/length validation (item D). Total: 23 specs · 408 invariants · 1398 tests.
 
 ---
 
@@ -141,13 +141,15 @@ Remaining candidates from the gap list:
 | `pcre2` | ctypes | low | Regex engine; cross-spec vs Python re |
 | `express` | node/CJS | low | HTTP framework; needs a mock server pattern |
 
-### C. Test vector coverage report
+### C. Test vector coverage report — DONE (2026-04-04)
 
-A tool that reports, per spec, which RFC sections have test vectors and which are untested. Useful for auditing spec completeness before a compliance review.
+`tools/spec_vector_coverage.py`: reports per-spec, per-category invariant description coverage.
+All 23 specs score 100% (408/408 described). `make spec-vector-coverage`.
 
-### D. Spec schema v0.2
+### D. Spec schema v0.2 — DONE (2026-04-04)
 
-Current schema (v0.1) doesn't validate `skip_if` syntax or `esm` flag. A v0.2 bump could:
-- Add `esm: bool` to the library schema
-- Add `skip_if` as an optional string field on invariants (already used, not yet in schema)
-- Validate that `arg_types` length matches `args` length for ctypes specs
+- `esm: bool` added to library schema
+- `arg_types: string[]` added to invariant schema
+- `schema_version` enum accepts `"0.1"` (compat) and `"0.2"` (current)
+- `validate_zspec.py`: programmatic `arg_types`/`args` length check
+- `zsdl_compile.py`: emits `schema_version: "0.2"` on all new compilations
