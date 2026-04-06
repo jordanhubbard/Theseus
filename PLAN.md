@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-04)
 
-**47 Z-layer specs · 797 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**70 Z-layer specs · 1118 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
 
 ### What is built
 
@@ -107,7 +107,19 @@ attrs (14), chardet (16), pyparsing (15), tomli/tomllib (22). Pipeline coverage 
 six (11), decorator (12), idna (16), platformdirs (13), pytz (16). Pipeline coverage → 44% (22/50). Total: 42 specs · 732 invariants · 2088 tests.
 
 ### Cycle 12 (2026-04-05)
-setuptools (14), typing_extensions (13), tzdata (13), wrapt (12), pluggy (13). Added `setuptools` to `_SUBMODULE_PRELOADS` in verify_behavior.py for `_vendor.packaging` access. tzdata backend uses `python_module(zoneinfo)` — tzdata is a pure data package; behavioral surface is zoneinfo. Pipeline coverage → 52% (26/50). Total: 47 specs · 797 invariants · 2309 tests.
+setuptools (14), typing_extensions (13), tzdata (13), wrapt (12), pluggy (13). Pipeline coverage → 52% (26/50). Total: 47 specs · 797 invariants · 2309 tests.
+
+### Cycle 13 (2026-04-05)
+certifi (11), colorama (12), more_itertools (14), fsspec (12), dotenv (12). Pipeline coverage → 64% (32/50). Total: 52 specs · 858 invariants · 2499 tests.
+
+### Cycle 14 (2026-04-05)
+pathspec (14), filelock (12), traitlets (14), tomlkit (16), defusedxml (14). Pipeline coverage → 74% (37/50). Total: 57 specs · 928 invariants · 2701 tests.
+
+### Cycle 15 (2026-04-05)
+distro (15), docutils (12), isodate (16), markdown (14), stevedore (14). Pipeline coverage → 84% (42/50). Total: 62 specs · 999 invariants · 2915 tests.
+
+### Cycle 16 (2026-04-05)
+dns (19), networkx (14), tornado (15), zope_interface (13), fontTools (10), protobuf (13), lodash (25), prettier (10). Pipeline coverage → **100% (50/50)**. Total: 70 specs · 1118 invariants · 3203 tests.
 
 ---
 
@@ -152,9 +164,7 @@ Remaining candidates from the gap list:
 |---------|---------|----------|-------|
 All planned B-candidates complete (including pcre2, markupsafe, msgpack in Cycle 9).
 
-Next candidates from gap list (28 remaining uncovered in top-50 snapshot):
-`setuptools`, `typing-extensions`, `tzdata`, `wrapt`, `pluggy`, `fsspec`, `pathspec`,
-`traitlets`, `tornado`, `python-dotenv`, `stevedore`, `tomlkit`, `zope.interface`, `protobuf`
+**All 50 top candidates covered. Pipeline coverage: 100% (50/50).**
 
 ### C. Test vector coverage report — DONE (2026-04-04)
 
