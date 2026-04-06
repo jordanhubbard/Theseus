@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage release help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -163,6 +163,9 @@ diff:
 	@test -n "$(AFTER)"  || (echo "Usage: make diff BEFORE=<dir> AFTER=<dir> [OUT=<file>]" && exit 1)
 	python3 tools/diff_snapshots.py --before "$(BEFORE)" --after "$(AFTER)" $(if $(OUT),--out "$(OUT)")
 
+release:
+	bash scripts/release.sh $(or $(BUMP),patch)
+
 help:
 	@echo "Theseus — canonical package recipe toolchain"
 	@echo ""
@@ -192,6 +195,7 @@ help:
 	@echo "  make orphan-specs     Report which compiled specs have no matching extraction record (EXTRACTION_DIR= required)"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
+	@echo "  make release        Cut a release (BUMP=major|minor|patch, default: patch)"
 	@echo ""
 	@echo "Variables:"
 	@echo "  SNAPSHOT            Snapshot directory (default: ./snapshots/YYYY-MM-DD)"
