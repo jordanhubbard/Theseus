@@ -135,6 +135,10 @@ class LibraryLoader:
                 "defusedxml": [
                     "defusedxml.ElementTree",
                 ],
+                "docutils": [
+                    "docutils.core",
+                    "docutils.nodes",
+                ],
             }
             for sub in _SUBMODULE_PRELOADS.get(module_name, []):
                 try:

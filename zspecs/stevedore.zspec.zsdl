@@ -1,0 +1,184 @@
+spec: stevedore
+version: ">=3.0"
+backend: python_module(stevedore)
+
+docs: https://docs.openstack.org/stevedore/latest/
+
+provenance:
+  derived_from:
+    - "stevedore official documentation — https://docs.openstack.org/stevedore/latest/"
+    - "stevedore PyPI page — https://pypi.org/project/stevedore/"
+    - "Test vectors verified with stevedore 5.7.0 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "stevedore source: stevedore/manager.py"
+    - "stevedore source: stevedore/extension.py"
+    - "stevedore source: stevedore/driver.py"
+    - "stevedore source: stevedore/hook.py"
+  notes:
+    - "stevedore 5.x does not expose __version__ on the module; version is available via importlib.metadata."
+    - "ExtensionManager has no __len__; use .extensions (a list) for length checks."
+    - "An ExtensionManager created with a truly unknown namespace has zero extensions and names() returns []."
+    - "stevedore.extension is auto-loaded when 'import stevedore' runs, so extension.Extension is accessible."
+    - "stevedore.__all__ lists the five public manager classes."
+    - "method='__class__' is callable (it's a type), so __class__.__name__ cannot be obtained via method chaining."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — stevedore is a package; __name__ and __package__ both equal 'stevedore'.
+# These serve as identity invariants since stevedore 5.x omits __version__.
+# ---------------------------------------------------------------------------
+
+invariant stevedore.version.module_name_is_stevedore:
+  description: "stevedore.__name__ == 'stevedore'"
+  category: version
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["stevedore"]
+  expected: true
+
+invariant stevedore.version.package_is_stevedore:
+  description: "stevedore.__package__ == 'stevedore'"
+  category: version
+  kind: python_call_eq
+  function: __package__.__eq__
+  args: ["stevedore"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# classes — public manager class names (class-level attribute access)
+# ---------------------------------------------------------------------------
+
+invariant stevedore.classes.extension_manager_name:
+  description: "ExtensionManager.__name__ == 'ExtensionManager'"
+  category: classes
+  kind: python_call_eq
+  function: ExtensionManager.__name__.__eq__
+  args: ["ExtensionManager"]
+  expected: true
+
+invariant stevedore.classes.driver_manager_name:
+  description: "DriverManager.__name__ == 'DriverManager'"
+  category: classes
+  kind: python_call_eq
+  function: DriverManager.__name__.__eq__
+  args: ["DriverManager"]
+  expected: true
+
+invariant stevedore.classes.hook_manager_name:
+  description: "HookManager.__name__ == 'HookManager'"
+  category: classes
+  kind: python_call_eq
+  function: HookManager.__name__.__eq__
+  args: ["HookManager"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# manager — ExtensionManager with an unknown namespace has no extensions.
+#
+# No __len__ on ExtensionManager; we use the .extensions list attribute.
+# method='extensions' is a list (not callable) → harness returns it directly.
+# method_chain='__len__' is callable on list → harness calls it with zero args → 0.
+#
+# method='names' is callable → harness calls names() → [] list.
+# method_chain='__len__' → harness calls [].__len__() → 0.
+#
+# method='namespace' is a str (not callable) → harness returns it directly.
+# ---------------------------------------------------------------------------
+
+invariant stevedore.manager.empty_namespace_extensions_len:
+  description: "ExtensionManager('nonexistent.ns', invoke_on_load=False).extensions has length 0"
+  category: manager
+  kind: python_call_eq
+  function: ExtensionManager
+  args: ["totally.nonexistent.namespace.xyz"]
+  kwargs:
+    invoke_on_load: false
+  method: extensions
+  method_chain: __len__
+  expected: 0
+
+invariant stevedore.manager.empty_namespace_names_len:
+  description: "ExtensionManager('nonexistent.ns', invoke_on_load=False).names() returns a list of length 0"
+  category: manager
+  kind: python_call_eq
+  function: ExtensionManager
+  args: ["totally.nonexistent.namespace.xyz"]
+  kwargs:
+    invoke_on_load: false
+  method: names
+  method_chain: __len__
+  expected: 0
+
+invariant stevedore.manager.namespace_attr:
+  description: "ExtensionManager stores its namespace as the .namespace attribute"
+  category: manager
+  kind: python_call_eq
+  function: ExtensionManager
+  args: ["totally.nonexistent.namespace.xyz"]
+  kwargs:
+    invoke_on_load: false
+  method: namespace
+  expected: "totally.nonexistent.namespace.xyz"
+
+# ---------------------------------------------------------------------------
+# manager_methods — map, names, and map_method are in ExtensionManager's class dict
+# ---------------------------------------------------------------------------
+
+invariant stevedore.manager_methods.has_map:
+  description: "ExtensionManager defines a 'map' method"
+  category: manager_methods
+  kind: python_call_eq
+  function: ExtensionManager.__dict__.__contains__
+  args: ["map"]
+  expected: true
+
+invariant stevedore.manager_methods.has_names:
+  description: "ExtensionManager defines a 'names' method"
+  category: manager_methods
+  kind: python_call_eq
+  function: ExtensionManager.__dict__.__contains__
+  args: ["names"]
+  expected: true
+
+invariant stevedore.manager_methods.has_map_method:
+  description: "ExtensionManager defines a 'map_method' method"
+  category: manager_methods
+  kind: python_call_eq
+  function: ExtensionManager.__dict__.__contains__
+  args: ["map_method"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# extension — extension.Extension class name.
+# stevedore.extension is the submodule, accessible as an attribute of stevedore.
+# ---------------------------------------------------------------------------
+
+invariant stevedore.extension.class_name:
+  description: "extension.Extension.__name__ == 'Extension'"
+  category: extension
+  kind: python_call_eq
+  function: extension.Extension.__name__.__eq__
+  args: ["Extension"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# public_api — __all__ lists the five public manager class names
+# ---------------------------------------------------------------------------
+
+invariant stevedore.public_api.all_contains_extension_manager:
+  description: "__all__ includes 'ExtensionManager'"
+  category: public_api
+  kind: python_call_eq
+  function: __all__.__contains__
+  args: ["ExtensionManager"]
+  expected: true
+
+invariant stevedore.public_api.all_contains_driver_manager:
+  description: "__all__ includes 'DriverManager'"
+  category: public_api
+  kind: python_call_eq
+  function: __all__.__contains__
+  args: ["DriverManager"]
+  expected: true

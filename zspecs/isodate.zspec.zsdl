@@ -1,0 +1,155 @@
+spec: isodate
+version: ">=0.6"
+backend: python_module(isodate)
+
+docs: https://isodate.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "isodate documentation — https://isodate.readthedocs.io/"
+    - "ISO 8601 — Date and time — Representations for information interchange"
+    - "Test vectors verified with isodate 0.7.2 on Python 3.14 / macOS Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "isodate source: isodate/__init__.py"
+    - "isodate source: isodate/isodatetime.py"
+    - "isodate source: isodate/isoduration.py"
+  notes:
+    - "isodate.parse_datetime returns a datetime.datetime object."
+    - "isodate.parse_date returns a datetime.date object."
+    - "isodate.parse_duration returns a timedelta for simple durations (e.g. P1D, PT1H)."
+    - "isodate.parse_duration returns an isodate.Duration for complex durations with years/months (e.g. P1Y2M3D)."
+    - "isodate.datetime_isoformat wraps datetime.isoformat() — calling .isoformat() directly on the parsed object is equivalent."
+    - "isodate.date_isoformat wraps date.isoformat()."
+    - "isodate.duration_isoformat returns an ISO 8601 duration string (e.g. 'P1D')."
+    - "parse_time returns a datetime.time object."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version (category: version) — __version__ attribute
+# ---------------------------------------------------------------------------
+
+invariant isodate.version.contains_dot:
+  description: "isodate.__version__ contains a dot — it is a dotted version string"
+  category: version
+  kind: python_call_eq
+  function: "__version__.__contains__"
+  args: ["."]
+  expected: true
+
+invariant isodate.version.is_string:
+  description: "isodate.__version__.__class__.__name__ == 'str' — version is a string"
+  category: version
+  kind: python_call_eq
+  function: "__version__.__class__.__name__.__eq__"
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# parse_datetime (category: parse_datetime)
+# ---------------------------------------------------------------------------
+
+table isodate.parse_datetime.attributes:
+  description: "parse_datetime('2023-01-15T10:30:00') fields"
+  kind: python_call_eq
+  category: parse_datetime
+  id_prefix: parse_datetime
+  function: parse_datetime
+  args: ["2023-01-15T10:30:00"]
+
+  columns: [id, method, expected]
+  rows:
+    - [year,   year,   2023]
+    - [month,  month,  1]
+    - [day,    day,    15]
+    - [hour,   hour,   10]
+
+invariant isodate.parse_datetime.isoformat_roundtrip:
+  description: "parse_datetime('2023-01-15T10:30:00').isoformat() == '2023-01-15T10:30:00'"
+  category: parse_datetime
+  rfc: "ISO 8601"
+  kind: python_call_eq
+  function: parse_datetime
+  args: ["2023-01-15T10:30:00"]
+  method: isoformat
+  expected: "2023-01-15T10:30:00"
+
+# ---------------------------------------------------------------------------
+# parse_date (category: parse_date)
+# ---------------------------------------------------------------------------
+
+table isodate.parse_date.attributes:
+  description: "parse_date('2023-06-21') fields"
+  kind: python_call_eq
+  category: parse_date
+  id_prefix: parse_date
+  function: parse_date
+  args: ["2023-06-21"]
+
+  columns: [id, method, expected]
+  rows:
+    - [year,  year,  2023]
+    - [month, month, 6]
+    - [day,   day,   21]
+
+invariant isodate.parse_date.isoformat_roundtrip:
+  description: "parse_date('2023-06-21').isoformat() == '2023-06-21'"
+  category: parse_date
+  rfc: "ISO 8601"
+  kind: python_call_eq
+  function: parse_date
+  args: ["2023-06-21"]
+  method: isoformat
+  expected: "2023-06-21"
+
+# ---------------------------------------------------------------------------
+# parse_duration (category: parse_duration)
+# ---------------------------------------------------------------------------
+
+invariant isodate.parse_duration.one_day:
+  description: "parse_duration('P1D').days == 1 — simple one-day timedelta"
+  category: parse_duration
+  rfc: "ISO 8601"
+  kind: python_call_eq
+  function: parse_duration
+  args: ["P1D"]
+  method: days
+  expected: 1
+
+invariant isodate.parse_duration.one_hour:
+  description: "parse_duration('PT1H').seconds == 3600 — simple one-hour timedelta"
+  category: parse_duration
+  rfc: "ISO 8601"
+  kind: python_call_eq
+  function: parse_duration
+  args: ["PT1H"]
+  method: seconds
+  expected: 3600
+
+# ---------------------------------------------------------------------------
+# isoformat (category: isoformat)
+#
+# datetime.isoformat() and date.isoformat() are the canonical round-trip
+# checks. duration_isoformat and date_isoformat wrap these methods but
+# require a pre-parsed object as input, which cannot be expressed as a
+# JSON literal. We test the equivalent round-trip via .isoformat() directly
+# on the parsed object, which is contractually the same operation per the
+# isodate public API.
+#
+# parse_time is tested here via its .hour / .minute / .second attributes.
+# ---------------------------------------------------------------------------
+
+table isodate.isoformat.parse_time_attrs:
+  description: "parse_time('10:30:45') fields"
+  kind: python_call_eq
+  category: isoformat
+  id_prefix: parse_time
+  function: parse_time
+  args: ["10:30:45"]
+
+  columns: [id, method, expected]
+  rows:
+    - [hour,   hour,   10]
+    - [minute, minute, 30]
+    - [second, second, 45]
