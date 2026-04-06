@@ -1,0 +1,189 @@
+spec: dns
+version: ">=2.0"
+backend: python_module(dns)
+
+docs: https://dnspython.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "dnspython documentation — https://dnspython.readthedocs.io/"
+    - "RFC 1035 — Domain Names: Implementation and Specification"
+    - "RFC 3596 — DNS Extensions to Support IPv6"
+    - "Test vectors verified with dnspython 2.8.0 on macOS/Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "dnspython source code (dns/name.py, dns/rdatatype.py, dns/rdataclass.py, dns/rcode.py)"
+  notes:
+    - "dnspython is the PyPI package name; it imports as 'dns'."
+    - "dns.name.from_text() appends the DNS root by default (origin=dns.name.root)."
+    - "To get a relative name, pass origin=None explicitly."
+    - "rdatatype.A == 1, rdatatype.AAAA == 28, rdatatype.MX == 15 per RFC 1035/3596."
+    - "rdataclass.IN == 1 (Internet class) per RFC 1035."
+    - "rcode.NOERROR == 0, rcode.NXDOMAIN == 3 per RFC 1035."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a string containing dots
+# ---------------------------------------------------------------------------
+
+invariant dns.version.is_string:
+  description: "__version__ is a string"
+  category: version
+  kind: python_call_eq
+  function: __version__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant dns.version.contains_dot:
+  description: "__version__ contains a dot (e.g. '2.8.0')"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# name — DNS name parsing via dns.name submodule
+#
+# dns.name.from_text('www.example.com.') — trailing dot means absolute name
+# dns.name.from_text('www.example.com', origin=None) — explicit relative name
+# dns.name.root — the DNS root ('.')
+# ---------------------------------------------------------------------------
+
+invariant dns.name.absolute_name_is_absolute:
+  description: "from_text('www.example.com.').is_absolute() == True — trailing dot denotes absolute"
+  category: name
+  kind: python_call_eq
+  function: name.from_text
+  args: ["www.example.com."]
+  method: is_absolute
+  expected: true
+
+invariant dns.name.relative_name_is_not_absolute:
+  description: "from_text('www.example.com', origin=None).is_absolute() == False — no root appended"
+  category: name
+  kind: python_call_eq
+  function: name.from_text
+  args: ["www.example.com"]
+  kwargs:
+    origin: ~
+  method: is_absolute
+  expected: false
+
+invariant dns.name.root_is_absolute:
+  description: "dns.name.root is absolute — '.' is the DNS root"
+  category: name
+  kind: python_call_eq
+  function: name.root.is_absolute
+  args: []
+  expected: true
+
+invariant dns.name.root_str:
+  description: "str(dns.name.root) == '.' — the root zone"
+  category: name
+  kind: python_call_eq
+  function: name.root.__str__
+  args: []
+  expected: "."
+
+invariant dns.name.absolute_name_str:
+  description: "str(from_text('www.example.com.')) == 'www.example.com.'"
+  category: name
+  kind: python_call_eq
+  function: name.from_text
+  args: ["www.example.com."]
+  method: __str__
+  expected: "www.example.com."
+
+# ---------------------------------------------------------------------------
+# rdatatype — DNS record type constants (RFC 1035 / RFC 3596)
+#
+# A    == 1  (IPv4 address, RFC 1035)
+# NS   == 2  (name server, RFC 1035)
+# MX   == 15 (mail exchange, RFC 1035)
+# TXT  == 16 (text record, RFC 1035)
+# AAAA == 28 (IPv6 address, RFC 3596)
+# ---------------------------------------------------------------------------
+
+table dns.rdatatype.constants:
+  kind: python_call_eq
+  category: rdatatype
+  id_prefix: rdatatype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [A_eq_1,    rdatatype.A.__eq__,    [1],  true]
+    - [AAAA_eq_28, rdatatype.AAAA.__eq__, [28], true]
+    - [MX_eq_15,  rdatatype.MX.__eq__,   [15], true]
+    - [NS_eq_2,   rdatatype.NS.__eq__,   [2],  true]
+    - [TXT_eq_16, rdatatype.TXT.__eq__,  [16], true]
+
+invariant dns.rdatatype.to_text_A:
+  description: "rdatatype.to_text(1) == 'A' — type 1 is A record"
+  category: rdatatype
+  kind: python_call_eq
+  function: rdatatype.to_text
+  args: [1]
+  expected: "A"
+
+invariant dns.rdatatype.from_text_AAAA:
+  description: "rdatatype.from_text('AAAA') == 28 — AAAA is type 28 (RFC 3596)"
+  category: rdatatype
+  kind: python_call_eq
+  function: rdatatype.from_text
+  args: ["AAAA"]
+  expected: 28
+
+# ---------------------------------------------------------------------------
+# rdataclass — DNS class constants (RFC 1035)
+#
+# IN == 1 (Internet class, RFC 1035)
+# ---------------------------------------------------------------------------
+
+invariant dns.rdataclass.IN_eq_1:
+  description: "rdataclass.IN == 1 — Internet class per RFC 1035"
+  category: rdataclass
+  kind: python_call_eq
+  function: rdataclass.IN.__eq__
+  args: [1]
+  expected: true
+
+invariant dns.rdataclass.to_text_IN:
+  description: "rdataclass.to_text(1) == 'IN' — class 1 is Internet"
+  category: rdataclass
+  kind: python_call_eq
+  function: rdataclass.to_text
+  args: [1]
+  expected: "IN"
+
+# ---------------------------------------------------------------------------
+# rcode — DNS response codes (RFC 1035)
+#
+# NOERROR  == 0 (no error, RFC 1035)
+# NXDOMAIN == 3 (non-existent domain, RFC 1035)
+# ---------------------------------------------------------------------------
+
+invariant dns.rcode.NOERROR_eq_0:
+  description: "rcode.NOERROR == 0 — no error per RFC 1035"
+  category: rcode
+  kind: python_call_eq
+  function: rcode.NOERROR.__eq__
+  args: [0]
+  expected: true
+
+invariant dns.rcode.NXDOMAIN_eq_3:
+  description: "rcode.NXDOMAIN == 3 — non-existent domain per RFC 1035"
+  category: rcode
+  kind: python_call_eq
+  function: rcode.NXDOMAIN.__eq__
+  args: [3]
+  expected: true
+
+invariant dns.rcode.to_text_NOERROR:
+  description: "rcode.to_text(0) == 'NOERROR' — rcode 0 is NOERROR"
+  category: rcode
+  kind: python_call_eq
+  function: rcode.to_text
+  args: [0]
+  expected: "NOERROR"

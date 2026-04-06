@@ -139,6 +139,28 @@ class LibraryLoader:
                     "docutils.core",
                     "docutils.nodes",
                 ],
+                "dns": [
+                    "dns.name",
+                    "dns.rdatatype",
+                    "dns.rdataclass",
+                    "dns.rcode",
+                ],
+                "tornado": [
+                    "tornado.web",
+                    "tornado.ioloop",
+                    "tornado.httpclient",
+                    "tornado.escape",
+                ],
+                "fontTools": [
+                    "fontTools.ttLib",
+                    "fontTools.pens.basePen",
+                    "fontTools.misc.psCharStrings",
+                ],
+                "google.protobuf": [
+                    "google.protobuf.descriptor",
+                    "google.protobuf.message",
+                    "google.protobuf.descriptor_pool",
+                ],
             }
             for sub in _SUBMODULE_PRELOADS.get(module_name, []):
                 try:

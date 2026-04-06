@@ -1,0 +1,135 @@
+spec: lodash
+version: ">=4.0.0"
+backend: node(lodash)
+
+docs: https://lodash.com/docs/
+
+provenance:
+  derived_from:
+    - "lodash documentation — https://lodash.com/docs/"
+    - "Test vectors verified with lodash@4.18.1 via Node.js 22.20.0 on macOS/Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "lodash source: lodash.js"
+  notes:
+    - "lodash is a CJS module; the node backend uses require('lodash')."
+    - "_.VERSION is a string property, not a function. The version invariant uses cli_stdout_contains with an inline node -e script (args: [-e, script]) because node_module_call_eq requires a callable."
+    - "All node_module_call_eq args are spread into the JS call: args: [X, Y] → m.fn(...[X, Y]) = m.fn(X, Y). Wrapping a single array arg in another array is required: args: [[1,2,3]] → m.fn([1,2,3])."
+    - "Array functions return plain JS arrays serialised via JSON.stringify."
+    - "Boolean predicates (isEmpty, isArray, isString, isNumber) return true/false."
+    - "Math functions (sum, max, min) take a single array argument; clamp takes three scalar arguments."
+    - "String transform functions (capitalize, snakeCase, camelCase) return strings."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model:
+  semantics: "lodash functions return sensible defaults for edge cases and do not throw for normal inputs. node exits 0 for all invariants in this spec."
+  stderr: "null — lodash functions do not write to stderr under normal use"
+  stickiness: "N/A — each function call is stateless."
+  codes: {}
+
+# --- version (property access via cli_stdout_contains) ---
+
+invariant lodash.version.contains_dot:
+  description: "_.VERSION is a string containing a dot (e.g. '4.18.1')"
+  category: version
+  kind: cli_stdout_contains
+  args: ["-e", "const _=require('lodash');process.stdout.write(_.VERSION)"]
+  expected_substring: "."
+
+# --- array ---
+
+table lodash.array.chunk:
+  kind: node_module_call_eq
+  category: array
+  function: chunk
+  id_prefix: chunk
+
+  columns: [id, args, expected]
+  rows:
+    - [even,  [[1, 2, 3, 4], 2],    [[1, 2], [3, 4]]]
+    - [odd,   [[1, 2, 3, 4, 5], 2], [[1, 2], [3, 4], [5]]]
+
+invariant lodash.array.flatten:
+  description: "_.flatten([[1,2],[3,4]]) == [1,2,3,4]"
+  category: array
+  kind: node_module_call_eq
+  function: flatten
+  args: [[[1, 2], [3, 4]]]
+  expected: [1, 2, 3, 4]
+
+table lodash.array.uniq:
+  kind: node_module_call_eq
+  category: array
+  function: uniq
+  id_prefix: uniq
+
+  columns: [id, args, expected]
+  rows:
+    - [basic,    [[1, 2, 1, 3, 2]], [1, 2, 3]]
+    - [no_dupes, [[1, 2, 3]],       [1, 2, 3]]
+
+# --- math ---
+
+table lodash.math.single_arg:
+  kind: node_module_call_eq
+  category: math
+  id_prefix: ~
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sum.basic, sum, [[1, 2, 3]], 6]
+    - [sum.empty, sum, [[]],        0]
+    - [max.basic, max, [[1, 5, 3]], 5]
+    - [min.basic, min, [[1, 5, 3]], 1]
+
+table lodash.math.clamp:
+  kind: node_module_call_eq
+  category: math
+  function: clamp
+  id_prefix: clamp
+
+  columns: [id, args, expected]
+  rows:
+    - [in_range,   [5,  1, 10], 5]
+    - [below_min,  [-5, 1, 10], 1]
+    - [above_max,  [15, 1, 10], 10]
+
+# --- predicates ---
+
+table lodash.predicates.isEmpty:
+  kind: node_module_call_eq
+  category: predicates
+  function: isEmpty
+  id_prefix: isEmpty
+
+  columns: [id, args, expected]
+  rows:
+    - [empty_array,  [[]], true]
+    - [nonempty,     [[1]], false]
+
+table lodash.predicates.types:
+  kind: node_module_call_eq
+  category: predicates
+  id_prefix: ~
+
+  columns: [id, function, args, expected]
+  rows:
+    - [isArray.array,       isArray,  [[1, 2]], true]
+    - [isArray.non_array,   isArray,  ["x"],    false]
+    - [isString.string,     isString, ["hello"], true]
+    - [isString.non_string, isString, [42],      false]
+    - [isNumber.number,     isNumber, [42],      true]
+    - [isNumber.non_number, isNumber, ["42"],    false]
+
+# --- string ---
+
+table lodash.string:
+  kind: node_module_call_eq
+  category: string
+  id_prefix: ~
+
+  columns: [id, function, args, expected]
+  rows:
+    - [capitalize.basic,   capitalize, ["hello"],       "Hello"]
+    - [capitalize.upper,   capitalize, ["HELLO"],       "Hello"]
+    - [snakeCase.camel,    snakeCase,  ["helloWorld"],  "hello_world"]
+    - [camelCase.snake,    camelCase,  ["hello_world"], "helloWorld"]

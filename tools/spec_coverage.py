@@ -34,6 +34,10 @@ _PACKAGE_ALIASES: dict[str, str] = {
     "python_dotenv": "dotenv",
     "pillow": "pillow",          # PIL; spec file is pillow
     "tomli": "tomllib",          # tomllib spec covers both
+    "dnspython": "dns",          # PyPI package name; imports as dns
+    "zope.interface": "zope_interface",  # namespace package; spec file uses underscore
+    "protobuf": "protobuf",             # PyPI package name; imports as google.protobuf
+    "fonttools": "fontTools",           # PyPI package name; imports as fontTools
 }
 
 

@@ -1,0 +1,105 @@
+spec: prettier
+version: ">=3.0.0"
+backend: node(prettier)
+
+docs: https://prettier.io/docs/en/
+
+provenance:
+  derived_from:
+    - "prettier documentation — https://prettier.io/docs/en/"
+    - "Test vectors verified with prettier@3.8.1 via Node.js 22.20.0 on macOS/Darwin 25.4.0, 2026-04-05"
+  not_derived_from:
+    - "prettier source: src/index.js"
+  notes:
+    - "prettier is a CJS module (require('prettier') works); the node backend uses require()."
+    - "prettier 3.x is async-first: format(), check(), resolveConfig(), and getSupportInfo() all return Promises. There is no formatSync() in v3."
+    - "All formatting and check invariants use cli_stdout_contains with inline async IIFE node scripts, since node_module_call_eq does not await Promises."
+    - "version is a string property, not a function — accessed via inline node script."
+    - "api invariants verify that key properties exist using typeof checks."
+    - "format() always appends a trailing newline to the output."
+    - "check() returns true if the input is already formatted, false otherwise."
+  created_at: "2026-04-05T00:00:00Z"
+
+error_model:
+  semantics: "prettier functions return Promises that resolve to formatted strings or booleans. Malformed inputs cause the Promise to reject. node exits 0 for all invariants in this spec."
+  stderr: "null under normal use"
+  stickiness: "N/A — each function call is stateless."
+  codes: {}
+
+# --- version ---
+
+invariant prettier.version.contains_dot:
+  description: "prettier.version is a string containing a dot (e.g. '3.8.1')"
+  category: version
+  kind: cli_stdout_contains
+  args: ["-e", "const p=require('prettier');process.stdout.write(p.version)"]
+  expected_substring: "."
+
+invariant prettier.version.major_3:
+  description: "prettier major version is 3 (v3.x release series)"
+  category: version
+  kind: cli_stdout_contains
+  args: ["-e", "const p=require('prettier');process.stdout.write(p.version.split('.')[0])"]
+  expected_substring: "3"
+
+# --- api ---
+
+invariant prettier.api.format_is_function:
+  description: "prettier.format is a function"
+  category: api
+  kind: cli_stdout_contains
+  args: ["-e", "const p=require('prettier');process.stdout.write(typeof p.format)"]
+  expected_substring: "function"
+
+invariant prettier.api.check_is_function:
+  description: "prettier.check is a function"
+  category: api
+  kind: cli_stdout_contains
+  args: ["-e", "const p=require('prettier');process.stdout.write(typeof p.check)"]
+  expected_substring: "function"
+
+invariant prettier.api.getSupportInfo_is_function:
+  description: "prettier.getSupportInfo is a function"
+  category: api
+  kind: cli_stdout_contains
+  args: ["-e", "const p=require('prettier');process.stdout.write(typeof p.getSupportInfo)"]
+  expected_substring: "function"
+
+# --- format ---
+
+invariant prettier.format.babel_basic:
+  description: "format('const x=1', {parser:'babel'}) produces formatted JS with spaces"
+  category: format
+  kind: cli_stdout_contains
+  args: ["-e", "(async()=>{const p=require('prettier');const r=await p.format('const x=1',{parser:'babel'});process.stdout.write(r)})()"]
+  expected_substring: "const x = 1"
+
+invariant prettier.format.babel_trailing_newline:
+  description: "format() always appends a trailing newline"
+  category: format
+  kind: cli_stdout_contains
+  args: ["-e", "(async()=>{const p=require('prettier');const r=await p.format('const x=1',{parser:'babel'});process.stdout.write(r.endsWith('\\n').toString())})()"]
+  expected_substring: "true"
+
+invariant prettier.format.css_basic:
+  description: "format('.foo{color:red}', {parser:'css'}) produces expanded CSS"
+  category: format
+  kind: cli_stdout_contains
+  args: ["-e", "(async()=>{const p=require('prettier');const r=await p.format('.foo{color:red}',{parser:'css'});process.stdout.write(r)})()"]
+  expected_substring: "color: red"
+
+# --- check ---
+
+invariant prettier.check.already_formatted:
+  description: "check('const x = 1;\\n', {parser:'babel'}) returns true for already-formatted code"
+  category: check
+  kind: cli_stdout_contains
+  args: ["-e", "(async()=>{const p=require('prettier');const r=await p.check('const x = 1;\\n',{parser:'babel'});process.stdout.write(String(r))})()"]
+  expected_substring: "true"
+
+invariant prettier.check.needs_formatting:
+  description: "check('const x=1', {parser:'babel'}) returns false for unformatted code"
+  category: check
+  kind: cli_stdout_contains
+  args: ["-e", "(async()=>{const p=require('prettier');const r=await p.check('const x=1',{parser:'babel'});process.stdout.write(String(r))})()"]
+  expected_substring: "false"
