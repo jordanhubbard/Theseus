@@ -72,7 +72,7 @@ Machine-readable contracts that describe how OSS libraries actually behave, deri
 ```bash
 git clone https://github.com/jordanhubbard/Theseus
 cd Theseus
-pip install pytest
+pip install pytest pyyaml
 npm install
 make
 ```

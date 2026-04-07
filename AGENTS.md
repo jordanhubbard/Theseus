@@ -78,10 +78,10 @@ scripts/                Release automation (scripts/release.sh)
 
 ## Python
 
-- **All tools are stdlib-only** (no third-party runtime deps). The only allowed runtime
-  import outside stdlib is `importlib.import_module` for dynamically loading the
-  library under test. Do not add pip dependencies to tools/.
-- `pytest` is the only test dependency.
+- **Tools have minimal external deps**: `tools/zsdl_compile.py` requires `pyyaml`
+  (the ZSDL source format is YAML). All other tools are stdlib-only. Do not add
+  further pip dependencies to tools/ without strong justification.
+- Test dependencies: `pytest` and `pyyaml` (both needed for `make test`).
 - Python 3.9 compatibility required throughout (no walrus operator, no `match`, no
   `str | None` union syntax in annotations).
 - Tests go in `tests/`. Mirror the source structure.

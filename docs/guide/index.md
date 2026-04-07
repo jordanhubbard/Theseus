@@ -21,15 +21,14 @@ that are verified against the real installed library on macOS, Linux, and FreeBS
 | Node.js | 22+ | Node.js-backed Z-specs (ajv, chalk, express, lodash, minimist, prettier, semver, uuid) |
 | npm | any | Install Node.js test dependencies |
 | pytest | any | `make test` |
-
-No other runtime dependencies are required. All Python tools use the standard library only.
+| PyYAML | any | `make compile-zsdl` / `make test` (used by the ZSDL compiler) |
 
 ### Clone and set up
 
 ```bash
 git clone https://github.com/jordanhubbard/Theseus
 cd Theseus
-pip install pytest
+pip install pytest pyyaml
 npm install
 make
 ```
