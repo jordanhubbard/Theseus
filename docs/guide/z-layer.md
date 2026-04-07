@@ -55,7 +55,7 @@ use `ctypes`. npm packages always use `node`.
 |----------|-----------|
 | Compression | zlib, zstd, lz4 |
 | Cryptography | hashlib, libcrypto, openssl |
-| Serialization | base64, json, msgpack, struct, pyyaml, tomllib, tomlkit, defusedxml, protobuf |
+| Serialization | base64, json, msgpack, struct, pyyaml, tomli, tomlkit, defusedxml, protobuf |
 | Networking | urllib_parse, urllib3, curl, dns |
 | Numeric / scientific | numpy |
 | Data structures | attrs, more_itertools, networkx |

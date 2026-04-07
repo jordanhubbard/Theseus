@@ -35,6 +35,9 @@ Normalizes package metadata from Nixpkgs and FreeBSD Ports into a shared canonic
 | `tools/validate_record.py` | Validate records against schema; run behavioral specs for tagged records |
 | `tools/diff_snapshots.py` | Compare two snapshot runs; classify added, removed, changed packages |
 | `tools/spec_coverage.py` | Report which extracted candidates have a behavioral spec (covered vs. gap) |
+| `tools/generate_stub.py` | Merge snapshot records into per-package stub JSON files in `stubs/` |
+| `tools/build_spec.py` | Run a record through a driver; dispatch to build target; store artifact |
+| `tools/seed_from_ports.py` | Derive PyPI/npm seed lists from a FreeBSD Ports snapshot (`make seed`) |
 
 ### Layer 2 — Z-Layer Behavioral Spec System
 
@@ -52,7 +55,7 @@ Machine-readable contracts that describe how OSS libraries actually behave, deri
 
 **Backends:** `ctypes` (C shared libraries), `python_module` (Python stdlib + pip packages), `cli` (subprocess), `node/CJS` and `node/ESM` (npm packages).
 
-**Covered libraries (70):** ajv, attrs, base64, certifi, chalk, chardet, colorama, curl, datetime, decorator, defusedxml, difflib, distro, dns, docutils, dotenv, express, filelock, fontTools, fsspec, hashlib, idna, isodate, json, libcrypto, lodash, lxml, lz4, markdown, markupsafe, minimist, more_itertools, msgpack, networkx, numpy, openssl, packaging, pathlib, pathspec, pcre2, pillow, platformdirs, pluggy, prettier, protobuf, psutil, pygments, pyparsing, pytz, pyyaml, re, semver, setuptools, six, sqlite3, stevedore, struct, tomllib, tomlkit, tornado, traitlets, typing_extensions, tzdata, urllib_parse, urllib3, uuid, wrapt, zlib, zope_interface, zstd.
+**Covered libraries (70):** ajv, attrs, base64, certifi, chalk, chardet, colorama, curl, datetime, decorator, defusedxml, difflib, distro, dns, docutils, dotenv, express, filelock, fontTools, fsspec, hashlib, idna, isodate, json, libcrypto, lodash, lxml, lz4, markdown, markupsafe, minimist, more_itertools, msgpack, networkx, numpy, openssl, packaging, pathlib, pathspec, pcre2, pillow, platformdirs, pluggy, prettier, protobuf, psutil, pygments, pyparsing, pytz, pyyaml, re, semver, setuptools, six, sqlite3, stevedore, struct, tomli, tomlkit, tornado, traitlets, typing_extensions, tzdata, urllib_parse, urllib3, uuid, wrapt, zlib, zope_interface, zstd.
 
 ---
 

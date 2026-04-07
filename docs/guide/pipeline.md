@@ -22,10 +22,19 @@ Source Trees (Nixpkgs, FreeBSD Ports, PyPI, npm)
         ├─► tools/top_candidates.py      → reports/top-candidates.json
         ├─► tools/validate_record.py     → validates individual records
         ├─► tools/diff_snapshots.py      → reports drift between runs
+        ├─► tools/generate_stub.py       → stubs/ (merged per-ecosystem stubs)
         └─► tools/extract_candidates.py  → reports/extractions/
                 │
                 └─► tools/spec_coverage.py   → coverage report
 ```
+
+**Additional tools:**
+
+| Tool | Purpose |
+|------|---------|
+| `tools/generate_stub.py` | Walk a snapshot, merge per-ecosystem records into single stub JSON files in `stubs/`. Optionally run a driver (`--driver freebsd_ports\|nixpkgs\|both`) to also produce output files alongside each stub. |
+| `tools/build_spec.py` | Run one canonical record through a driver; optionally dispatch to a registered build target (from `config.yaml`); store the spec and output files at the configured artifact URL. Pass `--ai` to fill missing fields via the AI agent before building. |
+| `tools/seed_from_ports.py` | Read a FreeBSD Ports snapshot and derive PyPI and npm seed lists for the importer. Called by `make seed`. |
 
 ---
 

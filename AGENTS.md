@@ -37,6 +37,9 @@ tools/                  CLI scripts (all stdlib-only except pytest for test suit
   extract_candidates.py           Phase Z: merge top-N candidates
   validate_record.py              Validate records; run behavioral specs
   diff_snapshots.py               Diff two snapshot directories
+  build_spec.py                   Run a canonical record through a driver; dispatch to target; store artifact
+  generate_stub.py                Walk a snapshot, merge per-ecosystem data into stub records (stubs/)
+  seed_from_ports.py              Generate PyPI/npm seed lists from a FreeBSD Ports snapshot
   verify_behavior.py              Z-spec harness: run invariants vs. installed library
   verify_all_specs.py             Run all specs; write JSON results
   validate_zspec.py               Static schema validation of spec files
@@ -130,8 +133,8 @@ make compile-zsdl ZSDL=zspecs/mylib.zspec.zsdl && \
 
 Some packages don't expose submodules on bare import. The `_SUBMODULE_PRELOADS` dict
 in `tools/verify_behavior.py` pre-imports required submodules before running specs.
-Current entries: `setuptools`, `defusedxml`, `docutils`, `dns`, `tornado`,
-`fontTools`, `google.protobuf`. Add to this dict when adding a spec for a library
+Current entries (9): `pygments`, `packaging`, `setuptools`, `defusedxml`, `docutils`,
+`dns`, `tornado`, `fontTools`, `google.protobuf`. Add to this dict when adding a spec for a library
 with the same characteristic.
 
 ### Package name aliasing
