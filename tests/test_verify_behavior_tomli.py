@@ -12,6 +12,11 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.skipif(
+    sys.version_info < (3, 11),
+    reason="tomllib is Python 3.11+ stdlib; not available on older versions",
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
