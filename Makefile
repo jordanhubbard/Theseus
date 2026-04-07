@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage release help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage release docs docs-serve help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -166,6 +166,14 @@ diff:
 release:
 	bash scripts/release.sh $(or $(BUMP),patch)
 
+docs:
+	pip install mkdocs-material --quiet
+	mkdocs build
+
+docs-serve:
+	pip install mkdocs-material --quiet
+	mkdocs serve
+
 help:
 	@echo "Theseus — canonical package recipe toolchain"
 	@echo ""
@@ -196,6 +204,8 @@ help:
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo "  make release        Cut a release (BUMP=major|minor|patch, default: patch)"
+	@echo "  make docs           Build user guide static site (requires mkdocs-material)"
+	@echo "  make docs-serve     Serve user guide locally at http://127.0.0.1:8000"
 	@echo ""
 	@echo "Variables:"
 	@echo "  SNAPSHOT            Snapshot directory (default: ./snapshots/YYYY-MM-DD)"

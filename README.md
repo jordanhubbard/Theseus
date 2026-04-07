@@ -4,157 +4,166 @@
 
 **Theseus** is a toolchain for normalizing package recipes from [Nixpkgs](https://github.com/NixOS/nixpkgs) and [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
 
-## Features
+On top of that pipeline sits a **Z-layer behavioral spec system**: 70 machine-readable contracts, one per OSS library, verified against the real installed library across macOS, Linux, and FreeBSD.
 
-### Package recipe pipeline
+[![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
-- **Canonical JSON schema** (`schema/package-recipe.schema.json`) — covers identity, dependencies, build system, sources, patches, platforms, features, tests, and provenance
-- **Bootstrap importer** (`tools/bootstrap_canonical_recipes.py`) — walks Nixpkgs and FreeBSD Ports trees and emits canonical records into a snapshot directory
-- **Overlap report** (`tools/overlap_report.py`) — identifies packages present in both ecosystems, present only in one, and those with version skew
-- **Candidate ranker** (`tools/top_candidates.py`) — scores packages as first candidates for downstream extraction using heuristics: dual-ecosystem presence, provenance confidence, dependency count, test coverage, patch complexity
-- **Phase Z extractor** (`tools/extract_candidates.py`) — takes the ranked candidate list and produces one merged record per top-N package: unified dependencies, maintainers, sources, and a structured analysis section covering version agreement, confidence, license agreement, and deprecation status across ecosystems; auto-injects `behavioral_spec` for any candidate that has a matching Z-spec
-- **Record validator** (`tools/validate_record.py`) — validates canonical records against schema rules; reports type errors, missing fields, and out-of-range confidence scores; runs the behavioral spec harness for records with a `behavioral_spec` field
-- **Snapshot diff** (`tools/diff_snapshots.py`) — compares two snapshot directories and classifies every package as added, removed, version-changed, or unchanged; tracks ecosystem drift between bootstrap runs
+**70 specs · 1,118 invariants · 3,203 tests · 100% top-50 pipeline coverage**
 
-### Z-layer behavioral spec system
+---
 
-- **18 behavioral specs** (`zspecs/*.zspec.zsdl`) — machine-readable contracts covering zlib, hashlib, base64, json, struct, datetime, pathlib, re, sqlite3, openssl, curl, semver, ajv, uuid, minimist, urllib_parse, difflib, zstd; compiled to `_build/zspecs/`
-- **Verification harness** (`tools/verify_behavior.py`) — runs every invariant against the real installed library; supports ctypes (C shared libs), python_module (Python stdlib/packages), and cli (subprocesses + Node.js npm packages) backends
-- **Spec validator** (`tools/validate_zspec.py`) — validates spec files against `zspecs/schema/behavioral-spec.schema.json`
-- **Batch runner** (`tools/verify_all_specs.py`) — runs all specs and writes a JSON results file for CI dashboards and regression tracking
-- **Coverage reporter** (`tools/spec_coverage.py`) — shows which extracted candidates have a behavioral spec and which are gaps
-- **Watch mode** (`--watch`) — polls the spec file and reruns on every save for TDD-style authoring
-- **Baseline/diff mode** (`--baseline`) — diffs a run against a saved results file, reports regressions
+## Documentation
+
+**[Full User Guide →](https://jordanhubbard.github.io/Theseus/)**
+
+The user guide covers installation, the complete pipeline walkthrough, how to write behavioral specs, the ZSDL language reference, and contributing guidelines.
+
+---
+
+## What It Does
+
+### Layer 1 — Package Recipe Pipeline
+
+Normalizes package metadata from Nixpkgs and FreeBSD Ports into a shared canonical JSON schema, then ranks and extracts the most important candidates for downstream work.
+
+| Tool | Purpose |
+|------|---------|
+| `tools/bootstrap_canonical_recipes.py` | Walk Nixpkgs and FreeBSD Ports trees; emit canonical records |
+| `tools/overlap_report.py` | Classify packages as overlap, one-ecosystem-only, or version-skewed |
+| `tools/top_candidates.py` | Score and rank packages by dual-ecosystem presence, confidence, and dependency count |
+| `tools/extract_candidates.py` | Merge top-N candidates into unified extraction records |
+| `tools/validate_record.py` | Validate records against schema; run behavioral specs for tagged records |
+| `tools/diff_snapshots.py` | Compare two snapshot runs; classify added, removed, changed packages |
+| `tools/spec_coverage.py` | Report which extracted candidates have a behavioral spec (covered vs. gap) |
+
+### Layer 2 — Z-Layer Behavioral Spec System
+
+Machine-readable contracts that describe how OSS libraries actually behave, derived from public documentation only (not source code), verified against the installed library on every CI run.
+
+| Component | Purpose |
+|-----------|---------|
+| `zspecs/*.zspec.zsdl` | 70 ZSDL source specs (committed) |
+| `_build/zspecs/*.zspec.json` | Compiled JSON (build artifact; regenerated by `make compile-zsdl`) |
+| `tools/verify_behavior.py` | Run invariants against the real installed library |
+| `tools/verify_all_specs.py` | Run all specs; write JSON results file for CI dashboards |
+| `tools/validate_zspec.py` | Static validation of spec files against JSON Schema |
+| `tools/orphan_specs.py` | Report specs with no matching extraction record |
+| `tools/spec_vector_coverage.py` | Per-spec invariant description coverage report |
+
+**Backends:** `ctypes` (C shared libraries), `python_module` (Python stdlib + pip packages), `cli` (subprocess), `node/CJS` and `node/ESM` (npm packages).
+
+**Covered libraries (70):** ajv, attrs, base64, certifi, chalk, chardet, colorama, curl, datetime, decorator, defusedxml, difflib, distro, dns, docutils, dotenv, express, filelock, fontTools, fsspec, hashlib, idna, isodate, json, libcrypto, lodash, lxml, lz4, markdown, markupsafe, minimist, more_itertools, msgpack, networkx, numpy, openssl, packaging, pathlib, pathspec, pcre2, pillow, platformdirs, pluggy, prettier, protobuf, psutil, pygments, pyparsing, pytz, pyyaml, re, semver, setuptools, six, sqlite3, stevedore, struct, tomllib, tomlkit, tornado, traitlets, typing_extensions, tzdata, urllib_parse, urllib3, uuid, wrapt, zlib, zope_interface, zstd.
+
+---
 
 ## Quick Start
 
 ### Requirements
 
 - Python 3.9+
-- Node.js 22+ and npm (for Node.js-backed Z-specs: semver, ajv, uuid, minimist)
-- `pytest` for running the test suite
-- `packaging` (optional; improves `spec_for_versions` range checking — usually already installed with pip)
+- Node.js 22+ and npm (for Node.js-backed specs: ajv, chalk, express, lodash, minimist, prettier, semver, uuid)
+- `pytest` (for `make test`)
 
 ### Install
 
 ```bash
 git clone https://github.com/jordanhubbard/Theseus
 cd Theseus
-pip install pytest   # needed for make test
-npm install          # installs semver, ajv, uuid, minimist (needed for Node.js Z-specs)
-make                 # verifies Python version, prints usage
+pip install pytest
+npm install
+make
 ```
 
-### Typical workflow
-
-**1. Bootstrap** canonical records from source trees:
+### Run the test suite
 
 ```bash
-python3 tools/bootstrap_canonical_recipes.py \
-  --nixpkgs /path/to/nixpkgs \
-  --ports /path/to/freebsd-ports \
-  --out ./snapshots/$(date +%Y-%m-%d)
+make test
 ```
 
-**2. Generate overlap report:**
+### Demo on built-in examples
 
 ```bash
-make report SNAPSHOT=./snapshots/2026-03-26
+make start        # runs analysis on examples/ — no snapshot needed
 ```
 
-**3. Generate candidate ranking:**
+### Verify behavioral specs
 
 ```bash
-make candidates SNAPSHOT=./snapshots/2026-03-26
+make compile-zsdl              # compile ZSDL sources to _build/zspecs/
+make verify-all-specs          # run all 70 specs; print text summary
+make verify-all-specs-json     # same, write JSON results
+make verify-behavior ZSPEC=_build/zspecs/zlib.zspec.json  # single spec
 ```
 
-**4. Extract top candidates (phase Z):**
-
-```bash
-make extract SNAPSHOT=./snapshots/2026-03-26
-```
-
-Reports land in `reports/`. Extractions land in `reports/extractions/`, one JSON per package plus a `manifest.json`.
-
-**5. Run behavioral spec verification** (optional but recommended):
-
-```bash
-make verify-all-specs            # run all 15 specs, text summary
-make verify-all-specs-json       # same, writes JSON results file
-python3 tools/verify_behavior.py _build/zspecs/zlib.zspec.json --watch   # TDD mode
-```
-
-**6. Check which candidates have behavioral specs:**
-
-```bash
-make spec-coverage EXTRACTION_DIR=reports/extractions/
-```
+---
 
 ## Project Layout
 
 ```
-theseus/
-  theseus/        — Python package: core importer logic (theseus/importer.py)
-  tools/          — CLI analysis and verification scripts
-    bootstrap_canonical_recipes.py  — entry-point shim (logic in theseus/importer.py)
-    overlap_report.py               — compare ecosystems
-    top_candidates.py               — rank packages by score
-    extract_candidates.py           — phase Z: merge top candidates
-    validate_record.py              — validate canonical records
-    diff_snapshots.py               — diff two snapshot directories
-    verify_behavior.py              — Z-spec harness: run invariants against library
-    validate_zspec.py               — Z-spec static schema validator
-    verify_all_specs.py             — run all specs, write JSON results
-    spec_coverage.py                — report covered vs gap candidates
-  schema/         — JSON Schema for canonical package recipe records
-  zspecs/         — Z-layer spec sources (*.zspec.zsdl) and schema (schema/)
-  _build/zspecs/  — compiled spec files (*.zspec.json, build artifacts — not in git)
-    schema/       — JSON Schema for Z-spec files (behavioral-spec.schema.json)
-  examples/
-    freebsd_ports/ — Sample FreeBSD Ports canonical records (curl, openssl, zlib)
-    nixpkgs/       — Sample Nixpkgs canonical records (curl, openssl, zlib)
-  snapshots/      — Generated: importer output (one subdirectory per run)
-  reports/        — Generated: overlap reports, rankings, extractions
-  tests/          — Test suite (1025 tests)
-  docs/           — Architecture and design documentation
+theseus/        Python package: importer, drivers, store, agent
+tools/          CLI analysis and verification scripts
+zspecs/         Z-spec sources (*.zspec.zsdl) — committed
+_build/zspecs/  Compiled specs (*.zspec.json) — build artifact, not committed
+schema/         JSON Schema for canonical package records
+zspecs/schema/  JSON Schema for Z-spec files
+examples/       Sample canonical records (curl, openssl, zlib)
+specs/          Canonical package records (239 packages)
+docs/           Architecture, ZSDL design, spec-authoring guide
+docs/guide/     User guide source (built to GitHub Pages)
+tests/          Test suite (3,203 tests)
+scripts/        Release automation
 ```
+
+---
+
+## Makefile Targets
+
+```
+make / make all          Check Python version, print usage
+make start               Run analysis on SNAPSHOT= or demo on examples/
+make test                Validate Z-specs then run test suite
+make compile-zsdl        Compile zspecs/*.zspec.zsdl → _build/zspecs/*.zspec.json
+make verify-all-specs    Run every spec; text summary
+make verify-all-specs-json  Run every spec; write JSON results
+make verify-behavior     Run one spec (ZSPEC=path)
+make spec-coverage       Coverage report (EXTRACTION_DIR= required)
+make validate-zspecs     Validate Z-spec JSON files against schema
+make clean               Remove build artifacts
+make release             Cut a release (BUMP=major|minor|patch)
+make help                Full target and variable reference
+```
+
+---
 
 ## Schema
 
-The canonical schema (`schema/package-recipe.schema.json`) captures:
+The canonical record format (`schema/package-recipe.schema.json`) captures identity, dependencies, build system, sources, patches, platforms, features, tests, provenance, and an optional `behavioral_spec` pointer. See [docs/architecture.md](docs/architecture.md) for the full design.
 
-| Field | Purpose |
-|-------|---------|
-| `identity` | Canonical name/ID, ecosystem, ecosystem-specific ID, version |
-| `descriptive` | Summary, homepage, license, categories |
-| `sources` | Download URLs and types |
-| `dependencies` | Build, host, runtime, and test dependency lists |
-| `build` | Build system kind and flags |
-| `features` | Optional feature flags / knobs |
-| `platforms` | Include/exclude platform lists |
-| `patches` | Applied patches with reasons |
-| `tests` | Test phase presence and structure |
-| `provenance` | Source path, commit, importer, confidence score, warnings, unmapped fields |
-| `extensions` | Ecosystem-specific extra fields (passthrough, no normalization) |
-| `behavioral_spec` | Optional: repo-relative path to a matching `_build/zspecs/*.zspec.json` (auto-injected by extractor) |
+---
 
-The schema is intentionally modest. It captures enough structure to compare ecosystems, rank packages, and feed later extraction phases while preserving provenance and lossiness signals. It is not a full semantic model of Nix or FreeBSD Ports.
+## CI
+
+GitHub Actions runs on every push and pull request to `main`:
+
+- **Matrix job:** ubuntu-latest + macos-latest × Python 3.9–3.12 × Node 22
+- **FreeBSD job:** FreeBSD 14.2 VM (via cross-platform-actions) with Python 3.11 + Node 22
+
+The ubuntu/Python-3.12 job uploads `verify-all-specs-results.json` as an artifact.
+
+---
 
 ## Development
 
 ```bash
-make test     # run the test suite
-make start    # run analysis on examples/ as a quick demo
-make clean    # remove generated artifacts
+make test           # run the full test suite
+make clean          # remove _build/, .pytest_cache, *.pyc
+make validate       # validate records in examples/ (or PATHS=dir)
+make sync           # rsync to SYNC_TARGETS (excludes snapshots/)
 ```
 
-## Configuration
+No runtime configuration is required. All behavior is controlled by command-line arguments and Makefile variables.
 
-No runtime configuration is required. The schema version is embedded in each record (`schema_version`). Tool behavior is controlled entirely by command-line arguments.
-
-## Deployment
-
-Theseus is a local analysis toolchain. There is no server component and no deployment step. Run it anywhere Python 3.9+ is available.
+---
 
 ## License
 
