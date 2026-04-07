@@ -21,7 +21,9 @@ that are verified against the real installed library on macOS, Linux, and FreeBS
 | Node.js | 22+ | Node.js-backed Z-specs (ajv, chalk, express, lodash, minimist, prettier, semver, uuid) |
 | npm | any | Install Node.js test dependencies |
 | pytest | any | `make test` |
-| PyYAML | any | `make compile-zsdl` / `make test` (used by the ZSDL compiler) |
+| PyYAML | any | `make compile-zsdl` / `make test` (ZSDL compiler) |
+
+To run the full behavioral spec suite (`make verify-all-specs`), the libraries under test must also be installed. The CI workflow installs them automatically. For local use, install the ones you want to verify individually.
 
 ### Clone and set up
 
