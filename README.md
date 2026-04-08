@@ -2,7 +2,7 @@
 
 > *You start with a ship. You replace the planks. You replace the mast. You replace the hull. At what point does it become a different ship? Theseus answered this question by not caring and sailing anyway.*
 
-**Theseus** is a toolchain for normalizing package recipes from [Nixpkgs](https://github.com/NixOS/nixpkgs) and [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
+**Theseus** is a toolchain for normalizing package recipes from collections like PyPi, NPM, [Nixpkgs](https://github.com/NixOS/nixpkgs) and [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
 
 On top of that pipeline sits a **Z-layer behavioral spec system**: 70 machine-readable contracts, one per OSS library, verified against the real installed library across macOS, Linux, and FreeBSD.
 
