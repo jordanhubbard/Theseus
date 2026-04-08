@@ -21,10 +21,11 @@ NPM_SEED ?= ./reports/npm-seed.txt
 NPM_TOP ?= 100
 IMPORT_OUT ?= ./snapshots/$(shell date +%Y-%m-%d)
 IMPORT_TIMEOUT ?= 15
+PYTHON ?= python3
 
 all:
-	@python3 --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
-	@python3 -c "import sys; assert sys.version_info >= (3, 9), 'Python 3.9+ required'" 2>/dev/null \
+	@$(PYTHON) --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
+	@$(PYTHON) -c "import sys; assert sys.version_info >= (3, 9), 'Python 3.9+ required'" 2>/dev/null \
 		|| (echo "Error: Python 3.9+ required" && exit 1)
 	@echo "Theseus is ready. No runtime dependencies to install (stdlib only)."
 	@echo "Run 'make test' to verify. Run 'make start' for a quick demo on examples/."
@@ -32,12 +33,12 @@ all:
 start:
 	@if [ -d "$(SNAPSHOT)" ]; then \
 		echo "Running analysis on snapshot: $(SNAPSHOT)"; \
-		python3 tools/overlap_report.py "$(SNAPSHOT)" --out "$(REPORT_OUT)"; \
-		python3 tools/top_candidates.py "$(SNAPSHOT)" --out "$(CANDIDATES_OUT)"; \
+		$(PYTHON) tools/overlap_report.py "$(SNAPSHOT)" --out "$(REPORT_OUT)"; \
+		$(PYTHON) tools/top_candidates.py "$(SNAPSHOT)" --out "$(CANDIDATES_OUT)"; \
 	else \
 		echo "No snapshot found at $(SNAPSHOT). Running demo on examples/..."; \
-		python3 tools/overlap_report.py examples --out reports/demo-overlap; \
-		python3 tools/top_candidates.py examples --out reports/demo-candidates.json; \
+		$(PYTHON) tools/overlap_report.py examples --out reports/demo-overlap; \
+		$(PYTHON) tools/top_candidates.py examples --out reports/demo-candidates.json; \
 		echo "Demo reports written to reports/demo-overlap/ and reports/demo-candidates.json"; \
 	fi
 
@@ -47,11 +48,11 @@ stop:
 restart: stop start
 
 test: compile-zsdl
-	python3 tools/validate_zspec.py
-	python3 -m pytest tests/ -v
+	$(PYTHON) tools/validate_zspec.py
+	$(PYTHON) -m pytest tests/ -v
 
 validate-zspecs: compile-zsdl
-	python3 tools/validate_zspec.py $(ZSPECS)
+	$(PYTHON) tools/validate_zspec.py $(ZSPECS)
 
 clean:
 	rm -rf _build/ snapshots/ reports/demo-overlap reports/demo-candidates.json
@@ -61,13 +62,13 @@ clean:
 	rm -rf .pytest_cache
 
 report:
-	python3 tools/overlap_report.py "$(SNAPSHOT)" --out "$(REPORT_OUT)"
+	$(PYTHON) tools/overlap_report.py "$(SNAPSHOT)" --out "$(REPORT_OUT)"
 
 candidates:
-	python3 tools/top_candidates.py "$(SNAPSHOT)" --out "$(CANDIDATES_OUT)"
+	$(PYTHON) tools/top_candidates.py "$(SNAPSHOT)" --out "$(CANDIDATES_OUT)"
 
 extract:
-	python3 tools/extract_candidates.py "$(SNAPSHOT)" "$(CANDIDATES_OUT)" \
+	$(PYTHON) tools/extract_candidates.py "$(SNAPSHOT)" "$(CANDIDATES_OUT)" \
 		--out "$(EXTRACT_OUT)" --top "$(EXTRACT_TOP)"
 
 sync:
@@ -85,33 +86,33 @@ sync:
 
 filldeps:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make filldeps SNAPSHOT=<dir> [NIXPKGS_ROOT=path] [FILL_TIMEOUT=30]" && exit 1)
-	python3 tools/fill_nixpkgs_deps.py "$(SNAPSHOT)/nixpkgs" "$(NIXPKGS_ROOT)" \
+	$(PYTHON) tools/fill_nixpkgs_deps.py "$(SNAPSHOT)/nixpkgs" "$(NIXPKGS_ROOT)" \
 		--timeout "$(FILL_TIMEOUT)" --batch-size "$(FILL_BATCH_SIZE)" \
 		$(if $(OVERWRITE),--overwrite)
 
 rank:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make rank SNAPSHOT=<dir> [RANK_OUT=file] [RANK_TOP=500] [RANK_MIN_REFS=2]" && exit 1)
-	python3 tools/rank_by_deps.py "$(SNAPSHOT)" \
+	$(PYTHON) tools/rank_by_deps.py "$(SNAPSHOT)" \
 		--out "$(RANK_OUT)" --top "$(RANK_TOP)" --min-refs "$(RANK_MIN_REFS)"
 
 seed:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make seed SNAPSHOT=<freebsd_ports_dir> [PYPI_SEED=file] [NPM_SEED=file] [NPM_TOP=100]" && exit 1)
-	python3 tools/seed_from_ports.py "$(SNAPSHOT)" \
+	$(PYTHON) tools/seed_from_ports.py "$(SNAPSHOT)" \
 		--pypi-out "$(PYPI_SEED)" --npm-out "$(NPM_SEED)" --npm-top "$(NPM_TOP)"
 
 import-pypi:
 	@test -f "$(PYPI_SEED)" || (echo "Run 'make seed SNAPSHOT=...' first to generate $(PYPI_SEED)" && exit 1)
-	python3 theseus/importer.py --pypi-list "$(PYPI_SEED)" \
+	$(PYTHON) theseus/importer.py --pypi-list "$(PYPI_SEED)" \
 		--out "$(IMPORT_OUT)" --timeout "$(IMPORT_TIMEOUT)"
 
 import-npm:
 	@test -f "$(NPM_SEED)" || (echo "Run 'make seed SNAPSHOT=...' first to generate $(NPM_SEED)" && exit 1)
-	python3 theseus/importer.py --npm-list "$(NPM_SEED)" \
+	$(PYTHON) theseus/importer.py --npm-list "$(NPM_SEED)" \
 		--out "$(IMPORT_OUT)" --timeout "$(IMPORT_TIMEOUT)"
 
 bulk-build:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make bulk-build SNAPSHOT=<dir> [BULK_RANKED=file] [BULK_TOP=100] [BULK_MIN_REFS=5] [BULK_JOBS=2]" && exit 1)
-	python3 tools/bulk_build.py "$(BULK_RANKED)" "$(SNAPSHOT)/freebsd_ports" "$(SNAPSHOT)/nixpkgs" \
+	$(PYTHON) tools/bulk_build.py "$(BULK_RANKED)" "$(SNAPSHOT)/freebsd_ports" "$(SNAPSHOT)/nixpkgs" \
 		--top "$(BULK_TOP)" --min-refs "$(BULK_MIN_REFS)" \
 		--jobs "$(BULK_JOBS)" \
 		$(if $(DRIVERS),--drivers "$(DRIVERS)") \
@@ -119,10 +120,10 @@ bulk-build:
 
 compile-zsdl:
 	@mkdir -p _build/zspecs
-	python3 tools/zsdl_compile.py $(if $(ZSDL),$(ZSDL),--all)
+	$(PYTHON) tools/zsdl_compile.py $(if $(ZSDL),$(ZSDL),--all)
 
 verify-behavior: compile-zsdl
-	python3 tools/verify_behavior.py $(or $(ZSPEC),_build/zspecs/zlib.zspec.json) \
+	$(PYTHON) tools/verify_behavior.py $(or $(ZSPEC),_build/zspecs/zlib.zspec.json) \
 		$(if $(FILTER),--filter "$(FILTER)") \
 		$(if $(VERBOSE),--verbose) \
 		$(if $(JSON_OUT),--json-out "$(JSON_OUT)")
@@ -131,7 +132,7 @@ verify-all-specs: compile-zsdl
 	@total=0; passed=0; failed=0; \
 	for spec in _build/zspecs/*.zspec.json; do \
 		echo "--- $$spec ---"; \
-		if python3 tools/verify_behavior.py "$$spec" $(if $(VERBOSE),--verbose); then \
+		if $(PYTHON) tools/verify_behavior.py "$$spec" $(if $(VERBOSE),--verbose); then \
 			passed=$$((passed+1)); \
 		else \
 			failed=$$((failed+1)); \
@@ -142,26 +143,26 @@ verify-all-specs: compile-zsdl
 	echo "=== verify-all-specs: $$total specs, $$passed passed, $$failed failed ===";
 
 verify-all-specs-json: compile-zsdl
-	python3 tools/verify_all_specs.py $(if $(SPECS),$(SPECS)) $(if $(OUT),--out $(OUT))
+	$(PYTHON) tools/verify_all_specs.py $(if $(SPECS),$(SPECS)) $(if $(OUT),--out $(OUT))
 
 spec-coverage:
 	@test -n "$(EXTRACTION_DIR)" || (echo "Usage: make spec-coverage EXTRACTION_DIR=<dir> [TOP=N] [JSON=1]" && exit 1)
-	python3 tools/spec_coverage.py "$(EXTRACTION_DIR)" $(if $(TOP),--top $(TOP)) $(if $(JSON),--json)
+	$(PYTHON) tools/spec_coverage.py "$(EXTRACTION_DIR)" $(if $(TOP),--top $(TOP)) $(if $(JSON),--json)
 
 orphan-specs: compile-zsdl
 	@test -n "$(EXTRACTION_DIR)" || (echo "Usage: make orphan-specs EXTRACTION_DIR=<dir>" && exit 1)
-	python3 tools/orphan_specs.py "$(EXTRACTION_DIR)" $(if $(JSON),--json)
+	$(PYTHON) tools/orphan_specs.py "$(EXTRACTION_DIR)" $(if $(JSON),--json)
 
 spec-vector-coverage: compile-zsdl
-	python3 tools/spec_vector_coverage.py $(if $(SPECS),$(SPECS)) $(if $(JSON),--json) $(if $(MIN_SCORE),--min-score $(MIN_SCORE))
+	$(PYTHON) tools/spec_vector_coverage.py $(if $(SPECS),$(SPECS)) $(if $(JSON),--json) $(if $(MIN_SCORE),--min-score $(MIN_SCORE))
 
 validate:
-	python3 tools/validate_record.py $(or $(PATHS),examples/)
+	$(PYTHON) tools/validate_record.py $(or $(PATHS),examples/)
 
 diff:
 	@test -n "$(BEFORE)" || (echo "Usage: make diff BEFORE=<dir> AFTER=<dir> [OUT=<file>]" && exit 1)
 	@test -n "$(AFTER)"  || (echo "Usage: make diff BEFORE=<dir> AFTER=<dir> [OUT=<file>]" && exit 1)
-	python3 tools/diff_snapshots.py --before "$(BEFORE)" --after "$(AFTER)" $(if $(OUT),--out "$(OUT)")
+	$(PYTHON) tools/diff_snapshots.py --before "$(BEFORE)" --after "$(AFTER)" $(if $(OUT),--out "$(OUT)")
 
 release:
 	bash scripts/release.sh $(or $(BUMP),patch)
