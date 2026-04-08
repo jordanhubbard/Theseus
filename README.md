@@ -2,7 +2,15 @@
 
 > *You start with a ship. You replace the planks. You replace the mast. You replace the hull. At what point does it become a different ship? Theseus answered this question by not caring and sailing anyway.*
 
-**Theseus** is a toolchain for normalizing package recipes from collections like PyPi, NPM, [Nixpkgs](https://github.com/NixOS/nixpkgs) and [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
+**Theseus** is a toolchain for normalizing package recipes from four ecosystems into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
+
+Two ecosystems are **directly walked from source trees**:
+- [**Nixpkgs**](https://github.com/NixOS/nixpkgs) — traversed via `--nixpkgs`, with dependency graphs filled by `fill_nixpkgs_deps.py`
+- [**FreeBSD Ports**](https://github.com/freebsd/freebsd-ports) — traversed via `--ports`
+
+Two more are **seed-derived and imported separately**: a FreeBSD Ports snapshot is first used to generate seed lists (`make seed`), which are then fetched independently:
+- **PyPI** — fetched via `make import-pypi` from a ports-derived seed list
+- **npm** — fetched via `make import-npm` from a ports-derived seed list
 
 On top of that pipeline sits a **Z-layer behavioral spec system**: 70 machine-readable contracts, one per OSS library, verified against the real installed library across macOS, Linux, and FreeBSD.
 
@@ -56,6 +64,60 @@ Machine-readable contracts that describe how OSS libraries actually behave, deri
 **Backends:** `ctypes` (C shared libraries), `python_module` (Python stdlib + pip packages), `cli` (subprocess), `node/CJS` and `node/ESM` (npm packages).
 
 **Covered libraries (70):** ajv, attrs, base64, certifi, chalk, chardet, colorama, curl, datetime, decorator, defusedxml, difflib, distro, dns, docutils, dotenv, express, filelock, fontTools, fsspec, hashlib, idna, isodate, json, libcrypto, lodash, lxml, lz4, markdown, markupsafe, minimist, more_itertools, msgpack, networkx, numpy, openssl, packaging, pathlib, pathspec, pcre2, pillow, platformdirs, pluggy, prettier, protobuf, psutil, pygments, pyparsing, pytz, pyyaml, re, semver, setuptools, six, sqlite3, stevedore, struct, tomli, tomlkit, tornado, traitlets, typing_extensions, tzdata, urllib_parse, urllib3, uuid, wrapt, zlib, zope_interface, zstd.
+
+---
+
+## Z-Specs and ZSDL
+
+### What is a Z-spec?
+
+A **Z-spec** (behavioral specification) is a machine-readable contract that describes how an OSS library actually behaves at its public API boundary. Each spec:
+
+- Is derived **only from public documentation** — API docs, RFCs, man pages — never from library source code
+- Defines **invariants**: testable assertions about exact behavior (e.g., `crc32(0, NULL, 0) must return 0`, `json.loads('null') is None`)
+- Is **verified against the real installed library** on every CI run across macOS, Linux, and FreeBSD
+- Includes a **provenance block** that explicitly records what documentation was and was not read — establishing a clean-room boundary
+
+The clean-room provenance model matters because it ensures specs can be used as a trustworthy behavioral baseline independent of any particular implementation. If a spec value can only be known by reading source code, it doesn't belong in the spec.
+
+### What is ZSDL?
+
+**ZSDL** (Z-Spec Definition Language) is a YAML-based authoring format that compiles to the existing Z-spec JSON format:
+
+- Reduces a typical 300-line JSON spec to ~75 lines with zero information lost
+- Provides a table syntax for grouping repeated test vectors compactly
+- Auto-generates `description` and `id` fields where they are mechanical
+- Source files live in `zspecs/*.zspec.zsdl` — **committed to git**
+- Compiled JSON lives in `_build/zspecs/*.zspec.json` — **build artifact, never committed**
+- The compiler is `tools/zsdl_compile.py`, invoked via `make compile-zsdl`
+
+### Backends
+
+Each spec targets one backend that loads the library under test:
+
+| Backend | ZSDL header | How it loads the library |
+|---------|-------------|--------------------------|
+| `ctypes` | `ctypes(zlib)` | `ctypes.CDLL` via `ctypes.util.find_library` |
+| `python_module` | `python_module(hashlib)` | `importlib.import_module` |
+| `cli` | `cli(curl)` | `subprocess.run` |
+| `node/CJS` | `node(semver)` | `node -e "require('semver')..."` |
+| `node/ESM` | `node(chalk)` + `esm: true` | `node -e "await import('chalk')..."` |
+
+### Authoring workflow
+
+```bash
+# Edit or create a spec
+$EDITOR zspecs/mylib.zspec.zsdl
+
+# Compile one spec
+make compile-zsdl ZSDL=zspecs/mylib.zspec.zsdl
+
+# Compile all specs
+make compile-zsdl
+
+# Verify against the installed library
+python3 tools/verify_behavior.py _build/zspecs/mylib.zspec.json
+```
 
 ---
 
