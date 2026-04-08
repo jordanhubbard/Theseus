@@ -116,7 +116,7 @@ make compile-zsdl ZSDL=zspecs/mylib.zspec.zsdl
 make compile-zsdl
 
 # Verify against the installed library
-python3 tools/verify_behavior.py _build/zspecs/mylib.zspec.json
+make verify-behavior ZSPEC=_build/zspecs/mylib.zspec.json
 ```
 
 ---
@@ -165,14 +165,14 @@ make verify-behavior ZSPEC=_build/zspecs/zlib.zspec.json  # single spec
 ## Project Layout
 
 ```
-theseus/        Python package: importer, drivers, store, agent
+theseus/        Python package: importer, drivers, remote, store, agent, config
 tools/          CLI analysis and verification scripts
 zspecs/         Z-spec sources (*.zspec.zsdl) — committed
 _build/zspecs/  Compiled specs (*.zspec.json) — build artifact, not committed
 schema/         JSON Schema for canonical package records
 zspecs/schema/  JSON Schema for Z-spec files
 examples/       Sample canonical records (curl, openssl, zlib)
-specs/          Canonical package records (239 packages)
+specs/          Canonical package records (232 packages)
 docs/           Architecture, ZSDL design, spec-authoring guide
 docs/guide/     User guide source (built to GitHub Pages)
 tests/          Test suite (3,203 tests)
