@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-04-08
+
+### Fixed
+- detect python binary path rather than symlinking in FreeBSD CI
+- symlink python3.11 → python3 in FreeBSD CI
+- skip platform-specific and version-gated invariants in CI
+- install all spec libraries in CI so behavioral tests can run
+- CI was failing on all jobs — add pyyaml dep, bump cross-platform-actions
+
+### Other
+- fix README inaccuracies
+- update README with accurate ecosystem descriptions and dedicated Z-Specs/ZSDL section
+- Initial plan
+- Update README to include PyPi and NPM in toolchain
+- Fix three accuracy issues found in documentation review
+- Add AGENTS.md, update README, and publish user guide to GitHub Pages
+
 ## [0.0.1] - 2026-04-05
 
 ### Other
