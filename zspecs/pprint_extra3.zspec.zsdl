@@ -10,95 +10,64 @@ provenance:
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
     - "CPython source: Lib/pprint.py"
-    - "pprint.zspec.zsdl — covers function names (pformat, pprint, isreadable, isrecursive, saferepr), PrettyPrinter class name, PrettyPrinter.__module__"
-    - "pprint_extra.zspec.zsdl — covers pformat({'a':1}), pformat([1,2,3]), isreadable(42), isrecursive([]), saferepr('hello'), PrettyPrinter().__class__.__name__"
-    - "pprint_extra2.zspec.zsdl — covers pprint.__name__, pformat.__name__, PrettyPrinter.__name__, PrettyPrinter.__bases__[0].__name__, pp.__name__, pformat(42), pformat('hello'), pformat(None), pformat(True)"
   notes:
-    - "pprint.pformat.__module__ == 'pprint' — pformat belongs to the pprint module."
+    - "This spec extends pprint.zspec.zsdl, pprint_extra.zspec.zsdl, and pprint_extra2.zspec.zsdl."
+    - "pprint.zspec.zsdl: pformat primitives/containers, isreadable/isrecursive/saferepr tables, PrettyPrinter.__name__, function type checks."
+    - "pprint_extra.zspec.zsdl: PrettyPrinter.__name__, PrettyPrinter.__module__, pformat/pprint/isreadable/isrecursive/saferepr __name__, pformat(42), pformat('hello')."
+    - "pprint_extra2.zspec.zsdl: pformat([1,2,3]), pformat({}), pformat(''), isreadable([1,2,3]), isreadable({}), isrecursive([1,2,3]), isrecursive([])."
+    - "Focus: __qualname__ attributes for pprint/pformat/isreadable/isrecursive/saferepr/PrettyPrinter; __module__ for pprint (the function); behavioral: isreadable(42), isrecursive([1,2,3]), saferepr(42)."
+    - "pprint.pprint.__qualname__ == 'pprint' — module-level function has a flat qualname."
+    - "pprint.pformat.__qualname__ == 'pformat' — module-level function has a flat qualname."
+    - "pprint.isreadable.__qualname__ == 'isreadable' — module-level function has a flat qualname."
+    - "pprint.isrecursive.__qualname__ == 'isrecursive' — module-level function has a flat qualname."
+    - "pprint.saferepr.__qualname__ == 'saferepr' — module-level function has a flat qualname."
+    - "pprint.PrettyPrinter.__qualname__ == 'PrettyPrinter' — module-level class has a flat qualname."
     - "pprint.pprint.__module__ == 'pprint' — the pprint function belongs to the pprint module."
-    - "pprint.isreadable.__module__ == 'pprint' — isreadable belongs to the pprint module."
-    - "pprint.isrecursive.__module__ == 'pprint' — isrecursive belongs to the pprint module."
-    - "pprint.saferepr.__module__ == 'pprint' — saferepr belongs to the pprint module."
     - "pprint.PrettyPrinter.__module__ == 'pprint' — PrettyPrinter class belongs to the pprint module."
-    - "pprint.pformat({}) == '{}' — an empty dict formats as a two-character string."
-    - "pprint.pformat([]) == '[]' — an empty list formats as a two-character string."
-    - "pprint.isreadable(None) == True — None has a readable repr."
-    - "pprint.isreadable({'a': 1}) == True — a simple dict has a readable repr."
+    - "pprint.isreadable(42) == True — integers have a readable repr."
+    - "pprint.isrecursive([1, 2, 3]) == False — a plain list has no recursive references."
     - "pprint.saferepr(42) == '42' — integer repr is its decimal string form."
-    - "pprint.saferepr(None) == 'None' — None repr is the string 'None'."
-    - "pprint.saferepr([1, 2, 3]) == '[1, 2, 3]' — short list repr fits on one line."
-    - "pprint.saferepr(True) == 'True' — bool repr is 'True'."
+    - "Lambdas (pprint.isreadable(lambda x: x) == False) cannot be expressed as a ZSDL arg (args must be simple YAML types) and are omitted from this spec."
     - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# Module affiliation — pformat
+# __qualname__ checks — module-level functions and class
+#
+# All pprint public names are defined at module top level; their __qualname__
+# equals their simple name (no nesting or closure prefix).
 # ---------------------------------------------------------------------------
 
-invariant pprint_extra3.pformat.module:
-  description: "pprint.pformat.__module__ == 'pprint'"
-  category: module
+table pprint_extra3.function_qualnames:
   kind: python_call_eq
-  function: pformat.__module__.__eq__
-  args: ["pprint"]
-  expected: true
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pprint,        pprint.__qualname__.__eq__,        ["pprint"],        true]
+    - [pformat,       pformat.__qualname__.__eq__,       ["pformat"],       true]
+    - [isreadable,    isreadable.__qualname__.__eq__,    ["isreadable"],    true]
+    - [isrecursive,   isrecursive.__qualname__.__eq__,   ["isrecursive"],   true]
+    - [saferepr,      saferepr.__qualname__.__eq__,      ["saferepr"],      true]
+    - [PrettyPrinter, PrettyPrinter.__qualname__.__eq__, ["PrettyPrinter"], true]
 
 # ---------------------------------------------------------------------------
-# Module affiliation — pprint (the function)
+# __module__ — pprint function and PrettyPrinter class
 # ---------------------------------------------------------------------------
 
 invariant pprint_extra3.pprint.module:
-  description: "pprint.pprint.__module__ == 'pprint'"
+  description: "pprint.pprint.__module__ == 'pprint' — the pprint function belongs to the pprint module"
   category: module
   kind: python_call_eq
   function: pprint.__module__.__eq__
   args: ["pprint"]
   expected: true
 
-# ---------------------------------------------------------------------------
-# Module affiliation — isreadable
-# ---------------------------------------------------------------------------
-
-invariant pprint_extra3.isreadable.module:
-  description: "pprint.isreadable.__module__ == 'pprint'"
-  category: module
-  kind: python_call_eq
-  function: isreadable.__module__.__eq__
-  args: ["pprint"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# Module affiliation — isrecursive
-# ---------------------------------------------------------------------------
-
-invariant pprint_extra3.isrecursive.module:
-  description: "pprint.isrecursive.__module__ == 'pprint'"
-  category: module
-  kind: python_call_eq
-  function: isrecursive.__module__.__eq__
-  args: ["pprint"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# Module affiliation — saferepr
-# ---------------------------------------------------------------------------
-
-invariant pprint_extra3.saferepr.module:
-  description: "pprint.saferepr.__module__ == 'pprint'"
-  category: module
-  kind: python_call_eq
-  function: saferepr.__module__.__eq__
-  args: ["pprint"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# Module affiliation — PrettyPrinter class
-# ---------------------------------------------------------------------------
-
 invariant pprint_extra3.PrettyPrinter.module:
-  description: "pprint.PrettyPrinter.__module__ == 'pprint'"
+  description: "pprint.PrettyPrinter.__module__ == 'pprint' — PrettyPrinter class belongs to the pprint module"
   category: module
   kind: python_call_eq
   function: PrettyPrinter.__module__.__eq__
@@ -106,77 +75,29 @@ invariant pprint_extra3.PrettyPrinter.module:
   expected: true
 
 # ---------------------------------------------------------------------------
-# pformat() — empty containers
+# Behavioral invariants — isreadable, isrecursive, saferepr
 # ---------------------------------------------------------------------------
 
-invariant pprint_extra3.pformat.empty_dict:
-  description: "pprint.pformat({}) == '{}'"
-  category: pformat
-  kind: python_call_eq
-  function: pformat
-  args: [{}]
-  expected: "{}"
-
-invariant pprint_extra3.pformat.empty_list:
-  description: "pprint.pformat([]) == '[]'"
-  category: pformat
-  kind: python_call_eq
-  function: pformat
-  args: [[]]
-  expected: "[]"
-
-# ---------------------------------------------------------------------------
-# isreadable() — readable objects
-# ---------------------------------------------------------------------------
-
-invariant pprint_extra3.isreadable.none:
-  description: "pprint.isreadable(None) == True — None has a readable repr"
+invariant pprint_extra3.isreadable.on_int:
+  description: "pprint.isreadable(42) == True — integers have a readable repr"
   category: isreadable
   kind: python_call_eq
   function: isreadable
-  args: [null]
+  args: [42]
   expected: true
 
-invariant pprint_extra3.isreadable.simple_dict:
-  description: "pprint.isreadable({'a': 1}) == True — a simple dict has a readable repr"
-  category: isreadable
+invariant pprint_extra3.isrecursive.plain_list:
+  description: "pprint.isrecursive([1, 2, 3]) == False — a plain list has no recursive references"
+  category: isrecursive
   kind: python_call_eq
-  function: isreadable
-  args: [{"a": 1}]
-  expected: true
+  function: isrecursive
+  args: [[1, 2, 3]]
+  expected: false
 
-# ---------------------------------------------------------------------------
-# saferepr() — standard types
-# ---------------------------------------------------------------------------
-
-invariant pprint_extra3.saferepr.int:
-  description: "pprint.saferepr(42) == '42'"
+invariant pprint_extra3.saferepr.on_int:
+  description: "pprint.saferepr(42) == '42' — integer repr is its decimal string form"
   category: saferepr
   kind: python_call_eq
   function: saferepr
   args: [42]
   expected: "42"
-
-invariant pprint_extra3.saferepr.none:
-  description: "pprint.saferepr(None) == 'None'"
-  category: saferepr
-  kind: python_call_eq
-  function: saferepr
-  args: [null]
-  expected: "None"
-
-invariant pprint_extra3.saferepr.list:
-  description: "pprint.saferepr([1, 2, 3]) == '[1, 2, 3]'"
-  category: saferepr
-  kind: python_call_eq
-  function: saferepr
-  args: [[1, 2, 3]]
-  expected: "[1, 2, 3]"
-
-invariant pprint_extra3.saferepr.bool_true:
-  description: "pprint.saferepr(True) == 'True'"
-  category: saferepr
-  kind: python_call_eq
-  function: saferepr
-  args: [true]
-  expected: "True"

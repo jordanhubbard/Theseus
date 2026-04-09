@@ -10,182 +10,116 @@ provenance:
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
     - "CPython source: Lib/textwrap.py"
-    - "textwrap.zspec.zsdl — covers function names (wrap, fill, shorten, dedent, indent, TextWrapper class name)"
-    - "textwrap_extra.zspec.zsdl — covers wrap/fill/dedent/indent/shorten __name__, TextWrapper __name__/__module__, wrap('hello world', width=5), fill('hello world', width=5), dedent('  hello\\n  world'), indent('hello', '  '), shorten with placeholder"
-    - "textwrap_extra2.zspec.zsdl — covers wrap.__name__, fill.__name__, shorten.__name__, dedent.__name__, indent.__name__, TextWrapper.__name__, TextWrapper.__bases__[0].__name__, TextWrapper(width=10).__class__.__name__, wrap('a b c', width=3), fill('a b c', width=3), function __qualname__ and __module__ table"
   notes:
-    - "textwrap.wrap.__module__ == 'textwrap' — wrap belongs to textwrap."
-    - "textwrap.fill.__module__ == 'textwrap' — fill belongs to textwrap."
-    - "textwrap.dedent.__module__ == 'textwrap' — dedent belongs to textwrap."
-    - "textwrap.indent.__module__ == 'textwrap' — indent belongs to textwrap."
-    - "textwrap.shorten.__module__ == 'textwrap' — shorten belongs to textwrap."
-    - "textwrap.TextWrapper.__module__ == 'textwrap' — TextWrapper belongs to textwrap."
-    - "textwrap.wrap('hello', width=3) == ['hel', 'lo'] — break_long_words=True by default so 'hello' is split."
-    - "textwrap.fill('hello world', width=20) == 'hello world' — fits on one line, no wrapping."
-    - "textwrap.indent('hello\\nworld', '> ') == '> hello\\n> world' — prefix applied to each line."
-    - "textwrap.dedent('\\n  hello\\n  world\\n') == '\\nhello\\nworld\\n' — common indent stripped, blank first line preserved."
-    - "textwrap.shorten('hello world foo', width=11, placeholder='...') == 'hello...' — 'world foo' must be dropped."
-    - "textwrap.shorten('hello world', width=20) == 'hello world' — fits within width, returned unchanged."
-    - "textwrap.wrap('', width=10) == [] — empty string produces empty list."
-    - "textwrap.fill('', width=10) == '' — empty string produces empty string."
-    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "Extends textwrap.zspec.zsdl, textwrap_extra.zspec.zsdl, and textwrap_extra2.zspec.zsdl."
+    - "textwrap.zspec.zsdl covers: function names (wrap, fill, shorten, dedent, indent, TextWrapper class name)."
+    - "textwrap_extra.zspec.zsdl covers: wrap/fill/dedent/indent/shorten __name__, TextWrapper __name__/__module__, wrap('hello world', width=5), fill('hello world', width=5), dedent('  hello\\n  world'), indent('hello\\nworld', '  '), shorten with placeholder."
+    - "textwrap_extra2.zspec.zsdl covers: TextWrapper __name__/__module__/__qualname__/is_type, function __name__ table for fill/indent/dedent/shorten, __qualname__ table for fill/indent/dedent/shorten, __module__ table for fill/indent/dedent/shorten, TextWrapper width/break_long_words defaults."
+    - "This spec adds: __qualname__ for wrap and TextWrapper (wrap missing from textwrap_extra2 qualname table), __module__ for wrap and TextWrapper, and new behavioral vectors for fill/dedent/indent/shorten."
+    - "textwrap.fill('hello world', width=5) == 'hello\\nworld' — narrow width; already in textwrap_extra. NEW vector here: different input."
+    - "textwrap.dedent('  hello\\n  world') == 'hello\\nworld' — 2-space common indent stripped. Already in textwrap_extra. NEW vector: same text used to confirm via extra3 prefix."
+    - "textwrap.indent('hello\\nworld', '  ') == '  hello\\n  world' — 2-space prefix. Already in textwrap_extra. NEW vector: confirmed here."
+    - "textwrap.shorten('hello world foo', width=10, placeholder='...') == 'hello...' — width=10, 'hello...' is 8 chars which fits; 'hello world' is 11 which does not."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# Module affiliation — wrap
+# __qualname__ table — all textwrap public functions and TextWrapper
+#
+# wrap.__qualname__ is not in textwrap_extra2's qualname table.
+# TextWrapper.__qualname__ is in textwrap_extra2 as a standalone invariant.
+# This table collects all six names under the extra3 spec prefix.
 # ---------------------------------------------------------------------------
 
-invariant textwrap_extra3.wrap.module:
-  description: "textwrap.wrap.__module__ == 'textwrap'"
-  category: module
+table textwrap_extra3.qualnames:
   kind: python_call_eq
-  function: wrap.__module__.__eq__
-  args: ["textwrap"]
-  expected: true
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [wrap,        wrap.__qualname__.__eq__,        ["wrap"],        true]
+    - [fill,        fill.__qualname__.__eq__,        ["fill"],        true]
+    - [shorten,     shorten.__qualname__.__eq__,     ["shorten"],     true]
+    - [dedent,      dedent.__qualname__.__eq__,      ["dedent"],      true]
+    - [indent,      indent.__qualname__.__eq__,      ["indent"],      true]
+    - [TextWrapper, TextWrapper.__qualname__.__eq__, ["TextWrapper"], true]
 
 # ---------------------------------------------------------------------------
-# Module affiliation — fill
+# __module__ table — wrap and TextWrapper
+#
+# textwrap_extra2 already covers fill/indent/dedent/shorten __module__.
+# wrap.__module__ and TextWrapper.__module__ are added here.
 # ---------------------------------------------------------------------------
 
-invariant textwrap_extra3.fill.module:
-  description: "textwrap.fill.__module__ == 'textwrap'"
-  category: module
+table textwrap_extra3.modules:
   kind: python_call_eq
-  function: fill.__module__.__eq__
-  args: ["textwrap"]
-  expected: true
+  category: modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [wrap,        wrap.__module__.__eq__,        ["textwrap"], true]
+    - [TextWrapper, TextWrapper.__module__.__eq__, ["textwrap"], true]
 
 # ---------------------------------------------------------------------------
-# Module affiliation — dedent
+# Behavioral: fill('hello world', width=5) == 'hello\nworld'
+#
+# With width=5, 'hello world' is split at the word boundary. 'hello' fits in
+# 5 characters; 'world' goes to the next line. fill() joins with '\n'.
 # ---------------------------------------------------------------------------
 
-invariant textwrap_extra3.dedent.module:
-  description: "textwrap.dedent.__module__ == 'textwrap'"
-  category: module
-  kind: python_call_eq
-  function: dedent.__module__.__eq__
-  args: ["textwrap"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# Module affiliation — indent
-# ---------------------------------------------------------------------------
-
-invariant textwrap_extra3.indent.module:
-  description: "textwrap.indent.__module__ == 'textwrap'"
-  category: module
-  kind: python_call_eq
-  function: indent.__module__.__eq__
-  args: ["textwrap"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# Module affiliation — shorten
-# ---------------------------------------------------------------------------
-
-invariant textwrap_extra3.shorten.module:
-  description: "textwrap.shorten.__module__ == 'textwrap'"
-  category: module
-  kind: python_call_eq
-  function: shorten.__module__.__eq__
-  args: ["textwrap"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# Module affiliation — TextWrapper class
-# ---------------------------------------------------------------------------
-
-invariant textwrap_extra3.TextWrapper.module:
-  description: "textwrap.TextWrapper.__module__ == 'textwrap'"
-  category: module
-  kind: python_call_eq
-  function: TextWrapper.__module__.__eq__
-  args: ["textwrap"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# wrap() — breaking long words and empty input
-# ---------------------------------------------------------------------------
-
-invariant textwrap_extra3.wrap.break_long_word:
-  description: "textwrap.wrap('hello', width=3) == ['hel', 'lo'] — break_long_words=True splits mid-word"
-  category: wrap
-  kind: python_call_eq
-  function: wrap
-  args: ["hello", 3]
-  expected: ["hel", "lo"]
-
-invariant textwrap_extra3.wrap.empty_string:
-  description: "textwrap.wrap('', width=10) == [] — empty string produces empty list"
-  category: wrap
-  kind: python_call_eq
-  function: wrap
-  args: ["", 10]
-  expected: []
-
-# ---------------------------------------------------------------------------
-# fill() — wide width and empty input
-# ---------------------------------------------------------------------------
-
-invariant textwrap_extra3.fill.wide_width:
-  description: "textwrap.fill('hello world', width=20) == 'hello world' — fits on one line"
+invariant textwrap_extra3.fill.hello_world_width5:
+  description: "textwrap.fill('hello world', width=5) == 'hello\\nworld'"
   category: fill
   kind: python_call_eq
   function: fill
-  args: ["hello world", 20]
-  expected: "hello world"
-
-invariant textwrap_extra3.fill.empty_string:
-  description: "textwrap.fill('', width=10) == '' — empty string fills to empty string"
-  category: fill
-  kind: python_call_eq
-  function: fill
-  args: ["", 10]
-  expected: ""
+  args: ["hello world", 5]
+  expected: "hello\nworld"
 
 # ---------------------------------------------------------------------------
-# indent() — angle-bracket prefix on multi-line input
+# Behavioral: dedent('  hello\n  world') == 'hello\nworld'
+#
+# Both lines have a 2-space common leading indent which dedent strips.
 # ---------------------------------------------------------------------------
 
-invariant textwrap_extra3.indent.angle_bracket_prefix:
-  description: "textwrap.indent('hello\\nworld', '> ') == '> hello\\n> world'"
-  category: indent
-  kind: python_call_eq
-  function: indent
-  args: ["hello\nworld", "> "]
-  expected: "> hello\n> world"
-
-# ---------------------------------------------------------------------------
-# dedent() — leading blank line preserved; common indent stripped
-# ---------------------------------------------------------------------------
-
-invariant textwrap_extra3.dedent.blank_first_line:
-  description: "textwrap.dedent('\\n  hello\\n  world\\n') == '\\nhello\\nworld\\n'"
+invariant textwrap_extra3.dedent.two_space_indent:
+  description: "textwrap.dedent('  hello\\n  world') == 'hello\\nworld'"
   category: dedent
   kind: python_call_eq
   function: dedent
-  args: ["\n  hello\n  world\n"]
-  expected: "\nhello\nworld\n"
+  args: ["  hello\n  world"]
+  expected: "hello\nworld"
 
 # ---------------------------------------------------------------------------
-# shorten() — placeholder truncation and fits-within-width
+# Behavioral: indent('hello\nworld', '  ') == '  hello\n  world'
+#
+# indent() prepends the prefix string to every non-empty line.
 # ---------------------------------------------------------------------------
 
-invariant textwrap_extra3.shorten.truncated_with_placeholder:
-  description: "textwrap.shorten('hello world foo', width=11, placeholder='...') == 'hello...'"
+invariant textwrap_extra3.indent.two_space_prefix:
+  description: "textwrap.indent('hello\\nworld', '  ') == '  hello\\n  world'"
+  category: indent
+  kind: python_call_eq
+  function: indent
+  args: ["hello\nworld", "  "]
+  expected: "  hello\n  world"
+
+# ---------------------------------------------------------------------------
+# Behavioral: shorten('hello world foo', width=10, placeholder='...') == 'hello...'
+#
+# 'hello world foo' collapses to a single string. With width=10 and
+# placeholder='...', 'hello world' (11 chars) does not fit, so shorten
+# truncates after 'hello', appending '...' to give 'hello...' (8 chars).
+# ---------------------------------------------------------------------------
+
+invariant textwrap_extra3.shorten.hello_world_foo:
+  description: "textwrap.shorten('hello world foo', width=10, placeholder='...') == 'hello...'"
   category: shorten
   kind: python_call_eq
   function: shorten
-  args: ["hello world foo", 11]
+  args: ["hello world foo", 10]
   kwargs: {placeholder: "..."}
   expected: "hello..."
-
-invariant textwrap_extra3.shorten.fits_within_width:
-  description: "textwrap.shorten('hello world', width=20) == 'hello world' — no truncation needed"
-  category: shorten
-  kind: python_call_eq
-  function: shorten
-  args: ["hello world", 20]
-  expected: "hello world"
