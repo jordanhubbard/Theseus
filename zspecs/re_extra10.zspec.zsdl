@@ -1,0 +1,168 @@
+spec: re_extra10
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec extends re.zspec.zsdl and prior extras through re_extra9.zspec.zsdl."
+    - "re_extra7 covers RegexFlag.IGNORECASE/MULTILINE/DOTALL/VERBOSE/ASCII/NOFLAG .value attributes."
+    - "re_extra8 covers __qualname__ for compile/match/search/fullmatch/sub/split/findall/finditer."
+    - "No prior spec covers RegexFlag.LOCALE.value or RegexFlag.UNICODE.value."
+    - "No prior spec covers re.LOCALE.__class__.__name__ or re.UNICODE.__class__.__name__."
+    - "No prior spec covers re.purge.__qualname__ or re.escape.__qualname__."
+    - "No prior spec covers re.subn.__qualname__."
+    - "No prior spec covers re.compile(pattern).flags returning an int with the UNICODE bit set by default."
+    - "No prior spec covers re.escape output for a string with a special character."
+    - "re.RegexFlag.LOCALE.value == 4 — the LOCALE flag's integer bit position."
+    - "re.RegexFlag.UNICODE.value == 32 — the UNICODE flag's integer bit position."
+    - "re.LOCALE.__class__.__name__ == 'RegexFlag' — LOCALE is a RegexFlag enum member."
+    - "re.UNICODE.__class__.__name__ == 'RegexFlag' — UNICODE is a RegexFlag enum member."
+    - "re.purge.__qualname__ == 'purge' — qualname equals name for a top-level function."
+    - "re.escape.__qualname__ == 'escape' — qualname equals name for a top-level function."
+    - "re.subn.__qualname__ == 'subn' — qualname equals name for a top-level function."
+    - "re.escape('a.b') == 'a\\.b' — escape wraps the dot with a backslash."
+    - "re.compile('a').flags is a plain int (not RegexFlag) with bit 32 set (UNICODE flag on by default)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# RegexFlag.LOCALE and RegexFlag.UNICODE — .value attributes
+#
+# re_extra7 covers IGNORECASE(2)/MULTILINE(8)/DOTALL(16)/VERBOSE(64)/ASCII(256)/NOFLAG(0).
+# No prior spec covers LOCALE(4) or UNICODE(32).
+# ---------------------------------------------------------------------------
+
+invariant re_extra10.RegexFlag.LOCALE.value:
+  description: "re.RegexFlag.LOCALE.value == 4 — the LOCALE flag occupies bit position 2"
+  category: RegexFlag_values
+  kind: python_call_eq
+  function: RegexFlag.LOCALE.value.__eq__
+  args: [4]
+  expected: true
+
+invariant re_extra10.RegexFlag.UNICODE.value:
+  description: "re.RegexFlag.UNICODE.value == 32 — the UNICODE flag occupies bit position 5"
+  category: RegexFlag_values
+  kind: python_call_eq
+  function: RegexFlag.UNICODE.value.__eq__
+  args: [32]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.LOCALE and re.UNICODE — class name checks
+#
+# re_extra8 covers IGNORECASE and MULTILINE class names.
+# re_extra3 covers DOTALL class name.
+# No prior spec covers LOCALE or UNICODE class names.
+# ---------------------------------------------------------------------------
+
+invariant re_extra10.LOCALE.class_name:
+  description: "re.LOCALE.__class__.__name__ == 'RegexFlag' — LOCALE is a RegexFlag enum member"
+  category: flags
+  kind: python_call_eq
+  function: LOCALE.__class__.__name__.__eq__
+  args: ["RegexFlag"]
+  expected: true
+
+invariant re_extra10.UNICODE.class_name:
+  description: "re.UNICODE.__class__.__name__ == 'RegexFlag' — UNICODE is a RegexFlag enum member"
+  category: flags
+  kind: python_call_eq
+  function: UNICODE.__class__.__name__.__eq__
+  args: ["RegexFlag"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __qualname__ for re functions not covered in re_extra8
+#
+# re_extra8 covers compile/match/search/fullmatch/sub/split/findall/finditer.
+# No prior spec covers purge/escape/subn __qualname__.
+# ---------------------------------------------------------------------------
+
+table re_extra10.function_qualnames_extra:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [purge,  purge.__qualname__.__eq__,  ["purge"],  true]
+    - [escape, escape.__qualname__.__eq__, ["escape"], true]
+    - [subn,   subn.__qualname__.__eq__,   ["subn"],   true]
+
+# ---------------------------------------------------------------------------
+# re.escape — output value check
+#
+# re_extra5 covers re.escape('.') which returns '\\.'; this spec covers a
+# different input 'a.b' -> 'a\\.b' to test escaping within a string.
+# ---------------------------------------------------------------------------
+
+invariant re_extra10.escape.dot_in_string:
+  description: "re.escape('a.b') == 'a\\.b' — escape backslash-escapes the dot"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["a.b"]
+  expected: "a\\.b"
+
+# ---------------------------------------------------------------------------
+# re.compile default flags — UNICODE bit is set
+#
+# When compiling a plain pattern with no explicit flags, Python sets the
+# UNICODE flag (32) by default.  re.compile('a').flags == 32 on Python 3.
+# No prior spec checks the actual default flags integer value.
+# ---------------------------------------------------------------------------
+
+invariant re_extra10.compile.default_flags_unicode:
+  description: "re.compile('a').flags == 32 — UNICODE flag (32) is set by default on Python 3"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["a"]
+  method: flags.__eq__
+  method_args: [32]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.findall — result for a digit pattern
+#
+# No prior spec checks findall with a digit pattern and multiple matches
+# returning more than one element.
+# re.findall(r'\d', '1a2b3') == ['1', '2', '3']  (length 3)
+# ---------------------------------------------------------------------------
+
+invariant re_extra10.findall.digits_length:
+  description: "len(re.findall(r'\\d', '1a2b3')) == 3 — three digit matches"
+  category: findall
+  kind: python_call_eq
+  function: findall
+  args: ["\\d", "1a2b3"]
+  method: __len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# re.subn — substitution count
+#
+# re_extra5 covers subn() result/count for a specific pattern.
+# This checks a new input: subn(r'a', 'b', 'aaa')[1] == 3.
+# ---------------------------------------------------------------------------
+
+invariant re_extra10.subn.count_three:
+  description: "re.subn(r'a', 'b', 'aaa')[1] == 3 — three replacements made"
+  category: subn
+  kind: python_call_eq
+  function: subn
+  args: ["a", "b", "aaa"]
+  method: __getitem__
+  method_args: [1]
+  expected: 3

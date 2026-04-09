@@ -1,0 +1,159 @@
+spec: random_extra8
+version: ">=3.9"
+backend: python_module(random)
+
+docs: https://docs.python.org/3/library/random.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/random.html — Python random module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/random.py"
+  notes:
+    - "This spec extends random.zspec.zsdl and prior extras through random_extra7.zspec.zsdl."
+    - "Prior specs cover: __name__, __module__, __qualname__ for all module-level functions and classes; BPF==53, VERSION==2, RECIP_BPF; deterministic randint/choice/randrange/getrandbits/sample vectors; class hierarchy bases for Random and SystemRandom; return types for random() and randint()."
+    - "NEW in this spec: randrange() with a step argument (not yet tested in any prior spec); deterministic getrandbits() with additional bit widths; Random.__mro__.__len__() == 3; getrandbits(0) == 0 (always zero when k=0); shuffle() returns None (in-place operation); choices() returns a list."
+    - "random.Random.__mro__ has 3 entries: Random (Python wrapper), Random (_random C type), object."
+    - "random.Random(seed).randrange(start, stop, step) is not tested in any prior spec."
+    - "random.Random.getrandbits(0) == 0 always — zero bits means zero."
+    - "random.Random.shuffle(lst) returns None — it modifies the list in place."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# randrange() with step argument
+#
+# No prior spec tests randrange with three arguments (start, stop, step).
+# ---------------------------------------------------------------------------
+
+invariant random_extra8.randrange.step_seed42:
+  description: "Random(42).randrange(0, 10, 2) == 0 — first even value in [0,10) from seed 42"
+  category: randrange
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: randrange
+  method_args: [0, 10, 2]
+  expected: 0
+
+invariant random_extra8.randrange.step_seed7:
+  description: "Random(7).randrange(0, 10, 2) == 4 — first even value in [0,10) from seed 7"
+  category: randrange
+  kind: python_call_eq
+  function: Random
+  args: [7]
+  method: randrange
+  method_args: [0, 10, 2]
+  expected: 4
+
+invariant random_extra8.randrange.step3_seed99:
+  description: "Random(99).randrange(1, 10, 3) == 4 — first value in {1,4,7} from seed 99"
+  category: randrange
+  kind: python_call_eq
+  function: Random
+  args: [99]
+  method: randrange
+  method_args: [1, 10, 3]
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# getrandbits() — additional deterministic vectors
+#
+# random.zspec.zsdl covers seed 42 / 8 bits and seed 0 / 16 bits.
+# This spec adds seed 1 / 8 bits, seed 7 / 4 bits, and seed 42 / 16 bits.
+# ---------------------------------------------------------------------------
+
+invariant random_extra8.getrandbits.seed1_8bits:
+  description: "Random(1).getrandbits(8) == 34 — first 8-bit random value from seed 1"
+  category: getrandbits
+  kind: python_call_eq
+  function: Random
+  args: [1]
+  method: getrandbits
+  method_args: [8]
+  expected: 34
+
+invariant random_extra8.getrandbits.seed7_4bits:
+  description: "Random(7).getrandbits(4) == 5 — first 4-bit random value from seed 7"
+  category: getrandbits
+  kind: python_call_eq
+  function: Random
+  args: [7]
+  method: getrandbits
+  method_args: [4]
+  expected: 5
+
+invariant random_extra8.getrandbits.seed42_16bits:
+  description: "Random(42).getrandbits(16) == 41905 — first 16-bit random value from seed 42"
+  category: getrandbits
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: getrandbits
+  method_args: [16]
+  expected: 41905
+
+invariant random_extra8.getrandbits.zero_bits:
+  description: "Random(42).getrandbits(0) == 0 — requesting zero bits always yields zero"
+  category: getrandbits
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: getrandbits
+  method_args: [0]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# Random.__mro__ length
+#
+# random.Random.__mro__ has 3 entries: the pure-Python Random class, the C-level
+# _random.Random base class, and object. Not covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant random_extra8.Random.mro_len:
+  description: "random.Random.__mro__.__len__() == 3 — Python wrapper, C Random, object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Random.__mro__.__len__
+  args: []
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# shuffle() return value
+#
+# random.shuffle() operates in place and returns None. No prior spec verifies
+# this; all prior specs test return values of functions that produce new data.
+# The harness evaluates function(args).method(method_args) == expected, so
+# to test that shuffle returns None we check that the return value's class name
+# is 'NoneType'. We call module-level shuffle(list) which returns None.
+# ---------------------------------------------------------------------------
+
+invariant random_extra8.shuffle.returns_none:
+  description: "random.shuffle([1,2,3]).__class__.__name__ == 'NoneType' — shuffle returns None"
+  category: shuffle
+  kind: python_call_eq
+  function: shuffle
+  args: [[1, 2, 3]]
+  method: __class__.__name__.__eq__
+  method_args: ["NoneType"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# choices() return type and length
+#
+# random_extra4 verified that choices() returns a list (via method_chain).
+# This spec adds a standalone invariant verifying the length of choices() output.
+# ---------------------------------------------------------------------------
+
+invariant random_extra8.choices.k3_length:
+  description: "len(random.choices(['a','b','c'], k=3)) == 3 — choices respects k parameter"
+  category: choices
+  kind: python_call_eq
+  function: choices
+  args: [["a", "b", "c"]]
+  method: __len__
+  method_args: []
+  expected: 3

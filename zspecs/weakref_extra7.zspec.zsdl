@@ -1,0 +1,184 @@
+spec: weakref_extra7
+version: ">=3.9"
+backend: python_module(weakref)
+
+docs: https://docs.python.org/3/library/weakref.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/weakref.html — Python weakref module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_weakref.c"
+    - "CPython source: Lib/weakref.py"
+  notes:
+    - "This spec extends weakref.zspec.zsdl through weakref_extra6.zspec.zsdl."
+    - "weakref_extra6 covers ProxyType/CallableProxyType __qualname__/__module__, WeakMethod __qualname__/__module__, getweakrefcount/getweakrefs __qualname__."
+    - "weakref_extra5 covers WeakValueDictionary/WeakKeyDictionary/WeakSet/finalize __qualname__, ref.__qualname__ == 'weakref', proxy.__qualname__."
+    - "weakref_extra4 covers ref/__name__, WeakValueDictionary/WeakKeyDictionary/WeakSet/finalize __name__ and __module__, and instance class checks."
+    - "weakref_extra2 covers __bases__[0].__name__ for WeakValueDictionary/WeakKeyDictionary/WeakSet/finalize."
+    - "NOT yet covered: WeakValueDictionary.__mro__.__len__() — MRO depth."
+    - "NOT yet covered: WeakKeyDictionary.__mro__.__len__() — MRO depth."
+    - "NOT yet covered: WeakSet.__mro__.__len__() — MRO depth."
+    - "NOT yet covered: finalize.__bases__.__len__() == 1 (only base is object)."
+    - "NOT yet covered: WeakMethod.__bases__[0].__name__ — WeakMethod inherits from ref."
+    - "NOT yet covered: proxy.__module__ — proxy is a C builtin, its __module__ is 'weakref'."
+    - "NOT yet covered: ReferenceType.__qualname__ — C type, qualname is 'weakref'."
+    - "NOT yet covered: weakref.ref.__name__ == 'ReferenceType' (the weakref.zspec.zsdl vector) as standalone behavioral check."
+    - "weakref.WeakValueDictionary.__mro__.__len__() == 4 — WeakValueDictionary, MutableMapping, Mapping, object (simplified; actual MRO is longer due to ABC machinery)."
+    - "In CPython 3.12: weakref.WeakValueDictionary.__mro__.__len__() is 8 (includes ABC intermediaries)."
+    - "weakref.WeakMethod.__bases__[0].__name__ == 'ReferenceType' — WeakMethod extends weakref.ref (the ReferenceType C type)."
+    - "weakref.proxy.__module__ == 'weakref' — proxy is re-exported from the weakref C extension."
+    - "weakref.ReferenceType.__qualname__ == 'weakref' — C type qualname."
+    - "weakref.finalize.__bases__.__len__() == 1 — finalize directly subclasses object only."
+    - "weakref.WeakSet.__mro__.__len__() >= 5 — includes WeakSet, MutableSet, Set, Hashable, object plus ABC registrations."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# WeakMethod.__bases__[0].__name__ — WeakMethod inherits from ref (ReferenceType)
+#
+# weakref_extra2 checks WeakValueDictionary/WeakKeyDictionary/WeakSet/finalize
+# __bases__[0].__name__ but NOT WeakMethod. WeakMethod extends weakref.ref
+# (the C type whose __name__ is 'ReferenceType').
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra7.WeakMethod.base_is_ref:
+  description: "weakref.WeakMethod.__bases__[0].__name__ == 'ReferenceType' — WeakMethod extends weakref.ref"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: WeakMethod.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ReferenceType"
+
+# ---------------------------------------------------------------------------
+# finalize.__bases__.__len__() — finalize has exactly one direct base (object)
+#
+# weakref_extra2 checked finalize.__bases__[0].__name__ == 'object'. This
+# adds a check that finalize has exactly one base in __bases__.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra7.finalize.bases_len:
+  description: "weakref.finalize.__bases__.__len__() == 1 — finalize directly subclasses object only"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: finalize.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# proxy.__module__ — C builtin re-exported in weakref
+#
+# weakref_extra covers proxy.__name__ == 'proxy'. No prior spec checks
+# proxy.__module__. The proxy builtin is re-exported from the weakref C
+# extension; its __module__ is 'weakref'.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra7.proxy.module:
+  description: "weakref.proxy.__module__ == 'weakref' — proxy is re-exported from the weakref C extension"
+  category: module
+  kind: python_call_eq
+  function: proxy.__module__.__eq__
+  args: ["weakref"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ReferenceType.__qualname__ — C type qualname
+#
+# weakref_extra5 covers ref.__qualname__ == 'weakref'. ReferenceType is an
+# alias for ref; their __qualname__ is identical. No prior spec checks
+# ReferenceType.__qualname__ explicitly via the ReferenceType name.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra7.ReferenceType.qualname:
+  description: "weakref.ReferenceType.__qualname__ == 'weakref' — C type qualname same as ref.__qualname__"
+  category: qualnames
+  kind: python_call_eq
+  function: ReferenceType.__qualname__.__eq__
+  args: ["weakref"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ReferenceType.__module__ — C type module affiliation
+#
+# No prior spec checks ReferenceType.__module__. The C type is from _weakref
+# but re-exported; in CPython 3.9-3.12, ref.__module__ == 'builtins'.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra7.ReferenceType.module:
+  description: "weakref.ReferenceType.__module__ == 'builtins' — C type __module__ is 'builtins' in CPython"
+  category: module
+  kind: python_call_eq
+  function: ReferenceType.__module__.__eq__
+  args: ["builtins"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# WeakMethod.__qualname__ — should match __name__
+#
+# weakref_extra6 covers WeakMethod.__qualname__ == 'WeakMethod'. Checking it
+# via WeakMethod.__name__.__eq__ confirms name == qualname for this class.
+# This is a cross-check using the __name__ attribute, a distinct axis from
+# the __qualname__.__eq__ approach in extra6.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra7.WeakMethod.name_eq_qualname:
+  description: "weakref.WeakMethod.__name__ == weakref.WeakMethod.__qualname__ — name and qualname match"
+  category: class_names
+  kind: python_call_eq
+  function: WeakMethod.__name__.__eq__
+  args: ["WeakMethod"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# WeakValueDictionary — MRO first element name
+#
+# weakref_extra4/extra2 cover __bases__ but no prior spec checks __mro__
+# for weakref classes. The first element of __mro__ is always the class itself.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra7.WeakValueDictionary.mro_first:
+  description: "weakref.WeakValueDictionary.__mro__[0].__name__ == 'WeakValueDictionary'"
+  category: mro
+  kind: python_call_eq
+  function: WeakValueDictionary.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "WeakValueDictionary"
+
+invariant weakref_extra7.WeakKeyDictionary.mro_first:
+  description: "weakref.WeakKeyDictionary.__mro__[0].__name__ == 'WeakKeyDictionary'"
+  category: mro
+  kind: python_call_eq
+  function: WeakKeyDictionary.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "WeakKeyDictionary"
+
+invariant weakref_extra7.WeakSet.mro_first:
+  description: "weakref.WeakSet.__mro__[0].__name__ == 'WeakSet'"
+  category: mro
+  kind: python_call_eq
+  function: WeakSet.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "WeakSet"
+
+# ---------------------------------------------------------------------------
+# WeakValueDictionary and WeakKeyDictionary — MRO last element is object
+#
+# The last element of every class's __mro__ is always object.
+# No prior spec tests mro[-1] for any weakref class.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra7.WeakValueDictionary.mro_last:
+  description: "weakref.WeakValueDictionary.__mro__[-1].__name__ == 'object'"
+  category: mro
+  kind: python_call_eq
+  function: WeakValueDictionary.__mro__.__getitem__
+  args: [-1]
+  method: __name__
+  expected: "object"

@@ -1,0 +1,185 @@
+spec: pathlib_extra12
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+  notes:
+    - "This spec extends pathlib.zspec.zsdl through pathlib_extra11.zspec.zsdl."
+    - "pathlib_extra11 covers PosixPath/WindowsPath __name__/__module__, PurePath.__module__, inheritance __bases__ checks, PurePosixPath/PureWindowsPath __bases__.__len__()."
+    - "pathlib_extra10 covers PurePosixPath.with_stem, is_relative_to, with_name, __str__ on /usr/local/bin."
+    - "pathlib_extra9 covers __qualname__ for all five main classes."
+    - "NOT yet covered: PurePosixPath.parts as a tuple, PurePosixPath.parents length."
+    - "NOT yet covered: PurePosixPath.with_suffix on varied paths not yet tested."
+    - "NOT yet covered: PurePosixPath joining via / operator (truediv)."
+    - "NOT yet covered: PurePosixPath.__truediv__ result string."
+    - "NOT yet covered: PurePosixPath.match() — pattern matching for path components."
+    - "PurePosixPath('/a/b/c').parts is a tuple; parts[0] == '/'."
+    - "PurePosixPath('/a/b/c').parts.__len__() == 4 — ('/', 'a', 'b', 'c')."
+    - "PurePosixPath('/a/b/c').parents.__len__() == 3 — parents: /a/b, /a, /."
+    - "PurePosixPath('/a/b/c.txt').with_suffix('') strips the suffix, giving /a/b/c."
+    - "PurePosixPath('/a/b').joinpath('c').__str__() == '/a/b/c'."
+    - "PurePosixPath('/a/b/c').match('*/c') == True — matches last component."
+    - "PurePosixPath('/a/b/c').match('/a/b/c') == True — exact absolute match."
+    - "PurePosixPath('/a/b/c').match('*/x') == False — no match."
+    - "PurePosixPath('/a/b/c.py').suffix == '.py'."
+    - "PurePosixPath('/a/b/c.tar.gz').suffixes[0] == '.tar'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.parts — tuple of path components
+#
+# parts returns a tuple of the path's components. No prior spec checks the
+# actual length of parts for a multi-component path.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra12.PurePosixPath.parts_len:
+  description: "pathlib.PurePosixPath('/a/b/c').parts.__len__() == 4 — ('/', 'a', 'b', 'c')"
+  category: parts
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parts.__len__
+  expected: 4
+
+invariant pathlib_extra12.PurePosixPath.parts_root:
+  description: "pathlib.PurePosixPath('/a/b/c').parts[0] == '/'"
+  category: parts
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parts.__getitem__
+  method_args: [0]
+  expected: "/"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.parents — sequence of logical ancestors
+#
+# parents is a sequence of the path's logical ancestors in descending order.
+# No prior spec checks parents.__len__() for a known path.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra12.PurePosixPath.parents_len:
+  description: "pathlib.PurePosixPath('/a/b/c').parents.__len__() == 3 — (/a/b, /a, /)"
+  category: parents
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parents.__len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.with_suffix — strip and replace suffix
+#
+# pathlib_extra8 covers with_suffix('.py'); this adds stripping the suffix
+# (empty string) and adding a new suffix to a path without one.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra12.PurePosixPath.with_suffix_strip:
+  description: "str(pathlib.PurePosixPath('/a/b/c.txt').with_suffix('')) == '/a/b/c'"
+  category: with_suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: with_suffix
+  method_args: [""]
+  expected: "/a/b/c"
+
+invariant pathlib_extra12.PurePosixPath.with_suffix_add:
+  description: "str(pathlib.PurePosixPath('/a/b/c').with_suffix('.txt')) == '/a/b/c.txt'"
+  category: with_suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: with_suffix
+  method_args: [".txt"]
+  expected: "/a/b/c.txt"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.joinpath — path joining
+#
+# joinpath(component) returns a new path with the component appended.
+# No prior spec tests joinpath behavior (only with_name and with_stem).
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra12.PurePosixPath.joinpath_str:
+  description: "str(pathlib.PurePosixPath('/a/b').joinpath('c')) == '/a/b/c'"
+  category: joinpath
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: joinpath
+  method_args: ["c"]
+  expected: "/a/b/c"
+
+invariant pathlib_extra12.PurePosixPath.joinpath_multi:
+  description: "str(pathlib.PurePosixPath('/a').joinpath('b', 'c')) == '/a/b/c'"
+  category: joinpath
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a"]
+  method: joinpath
+  method_args: ["b", "c"]
+  expected: "/a/b/c"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.match — Unix wildcard pattern matching
+#
+# match(pattern) returns True if the path matches the given glob-style pattern.
+# No prior spec tests match().
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra12.PurePosixPath.match_wildcard_true:
+  description: "pathlib.PurePosixPath('/a/b/c').match('*/c') == True"
+  category: match
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: match
+  method_args: ["*/c"]
+  expected: true
+
+invariant pathlib_extra12.PurePosixPath.match_wildcard_false:
+  description: "pathlib.PurePosixPath('/a/b/c').match('*/x') == False"
+  category: match
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: match
+  method_args: ["*/x"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.suffixes — list of all suffixes for multi-suffix paths
+#
+# suffixes returns a list of all file extensions. No prior spec checks
+# suffixes for a multi-extension filename like 'c.tar.gz'.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra12.PurePosixPath.suffixes_len:
+  description: "pathlib.PurePosixPath('/a/b/c.tar.gz').suffixes.__len__() == 2"
+  category: suffixes
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.tar.gz"]
+  method: suffixes.__len__
+  expected: 2
+
+invariant pathlib_extra12.PurePosixPath.suffixes_first:
+  description: "pathlib.PurePosixPath('/a/b/c.tar.gz').suffixes[0] == '.tar'"
+  category: suffixes
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.tar.gz"]
+  method: suffixes.__getitem__
+  method_args: [0]
+  expected: ".tar"
