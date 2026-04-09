@@ -1,0 +1,131 @@
+spec: posix_extra
+version: ">=3.9"
+backend: python_module(posix)
+
+docs: https://docs.python.org/3/library/posix.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/posix.html — Python posix module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c"
+  notes:
+    - "Extends posix.zspec.zsdl with __name__, __module__, and type-level invariants not covered there."
+    - "posix.getcwd, posix.listdir, posix.getpid are all C-level builtin_function_or_method objects."
+    - "posix.getcwd.__name__ == 'getcwd' — the C builtin exposes its __name__ attribute."
+    - "posix.listdir.__name__ == 'listdir' — confirmed on Python 3.12 macOS."
+    - "posix.getpid.__name__ == 'getpid' — confirmed on Python 3.12 macOS."
+    - "posix.getcwd.__module__ == 'posix' — module affiliation is 'posix', not 'os'."
+    - "posix.listdir.__module__ == 'posix' — same as getcwd."
+    - "posix.getpid.__module__ == 'posix' — same as getcwd."
+    - "posix.stat_result.__name__ == 'stat_result' — the C struct-sequence type name."
+    - "posix.stat_result.__module__ == 'os' — the type is registered under the 'os' namespace even when accessed via posix."
+    - "posix.stat_result is a type (its __class__.__name__ == 'type')."
+    - "All expected values verified by running Python 3.12 posix module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __name__ attributes — C-level builtin functions
+# ---------------------------------------------------------------------------
+
+table posix_extra.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getcwd,   getcwd.__name__.__eq__,   ["getcwd"],   true]
+    - [listdir,  listdir.__name__.__eq__,  ["listdir"],  true]
+    - [getpid,   getpid.__name__.__eq__,   ["getpid"],   true]
+
+# ---------------------------------------------------------------------------
+# Function __module__ attributes — all three live in 'posix'
+# ---------------------------------------------------------------------------
+
+table posix_extra.function_modules:
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getcwd,   getcwd.__module__.__eq__,   ["posix"],  true]
+    - [listdir,  listdir.__module__.__eq__,  ["posix"],  true]
+    - [getpid,   getpid.__module__.__eq__,   ["posix"],  true]
+
+# ---------------------------------------------------------------------------
+# Function type checks — C-level builtins
+# ---------------------------------------------------------------------------
+
+table posix_extra.function_types:
+  kind: python_call_eq
+  category: function_types
+  id_prefix: ftype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getcwd,   getcwd.__class__.__name__.__eq__,   ["builtin_function_or_method"],  true]
+    - [listdir,  listdir.__class__.__name__.__eq__,  ["builtin_function_or_method"],  true]
+    - [getpid,   getpid.__class__.__name__.__eq__,   ["builtin_function_or_method"],  true]
+
+# ---------------------------------------------------------------------------
+# stat_result — class name
+#
+# posix.stat_result is the C-level struct-sequence type returned by
+# posix.stat() and posix.lstat(). Its __name__ is 'stat_result'.
+# ---------------------------------------------------------------------------
+
+invariant posix_extra.stat_result.class_name:
+  description: "posix.stat_result.__name__ == 'stat_result'"
+  category: class_names
+  kind: python_call_eq
+  function: stat_result.__name__.__eq__
+  args: ["stat_result"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# stat_result — module affiliation
+#
+# Even though stat_result is accessible as posix.stat_result, its __module__
+# is 'os' because that is where the C type is registered in CPython.
+# ---------------------------------------------------------------------------
+
+invariant posix_extra.stat_result.module:
+  description: "posix.stat_result.__module__ == 'os' — type is registered under the os namespace"
+  category: class_modules
+  kind: python_call_eq
+  function: stat_result.__module__.__eq__
+  args: ["os"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# stat_result — is a type object
+# ---------------------------------------------------------------------------
+
+invariant posix_extra.stat_result.is_type:
+  description: "posix.stat_result.__class__.__name__ == 'type' — stat_result is a type object"
+  category: class_types
+  kind: python_call_eq
+  function: stat_result.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# stat_result — n_sequence_fields count (9 positional fields)
+#
+# The nine named fields are: st_mode, st_ino, st_dev, st_nlink, st_uid,
+# st_gid, st_size, st_atime, st_mtime. (st_ctime is field 9 on POSIX.)
+# n_sequence_fields is the count of fields accessible by position.
+# ---------------------------------------------------------------------------
+
+invariant posix_extra.stat_result.n_sequence_fields:
+  description: "posix.stat_result.n_sequence_fields == 10 — ten positional fields"
+  category: struct
+  kind: python_call_eq
+  function: stat_result.n_sequence_fields.__eq__
+  args: [10]
+  expected: true
