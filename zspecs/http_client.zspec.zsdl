@@ -1,0 +1,103 @@
+spec: http_client
+version: ">=3.0"
+backend: python_module(http.client)
+
+docs: https://docs.python.org/3/library/http.client.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/http.client.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "http.client source: internal HTTP implementation details"
+  notes:
+    - "No actual HTTP connections are made; invariants test status constants, port constants, class names, and the responses dict."
+    - "HTTP status constants (OK, NOT_FOUND, etc.) are HTTPStatus enum members in Python 3.5+; they compare equal to plain ints via __eq__."
+    - "HTTP_PORT=80 and HTTPS_PORT=443 are plain integer module-level constants."
+    - "responses is a dict mapping integer status codes to their reason phrase strings."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# HTTP status code constants — HTTPStatus enum, int-comparable
+# ---------------------------------------------------------------------------
+
+table http_client.status_codes:
+  kind: python_call_eq
+  category: status_codes
+  id_prefix: status
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ok,                    OK.__eq__,                    [200], true]
+    - [created,               CREATED.__eq__,               [201], true]
+    - [no_content,            NO_CONTENT.__eq__,            [204], true]
+    - [moved_permanently,     MOVED_PERMANENTLY.__eq__,     [301], true]
+    - [found,                 FOUND.__eq__,                 [302], true]
+    - [not_modified,          NOT_MODIFIED.__eq__,          [304], true]
+    - [bad_request,           BAD_REQUEST.__eq__,           [400], true]
+    - [unauthorized,          UNAUTHORIZED.__eq__,          [401], true]
+    - [forbidden,             FORBIDDEN.__eq__,             [403], true]
+    - [not_found,             NOT_FOUND.__eq__,             [404], true]
+    - [method_not_allowed,    METHOD_NOT_ALLOWED.__eq__,    [405], true]
+    - [internal_server_error, INTERNAL_SERVER_ERROR.__eq__, [500], true]
+    - [bad_gateway,           BAD_GATEWAY.__eq__,           [502], true]
+    - [service_unavailable,   SERVICE_UNAVAILABLE.__eq__,   [503], true]
+
+# ---------------------------------------------------------------------------
+# Port constants
+# ---------------------------------------------------------------------------
+
+invariant http_client.HTTP_PORT:
+  description: "http.client.HTTP_PORT == 80"
+  category: constants
+  kind: python_call_eq
+  function: HTTP_PORT.__eq__
+  args: [80]
+  expected: true
+
+invariant http_client.HTTPS_PORT:
+  description: "http.client.HTTPS_PORT == 443"
+  category: constants
+  kind: python_call_eq
+  function: HTTPS_PORT.__eq__
+  args: [443]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class name checks — verify exported class __name__ attributes
+# ---------------------------------------------------------------------------
+
+table http_client.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [HTTPResponse,   HTTPResponse.__name__.__eq__,   ["HTTPResponse"],   true]
+    - [HTTPConnection, HTTPConnection.__name__.__eq__,  ["HTTPConnection"], true]
+    - [HTTPSConnection,HTTPSConnection.__name__.__eq__, ["HTTPSConnection"],true]
+    - [HTTPException,  HTTPException.__name__.__eq__,   ["HTTPException"],  true]
+    - [InvalidURL,     InvalidURL.__name__.__eq__,      ["InvalidURL"],     true]
+    - [BadStatusLine,  BadStatusLine.__name__.__eq__,   ["BadStatusLine"],  true]
+
+# ---------------------------------------------------------------------------
+# responses dict — integer status code → reason phrase string
+# ---------------------------------------------------------------------------
+
+table http_client.responses:
+  kind: python_call_eq
+  category: responses
+  id_prefix: resp
+  function: responses.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [r200, [200], "OK"                    ]
+    - [r201, [201], "Created"               ]
+    - [r301, [301], "Moved Permanently"     ]
+    - [r404, [404], "Not Found"             ]
+    - [r500, [500], "Internal Server Error" ]

@@ -1,0 +1,169 @@
+spec: urllib_request
+version: ">=3.0"
+backend: python_module(urllib.request)
+
+docs: https://docs.python.org/3/library/urllib.request.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/urllib.request.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "urllib.request source: internal HTTP implementation details"
+  notes:
+    - "No actual network requests are made; all invariants test class/function identity, Request object construction, and exception attributes."
+    - "Request.get_method() returns 'GET' by default when no method is specified and no data is provided."
+    - "Request.type is the URL scheme parsed from the constructor URL."
+    - "pathname2url on macOS/Darwin prepends '///' to absolute paths (POSIX file URI encoding)."
+    - "HTTPError is a subclass of URLError; both are subclasses of OSError."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class name checks — verify exported class __name__ attributes
+# ---------------------------------------------------------------------------
+
+table urllib_request.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Request,                  Request.__name__.__eq__,                  ["Request"],                  true]
+    - [OpenerDirector,           OpenerDirector.__name__.__eq__,           ["OpenerDirector"],           true]
+    - [BaseHandler,              BaseHandler.__name__.__eq__,              ["BaseHandler"],              true]
+    - [HTTPDefaultErrorHandler,  HTTPDefaultErrorHandler.__name__.__eq__,  ["HTTPDefaultErrorHandler"],  true]
+    - [HTTPRedirectHandler,      HTTPRedirectHandler.__name__.__eq__,      ["HTTPRedirectHandler"],      true]
+    - [URLError,                 URLError.__name__.__eq__,                 ["URLError"],                 true]
+    - [HTTPError,                HTTPError.__name__.__eq__,                ["HTTPError"],                true]
+    - [HTTPHandler,              HTTPHandler.__name__.__eq__,              ["HTTPHandler"],              true]
+    - [FileHandler,              FileHandler.__name__.__eq__,              ["FileHandler"],              true]
+
+# ---------------------------------------------------------------------------
+# Function name checks — verify exported function __name__ attributes
+# ---------------------------------------------------------------------------
+
+table urllib_request.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fnname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [urlopen,        urlopen.__name__.__eq__,        ["urlopen"],        true]
+    - [build_opener,   build_opener.__name__.__eq__,   ["build_opener"],   true]
+    - [install_opener, install_opener.__name__.__eq__,  ["install_opener"], true]
+    - [pathname2url,   pathname2url.__name__.__eq__,   ["pathname2url"],   true]
+
+# ---------------------------------------------------------------------------
+# Request construction — URL scheme and host parsing
+# ---------------------------------------------------------------------------
+
+invariant urllib_request.req_type:
+  description: "Request('http://example.com').type == 'http'"
+  category: Request
+  kind: python_call_eq
+  function: Request
+  args: ["http://example.com"]
+  method: type
+  expected: "http"
+
+invariant urllib_request.req_host:
+  description: "Request('http://example.com').host == 'example.com'"
+  category: Request
+  kind: python_call_eq
+  function: Request
+  args: ["http://example.com"]
+  method: host
+  expected: "example.com"
+
+invariant urllib_request.req_full_url:
+  description: "Request('http://example.com').full_url == 'http://example.com'"
+  category: Request
+  kind: python_call_eq
+  function: Request
+  args: ["http://example.com"]
+  method: full_url
+  expected: "http://example.com"
+
+invariant urllib_request.req_get_method_default:
+  description: "Request('http://example.com').get_method() == 'GET' (no data, no method)"
+  category: Request
+  kind: python_call_eq
+  function: Request
+  args: ["http://example.com"]
+  method: get_method
+  method_args: []
+  expected: "GET"
+
+invariant urllib_request.req_get_method_explicit_get:
+  description: "Request('http://example.com/path', method='GET').get_method() == 'GET'"
+  category: Request
+  kind: python_call_eq
+  function: Request
+  args: ["http://example.com/path"]
+  kwargs: {method: "GET"}
+  method: get_method
+  method_args: []
+  expected: "GET"
+
+invariant urllib_request.req_get_method_post:
+  description: "Request('http://example.com', method='POST').get_method() == 'POST'"
+  category: Request
+  kind: python_call_eq
+  function: Request
+  args: ["http://example.com"]
+  kwargs: {method: "POST"}
+  method: get_method
+  method_args: []
+  expected: "POST"
+
+# ---------------------------------------------------------------------------
+# pathname2url — POSIX file path to URL path conversion (macOS/Darwin)
+# ---------------------------------------------------------------------------
+
+invariant urllib_request.pathname2url_absolute:
+  description: "pathname2url('/etc/hosts') == '///etc/hosts' on macOS (POSIX file URI triple-slash)"
+  category: pathname2url
+  kind: python_call_eq
+  function: pathname2url
+  args: ["/etc/hosts"]
+  expected: "///etc/hosts"
+
+# ---------------------------------------------------------------------------
+# URLError — exception reason attribute
+# ---------------------------------------------------------------------------
+
+invariant urllib_request.urlerror_reason:
+  description: "URLError('test').reason == 'test'"
+  category: exceptions
+  kind: python_call_eq
+  function: URLError
+  args: ["test"]
+  method: reason
+  expected: "test"
+
+# ---------------------------------------------------------------------------
+# HTTPError — exception code and msg attributes
+# ---------------------------------------------------------------------------
+
+invariant urllib_request.httperror_code:
+  description: "HTTPError('url', 404, 'Not Found', {}, None).code == 404"
+  category: exceptions
+  kind: python_call_eq
+  function: HTTPError
+  args: ["url", 404, "Not Found", {}, null]
+  method: code
+  expected: 404
+
+invariant urllib_request.httperror_msg:
+  description: "HTTPError('url', 404, 'Not Found', {}, None).msg == 'Not Found'"
+  category: exceptions
+  kind: python_call_eq
+  function: HTTPError
+  args: ["url", 404, "Not Found", {}, null]
+  method: msg
+  expected: "Not Found"

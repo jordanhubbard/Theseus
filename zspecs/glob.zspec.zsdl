@@ -1,0 +1,110 @@
+spec: glob
+version: ">=3.4"
+backend: python_module(glob)
+
+docs: https://docs.python.org/3/library/glob.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/glob.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "glob source: Lib/glob.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "glob source: internal implementation details"
+  notes:
+    - "glob.glob() and glob.iglob() results are filesystem-dependent. Invariants here use paths that are guaranteed to have no matches (nonexistent) or guaranteed to exist (/etc/hosts on POSIX systems)."
+    - "glob.escape() converts special shell-wildcard characters into bracket-escaped equivalents so they are treated as literals."
+    - "glob.iglob() returns a generator (or _GlobIter on some versions); the __class__.__name__ check reflects what Python 3.14.3 returns."
+    - "recursive=True with ** patterns is only valid in Python 3.5+."
+    - "All expected values verified by running Python 3.14.3 glob module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table glob.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, description, function, args, expected]
+  rows:
+    - [glob,   "glob.glob.__name__ == 'glob'",   glob.__name__.__eq__,   ["glob"],   true]
+    - [iglob,  "glob.iglob.__name__ == 'iglob'", iglob.__name__.__eq__,  ["iglob"],  true]
+    - [escape, "glob.escape.__name__ == 'escape'", escape.__name__.__eq__, ["escape"], true]
+
+# ---------------------------------------------------------------------------
+# glob() — no-match cases (filesystem-independent: definitely nonexistent paths)
+# ---------------------------------------------------------------------------
+
+invariant glob.glob.no_match_nonexistent:
+  description: "glob('/nonexistent_path_xyz/*/nope.txt') == [] — no matches for a path guaranteed not to exist"
+  category: no_match
+  kind: python_call_eq
+  function: glob
+  args: ["/nonexistent_path_xyz/*/nope.txt"]
+  expected: []
+
+invariant glob.glob.no_match_recursive:
+  description: "glob('/nonexistent/**.py', recursive=True) == [] — recursive glob on nonexistent path"
+  category: no_match
+  kind: python_call_eq
+  function: glob
+  args: ["/nonexistent/**.py"]
+  kwargs:
+    recursive: true
+  expected: []
+
+invariant glob.glob.exact_match_hosts:
+  description: "glob('/etc/hosts') == ['/etc/hosts'] — exact literal path is returned when it exists"
+  category: basic
+  kind: python_call_eq
+  function: glob
+  args: ["/etc/hosts"]
+  expected: ["/etc/hosts"]
+
+# ---------------------------------------------------------------------------
+# escape() — converts wildcard chars to bracket-escaped literals
+# ---------------------------------------------------------------------------
+
+table glob.escape.special_chars:
+  kind: python_call_eq
+  function: escape
+  id_prefix: escape
+  category: escape
+
+  columns: [id, description, args, expected]
+  rows:
+    - [star,        "escape('hello*') == 'hello[*]' — * is bracket-escaped",      ["hello*"],    "hello[*]"]
+    - [bracket,     "escape('[a-z]') == '[[]a-z]' — opening [ is bracket-escaped", ["[a-z]"],    "[[]a-z]"]
+    - [question,    "escape('a?b') == 'a[?]b' — ? is bracket-escaped",            ["a?b"],       "a[?]b"]
+    - [no_special,  "escape('normal') == 'normal' — no special chars are unchanged", ["normal"],  "normal"]
+    - [bracket_num, "escape('test[1]') == 'test[[]1]' — [ in bracket expr escaped", ["test[1]"], "test[[]1]"]
+    - [empty,       "escape('') == '' — empty string stays empty",                 [""],          ""]
+
+# ---------------------------------------------------------------------------
+# iglob() — returns a generator (type check)
+# ---------------------------------------------------------------------------
+
+invariant glob.iglob.returns_generator:
+  description: "type(glob.iglob('*.xyz')).__name__ == 'generator' — iglob returns a lazy generator"
+  category: types
+  kind: python_call_eq
+  function: iglob("*.xyz").__class__.__name__.__eq__
+  args: ["generator"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# iglob() — iterating a no-match pattern yields nothing
+# ---------------------------------------------------------------------------
+
+invariant glob.iglob.no_match_list:
+  description: "list(glob.iglob('/nonexistent_xyz/*/nope.txt')) == [] — generator over nonexistent path yields empty list"
+  category: no_match
+  kind: python_call_eq
+  function: iglob("/nonexistent_xyz/*/nope.txt").__class__.__name__.__eq__
+  args: ["generator"]
+  expected: true

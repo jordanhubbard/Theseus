@@ -1,0 +1,156 @@
+spec: threading
+version: ">=3.2"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/threading.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "threading source: internal lock implementation (C extension)"
+  notes:
+    - "threading.Lock().__name__ is 'lock' (lowercase), not 'Lock' — it is a C-level type."
+    - "threading.local().__name__ is '_local', the internal name of the C-level descriptor."
+    - "threading.ThreadError.__name__ is 'RuntimeError' — ThreadError is an alias for RuntimeError."
+    - "threading.TIMEOUT_MAX is a large positive float (~9.2e9 on macOS); exact value is platform-dependent."
+    - "A freshly created Lock() is not locked; acquire(blocking=False) succeeds immediately."
+    - "A freshly created Event() has is_set() == False."
+    - "Semaphore(n)._value == n — _value is a private implementation detail but stable across CPython."
+    - "current_thread().is_alive() is True in the main thread."
+    - "active_count() >= 1 because the main thread is always active."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class name metadata
+#
+# Note: Lock.__name__ == 'lock' (lowercase C type).
+#       local.__name__ == '_local' (internal C type name).
+#       ThreadError.__name__ == 'RuntimeError' (alias).
+# ---------------------------------------------------------------------------
+
+table threading.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [thread,           Thread.__name__.__eq__,           ["Thread"],           true]
+    - [lock,             Lock.__name__.__eq__,              ["lock"],             true]
+    - [rlock,            RLock.__name__.__eq__,             ["RLock"],            true]
+    - [condition,        Condition.__name__.__eq__,         ["Condition"],        true]
+    - [semaphore,        Semaphore.__name__.__eq__,         ["Semaphore"],        true]
+    - [boundedsemaphore, BoundedSemaphore.__name__.__eq__,  ["BoundedSemaphore"], true]
+    - [event,            Event.__name__.__eq__,             ["Event"],            true]
+    - [timer,            Timer.__name__.__eq__,             ["Timer"],            true]
+    - [barrier,          Barrier.__name__.__eq__,           ["Barrier"],          true]
+
+# ---------------------------------------------------------------------------
+# Function name metadata
+# ---------------------------------------------------------------------------
+
+table threading.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [current_thread, current_thread.__name__.__eq__, ["current_thread"], true]
+    - [main_thread,    main_thread.__name__.__eq__,    ["main_thread"],    true]
+    - [active_count,   active_count.__name__.__eq__,   ["active_count"],   true]
+    - [enumerate,      enumerate.__name__.__eq__,      ["enumerate"],      true]
+
+# ---------------------------------------------------------------------------
+# TIMEOUT_MAX — a large positive float
+# ---------------------------------------------------------------------------
+
+invariant threading.timeout_max_positive:
+  description: "threading.TIMEOUT_MAX >= 1e9 — it is a very large positive float"
+  category: constants
+  kind: python_call_eq
+  function: TIMEOUT_MAX.__ge__
+  args: [1000000000]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# active_count — main thread is always active
+# ---------------------------------------------------------------------------
+
+invariant threading.active_count_ge_1:
+  description: "threading.active_count() >= 1 — main thread is always counted"
+  category: thread_state
+  kind: python_call_eq
+  function: active_count.__ge__
+  args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Lock — new lock is not locked; can be acquired immediately
+# ---------------------------------------------------------------------------
+
+invariant threading.lock_not_locked:
+  description: "threading.Lock().locked() == False — a new lock is not held"
+  category: lock
+  kind: python_call_eq
+  function: Lock
+  args: []
+  method: locked
+  method_args: []
+  expected: false
+
+invariant threading.lock_acquire_succeeds:
+  description: "threading.Lock().acquire(blocking=False) == True — can acquire a free lock"
+  category: lock
+  kind: python_call_eq
+  function: Lock
+  args: []
+  method: acquire
+  method_args: [false]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Event — new event is not set
+# ---------------------------------------------------------------------------
+
+invariant threading.event_not_set:
+  description: "threading.Event().is_set() == False — a new Event is not set"
+  category: event
+  kind: python_call_eq
+  function: Event
+  args: []
+  method: is_set
+  method_args: []
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Semaphore — initial value is the argument passed
+# ---------------------------------------------------------------------------
+
+invariant threading.semaphore_value:
+  description: "threading.Semaphore(3)._value == 3"
+  category: semaphore
+  kind: python_call_eq
+  function: Semaphore
+  args: [3]
+  method: _value
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# current_thread — is_alive() is True in the main thread
+# ---------------------------------------------------------------------------
+
+invariant threading.current_thread_alive:
+  description: "threading.current_thread().is_alive() == True in the main thread"
+  category: thread_state
+  kind: python_call_eq
+  function: current_thread
+  args: []
+  method: is_alive
+  method_args: []
+  expected: true

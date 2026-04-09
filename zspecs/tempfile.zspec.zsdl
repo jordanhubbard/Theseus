@@ -1,0 +1,100 @@
+spec: tempfile
+version: ">=3.4"
+backend: python_module(tempfile)
+
+docs: https://docs.python.org/3/library/tempfile.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/tempfile.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "tempfile source: Lib/tempfile.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "tempfile source: internal implementation details"
+  notes:
+    - "Functions that create actual files on disk (NamedTemporaryFile, mkstemp, mkdtemp, etc.) produce non-deterministic paths; invariants here test structural properties (names, types) rather than specific path values."
+    - "gettempprefix() returns 'tmp' on POSIX systems (macOS, Linux). This is hardcoded in CPython's tempfile.py."
+    - "gettempdirb() returns the same path as gettempdir() but as bytes."
+    - "NamedTemporaryFile.name is always a str on POSIX platforms."
+    - "SpooledTemporaryFile spools in memory up to max_size bytes before rolling over to disk."
+    - "All expected values verified by running Python 3.14.3 tempfile module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function / class name checks
+# ---------------------------------------------------------------------------
+
+table tempfile.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, description, function, args, expected]
+  rows:
+    - [NamedTemporaryFile,  "NamedTemporaryFile.__name__ == 'NamedTemporaryFile'",   NamedTemporaryFile.__name__.__eq__,  ["NamedTemporaryFile"],  true]
+    - [TemporaryFile,       "TemporaryFile.__name__ == 'TemporaryFile'",             TemporaryFile.__name__.__eq__,       ["TemporaryFile"],       true]
+    - [TemporaryDirectory,  "TemporaryDirectory.__name__ == 'TemporaryDirectory'",   TemporaryDirectory.__name__.__eq__,  ["TemporaryDirectory"],  true]
+    - [SpooledTemporaryFile, "SpooledTemporaryFile.__name__ == 'SpooledTemporaryFile'", SpooledTemporaryFile.__name__.__eq__, ["SpooledTemporaryFile"], true]
+    - [mkstemp,             "mkstemp.__name__ == 'mkstemp'",                         mkstemp.__name__.__eq__,             ["mkstemp"],             true]
+    - [mkdtemp,             "mkdtemp.__name__ == 'mkdtemp'",                         mkdtemp.__name__.__eq__,             ["mkdtemp"],             true]
+    - [gettempdir,          "gettempdir.__name__ == 'gettempdir'",                   gettempdir.__name__.__eq__,          ["gettempdir"],          true]
+    - [gettempprefix,       "gettempprefix.__name__ == 'gettempprefix'",             gettempprefix.__name__.__eq__,       ["gettempprefix"],       true]
+    - [gettempdirb,         "gettempdirb.__name__ == 'gettempdirb'",                 gettempdirb.__name__.__eq__,         ["gettempdirb"],         true]
+
+# ---------------------------------------------------------------------------
+# gettempdir() — returns a non-empty str (platform-dependent value)
+# ---------------------------------------------------------------------------
+
+invariant tempfile.gettempdir_is_str:
+  description: "gettempdir().__class__.__name__ == 'str' — result is always a str"
+  category: gettempdir
+  kind: python_call_eq
+  function: gettempdir().__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant tempfile.gettempdir_nonempty:
+  description: "len(gettempdir()) > 0 — result is always a non-empty path"
+  category: gettempdir
+  kind: python_call_eq
+  function: gettempdir().__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gettempprefix() — returns 'tmp' on POSIX (hardcoded in CPython)
+# ---------------------------------------------------------------------------
+
+invariant tempfile.gettempprefix_value:
+  description: "gettempprefix() == 'tmp' — CPython hardcodes 'tmp' as the prefix on POSIX"
+  category: gettempprefix
+  kind: python_call_eq
+  function: gettempprefix
+  args: []
+  expected: "tmp"
+
+# ---------------------------------------------------------------------------
+# gettempdirb() — returns bytes
+# ---------------------------------------------------------------------------
+
+invariant tempfile.gettempdirb_is_bytes:
+  description: "gettempdirb().__class__.__name__ == 'bytes' — returns bytes version of temp dir"
+  category: gettempdirb
+  kind: python_call_eq
+  function: gettempdirb().__class__.__name__.__eq__
+  args: ["bytes"]
+  expected: true
+
+invariant tempfile.gettempdirb_nonempty:
+  description: "len(gettempdirb()) > 0 — bytes result is always non-empty"
+  category: gettempdirb
+  kind: python_call_eq
+  function: gettempdirb().__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true

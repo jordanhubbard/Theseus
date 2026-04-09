@@ -1,0 +1,190 @@
+spec: socket
+version: ">=3.0"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+rfcs:
+  - "RFC 793 — Transmission Control Protocol"
+  - "RFC 768 — User Datagram Protocol"
+  - "RFC 791 — Internet Protocol"
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/socket.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "socket source: internal BSD socket implementation"
+  notes:
+    - "No actual network connections are made; invariants test constants, class names, function names, and pure-computation functions."
+    - "AF_INET=2 and SOCK_STREAM=1 are AddressFamily/SocketKind enum members; they compare equal to plain ints via __eq__."
+    - "AF_INET6=30 on macOS/Darwin; Linux uses 10. This spec targets the tested platform."
+    - "SOL_SOCKET=65535 on macOS/Darwin; Linux uses 1."
+    - "socket.error.__name__ == 'OSError' (aliased); socket.timeout.__name__ == 'TimeoutError' (aliased)."
+    - "htons/ntohs are byte-order-dependent; only htonl(0)==0 is tested (zero is invariant across byte orders)."
+    - "inet_aton('127.0.0.1') returns b'\\x7f\\x00\\x00\\x01'; hex() gives '7f000001'."
+    - "getdefaulttimeout() returns None when no default has been set (module-level default)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Address family and socket type constants
+# AF_INET=2 (POSIX universal), AF_INET6=30 (macOS), AF_UNIX=1 (macOS)
+# SOCK_STREAM=1, SOCK_DGRAM=2, SOCK_RAW=3
+# ---------------------------------------------------------------------------
+
+table socket.address_family_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: af
+
+  columns: [id, function, args, expected]
+  rows:
+    - [inet,  AF_INET.__eq__,  [2],  true]
+    - [inet6, AF_INET6.__eq__, [30], true]
+    - [unix,  AF_UNIX.__eq__,  [1],  true]
+
+table socket.socket_type_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: sock
+
+  columns: [id, function, args, expected]
+  rows:
+    - [stream, SOCK_STREAM.__eq__, [1], true]
+    - [dgram,  SOCK_DGRAM.__eq__,  [2], true]
+    - [raw,    SOCK_RAW.__eq__,    [3], true]
+
+# ---------------------------------------------------------------------------
+# Protocol constants — IPPROTO values are plain ints (not enum)
+# ---------------------------------------------------------------------------
+
+table socket.ipproto_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: ipproto
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ip,  IPPROTO_IP.__eq__,  [0],  true]
+    - [tcp, IPPROTO_TCP.__eq__, [6],  true]
+    - [udp, IPPROTO_UDP.__eq__, [17], true]
+
+# ---------------------------------------------------------------------------
+# SOL_SOCKET and SHUT_* constants
+# ---------------------------------------------------------------------------
+
+invariant socket.SOL_SOCKET:
+  description: "socket.SOL_SOCKET == 65535 on macOS/Darwin"
+  category: constants
+  kind: python_call_eq
+  function: SOL_SOCKET.__eq__
+  args: [65535]
+  expected: true
+
+invariant socket.SHUT_RD:
+  description: "socket.SHUT_RD == 0"
+  category: constants
+  kind: python_call_eq
+  function: SHUT_RD.__eq__
+  args: [0]
+  expected: true
+
+invariant socket.SHUT_WR:
+  description: "socket.SHUT_WR == 1"
+  category: constants
+  kind: python_call_eq
+  function: SHUT_WR.__eq__
+  args: [1]
+  expected: true
+
+invariant socket.SHUT_RDWR:
+  description: "socket.SHUT_RDWR == 2"
+  category: constants
+  kind: python_call_eq
+  function: SHUT_RDWR.__eq__
+  args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class name checks — socket, herror, gaierror
+# (error.__name__=='OSError' and timeout.__name__=='TimeoutError' are aliases)
+# ---------------------------------------------------------------------------
+
+table socket.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [socket,   socket.__name__.__eq__,   ["socket"],      true]
+    - [herror,   herror.__name__.__eq__,   ["herror"],      true]
+    - [gaierror, gaierror.__name__.__eq__, ["gaierror"],    true]
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table socket.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fnname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gethostname,       gethostname.__name__.__eq__,       ["gethostname"],       true]
+    - [getdefaulttimeout, getdefaulttimeout.__name__.__eq__,  ["getdefaulttimeout"], true]
+    - [inet_aton,         inet_aton.__name__.__eq__,          ["inet_aton"],         true]
+    - [inet_ntoa,         inet_ntoa.__name__.__eq__,          ["inet_ntoa"],         true]
+    - [htonl,             htonl.__name__.__eq__,              ["htonl"],             true]
+    - [ntohl,             ntohl.__name__.__eq__,              ["ntohl"],             true]
+
+# ---------------------------------------------------------------------------
+# getdefaulttimeout — returns None when no default timeout is set
+# ---------------------------------------------------------------------------
+
+invariant socket.getdefaulttimeout_none:
+  description: "socket.getdefaulttimeout() == None (module default: no timeout)"
+  category: functions
+  kind: python_call_eq
+  function: getdefaulttimeout
+  args: []
+  expected: ~
+
+# ---------------------------------------------------------------------------
+# inet_aton / inet_ntoa — pure byte-packing, no network required
+# ---------------------------------------------------------------------------
+
+invariant socket.inet_aton_loopback:
+  description: "socket.inet_aton('127.0.0.1').hex() == '7f000001'"
+  category: functions
+  kind: python_call_eq
+  function: inet_aton
+  args: ["127.0.0.1"]
+  method: hex
+  method_args: []
+  expected: "7f000001"
+
+invariant socket.inet_aton_zero:
+  description: "socket.inet_aton('0.0.0.0').hex() == '00000000'"
+  category: functions
+  kind: python_call_eq
+  function: inet_aton
+  args: ["0.0.0.0"]
+  method: hex
+  method_args: []
+  expected: "00000000"
+
+# ---------------------------------------------------------------------------
+# htonl — zero is byte-order invariant
+# ---------------------------------------------------------------------------
+
+invariant socket.htonl_zero:
+  description: "socket.htonl(0) == 0 (zero is invariant across byte orders)"
+  category: functions
+  kind: python_call_eq
+  function: htonl
+  args: [0]
+  expected: 0

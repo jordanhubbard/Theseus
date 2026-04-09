@@ -1,0 +1,180 @@
+spec: gc
+version: ">=3.4"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/gc.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "gc source: built-in module (PSF; source inspection permitted)"
+  not_derived_from:
+    - "gc source: internal CPython generational GC implementation details"
+  notes:
+    - "gc.isenabled() returns True by default — the cyclic GC is always on at interpreter startup."
+    - "gc.get_threshold() returns a 3-tuple; CPython default is (700, 10, 10), but may vary by environment."
+    - "gc.get_count() returns a 3-tuple of current collection counts per generation."
+    - "gc.collect() returns the number of unreachable objects found; always >= 0."
+    - "gc.is_tracked([]) == True — lists are tracked by the cyclic GC."
+    - "gc.is_tracked({}) == True — dicts are tracked by the cyclic GC."
+    - "gc.is_tracked(1) == False — small integers are immortal and not tracked."
+    - "gc.DEBUG_STATS=1, DEBUG_COLLECTABLE=2, DEBUG_UNCOLLECTABLE=4, DEBUG_SAVEALL=32, DEBUG_LEAK=38."
+    - "gc.freeze() / gc.unfreeze() move all tracked objects in/out of the permanent generation."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "gc functions raise TypeError for invalid argument types; set_threshold raises ValueError for negative thresholds."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless (except enable/disable which mutate GC state)."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table gc.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [collect,         collect.__name__.__eq__,         ["collect"],         true]
+    - [isenabled,       isenabled.__name__.__eq__,       ["isenabled"],       true]
+    - [enable,          enable.__name__.__eq__,          ["enable"],          true]
+    - [disable,         disable.__name__.__eq__,         ["disable"],         true]
+    - [get_threshold,   get_threshold.__name__.__eq__,   ["get_threshold"],   true]
+    - [get_count,       get_count.__name__.__eq__,       ["get_count"],       true]
+    - [get_objects,     get_objects.__name__.__eq__,     ["get_objects"],     true]
+    - [is_tracked,      is_tracked.__name__.__eq__,      ["is_tracked"],      true]
+    - [is_finalized,    is_finalized.__name__.__eq__,    ["is_finalized"],    true]
+    - [freeze,          freeze.__name__.__eq__,          ["freeze"],          true]
+    - [unfreeze,        unfreeze.__name__.__eq__,        ["unfreeze"],        true]
+    - [get_freeze_count, get_freeze_count.__name__.__eq__, ["get_freeze_count"], true]
+
+# ---------------------------------------------------------------------------
+# isenabled — GC is on by default
+# ---------------------------------------------------------------------------
+
+invariant gc.isenabled.default_true:
+  description: "gc.isenabled() == True — cyclic GC is enabled at interpreter startup"
+  category: state
+  kind: python_call_eq
+  function: isenabled
+  args: []
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_threshold — returns a 3-element tuple
+# ---------------------------------------------------------------------------
+
+invariant gc.get_threshold.len:
+  description: "gc.get_threshold() returns a tuple of length 3"
+  category: threshold
+  kind: python_call_eq
+  function: get_threshold().__len__
+  args: []
+  expected: 3
+
+invariant gc.get_threshold.gen0_nonneg:
+  description: "gc.get_threshold()[0] >= 0 — generation-0 threshold is non-negative"
+  category: threshold
+  kind: python_call_eq
+  function: get_threshold().__getitem__(0).__ge__
+  args: [0]
+  expected: true
+
+invariant gc.get_threshold.is_tuple:
+  description: "gc.get_threshold().__class__.__name__ == 'tuple'"
+  category: threshold
+  kind: python_call_eq
+  function: get_threshold().__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_count — returns a 3-element tuple of current collection counts
+# ---------------------------------------------------------------------------
+
+invariant gc.get_count.len:
+  description: "gc.get_count() returns a tuple of length 3"
+  category: count
+  kind: python_call_eq
+  function: get_count().__len__
+  args: []
+  expected: 3
+
+invariant gc.get_count.is_tuple:
+  description: "gc.get_count().__class__.__name__ == 'tuple'"
+  category: count
+  kind: python_call_eq
+  function: get_count().__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# collect — returns non-negative int
+# ---------------------------------------------------------------------------
+
+invariant gc.collect.returns_int:
+  description: "gc.collect().__class__.__name__ == 'int'"
+  category: collect
+  kind: python_call_eq
+  function: collect().__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant gc.collect.nonneg:
+  description: "gc.collect() >= 0 — count of unreachable objects collected"
+  category: collect
+  kind: python_call_eq
+  function: collect().__ge__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# is_tracked — lists and dicts are tracked; small ints are not
+# ---------------------------------------------------------------------------
+
+invariant gc.is_tracked.list:
+  description: "gc.is_tracked([]) == True — lists are tracked by the cyclic GC"
+  category: is_tracked
+  kind: python_call_eq
+  function: is_tracked
+  args: [[]]
+  expected: true
+
+invariant gc.is_tracked.dict:
+  description: "gc.is_tracked({}) == True — dicts are tracked by the cyclic GC"
+  category: is_tracked
+  kind: python_call_eq
+  function: is_tracked
+  args: [{}]
+  expected: true
+
+invariant gc.is_tracked.int:
+  description: "gc.is_tracked(1) == False — small integers are not tracked"
+  category: is_tracked
+  kind: python_call_eq
+  function: is_tracked
+  args: [1]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# DEBUG_* constants — fixed integer flag values
+# ---------------------------------------------------------------------------
+
+table gc.debug_constants:
+  kind: python_call_eq
+  category: debug_flags
+  id_prefix: dbg
+
+  columns: [id, function, args, expected]
+  rows:
+    - [stats,         DEBUG_STATS.__eq__,         [1],  true]
+    - [collectable,   DEBUG_COLLECTABLE.__eq__,   [2],  true]
+    - [uncollectable, DEBUG_UNCOLLECTABLE.__eq__,  [4],  true]
+    - [saveall,       DEBUG_SAVEALL.__eq__,        [32], true]
+    - [leak,          DEBUG_LEAK.__eq__,           [38], true]

@@ -1,0 +1,156 @@
+spec: platform
+version: ">=3.9"
+backend: python_module(platform)
+
+docs: https://docs.python.org/3/library/platform.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/platform.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "platform source: Lib/platform.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "platform source: internal implementation details"
+  notes:
+    - "Most platform.* results are host-dependent (OS name, release version, machine architecture). Invariants here focus on properties stable across CPython deployments."
+    - "python_implementation() == 'CPython' is guaranteed when the spec is evaluated under the CPython runtime used throughout Theseus CI."
+    - "python_version_tuple()[0] == '3' is guaranteed for any Python 3.x release."
+    - "architecture()[0] is always '32bit' or '64bit'; CI platforms use 64bit."
+    - "node() returns the host's network name (hostname); it is always a str but is not tested for a specific value."
+    - "uname() returns a uname_result named-tuple; fields are all str."
+    - "platform.platform() (the function with the same name as the module) returns a human-readable string describing the platform."
+    - "All expected values verified by running Python 3.14.3 platform module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table platform.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, description, function, args, expected]
+  rows:
+    - [python_version,       "python_version.__name__ == 'python_version'",             python_version.__name__.__eq__,       ["python_version"],       true]
+    - [python_implementation,"python_implementation.__name__ == 'python_implementation'", python_implementation.__name__.__eq__, ["python_implementation"], true]
+    - [python_version_tuple, "python_version_tuple.__name__ == 'python_version_tuple'", python_version_tuple.__name__.__eq__, ["python_version_tuple"], true]
+    - [system,               "system.__name__ == 'system'",                             system.__name__.__eq__,               ["system"],               true]
+    - [machine,              "machine.__name__ == 'machine'",                           machine.__name__.__eq__,              ["machine"],              true]
+    - [processor,            "processor.__name__ == 'processor'",                       processor.__name__.__eq__,            ["processor"],            true]
+    - [architecture,         "architecture.__name__ == 'architecture'",                 architecture.__name__.__eq__,         ["architecture"],         true]
+    - [node,                 "node.__name__ == 'node'",                                 node.__name__.__eq__,                 ["node"],                 true]
+    - [uname,                "uname.__name__ == 'uname'",                               uname.__name__.__eq__,                ["uname"],                true]
+
+# ---------------------------------------------------------------------------
+# python_implementation() — always 'CPython' on the CPython runtime
+# ---------------------------------------------------------------------------
+
+invariant platform.python_impl_cpython:
+  description: "python_implementation() == 'CPython' — this spec is evaluated on the CPython runtime"
+  category: python_info
+  kind: python_call_eq
+  function: python_implementation
+  args: []
+  expected: "CPython"
+
+# ---------------------------------------------------------------------------
+# python_version_tuple() — major version element is always '3'
+# ---------------------------------------------------------------------------
+
+invariant platform.version_tuple_major:
+  description: "python_version_tuple()[0] == '3' — running Python 3.x"
+  category: python_info
+  kind: python_call_eq
+  function: python_version_tuple
+  args: []
+  method: __getitem__
+  method_args: [0]
+  expected: "3"
+
+invariant platform.version_tuple_is_tuple:
+  description: "python_version_tuple().__class__.__name__ == 'tuple'"
+  category: python_info
+  kind: python_call_eq
+  function: python_version_tuple().__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant platform.version_tuple_len3:
+  description: "len(python_version_tuple()) == 3 — tuple has (major, minor, micro)"
+  category: python_info
+  kind: python_call_eq
+  function: python_version_tuple().__len__
+  args: []
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# python_version() — returns a str of the form 'major.minor.micro'
+# ---------------------------------------------------------------------------
+
+invariant platform.python_version_is_str:
+  description: "python_version().__class__.__name__ == 'str'"
+  category: python_info
+  kind: python_call_eq
+  function: python_version().__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant platform.python_version_nonempty:
+  description: "len(python_version()) > 0 — version string is non-empty"
+  category: python_info
+  kind: python_call_eq
+  function: python_version().__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# architecture() — returns 2-tuple ('32bit'|'64bit', linkage_str)
+# ---------------------------------------------------------------------------
+
+invariant platform.architecture_64bit:
+  description: "architecture()[0] == '64bit' — CI platforms are 64-bit"
+  category: architecture
+  kind: python_call_eq
+  function: architecture
+  args: []
+  method: __getitem__
+  method_args: [0]
+  expected: "64bit"
+
+# ---------------------------------------------------------------------------
+# node() — hostname, always a str
+# ---------------------------------------------------------------------------
+
+invariant platform.node_is_str:
+  description: "node().__class__.__name__ == 'str' — hostname is always a str"
+  category: node
+  kind: python_call_eq
+  function: node().__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uname() — named-tuple; .system and .release are strs
+# ---------------------------------------------------------------------------
+
+invariant platform.uname_system_is_str:
+  description: "uname().system.__class__.__name__ == 'str'"
+  category: uname
+  kind: python_call_eq
+  function: uname().system.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant platform.uname_release_is_str:
+  description: "uname().release.__class__.__name__ == 'str'"
+  category: uname
+  kind: python_call_eq
+  function: uname().release.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true

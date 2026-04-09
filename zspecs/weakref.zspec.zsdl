@@ -1,0 +1,184 @@
+spec: weakref
+version: ">=3.4"
+backend: python_module(weakref)
+
+docs: https://docs.python.org/3/library/weakref.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/weakref.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "weakref source: weakref.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "weakref source: internal CPython reference-counting implementation details"
+  notes:
+    - "weakref.ref.__name__ == 'ReferenceType' (the underlying C type name, not 'ref')."
+    - "weakref.proxy is the callable for creating proxy objects; proxy.__name__ == 'proxy'."
+    - "weakref.ReferenceType is weakref.ref — they are the same object."
+    - "weakref.ProxyType.__name__ == 'ProxyType'; weakref.CallableProxyType.__name__ == 'CallableProxyType'."
+    - "WeakValueDictionary, WeakKeyDictionary, and WeakSet all start empty (len == 0)."
+    - "weakref.getweakrefcount returns 0 for objects that have no current weak references."
+    - "weakref.getweakrefs returns an empty list for objects with no weak references."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Calling weakref.ref on a non-weakly-referenceable type raises TypeError. Accessing a dead proxy raises ReferenceError."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name checks
+#
+# weakref.ref is actually a C type whose __name__ is 'ReferenceType'.
+# The other classes use their plain Python class names.
+# ---------------------------------------------------------------------------
+
+invariant weakref.classnames.ref:
+  description: "weakref.ref.__name__ == 'ReferenceType' — underlying C type name"
+  category: class_names
+  kind: python_call_eq
+  function: ref.__name__.__eq__
+  args: ["ReferenceType"]
+  expected: true
+
+invariant weakref.classnames.WeakValueDictionary:
+  description: "weakref.WeakValueDictionary.__name__ == 'WeakValueDictionary'"
+  category: class_names
+  kind: python_call_eq
+  function: WeakValueDictionary.__name__.__eq__
+  args: ["WeakValueDictionary"]
+  expected: true
+
+invariant weakref.classnames.WeakKeyDictionary:
+  description: "weakref.WeakKeyDictionary.__name__ == 'WeakKeyDictionary'"
+  category: class_names
+  kind: python_call_eq
+  function: WeakKeyDictionary.__name__.__eq__
+  args: ["WeakKeyDictionary"]
+  expected: true
+
+invariant weakref.classnames.WeakSet:
+  description: "weakref.WeakSet.__name__ == 'WeakSet'"
+  category: class_names
+  kind: python_call_eq
+  function: WeakSet.__name__.__eq__
+  args: ["WeakSet"]
+  expected: true
+
+invariant weakref.classnames.finalize:
+  description: "weakref.finalize.__name__ == 'finalize'"
+  category: class_names
+  kind: python_call_eq
+  function: finalize.__name__.__eq__
+  args: ["finalize"]
+  expected: true
+
+invariant weakref.classnames.ProxyType:
+  description: "weakref.ProxyType.__name__ == 'ProxyType'"
+  category: class_names
+  kind: python_call_eq
+  function: ProxyType.__name__.__eq__
+  args: ["ProxyType"]
+  expected: true
+
+invariant weakref.classnames.CallableProxyType:
+  description: "weakref.CallableProxyType.__name__ == 'CallableProxyType'"
+  category: class_names
+  kind: python_call_eq
+  function: CallableProxyType.__name__.__eq__
+  args: ["CallableProxyType"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table weakref.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getweakrefcount, getweakrefcount.__name__.__eq__, ["getweakrefcount"], true]
+    - [getweakrefs,     getweakrefs.__name__.__eq__,     ["getweakrefs"],     true]
+
+# ---------------------------------------------------------------------------
+# Empty container construction — WeakValueDictionary, WeakKeyDictionary, WeakSet
+#
+# All three classes produce empty containers (len == 0) when called with no args.
+# ---------------------------------------------------------------------------
+
+invariant weakref.WeakValueDictionary.empty:
+  description: "weakref.WeakValueDictionary() starts empty — len == 0"
+  category: containers
+  kind: python_call_eq
+  function: WeakValueDictionary().__len__
+  args: []
+  expected: 0
+
+invariant weakref.WeakKeyDictionary.empty:
+  description: "weakref.WeakKeyDictionary() starts empty — len == 0"
+  category: containers
+  kind: python_call_eq
+  function: WeakKeyDictionary().__len__
+  args: []
+  expected: 0
+
+invariant weakref.WeakSet.empty:
+  description: "weakref.WeakSet() starts empty — len == 0"
+  category: containers
+  kind: python_call_eq
+  function: WeakSet().__len__
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# WeakValueDictionary class identity checks
+# ---------------------------------------------------------------------------
+
+invariant weakref.WeakValueDictionary.class_name:
+  description: "weakref.WeakValueDictionary().__class__.__name__ == 'WeakValueDictionary'"
+  category: containers
+  kind: python_call_eq
+  function: WeakValueDictionary().__class__.__name__.__eq__
+  args: ["WeakValueDictionary"]
+  expected: true
+
+invariant weakref.WeakKeyDictionary.class_name:
+  description: "weakref.WeakKeyDictionary().__class__.__name__ == 'WeakKeyDictionary'"
+  category: containers
+  kind: python_call_eq
+  function: WeakKeyDictionary().__class__.__name__.__eq__
+  args: ["WeakKeyDictionary"]
+  expected: true
+
+invariant weakref.WeakSet.class_name:
+  description: "weakref.WeakSet().__class__.__name__ == 'WeakSet'"
+  category: containers
+  kind: python_call_eq
+  function: WeakSet().__class__.__name__.__eq__
+  args: ["WeakSet"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getweakrefs on an object with no weak refs returns empty list
+# ---------------------------------------------------------------------------
+
+invariant weakref.getweakrefs.empty_list_len:
+  description: "weakref.getweakrefs([]) returns a list of length 0 — no weak refs to a fresh list"
+  category: getweakrefs
+  kind: python_call_eq
+  function: getweakrefs([]).__len__
+  args: []
+  expected: 0
+
+invariant weakref.getweakrefs.empty_list_class:
+  description: "weakref.getweakrefs([]) returns a list"
+  category: getweakrefs
+  kind: python_call_eq
+  function: getweakrefs([]).__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
