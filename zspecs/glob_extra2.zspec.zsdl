@@ -1,0 +1,154 @@
+spec: glob_extra2
+version: ">=3.9"
+backend: python_module(glob)
+
+docs: https://docs.python.org/3/library/glob.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/glob.html — Python glob module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/glob.py"
+    - "glob.zspec.zsdl — covers glob/iglob/escape __name__ (table), glob no-match/exact-match cases, escape special-char table, iglob generator type check"
+    - "glob_extra.zspec.zsdl — covers glob.__module__, glob/iglob/escape __name__ (standalone invariants), escape '[abc]', 'a?b', 'a*b' vectors"
+  notes:
+    - "This spec extends glob.zspec.zsdl and glob_extra.zspec.zsdl."
+    - "glob.glob.__name__ == 'glob' — function name matches the module name."
+    - "glob.iglob.__name__ == 'iglob' — lazy generator variant."
+    - "glob.escape.__name__ == 'escape' — wildcards-to-bracket-literal converter."
+    - "glob.has_magic.__name__ == 'has_magic' — internal helper exposed in the public namespace; returns True if pattern contains a wildcard."
+    - "glob.glob.__module__ == 'glob' — function is defined in the glob module."
+    - "glob.escape.__module__ == 'glob' — escape is defined in the glob module."
+    - "glob.has_magic.__module__ == 'glob' — has_magic is defined in the glob module."
+    - "glob.iglob.__module__ == 'glob' — iglob is defined in the glob module."
+    - "has_magic('*.py') == True — '*' is a magic wildcard character."
+    - "has_magic('foo.py') == False — plain filenames have no magic."
+    - "has_magic('[abc]') == True — '[' is a magic character introducing a bracket expression."
+    - "has_magic('?') == True — '?' is a magic single-character wildcard."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name checks — __name__ identity
+# glob.zspec.zsdl and glob_extra.zspec.zsdl cover glob/iglob/escape __name__
+# This spec adds has_magic.__name__ and provides standalone invariants for all four
+# ---------------------------------------------------------------------------
+
+invariant glob_extra2.glob.name:
+  description: "glob.glob.__name__ == 'glob'"
+  category: function_identity
+  kind: python_call_eq
+  function: glob.__name__.__eq__
+  args: ["glob"]
+  expected: true
+
+invariant glob_extra2.iglob.name:
+  description: "glob.iglob.__name__ == 'iglob'"
+  category: function_identity
+  kind: python_call_eq
+  function: iglob.__name__.__eq__
+  args: ["iglob"]
+  expected: true
+
+invariant glob_extra2.escape.name:
+  description: "glob.escape.__name__ == 'escape'"
+  category: function_identity
+  kind: python_call_eq
+  function: escape.__name__.__eq__
+  args: ["escape"]
+  expected: true
+
+invariant glob_extra2.has_magic.name:
+  description: "glob.has_magic.__name__ == 'has_magic'"
+  category: function_identity
+  kind: python_call_eq
+  function: has_magic.__name__.__eq__
+  args: ["has_magic"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module affiliation — glob, escape, iglob, has_magic all live in 'glob'
+# glob_extra covers glob.__module__; this spec adds escape, iglob, has_magic
+# ---------------------------------------------------------------------------
+
+table glob_extra2.module_checks:
+  description: "glob functions report __module__ == 'glob'"
+  kind: python_call_eq
+  category: module_identity
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [glob,      glob.__module__.__eq__,      ["glob"], true]
+    - [escape,    escape.__module__.__eq__,    ["glob"], true]
+    - [iglob,     iglob.__module__.__eq__,     ["glob"], true]
+    - [has_magic, has_magic.__module__.__eq__, ["glob"], true]
+
+# ---------------------------------------------------------------------------
+# has_magic() — wildcard detection
+# Returns True when the pattern contains glob special characters (* ? [)
+# ---------------------------------------------------------------------------
+
+invariant glob_extra2.has_magic.star:
+  description: "glob.has_magic('*.py') == True — '*' is a magic wildcard"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["*.py"]
+  expected: true
+
+invariant glob_extra2.has_magic.question:
+  description: "glob.has_magic('?.py') == True — '?' is a magic wildcard"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["?.py"]
+  expected: true
+
+invariant glob_extra2.has_magic.bracket:
+  description: "glob.has_magic('[abc]') == True — '[' introduces a magic bracket expression"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["[abc]"]
+  expected: true
+
+invariant glob_extra2.has_magic.plain:
+  description: "glob.has_magic('foo.py') == False — plain filename has no magic"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["foo.py"]
+  expected: false
+
+invariant glob_extra2.has_magic.empty:
+  description: "glob.has_magic('') == False — empty string has no magic"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: [""]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# escape() — additional vector not in glob_extra: plain path with no specials
+# (The '*' and '?' and '[' vectors are already in glob.zspec.zsdl and glob_extra)
+# ---------------------------------------------------------------------------
+
+invariant glob_extra2.escape.no_special:
+  description: "glob.escape('normal.txt') == 'normal.txt' — no special chars are unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["normal.txt"]
+  expected: "normal.txt"
+
+invariant glob_extra2.escape.empty:
+  description: "glob.escape('') == '' — empty string stays empty"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: [""]
+  expected: ""
