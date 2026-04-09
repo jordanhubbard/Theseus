@@ -1,0 +1,115 @@
+spec: gc_extra7
+version: ">=3.9"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gc.html — Python gc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/gcmodule.c"
+  notes:
+    - "This spec extends gc.zspec.zsdl and gc_extra through gc_extra6.zspec.zsdl."
+    - "gc.zspec.zsdl covers: get_count()[0] >= 0 (gen-0 only); get_threshold()[0] >= 0 (gen-0 only)."
+    - "gc_extra.zspec.zsdl covers: get_count()[0] >= 0 (gen-0); get_threshold()[0] == 700; enable/disable return None; freeze returns None; garbage is list."
+    - "gc_extra3.zspec.zsdl covers: get_freeze_count().__class__.__name__ == 'int'."
+    - "This spec adds: get_count()[1] >= 0 and get_count()[2] >= 0 (gen-1 and gen-2); get_threshold()[1] >= 0 and get_threshold()[2] >= 0; get_freeze_count() >= 0 (non-negativity check); gc function __class__.__name__ == 'builtin_function_or_method' for selected functions."
+    - "gc.get_count()[1] >= 0 — generation-1 count is always non-negative."
+    - "gc.get_count()[2] >= 0 — generation-2 count is always non-negative."
+    - "gc.get_threshold()[1] >= 0 — generation-1 threshold is non-negative (CPython default 10)."
+    - "gc.get_threshold()[2] >= 0 — generation-2 threshold is non-negative (CPython default 10)."
+    - "gc.get_freeze_count() >= 0 — count of frozen objects is always non-negative."
+    - "gc.collect.__class__.__name__ == 'builtin_function_or_method' — all gc functions are C-level builtins."
+    - "gc.enable.__class__.__name__ == 'builtin_function_or_method'."
+    - "gc.is_finalized.__class__.__name__ == 'builtin_function_or_method'."
+    - "gc.get_freeze_count.__class__.__name__ == 'builtin_function_or_method'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# get_count — per-generation non-negativity for gen-1 and gen-2
+#
+# gc.zspec.zsdl covers get_count()[0] >= 0 (generation 0 only).
+# gc_extra.zspec.zsdl also covers get_count()[0] >= 0.
+# This spec adds gen-1 and gen-2 bounds checks — new coverage.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra7.get_count.gen1_nonneg:
+  description: "gc.get_count()[1] >= 0 — generation-1 collection count is non-negative"
+  category: count
+  kind: python_call_eq
+  function: get_count().__getitem__(1).__ge__
+  args: [0]
+  expected: true
+
+invariant gc_extra7.get_count.gen2_nonneg:
+  description: "gc.get_count()[2] >= 0 — generation-2 collection count is non-negative"
+  category: count
+  kind: python_call_eq
+  function: get_count().__getitem__(2).__ge__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_threshold — per-generation non-negativity for gen-1 and gen-2
+#
+# gc.zspec.zsdl covers get_threshold()[0] >= 0 (generation 0 only).
+# gc_extra.zspec.zsdl covers get_threshold()[0] == 700 (gen-0 default only).
+# This spec adds non-negativity bounds for gen-1 and gen-2 — new coverage.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra7.get_threshold.gen1_nonneg:
+  description: "gc.get_threshold()[1] >= 0 — generation-1 threshold is non-negative"
+  category: threshold
+  kind: python_call_eq
+  function: get_threshold().__getitem__(1).__ge__
+  args: [0]
+  expected: true
+
+invariant gc_extra7.get_threshold.gen2_nonneg:
+  description: "gc.get_threshold()[2] >= 0 — generation-2 threshold is non-negative"
+  category: threshold
+  kind: python_call_eq
+  function: get_threshold().__getitem__(2).__ge__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_freeze_count — non-negativity
+#
+# gc_extra3 covers get_freeze_count().__class__.__name__ == 'int' (type check).
+# No prior spec checks get_freeze_count() >= 0 (value bounds). This adds it.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra7.get_freeze_count.nonneg:
+  description: "gc.get_freeze_count() >= 0 — frozen object count is always non-negative"
+  category: get_freeze_count
+  kind: python_call_eq
+  function: get_freeze_count().__ge__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function class type checks — gc functions are C-level builtins
+#
+# All gc functions are implemented in the C extension. Their __class__.__name__
+# is 'builtin_function_or_method'. No prior spec checks this attribute for
+# gc functions. gc_extra4 confirms gc.isenabled() returns a bool via
+# method_chain, but does not check the function's own __class__.__name__.
+# ---------------------------------------------------------------------------
+
+table gc_extra7.function_class_types:
+  kind: python_call_eq
+  category: function_types
+  id_prefix: ftype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [collect,         collect.__class__.__name__.__eq__,         ["builtin_function_or_method"], true]
+    - [enable,          enable.__class__.__name__.__eq__,          ["builtin_function_or_method"], true]
+    - [is_finalized,    is_finalized.__class__.__name__.__eq__,    ["builtin_function_or_method"], true]
+    - [get_freeze_count, get_freeze_count.__class__.__name__.__eq__, ["builtin_function_or_method"], true]

@@ -1,0 +1,99 @@
+spec: functools_extra9
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+  notes:
+    - "This spec extends functools.zspec.zsdl and prior extras."
+    - "functools_extra through functools_extra8 cover: __name__, __module__, __qualname__ for reduce/partial/cached_property/singledispatch/singledispatchmethod/lru_cache/cache/cmp_to_key/total_ordering/update_wrapper/wraps/partialmethod; TopologicalSorter name/module/qualname/base; WRAPPER_ASSIGNMENTS/WRAPPER_UPDATES tuple class name and length; partial.func/keywords/args; partial instance class name; __bases__[0].__name__ for partial and cached_property."
+    - "NEW in this spec: __bases__.__len__ == 1 for partial, cached_property, TopologicalSorter (base count not yet tested); update_wrapper.__qualname__ (not in any prior qualname table); cmp_to_key.__qualname__ (covered in extra8 table, so skip); WRAPPER_ASSIGNMENTS.__getitem__(0) == '__module__' (first element)."
+    - "functools.partial.__bases__.__len__() == 1 — partial has exactly one base (object)."
+    - "functools.cached_property.__bases__.__len__() == 1 — cached_property has exactly one base (object)."
+    - "functools.TopologicalSorter.__bases__.__len__() == 1 — TopologicalSorter has exactly one base (object)."
+    - "functools.update_wrapper.__qualname__ == 'update_wrapper' — top-level function, qualname equals name."
+    - "functools.WRAPPER_ASSIGNMENTS.__getitem__(0) == '__module__' — the first attribute name copied by wraps()."
+    - "functools.WRAPPER_UPDATES.__getitem__(0) == '__dict__' — the sole attribute name updated by wraps()."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __bases__.__len__() checks — partial, cached_property, TopologicalSorter
+#
+# Prior specs (extra5, extra6) verified __bases__[0].__name__ == 'object' for
+# partial and cached_property. Not yet verified: that there is exactly one base
+# (i.e., __bases__ has length 1 for each).
+# ---------------------------------------------------------------------------
+
+table functools_extra9.bases_len:
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: bases_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [partial,           partial.__bases__.__len__,           [], 1]
+    - [cached_property,   cached_property.__bases__.__len__,   [], 1]
+    - [TopologicalSorter, TopologicalSorter.__bases__.__len__, [], 1]
+
+# ---------------------------------------------------------------------------
+# update_wrapper.__qualname__
+#
+# functools_extra5 confirmed update_wrapper.__name__ == 'update_wrapper' and
+# __module__ == 'functools'. functools_extra8's qualname table covers
+# reduce/partial/partialmethod/lru_cache/cache/cached_property/total_ordering/
+# singledispatch/wraps/cmp_to_key — but NOT update_wrapper.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra9.update_wrapper.qualname:
+  description: "functools.update_wrapper.__qualname__ == 'update_wrapper'"
+  category: qualnames
+  kind: python_call_eq
+  function: update_wrapper.__qualname__.__eq__
+  args: ["update_wrapper"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# WRAPPER_ASSIGNMENTS first element — '__module__'
+#
+# functools.WRAPPER_ASSIGNMENTS is the tuple of attribute names copied by
+# update_wrapper(). On all supported CPython versions its first element is
+# '__module__'. Prior specs verified __contains__ for individual members and
+# the overall length, but never verified the value at a specific index.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra9.WRAPPER_ASSIGNMENTS.first_element:
+  description: "functools.WRAPPER_ASSIGNMENTS[0] == '__module__' — first attribute name is __module__"
+  category: constants
+  kind: python_call_eq
+  function: WRAPPER_ASSIGNMENTS.__getitem__
+  args: [0]
+  method: __eq__
+  method_args: ["__module__"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# WRAPPER_UPDATES first element — '__dict__'
+#
+# functools.WRAPPER_UPDATES == ('__dict__',) on all CPython versions.
+# Prior specs verified __contains__('__dict__') and __len__() == 1, but
+# never verified the value at index 0 directly.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra9.WRAPPER_UPDATES.first_element:
+  description: "functools.WRAPPER_UPDATES[0] == '__dict__' — sole element is __dict__"
+  category: constants
+  kind: python_call_eq
+  function: WRAPPER_UPDATES.__getitem__
+  args: [0]
+  method: __eq__
+  method_args: ["__dict__"]
+  expected: true

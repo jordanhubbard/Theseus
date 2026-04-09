@@ -1,0 +1,134 @@
+spec: os_extra9
+version: ">=3.9"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.html — Python os module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c"
+    - "CPython source: Lib/os.py"
+  notes:
+    - "This spec extends os.zspec.zsdl and prior extras through os_extra8.zspec.zsdl."
+    - "os_extra6 covers: sep=='/' (POSIX), linesep=='\\n', devnull=='/dev/null', curdir=='.', pardir=='..', extsep=='.'."
+    - "os_extra7 covers: sep.__class__.__name__=='str', linesep.__class__.__name__=='str'."
+    - "No prior spec covers length invariants for sep/curdir/pardir/extsep/devnull."
+    - "No prior spec covers __qualname__ for removedirs/renames/walk/symlink/unlink/mkdir/rmdir/chdir."
+    - "os.sep.__len__() == 1 on all POSIX systems (the separator is a single '/' character)."
+    - "os.curdir.__len__() == 1 — the current-directory marker '.' is one character."
+    - "os.pardir.__len__() == 2 — the parent-directory marker '..' is two characters."
+    - "os.extsep.__len__() == 1 — the extension separator '.' is one character."
+    - "os.devnull.__len__() == 9 — '/dev/null' has 9 characters on POSIX."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# String-length invariants for os path constants
+#
+# os_extra6 covers the values; os_extra7 covers class names.
+# This spec adds length checks — a distinct, orthogonal axis.
+# ---------------------------------------------------------------------------
+
+invariant os_extra9.sep.len_eq_1:
+  description: "os.sep.__len__() == 1 — path separator is a single character on POSIX"
+  category: constants
+  kind: python_call_eq
+  function: sep.__len__
+  args: []
+  expected: 1
+
+invariant os_extra9.curdir.len_eq_1:
+  description: "os.curdir.__len__() == 1 — '.' is one character"
+  category: constants
+  kind: python_call_eq
+  function: curdir.__len__
+  args: []
+  expected: 1
+
+invariant os_extra9.pardir.len_eq_2:
+  description: "os.pardir.__len__() == 2 — '..' is two characters"
+  category: constants
+  kind: python_call_eq
+  function: pardir.__len__
+  args: []
+  expected: 2
+
+invariant os_extra9.extsep.len_eq_1:
+  description: "os.extsep.__len__() == 1 — file extension separator '.' is one character"
+  category: constants
+  kind: python_call_eq
+  function: extsep.__len__
+  args: []
+  expected: 1
+
+invariant os_extra9.devnull.len_eq_9:
+  description: "os.devnull.__len__() == 9 — '/dev/null' is 9 characters on POSIX"
+  category: constants
+  kind: python_call_eq
+  function: devnull.__len__
+  args: []
+  expected: 9
+
+invariant os_extra9.linesep.len_eq_1:
+  description: "os.linesep.__len__() == 1 — line separator is '\\n' (1 char) on POSIX"
+  category: constants
+  kind: python_call_eq
+  function: linesep.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks for additional os functions
+#
+# os_extra8 covers __qualname__ for getpid/getuid/getcwd/listdir/makedirs/
+#   scandir/getenv/strerror/urandom/cpu_count.
+# This spec adds __qualname__ for filesystem functions not yet covered.
+# ---------------------------------------------------------------------------
+
+table os_extra9.function_qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [removedirs, removedirs.__qualname__.__eq__, ["removedirs"], true]
+    - [renames,    renames.__qualname__.__eq__,    ["renames"],    true]
+    - [walk,       walk.__qualname__.__eq__,       ["walk"],       true]
+    - [symlink,    symlink.__qualname__.__eq__,    ["symlink"],    true]
+    - [unlink,     unlink.__qualname__.__eq__,     ["unlink"],     true]
+    - [mkdir,      mkdir.__qualname__.__eq__,      ["mkdir"],      true]
+    - [rmdir,      rmdir.__qualname__.__eq__,      ["rmdir"],      true]
+    - [chdir,      chdir.__qualname__.__eq__,      ["chdir"],      true]
+
+# ---------------------------------------------------------------------------
+# os.sep — startswith check (orthogonal to value equality)
+#
+# Confirms sep begins with '/' without repeating the __eq__ invariant.
+# ---------------------------------------------------------------------------
+
+invariant os_extra9.sep.startswith_slash:
+  description: "os.sep.startswith('/') == True — path separator starts with '/'"
+  category: constants
+  kind: python_call_eq
+  function: sep.startswith
+  args: ["/"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.devnull — startswith check
+# os_extra6 confirms devnull == '/dev/null'; this checks the leading '/'.
+# ---------------------------------------------------------------------------
+
+invariant os_extra9.devnull.startswith_slash:
+  description: "os.devnull.startswith('/') == True — null device path starts with '/'"
+  category: constants
+  kind: python_call_eq
+  function: devnull.startswith
+  args: ["/"]
+  expected: true

@@ -1,0 +1,147 @@
+spec: pathlib_extra11
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+  notes:
+    - "This spec extends pathlib.zspec.zsdl and prior extras."
+    - "pathlib_pure covers PurePosixPath.__name__, PureWindowsPath.__name__, PurePath.__name__, PurePosixPath.__module__, PureWindowsPath.__module__."
+    - "pathlib_extra covers Path.__name__, Path.__module__, PurePosixPath.__module__."
+    - "pathlib_extra9 covers all __qualname__ attributes for the five main classes."
+    - "NOT yet covered: PosixPath.__name__, WindowsPath.__name__, PosixPath.__module__, WindowsPath.__module__, PurePath.__module__."
+    - "NOT yet covered: PosixPath.__bases__[0].__name__, WindowsPath.__bases__[0].__name__, Path.__bases__[0].__name__."
+    - "pathlib.PosixPath is the concrete path class used on POSIX systems (Linux, macOS)."
+    - "pathlib.WindowsPath is the concrete path class used on Windows; it can only be instantiated on Windows."
+    - "pathlib.PosixPath.__name__ == 'PosixPath' — platform-specific concrete class."
+    - "pathlib.WindowsPath.__name__ == 'WindowsPath' — platform-specific concrete class."
+    - "pathlib.PosixPath.__module__ == 'pathlib'."
+    - "pathlib.WindowsPath.__module__ == 'pathlib'."
+    - "pathlib.PurePath.__module__ == 'pathlib' — abstract base for pure paths."
+    - "pathlib.PosixPath.__bases__[0].__name__ == 'Path' — PosixPath extends Path."
+    - "pathlib.WindowsPath.__bases__[0].__name__ == 'Path' — WindowsPath extends Path."
+    - "pathlib.Path.__bases__[0].__name__ == 'PurePath' — Path extends PurePath."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PosixPath and WindowsPath — class identity (__name__ and __module__)
+#
+# pathlib_pure covered PurePosixPath, PureWindowsPath, PurePath names/modules.
+# pathlib_extra covered Path.__name__ and Path.__module__.
+# This spec adds the concrete OS-specific classes: PosixPath and WindowsPath.
+# PosixPath can be named without being instantiated on any platform.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra11.concrete_class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [PosixPath,   PosixPath.__name__.__eq__,   ["PosixPath"],   true]
+    - [WindowsPath, WindowsPath.__name__.__eq__,  ["WindowsPath"], true]
+
+# ---------------------------------------------------------------------------
+# Module affiliation for PosixPath, WindowsPath, and PurePath
+#
+# pathlib_pure has PurePosixPath.__module__ and PureWindowsPath.__module__.
+# pathlib_extra has Path.__module__ and PurePosixPath.__module__.
+# NOT yet covered: PurePath.__module__, PosixPath.__module__, WindowsPath.__module__.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra11.class_modules:
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [PurePath,    PurePath.__module__.__eq__,    ["pathlib"], true]
+    - [PosixPath,   PosixPath.__module__.__eq__,   ["pathlib"], true]
+    - [WindowsPath, WindowsPath.__module__.__eq__,  ["pathlib"], true]
+
+# ---------------------------------------------------------------------------
+# Inheritance hierarchy — __bases__[0].__name__ checks
+#
+# The pathlib class hierarchy (concrete side):
+#   PurePath <- Path <- PosixPath   (on POSIX)
+#   PurePath <- Path <- WindowsPath (on Windows)
+# No prior spec verifies these concrete class parent links.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra11.Path.base_is_PurePath:
+  description: "pathlib.Path.__bases__[0].__name__ == 'PurePath' — Path directly extends PurePath"
+  category: hierarchy
+  kind: python_call_eq
+  function: Path.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "PurePath"
+
+invariant pathlib_extra11.PosixPath.base_is_Path:
+  description: "pathlib.PosixPath.__bases__[0].__name__ == 'Path' — PosixPath directly extends Path"
+  category: hierarchy
+  kind: python_call_eq
+  function: PosixPath.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Path"
+
+invariant pathlib_extra11.WindowsPath.base_is_Path:
+  description: "pathlib.WindowsPath.__bases__[0].__name__ == 'Path' — WindowsPath directly extends Path"
+  category: hierarchy
+  kind: python_call_eq
+  function: WindowsPath.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Path"
+
+# ---------------------------------------------------------------------------
+# PurePath — class name (via __name__.__eq__) as standalone invariant
+#
+# pathlib_pure covers PurePath.__name__ in a table row.
+# This provides an equivalent standalone invariant with explicit description
+# to confirm PurePath is a distinct abstract class in the hierarchy.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra11.PurePath.name:
+  description: "pathlib.PurePath.__name__ == 'PurePath' — abstract base for all path classes"
+  category: class_names
+  kind: python_call_eq
+  function: PurePath.__name__.__eq__
+  args: ["PurePath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.__bases__[1].__name__ — secondary base is PurePath
+#
+# pathlib_pure already checks PurePosixPath.__bases__[0].__name__ == 'PurePath'.
+# This adds a cross-check that PurePosixPath has exactly one base to rely on.
+# We verify via __bases__.__len__() == 1.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra11.PurePosixPath.bases_len:
+  description: "pathlib.PurePosixPath.__bases__.__len__() == 1 — single direct base class"
+  category: hierarchy
+  kind: python_call_eq
+  function: PurePosixPath.__bases__.__len__
+  args: []
+  expected: 1
+
+invariant pathlib_extra11.PureWindowsPath.bases_len:
+  description: "pathlib.PureWindowsPath.__bases__.__len__() == 1 — single direct base class"
+  category: hierarchy
+  kind: python_call_eq
+  function: PureWindowsPath.__bases__.__len__
+  args: []
+  expected: 1

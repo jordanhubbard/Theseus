@@ -1,0 +1,127 @@
+spec: contextlib_extra9
+version: ">=3.10"
+backend: python_module(contextlib)
+
+docs: https://docs.python.org/3/library/contextlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/contextlib.html — Python contextlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/contextlib.py"
+  notes:
+    - "This spec extends contextlib.zspec.zsdl through contextlib_extra8.zspec.zsdl and contextlib_suppress.zspec.zsdl."
+    - "contextlib_extra7 checks __bases__.__len__ == 1 for AbstractContextManager only."
+    - "contextlib_extra8 checks __bases__.__len__ == 1 for AsyncExitStack and AbstractAsyncContextManager."
+    - "No prior spec checks ExitStack.__bases__.__len__ — ExitStack has 2 bases: _BaseExitStack and AbstractContextManager."
+    - "No prior spec checks nullcontext.__bases__.__len__ — nullcontext also has 2 bases: AbstractContextManager and AbstractAsyncContextManager (Python 3.10+)."
+    - "contextlib.ExitStack.__bases__.__len__() == 2 — ExitStack derives from both _BaseExitStack and AbstractContextManager."
+    - "contextlib.ExitStack.__bases__[1].__name__ == 'AbstractContextManager' — the second base is the public ABC."
+    - "contextlib.nullcontext.__bases__.__len__() == 2 — nullcontext is both sync and async on Python 3.10+."
+    - "contextlib.nullcontext.__bases__[1].__name__ == 'AbstractAsyncContextManager' — async base (Python 3.10+)."
+    - "contextlib.AbstractContextManager.__abstractmethods__.__len__() == 1 — only __exit__ is abstract."
+    - "contextlib.AbstractAsyncContextManager.__abstractmethods__.__len__() == 1 — only __aexit__ is abstract."
+    - "contextlib.ExitStack.__abstractmethods__.__len__() == 0 — ExitStack is concrete (implements all abstract methods)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ExitStack — base class count (new: contextlib_extra7 only checks
+# AbstractContextManager, contextlib_extra8 only checks AsyncExitStack)
+#
+# In Python 3.11+, ExitStack was refactored to use _BaseExitStack as a
+# shared base with AsyncExitStack, and also derives from AbstractContextManager.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra9.ExitStack.bases_len:
+  description: "contextlib.ExitStack.__bases__ has exactly 2 elements (_BaseExitStack and AbstractContextManager)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: ExitStack.__bases__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# ExitStack — second base is AbstractContextManager
+#
+# contextlib_extra7 checks __bases__[0].__name__ == 'AbstractContextManager'
+# but that slot is actually _BaseExitStack. The AbstractContextManager is the
+# second base at index 1. This invariant checks the correct index.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra9.ExitStack.second_base_name:
+  description: "contextlib.ExitStack.__bases__[1].__name__ == 'AbstractContextManager'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: ExitStack.__bases__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "AbstractContextManager"
+
+# ---------------------------------------------------------------------------
+# nullcontext — base class count (Python 3.10+)
+#
+# Since Python 3.10 nullcontext derives from both AbstractContextManager
+# and AbstractAsyncContextManager, making it usable in both sync and async
+# with-statements. No prior spec checks nullcontext.__bases__.__len__.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra9.nullcontext.bases_len:
+  description: "contextlib.nullcontext.__bases__ has exactly 2 elements on Python 3.10+"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: nullcontext.__bases__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# nullcontext — second base is AbstractAsyncContextManager (Python 3.10+)
+#
+# contextlib_extra8 checks nullcontext.__bases__[0].__name__ == 'AbstractContextManager'.
+# This spec adds the second base check — AbstractAsyncContextManager.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra9.nullcontext.second_base_name:
+  description: "contextlib.nullcontext.__bases__[1].__name__ == 'AbstractAsyncContextManager'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: nullcontext.__bases__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "AbstractAsyncContextManager"
+
+# ---------------------------------------------------------------------------
+# __abstractmethods__ — count checks for ABCs and concrete classes
+#
+# No prior contextlib spec checks __abstractmethods__.__len__ for any class.
+# AbstractContextManager has exactly one abstract method: __exit__.
+# AbstractAsyncContextManager has exactly one abstract method: __aexit__.
+# ExitStack and AsyncExitStack are concrete classes with no abstract methods.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra9.AbstractContextManager.abstractmethods_len:
+  description: "contextlib.AbstractContextManager.__abstractmethods__ has exactly 1 member (__exit__)"
+  category: abstract_methods
+  kind: python_call_eq
+  function: AbstractContextManager.__abstractmethods__.__len__
+  args: []
+  expected: 1
+
+invariant contextlib_extra9.AbstractAsyncContextManager.abstractmethods_len:
+  description: "contextlib.AbstractAsyncContextManager.__abstractmethods__ has exactly 1 member (__aexit__)"
+  category: abstract_methods
+  kind: python_call_eq
+  function: AbstractAsyncContextManager.__abstractmethods__.__len__
+  args: []
+  expected: 1
+
+invariant contextlib_extra9.ExitStack.abstractmethods_len:
+  description: "contextlib.ExitStack.__abstractmethods__ is empty — ExitStack is fully concrete"
+  category: abstract_methods
+  kind: python_call_eq
+  function: ExitStack.__abstractmethods__.__len__
+  args: []
+  expected: 0
