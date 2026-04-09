@@ -1,0 +1,138 @@
+spec: builtins_extra12
+version: ">=3.9"
+backend: python_module(builtins)
+
+docs: https://docs.python.org/3/library/functions.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functions.html — Python built-in functions documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/bltinmodule.c"
+    - "builtins_extra9.zspec.zsdl — covers MRO lengths for dict/tuple/set/float/complex/range"
+    - "builtins_extra11.zspec.zsdl — covers MRO lengths for int/bool/bytes/bytearray/frozenset/object"
+    - "builtins_extra8.zspec.zsdl — covers MRO length for str (len==2) and int/bool/str __bases__[0].__name__"
+    - "builtins_extra3.zspec.zsdl — covers __bases__[0].__name__ for int/bool/str/list/dict/tuple/set/frozenset/bytes/bytearray"
+  notes:
+    - "This spec adds new axes not covered in any prior builtins spec."
+    - "Axis 1: list.__mro__.__len__() == 2 — MRO coverage for list (not in any prior spec)."
+    - "Axis 2: __bases__[0].__name__ for float and complex (not in any prior spec)."
+    - "Axis 3: MRO element access — __mro__[0].__name__ and __mro__[1].__name__ for key types."
+    - "Axis 4: bool.__mro__[1].__name__ == 'int' — confirms bool inherits int in MRO."
+    - "list.__mro__.__len__() == 2 — MRO is [list, object]; not covered in extra9 or extra11."
+    - "float.__bases__[0].__name__ == 'object' — not covered in extra3 or extra8."
+    - "complex.__bases__[0].__name__ == 'object' — not covered in extra3 or extra8."
+    - "list.__mro__[0].__name__ == 'list' — first MRO element is the type itself."
+    - "bool.__mro__[1].__name__ == 'int' — bool inherits from int; confirmed via MRO index."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# list.__mro__.__len__() == 2
+#
+# builtins_extra9 covers MRO lengths for dict/tuple/set/float/complex/range.
+# builtins_extra11 covers MRO lengths for int/bool/bytes/bytearray/frozenset/object.
+# builtins_extra8 covers MRO length for str.
+# No prior spec covers list.__mro__.__len__(). The MRO is [list, object], length 2.
+# ---------------------------------------------------------------------------
+
+invariant builtins_extra12.list.mro_length:
+  description: "len(list.__mro__) == 2 — MRO is [list, object]"
+  category: mro_lengths
+  kind: python_call_eq
+  function: list.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# __bases__[0].__name__ for float and complex
+#
+# builtins_extra3 covers __bases__[0].__name__ for int/bool/str/list/dict/tuple/set/frozenset/bytes/bytearray.
+# builtins_extra8 covers __bases__[0].__name__ for int/bool/str (duplicates extra3 for these).
+# builtins_extra9 covers __bases__[0].__name__ for range/type/memoryview/slice/property.
+# No prior spec covers float.__bases__[0].__name__ or complex.__bases__[0].__name__.
+# Both float and complex inherit directly from object.
+# ---------------------------------------------------------------------------
+
+invariant builtins_extra12.float.base_is_object:
+  description: "float.__bases__[0].__name__ == 'object' — float inherits directly from object"
+  category: bases
+  kind: python_call_eq
+  function: float.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra12.complex.base_is_object:
+  description: "complex.__bases__[0].__name__ == 'object' — complex inherits directly from object"
+  category: bases
+  kind: python_call_eq
+  function: complex.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# MRO element access — __mro__[0].__name__ for list, tuple, dict, set
+#
+# No prior spec accesses individual MRO elements by index to check their name.
+# The first element of any type's MRO is always the type itself.
+# This is a new invariant axis: MRO index access.
+# ---------------------------------------------------------------------------
+
+table builtins_extra12.mro_first_element:
+  description: "First MRO element of each type is the type itself (__mro__[0].__name__)"
+  kind: python_call_eq
+  category: mro_elements
+  id_prefix: mro0
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [list,  list.__mro__.__getitem__,  [0], __name__, [], "list"]
+    - [tuple, tuple.__mro__.__getitem__, [0], __name__, [], "tuple"]
+    - [dict,  dict.__mro__.__getitem__,  [0], __name__, [], "dict"]
+    - [set,   set.__mro__.__getitem__,   [0], __name__, [], "set"]
+
+# ---------------------------------------------------------------------------
+# bool.__mro__[1].__name__ == 'int'
+#
+# No prior spec accesses MRO elements by index. bool's MRO is [bool, int, object].
+# The middle element (index 1) is int — confirming bool's inheritance from int.
+# ---------------------------------------------------------------------------
+
+invariant builtins_extra12.bool.mro_index1_is_int:
+  description: "bool.__mro__[1].__name__ == 'int' — second MRO element is int; bool subclasses int"
+  category: mro_elements
+  kind: python_call_eq
+  function: bool.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "int"
+
+invariant builtins_extra12.bool.mro_index2_is_object:
+  description: "bool.__mro__[2].__name__ == 'object' — third MRO element is object; root of the hierarchy"
+  category: mro_elements
+  kind: python_call_eq
+  function: bool.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# list.__mro__[1].__name__ == 'object'
+#
+# Confirms the second (and final) MRO element for list is object, completing
+# the [list, object] chain. No prior spec covers this specific index access.
+# ---------------------------------------------------------------------------
+
+invariant builtins_extra12.list.mro_index1_is_object:
+  description: "list.__mro__[1].__name__ == 'object' — second MRO element is object; list inherits directly"
+  category: mro_elements
+  kind: python_call_eq
+  function: list.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"

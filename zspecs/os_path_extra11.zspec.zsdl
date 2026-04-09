@@ -1,0 +1,156 @@
+spec: os_path_extra11
+version: ">=3.9"
+backend: python_module(os.path)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.path.html — Python os.path documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py"
+  notes:
+    - "This spec extends os_path.zspec.zsdl through os_path_extra10.zspec.zsdl."
+    - "os_path_extra covers join('/a','b','c')=='/a/b/c' and join('a','b','/c')=='/c'."
+    - "os_path_extra6 covers join('a','b','c')=='a/b/c' and join('/a','b','c')=='/a/b/c'."
+    - "os_path_extra10 covers normpath('/a/b/../c'), normpath('/a/b/./c'), normpath('/a//b'), normpath('/a/b/c/../..')."
+    - "NOT yet covered: join('.','b','c')=='./b/c' — dot as first component."
+    - "NOT yet covered: join('/a','/b','c')=='/b/c' — absolute mid-arg followed by a suffix."
+    - "NOT yet covered: normpath('./a')=='a' — leading dot-slash collapsed."
+    - "NOT yet covered: normpath('/a/b/c/../../d')=='/a/d' — two dotdots then a new component."
+    - "NOT yet covered: normpath('a/b/../../c')=='c' — two relative dotdots reach root then new component."
+    - "NOT yet covered: return type of join/normpath/dirname/basename/relpath/commonpath (str)."
+    - "join('.','b','c')=='./b/c' — dot prefix is preserved, components joined normally."
+    - "join('/a','/b','c')=='/b/c' — absolute second arg resets, third arg appends."
+    - "normpath('./a')=='a' — leading ./ is stripped, leaving bare component."
+    - "normpath('/a/b/c/../../d')=='/a/d' — two dotdots ascend two levels then 'd' appended."
+    - "normpath('a/b/../../c')=='c' — relative path: two dotdots cancel 'a' and 'b', leaving 'c'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# os.path.join — new vectors not in any prior spec
+#
+# os_path_extra covers join('/a','b','c') and join('a','b','/c').
+# os_path_extra6 covers join('a','b','c') and join('/a','b','c').
+# os_path.zspec covers two-component join and single absolute reset.
+#
+# New vectors:
+#   join('.','b','c') == './b/c' — dot as first component is preserved
+#   join('/a','/b','c') == '/b/c' — absolute mid-arg resets, third component appended
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra11.join.dot_prefix_three:
+  description: "os.path.join('.', 'b', 'c') == './b/c' — dot as first component is preserved"
+  category: join
+  kind: python_call_eq
+  function: join
+  args: [".", "b", "c"]
+  expected: "./b/c"
+
+invariant os_path_extra11.join.abs_mid_with_suffix:
+  description: "os.path.join('/a', '/b', 'c') == '/b/c' — absolute mid-arg resets, suffix is appended"
+  category: join
+  kind: python_call_eq
+  function: join
+  args: ["/a", "/b", "c"]
+  expected: "/b/c"
+
+# ---------------------------------------------------------------------------
+# os.path.normpath — new relative and deep-path vectors
+#
+# os_path_extra10 covers: '/a/b/../c', '/a/b/./c', '/a//b', '/a/b/c/../..'.
+# os_path_extra6 covers: 'a/./b/../c'.
+# os_path_extra covers: '/a//b/../c', 'a/./b'.
+# os_path.zspec covers: '/foo/../bar', 'a/./b', 'a//b', '', '.', '..'.
+#
+# New vectors:
+#   normpath('./a') == 'a' — leading dot-slash is stripped
+#   normpath('/a/b/c/../../d') == '/a/d' — two dotdots followed by a new component
+#   normpath('a/b/../../c') == 'c' — relative: two dotdots cancel both components
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra11.normpath.leading_dot_slash:
+  description: "os.path.normpath('./a') == 'a' — leading ./ is collapsed, bare component remains"
+  category: normpath
+  kind: python_call_eq
+  function: normpath
+  args: ["./a"]
+  expected: "a"
+
+invariant os_path_extra11.normpath.deep_abs_two_dotdots_then_component:
+  description: "os.path.normpath('/a/b/c/../../d') == '/a/d' — two dotdots ascend two levels then append 'd'"
+  category: normpath
+  kind: python_call_eq
+  function: normpath
+  args: ["/a/b/c/../../d"]
+  expected: "/a/d"
+
+invariant os_path_extra11.normpath.rel_two_dotdots_then_component:
+  description: "os.path.normpath('a/b/../../c') == 'c' — relative: two dotdots cancel 'a'/'b', leaving 'c'"
+  category: normpath
+  kind: python_call_eq
+  function: normpath
+  args: ["a/b/../../c"]
+  expected: "c"
+
+# ---------------------------------------------------------------------------
+# Return type checks — join, normpath, dirname, basename, relpath, commonpath
+#
+# No prior os_path spec verifies the return type of these functions via
+# __class__.__name__. This is a new metadata axis: confirming that each
+# function always returns a str.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra11.join.return_type_is_str:
+  description: "os.path.join('a', 'b').__class__.__name__ == 'str' — join always returns str"
+  category: return_types
+  kind: python_call_eq
+  function: join
+  args: ["a", "b"]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+invariant os_path_extra11.normpath.return_type_is_str:
+  description: "os.path.normpath('a/b').__class__.__name__ == 'str' — normpath always returns str"
+  category: return_types
+  kind: python_call_eq
+  function: normpath
+  args: ["a/b"]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+invariant os_path_extra11.dirname.return_type_is_str:
+  description: "os.path.dirname('/a/b').__class__.__name__ == 'str' — dirname always returns str"
+  category: return_types
+  kind: python_call_eq
+  function: dirname
+  args: ["/a/b"]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+invariant os_path_extra11.basename.return_type_is_str:
+  description: "os.path.basename('/a/b').__class__.__name__ == 'str' — basename always returns str"
+  category: return_types
+  kind: python_call_eq
+  function: basename
+  args: ["/a/b"]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+invariant os_path_extra11.relpath.return_type_is_str:
+  description: "os.path.relpath('/a/b/c', '/a').__class__.__name__ == 'str' — relpath always returns str"
+  category: return_types
+  kind: python_call_eq
+  function: relpath
+  args: ["/a/b/c", "/a"]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true

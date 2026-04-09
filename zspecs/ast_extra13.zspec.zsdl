@@ -1,0 +1,159 @@
+spec: ast_extra13
+version: ">=3.9"
+backend: python_module(ast)
+
+docs: https://docs.python.org/3/library/ast.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ast.html — Python ast documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ast.py"
+    - "CPython source: Python/Python-ast.c"
+    - "ast_extra5.zspec.zsdl — covers __qualname__ for FunctionDef/Expr/ClassDef/Name/If/For/Import/Call/Assign/Return/AsyncFunctionDef/AsyncFor/AsyncWith/With/Delete"
+    - "ast_extra7.zspec.zsdl — covers __qualname__ for BinOp/While/Tuple/List/Try/Raise/Pass/Break/Continue"
+    - "ast_extra12.zspec.zsdl — covers __qualname__ for NamedExpr/JoinedStr/IfExp/Lambda/FormattedValue (table); Expression/__name__/__module__; Interactive/__name__/__module__; unparse __name__/__qualname__/__module__"
+  notes:
+    - "This spec extends ast_extra12.zspec.zsdl."
+    - "ast_extra3 covers __module__ for Module/FunctionDef/Constant/Name/AST/Expr/ClassDef/NodeVisitor/NodeTransformer."
+    - "NOT yet covered: ast.Module.__qualname__ — wait, ast_extra4 covers Module.__qualname__. Focus is on __module__ for nodes not in ast_extra3."
+    - "NOT yet covered: ast.AsyncFunctionDef.__module__ — not verified in ast_extra3 or later."
+    - "NOT yet covered: ast.Return.__module__ — not verified in ast_extra3 or later."
+    - "NOT yet covered: ast.Assign.__module__ — not verified in ast_extra3 or later."
+    - "NOT yet covered: ast.If.__module__ — not verified in ast_extra3 or later."
+    - "NOT yet covered: ast.For.__module__ — not verified in ast_extra3 or later."
+    - "NOT yet covered: ast.Import.__module__ — not verified in ast_extra3 or later."
+    - "NOT yet covered: ast.Expression.__qualname__ — not verified in any prior spec (ast_extra12 only covers __name__/__module__ for Expression)."
+    - "NOT yet covered: ast.Interactive.__qualname__ — not verified in any prior spec (ast_extra12 only covers __name__/__module__ for Interactive)."
+    - "NOT yet covered: ast.AnnAssign/__qualname__/__module__ — not verified in any prior ast spec."
+    - "NOT yet covered: ast.AugAssign/__qualname__/__module__ — not verified in any prior ast spec."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Expression and Interactive __qualname__
+#
+# ast_extra12 verifies __name__ and __module__ for Expression and Interactive,
+# but no prior spec checks __qualname__ for either. For module-level classes,
+# __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra13.Expression.qualname:
+  description: "ast.Expression.__qualname__ == 'Expression' — parse-mode expression root node"
+  category: class_qualnames
+  kind: python_call_eq
+  function: Expression.__qualname__.__eq__
+  args: ["Expression"]
+  expected: true
+
+invariant ast_extra13.Interactive.qualname:
+  description: "ast.Interactive.__qualname__ == 'Interactive' — parse-mode interactive root node"
+  category: class_qualnames
+  kind: python_call_eq
+  function: Interactive.__qualname__.__eq__
+  args: ["Interactive"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Statement node __module__ — AsyncFunctionDef, Return, Assign, If, For, Import
+#
+# ast_extra3 covers __module__ for Module/FunctionDef/Constant/Name/AST/Expr/
+# ClassDef. No prior ast spec verifies __module__ for AsyncFunctionDef, Return,
+# Assign, If, For, or Import as standalone named invariants.
+# ---------------------------------------------------------------------------
+
+table ast_extra13.stmt_node_modules:
+  kind: python_call_eq
+  category: module_attrs
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [AsyncFunctionDef, AsyncFunctionDef.__module__.__eq__, ["ast"], true]
+    - [Return,           Return.__module__.__eq__,           ["ast"], true]
+    - [Assign,           Assign.__module__.__eq__,           ["ast"], true]
+    - [If,               If.__module__.__eq__,               ["ast"], true]
+    - [For,              For.__module__.__eq__,              ["ast"], true]
+    - [Import,           Import.__module__.__eq__,           ["ast"], true]
+
+# ---------------------------------------------------------------------------
+# AnnAssign and AugAssign — __qualname__ and __module__
+#
+# Neither AnnAssign nor AugAssign appear in any prior ast spec as subjects of
+# __qualname__ or __module__ checks. Both are statement node classes introduced
+# in Python 3.6 (AnnAssign) and always present (AugAssign).
+# ---------------------------------------------------------------------------
+
+invariant ast_extra13.AnnAssign.qualname:
+  description: "ast.AnnAssign.__qualname__ == 'AnnAssign' — annotated assignment node"
+  category: class_qualnames
+  kind: python_call_eq
+  function: AnnAssign.__qualname__.__eq__
+  args: ["AnnAssign"]
+  expected: true
+
+invariant ast_extra13.AnnAssign.module:
+  description: "ast.AnnAssign.__module__ == 'ast' — defined in the ast module"
+  category: module_attrs
+  kind: python_call_eq
+  function: AnnAssign.__module__.__eq__
+  args: ["ast"]
+  expected: true
+
+invariant ast_extra13.AugAssign.qualname:
+  description: "ast.AugAssign.__qualname__ == 'AugAssign' — augmented assignment node"
+  category: class_qualnames
+  kind: python_call_eq
+  function: AugAssign.__qualname__.__eq__
+  args: ["AugAssign"]
+  expected: true
+
+invariant ast_extra13.AugAssign.module:
+  description: "ast.AugAssign.__module__ == 'ast' — defined in the ast module"
+  category: module_attrs
+  kind: python_call_eq
+  function: AugAssign.__module__.__eq__
+  args: ["ast"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Set and Dict — __qualname__ and __module__
+#
+# ast_extra7 covers BinOp/While/Tuple/List __qualname__/__module__ but not Set
+# or Dict. No prior ast spec verifies __qualname__ or __module__ for Set or Dict.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra13.Set.qualname:
+  description: "ast.Set.__qualname__ == 'Set' — set literal node"
+  category: class_qualnames
+  kind: python_call_eq
+  function: Set.__qualname__.__eq__
+  args: ["Set"]
+  expected: true
+
+invariant ast_extra13.Set.module:
+  description: "ast.Set.__module__ == 'ast' — defined in the ast module"
+  category: module_attrs
+  kind: python_call_eq
+  function: Set.__module__.__eq__
+  args: ["ast"]
+  expected: true
+
+invariant ast_extra13.Dict.qualname:
+  description: "ast.Dict.__qualname__ == 'Dict' — dictionary literal node"
+  category: class_qualnames
+  kind: python_call_eq
+  function: Dict.__qualname__.__eq__
+  args: ["Dict"]
+  expected: true
+
+invariant ast_extra13.Dict.module:
+  description: "ast.Dict.__module__ == 'ast' — defined in the ast module"
+  category: module_attrs
+  kind: python_call_eq
+  function: Dict.__module__.__eq__
+  args: ["ast"]
+  expected: true
