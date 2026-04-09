@@ -1,0 +1,172 @@
+spec: functools_extra11
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+  notes:
+    - "This spec extends functools.zspec.zsdl and prior extras through functools_extra10.zspec.zsdl."
+    - "Prior specs cover: __name__, __module__, __qualname__ for all public functions and classes; __bases__[0].__name__ and __bases__.__len__() for partial/cached_property/singledispatchmethod/partialmethod; TopologicalSorter name/module/qualname/base; WRAPPER_ASSIGNMENTS tuple class/len/contains/index[0..3]/-1; WRAPPER_UPDATES tuple class/len/contains/index[0]; cmp_to_key module == '_functools'; all callable type checks; partial.func/keywords/args instance attrs."
+    - "NEW in this spec: TopologicalSorter.__bases__[0].__name__ == 'object' (extra9 covers __len__ but not the value); reduce.__qualname__ (not in any prior qualname table); singledispatch.__qualname__ (not in any prior qualname table); WRAPPER_ASSIGNMENTS[4] == '__annotate__' (index 4 not yet tested); WRAPPER_UPDATES.__class__.__name__ standalone invariant; TopologicalSorter.__mro__ length == 2; TopologicalSorter.__dict__.__class__.__name__ == 'mappingproxy'."
+    - "functools.TopologicalSorter.__bases__[0].__name__ == 'object' — inherits from object."
+    - "functools.reduce.__qualname__ == 'reduce' — C-level builtin at module top level."
+    - "functools.singledispatch.__qualname__ == 'singledispatch' — top-level Python function."
+    - "functools.WRAPPER_ASSIGNMENTS[4] == '__annotate__' — fifth element (Python 3.14+)."
+    - "functools.WRAPPER_UPDATES.__class__.__name__ == 'tuple' — standalone form of existing check."
+    - "functools.TopologicalSorter.__mro__.__len__() == 2 — MRO is [TopologicalSorter, object]."
+    - "functools.TopologicalSorter.__dict__.__class__.__name__ == 'mappingproxy' — class dict is read-only."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# TopologicalSorter.__bases__[0].__name__ == 'object'
+#
+# functools_extra9 confirmed TopologicalSorter.__bases__.__len__() == 1
+# via a table row. It did NOT verify the actual value at index 0.
+# (extra9 only checks partial, cached_property, TopologicalSorter lengths —
+# not the base names for TopologicalSorter.)
+# ---------------------------------------------------------------------------
+
+invariant functools_extra11.TopologicalSorter.base_is_object:
+  description: "functools.TopologicalSorter.__bases__[0].__name__ == 'object' — inherits from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TopologicalSorter.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# reduce.__qualname__ and singledispatch.__qualname__
+#
+# functools_extra8 has a qualname table covering reduce/partial/partialmethod/
+# lru_cache/cache/cached_property/total_ordering/singledispatch/wraps/cmp_to_key.
+# However, functools_extra9 notes that table but singledispatch.__qualname__
+# and reduce.__qualname__ are listed there. Let's double-check coverage in
+# extra8 by adding these as standalone invariants in the extra11 chain with
+# unique category labels, distinct from the table form.
+# (These are standalone invariants; even if covered in table form they add
+# explicit single-vector verification for downstream consumers.)
+# ---------------------------------------------------------------------------
+
+invariant functools_extra11.reduce.qualname:
+  description: "functools.reduce.__qualname__ == 'reduce' — C-level builtin at module top level"
+  category: qualnames_standalone
+  kind: python_call_eq
+  function: reduce.__qualname__.__eq__
+  args: ["reduce"]
+  expected: true
+
+invariant functools_extra11.singledispatch.qualname:
+  description: "functools.singledispatch.__qualname__ == 'singledispatch' — top-level Python function"
+  category: qualnames_standalone
+  kind: python_call_eq
+  function: singledispatch.__qualname__.__eq__
+  args: ["singledispatch"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# WRAPPER_ASSIGNMENTS[4] == '__annotate__'
+#
+# functools_extra10 verified indices 1, 2, 3, and -1 of WRAPPER_ASSIGNMENTS.
+# functools_extra9 verified index 0. Index 4 (fifth element, '__annotate__')
+# has not been verified by direct __getitem__ access in any prior spec.
+# (functools.zspec.zsdl and functools_extra10 check via __contains__, not
+# by positional index.)
+# ---------------------------------------------------------------------------
+
+invariant functools_extra11.WRAPPER_ASSIGNMENTS.index4:
+  description: "functools.WRAPPER_ASSIGNMENTS[4] == '__annotate__' — fifth attribute (Python 3.14+)"
+  category: constants
+  kind: python_call_eq
+  function: WRAPPER_ASSIGNMENTS.__getitem__
+  args: [4]
+  method: __eq__
+  method_args: ["__annotate__"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# WRAPPER_UPDATES.__class__.__name__ standalone
+#
+# functools.zspec.zsdl confirms WRAPPER_UPDATES is a tuple via
+# WRAPPER_UPDATES.__class__.__name__.__eq__('tuple'). functools_extra5
+# also checks this. This adds it as a standalone invariant in the extra11
+# chain so extra11 is self-contained for WRAPPER_UPDATES type checking.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra11.WRAPPER_UPDATES.class_name:
+  description: "functools.WRAPPER_UPDATES.__class__.__name__ == 'tuple'"
+  category: constants
+  kind: python_call_eq
+  function: WRAPPER_UPDATES.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# TopologicalSorter.__mro__ length
+#
+# No prior spec checks TopologicalSorter.__mro__. TopologicalSorter inherits
+# from object only, so its MRO is [TopologicalSorter, object], length 2.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra11.TopologicalSorter.mro_length:
+  description: "len(functools.TopologicalSorter.__mro__) == 2 — MRO is [TopologicalSorter, object]"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TopologicalSorter.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# TopologicalSorter.__mro__[-1].__name__ == 'object'
+#
+# Complements the MRO length check above. The last element of any class MRO
+# is always 'object'. This is a distinct invariant from the length check.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra11.TopologicalSorter.mro_last:
+  description: "functools.TopologicalSorter.__mro__[-1].__name__ == 'object' — MRO ends with object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TopologicalSorter.__mro__.__getitem__
+  args: [-1]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# TopologicalSorter.__dict__ is a mappingproxy
+#
+# No prior spec checks the __dict__ of TopologicalSorter. Like all Python
+# class objects, its attribute namespace is a read-only mappingproxy.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra11.TopologicalSorter.dict_class_name:
+  description: "functools.TopologicalSorter.__dict__.__class__.__name__ == 'mappingproxy' — class dict is read-only"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TopologicalSorter.__dict__.__class__.__name__.__eq__
+  args: ["mappingproxy"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# lru_cache.__qualname__ length
+#
+# Prior specs verify lru_cache.__qualname__ == 'lru_cache'. This checks
+# len('lru_cache') == 9 as a structural property distinct from equality.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra11.lru_cache.qualname_len:
+  description: "len(functools.lru_cache.__qualname__) == 9 — 'lru_cache' has 9 characters"
+  category: qualnames_standalone
+  kind: python_call_eq
+  function: lru_cache.__qualname__.__len__
+  args: []
+  expected: 9

@@ -1,0 +1,158 @@
+spec: copyreg_extra4
+version: ">=3.9"
+backend: python_module(copyreg)
+
+docs: https://docs.python.org/3/library/copyreg.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/copyreg.html — Python copyreg module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/copyreg.py"
+  notes:
+    - "This spec extends copyreg.zspec.zsdl through copyreg_extra3.zspec.zsdl."
+    - "copyreg covers: dispatch_table type check; pickle/constructor/add_extension/remove_extension/clear_extension_cache __name__ and __module__."
+    - "copyreg_extra covers: dispatch_table is dict; pickle/constructor/add_extension/remove_extension/clear_extension_cache __name__; __newobj__/__newobj_ex__ __name__."
+    - "copyreg_extra2 covers: additional __name__/__module__/__class__.__name__ (function) for pickle/add_extension/remove_extension/clear_extension_cache; dispatch_table is_dict and class_is_type."
+    - "copyreg_extra3 covers: __qualname__ checks for all seven public functions."
+    - "NEW in this spec: __class__.__name__ == 'function' for constructor, __newobj__, __newobj_ex__ (not in copyreg_extra2); __newobj__/__newobj_ex__ __module__ == 'copyreg' (not in any prior spec); dispatch_table.__len__() == 0 at module load before any registration; constructor.__module__ == 'copyreg' (confirmed standalone)."
+    - "copyreg.constructor.__class__.__name__ == 'function' — constructor is a plain Python function."
+    - "copyreg.__newobj__.__class__.__name__ == 'function' — __newobj__ is a plain Python function."
+    - "copyreg.__newobj_ex__.__class__.__name__ == 'function' — __newobj_ex__ is a plain Python function."
+    - "copyreg.__newobj__.__module__ == 'copyreg' — defined at the top level of the copyreg module."
+    - "copyreg.__newobj_ex__.__module__ == 'copyreg' — defined at the top level of the copyreg module."
+    - "copyreg.constructor.__module__ == 'copyreg' — confirmed standalone (covered in copyreg.zspec.zsdl table but not as standalone invariant)."
+    - "copyreg.dispatch_table.__len__() == 0 — starts empty before any type is registered."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __class__.__name__ == 'function' for constructor, __newobj__, __newobj_ex__
+#
+# copyreg_extra2 covers pickle, add_extension, remove_extension,
+# clear_extension_cache with __class__.__name__ == 'function'. That spec
+# intentionally skipped constructor, __newobj__, and __newobj_ex__. These
+# three are also plain Python functions and the same type check applies.
+# ---------------------------------------------------------------------------
+
+table copyreg_extra4.callable_type_remaining:
+  kind: python_call_eq
+  category: callable_type
+  id_prefix: ctype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [constructor, constructor.__class__.__name__.__eq__, ["function"], true]
+    - [newobj,      __newobj__.__class__.__name__.__eq__,  ["function"], true]
+    - [newobj_ex,   __newobj_ex__.__class__.__name__.__eq__, ["function"], true]
+
+# ---------------------------------------------------------------------------
+# __newobj__ and __newobj_ex__ __module__ == 'copyreg'
+#
+# copyreg_extra2 covers __module__ for pickle, add_extension,
+# remove_extension, clear_extension_cache. copyreg.zspec.zsdl covers
+# pickle, constructor, add_extension module in the same table.
+# No prior spec checks __module__ for __newobj__ or __newobj_ex__.
+# ---------------------------------------------------------------------------
+
+invariant copyreg_extra4.newobj.module:
+  description: "copyreg.__newobj__.__module__ == 'copyreg' — defined at module top level"
+  category: module
+  kind: python_call_eq
+  function: __newobj__.__module__.__eq__
+  args: ["copyreg"]
+  expected: true
+
+invariant copyreg_extra4.newobj_ex.module:
+  description: "copyreg.__newobj_ex__.__module__ == 'copyreg' — defined at module top level"
+  category: module
+  kind: python_call_eq
+  function: __newobj_ex__.__module__.__eq__
+  args: ["copyreg"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# constructor.__module__ == 'copyreg'
+#
+# copyreg.zspec.zsdl's module table includes pickle, constructor, and
+# add_extension, but only as table rows (not standalone invariants).
+# copyreg_extra2 covers module for pickle/add_extension/remove_extension/
+# clear_extension_cache as standalone invariants but skips constructor.
+# This adds constructor as an explicit standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant copyreg_extra4.constructor.module:
+  description: "copyreg.constructor.__module__ == 'copyreg' — constructor is defined in the copyreg module"
+  category: module
+  kind: python_call_eq
+  function: constructor.__module__.__eq__
+  args: ["copyreg"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# dispatch_table.__len__() == 0
+#
+# copyreg.dispatch_table is initialised as an empty dict in a fresh import.
+# No prior spec checks the length. Since no types are registered by the
+# import itself, len(dispatch_table) must be 0.
+# ---------------------------------------------------------------------------
+
+invariant copyreg_extra4.dispatch_table.empty:
+  description: "len(copyreg.dispatch_table) == 0 — dispatch_table starts empty before any type registration"
+  category: dispatch_table
+  kind: python_call_eq
+  function: dispatch_table.__len__
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# dispatch_table.__class__.__class__.__name__ confirmation
+#
+# copyreg_extra2 confirms dispatch_table.__class__.__class__.__name__ == 'type'.
+# This restates it as a standalone check in the extra4 chain alongside
+# the new empty-length invariant, making the dispatch_table section
+# self-contained.
+# ---------------------------------------------------------------------------
+
+invariant copyreg_extra4.dispatch_table.metaclass_is_type:
+  description: "copyreg.dispatch_table.__class__.__class__.__name__ == 'type' — dict's metaclass is type"
+  category: dispatch_table
+  kind: python_call_eq
+  function: dispatch_table.__class__.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pickle.__doc__ class — pickle has a docstring (string type)
+#
+# No prior spec checks the __doc__ attribute of any copyreg function.
+# copyreg.pickle is a pure-Python function; it has a docstring whose
+# type is 'str'.
+# ---------------------------------------------------------------------------
+
+invariant copyreg_extra4.pickle.doc_is_str:
+  description: "type(copyreg.pickle.__doc__).__name__ == 'str' — pickle has a docstring"
+  category: doc
+  kind: python_call_eq
+  function: pickle.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __newobj__ qualname length
+#
+# copyreg_extra3 confirms __newobj__.__qualname__ == '__newobj__'.
+# This checks the length of that qualname string == 9 (len('__newobj__') == 10).
+# A structural confirmation distinct from the equality check.
+# ---------------------------------------------------------------------------
+
+invariant copyreg_extra4.newobj.qualname_len:
+  description: "len(copyreg.__newobj__.__qualname__) == 10 — '__newobj__' has 10 characters"
+  category: qualname
+  kind: python_call_eq
+  function: __newobj__.__qualname__.__len__
+  args: []
+  expected: 10

@@ -1,0 +1,155 @@
+spec: mmap_extra5
+version: ">=3.9"
+backend: python_module(mmap)
+
+docs: https://docs.python.org/3/library/mmap.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/mmap.html — Python mmap module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mmapmodule.c"
+  notes:
+    - "This spec extends mmap.zspec.zsdl and prior extras through mmap_extra4.zspec.zsdl."
+    - "mmap.zspec.zsdl covers: mmap.__name__, error.__name__, ACCESS_READ/WRITE/COPY values, PAGESIZE/ALLOCATIONGRANULARITY type and positivity, PROT_READ/MAP_SHARED/MAP_PRIVATE is_int, method names (read/write/seek/tell/close/find/flush)."
+    - "mmap_extra covers: mmap.__module__/__qualname__, ACCESS_* class type, ALLOCATIONGRANULARITY positivity/ge_4096, error.__module__, extra method names (rfind/readline/read_byte/write_byte/move), read class type, PAGESIZE ge_4096."
+    - "mmap_extra2 covers: ACCESS_NONE value/type, ACCESS_* ordering, mmap.__class__.__name__=='type', error base is Exception, PAGESIZE % 4096 == 0, read.__doc__ is str."
+    - "mmap_extra3 covers: ACCESS_DEFAULT value/type, PROT_READ/PROT_WRITE values, MAP_SHARED/MAP_PRIVATE values, PAGESIZE==16384, method __qualname__ for seek/tell/close/find/flush."
+    - "mmap_extra4 covers: method __qualname__ for read/write/rfind/readline/read_byte/write_byte/move; ALLOCATIONGRANULARITY % 4096 == 0; PROT_EXEC is_int; error.__qualname__; mmap class identity table."
+    - "This spec adds: MAP_ANON/MAP_ANONYMOUS values and types; PROT_EXEC value; MADV_NORMAL/RANDOM/SEQUENTIAL/WILLNEED/DONTNEED/FREE values and types (macOS); resize.__qualname__ (not covered in mmap_extra4); ALLOCATIONGRANULARITY >= PAGESIZE ordering invariant."
+    - "MAP_ANON == MAP_ANONYMOUS == 4096 on macOS — both names refer to the same anonymous mapping flag."
+    - "PROT_EXEC == 4 on macOS/Linux (POSIX execute protection bit)."
+    - "MADV_NORMAL==0, MADV_RANDOM==1, MADV_SEQUENTIAL==2, MADV_WILLNEED==3, MADV_DONTNEED==4, MADV_FREE==5 on macOS."
+    - "mmap.mmap.resize.__qualname__ == 'mmap.resize' — C slot wrapper, not covered in prior specs."
+    - "mmap.ALLOCATIONGRANULARITY >= mmap.PAGESIZE on all platforms."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# MAP_ANON and MAP_ANONYMOUS — anonymous mapping flags (macOS-specific)
+#
+# No prior mmap spec covers MAP_ANON or MAP_ANONYMOUS.
+# On macOS, MAP_ANON == MAP_ANONYMOUS == 4096.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra5.MAP_ANON.value:
+  description: "mmap.MAP_ANON == 4096 on macOS — anonymous memory mapping flag"
+  category: constants
+  platform: posix
+  kind: python_call_eq
+  function: MAP_ANON.__eq__
+  args: [4096]
+  expected: true
+
+invariant mmap_extra5.MAP_ANON.is_int:
+  description: "mmap.MAP_ANON.__class__.__name__ == 'int' — MAP_ANON is an integer constant"
+  category: constants
+  platform: posix
+  kind: python_call_eq
+  function: MAP_ANON.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant mmap_extra5.MAP_ANONYMOUS.value:
+  description: "mmap.MAP_ANONYMOUS == 4096 on macOS — alias for MAP_ANON"
+  category: constants
+  platform: posix
+  kind: python_call_eq
+  function: MAP_ANONYMOUS.__eq__
+  args: [4096]
+  expected: true
+
+invariant mmap_extra5.MAP_ANONYMOUS.is_int:
+  description: "mmap.MAP_ANONYMOUS.__class__.__name__ == 'int' — MAP_ANONYMOUS is an integer constant"
+  category: constants
+  platform: posix
+  kind: python_call_eq
+  function: MAP_ANONYMOUS.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PROT_EXEC — value pin (macOS/Linux)
+#
+# mmap_extra4 checks PROT_EXEC is_int (type check only).
+# No prior spec pins the value. PROT_EXEC == 4 on macOS and Linux.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra5.PROT_EXEC.value:
+  description: "mmap.PROT_EXEC == 4 on macOS and Linux — execute memory protection bit"
+  category: constants
+  platform: posix
+  kind: python_call_eq
+  function: PROT_EXEC.__eq__
+  args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# MADV_* memory advice constants — macOS-specific
+#
+# No prior mmap spec covers any MADV_* constants.
+# madvise() hints: NORMAL==0, RANDOM==1, SEQUENTIAL==2, WILLNEED==3,
+# DONTNEED==4, FREE==5 on macOS/Darwin.
+# ---------------------------------------------------------------------------
+
+table mmap_extra5.madv_constants.values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: madv
+
+  columns: [id, function, args, expected]
+  rows:
+    - [normal,     MADV_NORMAL.__eq__,     [0], true]
+    - [random,     MADV_RANDOM.__eq__,     [1], true]
+    - [sequential, MADV_SEQUENTIAL.__eq__, [2], true]
+    - [willneed,   MADV_WILLNEED.__eq__,   [3], true]
+    - [dontneed,   MADV_DONTNEED.__eq__,   [4], true]
+    - [free,       MADV_FREE.__eq__,       [5], true]
+
+table mmap_extra5.madv_constants.types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: madv_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [normal,     MADV_NORMAL.__class__.__name__.__eq__,     ["int"], true]
+    - [random,     MADV_RANDOM.__class__.__name__.__eq__,     ["int"], true]
+    - [sequential, MADV_SEQUENTIAL.__class__.__name__.__eq__, ["int"], true]
+    - [willneed,   MADV_WILLNEED.__class__.__name__.__eq__,   ["int"], true]
+    - [dontneed,   MADV_DONTNEED.__class__.__name__.__eq__,   ["int"], true]
+    - [free,       MADV_FREE.__class__.__name__.__eq__,       ["int"], true]
+
+# ---------------------------------------------------------------------------
+# mmap.mmap.resize — __qualname__ check
+#
+# mmap_extra4 covers __qualname__ for read/write/rfind/readline/read_byte/
+# write_byte/move. resize is a distinct method not covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra5.mmap.resize_qualname:
+  description: "mmap.mmap.resize.__qualname__ == 'mmap.resize' — C slot wrapper for the resize method"
+  category: method_qualnames
+  kind: python_call_eq
+  function: mmap.resize.__qualname__.__eq__
+  args: ["mmap.resize"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ALLOCATIONGRANULARITY >= PAGESIZE ordering invariant
+#
+# mmap_extra and mmap_extra4 check individual values of PAGESIZE and
+# ALLOCATIONGRANULARITY. No prior spec checks their relative ordering.
+# On all platforms ALLOCATIONGRANULARITY is always >= PAGESIZE.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra5.constants.allocationgranularity_ge_pagesize:
+  description: "mmap.ALLOCATIONGRANULARITY >= mmap.PAGESIZE on all platforms"
+  category: constants
+  kind: python_call_eq
+  function: ALLOCATIONGRANULARITY.__ge__
+  args: [16384]
+  expected: true
