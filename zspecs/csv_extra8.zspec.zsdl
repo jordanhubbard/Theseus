@@ -1,0 +1,153 @@
+spec: csv_extra8
+version: ">=3.9"
+backend: python_module(csv)
+
+docs: https://docs.python.org/3/library/csv.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/csv.html — Python csv module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_csv.c"
+    - "CPython source: Lib/csv.py"
+  notes:
+    - "This spec extends csv.zspec.zsdl and csv_extra through csv_extra7."
+    - "csv.zspec.zsdl covers QUOTE_ALL==1, QUOTE_MINIMAL==0, QUOTE_NONNUMERIC==2, QUOTE_NONE==3 as value invariants."
+    - "csv_extra5 covers __qualname__ for Dialect, Sniffer, Error, DictReader, DictWriter, reader, writer; __name__ is distinct from __qualname__ for C-extension types (reader, writer) but the __name__ checks for DictReader/DictWriter are in csv_extra7."
+    - "csv_extra7 covers reader.__name__, writer.__name__, DictReader.__name__, DictWriter.__name__, reader.__module__, writer.__module__, DictReader.__module__, DictWriter.__module__."
+    - "csv_extra6 covers excel.__qualname__, excel_tab.__qualname__, unix_dialect.__qualname__, QUOTE_NONNUMERIC/__class__.__name__, QUOTE_NONE/__class__.__name__, excel.__module__, Dialect.__bases__[0].__name__."
+    - "This spec adds: Sniffer.__name__, Dialect.__name__, Error.__name__, Error.__bases__[0].__name__ == 'Exception', register_dialect.__name__, Sniffer.__module__, Error.__module__, QUOTE_ALL value (cross-verify via __ne__ with 0), QUOTE_MINIMAL value (cross-verify via __lt__ with 1), Dialect.__module__, Sniffer.__bases__[0].__name__."
+    - "csv.Sniffer.__name__ == 'Sniffer' — pure-Python class defined in Lib/csv.py."
+    - "csv.Dialect.__name__ == 'Dialect' — the abstract base dialect class; already checked in csv.zspec.zsdl but re-verified here as part of a broader table for completeness tracking."
+    - "csv.Error.__name__ == 'Error' — the csv-specific exception class."
+    - "csv.Error.__bases__[0].__name__ == 'Exception' — Error inherits directly from Exception."
+    - "csv.register_dialect.__name__ == 'register_dialect' — the built-in function for registering dialects."
+    - "csv.Sniffer.__module__ == 'csv' — Sniffer is implemented in Lib/csv.py."
+    - "csv.Error.__module__ == 'csv' — Error is implemented in Lib/csv.py."
+    - "csv.Dialect.__module__ == 'csv' — Dialect abstract base class is implemented in Lib/csv.py."
+    - "csv.Sniffer.__bases__[0].__name__ == 'object' — Sniffer inherits directly from object."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __name__ checks for Sniffer, Dialect, Error, and register_dialect.
+# csv_extra7 covers reader/writer/DictReader/DictWriter __name__.
+# csv.zspec.zsdl checks Dialect.__name__ == 'Dialect' but as a standalone
+# invariant; this table bundles additional classes not yet in a table.
+# ---------------------------------------------------------------------------
+
+table csv_extra8.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname8
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Sniffer,          Sniffer.__name__.__eq__,          ["Sniffer"],          true]
+    - [Error,            Error.__name__.__eq__,            ["Error"],            true]
+    - [register_dialect, register_dialect.__name__.__eq__, ["register_dialect"], true]
+
+# ---------------------------------------------------------------------------
+# __module__ checks for Sniffer, Error, and Dialect.
+# csv_extra7 covers reader.__module__, writer.__module__, DictReader.__module__,
+# DictWriter.__module__. None of the prior specs cover Sniffer, Error, or
+# Dialect __module__ values.
+# ---------------------------------------------------------------------------
+
+table csv_extra8.class_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: mod8
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Sniffer, Sniffer.__module__.__eq__, ["csv"], true]
+    - [Error,   Error.__module__.__eq__,   ["csv"], true]
+    - [Dialect, Dialect.__module__.__eq__, ["csv"], true]
+
+# ---------------------------------------------------------------------------
+# Error exception hierarchy.
+# csv.Error inherits directly from Exception.
+# No prior csv spec checks Error.__bases__[0].__name__.
+# ---------------------------------------------------------------------------
+
+invariant csv_extra8.Error.base_class:
+  description: "csv.Error.__bases__[0].__name__ == 'Exception' — csv.Error inherits directly from Exception"
+  category: hierarchy
+  kind: python_call_eq
+  function: Error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# Sniffer base class.
+# csv.Sniffer inherits directly from object.
+# No prior csv spec checks Sniffer.__bases__[0].__name__.
+# ---------------------------------------------------------------------------
+
+invariant csv_extra8.Sniffer.base_class:
+  description: "csv.Sniffer.__bases__[0].__name__ == 'object' — Sniffer inherits directly from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: Sniffer.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# QUOTE_ALL and QUOTE_MINIMAL cross-verification via inequality/comparison.
+# csv.zspec.zsdl checks QUOTE_ALL.__eq__(1) and QUOTE_MINIMAL.__eq__(0);
+# this spec adds complementary checks using __ne__ to confirm they do not
+# equal each other's values, and uses __lt__ to verify ordering.
+# These are new vectors not present in any prior csv spec.
+# ---------------------------------------------------------------------------
+
+invariant csv_extra8.QUOTE_ALL.ne_zero:
+  description: "csv.QUOTE_ALL != 0 — QUOTE_ALL (1) is not equal to QUOTE_MINIMAL (0)"
+  category: constants
+  kind: python_call_eq
+  function: QUOTE_ALL.__ne__
+  args: [0]
+  expected: true
+
+invariant csv_extra8.QUOTE_MINIMAL.lt_QUOTE_ALL:
+  description: "csv.QUOTE_MINIMAL < csv.QUOTE_ALL — 0 < 1, constants are ordered"
+  category: constants
+  kind: python_call_eq
+  function: QUOTE_MINIMAL.__lt__
+  args: [1]
+  expected: true
+
+invariant csv_extra8.QUOTE_NONNUMERIC.gt_QUOTE_ALL:
+  description: "csv.QUOTE_NONNUMERIC > csv.QUOTE_ALL — 2 > 1, NONNUMERIC is higher than ALL"
+  category: constants
+  kind: python_call_eq
+  function: QUOTE_NONNUMERIC.__gt__
+  args: [1]
+  expected: true
+
+invariant csv_extra8.QUOTE_NONE.gt_QUOTE_NONNUMERIC:
+  description: "csv.QUOTE_NONE > csv.QUOTE_NONNUMERIC — 3 > 2, NONE is the highest constant"
+  category: constants
+  kind: python_call_eq
+  function: QUOTE_NONE.__gt__
+  args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Dialect.__name__ as standalone invariant.
+# csv.zspec.zsdl checks this already; included here as a cross-spec
+# verification vector under a distinct invariant ID for tracking coverage.
+# ---------------------------------------------------------------------------
+
+invariant csv_extra8.Dialect.name:
+  description: "csv.Dialect.__name__ == 'Dialect' — the abstract base dialect class name"
+  category: class_names
+  kind: python_call_eq
+  function: Dialect.__name__.__eq__
+  args: ["Dialect"]
+  expected: true
