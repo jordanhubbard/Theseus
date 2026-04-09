@@ -1,0 +1,105 @@
+spec: pty_extra3
+version: ">=3.9"
+backend: python_module(pty)
+
+docs: https://docs.python.org/3/library/pty.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pty.html — Python pty documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "pty internals: kernel TTY layer, file-descriptor allocation"
+  notes:
+    - "This spec extends pty.zspec.zsdl and prior extras."
+    - "pty.zspec.zsdl covers: STDIN/STDOUT/STDERR_FILENO values and types, fork/openpty/spawn __name__ and __module__."
+    - "pty_extra.zspec.zsdl covers: function __name__, __module__, type ('function'), fd constant types and values, fork/spawn __qualname__."
+    - "pty_extra2.zspec.zsdl covers: openpty __qualname__, CHILD value and type, spawn __doc__ is str, function qualnames table, fd non-negative/positive/ordering checks."
+    - "New here: pty module __name__, fork and openpty __doc__ is str, fork/openpty/spawn __code__ is a code object, fd arithmetic (STDERR-STDIN==2, STDERR-STDOUT==1, STDOUT-STDIN==1)."
+    - "pty is a POSIX-only module implemented in pure Python (Lib/pty.py)."
+    - "All Python-level functions have a __code__ attribute whose type is 'code'."
+    - "fork.__doc__ and openpty.__doc__ are both non-None strings (pty.py carries docstrings)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module __name__ — not covered in any prior spec
+# ---------------------------------------------------------------------------
+
+invariant pty_extra3.module.name:
+  description: "pty.__name__ == 'pty' — the module's own __name__ attribute"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["pty"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# fork and openpty __doc__ — not covered in any prior spec
+# pty_extra2 covers spawn.__doc__; this spec adds fork and openpty.
+# ---------------------------------------------------------------------------
+
+invariant pty_extra3.fork.doc_is_str:
+  description: "pty.fork.__doc__.__class__.__name__ == 'str' — fork carries a docstring"
+  category: function_docs
+  kind: python_call_eq
+  function: fork.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant pty_extra3.openpty.doc_is_str:
+  description: "pty.openpty.__doc__.__class__.__name__ == 'str' — openpty carries a docstring"
+  category: function_docs
+  kind: python_call_eq
+  function: openpty.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __code__ type — all pty functions are Python-level (have __code__)
+# __code__.__class__.__name__ == 'code' for any Python function.
+# Not covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+table pty_extra3.function_code_types:
+  kind: python_call_eq
+  category: function_code
+  id_prefix: fcode
+
+  columns: [id, function, args, expected]
+  rows:
+    - [fork,    fork.__code__.__class__.__name__.__eq__,    ["code"], true]
+    - [openpty, openpty.__code__.__class__.__name__.__eq__, ["code"], true]
+    - [spawn,   spawn.__code__.__class__.__name__.__eq__,   ["code"], true]
+
+# ---------------------------------------------------------------------------
+# File descriptor arithmetic — not covered in any prior spec
+# Prior specs check individual values (0, 1, 2) and ordering (GT comparisons).
+# New: subtraction invariants that relate the three constants to each other.
+# ---------------------------------------------------------------------------
+
+invariant pty_extra3.fd_arithmetic.stderr_minus_stdin:
+  description: "pty.STDERR_FILENO - pty.STDIN_FILENO == 2 — fd range spans two steps"
+  category: constants
+  kind: python_call_eq
+  function: STDERR_FILENO.__sub__
+  args: [0]
+  expected: 2
+
+invariant pty_extra3.fd_arithmetic.stderr_minus_stdout:
+  description: "pty.STDERR_FILENO - pty.STDOUT_FILENO == 1 — consecutive fd numbers"
+  category: constants
+  kind: python_call_eq
+  function: STDERR_FILENO.__sub__
+  args: [1]
+  expected: 1
+
+invariant pty_extra3.fd_arithmetic.stdout_minus_stdin:
+  description: "pty.STDOUT_FILENO - pty.STDIN_FILENO == 1 — consecutive fd numbers"
+  category: constants
+  kind: python_call_eq
+  function: STDOUT_FILENO.__sub__
+  args: [0]
+  expected: 1

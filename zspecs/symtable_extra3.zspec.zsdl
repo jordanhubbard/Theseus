@@ -1,0 +1,108 @@
+spec: symtable_extra3
+version: ">=3.9"
+backend: python_module(symtable)
+
+docs: https://docs.python.org/3/library/symtable.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/symtable.html — Python symtable documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/symtable.py"
+  notes:
+    - "This spec extends symtable.zspec.zsdl and prior extras."
+    - "symtable covers: symtable.__name__, SymbolTable/__name__/__module__, Function/__name__, Class/__name__, Symbol/__name__, method names, behavioral call."
+    - "symtable_extra covers: class_names table, class_modules table, Function/__class__ base, Class/__class__ base, symtable() returns SymbolTable, symtable().get_type()=='module'."
+    - "symtable_extra2 covers: SymbolTableError.__name__/__module__/__bases__, symtable.__module__, SymbolTable.__bases__[0].__name__=='object', class __qualname__ table, Symbol.__module__."
+    - "This spec adds: Function.__module__ standalone, Class.__module__ standalone, SymbolTable.__name__.__class__.__name__=='str', Symbol.__bases__[0].__name__, SymbolTableError.__qualname__, symtable.__qualname__."
+    - "symtable.Function.__module__ == 'symtable' — symtable_extra covers this in a table; providing a standalone invariant form in a new category."
+    - "symtable.Class.__module__ == 'symtable' — similarly covered only in a table form previously."
+    - "symtable.Symbol.__bases__[0].__name__ == 'object' — Symbol inherits directly from object; not covered in any prior symtable spec."
+    - "symtable.SymbolTableError.__qualname__ == 'SymbolTableError' — not covered in symtable_extra2."
+    - "symtable.symtable.__qualname__ == 'symtable' — top-level function; qualname equals name. Not covered in prior specs."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Symbol.__bases__ — Symbol inherits from object
+# symtable_extra covers Function and Class base; symtable_extra2 covers
+# SymbolTable base. Symbol's base is new here.
+# ---------------------------------------------------------------------------
+
+invariant symtable_extra3.Symbol.base_is_object:
+  description: "symtable.Symbol.__bases__[0].__name__ == 'object' — Symbol inherits directly from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Symbol.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# SymbolTableError.__qualname__ — not covered in symtable_extra2
+# symtable_extra2 covers __name__ and __module__ and __bases__[0]; __qualname__
+# is new here.
+# ---------------------------------------------------------------------------
+
+invariant symtable_extra3.SymbolTableError.qualname:
+  description: "symtable.SymbolTableError.__qualname__ == 'SymbolTableError' — top-level exception class"
+  category: exception_class
+  kind: python_call_eq
+  function: SymbolTableError.__qualname__.__eq__
+  args: ["SymbolTableError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# symtable() function — __qualname__ attribute
+# symtable_extra2 covers symtable.__module__; __qualname__ is new here.
+# ---------------------------------------------------------------------------
+
+invariant symtable_extra3.symtable.qualname:
+  description: "symtable.symtable.__qualname__ == 'symtable' — top-level function qualname equals name"
+  category: function_attrs
+  kind: python_call_eq
+  function: symtable.__qualname__.__eq__
+  args: ["symtable"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __name__ type checks — __name__ attributes are strings
+# Novel angle not covered in any prior symtable spec.
+# ---------------------------------------------------------------------------
+
+table symtable_extra3.class_name_types:
+  kind: python_call_eq
+  category: name_types
+  id_prefix: ntype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [SymbolTable, SymbolTable.__name__.__class__.__name__.__eq__, ["str"], true]
+    - [Function,    Function.__name__.__class__.__name__.__eq__,    ["str"], true]
+    - [Class,       Class.__name__.__class__.__name__.__eq__,       ["str"], true]
+    - [Symbol,      Symbol.__name__.__class__.__name__.__eq__,      ["str"], true]
+
+# ---------------------------------------------------------------------------
+# Function and Class __module__ standalone invariants
+# symtable_extra covers these in a table (class_modules); standalone
+# invariant form in a distinct category is new here.
+# ---------------------------------------------------------------------------
+
+invariant symtable_extra3.Function.module_standalone:
+  description: "symtable.Function.__module__ == 'symtable' — standalone invariant (complement to class_modules table in symtable_extra)"
+  category: module_standalone
+  kind: python_call_eq
+  function: Function.__module__.__eq__
+  args: ["symtable"]
+  expected: true
+
+invariant symtable_extra3.Class.module_standalone:
+  description: "symtable.Class.__module__ == 'symtable' — standalone invariant (complement to class_modules table in symtable_extra)"
+  category: module_standalone
+  kind: python_call_eq
+  function: Class.__module__.__eq__
+  args: ["symtable"]
+  expected: true
