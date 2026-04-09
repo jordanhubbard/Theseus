@@ -1,0 +1,194 @@
+spec: urllib_parse_extra
+version: ">=3.4"
+backend: python_module(urllib.parse)
+
+docs: https://docs.python.org/3/library/urllib.parse.html
+rfcs:
+  - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax"
+  - "RFC 2396 — Uniform Resource Identifiers (URI): Generic Syntax"
+
+provenance:
+  derived_from:
+    - "Python 3 urllib.parse documentation — https://docs.python.org/3/library/urllib.parse.html"
+    - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/urllib/parse.py"
+  notes:
+    - "This spec covers ParseResult, SplitResult, DefragResult, urldefrag, urlunparse, urlunsplit, and parse_qsl — none of which appear in urllib_parse.zspec.zsdl."
+    - "urlparse returns a ParseResult; urlsplit returns a SplitResult (no fragment-from-path splitting)."
+    - "urldefrag returns a DefragResult(url, fragment) named tuple."
+    - "urlunparse accepts a 6-tuple (scheme, netloc, path, params, query, fragment) and returns a URL string."
+    - "urlunsplit accepts a 5-tuple (scheme, netloc, path, query, fragment) and returns a URL string."
+    - "parse_qsl returns a list of (key, value) 2-tuples unlike parse_qs which returns a dict of lists."
+    - "SplitResult has no params component; urlsplit does not split path params."
+    - "DefragResult._fields contains ('url', 'fragment')."
+    - "ParseResult._fields contains ('scheme', 'netloc', 'path', 'params', 'query', 'fragment')."
+    - "SplitResult._fields contains ('scheme', 'netloc', 'path', 'query', 'fragment')."
+    - "All expected values verified by running Python 3.12 urllib.parse module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Named-tuple class name checks
+# ---------------------------------------------------------------------------
+
+table urllib_parse_extra.result_class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ParseResult,   ParseResult.__name__.__eq__,   ["ParseResult"],   true]
+    - [SplitResult,   SplitResult.__name__.__eq__,   ["SplitResult"],   true]
+    - [DefragResult,  DefragResult.__name__.__eq__,  ["DefragResult"],  true]
+
+# ---------------------------------------------------------------------------
+# ParseResult — named-tuple fields
+# ---------------------------------------------------------------------------
+
+table urllib_parse_extra.ParseResult_fields:
+  kind: python_call_eq
+  category: ParseResult
+  id_prefix: ParseResult_field
+  function: ParseResult._fields.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [scheme,   [0], "scheme"  ]
+    - [netloc,   [1], "netloc"  ]
+    - [path,     [2], "path"    ]
+    - [params,   [3], "params"  ]
+    - [query,    [4], "query"   ]
+    - [fragment, [5], "fragment"]
+
+# ---------------------------------------------------------------------------
+# SplitResult — named-tuple fields (no params)
+# ---------------------------------------------------------------------------
+
+table urllib_parse_extra.SplitResult_fields:
+  kind: python_call_eq
+  category: SplitResult
+  id_prefix: SplitResult_field
+  function: SplitResult._fields.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [scheme,   [0], "scheme"  ]
+    - [netloc,   [1], "netloc"  ]
+    - [path,     [2], "path"    ]
+    - [query,    [3], "query"   ]
+    - [fragment, [4], "fragment"]
+
+# ---------------------------------------------------------------------------
+# urldefrag — splits URL and fragment
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra.urldefrag_url:
+  description: "urldefrag('https://example.com/page#section').url == 'https://example.com/page'"
+  category: urldefrag
+  kind: python_call_eq
+  function: urldefrag
+  args: ["https://example.com/page#section"]
+  method: url
+  method_args: []
+  expected: "https://example.com/page"
+
+invariant urllib_parse_extra.urldefrag_fragment:
+  description: "urldefrag('https://example.com/page#section').fragment == 'section'"
+  category: urldefrag
+  kind: python_call_eq
+  function: urldefrag
+  args: ["https://example.com/page#section"]
+  method: fragment
+  method_args: []
+  expected: "section"
+
+invariant urllib_parse_extra.urldefrag_no_fragment:
+  description: "urldefrag('https://example.com/').fragment == '' when no fragment present"
+  category: urldefrag
+  kind: python_call_eq
+  function: urldefrag
+  args: ["https://example.com/"]
+  method: fragment
+  method_args: []
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# urlunparse — reassemble from 6-tuple
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra.urlunparse_roundtrip:
+  description: "urlunparse(('https', 'example.com', '/path', '', 'q=1', 'frag')) == 'https://example.com/path?q=1#frag'"
+  category: urlunparse
+  kind: python_call_eq
+  function: urlunparse
+  args: [["https", "example.com", "/path", "", "q=1", "frag"]]
+  expected: "https://example.com/path?q=1#frag"
+
+invariant urllib_parse_extra.urlunparse_no_query_no_frag:
+  description: "urlunparse(('http', 'host.example.com', '/only', '', '', '')) == 'http://host.example.com/only'"
+  category: urlunparse
+  kind: python_call_eq
+  function: urlunparse
+  args: [["http", "host.example.com", "/only", "", "", ""]]
+  expected: "http://host.example.com/only"
+
+# ---------------------------------------------------------------------------
+# urlunsplit — reassemble from 5-tuple
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra.urlunsplit_simple:
+  description: "urlunsplit(('https', 'example.com', '/p', 'a=1', 'frag')) == 'https://example.com/p?a=1#frag'"
+  category: urlunsplit
+  kind: python_call_eq
+  function: urlunsplit
+  args: [["https", "example.com", "/p", "a=1", "frag"]]
+  expected: "https://example.com/p?a=1#frag"
+
+# ---------------------------------------------------------------------------
+# parse_qsl — returns list of 2-tuples
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra.parse_qsl_list_type:
+  description: "type(parse_qsl('a=1&b=2')).__name__ == 'list'"
+  category: parse_qsl
+  kind: python_call_eq
+  function: parse_qsl
+  args: ["a=1&b=2"]
+  method: __class__
+  method_args: []
+  method_chain: __name__
+  expected: "list"
+
+invariant urllib_parse_extra.parse_qsl_first_pair:
+  description: "parse_qsl('a=1&b=2')[0] == ('a', '1')"
+  category: parse_qsl
+  kind: python_call_eq
+  function: parse_qsl
+  args: ["a=1&b=2"]
+  method: __getitem__
+  method_args: [0]
+  expected: ["a", "1"]
+
+invariant urllib_parse_extra.parse_qsl_length:
+  description: "len(parse_qsl('a=1&b=2&c=3')) == 3"
+  category: parse_qsl
+  kind: python_call_eq
+  function: parse_qsl
+  args: ["a=1&b=2&c=3"]
+  method: __len__
+  method_args: []
+  expected: 3
+
+invariant urllib_parse_extra.parse_qsl_repeated_key:
+  description: "parse_qsl('a=1&a=2') preserves duplicate keys as separate pairs"
+  category: parse_qsl
+  kind: python_call_eq
+  function: parse_qsl
+  args: ["a=1&a=2"]
+  method: __len__
+  method_args: []
+  expected: 2

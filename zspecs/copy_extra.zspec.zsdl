@@ -1,0 +1,125 @@
+spec: copy_extra
+version: ">=3.0"
+backend: python_module(copy)
+
+docs: https://docs.python.org/3/library/copy.html
+
+provenance:
+  derived_from:
+    - "Python copy documentation — https://docs.python.org/3/library/copy.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/copy.py"
+  notes:
+    - "copy.Error is the canonical exception class (PascalCase); copy.error is its lowercase alias."
+    - "copy.Error.__name__ == 'Error' and copy.Error.__module__ == 'copy'."
+    - "copy.Error.__bases__[0] is Exception — Error is a direct subclass of Exception."
+    - "copy.copy() on a list returns a new list equal to the original but not the same object."
+    - "copy.deepcopy() on a nested list returns a new list equal to the original; inner lists are also new objects."
+    - "deepcopy of an int returns a value equal to the original (ints are immutable)."
+    - "deepcopy of a dict with list values duplicates inner lists independently."
+    - "Objects implementing __copy__ have that protocol called by copy.copy()."
+    - "Objects implementing __deepcopy__ have that protocol called by copy.deepcopy()."
+    - "__copy__ and __deepcopy__ are looked up as attributes; their presence can be tested with hasattr."
+    - "copy.copy returns a value equal to the input for flat dicts and lists."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Error class identity
+# ---------------------------------------------------------------------------
+
+invariant copy_extra.Error.name:
+  description: "copy.Error.__name__ == 'Error'"
+  category: error_class
+  kind: python_call_eq
+  function: Error.__name__.__eq__
+  args: ["Error"]
+  expected: true
+
+invariant copy_extra.Error.module:
+  description: "copy.Error.__module__ == 'copy'"
+  category: error_class
+  kind: python_call_eq
+  function: Error.__module__.__eq__
+  args: ["copy"]
+  expected: true
+
+invariant copy_extra.Error.base:
+  description: "copy.Error.__bases__[0].__name__ == 'Exception'"
+  category: error_class
+  kind: python_call_eq
+  function: Error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "Exception"
+
+invariant copy_extra.Error.is_type:
+  description: "type(copy.Error).__name__ == 'type' — Error is a class object"
+  category: error_class
+  kind: python_call_eq
+  function: Error.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# deepcopy — value equality on mutable structures
+# ---------------------------------------------------------------------------
+
+table copy_extra.deepcopy.mutable:
+  description: "deepcopy returns a value equal to the original for mutable structures"
+  kind: python_call_eq
+  category: deepcopy
+  id_prefix: dc
+
+  columns: [id, args, expected]
+  rows:
+    - [list_flat,    [[10, 20, 30]],         [10, 20, 30]]
+    - [list_nested,  [[1, [2, [3]]]],        [1, [2, [3]]]]
+    - [dict_flat,    [{"k": "v"}],           {"k": "v"}]
+    - [dict_nested,  [{"a": {"b": 2}}],      {"a": {"b": 2}}]
+    - [empty_list,   [[]],                   []]
+    - [empty_dict,   [{}],                   {}]
+
+# ---------------------------------------------------------------------------
+# copy vs deepcopy — both produce equal results for flat structures
+# ---------------------------------------------------------------------------
+
+invariant copy_extra.copy.flat_list_equal:
+  description: "copy.copy([1,2,3]) == [1,2,3] — shallow copy of a flat list is equal"
+  category: copy_vs_deepcopy
+  kind: python_call_eq
+  function: copy
+  args: [[1, 2, 3]]
+  expected: [1, 2, 3]
+
+invariant copy_extra.deepcopy.flat_list_equal:
+  description: "copy.deepcopy([1,2,3]) == [1,2,3] — deep copy of a flat list is equal"
+  category: copy_vs_deepcopy
+  kind: python_call_eq
+  function: deepcopy
+  args: [[1, 2, 3]]
+  expected: [1, 2, 3]
+
+# ---------------------------------------------------------------------------
+# __copy__ and __deepcopy__ protocol — presence check via hasattr
+# ---------------------------------------------------------------------------
+
+invariant copy_extra.protocol.copy_has_no_dunder_copy:
+  description: "copy.copy function does not itself expose __copy__ (it is not a copyable container)"
+  category: protocol
+  kind: python_call_eq
+  function: hasattr
+  args: [{type: module_attr, module: "copy", attr: "copy"}, "__deepcopy__"]
+  expected: false
+
+invariant copy_extra.error.alias_eq_Error:
+  description: "copy.error is the same class as copy.Error — lowercase alias equality"
+  category: error_class
+  kind: python_call_eq
+  function: error.__eq__
+  args: [{type: module_attr, module: "copy", attr: "Error"}]
+  expected: true

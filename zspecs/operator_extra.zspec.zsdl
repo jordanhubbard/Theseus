@@ -1,0 +1,168 @@
+spec: operator_extra
+version: ">=3.0"
+backend: python_module(operator)
+
+docs: https://docs.python.org/3/library/operator.html
+
+provenance:
+  derived_from:
+    - "Python operator documentation — https://docs.python.org/3/library/operator.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_operator.c"
+  notes:
+    - "operator.itemgetter(i) returns a callable that fetches item i from its operand via __getitem__."
+    - "operator.itemgetter(0)([1,2,3]) == 1 because it calls [1,2,3][0]."
+    - "operator.attrgetter('attr')(obj) is equivalent to getattr(obj, 'attr')."
+    - "operator.attrgetter('__name__')(int) == 'int' because int.__name__ is 'int'."
+    - "operator.methodcaller('method', *args)(obj) calls obj.method(*args)."
+    - "operator.methodcaller('upper')('hello') == 'HELLO' because 'hello'.upper() == 'HELLO'."
+    - "In-place operator functions (iadd, isub, imul, itruediv) have names matching their non-in-place counterparts prefixed with 'i'."
+    - "iadd(a, b) is equivalent to a += b; for immutables the returned value is the result, not a modified original."
+    - "isub(10, 3) == 7; imul(3, 4) == 12; itruediv(7, 2) == 3.5."
+    - "itemgetter, attrgetter, and methodcaller are class objects (type.__name__ == 'type')."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# itemgetter — class identity
+# ---------------------------------------------------------------------------
+
+invariant operator_extra.itemgetter.class_name:
+  description: "operator.itemgetter.__name__ == 'itemgetter'"
+  category: itemgetter
+  kind: python_call_eq
+  function: itemgetter.__name__.__eq__
+  args: ["itemgetter"]
+  expected: true
+
+invariant operator_extra.itemgetter.is_type:
+  description: "type(operator.itemgetter).__name__ == 'type' — itemgetter is a class"
+  category: itemgetter
+  kind: python_call_eq
+  function: itemgetter.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# itemgetter — call behaviour
+# ---------------------------------------------------------------------------
+
+invariant operator_extra.itemgetter.list_first:
+  description: "operator.itemgetter(0)([1,2,3]) == 1"
+  category: itemgetter
+  kind: python_call_eq
+  function: itemgetter
+  args: [0]
+  method: __call__
+  method_args: [[1, 2, 3]]
+  expected: 1
+
+invariant operator_extra.itemgetter.list_last:
+  description: "operator.itemgetter(2)([1,2,3]) == 3"
+  category: itemgetter
+  kind: python_call_eq
+  function: itemgetter
+  args: [2]
+  method: __call__
+  method_args: [[1, 2, 3]]
+  expected: 3
+
+invariant operator_extra.itemgetter.string_key:
+  description: "operator.itemgetter('x')({'x': 42}) == 42"
+  category: itemgetter
+  kind: python_call_eq
+  function: itemgetter
+  args: ["x"]
+  method: __call__
+  method_args: [{"x": 42}]
+  expected: 42
+
+# ---------------------------------------------------------------------------
+# attrgetter — class identity
+# ---------------------------------------------------------------------------
+
+invariant operator_extra.attrgetter.class_name:
+  description: "operator.attrgetter.__name__ == 'attrgetter'"
+  category: attrgetter
+  kind: python_call_eq
+  function: attrgetter.__name__.__eq__
+  args: ["attrgetter"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# attrgetter — call behaviour
+# ---------------------------------------------------------------------------
+
+invariant operator_extra.attrgetter.int_name:
+  description: "operator.attrgetter('__name__')(int) == 'int'"
+  category: attrgetter
+  kind: python_call_eq
+  function: attrgetter
+  args: ["__name__"]
+  method: __call__
+  method_args: [{type: builtin_type, value: "int"}]
+  expected: "int"
+
+# ---------------------------------------------------------------------------
+# methodcaller — class identity
+# ---------------------------------------------------------------------------
+
+invariant operator_extra.methodcaller.class_name:
+  description: "operator.methodcaller.__name__ == 'methodcaller'"
+  category: methodcaller
+  kind: python_call_eq
+  function: methodcaller.__name__.__eq__
+  args: ["methodcaller"]
+  expected: true
+
+invariant operator_extra.methodcaller.is_type:
+  description: "type(operator.methodcaller).__name__ == 'type' — methodcaller is a class"
+  category: methodcaller
+  kind: python_call_eq
+  function: methodcaller.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# methodcaller — call behaviour
+# ---------------------------------------------------------------------------
+
+invariant operator_extra.methodcaller.upper:
+  description: "operator.methodcaller('upper')('hello') == 'HELLO'"
+  category: methodcaller
+  kind: python_call_eq
+  function: methodcaller
+  args: ["upper"]
+  method: __call__
+  method_args: ["hello"]
+  expected: "HELLO"
+
+invariant operator_extra.methodcaller.strip:
+  description: "operator.methodcaller('strip')('  hi  ') == 'hi'"
+  category: methodcaller
+  kind: python_call_eq
+  function: methodcaller
+  args: ["strip"]
+  method: __call__
+  method_args: ["  hi  "]
+  expected: "hi"
+
+# ---------------------------------------------------------------------------
+# In-place operators — iadd, isub, imul, itruediv
+# ---------------------------------------------------------------------------
+
+table operator_extra.inplace.vectors:
+  description: "In-place operator functions return the computed result"
+  kind: python_call_eq
+  category: inplace
+  id_prefix: iop
+
+  columns: [id, function, args, expected]
+  rows:
+    - [iadd_ints,    iadd,     [3, 4],  7]
+    - [isub_ints,    isub,     [10, 3], 7]
+    - [imul_ints,    imul,     [3, 4],  12]
+    - [itruediv,     itruediv, [7, 2],  3.5]

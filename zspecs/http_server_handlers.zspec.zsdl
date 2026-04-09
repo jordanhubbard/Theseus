@@ -1,0 +1,141 @@
+spec: http_server_handlers
+version: ">=3.0"
+backend: python_module(http.server)
+
+docs: https://docs.python.org/3/library/http.server.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/http.server.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/http/server.py"
+  notes:
+    - "This spec targets class hierarchy and class-level attributes not covered by http_server.zspec.zsdl."
+    - "http_server.zspec.zsdl covers class names and BaseHTTPRequestHandler string constants."
+    - "This spec covers base-class relationships, module membership, and additional class-level attributes."
+    - "BaseHTTPRequestHandler inherits from socketserver.StreamRequestHandler."
+    - "SimpleHTTPRequestHandler inherits from BaseHTTPRequestHandler."
+    - "CGIHTTPRequestHandler inherits from SimpleHTTPRequestHandler."
+    - "ThreadingHTTPServer inherits from socketserver.ThreadingMixIn and HTTPServer."
+    - "HTTPServer inherits from socketserver.TCPServer."
+    - "BaseHTTPRequestHandler.error_message_format is a str template for error pages."
+    - "SimpleHTTPRequestHandler.server_version starts with 'SimpleHTTP/'."
+    - "CGIHTTPRequestHandler.cgi_directories is a list containing '/cgi-bin' and '/htbin' by default."
+    - "No actual HTTP server is started; all invariants use class-level attribute access only."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module membership checks
+# ---------------------------------------------------------------------------
+
+table http_server_handlers.module_checks:
+  kind: python_call_eq
+  category: modules
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [base_handler_mod,   BaseHTTPRequestHandler.__module__.__eq__,  ["http.server"], true]
+    - [simple_handler_mod, SimpleHTTPRequestHandler.__module__.__eq__, ["http.server"], true]
+    - [cgi_handler_mod,    CGIHTTPRequestHandler.__module__.__eq__,   ["http.server"], true]
+    - [http_server_mod,    HTTPServer.__module__.__eq__,              ["http.server"], true]
+
+# ---------------------------------------------------------------------------
+# Class inheritance checks
+# ---------------------------------------------------------------------------
+
+invariant http_server_handlers.simple_base:
+  description: "SimpleHTTPRequestHandler.__bases__[0].__name__ == 'BaseHTTPRequestHandler'"
+  category: hierarchy
+  kind: python_call_eq
+  function: SimpleHTTPRequestHandler.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "BaseHTTPRequestHandler"
+
+invariant http_server_handlers.cgi_base:
+  description: "CGIHTTPRequestHandler.__bases__[0].__name__ == 'SimpleHTTPRequestHandler'"
+  category: hierarchy
+  kind: python_call_eq
+  function: CGIHTTPRequestHandler.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "SimpleHTTPRequestHandler"
+
+invariant http_server_handlers.http_server_base:
+  description: "HTTPServer.__bases__[0].__name__ == 'TCPServer'"
+  category: hierarchy
+  kind: python_call_eq
+  function: HTTPServer.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "TCPServer"
+
+# ---------------------------------------------------------------------------
+# BaseHTTPRequestHandler — error_message_format is a str
+# ---------------------------------------------------------------------------
+
+invariant http_server_handlers.error_message_format_type:
+  description: "type(BaseHTTPRequestHandler.error_message_format).__name__ == 'str'"
+  category: constants
+  kind: python_call_eq
+  function: BaseHTTPRequestHandler.error_message_format.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant http_server_handlers.error_message_format_nonempty:
+  description: "len(BaseHTTPRequestHandler.error_message_format) > 0"
+  category: constants
+  kind: python_call_eq
+  function: BaseHTTPRequestHandler.error_message_format.__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SimpleHTTPRequestHandler — server_version starts with 'SimpleHTTP/'
+# ---------------------------------------------------------------------------
+
+invariant http_server_handlers.simple_server_version_prefix:
+  description: "SimpleHTTPRequestHandler.server_version.startswith('SimpleHTTP/') == True"
+  category: constants
+  kind: python_call_eq
+  function: SimpleHTTPRequestHandler.server_version.startswith
+  args: ["SimpleHTTP/"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# CGIHTTPRequestHandler — cgi_directories is a list
+# ---------------------------------------------------------------------------
+
+invariant http_server_handlers.cgi_directories_type:
+  description: "type(CGIHTTPRequestHandler.cgi_directories).__name__ == 'list'"
+  category: constants
+  kind: python_call_eq
+  function: CGIHTTPRequestHandler.cgi_directories.__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
+
+invariant http_server_handlers.cgi_directories_contains_cgi_bin:
+  description: "'/cgi-bin' in CGIHTTPRequestHandler.cgi_directories"
+  category: constants
+  kind: python_call_eq
+  function: CGIHTTPRequestHandler.cgi_directories.__contains__
+  args: ["/cgi-bin"]
+  expected: true
+
+invariant http_server_handlers.cgi_directories_contains_htbin:
+  description: "'/htbin' in CGIHTTPRequestHandler.cgi_directories"
+  category: constants
+  kind: python_call_eq
+  function: CGIHTTPRequestHandler.cgi_directories.__contains__
+  args: ["/htbin"]
+  expected: true

@@ -1,0 +1,170 @@
+spec: threading_timer
+version: ">=3.2"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/threading.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "threading source: internal lock implementation (C extension)"
+    - "threading.zspec.zsdl — covers class/function __name__ checks, TIMEOUT_MAX, active_count, Lock, Event, Semaphore._value, current_thread.is_alive"
+    - "threading_sync.zspec.zsdl — covers Barrier, BoundedSemaphore, RLock, Condition runtime behavior"
+  notes:
+    - "threading.Timer.__bases__[0].__name__ is 'Thread' — Timer is a Thread subclass."
+    - "threading.Timer.__module__ is 'threading'."
+    - "threading.ThreadError.__module__ is 'threading'."
+    - "threading.ThreadError.__bases__[0].__name__ is 'Exception' — ThreadError inherits from Exception directly."
+    - "threading.main_thread() returns the MainThread object; its __class__.__name__ is '_MainThread'."
+    - "threading.main_thread().name is 'MainThread' — the name attribute of the main thread."
+    - "threading.enumerate() returns a list; list.__class__.__name__ is 'list'."
+    - "threading.enumerate() always contains at least one element (the main thread)."
+    - "threading.active_count().__class__.__name__ is 'int' — returns an int."
+    - "threading.current_thread().name is 'MainThread' when called from the main thread."
+    - "threading.Barrier.__module__ is 'threading'."
+    - "threading.Thread.__module__ is 'threading'."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Timer — base class and module (not in threading.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+invariant threading_timer.timer_base:
+  description: "threading.Timer.__bases__[0].__name__ == 'Thread' — Timer is a Thread subclass"
+  category: bases
+  kind: python_call_eq
+  function: Timer.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "Thread"
+
+invariant threading_timer.timer_module:
+  description: "threading.Timer.__module__ == 'threading'"
+  category: class_modules
+  kind: python_call_eq
+  function: Timer.__module__.__eq__
+  args: ["threading"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ThreadError — module and base class
+# ---------------------------------------------------------------------------
+
+invariant threading_timer.threaderror_module:
+  description: "threading.ThreadError.__module__ == 'threading'"
+  category: class_modules
+  kind: python_call_eq
+  function: ThreadError.__module__.__eq__
+  args: ["threading"]
+  expected: true
+
+invariant threading_timer.threaderror_base:
+  description: "threading.ThreadError.__bases__[0].__name__ == 'Exception'"
+  category: bases
+  kind: python_call_eq
+  function: ThreadError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# Module checks for Thread and Barrier
+# ---------------------------------------------------------------------------
+
+table threading_timer.class_modules:
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: cmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [thread,   Thread.__module__.__eq__,   ["threading"], true]
+    - [barrier,  Barrier.__module__.__eq__,  ["threading"], true]
+
+# ---------------------------------------------------------------------------
+# main_thread — name and class
+# ---------------------------------------------------------------------------
+
+invariant threading_timer.main_thread_name:
+  description: "threading.main_thread().name == 'MainThread'"
+  category: main_thread
+  kind: python_call_eq
+  function: main_thread
+  args: []
+  method: name.__eq__
+  method_args: ["MainThread"]
+  expected: true
+
+invariant threading_timer.main_thread_class:
+  description: "threading.main_thread().__class__.__name__ == '_MainThread'"
+  category: main_thread
+  kind: python_call_eq
+  function: main_thread
+  args: []
+  method: __class__
+  method_args: []
+  method_chain: __name__.__eq__
+  method_chain_args: ["_MainThread"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# current_thread — name in main thread
+# ---------------------------------------------------------------------------
+
+invariant threading_timer.current_thread_name:
+  description: "threading.current_thread().name == 'MainThread' when called from the main thread"
+  category: current_thread
+  kind: python_call_eq
+  function: current_thread
+  args: []
+  method: name.__eq__
+  method_args: ["MainThread"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# enumerate — returns a list with at least one element
+# ---------------------------------------------------------------------------
+
+invariant threading_timer.enumerate_returns_list:
+  description: "threading.enumerate().__class__.__name__ == 'list'"
+  category: enumerate
+  kind: python_call_eq
+  function: enumerate
+  args: []
+  method: __class__
+  method_args: []
+  method_chain: __name__.__eq__
+  method_chain_args: ["list"]
+  expected: true
+
+invariant threading_timer.enumerate_nonempty:
+  description: "len(threading.enumerate()) >= 1 — always contains at least the main thread"
+  category: enumerate
+  kind: python_call_eq
+  function: enumerate
+  args: []
+  method: __len__
+  method_args: []
+
+# ---------------------------------------------------------------------------
+# active_count — returns int
+# ---------------------------------------------------------------------------
+
+invariant threading_timer.active_count_is_int:
+  description: "threading.active_count().__class__.__name__ == 'int'"
+  category: active_count
+  kind: python_call_eq
+  function: active_count
+  args: []
+  method: __class__
+  method_args: []
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true

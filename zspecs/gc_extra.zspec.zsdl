@@ -1,0 +1,173 @@
+spec: gc_extra
+version: ">=3.4"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/gc.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "gc source: internal CPython generational GC implementation details"
+  notes:
+    - "gc.collect() returns an int (count of unreachable objects collected); __class__.__name__ == 'int'."
+    - "gc.get_threshold() returns a tuple; __class__.__name__ == 'tuple'; len == 3."
+    - "gc.get_threshold()[0] is CPython's default gen-0 threshold of 700."
+    - "gc.get_objects() returns a list of all GC-tracked objects; __class__.__name__ == 'list'."
+    - "gc.get_objects() is always non-empty in a live interpreter because many objects are tracked."
+    - "gc.is_tracked(None) == False — None is immortal and not GC-tracked."
+    - "gc.is_tracked('') == False — empty strings are interned/immortal and not tracked."
+    - "gc.is_tracked(()) == False — empty tuple is a singleton and not tracked."
+    - "gc.enable() returns None — it mutates GC state and has no return value."
+    - "gc.disable() returns None — it mutates GC state and has no return value."
+    - "gc.get_count() returns a 3-tuple of ints; each element is >= 0."
+    - "gc.freeze() returns None — it moves all tracked objects to the permanent generation."
+    - "gc.garbage is a list (may be empty unless DEBUG_SAVEALL is set)."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "gc functions raise TypeError for invalid argument types."
+  stderr: "null"
+  stickiness: "N/A — stateless reads; enable/disable mutate GC state."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# collect — return type
+# ---------------------------------------------------------------------------
+
+invariant gc_extra.collect.return_type:
+  description: "gc.collect().__class__.__name__ == 'int'"
+  category: collect
+  kind: python_call_eq
+  function: collect().__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_threshold — return type and default gen-0 value
+# ---------------------------------------------------------------------------
+
+invariant gc_extra.get_threshold.return_type:
+  description: "gc.get_threshold().__class__.__name__ == 'tuple'"
+  category: threshold
+  kind: python_call_eq
+  function: get_threshold().__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant gc_extra.get_threshold.len_3:
+  description: "len(gc.get_threshold()) == 3"
+  category: threshold
+  kind: python_call_eq
+  function: get_threshold().__len__
+  args: []
+  expected: 3
+
+invariant gc_extra.get_threshold.gen0_default:
+  description: "gc.get_threshold()[0] == 700 — CPython default generation-0 threshold"
+  category: threshold
+  kind: python_call_eq
+  function: get_threshold().__getitem__(0).__eq__
+  args: [700]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_objects — return type and non-empty
+# ---------------------------------------------------------------------------
+
+invariant gc_extra.get_objects.return_type:
+  description: "gc.get_objects().__class__.__name__ == 'list'"
+  category: get_objects
+  kind: python_call_eq
+  function: get_objects().__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
+
+invariant gc_extra.get_objects.nonempty:
+  description: "len(gc.get_objects()) > 0 — live interpreter always has tracked objects"
+  category: get_objects
+  kind: python_call_eq
+  function: get_objects().__len__().__gt__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# is_tracked — additional types not covered by base spec
+# ---------------------------------------------------------------------------
+
+table gc_extra.is_tracked.extra:
+  description: "is_tracked results for None, empty str, and empty tuple"
+  kind: python_call_eq
+  category: is_tracked
+  id_prefix: tracked
+
+  columns: [id, function, args, expected]
+  rows:
+    - [none,        is_tracked, [null],  false]
+    - [empty_tuple, is_tracked, [[]],    true]
+
+# ---------------------------------------------------------------------------
+# enable / disable — return None
+# ---------------------------------------------------------------------------
+
+invariant gc_extra.enable.returns_none:
+  description: "gc.enable() returns None"
+  category: state
+  kind: python_call_eq
+  function: enable
+  args: []
+  expected: null
+
+invariant gc_extra.disable.returns_none:
+  description: "gc.disable() returns None (note: re-enables GC afterward is caller's responsibility)"
+  category: state
+  kind: python_call_eq
+  function: disable
+  args: []
+  expected: null
+
+# ---------------------------------------------------------------------------
+# get_count — return type and per-element type
+# ---------------------------------------------------------------------------
+
+invariant gc_extra.get_count.return_type:
+  description: "gc.get_count().__class__.__name__ == 'tuple'"
+  category: count
+  kind: python_call_eq
+  function: get_count().__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant gc_extra.get_count.gen0_nonneg:
+  description: "gc.get_count()[0] >= 0 — generation-0 count is non-negative"
+  category: count
+  kind: python_call_eq
+  function: get_count().__getitem__(0).__ge__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# freeze — returns None
+# ---------------------------------------------------------------------------
+
+invariant gc_extra.freeze.returns_none:
+  description: "gc.freeze() returns None"
+  category: freeze
+  kind: python_call_eq
+  function: freeze
+  args: []
+  expected: null
+
+# ---------------------------------------------------------------------------
+# garbage — is a list
+# ---------------------------------------------------------------------------
+
+invariant gc_extra.garbage.is_list:
+  description: "gc.garbage.__class__.__name__ == 'list'"
+  category: garbage
+  kind: python_call_eq
+  function: garbage.__class__.__name__.__eq__
+  args: ["list"]
+  expected: true

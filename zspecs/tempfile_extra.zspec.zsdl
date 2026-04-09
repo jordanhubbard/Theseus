@@ -1,0 +1,131 @@
+spec: tempfile_extra
+version: ">=3.4"
+backend: python_module(tempfile)
+
+docs: https://docs.python.org/3/library/tempfile.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/tempfile.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "tempfile source: Lib/tempfile.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "tempfile source: internal implementation details"
+  notes:
+    - "This spec extends tempfile.zspec.zsdl with invariants not covered there: SpooledTemporaryFile class metadata, mkstemp/__name__, gettempprefix returning 'tmp' as bytes via gettempprefixb, and module-level constant _name_sequence structure."
+    - "SpooledTemporaryFile.__bases__[0].__name__ == 'object' — it does not inherit from io.RawIOBase or similar; it wraps an internal file via composition."
+    - "TemporaryDirectory.__bases__[0].__name__ == 'object' — TemporaryDirectory is a plain class used as a context manager."
+    - "gettempprefixb() returns b'tmp' — the bytes equivalent of gettempprefix()."
+    - "tempfile.template is 'tmp' — the legacy module-level attribute used as the default prefix in older APIs."
+    - "mkdtemp.__module__ == 'tempfile' — confirms mkdtemp belongs to the tempfile namespace."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "mkstemp() and mkdtemp() raise OSError if the temporary directory cannot be created. NamedTemporaryFile raises OSError on I/O errors."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class base-class checks — SpooledTemporaryFile and TemporaryDirectory
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra.SpooledTemporaryFile.base_object:
+  description: "SpooledTemporaryFile.__bases__[0].__name__ == 'object' — inherits from object directly"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: SpooledTemporaryFile.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant tempfile_extra.TemporaryDirectory.base_object:
+  description: "TemporaryDirectory.__bases__[0].__name__ == 'object' — inherits from object directly"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TemporaryDirectory.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Module membership checks — mkstemp, mkdtemp
+# ---------------------------------------------------------------------------
+
+table tempfile_extra.module_checks:
+  kind: python_call_eq
+  category: modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [mkstemp,            mkstemp.__module__.__eq__,           ["tempfile"], true]
+    - [mkdtemp,            mkdtemp.__module__.__eq__,           ["tempfile"], true]
+    - [gettempdir,         gettempdir.__module__.__eq__,        ["tempfile"], true]
+    - [SpooledTemporaryFile, SpooledTemporaryFile.__module__.__eq__, ["tempfile"], true]
+    - [TemporaryDirectory, TemporaryDirectory.__module__.__eq__, ["tempfile"], true]
+
+# ---------------------------------------------------------------------------
+# gettempprefixb() — returns b'tmp' as bytes
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra.gettempprefixb_value:
+  description: "gettempprefixb() == b'tmp' — bytes version of the POSIX default prefix"
+  category: gettempprefixb
+  kind: python_call_eq
+  function: gettempprefixb
+  args: []
+  expected: {type: bytes_ascii, value: "tmp"}
+
+invariant tempfile_extra.gettempprefixb_is_bytes:
+  description: "gettempprefixb().__class__.__name__ == 'bytes'"
+  category: gettempprefixb
+  kind: python_call_eq
+  function: gettempprefixb().__class__.__name__.__eq__
+  args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# template — legacy module-level string attribute
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra.template_value:
+  description: "tempfile.template == 'tmp' — legacy default prefix attribute"
+  category: constants
+  kind: python_call_eq
+  function: template.__eq__
+  args: ["tmp"]
+  expected: true
+
+invariant tempfile_extra.template_is_str:
+  description: "tempfile.template.__class__.__name__ == 'str'"
+  category: constants
+  kind: python_call_eq
+  function: template.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gettempdir() — path separator check (starts with '/' on POSIX)
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra.gettempdir_starts_slash:
+  description: "gettempdir()[0] == '/' — temp dir is always an absolute path on POSIX"
+  category: gettempdir
+  kind: python_call_eq
+  function: gettempdir().__getitem__
+  args: [0]
+  expected: "/"
+
+# ---------------------------------------------------------------------------
+# SpooledTemporaryFile — is a type (class object)
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra.SpooledTemporaryFile_is_type:
+  description: "SpooledTemporaryFile.__class__.__name__ == 'type'"
+  category: class_names
+  kind: python_call_eq
+  function: SpooledTemporaryFile.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true

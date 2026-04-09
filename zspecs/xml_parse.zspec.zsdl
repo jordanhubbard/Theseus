@@ -1,0 +1,160 @@
+spec: xml_parse
+version: ">=3.3"
+backend: python_module(xml.etree.ElementTree)
+
+docs: https://docs.python.org/3/library/xml.etree.elementtree.html
+
+provenance:
+  derived_from:
+    - "Python xml.etree.ElementTree documentation — https://docs.python.org/3/library/xml.etree.elementtree.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/xml/etree/ElementTree.py"
+  notes:
+    - "This spec covers ElementTree (class), XMLParser, and ParseError — complementing elementtree.zspec.zsdl."
+    - "elementtree.zspec.zsdl covers fromstring, Element constructor, tostring, and ParseError raise behavior."
+    - "ElementTree is the file-level wrapper class; distinct from the module name and from Element."
+    - "XMLParser wraps expat; XMLParser().feed(xml_string) followed by XMLParser().close() returns the root Element."
+    - "ParseError is a subclass of SyntaxError."
+    - "ParseError.__module__ == 'xml.etree.ElementTree'."
+    - "XMLParser.__name__ == 'XMLParser' and lives in xml.etree.ElementTree module."
+    - "XMLParser().feed('<root/>') then XMLParser().close() yields an Element with tag 'root'."
+    - "ElementTree.__name__ == 'ElementTree'."
+    - "ElementTree is a subclass of object (no specialised base class)."
+    - "All expected values verified by running Python 3.12 xml.etree.ElementTree module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class name checks
+# ---------------------------------------------------------------------------
+
+table xml_parse.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ElementTree, ElementTree.__name__.__eq__, ["ElementTree"], true]
+    - [XMLParser,   XMLParser.__name__.__eq__,   ["XMLParser"],   true]
+    - [ParseError,  ParseError.__name__.__eq__,  ["ParseError"],  true]
+
+# ---------------------------------------------------------------------------
+# Module checks
+# ---------------------------------------------------------------------------
+
+table xml_parse.module_checks:
+  kind: python_call_eq
+  category: modules
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ElementTree_mod, ElementTree.__module__.__eq__, ["xml.etree.ElementTree"], true]
+    - [XMLParser_mod,   XMLParser.__module__.__eq__,   ["xml.etree.ElementTree"], true]
+    - [ParseError_mod,  ParseError.__module__.__eq__,  ["xml.etree.ElementTree"], true]
+
+# ---------------------------------------------------------------------------
+# ParseError inheritance — subclass of SyntaxError
+# ---------------------------------------------------------------------------
+
+invariant xml_parse.ParseError_base:
+  description: "ParseError.__bases__[0].__name__ == 'SyntaxError'"
+  category: hierarchy
+  kind: python_call_eq
+  function: ParseError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "SyntaxError"
+
+invariant xml_parse.ParseError_is_exception_subclass:
+  description: "issubclass(ParseError, SyntaxError) == True"
+  category: hierarchy
+  kind: python_call_eq
+  function: issubclass
+  args: ["ParseError", "SyntaxError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# XMLParser — feed + close returns an Element with correct tag
+# ---------------------------------------------------------------------------
+
+invariant xml_parse.XMLParser_close_tag:
+  description: "p = XMLParser(); p.feed('<root/>'); p.close().tag == 'root'"
+  category: XMLParser
+  kind: python_call_eq
+  function: XMLParser
+  args: []
+  method: feed
+  method_args: ["<root/>"]
+  method_chain: close
+  method_chain_args: []
+  expected: "root"
+
+invariant xml_parse.XMLParser_close_tag_with_children:
+  description: "p = XMLParser(); p.feed('<doc><a/></doc>'); p.close().tag == 'doc'"
+  category: XMLParser
+  kind: python_call_eq
+  function: XMLParser
+  args: []
+  method: feed
+  method_args: ["<doc><a/></doc>"]
+  method_chain: close
+  method_chain_args: []
+  expected: "doc"
+
+# ---------------------------------------------------------------------------
+# XMLParser — version attribute is a str
+# ---------------------------------------------------------------------------
+
+invariant xml_parse.XMLParser_version_is_str:
+  description: "type(XMLParser().version).__name__ == 'str'"
+  category: XMLParser
+  kind: python_call_eq
+  function: XMLParser
+  args: []
+  method: version
+  method_args: []
+  method_chain: __class__
+  method_chain_args: []
+  expected: "str"
+
+# ---------------------------------------------------------------------------
+# ElementTree — instantiate with no args (no element wrapping needed)
+# ---------------------------------------------------------------------------
+
+invariant xml_parse.ElementTree_name_check:
+  description: "ElementTree.__name__ == 'ElementTree'"
+  category: ElementTree
+  kind: python_call_eq
+  function: ElementTree.__name__.__eq__
+  args: ["ElementTree"]
+  expected: true
+
+invariant xml_parse.ElementTree_base_is_object:
+  description: "ElementTree.__bases__[0].__name__ == 'object'"
+  category: ElementTree
+  kind: python_call_eq
+  function: ElementTree.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# ParseError — message preserved in args
+# ---------------------------------------------------------------------------
+
+invariant xml_parse.ParseError_args_length:
+  description: "ParseError('bad xml').args.__len__() == 1"
+  category: ParseError
+  kind: python_call_eq
+  function: ParseError
+  args: ["bad xml"]
+  method: args
+  method_args: []
+  method_chain: __len__
+  expected: 1

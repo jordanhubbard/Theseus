@@ -1,0 +1,155 @@
+spec: bz2
+version: ">=3.0"
+backend: python_module(bz2)
+
+docs: https://docs.python.org/3/library/bz2.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/bz2.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "bz2 source: Lib/bz2.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "bz2 source: internal C extension _bz2 implementation details"
+  notes:
+    - "bz2.compress() compresses bytes using the Burrows-Wheeler block-sorting text compression algorithm."
+    - "bz2.decompress() decompresses bytes previously compressed by bz2.compress()."
+    - "bz2.BZ2File is the file-like class for reading and writing bzip2-compressed files."
+    - "bz2.BZ2Compressor is the incremental compressor class; compress(data) + flush() produces the full compressed stream."
+    - "bz2.BZ2Decompressor is the incremental decompressor class; its eof attribute becomes True after the end-of-stream."
+    - "bz2.compress(b'hello') always returns bytes whose first two bytes are 0x42 ('B') and 0x5A ('Z') — the bzip2 magic bytes."
+    - "compress(data, compresslevel=1) is the fastest setting; compresslevel=9 is the highest compression."
+    - "decompress(compress(data)) == data — roundtrip identity holds for any bytes value."
+    - "BZ2Compressor.compress() may return b'' (empty bytes) if the input is buffered; flush() drains the buffer."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "bz2.decompress() raises OSError on corrupt compressed data. BZ2File raises ValueError if used in the wrong mode."
+  stderr: "null"
+  stickiness: "N/A — each call is independent."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name checks
+# ---------------------------------------------------------------------------
+
+table bz2.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [BZ2File,         BZ2File.__name__.__eq__,         ["BZ2File"],         true]
+    - [BZ2Compressor,   BZ2Compressor.__name__.__eq__,   ["BZ2Compressor"],   true]
+    - [BZ2Decompressor, BZ2Decompressor.__name__.__eq__, ["BZ2Decompressor"], true]
+
+# ---------------------------------------------------------------------------
+# Module membership checks
+# ---------------------------------------------------------------------------
+
+table bz2.module_checks:
+  kind: python_call_eq
+  category: modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [BZ2File_module,         BZ2File.__module__.__eq__,         ["bz2"], true]
+    - [BZ2Compressor_module,   BZ2Compressor.__module__.__eq__,   ["bz2"], true]
+    - [BZ2Decompressor_module, BZ2Decompressor.__module__.__eq__, ["bz2"], true]
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table bz2.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [compress,   compress.__name__.__eq__,   ["compress"],   true]
+    - [decompress, decompress.__name__.__eq__, ["decompress"], true]
+    - [open,       open.__name__.__eq__,       ["open"],       true]
+
+# ---------------------------------------------------------------------------
+# compress() — output type and magic bytes
+# ---------------------------------------------------------------------------
+
+invariant bz2.compress.returns_bytes:
+  description: "bz2.compress(b'hello').__class__.__name__ == 'bytes' — compress always returns bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __class__
+  method_chain: __name__
+  expected: "bytes"
+
+invariant bz2.compress.magic_byte_B:
+  description: "bz2.compress(b'hello')[0] == 66 — first byte is 0x42 ('B'), part of the bzip2 magic 'BZh'"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __getitem__
+  method_args: [0]
+  expected: 66
+
+invariant bz2.compress.magic_byte_Z:
+  description: "bz2.compress(b'hello')[1] == 90 — second byte is 0x5A ('Z'), part of the bzip2 magic 'BZh'"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __getitem__
+  method_args: [1]
+  expected: 90
+
+invariant bz2.compress.nonempty_output:
+  description: "len(bz2.compress(b'hello')) > 0 — compressed output is never empty"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __len__
+  method_chain: __gt__
+  method_chain_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BZ2Compressor — class-level type check and method names
+# ---------------------------------------------------------------------------
+
+invariant bz2.BZ2Compressor.is_type:
+  description: "bz2.BZ2Compressor.__class__.__name__ == 'type' — BZ2Compressor is a type object"
+  category: class_names
+  kind: python_call_eq
+  function: BZ2Compressor.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant bz2.BZ2Decompressor.is_type:
+  description: "bz2.BZ2Decompressor.__class__.__name__ == 'type' — BZ2Decompressor is a type object"
+  category: class_names
+  kind: python_call_eq
+  function: BZ2Decompressor.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BZ2Decompressor instance — eof attribute starts False
+# ---------------------------------------------------------------------------
+
+invariant bz2.BZ2Decompressor.eof_initially_false:
+  description: "BZ2Decompressor().eof == False — eof is False before any data is decompressed"
+  category: decompressor
+  kind: python_call_eq
+  function: BZ2Decompressor
+  args: []
+  method: eof.__eq__
+  method_args: [false]
+  expected: true
