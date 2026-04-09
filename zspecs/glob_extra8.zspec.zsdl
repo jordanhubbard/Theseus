@@ -1,0 +1,150 @@
+spec: glob_extra8
+version: ">=3.9"
+backend: python_module(glob)
+
+docs: https://docs.python.org/3/library/glob.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/glob.html — Python glob module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/glob.py"
+  notes:
+    - "This spec extends glob.zspec.zsdl and glob_extra through glob_extra7.zspec.zsdl."
+    - "glob.zspec.zsdl covers: glob/iglob/escape __name__ table; escape special-char table (*/?/[); iglob generator type check."
+    - "glob_extra covers: glob.__module__; glob/iglob/escape __name__ standalone; escape '[abc]'/'a?b'/'a*b'."
+    - "glob_extra2 covers: glob/iglob/escape/has_magic __name__ standalone; module_checks table; has_magic vectors."
+    - "glob_extra3 covers: function_names table; escape.__class__.__name__; iglob.__class__.__name__; escape '/path/with[brackets]'/'normal/path'."
+    - "glob_extra4 covers: function_qualnames table (glob/iglob/escape); escape '/path/to/[file].txt'."
+    - "glob_extra5 covers: has_magic.__qualname__; has_magic.__module__; has_magic.__class__.__name__; escape '*'/'?'/'['/'a*b?c'."
+    - "glob_extra6 covers: has_magic vectors (**,[,],a?,/path/to/*.py); escape /tmp/*.txt/file?.log; escape.__qualname__ standalone."
+    - "glob_extra7 covers: module __name__ standalone; func_class_names table (all 4); escape 'dir/[file]'; has_magic empty string."
+    - "NOT yet covered: escape function on a path with no magic chars — returns the path unchanged."
+    - "NOT yet covered: escape of an empty string."
+    - "NOT yet covered: glob.__package__ == '' (empty string — glob is a top-level module)."
+    - "NOT yet covered: escape.__module__ == 'glob' as a standalone invariant (glob_extra checks as part of a table; this adds standalone)."
+    - "NOT yet covered: has_magic on a plain filename with no special chars."
+    - "NOT yet covered: has_magic on a path with a backslash."
+    - "glob.escape('file.txt') == 'file.txt' — plain filename with no magic chars is unchanged."
+    - "glob.escape('') == '' — empty string escapes to empty string."
+    - "glob.__package__ == '' — glob is a top-level package so __package__ is the empty string."
+    - "glob.escape.__module__ == 'glob' — standalone invariant (prior specs check in tables)."
+    - "glob.has_magic('no_magic') == False — underscore filename has no wildcard chars."
+    - "glob.has_magic('file.py') == False — plain dotted name has no wildcard chars."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# escape — paths with no magic characters return unchanged
+#
+# glob.zspec covers escape('*') == '[*]', escape('?') == '[?]', escape('[') == '[[]'.
+# glob_extra covers escape('[abc]'), escape('a?b'), escape('a*b').
+# glob_extra3/4/5/6/7 cover various bracket/wildcard paths.
+# New axis: plain filenames with NO magic chars are returned as-is.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra8.escape.plain_filename_unchanged:
+  description: "glob.escape('file.txt') == 'file.txt' — plain filename with no magic chars is returned unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["file.txt"]
+  expected: "file.txt"
+
+invariant glob_extra8.escape.empty_string:
+  description: "glob.escape('') == '' — empty string escapes to empty string"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: [""]
+  expected: ""
+
+invariant glob_extra8.escape.plain_path_unchanged:
+  description: "glob.escape('path/to/file') == 'path/to/file' — path with no magic chars is unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["path/to/file"]
+  expected: "path/to/file"
+
+# ---------------------------------------------------------------------------
+# escape.__module__ — standalone invariant
+#
+# glob_extra checks escape __module__ as part of the module_checks table.
+# This adds a standalone invariant in the glob_extra8 namespace for cross-spec
+# consistency and direct lookup.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra8.escape.module_standalone:
+  description: "glob.escape.__module__ == 'glob' — escape is defined in the glob module"
+  category: function_identity
+  kind: python_call_eq
+  function: escape.__module__.__eq__
+  args: ["glob"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# glob.__package__ — top-level module has empty __package__
+#
+# No prior glob spec checks __package__. For a top-level stdlib module (not
+# inside a package), __package__ == '' (empty string).
+# ---------------------------------------------------------------------------
+
+invariant glob_extra8.module.package:
+  description: "glob.__package__ == '' — top-level module has empty __package__"
+  category: module_identity
+  kind: python_call_eq
+  function: __package__.__eq__
+  args: [""]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# has_magic — plain filenames without wildcards return False
+#
+# glob_extra2 covers has_magic('foo.py') == False in a table.
+# glob_extra7 covers has_magic('') == False standalone.
+# These standalone invariants add plain-name and underscore-name vectors
+# in the glob_extra8 namespace for direct lookup.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra8.has_magic.plain_dotted_name:
+  description: "glob.has_magic('file.py') == False — plain dotted filename has no wildcard chars"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["file.py"]
+  expected: false
+
+invariant glob_extra8.has_magic.underscore_name:
+  description: "glob.has_magic('no_magic') == False — underscore filename has no wildcard chars"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["no_magic"]
+  expected: false
+
+invariant glob_extra8.has_magic.space_in_name:
+  description: "glob.has_magic('hello world') == False — space is not a glob wildcard character"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["hello world"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# escape — space in filename is not a magic char
+#
+# glob_extra does not include a space-in-filename escape vector.
+# A space is not a glob special character; escape leaves it unchanged.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra8.escape.space_unchanged:
+  description: "glob.escape('hello world') == 'hello world' — space is not a magic char"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["hello world"]
+  expected: "hello world"

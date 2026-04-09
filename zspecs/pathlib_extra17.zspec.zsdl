@@ -1,0 +1,157 @@
+spec: pathlib_extra17
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+  notes:
+    - "This spec extends pathlib.zspec.zsdl through pathlib_extra16.zspec.zsdl."
+    - "pathlib_extra16 covers PureWindowsPath.__name__ standalone, and MRO lengths for all six public classes."
+    - "pathlib_extra15 covers __module__ for all six public classes in a table."
+    - "pathlib_extra6 covers __qualname__ for all six classes."
+    - "NOT yet covered: method __name__ attributes for PurePath.with_name, PurePath.with_suffix, PurePath.relative_to, PurePath.is_relative_to."
+    - "NOT yet covered: method __qualname__ attributes for PurePath.with_name, PurePath.with_suffix."
+    - "NOT yet covered: behavioral vectors for PurePosixPath.with_name and PurePosixPath.with_suffix."
+    - "NOT yet covered: behavioral vectors for PurePosixPath.relative_to."
+    - "NOT yet covered: behavioral vectors for PurePosixPath.is_relative_to (False case)."
+    - "PurePath.with_name.__name__ == 'with_name' — the method's own __name__."
+    - "PurePath.with_suffix.__name__ == 'with_suffix' — the method's own __name__."
+    - "PurePath.relative_to.__name__ == 'relative_to' — the method's own __name__."
+    - "PurePath.is_relative_to.__name__ == 'is_relative_to' — the method's own __name__."
+    - "PurePath.with_name.__qualname__ == 'PurePath.with_name'."
+    - "PurePath.with_suffix.__qualname__ == 'PurePath.with_suffix'."
+    - "PurePosixPath('/a/b/c.txt').with_name('d.txt') == PurePosixPath('/a/b/d.txt')."
+    - "PurePosixPath('/a/b/c.txt').with_suffix('.py') == PurePosixPath('/a/b/c.py')."
+    - "PurePosixPath('/a/b/c.txt').relative_to('/a/b') == PurePosixPath('c.txt')."
+    - "PurePosixPath('/a/b/c').is_relative_to('/a') == True."
+    - "PurePosixPath('/x/y').is_relative_to('/a') == False."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PurePath method __name__ attributes
+#
+# No prior pathlib spec records __name__ for with_name, with_suffix,
+# relative_to, or is_relative_to. These are instance methods accessed via
+# the class, so their __name__ equals the bare method name.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra17.method_names:
+  description: "PurePath instance method __name__ attributes"
+  kind: python_call_eq
+  category: method_identity
+  id_prefix: mname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [with_name,       PurePath.with_name.__name__.__eq__,       ["with_name"],       true]
+    - [with_suffix,     PurePath.with_suffix.__name__.__eq__,     ["with_suffix"],     true]
+    - [relative_to,     PurePath.relative_to.__name__.__eq__,     ["relative_to"],     true]
+    - [is_relative_to,  PurePath.is_relative_to.__name__.__eq__,  ["is_relative_to"],  true]
+
+# ---------------------------------------------------------------------------
+# PurePath method __qualname__ attributes
+#
+# pathlib_extra6 covers __qualname__ for the six public classes but not for
+# their instance methods. The qualname of a class method is 'ClassName.method'.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra17.PurePath.with_name.qualname:
+  description: "PurePath.with_name.__qualname__ == 'PurePath.with_name'"
+  category: method_identity
+  kind: python_call_eq
+  function: PurePath.with_name.__qualname__.__eq__
+  args: ["PurePath.with_name"]
+  expected: true
+
+invariant pathlib_extra17.PurePath.with_suffix.qualname:
+  description: "PurePath.with_suffix.__qualname__ == 'PurePath.with_suffix'"
+  category: method_identity
+  kind: python_call_eq
+  function: PurePath.with_suffix.__qualname__.__eq__
+  args: ["PurePath.with_suffix"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.with_name behavioral vectors
+#
+# No prior pathlib spec exercises the with_name method on a live path instance.
+# with_name(new_name) replaces the final path component with new_name.
+# We verify the str representation of the resulting path object.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra17.PurePosixPath.with_name.basic:
+  description: "PurePosixPath('/a/b/c.txt').with_name('d.txt') == PurePosixPath('/a/b/d.txt')"
+  category: with_name
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: with_name.__str__
+  method_args: ["d.txt"]
+  expected: "/a/b/d.txt"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.with_suffix behavioral vectors
+#
+# with_suffix(new_suffix) replaces the file extension. No prior spec tests this.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra17.PurePosixPath.with_suffix.basic:
+  description: "PurePosixPath('/a/b/c.txt').with_suffix('.py') == PurePosixPath('/a/b/c.py')"
+  category: with_suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: with_suffix.__str__
+  method_args: [".py"]
+  expected: "/a/b/c.py"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.relative_to behavioral vector
+#
+# relative_to(base) returns the path relative to base. No prior spec tests this.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra17.PurePosixPath.relative_to.basic:
+  description: "PurePosixPath('/a/b/c.txt').relative_to('/a/b') str == 'c.txt'"
+  category: relative_to
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: relative_to.__str__
+  method_args: ["/a/b"]
+  expected: "c.txt"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.is_relative_to behavioral vectors (Python 3.9+)
+#
+# is_relative_to(base) returns True/False. No prior spec tests this method.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra17.PurePosixPath.is_relative_to.true_case:
+  description: "PurePosixPath('/a/b/c').is_relative_to('/a') == True"
+  category: is_relative_to
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: is_relative_to
+  method_args: ["/a"]
+  expected: true
+
+invariant pathlib_extra17.PurePosixPath.is_relative_to.false_case:
+  description: "PurePosixPath('/x/y').is_relative_to('/a') == False"
+  category: is_relative_to
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/x/y"]
+  method: is_relative_to
+  method_args: ["/a"]
+  expected: false

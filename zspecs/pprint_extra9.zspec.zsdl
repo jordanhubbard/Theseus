@@ -1,0 +1,166 @@
+spec: pprint_extra9
+version: ">=3.9"
+backend: python_module(pprint)
+
+docs: https://docs.python.org/3/library/pprint.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pprint.html — Python pprint module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pprint.py"
+  notes:
+    - "This spec extends pprint.zspec.zsdl and pprint_extra through pprint_extra8.zspec.zsdl."
+    - "pprint.zspec.zsdl covers: pformat(int/str/None/bool/float=3.14/zero/empty_str/empty_list/empty_dict/[1,2,3]); isreadable(int/str/None/bool/list/dict/empty); isrecursive(int/str/None/list/dict/empty_list/empty_dict); saferepr(int/str/None/bool/float=3.14/[1,2,3]/empty_list)."
+    - "pprint_extra5 covers: PrettyPrinter.__bases__[0].__name__=='object'; isreadable(True/3.14); isrecursive(42/'hello')."
+    - "pprint_extra6 covers: pformat({'a':1,'b':2})/pformat(-1); saferepr({})/saferepr([])/saferepr(3.14)/saferepr(0); isreadable(0.0/-1); isrecursive(None)."
+    - "pprint_extra7 covers: PrettyPrinter(width=40)/PrettyPrinter(indent=4)._indent; isreadable((1,2,3)==[1,2,3] in YAML) / isreadable(0); pformat([1,2,3])/'{'a':1}'/''."
+    - "pprint_extra8 covers: name_attrs table (pformat/isreadable/isrecursive/PrettyPrinter/pprint/saferepr/pp); pformat(True)/pformat(None); isrecursive(42); isreadable(False)."
+    - "NOT yet covered: pprint.pformat(1.5) — float 1.5 (base uses 3.14; all prior pformat floats are 3.14 or -1)."
+    - "NOT yet covered: pprint.saferepr({'a': 1}) == \"{'a': 1}\" — saferepr of single-key dict (extra6 covers {} and [])."
+    - "NOT yet covered: pprint.saferepr(1.5) — float 1.5 (base and extra6 cover 3.14)."
+    - "NOT yet covered: pprint.isreadable(1.5) == True — float 1.5 (extra5 covers 3.14)."
+    - "NOT yet covered: pprint.isrecursive(3.14) == False — float (base covers int/str/None/list/dict; no float in isrecursive)."
+    - "NOT yet covered: pprint.PrettyPrinter.__mro__.__len__() == 2 — MRO is [PrettyPrinter, object]."
+    - "NOT yet covered: pprint.PrettyPrinter.__bases__.__len__() == 1 — PrettyPrinter has only object as base."
+    - "NOT yet covered: pprint.pformat({'a': 1, 'b': 2, 'c': 3}) — three-key dict (extra6 covers 2-key; extra7 covers 1-key)."
+    - "NOT yet covered: pprint.PrettyPrinter.__class__.__name__ == 'type' — PrettyPrinter is a class object."
+    - "pprint.pformat(1.5) == '1.5' — float representation uses repr; 1.5 has exact repr '1.5'."
+    - "pprint.PrettyPrinter.__mro__.__len__() == 2 — MRO is [PrettyPrinter, object] (single inheritance from object)."
+    - "pprint.PrettyPrinter.__bases__.__len__() == 1 — PrettyPrinter directly subclasses only object."
+    - "pprint.PrettyPrinter.__class__.__name__ == 'type' — PrettyPrinter is a standard Python class (metaclass: type)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pformat — float 1.5 (new value)
+#
+# pprint.zspec.zsdl covers pformat(3.14). No prior spec covers pformat(1.5).
+# Python repr of 1.5 is '1.5' — exact decimal representation with no rounding.
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra9.pformat.float_1_5:
+  description: "pprint.pformat(1.5) == '1.5' — float 1.5 has exact repr '1.5'"
+  category: pformat
+  kind: python_call_eq
+  function: pformat
+  args: [1.5]
+  expected: "1.5"
+
+# ---------------------------------------------------------------------------
+# pformat — three-key dict
+#
+# pprint_extra7 covers pformat({'a': 1}) (1 key).
+# pprint_extra6 covers pformat({'a': 1, 'b': 2}) (2 keys).
+# No prior spec covers a three-key dict pformat output.
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra9.pformat.three_key_dict:
+  description: "pprint.pformat({'a': 1, 'b': 2, 'c': 3}) == \"{'a': 1, 'b': 2, 'c': 3}\" — three-key dict"
+  category: pformat
+  kind: python_call_eq
+  function: pformat
+  args: [{"a": 1, "b": 2, "c": 3}]
+  expected: "{'a': 1, 'b': 2, 'c': 3}"
+
+# ---------------------------------------------------------------------------
+# saferepr — new vectors not covered in prior specs
+#
+# pprint_extra6 covers saferepr({}) and saferepr([]). No prior spec checks
+# saferepr({'a': 1}) (single-key dict) or saferepr(1.5) (float 1.5).
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra9.saferepr.single_key_dict:
+  description: "pprint.saferepr({'a': 1}) == \"{'a': 1}\" — single-key dict safe repr"
+  category: saferepr
+  kind: python_call_eq
+  function: saferepr
+  args: [{"a": 1}]
+  expected: "{'a': 1}"
+
+invariant pprint_extra9.saferepr.float_1_5:
+  description: "pprint.saferepr(1.5) == '1.5' — float 1.5 safe repr"
+  category: saferepr
+  kind: python_call_eq
+  function: saferepr
+  args: [1.5]
+  expected: "1.5"
+
+# ---------------------------------------------------------------------------
+# isreadable — float 1.5
+#
+# pprint_extra5 covers isreadable(3.14). No prior spec covers isreadable(1.5).
+# Float 1.5 has a valid, readable repr; isreadable returns True.
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra9.isreadable.float_1_5:
+  description: "pprint.isreadable(1.5) == True — float 1.5 has a readable repr"
+  category: isreadable
+  kind: python_call_eq
+  function: isreadable
+  args: [1.5]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# isrecursive — float input
+#
+# pprint.zspec.zsdl covers isrecursive for int/str/None/list/dict/empty containers.
+# pprint_extra5 adds isrecursive(42/'hello'); pprint_extra6 adds isrecursive(None);
+# pprint_extra8 adds isrecursive(42) as extra8-namespace anchor.
+# No prior spec covers isrecursive with a float input. Floats have no recursive
+# references, so the result is False.
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra9.isrecursive.float:
+  description: "pprint.isrecursive(3.14) == False — floats have no recursive references"
+  category: isrecursive
+  kind: python_call_eq
+  function: isrecursive
+  args: [3.14]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# PrettyPrinter — MRO structure
+#
+# pprint_extra5 covers PrettyPrinter.__bases__[0].__name__ == 'object'.
+# No prior spec checks __mro__.__len__() or __bases__.__len__() for
+# PrettyPrinter. PrettyPrinter inherits from object only (single inheritance),
+# giving a MRO of [PrettyPrinter, object] (length 2) and a single-element
+# __bases__ tuple.
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra9.PrettyPrinter.mro_len:
+  description: "pprint.PrettyPrinter.__mro__.__len__() == 2 — MRO is [PrettyPrinter, object]"
+  category: PrettyPrinter_hierarchy
+  kind: python_call_eq
+  function: PrettyPrinter.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant pprint_extra9.PrettyPrinter.bases_len:
+  description: "pprint.PrettyPrinter.__bases__.__len__() == 1 — PrettyPrinter has only object as base"
+  category: PrettyPrinter_hierarchy
+  kind: python_call_eq
+  function: PrettyPrinter.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# PrettyPrinter — metaclass is 'type'
+#
+# No prior spec checks PrettyPrinter.__class__.__name__. PrettyPrinter is a
+# standard Python class created with the default metaclass 'type', making its
+# __class__.__name__ equal to 'type'. This is distinct from the instance
+# class name check in pprint_extra7 (which tests PrettyPrinter().__class__).
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra9.PrettyPrinter.class_is_type:
+  description: "pprint.PrettyPrinter.__class__.__name__ == 'type' — PrettyPrinter uses default metaclass"
+  category: PrettyPrinter_hierarchy
+  kind: python_call_eq
+  function: PrettyPrinter.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true

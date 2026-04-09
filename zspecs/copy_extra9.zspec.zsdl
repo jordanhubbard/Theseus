@@ -1,0 +1,161 @@
+spec: copy_extra9
+version: ">=3.9"
+backend: python_module(copy)
+
+docs: https://docs.python.org/3/library/copy.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/copy.html — Python copy module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/copy.py"
+  notes:
+    - "This spec extends copy.zspec.zsdl through copy_extra8.zspec.zsdl."
+    - "copy.zspec.zsdl covers: copy of int/str/None/bool/float/zero/empty_str/list/empty_list/dict/empty_dict; deepcopy of int/str/None/bool/float; nested deepcopy."
+    - "copy_extra2 covers: copy(None)/copy(True)/deepcopy(True)/deepcopy(None); copy({})/deepcopy({}); copy.__class__.__name__=='function'; deepcopy.__class__.__name__=='function'."
+    - "copy_extra4 covers: copy([1,2,3])/deepcopy([1,2,3])/deepcopy({'a':1})/copy({'a':1})/copy('hello'). Also copy.__name__/deepcopy.__name__/Error.__name__ via table."
+    - "copy_extra5 covers: copy((1,2,3)); deepcopy({'a':[1,2]})/deepcopy([1,[2,3]]); copy.__qualname__/deepcopy.__qualname__/Error.__qualname__."
+    - "copy_extra7 covers: copy(-42)/copy(1000000)/deepcopy('world')/deepcopy(-5); copy([1,2,3]).__len__()==3; copy({'a':1,'b':2}).__len__()==2; deepcopy(['a','b','c']); Error.__mro__ len and mro[1]."
+    - "copy_extra8 covers: copy.__name__.__len__()==4; deepcopy.__name__.__len__()==8; Error.__name__.__len__()==5; Error.__mro__[2]=='BaseException'/__mro__[3]=='object'."
+    - "NOT yet covered: copy.copy('world') == 'world' (copy; deepcopy covered in extra7)."
+    - "NOT yet covered: copy.copy([1, 2]) == [1, 2] — two-element list (extra4/extra7 use 3-element)."
+    - "NOT yet covered: copy.deepcopy([1, 2]) == [1, 2] — two-element list deepcopy."
+    - "NOT yet covered: copy.deepcopy([1, 2]).__len__() == 2 — length check on two-element deepcopy."
+    - "NOT yet covered: copy.copy({'x': 10}) == {'x': 10} — new dict with key 'x' (all prior use 'a'/'b'/'c')."
+    - "NOT yet covered: copy.deepcopy({'x': 10, 'y': 20}) == {'x': 10, 'y': 20} — dict with keys x/y not covered."
+    - "NOT yet covered: copy.Error.__bases__.__len__() == 1 — Error has exactly one direct base class."
+    - "NOT yet covered: copy.deepcopy('test') == 'test' — new string value 'test'."
+    - "NOT yet covered: copy.copy(99) == 99 — new integer value 99 (prior specs use 42, 0, -42, 1000000)."
+    - "copy.copy('world') == 'world' — strings are immutable; copy returns an equal value."
+    - "copy.Error.__bases__.__len__() == 1 — Error has exactly one direct base: Exception."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# copy.copy — string 'world'
+#
+# copy.zspec.zsdl and copy_extra4 cover copy('hello'). copy_extra7 covers
+# deepcopy('world'). No prior spec covers copy.copy('world') as a shallow-copy
+# invariant. Strings are immutable; copy returns an equal value.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra9.copy.world:
+  description: "copy.copy('world') == 'world' — shallow copy of 'world' returns equal string"
+  category: copy_immutable
+  kind: python_call_eq
+  function: copy
+  args: ["world"]
+  expected: "world"
+
+# ---------------------------------------------------------------------------
+# copy.deepcopy — string 'test'
+#
+# copy.zspec.zsdl covers deepcopy('hello'); copy_extra7 covers deepcopy('world').
+# No prior spec covers deepcopy('test'). A new string literal is a distinct vector.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra9.deepcopy.test_string:
+  description: "copy.deepcopy('test') == 'test' — deepcopy of 'test' returns equal string"
+  category: deepcopy_immutable
+  kind: python_call_eq
+  function: deepcopy
+  args: ["test"]
+  expected: "test"
+
+# ---------------------------------------------------------------------------
+# copy.copy and deepcopy — two-element list
+#
+# copy_extra4 covers copy([1,2,3]) and deepcopy([1,2,3]) (3 elements).
+# No prior spec uses a 2-element list [1, 2] for either operation.
+# A different element count is a genuinely distinct behavioral axis.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra9.copy.two_element_list:
+  description: "copy.copy([1, 2]) == [1, 2] — shallow copy of 2-element list returns equal list"
+  category: copy_containers
+  kind: python_call_eq
+  function: copy
+  args: [[1, 2]]
+  expected: [1, 2]
+
+invariant copy_extra9.deepcopy.two_element_list:
+  description: "copy.deepcopy([1, 2]) == [1, 2] — deepcopy of 2-element list returns equal list"
+  category: deepcopy_containers
+  kind: python_call_eq
+  function: deepcopy
+  args: [[1, 2]]
+  expected: [1, 2]
+
+invariant copy_extra9.deepcopy.two_element_list_len:
+  description: "copy.deepcopy([1, 2]).__len__() == 2 — deepcopy of 2-element list has length 2"
+  category: deepcopy_containers
+  kind: python_call_eq
+  function: deepcopy
+  args: [[1, 2]]
+  method: __len__
+  method_args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# copy.copy — new dict key 'x'
+#
+# Prior specs use only keys 'a', 'b', 'c'. No prior spec uses key 'x'.
+# copy.copy({'x': 10}) == {'x': 10} — shallow copy preserves key/value pair.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra9.copy.x_dict:
+  description: "copy.copy({'x': 10}) == {'x': 10} — shallow copy of single-key dict with key 'x'"
+  category: copy_containers
+  kind: python_call_eq
+  function: copy
+  args: [{"x": 10}]
+  expected: {"x": 10}
+
+# ---------------------------------------------------------------------------
+# copy.deepcopy — dict with new keys 'x' and 'y'
+#
+# No prior spec uses keys 'x' or 'y' for deepcopy. This is a distinct vector.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra9.deepcopy.xy_dict:
+  description: "copy.deepcopy({'x': 10, 'y': 20}) == {'x': 10, 'y': 20} — deepcopy of 2-key dict"
+  category: deepcopy_containers
+  kind: python_call_eq
+  function: deepcopy
+  args: [{"x": 10, "y": 20}]
+  expected: {"x": 10, "y": 20}
+
+# ---------------------------------------------------------------------------
+# copy.copy — integer 99
+#
+# Prior specs use 42, 0, -42, 1000000. No prior spec covers 99.
+# Integers are immutable; copy returns an equal value.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra9.copy.ninety_nine:
+  description: "copy.copy(99) == 99 — shallow copy of integer 99 returns equal value"
+  category: copy_immutable
+  kind: python_call_eq
+  function: copy
+  args: [99]
+  expected: 99
+
+# ---------------------------------------------------------------------------
+# copy.Error — number of direct bases
+#
+# copy_extra and copy_extra6 check Error.__bases__[0].__name__ == 'Exception'.
+# copy_extra7 checks Error.__mro__.__len__() == 4.
+# No prior spec checks Error.__bases__.__len__() — confirming Error has exactly
+# one direct base (Exception only, no multiple inheritance).
+# ---------------------------------------------------------------------------
+
+invariant copy_extra9.Error.bases_len:
+  description: "copy.Error.__bases__.__len__() == 1 — Error has exactly one direct base class"
+  category: error_hierarchy
+  kind: python_call_eq
+  function: Error.__bases__.__len__
+  args: []
+  expected: 1
