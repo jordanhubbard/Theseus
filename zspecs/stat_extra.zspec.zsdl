@@ -1,0 +1,177 @@
+spec: stat_extra
+version: ">=3.9"
+backend: python_module(stat)
+
+docs: https://docs.python.org/3/library/stat.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/stat.html — Python stat module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/stat.py"
+  notes:
+    - "This spec covers function names, integer constants, and helper identities for the stat module."
+    - "stat.S_ISREG and stat.S_ISDIR are functions that test file type bits; their __name__ is their unqualified identifier."
+    - "stat.filemode is a function that converts a mode integer to a symbolic string like '-rwxr-xr-x'."
+    - "stat.S_IFMT is a function (not a constant) that extracts the file type bits from a mode."
+    - "stat.S_IRWXU == 0o700 == 448 — owner read/write/execute bits."
+    - "stat.ST_MODE == 0 — index into os.stat() result tuple for the file mode."
+    - "stat.ST_INO == 1 — index into os.stat() result tuple for the inode number."
+    - "stat.ST_SIZE == 6 — index into os.stat() result tuple for the file size."
+    - "stat.ST_MTIME == 8 — index into os.stat() result tuple for the modification time."
+    - "stat.S_IFREG == 0o100000 == 32768 — regular file type bit."
+    - "stat.S_IFDIR == 0o040000 == 16384 — directory type bit."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name checks — S_ISREG, S_ISDIR, filemode, S_IFMT
+# ---------------------------------------------------------------------------
+
+table stat_extra.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [S_ISREG,   S_ISREG.__name__.__eq__,   ["S_ISREG"],   true]
+    - [S_ISDIR,   S_ISDIR.__name__.__eq__,   ["S_ISDIR"],   true]
+    - [filemode,  filemode.__name__.__eq__,  ["filemode"],  true]
+    - [S_IFMT,    S_IFMT.__name__.__eq__,    ["S_IFMT"],    true]
+
+# ---------------------------------------------------------------------------
+# S_IRWXU — owner read/write/execute permission bits
+# 0o700 == 448
+# ---------------------------------------------------------------------------
+
+invariant stat_extra.S_IRWXU.value:
+  description: "stat.S_IRWXU == 448 (0o700 — owner rwx permission bits)"
+  category: constants
+  kind: python_call_eq
+  function: S_IRWXU.__eq__
+  args: [448]
+  expected: true
+
+invariant stat_extra.S_IRWXU.is_int:
+  description: "stat.S_IRWXU.__class__.__name__ == 'int'"
+  category: constants
+  kind: python_call_eq
+  function: S_IRWXU.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ST_MODE, ST_INO, ST_SIZE, ST_MTIME — os.stat() result tuple indices
+# ---------------------------------------------------------------------------
+
+invariant stat_extra.ST_MODE.value:
+  description: "stat.ST_MODE == 0 — index 0 in os.stat() result is the file mode"
+  category: constants
+  kind: python_call_eq
+  function: ST_MODE.__eq__
+  args: [0]
+  expected: true
+
+invariant stat_extra.ST_INO.value:
+  description: "stat.ST_INO == 1 — index 1 in os.stat() result is the inode number"
+  category: constants
+  kind: python_call_eq
+  function: ST_INO.__eq__
+  args: [1]
+  expected: true
+
+invariant stat_extra.ST_SIZE.value:
+  description: "stat.ST_SIZE == 6 — index 6 in os.stat() result is the file size"
+  category: constants
+  kind: python_call_eq
+  function: ST_SIZE.__eq__
+  args: [6]
+  expected: true
+
+invariant stat_extra.ST_MTIME.value:
+  description: "stat.ST_MTIME == 8 — index 8 in os.stat() result is the modification time"
+  category: constants
+  kind: python_call_eq
+  function: ST_MTIME.__eq__
+  args: [8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ST_* constants are integers
+# ---------------------------------------------------------------------------
+
+table stat_extra.st_index_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: st_int
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ST_MODE,  ST_MODE.__class__.__name__.__eq__,  ["int"], true]
+    - [ST_INO,   ST_INO.__class__.__name__.__eq__,   ["int"], true]
+    - [ST_SIZE,  ST_SIZE.__class__.__name__.__eq__,  ["int"], true]
+    - [ST_MTIME, ST_MTIME.__class__.__name__.__eq__, ["int"], true]
+
+# ---------------------------------------------------------------------------
+# S_IFREG and S_IFDIR — file type bitmask constants
+# S_IFREG == 0o100000 == 32768
+# S_IFDIR == 0o040000 == 16384
+# ---------------------------------------------------------------------------
+
+invariant stat_extra.S_IFREG.value:
+  description: "stat.S_IFREG == 32768 (0o100000 — regular file type bits)"
+  category: constants
+  kind: python_call_eq
+  function: S_IFREG.__eq__
+  args: [32768]
+  expected: true
+
+invariant stat_extra.S_IFDIR.value:
+  description: "stat.S_IFDIR == 16384 (0o040000 — directory type bits)"
+  category: constants
+  kind: python_call_eq
+  function: S_IFDIR.__eq__
+  args: [16384]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# S_ISREG and S_ISDIR — functional correctness
+# S_ISREG(stat.S_IFREG) should return True
+# S_ISDIR(stat.S_IFDIR) should return True
+# ---------------------------------------------------------------------------
+
+invariant stat_extra.S_ISREG.recognizes_regular_file:
+  description: "stat.S_ISREG(stat.S_IFREG) == True — S_ISREG returns True for a regular file mode"
+  category: functions
+  kind: python_call_eq
+  function: S_ISREG
+  args: [32768]
+  expected: true
+
+invariant stat_extra.S_ISDIR.recognizes_directory:
+  description: "stat.S_ISDIR(stat.S_IFDIR) == True — S_ISDIR returns True for a directory mode"
+  category: functions
+  kind: python_call_eq
+  function: S_ISDIR
+  args: [16384]
+  expected: true
+
+invariant stat_extra.S_ISREG.rejects_directory:
+  description: "stat.S_ISREG(stat.S_IFDIR) == False — S_ISREG returns False for a directory mode"
+  category: functions
+  kind: python_call_eq
+  function: S_ISREG
+  args: [16384]
+  expected: false
+
+invariant stat_extra.S_ISDIR.rejects_regular_file:
+  description: "stat.S_ISDIR(stat.S_IFREG) == False — S_ISDIR returns False for a regular file mode"
+  category: functions
+  kind: python_call_eq
+  function: S_ISDIR
+  args: [32768]
+  expected: false

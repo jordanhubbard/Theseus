@@ -1,0 +1,112 @@
+spec: symtable_extra
+version: ">=3.9"
+backend: python_module(symtable)
+
+docs: https://docs.python.org/3/library/symtable.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/symtable.html — Python symtable module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/symtable.py"
+  notes:
+    - "symtable.symtable() is the top-level function for building a symbol table from source code."
+    - "symtable.SymbolTable is the base class for all symbol table objects."
+    - "symtable.Function is a subclass of SymbolTable representing function scopes."
+    - "symtable.Class is a subclass of SymbolTable representing class scopes."
+    - "symtable.Symbol represents a single symbol (name binding) within a symbol table."
+    - "All classes are defined in Lib/symtable.py so their __module__ is 'symtable'."
+    - "symtable.Function.__bases__[0].__name__ == 'SymbolTable' — Function inherits directly from SymbolTable."
+    - "symtable.Class.__bases__[0].__name__ == 'SymbolTable' — Class inherits directly from SymbolTable."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Top-level function — symtable()
+# ---------------------------------------------------------------------------
+
+invariant symtable_extra.symtable.function_name:
+  description: "symtable.symtable.__name__ == 'symtable' — the top-level function name"
+  category: function_names
+  kind: python_call_eq
+  function: symtable.__name__.__eq__
+  args: ["symtable"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class name checks
+# ---------------------------------------------------------------------------
+
+table symtable_extra.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [SymbolTable, SymbolTable.__name__.__eq__, ["SymbolTable"], true]
+    - [Function,    Function.__name__.__eq__,    ["Function"],    true]
+    - [Class,       Class.__name__.__eq__,       ["Class"],       true]
+    - [Symbol,      Symbol.__name__.__eq__,      ["Symbol"],      true]
+
+# ---------------------------------------------------------------------------
+# Module affiliation — all classes live in 'symtable'
+# ---------------------------------------------------------------------------
+
+table symtable_extra.class_modules:
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: cmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [SymbolTable, SymbolTable.__module__.__eq__, ["symtable"], true]
+    - [Function,    Function.__module__.__eq__,    ["symtable"], true]
+    - [Class,       Class.__module__.__eq__,       ["symtable"], true]
+    - [Symbol,      Symbol.__module__.__eq__,      ["symtable"], true]
+
+# ---------------------------------------------------------------------------
+# Class hierarchy — Function and Class both extend SymbolTable
+# ---------------------------------------------------------------------------
+
+invariant symtable_extra.Function.base_is_SymbolTable:
+  description: "symtable.Function.__bases__[0].__name__ == 'SymbolTable'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Function.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "SymbolTable"
+
+invariant symtable_extra.Class.base_is_SymbolTable:
+  description: "symtable.Class.__bases__[0].__name__ == 'SymbolTable'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Class.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "SymbolTable"
+
+# ---------------------------------------------------------------------------
+# symtable() function — callable check (returns a SymbolTable for valid input)
+# Passing a simple expression to symtable() returns a SymbolTable object.
+# ---------------------------------------------------------------------------
+
+invariant symtable_extra.symtable.returns_SymbolTable:
+  description: "symtable.symtable('x = 1', '<string>', 'exec').__class__.__name__ == 'SymbolTable'"
+  category: function_behavior
+  kind: python_call_eq
+  function: symtable("x = 1", "<string>", "exec").__class__.__name__.__eq__
+  args: ["SymbolTable"]
+  expected: true
+
+invariant symtable_extra.symtable.module_returns_module_type:
+  description: "symtable.symtable('x = 1', '<string>', 'exec').get_type() == 'module'"
+  category: function_behavior
+  kind: python_call_eq
+  function: symtable("x = 1", "<string>", "exec").get_type
+  args: []
+  expected: "module"
