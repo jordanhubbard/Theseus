@@ -1,0 +1,172 @@
+spec: binascii
+version: ">=3.9"
+backend: python_module(binascii)
+
+docs: https://docs.python.org/3/library/binascii.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/binascii.html — Python binascii documentation"
+    - "Test vectors verified by running Python 3.12 binascii module on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "CPython source: Modules/binascii.c"
+  notes:
+    - "crc32() returns a signed 32-bit integer in Python 3. Values may be negative."
+    - "hexlify() returns bytes containing the ASCII hex encoding (lowercase)."
+    - "unhexlify() accepts both bytes and str arguments containing hex digits."
+    - "unhexlify() raises binascii.Error for odd-length input strings."
+    - "The output of hexlify(b) has exactly len(b)*2 bytes."
+    - "crc32(b'') == 0 — empty input has CRC-32 value zero."
+  created_at: "2026-04-08T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# crc32() — returns int (exact values)
+# ---------------------------------------------------------------------------
+
+invariant binascii.crc32.empty:
+  description: "crc32(b'') == 0 — CRC-32 of the empty byte string is zero"
+  category: crc32
+  kind: python_call_eq
+  function: crc32
+  args: [{type: bytes_ascii, value: ""}]
+  expected: 0
+
+invariant binascii.crc32.hello:
+  description: "crc32(b'hello') == 907060870 — verified on Python 3.12"
+  category: crc32
+  kind: python_call_eq
+  function: crc32
+  args: [{type: bytes_ascii, value: "hello"}]
+  expected: 907060870
+
+invariant binascii.crc32.hello_world:
+  description: "crc32(b'hello world') == 222957957 — verified on Python 3.12"
+  category: crc32
+  kind: python_call_eq
+  function: crc32
+  args: [{type: bytes_ascii, value: "hello world"}]
+  expected: 222957957
+
+invariant binascii.crc32.abc:
+  description: "crc32(b'abc') == 891568578 — verified on Python 3.12"
+  category: crc32
+  kind: python_call_eq
+  function: crc32
+  args: [{type: bytes_ascii, value: "abc"}]
+  expected: 891568578
+
+invariant binascii.crc32.test:
+  description: "crc32(b'test') == 3632233996 — verified on Python 3.12"
+  category: crc32
+  kind: python_call_eq
+  function: crc32
+  args: [{type: bytes_ascii, value: "test"}]
+  expected: 3632233996
+
+# ---------------------------------------------------------------------------
+# hexlify() — output length is exactly 2 * input length
+# ---------------------------------------------------------------------------
+
+invariant binascii.hexlify.hello_length:
+  description: "hexlify(b'hello').__len__() == 10 — 5-byte input produces 10-char hex output"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __len__
+  expected: 10
+
+invariant binascii.hexlify.empty_length:
+  description: "hexlify(b'').__len__() == 0 — empty input produces empty hex output"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [{type: bytes_ascii, value: ""}]
+  method: __len__
+  expected: 0
+
+invariant binascii.hexlify.hello_world_length:
+  description: "hexlify(b'hello world').__len__() == 22 — 11-byte input produces 22-char hex output"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [{type: bytes_ascii, value: "hello world"}]
+  method: __len__
+  expected: 22
+
+invariant binascii.hexlify.single_byte_ff_length:
+  description: "hexlify(b'\\xff').__len__() == 2 — single byte produces two hex chars"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [{type: bytes_hex, value: "ff"}]
+  method: __len__
+  expected: 2
+
+invariant binascii.hexlify.four_bytes_length:
+  description: "hexlify(b'\\xde\\xad\\xbe\\xef').__len__() == 8 — four bytes produce 8 hex chars"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [{type: bytes_hex, value: "deadbeef"}]
+  method: __len__
+  expected: 8
+
+invariant binascii.hexlify.hello_value:
+  description: "hexlify(b'hello') == b'68656c6c6f' — exact hex encoding of ASCII 'hello'"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [{type: bytes_ascii, value: "hello"}]
+  expected: {type: bytes_ascii, value: "68656c6c6f"}
+
+invariant binascii.hexlify.ff_value:
+  description: "hexlify(b'\\xff') == b'ff' — hex encoding of 0xFF byte"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [{type: bytes_hex, value: "ff"}]
+  expected: {type: bytes_ascii, value: "ff"}
+
+invariant binascii.hexlify.deadbeef_value:
+  description: "hexlify(b'\\xde\\xad\\xbe\\xef') == b'deadbeef' — hex encoding of four bytes"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [{type: bytes_hex, value: "deadbeef"}]
+  expected: {type: bytes_ascii, value: "deadbeef"}
+
+# ---------------------------------------------------------------------------
+# unhexlify() — output length is exactly input_hex_length / 2
+# ---------------------------------------------------------------------------
+
+invariant binascii.unhexlify.hello_length:
+  description: "unhexlify(b'68656c6c6f').__len__() == 5 — 10 hex chars decode to 5 bytes"
+  category: unhexlify
+  kind: python_call_eq
+  function: unhexlify
+  args: [{type: bytes_ascii, value: "68656c6c6f"}]
+  method: __len__
+  expected: 5
+
+invariant binascii.unhexlify.hello_value:
+  description: "unhexlify(b'68656c6c6f') == b'hello' — decoding the hex of 'hello'"
+  category: unhexlify
+  kind: python_call_eq
+  function: unhexlify
+  args: [{type: bytes_ascii, value: "68656c6c6f"}]
+  expected: {type: bytes_ascii, value: "hello"}
+
+# ---------------------------------------------------------------------------
+# Error cases
+# ---------------------------------------------------------------------------
+
+invariant binascii.unhexlify.odd_length_raises:
+  description: "unhexlify('fff') raises binascii.Error — odd-length hex string is invalid"
+  category: error
+  kind: python_call_raises
+  function: unhexlify
+  args: ["fff"]
+  expected_exception: binascii.Error

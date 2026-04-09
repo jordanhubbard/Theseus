@@ -1,0 +1,83 @@
+spec: qs
+version: ">=6.0.0"
+backend: node(qs)
+
+docs: https://github.com/ljharb/qs#readme
+
+provenance:
+  derived_from:
+    - "qs README — https://github.com/ljharb/qs#readme"
+    - "Test vectors verified with qs@6.14.0 via Node.js 22.20.0 on macOS/Darwin 25.4.0, 2026-04-08"
+    - "qs source: lib/stringify.js, lib/parse.js (BSD-3-Clause; source inspection permitted)"
+  not_derived_from:
+    - "qs source: lib/utils.js"
+  notes:
+    - "qs.stringify() encodes objects to query strings. Default encoding percent-encodes brackets: {a:[1,2]} → 'a%5B0%5D=1&a%5B1%5D=2'."
+    - "qs.parse() values are always strings unless allowDots or other options are used."
+    - "Duplicate keys in parse result in arrays: parse('a=1&a=2') → {a: ['1','2']}."
+    - "null values stringify to 'key=' (key present, empty value). undefined values are omitted."
+    - "encode:false passes values through without percent-encoding."
+    - "delimiter option controls the separator character in stringify."
+    - "Nested objects: {a:{b:1}} → 'a%5Bb%5D=1' (default) or 'a[b]=1' (encode:false)."
+  created_at: "2026-04-08T00:00:00Z"
+
+error_model:
+  semantics: "qs does not throw for normal inputs. node exits 0 for all invariants in this spec."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# qs.stringify — object to query string
+# ---------------------------------------------------------------------------
+
+table qs.stringify.basic:
+  kind: node_module_call_eq
+  function: stringify
+  id_prefix: str
+
+  columns: [id, category, args, expected]
+  rows:
+    - [single_key,       basic,    [{a: 1}],                    "a=1"]
+    - [two_keys,         basic,    [{a: 1, b: 2}],              "a=1&b=2"]
+    - [empty_object,     basic,    [{}],                        ""]
+    - [string_value,     encoding, [{a: "hello world"}],        "a=hello%20world"]
+    - [array_value,      arrays,   [{a: [1, 2]}],               "a%5B0%5D=1&a%5B1%5D=2"]
+    - [boolean_true,     types,    [{a: true}],                 "a=true"]
+    - [boolean_false,    types,    [{a: false}],                "a=false"]
+    - [null_value,       types,    [{a: null}],                 "a="]
+
+# ---------------------------------------------------------------------------
+# qs.stringify — with options
+# ---------------------------------------------------------------------------
+
+table qs.stringify.options:
+  kind: node_module_call_eq
+  function: stringify
+  id_prefix: str_opt
+
+  columns: [id, category, args, expected]
+  rows:
+    - [encode_false,     encoding,  [{a: "hello world"}, {encode: false}], "a=hello world"]
+    - [nested_encode_false, nested, [{a: {b: 1}},        {encode: false}], "a[b]=1"]
+    - [delimiter_semi,  delimiter,  [{a: 1, b: 2},       {delimiter: ";"}],"a=1;b=2"]
+
+# ---------------------------------------------------------------------------
+# qs.parse — query string to object
+# ---------------------------------------------------------------------------
+
+table qs.parse.basic:
+  kind: node_module_call_eq
+  function: parse
+  id_prefix: parse
+
+  columns: [id, category, args, expected]
+  rows:
+    - [single_key,       basic,    ["a=1"],              {a: "1"}]
+    - [two_keys,         basic,    ["a=1&b=2"],          {a: "1", b: "2"}]
+    - [empty_string,     basic,    [""],                 {}]
+    - [url_encoded,      encoding, ["a=hello%20world"],  {a: "hello world"}]
+    - [duplicate_keys,   arrays,   ["a=1&a=2"],          {a: ["1", "2"]}]
+    - [three_keys,       basic,    ["a=1&b=2&c=3"],      {a: "1", b: "2", c: "3"}]
+    - [bool_string,      types,    ["a=true"],           {a: "true"}]
+    - [nested_bracket,   nested,   ["a%5Bb%5D=1"],       {a: {b: "1"}}]

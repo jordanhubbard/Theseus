@@ -1,0 +1,257 @@
+spec: decimal
+version: ">=3.7"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+rfcs:
+  - "IBM General Decimal Arithmetic Specification, Version 1.72"
+  - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal module documentation"
+    - "IBM General Decimal Arithmetic Specification 1.72 — http://speleotrove.com/decimal/decarith.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "CPython source: Modules/_decimal/_decimal.c"
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "Decimal objects are immutable and represent decimal floating-point numbers exactly."
+    - "The constructor accepts strings, integers, and tuples; string form is preferred to avoid float imprecision."
+    - "Decimal('1.00') preserves trailing zeros — a key distinguishing feature over binary float."
+    - "Decimal('Infinity') and Decimal('NaN') are special values; is_finite(), is_infinite(), is_nan() test them."
+    - "as_tuple() returns a DecimalTuple(sign, digits, exponent) namedtuple."
+    - "getcontext().prec is the default precision (28); method: prec resolves the non-callable attribute."
+    - "is_integer() is not available on Python 3 decimal.Decimal; is_normal() is used instead."
+    - "Arithmetic method_args cannot easily carry Decimal objects through JSON; string representations are tested via __str__."
+  created_at: "2026-04-08T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# String representation — Decimal.__str__() preserves exact decimal encoding
+# ---------------------------------------------------------------------------
+
+table decimal.Decimal.str_repr:
+  kind: python_call_eq
+  category: string_repr
+  id_prefix: str
+  function: Decimal
+  method: __str__
+
+  columns: [id, args, expected]
+  rows:
+    - [positive_decimal,   ["1.5"],       "1.5"      ]
+    - [zero,               ["0"],         "0"        ]
+    - [negative_pi,        ["-3.14"],     "-3.14"    ]
+    - [large_exponent,     ["1E+10"],     "1E+10"    ]
+    - [trailing_zeros,     ["1.00"],      "1.00"     ]
+    - [infinity,           ["Infinity"],  "Infinity" ]
+    - [nan,                ["NaN"],       "NaN"      ]
+    - [negative_zero,      ["-0"],        "-0"       ]
+    - [integer_string,     ["42"],        "42"       ]
+
+# ---------------------------------------------------------------------------
+# Predicate methods — is_finite, is_infinite, is_nan, is_zero, is_signed, is_normal
+# ---------------------------------------------------------------------------
+
+invariant decimal.Decimal.is_finite.finite:
+  description: "Decimal('5').is_finite() == True — a regular number is finite"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["5"]
+  method: is_finite
+  expected: true
+
+invariant decimal.Decimal.is_finite.infinity:
+  description: "Decimal('Infinity').is_finite() == False — infinity is not finite"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["Infinity"]
+  method: is_finite
+  expected: false
+
+invariant decimal.Decimal.is_nan.nan:
+  description: "Decimal('NaN').is_nan() == True"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["NaN"]
+  method: is_nan
+  expected: true
+
+invariant decimal.Decimal.is_nan.finite:
+  description: "Decimal('5').is_nan() == False"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["5"]
+  method: is_nan
+  expected: false
+
+invariant decimal.Decimal.is_infinite.true:
+  description: "Decimal('Infinity').is_infinite() == True"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["Infinity"]
+  method: is_infinite
+  expected: true
+
+invariant decimal.Decimal.is_infinite.false:
+  description: "Decimal('42').is_infinite() == False"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["42"]
+  method: is_infinite
+  expected: false
+
+invariant decimal.Decimal.is_zero.zero:
+  description: "Decimal('0').is_zero() == True"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["0"]
+  method: is_zero
+  expected: true
+
+invariant decimal.Decimal.is_zero.nonzero:
+  description: "Decimal('1').is_zero() == False"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: is_zero
+  expected: false
+
+invariant decimal.Decimal.is_signed.negative:
+  description: "Decimal('-5').is_signed() == True — negative numbers have sign bit set"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["-5"]
+  method: is_signed
+  expected: true
+
+invariant decimal.Decimal.is_signed.positive:
+  description: "Decimal('5').is_signed() == False"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["5"]
+  method: is_signed
+  expected: false
+
+invariant decimal.Decimal.is_normal.regular:
+  description: "Decimal('123').is_normal() == True — a regular nonzero finite number is normal"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["123"]
+  method: is_normal
+  expected: true
+
+invariant decimal.Decimal.is_normal.zero:
+  description: "Decimal('0').is_normal() == False — zero is not normal"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["0"]
+  method: is_normal
+  expected: false
+
+invariant decimal.Decimal.is_normal.infinity:
+  description: "Decimal('Infinity').is_normal() == False — infinity is not normal"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["Infinity"]
+  method: is_normal
+  expected: false
+
+# ---------------------------------------------------------------------------
+# as_tuple() — returns DecimalTuple(sign, digits, exponent)
+# method_chain resolves the named attribute on the returned namedtuple
+# ---------------------------------------------------------------------------
+
+invariant decimal.Decimal.as_tuple.sign_positive:
+  description: "Decimal('3.14').as_tuple().sign == 0 — positive number has sign 0"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["3.14"]
+  method: as_tuple
+  method_chain: sign
+  expected: 0
+
+invariant decimal.Decimal.as_tuple.sign_negative:
+  description: "Decimal('-3.14').as_tuple().sign == 1 — negative number has sign 1"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["-3.14"]
+  method: as_tuple
+  method_chain: sign
+  expected: 1
+
+invariant decimal.Decimal.as_tuple.exponent:
+  description: "Decimal('3.14').as_tuple().exponent == -2 — two digits after the decimal point"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["3.14"]
+  method: as_tuple
+  method_chain: exponent
+  expected: -2
+
+invariant decimal.Decimal.as_tuple.exponent_integer:
+  description: "Decimal('100').as_tuple().exponent == 0 — integer has exponent 0"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["100"]
+  method: as_tuple
+  method_chain: exponent
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# Class constant — Decimal.__name__
+# Accessed via dotted path: Decimal.__name__.__eq__ called with "Decimal"
+# ---------------------------------------------------------------------------
+
+invariant decimal.Decimal.class_name:
+  description: "Decimal.__name__ == 'Decimal'"
+  category: class_metadata
+  kind: python_call_eq
+  function: Decimal.__name__.__eq__
+  args: ["Decimal"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Context — getcontext().prec == 28 (default precision)
+# method: prec resolves the non-callable integer attribute
+# ---------------------------------------------------------------------------
+
+invariant decimal.context.default_prec:
+  description: "getcontext().prec == 28 — default arithmetic precision is 28 significant digits"
+  category: context
+  kind: python_call_eq
+  function: getcontext
+  args: []
+  method: prec
+  expected: 28
+
+# ---------------------------------------------------------------------------
+# Error cases
+# ---------------------------------------------------------------------------
+
+invariant decimal.Decimal.invalid_literal_raises:
+  description: "Decimal('not-a-number') raises InvalidOperation — malformed string is rejected"
+  category: error
+  kind: python_call_raises
+  function: Decimal
+  args: ["not-a-number"]
+  expected_exception: InvalidOperation

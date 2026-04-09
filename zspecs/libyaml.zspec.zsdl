@@ -1,0 +1,102 @@
+spec: libyaml
+version: ">=0.2"
+backend: ctypes(yaml)
+version_function: yaml_get_version_string
+min_version_prefix: "0."
+
+api_header: yaml.h
+docs: https://pyyaml.org/wiki/LibYAML
+
+provenance:
+  derived_from:
+    - "LibYAML documentation — https://pyyaml.org/wiki/LibYAML"
+    - "LibYAML header yaml.h — function signatures for version API"
+    - "Verified with libyaml 0.2.5 on macOS Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "LibYAML source: src/api.c"
+  notes:
+    - "yaml_get_version_string() returns a char* of the form 'M.m.p' (e.g. '0.2.5')."
+    - "yaml_get_version(major*, minor*, patch*) writes three ints via pointer args; the harness cannot call it inline."
+    - "All version invariants use version_prefix on yaml_get_version_string()."
+    - "Progressively longer prefixes confirm the version format and minor version family."
+    - "libyaml 0.2.x has been the stable series since 2014; minor version 2 is confirmed in prefix checks."
+  created_at: "2026-04-08T00:00:00Z"
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+# Verify yaml_get_version_string() returns a correctly formatted version string.
+# All invariants call the same zero-argument function but verify successively
+# longer prefixes, confirming the numeric format and minor version family.
+# ---------------------------------------------------------------------------
+
+invariant libyaml.version.prefix_0:
+  description: "yaml_get_version_string() starts with '0' — confirms this is a 0.x release"
+  category: version
+  kind: version_prefix
+  function: yaml_get_version_string
+  expected_prefix_b64: MA==
+
+invariant libyaml.version.prefix_0dot:
+  description: "yaml_get_version_string() starts with '0.' — confirms major.dot format"
+  category: version
+  kind: version_prefix
+  function: yaml_get_version_string
+  expected_prefix_b64: MC4=
+
+invariant libyaml.version.prefix_0dot2:
+  description: "yaml_get_version_string() starts with '0.2' — confirms minor version 2"
+  category: version
+  kind: version_prefix
+  function: yaml_get_version_string
+  expected_prefix_b64: MC4y
+
+invariant libyaml.version.prefix_0dot2dot:
+  description: "yaml_get_version_string() starts with '0.2.' — confirms minor.dot separator"
+  category: version
+  kind: version_prefix
+  function: yaml_get_version_string
+  expected_prefix_b64: MC4yLg==
+
+invariant libyaml.version.prefix_0dot2dot5:
+  description: "yaml_get_version_string() starts with '0.2.5' — full version for 0.2.5"
+  category: version
+  kind: version_prefix
+  function: yaml_get_version_string
+  expected_prefix_b64: MC4yLjU=
+
+# ---------------------------------------------------------------------------
+# version table — additional prefix depth checks
+# ---------------------------------------------------------------------------
+
+table libyaml.version.prefix_table:
+  kind: version_prefix
+  category: version
+  id_prefix: vp
+  describe: "yaml_get_version_string() starts with expected prefix"
+
+  columns: [id, function, expected_prefix_b64]
+  rows:
+    - [zero,       yaml_get_version_string, MA==      ]
+    - [zero_dot,   yaml_get_version_string, MC4=      ]
+    - [zero_2,     yaml_get_version_string, MC4y      ]
+    - [zero_2_dot, yaml_get_version_string, MC4yLg==  ]
+    - [zero_2_5,   yaml_get_version_string, MC4yLjU=  ]
+
+# ---------------------------------------------------------------------------
+# structural_prefix (category: version)
+# Verify that additional structural characters appear at expected positions.
+# ---------------------------------------------------------------------------
+
+invariant libyaml.version.prefix_zero_any:
+  description: "yaml_get_version_string() returns a non-empty string beginning with '0'"
+  category: version
+  kind: version_prefix
+  function: yaml_get_version_string
+  expected_prefix_b64: MA==
+
+invariant libyaml.version.prefix_full_repeat:
+  description: "yaml_get_version_string() full string starts with '0.2.5' (repeated check for idempotency)"
+  category: version
+  kind: version_prefix
+  function: yaml_get_version_string
+  expected_prefix_b64: MC4yLjU=

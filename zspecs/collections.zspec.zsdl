@@ -1,0 +1,352 @@
+spec: collections
+version: ">=3.3"
+backend: python_module(collections)
+
+docs: https://docs.python.org/3/library/collections.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html — Python collections module documentation"
+    - "Test vectors verified by running Python 3.14.3 collections module on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+    - "CPython source: Modules/_collectionsmodule.c"
+  notes:
+    - "Counter is a dict subclass for counting hashable objects. Missing keys return 0 rather than raising KeyError."
+    - "Counter('aabbc') counts characters: a=2, b=2, c=1. total() (Python 3.10+) returns sum of all counts."
+    - "Counter.most_common(n) returns a list of (element, count) tuples sorted by count descending."
+    - "defaultdict(factory) calls factory() when a missing key is accessed; defaultdict(int) gives 0, defaultdict(str) gives ''."
+    - "deque supports O(1) append and pop from both ends. maxlen=None means unbounded. Indexed access is O(n)."
+    - "OrderedDict preserves insertion order (same as dict on Python 3.7+ but with additional ordering APIs)."
+    - "namedtuple(typename, field_names) returns a new class whose __name__ == typename."
+    - "ChainMap groups multiple dicts for a single logical view; lookups search maps in order."
+    - "All expected values verified by running Python 3.14.3 collections module on macOS/Darwin 25.4.0, 2026-04-08."
+  created_at: "2026-04-08T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Counter — class identity and character counting
+#
+# Access pattern for class name: getattr(module, 'Counter') → Counter class,
+# then getattr(Counter, '__name__') → 'Counter', then .__eq__('Counter') → True.
+#
+# Access pattern for item lookup: function=Counter, args=['aabbc'] →
+# Counter({'a':2,'b':2,'c':1}), then method=__getitem__, method_args=['a'] → 2.
+# ---------------------------------------------------------------------------
+
+invariant collections.counter.class_name:
+  description: "Counter.__name__ == 'Counter'"
+  category: counter
+  kind: python_call_eq
+  function: Counter.__name__.__eq__
+  args: ["Counter"]
+  expected: true
+
+invariant collections.counter.aabbc_a:
+  description: "Counter('aabbc')['a'] == 2 — 'a' appears twice"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: ["aabbc"]
+  method: __getitem__
+  method_args: ["a"]
+  expected: 2
+
+invariant collections.counter.aabbc_b:
+  description: "Counter('aabbc')['b'] == 2 — 'b' appears twice"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: ["aabbc"]
+  method: __getitem__
+  method_args: ["b"]
+  expected: 2
+
+invariant collections.counter.aabbc_c:
+  description: "Counter('aabbc')['c'] == 1 — 'c' appears once"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: ["aabbc"]
+  method: __getitem__
+  method_args: ["c"]
+  expected: 1
+
+invariant collections.counter.aabbc_total:
+  description: "Counter('aabbc').total() == 5 — total count of all elements (Python 3.10+)"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: ["aabbc"]
+  method: total
+  expected: 5
+
+invariant collections.counter.missing_key_zero:
+  description: "Counter()['missing'] == 0 — Counter returns 0 for missing keys, unlike dict"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: []
+  method: __getitem__
+  method_args: ["missing"]
+  expected: 0
+
+invariant collections.counter.len_of_aabbc:
+  description: "len(Counter('aabbc')) == 3 — three distinct elements"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: ["aabbc"]
+  method: __len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# Counter with a list — integer element counting
+#
+# Counter([1,1,2,3,3,3]) → {3:3, 1:2, 2:1}
+# ---------------------------------------------------------------------------
+
+invariant collections.counter.list_input_element_3:
+  description: "Counter([1,1,2,3,3,3])[3] == 3 — element 3 appears three times"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: [[1, 1, 2, 3, 3, 3]]
+  method: __getitem__
+  method_args: [3]
+  expected: 3
+
+invariant collections.counter.list_input_element_1:
+  description: "Counter([1,1,2,3,3,3])[1] == 2 — element 1 appears twice"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: [[1, 1, 2, 3, 3, 3]]
+  method: __getitem__
+  method_args: [1]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# defaultdict — class identity and default-value behavior
+#
+# defaultdict.__name__.__eq__ accesses the class object's __name__ attribute.
+# For behavior tests: the factory 'int' or 'str' cannot be passed as a JSON
+# argument, so we test the class name and module-level type identity instead.
+# We verify __name__ of the class and the __bases__ chain.
+# ---------------------------------------------------------------------------
+
+invariant collections.defaultdict.class_name:
+  description: "defaultdict.__name__ == 'defaultdict'"
+  category: defaultdict
+  kind: python_call_eq
+  function: defaultdict.__name__.__eq__
+  args: ["defaultdict"]
+  expected: true
+
+invariant collections.defaultdict.is_subclass_of_dict:
+  description: "defaultdict.__bases__[0].__name__ == 'dict' — defaultdict inherits from dict"
+  category: defaultdict
+  kind: python_call_eq
+  function: defaultdict.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "dict"
+
+# ---------------------------------------------------------------------------
+# deque — class identity, indexed access, length, maxlen
+#
+# deque([1,2,3]).__len__() == 3
+# deque([1,2,3]).__getitem__(0) == 1
+# deque([1,2,3]).__getitem__(-1) == 3
+# deque([1,2,3]).maxlen → None (attribute, not callable, harness returns it directly)
+# deque([1,2,3], maxlen=5).maxlen → 5
+# ---------------------------------------------------------------------------
+
+invariant collections.deque.class_name:
+  description: "deque.__name__ == 'deque'"
+  category: deque
+  kind: python_call_eq
+  function: deque.__name__.__eq__
+  args: ["deque"]
+  expected: true
+
+invariant collections.deque.length_three:
+  description: "len(deque([1,2,3])) == 3"
+  category: deque
+  kind: python_call_eq
+  function: deque
+  args: [[1, 2, 3]]
+  method: __len__
+  expected: 3
+
+invariant collections.deque.first_element:
+  description: "deque([1,2,3])[0] == 1 — indexed access to first element"
+  category: deque
+  kind: python_call_eq
+  function: deque
+  args: [[1, 2, 3]]
+  method: __getitem__
+  method_args: [0]
+  expected: 1
+
+invariant collections.deque.last_element:
+  description: "deque([1,2,3])[-1] == 3 — indexed access to last element"
+  category: deque
+  kind: python_call_eq
+  function: deque
+  args: [[1, 2, 3]]
+  method: __getitem__
+  method_args: [-1]
+  expected: 3
+
+invariant collections.deque.contains_two:
+  description: "deque([1,2,3]).__contains__(2) == True — membership test"
+  category: deque
+  kind: python_call_eq
+  function: deque
+  args: [[1, 2, 3]]
+  method: __contains__
+  method_args: [2]
+  expected: true
+
+invariant collections.deque.maxlen_bounded:
+  description: "deque([1,2,3], maxlen=5).maxlen == 5"
+  category: deque
+  kind: python_call_eq
+  function: deque
+  args: [[1, 2, 3]]
+  kwargs: {maxlen: 5}
+  method: maxlen
+  expected: 5
+
+invariant collections.deque.empty_length:
+  description: "len(deque()) == 0 — empty deque has length 0"
+  category: deque
+  kind: python_call_eq
+  function: deque
+  args: []
+  method: __len__
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# OrderedDict — class identity and basic key access
+# ---------------------------------------------------------------------------
+
+invariant collections.ordereddict.class_name:
+  description: "OrderedDict.__name__ == 'OrderedDict'"
+  category: ordereddict
+  kind: python_call_eq
+  function: OrderedDict.__name__.__eq__
+  args: ["OrderedDict"]
+  expected: true
+
+invariant collections.ordereddict.is_subclass_of_dict:
+  description: "OrderedDict.__bases__[0].__name__ == 'dict' — OrderedDict inherits from dict"
+  category: ordereddict
+  kind: python_call_eq
+  function: OrderedDict.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "dict"
+
+invariant collections.ordereddict.from_pairs_key_a:
+  description: "OrderedDict([('a',1),('b',2)])['a'] == 1"
+  category: ordereddict
+  kind: python_call_eq
+  function: OrderedDict
+  args: [[["a", 1], ["b", 2]]]
+  method: __getitem__
+  method_args: ["a"]
+  expected: 1
+
+invariant collections.ordereddict.from_pairs_len:
+  description: "len(OrderedDict([('a',1),('b',2)])) == 2"
+  category: ordereddict
+  kind: python_call_eq
+  function: OrderedDict
+  args: [[["a", 1], ["b", 2]]]
+  method: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# namedtuple — typename and field access via __name__
+#
+# namedtuple('Point', ['x','y']) returns a new class.
+# __name__ == 'Point' is the canonical identity check.
+# We cannot access the Point class fields via the harness without storing the
+# intermediate result, so we test the class name only.
+# ---------------------------------------------------------------------------
+
+invariant collections.namedtuple.class_name:
+  description: "namedtuple('Point', ['x','y']).__name__ == 'Point'"
+  category: namedtuple
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: __name__
+  expected: "Point"
+
+invariant collections.namedtuple.fields:
+  description: "namedtuple('Point', ['x','y'])._fields == ('x','y')"
+  category: namedtuple
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: _fields
+  expected: !tuple ["x", "y"]
+
+# ---------------------------------------------------------------------------
+# ChainMap — class identity, multi-map lookup
+#
+# ChainMap({'a':1}, {'b':2})['a'] == 1 — found in first map
+# ChainMap({'a':1}, {'b':2})['b'] == 2 — found in second map
+# len(ChainMap({'a':1}, {'b':2}).maps) == 2 — two backing maps
+# ---------------------------------------------------------------------------
+
+invariant collections.chainmap.class_name:
+  description: "ChainMap.__name__ == 'ChainMap'"
+  category: chainmap
+  kind: python_call_eq
+  function: ChainMap.__name__.__eq__
+  args: ["ChainMap"]
+  expected: true
+
+invariant collections.chainmap.lookup_first_map:
+  description: "ChainMap({'a':1}, {'b':2})['a'] == 1 — found in the first map"
+  category: chainmap
+  kind: python_call_eq
+  function: ChainMap
+  args: [{a: 1}, {b: 2}]
+  method: __getitem__
+  method_args: ["a"]
+  expected: 1
+
+invariant collections.chainmap.lookup_second_map:
+  description: "ChainMap({'a':1}, {'b':2})['b'] == 2 — found in the second map"
+  category: chainmap
+  kind: python_call_eq
+  function: ChainMap
+  args: [{a: 1}, {b: 2}]
+  method: __getitem__
+  method_args: ["b"]
+  expected: 2
+
+invariant collections.chainmap.maps_count:
+  description: "len(ChainMap({'a':1}, {'b':2}).maps) == 2 — two backing dicts"
+  category: chainmap
+  kind: python_call_eq
+  function: ChainMap
+  args: [{a: 1}, {b: 2}]
+  method: maps
+  method_chain: __len__
+  expected: 2
+
+invariant collections.chainmap.len_of_items:
+  description: "len(ChainMap({'a':1}, {'b':2})) == 2 — two unique keys across both maps"
+  category: chainmap
+  kind: python_call_eq
+  function: ChainMap
+  args: [{a: 1}, {b: 2}]
+  method: __len__
+  expected: 2

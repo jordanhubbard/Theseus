@@ -1,0 +1,240 @@
+spec: libsodium
+version: ">=1.0.18"
+backend: ctypes(sodium)
+
+api_header: sodium.h
+docs: https://doc.libsodium.org/
+
+provenance:
+  derived_from:
+    - "libsodium documentation — https://doc.libsodium.org/"
+    - "libsodium API reference — https://doc.libsodium.org/generating_random_data"
+    - "Test vectors verified with libsodium 1.0.21 via ctypes on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "libsodium source: src/libsodium/crypto_generichash/blake2b/ref/blake2b-compress-ref.c"
+    - "libsodium source: src/libsodium/randombytes/sysrandom/randombytes_sysrandom.c"
+    - "Any other libsodium C source file"
+  notes:
+    - "libsodium constants that are C macros in the header are exposed as functions in the shared library (e.g. crypto_generichash_bytes() returns size_t 32)."
+    - "sodium_init() returns 0 on first call, 1 if already initialized, -1 on failure. We assert >= 0 (call_ge with expected_min: 0)."
+    - "sodium_version_string() returns a char* such as '1.0.21'; this spec verifies the '1.' prefix."
+    - "crypto_generichash_bytes() == 32 — BLAKE2b-256 default output size."
+    - "crypto_generichash_bytes_min() == 16, crypto_generichash_bytes_max() == 64 — BLAKE2b range."
+    - "crypto_secretbox_keybytes() == 32, noncebytes() == 24 — XSalsa20-Poly1305 parameters."
+    - "crypto_box_publickeybytes() == 32, secretkeybytes() == 32 — Curve25519 key sizes."
+    - "crypto_sign_publickeybytes() == 32, secretkeybytes() == 64 — Ed25519 key sizes."
+    - "crypto_hash_sha256_bytes() == 32, sha512_bytes() == 64 — standard SHA digest sizes."
+    - "crypto_auth_hmacsha256_bytes() == 32 (tag), keybytes() == 32 (key) — HMAC-SHA256 parameters."
+    - "crypto_aead_chacha20poly1305_keybytes() == 32, npubbytes() == 8 — AEAD nonce/key sizes."
+    - "crypto_pwhash_saltbytes() == 16 — Argon2 salt size."
+    - "randombytes_random() returns a random uint32; we can only verify it executes without error (call_ge with expected_min: 0 is vacuously true for uint32)."
+  created_at: "2026-04-08T00:00:00Z"
+
+# ---------------------------------------------------------------------------
+# Initialization and version
+# ---------------------------------------------------------------------------
+
+invariant libsodium.init.sodium_init:
+  description: "sodium_init() returns 0 or 1 (>= 0); -1 would indicate failure"
+  category: init
+  kind: call_ge
+  function: sodium_init
+  args: []
+  arg_types: []
+  expected_min: 0
+
+invariant libsodium.version.string_prefix:
+  description: "sodium_version_string() returns a string starting with '1.' (libsodium 1.x)"
+  category: version
+  kind: version_prefix
+  function: sodium_version_string
+  expected_prefix_b64: MS4=
+
+# ---------------------------------------------------------------------------
+# Generic hash (BLAKE2b) constants
+# ---------------------------------------------------------------------------
+
+invariant libsodium.generichash.bytes_eq_32:
+  description: "crypto_generichash_bytes() == 32 — default BLAKE2b-256 output size"
+  category: generichash
+  kind: call_eq
+  function: crypto_generichash_bytes
+  args: []
+  arg_types: []
+  expected: 32
+
+invariant libsodium.generichash.bytes_min_eq_16:
+  description: "crypto_generichash_bytes_min() == 16 — minimum BLAKE2b output size"
+  category: generichash
+  kind: call_eq
+  function: crypto_generichash_bytes_min
+  args: []
+  arg_types: []
+  expected: 16
+
+invariant libsodium.generichash.bytes_max_eq_64:
+  description: "crypto_generichash_bytes_max() == 64 — maximum BLAKE2b output size"
+  category: generichash
+  kind: call_eq
+  function: crypto_generichash_bytes_max
+  args: []
+  arg_types: []
+  expected: 64
+
+# ---------------------------------------------------------------------------
+# Secret-key authenticated encryption (XSalsa20-Poly1305)
+# ---------------------------------------------------------------------------
+
+invariant libsodium.secretbox.keybytes_eq_32:
+  description: "crypto_secretbox_keybytes() == 32 — XSalsa20-Poly1305 key size"
+  category: secretbox
+  kind: call_eq
+  function: crypto_secretbox_keybytes
+  args: []
+  arg_types: []
+  expected: 32
+
+invariant libsodium.secretbox.noncebytes_eq_24:
+  description: "crypto_secretbox_noncebytes() == 24 — XSalsa20-Poly1305 nonce size"
+  category: secretbox
+  kind: call_eq
+  function: crypto_secretbox_noncebytes
+  args: []
+  arg_types: []
+  expected: 24
+
+# ---------------------------------------------------------------------------
+# Public-key authenticated encryption (Curve25519/XSalsa20-Poly1305)
+# ---------------------------------------------------------------------------
+
+invariant libsodium.box.publickeybytes_eq_32:
+  description: "crypto_box_publickeybytes() == 32 — Curve25519 public key size"
+  category: box
+  kind: call_eq
+  function: crypto_box_publickeybytes
+  args: []
+  arg_types: []
+  expected: 32
+
+invariant libsodium.box.secretkeybytes_eq_32:
+  description: "crypto_box_secretkeybytes() == 32 — Curve25519 secret key size"
+  category: box
+  kind: call_eq
+  function: crypto_box_secretkeybytes
+  args: []
+  arg_types: []
+  expected: 32
+
+# ---------------------------------------------------------------------------
+# Signatures (Ed25519)
+# ---------------------------------------------------------------------------
+
+invariant libsodium.sign.publickeybytes_eq_32:
+  description: "crypto_sign_publickeybytes() == 32 — Ed25519 public key size"
+  category: sign
+  kind: call_eq
+  function: crypto_sign_publickeybytes
+  args: []
+  arg_types: []
+  expected: 32
+
+invariant libsodium.sign.secretkeybytes_eq_64:
+  description: "crypto_sign_secretkeybytes() == 64 — Ed25519 secret key size (seed + public key)"
+  category: sign
+  kind: call_eq
+  function: crypto_sign_secretkeybytes
+  args: []
+  arg_types: []
+  expected: 64
+
+# ---------------------------------------------------------------------------
+# Hash (SHA-2)
+# ---------------------------------------------------------------------------
+
+invariant libsodium.hash.sha256_bytes_eq_32:
+  description: "crypto_hash_sha256_bytes() == 32 — SHA-256 digest size"
+  category: hash
+  kind: call_eq
+  function: crypto_hash_sha256_bytes
+  args: []
+  arg_types: []
+  expected: 32
+
+invariant libsodium.hash.sha512_bytes_eq_64:
+  description: "crypto_hash_sha512_bytes() == 64 — SHA-512 digest size"
+  category: hash
+  kind: call_eq
+  function: crypto_hash_sha512_bytes
+  args: []
+  arg_types: []
+  expected: 64
+
+# ---------------------------------------------------------------------------
+# HMAC-SHA-256 authentication
+# ---------------------------------------------------------------------------
+
+invariant libsodium.auth.hmacsha256_bytes_eq_32:
+  description: "crypto_auth_hmacsha256_bytes() == 32 — HMAC-SHA-256 tag size"
+  category: auth
+  kind: call_eq
+  function: crypto_auth_hmacsha256_bytes
+  args: []
+  arg_types: []
+  expected: 32
+
+invariant libsodium.auth.hmacsha256_keybytes_eq_32:
+  description: "crypto_auth_hmacsha256_keybytes() == 32 — HMAC-SHA-256 key size"
+  category: auth
+  kind: call_eq
+  function: crypto_auth_hmacsha256_keybytes
+  args: []
+  arg_types: []
+  expected: 32
+
+# ---------------------------------------------------------------------------
+# AEAD (ChaCha20-Poly1305)
+# ---------------------------------------------------------------------------
+
+invariant libsodium.aead.chacha20poly1305_keybytes_eq_32:
+  description: "crypto_aead_chacha20poly1305_keybytes() == 32 — ChaCha20-Poly1305 key size"
+  category: aead
+  kind: call_eq
+  function: crypto_aead_chacha20poly1305_keybytes
+  args: []
+  arg_types: []
+  expected: 32
+
+invariant libsodium.aead.chacha20poly1305_npubbytes_eq_8:
+  description: "crypto_aead_chacha20poly1305_npubbytes() == 8 — ChaCha20-Poly1305 nonce size"
+  category: aead
+  kind: call_eq
+  function: crypto_aead_chacha20poly1305_npubbytes
+  args: []
+  arg_types: []
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# Password hashing (Argon2)
+# ---------------------------------------------------------------------------
+
+invariant libsodium.pwhash.saltbytes_eq_16:
+  description: "crypto_pwhash_saltbytes() == 16 — Argon2 salt size"
+  category: pwhash
+  kind: call_eq
+  function: crypto_pwhash_saltbytes
+  args: []
+  arg_types: []
+  expected: 16
+
+# ---------------------------------------------------------------------------
+# Random number generation
+# ---------------------------------------------------------------------------
+
+invariant libsodium.aead.aes256gcm_keybytes_eq_32:
+  description: "crypto_aead_aes256gcm_keybytes() == 32 — AES-256-GCM key size"
+  category: aead
+  kind: call_eq
+  function: crypto_aead_aes256gcm_keybytes
+  args: []
+  arg_types: []
+  expected: 32

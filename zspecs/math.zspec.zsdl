@@ -1,0 +1,438 @@
+spec: math
+version: ">=3.2"
+backend: python_module(math)
+
+docs: https://docs.python.org/3/library/math.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/math.html — Python math module documentation"
+    - "ISO/IEC 9899:2018 (C17) — C standard math functions that Python's math module wraps"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "Test vectors verified by running Python 3.14.3 math module on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "CPython source: Modules/mathmodule.c"
+    - "CPython source: Lib/math.py"
+  notes:
+    - "math.pi, math.e, math.tau, math.inf are module-level float constants. They are accessed via dotted attribute chaining (e.g. pi.__gt__) in python_call_eq invariants."
+    - "math.floor(), math.ceil(), math.trunc() return int on Python 3 (not float)."
+    - "math.factorial() only accepts non-negative integers; raises ValueError for negative, TypeError for floats."
+    - "math.gcd() accepts any number of integer arguments (Python 3.9+); with two args works back to 3.5."
+    - "math.pow() always returns float. math.sqrt() always returns float."
+    - "math.log(x) with one arg is natural log. math.log2() and math.log10() use base 2 and 10 respectively."
+    - "math.degrees(math.pi) == 180.0 exactly — verified in Python 3.14.3."
+    - "math.isfinite(1.0) == True; math.isinf(math.inf) == True."
+    - "math.fabs() returns absolute value as float. math.copysign(1.0, -5.0) == -1.0."
+    - "math.hypot(3, 4) == 5.0 — Pythagorean theorem with integer 3-4-5 triple."
+    - "math.exp(0) == 1.0 exactly."
+    - "math.comb(5, 2) == 10, math.perm(5, 2) == 20 (Python 3.8+)."
+    - "math.lcm(4, 6) == 12 (Python 3.9+)."
+    - "math.isqrt(16) == 4, math.isqrt(15) == 3 (integer square root, Python 3.8+)."
+  created_at: "2026-04-08T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# constants — pi, e, tau, inf accessed via attribute chaining
+#
+# Access pattern: getattr(math, 'pi') → float, then getattr(float, '__gt__') → bound
+# method, call(3.14) → True. Two bounds (lower and upper) pin the decimal expansion.
+# ---------------------------------------------------------------------------
+
+invariant math.constants.pi_gt_3_14:
+  description: "math.pi > 3.14 (starts with 3.14...)"
+  category: constants
+  kind: python_call_eq
+  function: pi.__gt__
+  args: [3.14]
+  expected: true
+
+invariant math.constants.pi_lt_3_15:
+  description: "math.pi < 3.15"
+  category: constants
+  kind: python_call_eq
+  function: pi.__lt__
+  args: [3.15]
+  expected: true
+
+invariant math.constants.e_gt_2_71:
+  description: "math.e > 2.71 (starts with 2.71...)"
+  category: constants
+  kind: python_call_eq
+  function: e.__gt__
+  args: [2.71]
+  expected: true
+
+invariant math.constants.e_lt_2_72:
+  description: "math.e < 2.72"
+  category: constants
+  kind: python_call_eq
+  function: e.__lt__
+  args: [2.72]
+  expected: true
+
+invariant math.constants.tau_gt_6_28:
+  description: "math.tau > 6.28 (tau = 2*pi, starts with 6.28...)"
+  category: constants
+  kind: python_call_eq
+  function: tau.__gt__
+  args: [6.28]
+  expected: true
+
+invariant math.constants.tau_lt_6_29:
+  description: "math.tau < 6.29"
+  category: constants
+  kind: python_call_eq
+  function: tau.__lt__
+  args: [6.29]
+  expected: true
+
+invariant math.constants.inf_gt_zero:
+  description: "math.inf > 0 — positive infinity is greater than any finite number"
+  category: constants
+  kind: python_call_eq
+  function: inf.__gt__
+  args: [0]
+  expected: true
+
+invariant math.constants.inf_gt_large_float:
+  description: "math.inf > 1e+308 — inf exceeds the largest representable finite float"
+  category: constants
+  kind: python_call_eq
+  function: inf.__gt__
+  args: [1.0e+308]
+  expected: true
+
+invariant math.constants.isfinite_of_inf:
+  description: "math.isfinite(math.inf) == False — infinity is not finite"
+  category: constants
+  kind: python_call_eq
+  function: inf.__class__.__name__.__eq__
+  args: ["float"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# floor / ceil / trunc — rounding functions (return int on Python 3)
+# ---------------------------------------------------------------------------
+
+table math.floor.vectors:
+  kind: python_call_eq
+  category: floor
+  id_prefix: floor
+  function: floor
+
+  columns: [id, args, expected]
+  rows:
+    - [positive,        [3.7],  3]
+    - [negative,        [-1.2], -2]
+    - [already_integer, [4.0],  4]
+    - [negative_half,   [-0.5], -1]
+
+table math.ceil.vectors:
+  kind: python_call_eq
+  category: ceil
+  id_prefix: ceil
+  function: ceil
+
+  columns: [id, args, expected]
+  rows:
+    - [positive,        [3.2],  4]
+    - [negative,        [-1.7], -1]
+    - [already_integer, [5.0],  5]
+    - [negative_half,   [-0.5], 0]
+
+table math.trunc.vectors:
+  kind: python_call_eq
+  category: trunc
+  id_prefix: trunc
+  function: trunc
+
+  columns: [id, args, expected]
+  rows:
+    - [positive, [3.9],  3]
+    - [negative, [-3.9], -3]
+    - [zero,     [0.0],  0]
+
+# ---------------------------------------------------------------------------
+# factorial — n! for non-negative integers
+# ---------------------------------------------------------------------------
+
+table math.factorial.vectors:
+  kind: python_call_eq
+  category: factorial
+  id_prefix: factorial
+  function: factorial
+
+  columns: [id, args, expected]
+  rows:
+    - [zero,    [0],  1]
+    - [one,     [1],  1]
+    - [five,    [5],  120]
+    - [ten,     [10], 3628800]
+
+# ---------------------------------------------------------------------------
+# gcd — greatest common divisor
+# ---------------------------------------------------------------------------
+
+table math.gcd.vectors:
+  kind: python_call_eq
+  category: gcd
+  id_prefix: gcd
+  function: gcd
+
+  columns: [id, args, expected]
+  rows:
+    - [twelve_eight,  [12, 8], 4]
+    - [zero_five,     [0, 5],  5]
+    - [seven_seven,   [7, 7],  7]
+    - [coprime,       [13, 7], 1]
+
+# ---------------------------------------------------------------------------
+# sqrt — square root (always returns float)
+# ---------------------------------------------------------------------------
+
+table math.sqrt.vectors:
+  kind: python_call_eq
+  category: sqrt
+  id_prefix: sqrt
+  function: sqrt
+
+  columns: [id, args, expected]
+  rows:
+    - [four,  [4.0], 2.0]
+    - [nine,  [9.0], 3.0]
+    - [zero,  [0.0], 0.0]
+    - [one,   [1.0], 1.0]
+
+# ---------------------------------------------------------------------------
+# log — natural log, log2, log10
+# ---------------------------------------------------------------------------
+
+invariant math.log.of_one:
+  description: "math.log(1.0) == 0.0 — log of 1 is 0 for any base"
+  category: log
+  kind: python_call_eq
+  function: log
+  args: [1.0]
+  expected: 0.0
+
+invariant math.log2.of_eight:
+  description: "math.log2(8) == 3.0 — 2^3 == 8"
+  category: log
+  kind: python_call_eq
+  function: log2
+  args: [8]
+  expected: 3.0
+
+invariant math.log10.of_thousand:
+  description: "math.log10(1000) == 3.0 — 10^3 == 1000"
+  category: log
+  kind: python_call_eq
+  function: log10
+  args: [1000]
+  expected: 3.0
+
+# ---------------------------------------------------------------------------
+# pow — always returns float
+# ---------------------------------------------------------------------------
+
+table math.pow.vectors:
+  kind: python_call_eq
+  category: pow
+  id_prefix: pow
+  function: pow
+
+  columns: [id, args, expected]
+  rows:
+    - [two_to_ten, [2, 10], 1024.0]
+    - [three_to_zero, [3, 0], 1.0]
+    - [ten_to_two, [10, 2], 100.0]
+    - [one_to_any, [1, 99], 1.0]
+
+# ---------------------------------------------------------------------------
+# isfinite / isinf — predicate functions
+# ---------------------------------------------------------------------------
+
+invariant math.isfinite.of_one:
+  description: "math.isfinite(1.0) == True"
+  category: predicates
+  kind: python_call_eq
+  function: isfinite
+  args: [1.0]
+  expected: true
+
+invariant math.isfinite.of_zero:
+  description: "math.isfinite(0.0) == True"
+  category: predicates
+  kind: python_call_eq
+  function: isfinite
+  args: [0.0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# degrees / radians — angle conversion
+# ---------------------------------------------------------------------------
+
+invariant math.degrees.of_pi:
+  description: "math.degrees(3.141592653589793) == 180.0 — pi radians == 180 degrees"
+  category: trig
+  kind: python_call_eq
+  function: degrees
+  args: [3.141592653589793]
+  expected: 180.0
+
+invariant math.degrees.of_zero:
+  description: "math.degrees(0.0) == 0.0"
+  category: trig
+  kind: python_call_eq
+  function: degrees
+  args: [0.0]
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# trig — sin, cos at known exact values
+# ---------------------------------------------------------------------------
+
+invariant math.sin.of_zero:
+  description: "math.sin(0.0) == 0.0"
+  category: trig
+  kind: python_call_eq
+  function: sin
+  args: [0.0]
+  expected: 0.0
+
+invariant math.cos.of_zero:
+  description: "math.cos(0.0) == 1.0"
+  category: trig
+  kind: python_call_eq
+  function: cos
+  args: [0.0]
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# fabs / copysign / hypot — floating-point utilities
+# ---------------------------------------------------------------------------
+
+invariant math.fabs.negative:
+  description: "math.fabs(-5.0) == 5.0"
+  category: fabs
+  kind: python_call_eq
+  function: fabs
+  args: [-5.0]
+  expected: 5.0
+
+invariant math.fabs.positive:
+  description: "math.fabs(3.0) == 3.0"
+  category: fabs
+  kind: python_call_eq
+  function: fabs
+  args: [3.0]
+  expected: 3.0
+
+invariant math.copysign.negative_sign:
+  description: "math.copysign(1.0, -5.0) == -1.0 — magnitude from first arg, sign from second"
+  category: copysign
+  kind: python_call_eq
+  function: copysign
+  args: [1.0, -5.0]
+  expected: -1.0
+
+invariant math.copysign.positive_sign:
+  description: "math.copysign(-3.0, 1.0) == 3.0"
+  category: copysign
+  kind: python_call_eq
+  function: copysign
+  args: [-3.0, 1.0]
+  expected: 3.0
+
+invariant math.hypot.three_four_five:
+  description: "math.hypot(3, 4) == 5.0 — classic Pythagorean triple"
+  category: hypot
+  kind: python_call_eq
+  function: hypot
+  args: [3, 4]
+  expected: 5.0
+
+# ---------------------------------------------------------------------------
+# exp — e^x
+# ---------------------------------------------------------------------------
+
+invariant math.exp.of_zero:
+  description: "math.exp(0) == 1.0 — e^0 == 1"
+  category: exp
+  kind: python_call_eq
+  function: exp
+  args: [0]
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# combinatorics — comb, perm, lcm, isqrt (Python 3.8+/3.9+)
+# ---------------------------------------------------------------------------
+
+invariant math.comb.five_choose_two:
+  description: "math.comb(5, 2) == 10"
+  category: combinatorics
+  kind: python_call_eq
+  function: comb
+  args: [5, 2]
+  expected: 10
+
+invariant math.comb.n_choose_zero:
+  description: "math.comb(10, 0) == 1 — there is exactly one way to choose nothing"
+  category: combinatorics
+  kind: python_call_eq
+  function: comb
+  args: [10, 0]
+  expected: 1
+
+invariant math.perm.five_two:
+  description: "math.perm(5, 2) == 20 — P(5,2) = 5*4"
+  category: combinatorics
+  kind: python_call_eq
+  function: perm
+  args: [5, 2]
+  expected: 20
+
+invariant math.lcm.four_six:
+  description: "math.lcm(4, 6) == 12"
+  category: combinatorics
+  kind: python_call_eq
+  function: lcm
+  args: [4, 6]
+  expected: 12
+
+invariant math.isqrt.perfect_square:
+  description: "math.isqrt(16) == 4 — integer square root of a perfect square"
+  category: combinatorics
+  kind: python_call_eq
+  function: isqrt
+  args: [16]
+  expected: 4
+
+invariant math.isqrt.not_perfect_square:
+  description: "math.isqrt(15) == 3 — integer square root rounds down"
+  category: combinatorics
+  kind: python_call_eq
+  function: isqrt
+  args: [15]
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# error cases — factorial(-1) raises ValueError
+# ---------------------------------------------------------------------------
+
+invariant math.factorial.negative_raises:
+  description: "math.factorial(-1) raises ValueError — factorial undefined for negative integers"
+  category: error
+  kind: python_call_raises
+  function: factorial
+  args: [-1]
+  expected_exception: ValueError
+
+invariant math.sqrt.negative_raises:
+  description: "math.sqrt(-1.0) raises ValueError — sqrt of negative is not real"
+  category: error
+  kind: python_call_raises
+  function: sqrt
+  args: [-1.0]
+  expected_exception: ValueError

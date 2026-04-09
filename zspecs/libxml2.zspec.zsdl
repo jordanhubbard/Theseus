@@ -1,0 +1,251 @@
+spec: libxml2
+version: ">=2.6"
+backend: ctypes(xml2)
+
+api_header: libxml/parser.h
+docs: https://gnome.pages.gitlab.gnome.org/libxml2/devhelp/libxml2-parser.html
+
+provenance:
+  derived_from:
+    - "libxml2 documentation — https://gnome.pages.gitlab.gnome.org/libxml2/devhelp/libxml2-parser.html"
+    - "libxml2 string API — https://gnome.pages.gitlab.gnome.org/libxml2/devhelp/libxml2-xmlstring.html"
+    - "Verified with libxml2 2.9.13 on macOS Darwin 25.4.0, 2026-04-08"
+    - "xmlParserVersion global reads '20913' at runtime on this system"
+    - "xmlCheckVersion(20000) == 0: major version 2 confirmed; argument 20000 is within the ±10 minor tolerance window"
+  not_derived_from:
+    - "libxml2 source: parser.c"
+  notes:
+    - "xmlParserVersion is a global const char* symbol (not a function); version_prefix kind cannot be used."
+    - "xmlCheckVersion(version) returns 0 if the requested version is compatible with the compiled-in LIBXML_VERSION; it uses major-equality and an abs(minor) <= 10 window. xmlCheckVersion(20000) is always 0 for any 2.x release."
+    - "xmlStrlen, xmlStrEqual, xmlStrcmp, xmlStrncmp, xmlStrcasecmp, xmlStrncasecmp, xmlUTF8Strlen all take xmlChar* (char*) args and return int."
+    - "xmlStrcmp and xmlStrcasecmp return the raw byte difference, not a clamped -1/0/1; only equality (0) and specific known differences are used in call_eq invariants."
+    - "xmlStrncmp(a, b, n) compares up to n bytes and returns 0 when the first n bytes are equal."
+    - "All bytes_b64-typed args use base64-encoded xmlChar strings."
+  created_at: "2026-04-08T00:00:00Z"
+
+# ---------------------------------------------------------------------------
+# version (category: version)
+# xmlCheckVersion(20000) == 0 confirms major version 2 is present.
+# The argument 20000 (=2.0.0) is always within the ±10 minor tolerance
+# window for any libxml2 2.x release (|minor(209) - minor(200)| = 9 <= 10).
+# ---------------------------------------------------------------------------
+
+invariant libxml2.version.check_v2:
+  description: "xmlCheckVersion(20000) == 0 — confirms this is a libxml2 2.x release"
+  category: version
+  kind: call_eq
+  function: xmlCheckVersion
+  args: [20000]
+  arg_types: [int]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# strlen (category: string)
+# xmlStrlen counts bytes (not Unicode code points) in an xmlChar* string.
+# ---------------------------------------------------------------------------
+
+invariant libxml2.string.strlen_empty:
+  description: "xmlStrlen(b'') == 0 — empty string has length 0"
+  category: string
+  kind: call_eq
+  function: xmlStrlen
+  args: [""]
+  arg_types: [bytes_b64]
+  expected: 0
+
+invariant libxml2.string.strlen_single:
+  description: "xmlStrlen(b'x') == 1 — single-byte string has length 1"
+  category: string
+  kind: call_eq
+  function: xmlStrlen
+  args: [eA==]
+  arg_types: [bytes_b64]
+  expected: 1
+
+invariant libxml2.string.strlen_hello:
+  description: "xmlStrlen(b'hello') == 5"
+  category: string
+  kind: call_eq
+  function: xmlStrlen
+  args: [aGVsbG8=]
+  arg_types: [bytes_b64]
+  expected: 5
+
+invariant libxml2.string.strlen_xml:
+  description: "xmlStrlen(b'XML') == 3"
+  category: string
+  kind: call_eq
+  function: xmlStrlen
+  args: [WE1M]
+  arg_types: [bytes_b64]
+  expected: 3
+
+invariant libxml2.string.strlen_ge_empty:
+  description: "xmlStrlen(b'hello') >= 1 — non-empty string has positive length"
+  category: string
+  kind: call_ge
+  function: xmlStrlen
+  args: [aGVsbG8=]
+  arg_types: [bytes_b64]
+  expected_min: 1
+
+# ---------------------------------------------------------------------------
+# strequal (category: string)
+# xmlStrEqual returns 1 for equal strings, 0 for unequal.
+# ---------------------------------------------------------------------------
+
+invariant libxml2.string.strequal_same:
+  description: "xmlStrEqual(b'a', b'a') == 1 — identical strings are equal"
+  category: string
+  kind: call_eq
+  function: xmlStrEqual
+  args: [YQ==, YQ==]
+  arg_types: [bytes_b64, bytes_b64]
+  expected: 1
+
+invariant libxml2.string.strequal_diff:
+  description: "xmlStrEqual(b'a', b'b') == 0 — different strings are not equal"
+  category: string
+  kind: call_eq
+  function: xmlStrEqual
+  args: [YQ==, Yg==]
+  arg_types: [bytes_b64, bytes_b64]
+  expected: 0
+
+invariant libxml2.string.strequal_xml:
+  description: "xmlStrEqual(b'xml', b'xml') == 1 — multi-char equal strings"
+  category: string
+  kind: call_eq
+  function: xmlStrEqual
+  args: [eG1s, eG1s]
+  arg_types: [bytes_b64, bytes_b64]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# strcmp (category: string)
+# xmlStrcmp returns 0 for equal strings, negative or positive for ordering.
+# ---------------------------------------------------------------------------
+
+invariant libxml2.string.strcmp_equal:
+  description: "xmlStrcmp(b'abc', b'abc') == 0 — equal strings compare to 0"
+  category: string
+  kind: call_eq
+  function: xmlStrcmp
+  args: [YWJj, YWJj]
+  arg_types: [bytes_b64, bytes_b64]
+  expected: 0
+
+invariant libxml2.string.strcmp_less:
+  description: "xmlStrcmp(b'a', b'b') == -1 — 'a' < 'b' yields -1"
+  category: string
+  kind: call_eq
+  function: xmlStrcmp
+  args: [YQ==, Yg==]
+  arg_types: [bytes_b64, bytes_b64]
+  expected: -1
+
+invariant libxml2.string.strcmp_greater:
+  description: "xmlStrcmp(b'b', b'a') == 1 — 'b' > 'a' yields 1"
+  category: string
+  kind: call_eq
+  function: xmlStrcmp
+  args: [Yg==, YQ==]
+  arg_types: [bytes_b64, bytes_b64]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# strncmp (category: string)
+# xmlStrncmp compares at most n bytes.
+# ---------------------------------------------------------------------------
+
+invariant libxml2.string.strncmp_prefix_equal:
+  description: "xmlStrncmp(b'abcd', b'abce', 3) == 0 — first 3 bytes are equal"
+  category: string
+  kind: call_eq
+  function: xmlStrncmp
+  args: [YWJjZA==, YWJjZQ==, 3]
+  arg_types: [bytes_b64, bytes_b64, int]
+  expected: 0
+
+invariant libxml2.string.strncmp_full_less:
+  description: "xmlStrncmp(b'abcd', b'abce', 4) == -1 — 4th byte 'd'(100) < 'e'(101)"
+  category: string
+  kind: call_eq
+  function: xmlStrncmp
+  args: [YWJjZA==, YWJjZQ==, 4]
+  arg_types: [bytes_b64, bytes_b64, int]
+  expected: -1
+
+# ---------------------------------------------------------------------------
+# strcasecmp (category: string)
+# xmlStrcasecmp is case-insensitive; equal case-variants yield 0.
+# ---------------------------------------------------------------------------
+
+invariant libxml2.string.strcasecmp_upper_lower:
+  description: "xmlStrcasecmp(b'XML', b'xml') == 0 — case-insensitive equal"
+  category: string
+  kind: call_eq
+  function: xmlStrcasecmp
+  args: [WE1M, eG1s]
+  arg_types: [bytes_b64, bytes_b64]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# utf8strlen (category: string)
+# xmlUTF8Strlen counts Unicode code points (characters), not bytes.
+# For ASCII-only strings this equals the byte length.
+# ---------------------------------------------------------------------------
+
+invariant libxml2.string.utf8strlen_empty:
+  description: "xmlUTF8Strlen(b'') == 0"
+  category: string
+  kind: call_eq
+  function: xmlUTF8Strlen
+  args: [""]
+  arg_types: [bytes_b64]
+  expected: 0
+
+invariant libxml2.string.utf8strlen_single:
+  description: "xmlUTF8Strlen(b'x') == 1"
+  category: string
+  kind: call_eq
+  function: xmlUTF8Strlen
+  args: [eA==]
+  arg_types: [bytes_b64]
+  expected: 1
+
+invariant libxml2.string.utf8strlen_hello:
+  description: "xmlUTF8Strlen(b'hello') == 5"
+  category: string
+  kind: call_eq
+  function: xmlUTF8Strlen
+  args: [aGVsbG8=]
+  arg_types: [bytes_b64]
+  expected: 5
+
+invariant libxml2.string.utf8strlen_ge:
+  description: "xmlUTF8Strlen(b'hello') >= 1"
+  category: string
+  kind: call_ge
+  function: xmlUTF8Strlen
+  args: [aGVsbG8=]
+  arg_types: [bytes_b64]
+  expected_min: 1
+
+# ---------------------------------------------------------------------------
+# strlen table — confirm lengths of several strings
+# ---------------------------------------------------------------------------
+
+table libxml2.string.strlen_table:
+  kind: call_eq
+  category: string
+  id_prefix: sl
+  describe: "xmlStrlen({args[0]}) == {expected}"
+
+  columns: [id, function, args, arg_types, expected]
+  rows:
+    - [empty,      xmlStrlen, [""],         [bytes_b64],              0]
+    - [x,          xmlStrlen, [eA==],       [bytes_b64],              1]
+    - [hello,      xmlStrlen, [aGVsbG8=],   [bytes_b64],              5]
+    - [XML,        xmlStrlen, [WE1M],       [bytes_b64],              3]
+    - [hello_world,xmlStrlen, [aGVsbG8gd29ybGQ=], [bytes_b64],       11]

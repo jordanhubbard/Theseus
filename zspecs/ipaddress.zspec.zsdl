@@ -1,0 +1,238 @@
+spec: ipaddress
+version: ">=3.3"
+backend: python_module(ipaddress)
+
+docs: https://docs.python.org/3/library/ipaddress.html
+rfcs:
+  - "RFC 791 — Internet Protocol (IPv4)"
+  - "RFC 8200 — Internet Protocol, Version 6 (IPv6) Specification"
+  - "RFC 4291 — IP Version 6 Addressing Architecture"
+  - "RFC 1918 — Address Allocation for Private Internets"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ipaddress.html — Python ipaddress module documentation"
+    - "RFC 1918 — Private IPv4 address ranges: 10/8, 172.16/12, 192.168/16"
+    - "RFC 4291 — IPv6 addressing, link-local fe80::/10, loopback ::1"
+    - "Test vectors verified by running Python 3.x ipaddress module on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "CPython source: Lib/ipaddress.py"
+  notes:
+    - "IPv4Address and IPv6Address constructors accept a string representation of the address."
+    - "is_private covers RFC 1918 private ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16."
+    - "is_loopback is True for 127.0.0.1 (IPv4) and ::1 (IPv6)."
+    - "is_unspecified is True for 0.0.0.0 (IPv4) and :: (IPv6)."
+    - "is_link_local is True for addresses in fe80::/10 (IPv6) and 169.254.0.0/16 (IPv4)."
+    - "packed returns the address as bytes: 4 bytes for IPv4, 16 bytes for IPv6."
+    - "IPv4Network and IPv6Network require exact network addresses (no host bits set) unless strict=False."
+    - "IPv4Network('192.168.1.1/24', strict=True) raises ValueError because host bits are set."
+    - "IPv4Address('999.0.0.1') raises AddressValueError (subclass of ValueError) — invalid octet."
+    - "ip_address() factory returns IPv4Address or IPv6Address depending on the string format."
+    - "ip_network() factory returns IPv4Network or IPv6Network depending on the string format."
+    - "All expected values verified by running Python ipaddress module on macOS/Darwin 25.4.0, 2026-04-08."
+  created_at: "2026-04-08T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# IPv4Address — string roundtrip and basic attributes
+#
+# Access pattern: function=IPv4Address, args=["192.168.1.1"] constructs the
+# object; method=__str__ / is_private / is_loopback etc. are accessed as
+# attributes (non-callable booleans are returned directly by the harness).
+# ---------------------------------------------------------------------------
+
+invariant ipaddress.IPv4Address.str_roundtrip:
+  description: "str(IPv4Address('192.168.1.1')) == '192.168.1.1' — string roundtrip"
+  category: IPv4Address
+  rfc: "RFC 791"
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["192.168.1.1"]
+  method: __str__
+  expected: "192.168.1.1"
+
+table ipaddress.IPv4Address.boolean_attributes:
+  kind: python_call_eq
+  category: IPv4Address
+  id_prefix: ipv4
+  function: IPv4Address
+
+  columns: [id, args, method, expected]
+  rows:
+    - [private_rfc1918_192,  ["192.168.1.1"],  is_private,    true]
+    - [private_rfc1918_10,   ["10.0.0.1"],     is_private,    true]
+    - [private_rfc1918_172,  ["172.16.0.1"],   is_private,    true]
+    - [not_private_google,   ["8.8.8.8"],      is_private,    false]
+    - [loopback_127,         ["127.0.0.1"],    is_loopback,   true]
+    - [not_loopback_192,     ["192.168.1.1"],  is_loopback,   false]
+    - [unspecified_0000,     ["0.0.0.0"],      is_unspecified, true]
+    - [not_unspecified_lo,   ["127.0.0.1"],    is_unspecified, false]
+
+invariant ipaddress.IPv4Address.version:
+  description: "IPv4Address('192.168.1.1').version == 4"
+  category: IPv4Address
+  rfc: "RFC 791"
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["192.168.1.1"]
+  method: version
+  expected: 4
+
+invariant ipaddress.IPv4Address.packed_length:
+  description: "len(IPv4Address('192.168.1.1').packed) == 4 — IPv4 address is 4 bytes"
+  category: IPv4Address
+  rfc: "RFC 791"
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["192.168.1.1"]
+  method: packed
+  method_chain: __len__
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# IPv4Network — prefix length and address count
+# ---------------------------------------------------------------------------
+
+table ipaddress.IPv4Network.attributes:
+  kind: python_call_eq
+  category: IPv4Network
+  id_prefix: ipv4net
+  function: IPv4Network
+
+  columns: [id, args, method, expected]
+  rows:
+    - [prefixlen_24,       ["192.168.0.0/24"], prefixlen,     24]
+    - [num_addresses_24,   ["192.168.0.0/24"], num_addresses, 256]
+    - [prefixlen_8,        ["10.0.0.0/8"],     prefixlen,     8]
+    - [is_private_10,      ["10.0.0.0/8"],     is_private,    true]
+    - [num_addresses_32,   ["10.0.0.0/8"],     num_addresses, 16777216]
+
+invariant ipaddress.IPv4Network.default_route_size:
+  description: "IPv4Network('0.0.0.0/0').num_addresses == 4294967296 — full IPv4 address space"
+  category: IPv4Network
+  rfc: "RFC 791"
+  kind: python_call_eq
+  function: IPv4Network
+  args: ["0.0.0.0/0"]
+  method: num_addresses
+  expected: 4294967296
+
+# ---------------------------------------------------------------------------
+# IPv6Address — loopback, unspecified, link-local, version, packed length
+# ---------------------------------------------------------------------------
+
+table ipaddress.IPv6Address.boolean_attributes:
+  kind: python_call_eq
+  category: IPv6Address
+  id_prefix: ipv6
+  function: IPv6Address
+
+  columns: [id, args, method, expected]
+  rows:
+    - [loopback_1,       ["::1"],    is_loopback,    true]
+    - [unspecified,      ["::"],     is_unspecified, true]
+    - [link_local_fe80,  ["fe80::1"], is_link_local, true]
+    - [not_link_local_1, ["::1"],    is_link_local,  false]
+
+invariant ipaddress.IPv6Address.version:
+  description: "IPv6Address('::1').version == 6"
+  category: IPv6Address
+  rfc: "RFC 8200"
+  kind: python_call_eq
+  function: IPv6Address
+  args: ["::1"]
+  method: version
+  expected: 6
+
+invariant ipaddress.IPv6Address.packed_length:
+  description: "len(IPv6Address('::1').packed) == 16 — IPv6 address is 16 bytes"
+  category: IPv6Address
+  rfc: "RFC 8200"
+  kind: python_call_eq
+  function: IPv6Address
+  args: ["::1"]
+  method: packed
+  method_chain: __len__
+  expected: 16
+
+invariant ipaddress.IPv6Address.str_roundtrip:
+  description: "str(IPv6Address('::1')) == '::1' — compressed form roundtrip"
+  category: IPv6Address
+  rfc: "RFC 4291"
+  kind: python_call_eq
+  function: IPv6Address
+  args: ["::1"]
+  method: __str__
+  expected: "::1"
+
+# ---------------------------------------------------------------------------
+# ip_address() factory — returns IPv4Address or IPv6Address by string format
+# ---------------------------------------------------------------------------
+
+invariant ipaddress.ip_address.ipv4_version:
+  description: "ip_address('192.168.1.1').version == 4 — factory detects IPv4"
+  category: ip_address_factory
+  rfc: "RFC 791"
+  kind: python_call_eq
+  function: ip_address
+  args: ["192.168.1.1"]
+  method: version
+  expected: 4
+
+invariant ipaddress.ip_address.ipv6_version:
+  description: "ip_address('::1').version == 6 — factory detects IPv6"
+  category: ip_address_factory
+  rfc: "RFC 8200"
+  kind: python_call_eq
+  function: ip_address
+  args: ["::1"]
+  method: version
+  expected: 6
+
+# ---------------------------------------------------------------------------
+# ip_network() factory — returns IPv4Network or IPv6Network by string format
+# ---------------------------------------------------------------------------
+
+invariant ipaddress.ip_network.ipv4_version:
+  description: "ip_network('192.168.0.0/24').version == 4"
+  category: ip_network_factory
+  rfc: "RFC 791"
+  kind: python_call_eq
+  function: ip_network
+  args: ["192.168.0.0/24"]
+  method: version
+  expected: 4
+
+invariant ipaddress.ip_network.ipv6_version:
+  description: "ip_network('::1/128').version == 6"
+  category: ip_network_factory
+  rfc: "RFC 8200"
+  kind: python_call_eq
+  function: ip_network
+  args: ["::1/128"]
+  method: version
+  expected: 6
+
+# ---------------------------------------------------------------------------
+# error cases
+# ---------------------------------------------------------------------------
+
+invariant ipaddress.IPv4Address.invalid_octet_raises:
+  description: "IPv4Address('999.0.0.1') raises AddressValueError — octet 999 is out of range"
+  category: error
+  rfc: "RFC 791"
+  kind: python_call_raises
+  function: IPv4Address
+  args: ["999.0.0.1"]
+  expected_exception: AddressValueError
+
+invariant ipaddress.IPv4Network.host_bits_set_raises:
+  description: "IPv4Network('192.168.1.1/24', strict=True) raises ValueError — host bits are set"
+  category: error
+  rfc: "RFC 791"
+  kind: python_call_raises
+  function: IPv4Network
+  args: ["192.168.1.1/24"]
+  kwargs: {strict: true}
+  expected_exception: ValueError

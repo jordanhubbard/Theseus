@@ -1,0 +1,217 @@
+spec: hmac
+version: ">=3.7"
+backend: python_module(hmac)
+
+docs: https://docs.python.org/3/library/hmac.html
+rfcs:
+  - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication"
+  - "FIPS 198-1 — The Keyed-Hash Message Authentication Code (HMAC)"
+
+provenance:
+  derived_from:
+    - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication, February 1997"
+    - "FIPS 198-1 — The Keyed-Hash Message Authentication Code (HMAC), July 2008"
+    - "https://docs.python.org/3/library/hmac.html — Python hmac module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "CPython source: Lib/hmac.py"
+    - "OpenSSL HMAC implementation: crypto/hmac/hmac.c"
+  notes:
+    - "hmac.new(key, msg, digestmod) accepts bytes-like objects for key and msg."
+    - "Bytes are passed using the typed-value protocol: {type: bytes_ascii, value: 'key'} encodes a string as ASCII bytes."
+    - "hmac.compare_digest(a, b) accepts both str and bytes; string overloads are used here for JSON compatibility."
+    - "hmac.digest(key, msg, digest) is available since Python 3.7 and is a one-shot HMAC convenience function."
+    - "The HMAC object's .name attribute is 'hmac-<digestmod>' (e.g. 'hmac-sha256')."
+    - "hexdigest() for HMAC-SHA256 is always 64 hex characters (32 bytes * 2)."
+    - "hexdigest() for HMAC-SHA1 is always 40 hex characters (20 bytes * 2)."
+    - "HMAC-SHA256 test vector: hmac.new(b'key', b'msg', 'sha256').hexdigest() == '2d93cbc1be167bcb1637a4a23cbff01a7878f0c50ee833954ea5221bb1b8c628' — verified against Python 3.12."
+    - "HMAC-SHA1 test vector: hmac.new(b'key', b'msg', 'sha1').hexdigest() == '102900b72b7bf1031eec76b4804b66052376896b' — verified against Python 3.12."
+  created_at: "2026-04-08T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# compare_digest — constant-time string comparison (RFC 2104 §3 timing safety)
+# String overloads work directly through JSON without bytes encoding.
+# ---------------------------------------------------------------------------
+
+table hmac.compare_digest.strings:
+  kind: python_call_eq
+  category: compare_digest
+  id_prefix: compare_digest
+  function: compare_digest
+  rfc: "RFC 2104"
+
+  columns: [id, args, expected]
+  rows:
+    - [equal_abc,        ["abc",    "abc"],    true ]
+    - [unequal_abc_abd,  ["abc",    "abd"],    false]
+    - [empty_equal,      ["",       ""],       true ]
+    - [hello_equal,      ["hello",  "hello"],  true ]
+    - [hello_world,      ["hello",  "world"],  false]
+    - [one_char_equal,   ["x",      "x"],      true ]
+    - [one_char_unequal, ["x",      "y"],      false]
+
+# ---------------------------------------------------------------------------
+# hmac.new() — HMAC-SHA256 known vector (key=b'key', msg=b'msg')
+# Bytes are passed using the typed-value protocol: {type: bytes_ascii, value: ...}
+# ---------------------------------------------------------------------------
+
+invariant hmac.new.sha256.hexdigest:
+  description: "hmac.new(b'key', b'msg', 'sha256').hexdigest() — known vector verified against Python 3.12"
+  category: known_vector
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha256"
+  method: hexdigest
+  expected: "2d93cbc1be167bcb1637a4a23cbff01a7878f0c50ee833954ea5221bb1b8c628"
+
+invariant hmac.new.sha256.digest_size:
+  description: "hmac.new(b'key', b'msg', 'sha256').digest_size == 32 — SHA-256 produces 32 bytes"
+  category: properties
+  rfc: "FIPS 198-1"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha256"
+  method: digest_size
+  expected: 32
+
+invariant hmac.new.sha256.block_size:
+  description: "hmac.new(b'key', b'msg', 'sha256').block_size == 64 — SHA-256 uses 64-byte blocks"
+  category: properties
+  rfc: "FIPS 198-1"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha256"
+  method: block_size
+  expected: 64
+
+invariant hmac.new.sha256.name:
+  description: "hmac.new(b'key', b'msg', 'sha256').name == 'hmac-sha256'"
+  category: properties
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha256"
+  method: name
+  expected: "hmac-sha256"
+
+# ---------------------------------------------------------------------------
+# hmac.new() — HMAC-SHA1 known vector
+# ---------------------------------------------------------------------------
+
+invariant hmac.new.sha1.hexdigest:
+  description: "hmac.new(b'key', b'msg', 'sha1').hexdigest() — known vector verified against Python 3.12"
+  category: known_vector
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha1"
+  method: hexdigest
+  expected: "102900b72b7bf1031eec76b4804b66052376896b"
+
+invariant hmac.new.sha1.digest_size:
+  description: "hmac.new(b'key', b'msg', 'sha1').digest_size == 20 — SHA-1 produces 20 bytes"
+  category: properties
+  rfc: "FIPS 198-1"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha1"
+  method: digest_size
+  expected: 20
+
+# ---------------------------------------------------------------------------
+# hmac.new() — empty key and message
+# ---------------------------------------------------------------------------
+
+invariant hmac.new.sha256.empty_key_msg:
+  description: "hmac.new(b'', b'', 'sha256').hexdigest() — well-defined HMAC over empty inputs"
+  category: known_vector
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: ""}
+    - {type: bytes_ascii, value: ""}
+    - "sha256"
+  method: hexdigest
+  expected: "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad"
+
+# ---------------------------------------------------------------------------
+# HMAC class metadata — accessed via dotted attribute path
+# ---------------------------------------------------------------------------
+
+invariant hmac.HMAC.class_name:
+  description: "HMAC.__name__ == 'HMAC' — the class is named HMAC"
+  category: class_metadata
+  kind: python_call_eq
+  function: HMAC.__name__.__eq__
+  args: ["HMAC"]
+  expected: true
+
+invariant hmac.HMAC.module:
+  description: "HMAC.__module__ == 'hmac' — the HMAC class belongs to the hmac module"
+  category: class_metadata
+  kind: python_call_eq
+  function: HMAC.__module__.__eq__
+  args: ["hmac"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function class names — verify callable types in the module
+# ---------------------------------------------------------------------------
+
+invariant hmac.new.class_name:
+  description: "hmac.new.__class__.__name__ == 'function' — new is a plain Python function"
+  category: class_metadata
+  kind: python_call_eq
+  function: new.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant hmac.compare_digest.class_name:
+  description: "hmac.compare_digest.__class__.__name__ == 'builtin_function_or_method'"
+  category: class_metadata
+  kind: python_call_eq
+  function: compare_digest.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant hmac.digest.class_name:
+  description: "hmac.digest.__class__.__name__ == 'function' — digest is a Python 3.7+ function"
+  category: class_metadata
+  kind: python_call_eq
+  function: digest.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# compare_digest error — mismatched types raise TypeError
+# ---------------------------------------------------------------------------
+
+invariant hmac.compare_digest.type_mismatch_raises:
+  description: "compare_digest(str, bytes) raises TypeError — mixed types are rejected"
+  category: error
+  kind: python_call_raises
+  function: compare_digest
+  args:
+    - "abc"
+    - {type: bytes_ascii, value: "abc"}
+  expected_exception: TypeError

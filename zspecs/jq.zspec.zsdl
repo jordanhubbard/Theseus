@@ -1,0 +1,216 @@
+spec: jq
+version: ">=1.6.0"
+backend: cli(jq)
+
+docs: https://jqlang.org/manual/
+rfcs:
+  - "ECMA-404 — The JSON Data Interchange Format"
+
+provenance:
+  derived_from:
+    - "jq manual — https://jqlang.org/manual/"
+    - "jq --help output"
+    - "Test vectors verified with jq 1.7.1-apple on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "jq source: src/execute.c"
+    - "jq source: src/builtin.c"
+  notes:
+    - "All invariants are offline-safe. No network access required."
+    - "The -n / --null-input flag causes jq to use 'null' as the implicit input, enabling expression evaluation without providing a file or stdin data."
+    - "jq -n '.' outputs 'null' (the implicit null input identity filter)."
+    - "jq -n 'empty' exits 0 and produces no output; empty is a generator that yields zero values."
+    - "String output from jq is JSON-encoded (includes surrounding double quotes): jq -n '\"hello\"' prints '\"hello\"'."
+    - "jq -n '[1,2,3] | sort | .[0]' returns 1 (the minimum element after sorting)."
+    - "jq --version output on macOS includes 'jq-' prefix (e.g. 'jq-1.7.1-apple')."
+    - "Invalid JSON on stdin causes jq to exit with code 5 (parse error)."
+    - "jq --help exits 0 and prints usage information to stdout on this platform."
+  created_at: "2026-04-08T00:00:00Z"
+
+# ---------------------------------------------------------------------------
+# Health / version checks
+# ---------------------------------------------------------------------------
+
+invariant jq.version.exits_0:
+  description: "--version exits with code 0"
+  category: health
+  kind: cli_exits_with
+  args: [--version]
+  expected_exit: 0
+
+invariant jq.version.contains_jq_dash:
+  description: "--version stdout contains 'jq-'"
+  category: health
+  kind: cli_stdout_contains
+  args: [--version]
+  expected_substring: "jq-"
+
+invariant jq.help.exits_0:
+  description: "--help exits with code 0"
+  category: health
+  kind: cli_exits_with
+  args: [--help]
+  expected_exit: 0
+
+invariant jq.help.contains_usage:
+  description: "--help stdout contains 'Usage:'"
+  category: health
+  kind: cli_stdout_contains
+  args: [--help]
+  expected_substring: "Usage:"
+
+invariant jq.help.contains_options:
+  description: "--help stdout contains 'options'"
+  category: health
+  kind: cli_stdout_contains
+  args: [--help]
+  expected_substring: "options"
+
+# ---------------------------------------------------------------------------
+# Null-input mode (-n): arithmetic and literals
+# ---------------------------------------------------------------------------
+
+invariant jq.nullinput.literal_1:
+  description: "jq -n '1' exits 0"
+  category: null_input
+  kind: cli_exits_with
+  args: [-n, "1"]
+  expected_exit: 0
+
+invariant jq.nullinput.literal_1_stdout:
+  description: "jq -n '1' stdout contains '1'"
+  category: null_input
+  kind: cli_stdout_contains
+  args: [-n, "1"]
+  expected_substring: "1"
+
+invariant jq.nullinput.addition:
+  description: "jq -n '1 + 1' stdout contains '2'"
+  category: null_input
+  kind: cli_stdout_contains
+  args: [-n, "1 + 1"]
+  expected_substring: "2"
+
+invariant jq.nullinput.identity_null:
+  description: "jq -n '.' stdout contains 'null' (identity on null input)"
+  category: null_input
+  kind: cli_stdout_contains
+  args: [-n, "."]
+  expected_substring: "null"
+
+# ---------------------------------------------------------------------------
+# String operations
+# ---------------------------------------------------------------------------
+
+invariant jq.string.ascii_upcase:
+  description: "jq -n '\"hello\" | ascii_upcase' stdout contains 'HELLO'"
+  category: strings
+  kind: cli_stdout_contains
+  args: [-n, '"hello" | ascii_upcase']
+  expected_substring: "HELLO"
+
+invariant jq.string.literal_output:
+  description: "jq -n '\"hello\"' stdout contains 'hello'"
+  category: strings
+  kind: cli_stdout_contains
+  args: [-n, '"hello"']
+  expected_substring: "hello"
+
+invariant jq.string.length:
+  description: "jq -n '\"abc\" | length' stdout contains '3'"
+  category: strings
+  kind: cli_stdout_contains
+  args: [-n, '"abc" | length']
+  expected_substring: "3"
+
+# ---------------------------------------------------------------------------
+# Array operations
+# ---------------------------------------------------------------------------
+
+invariant jq.array.length:
+  description: "jq -n '[1,2,3] | length' stdout contains '3'"
+  category: arrays
+  kind: cli_stdout_contains
+  args: [-n, "[1,2,3] | length"]
+  expected_substring: "3"
+
+invariant jq.array.add:
+  description: "jq -n '[1,2,3] | add' stdout contains '6'"
+  category: arrays
+  kind: cli_stdout_contains
+  args: [-n, "[1,2,3] | add"]
+  expected_substring: "6"
+
+invariant jq.array.sort_first:
+  description: "jq -n '[3,1,2] | sort | .[0]' stdout contains '1'"
+  category: arrays
+  kind: cli_stdout_contains
+  args: [-n, "[3,1,2] | sort | .[0]"]
+  expected_substring: "1"
+
+# ---------------------------------------------------------------------------
+# Object operations
+# ---------------------------------------------------------------------------
+
+invariant jq.object.field_access:
+  description: "jq -n '{a:1} | .a' stdout contains '1'"
+  category: objects
+  kind: cli_stdout_contains
+  args: [-n, "{a:1} | .a"]
+  expected_substring: "1"
+
+invariant jq.object.keys_contains_a:
+  description: "jq -n '{a:1,b:2} | keys' stdout contains 'a'"
+  category: objects
+  kind: cli_stdout_contains
+  args: [-n, '{"a":1,"b":2} | keys']
+  expected_substring: "a"
+
+invariant jq.object.keys_contains_b:
+  description: "jq -n '{a:1,b:2} | keys' stdout contains 'b'"
+  category: objects
+  kind: cli_stdout_contains
+  args: [-n, '{"a":1,"b":2} | keys']
+  expected_substring: "b"
+
+invariant jq.object.to_entries_length:
+  description: "jq -n '{a:1,b:2} | to_entries | length' stdout contains '2'"
+  category: objects
+  kind: cli_stdout_contains
+  args: [-n, '{"a":1,"b":2} | to_entries | length']
+  expected_substring: "2"
+
+# ---------------------------------------------------------------------------
+# Boolean / logic operations
+# ---------------------------------------------------------------------------
+
+invariant jq.logic.null_not:
+  description: "jq -n 'null | not' stdout contains 'true'"
+  category: logic
+  kind: cli_stdout_contains
+  args: [-n, "null | not"]
+  expected_substring: "true"
+
+invariant jq.logic.if_then_else:
+  description: "jq -n 'if true then \"yes\" else \"no\" end' stdout contains 'yes'"
+  category: logic
+  kind: cli_stdout_contains
+  args: [-n, 'if true then "yes" else "no" end']
+  expected_substring: "yes"
+
+# ---------------------------------------------------------------------------
+# Error behavior
+# ---------------------------------------------------------------------------
+
+invariant jq.error.invalid_json_exits_5:
+  description: "Passing non-JSON input (/etc/hosts) to jq exits with code 5 (parse error)"
+  category: error_behavior
+  kind: cli_exits_with
+  args: [".", /etc/hosts]
+  expected_exit: 5
+
+invariant jq.nullinput.empty_exits_0:
+  description: "jq -n 'empty' exits 0 (empty generator yields no values, no error)"
+  category: null_input
+  kind: cli_exits_with
+  args: [-n, "empty"]
+  expected_exit: 0
