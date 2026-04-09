@@ -1,0 +1,89 @@
+spec: profile_extra2
+version: ">=3.9"
+backend: python_module(pstats)
+
+docs: https://docs.python.org/3/library/profile.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/profile.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "profile.zspec.zsdl — covers Profile.__name__, Profile.__module__, Profile bases, Profile methods, Profile instantiation"
+    - "profile_extra.zspec.zsdl — covers Profile.__name__, Profile.__module__, run.__name__, runctx.__name__"
+    - "cProfile.zspec.zsdl — covers cProfile.Profile.__name__, cProfile.Profile.__module__, run, runctx, enable/disable/clear/print_stats/dump_stats/runcall/runctx methods"
+    - "pstats.zspec.zsdl — covers Stats.__name__, Stats.__module__, FunctionProfile, StatsProfile, SortKey.__name__, Stats method names"
+    - "pstats_extra.zspec.zsdl — covers Stats.__name__, Stats.__module__, FunctionProfile, StatsProfile, SortKey.__name__, SortKey.__module__"
+  notes:
+    - "This spec uses pstats as the backend to cover SortKey enum member values and additional Stats/SortKey invariants not in prior specs."
+    - "SortKey is a StrEnum subclass (Python 3.11+; was a plain str+Enum mix-in before); each member's .value is a lowercase string."
+    - "SortKey.CUMULATIVE.value == 'cumulative' — sort by cumulative time."
+    - "SortKey.TIME.value == 'time' — sort by internal time."
+    - "SortKey.CALLS.value == 'calls' — sort by call count."
+    - "SortKey.FILENAME.value == 'filename' — sort by file name."
+    - "SortKey.NFL.value == 'nfl' — sort by name/file/line."
+    - "SortKey.STDNAME.value == 'stdname' — sort by standard name."
+    - "SortKey.LINE.value == 'line' — sort by line number."
+    - "SortKey.NAME.value == 'name' — sort by function name."
+    - "SortKey is a str subclass — each member is also a str equal to its value."
+    - "Stats.dump_stats and Stats.add are additional Stats methods verified here."
+    - "All expected values verified by running Python 3.12 pstats module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# SortKey enum member values — not covered by any prior spec
+#
+# pstats.SortKey is a StrEnum; each member's .value is a lowercase sort key string.
+# ---------------------------------------------------------------------------
+
+table profile_extra2.SortKey_values:
+  kind: python_call_eq
+  category: SortKey_values
+  id_prefix: skval
+
+  columns: [id, function, args, expected]
+  rows:
+    - [CUMULATIVE, SortKey.CUMULATIVE.value.__eq__, ["cumulative"], true]
+    - [TIME,       SortKey.TIME.value.__eq__,       ["time"],       true]
+    - [CALLS,      SortKey.CALLS.value.__eq__,      ["calls"],      true]
+    - [FILENAME,   SortKey.FILENAME.value.__eq__,   ["filename"],   true]
+    - [NFL,        SortKey.NFL.value.__eq__,        ["nfl"],        true]
+    - [STDNAME,    SortKey.STDNAME.value.__eq__,    ["stdname"],    true]
+    - [LINE,       SortKey.LINE.value.__eq__,       ["line"],       true]
+    - [NAME,       SortKey.NAME.value.__eq__,       ["name"],       true]
+
+# ---------------------------------------------------------------------------
+# SortKey is a str subclass — str(SortKey.CUMULATIVE) == 'cumulative'
+# ---------------------------------------------------------------------------
+
+invariant profile_extra2.SortKey.is_str:
+  description: "SortKey.CUMULATIVE is a str — StrEnum members are strings"
+  category: SortKey_type
+  kind: python_call_eq
+  function: SortKey.CUMULATIVE.__class__.__mro__.__contains__
+  args: [str]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Additional Stats method names not covered by pstats.zspec.zsdl or pstats_extra.zspec.zsdl
+# pstats.zspec.zsdl covers sort_stats, print_stats, print_callers, print_callees, strip_dirs
+# We add dump_stats and add
+# ---------------------------------------------------------------------------
+
+invariant profile_extra2.Stats.dump_stats:
+  description: "pstats.Stats.dump_stats.__name__ == 'dump_stats'"
+  category: Stats_methods
+  kind: python_call_eq
+  function: Stats.dump_stats.__name__.__eq__
+  args: ["dump_stats"]
+  expected: true
+
+invariant profile_extra2.Stats.add:
+  description: "pstats.Stats.add.__name__ == 'add'"
+  category: Stats_methods
+  kind: python_call_eq
+  function: Stats.add.__name__.__eq__
+  args: ["add"]
+  expected: true
