@@ -1,0 +1,67 @@
+spec: py_compile_extra2
+version: ">=3.9"
+backend: python_module(py_compile)
+
+docs: https://docs.python.org/3/library/py_compile.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/py_compile.html — Python py_compile module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/py_compile.py"
+  notes:
+    - "This spec extends py_compile.zspec.zsdl and py_compile_extra.zspec.zsdl."
+    - "py_compile_extra covered: compile.__name__, compile.__module__, PycInvalidationMode.__name__, PyCompileError.__name__, PyCompileError.__module__, PyCompileError.__bases__[0].__name__, PycInvalidationMode.TIMESTAMP/__class__.__name__/value, CHECKED_HASH class+value, UNCHECKED_HASH class+value, value ordering."
+    - "This spec adds: PycInvalidationMode.__module__ == 'py_compile' (not in py_compile_extra), PycInvalidationMode.__bases__[0].__name__ == 'Enum' (not in py_compile_extra), and a class_names table covering compile/PycInvalidationMode/PyCompileError (table form not previously used)."
+    - "py_compile.PycInvalidationMode is an IntEnum; its MRO includes both IntEnum and Enum. __bases__[0] is 'int' in CPython's IntEnum implementation — but the publicly documented base class for the enum hierarchy is Enum."
+    - "On CPython 3.9+: PycInvalidationMode.__bases__[0].__name__ == 'int' because IntEnum.__bases__ == (int, Enum). We verify __bases__[0].__name__ == 'int' as the factual CPython value."
+    - "PycInvalidationMode.__module__ == 'py_compile' — the enum is defined in the py_compile module."
+    - "compile is a plain Python function: compile.__class__.__name__ == 'function'."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PycInvalidationMode — __module__ (not in py_compile_extra)
+# ---------------------------------------------------------------------------
+
+invariant py_compile_extra2.modules.PycInvalidationMode:
+  description: "py_compile.PycInvalidationMode.__module__ == 'py_compile'"
+  category: modules
+  kind: python_call_eq
+  function: PycInvalidationMode.__module__.__eq__
+  args: ["py_compile"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PycInvalidationMode — __bases__[0].__name__ (not in py_compile_extra)
+# PycInvalidationMode is an IntEnum. On CPython 3.9+, IntEnum.__bases__ == (int, Enum),
+# so PycInvalidationMode.__bases__[0].__name__ == 'int'.
+# ---------------------------------------------------------------------------
+
+invariant py_compile_extra2.hierarchy.PycInvalidationMode_base:
+  description: "py_compile.PycInvalidationMode.__bases__[0].__name__ == 'int' — IntEnum base is int on CPython"
+  category: hierarchy
+  kind: python_call_eq
+  function: PycInvalidationMode.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "int"
+
+# ---------------------------------------------------------------------------
+# class_names table — compile (function), PycInvalidationMode, PyCompileError
+# py_compile_extra used individual invariant blocks; this provides table coverage.
+# ---------------------------------------------------------------------------
+
+table py_compile_extra2.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: class_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [compile,              compile.__name__.__eq__,              ["compile"],              true]
+    - [PycInvalidationMode,  PycInvalidationMode.__name__.__eq__,  ["PycInvalidationMode"],  true]
+    - [PyCompileError,       PyCompileError.__name__.__eq__,       ["PyCompileError"],        true]

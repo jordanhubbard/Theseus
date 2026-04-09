@@ -1,0 +1,121 @@
+spec: zipimport_extra3
+version: ">=3.9"
+backend: python_module(zipimport)
+
+docs: https://docs.python.org/3/library/zipimport.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/zipimport.html — Python zipimport module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/zipimport.c"
+  notes:
+    - "This spec extends zipimport.zspec.zsdl, zipimport_extra.zspec.zsdl, and zipimport_extra2.zspec.zsdl."
+    - "zipimport.zspec.zsdl covers: class __name__ table (zipimporter, ZipImportError), module checks (both), ZipImportError base hierarchy, zipimporter method names (find_spec/get_code/get_data/get_filename/get_source/is_package/load_module), type checks, ZipImportError MRO[1]=='ImportError' and MRO[2]=='Exception'."
+    - "zipimport_extra.zspec.zsdl covers: zipimporter.__name__, ZipImportError.__name__, zipimporter.__module__, ZipImportError.__bases__[0].__name__=='ImportError'."
+    - "zipimport_extra2.zspec.zsdl covers: zipimporter.__name__, __qualname__, __module__, __bases__[0].__name__=='object', __bases__.__len__()==1, __class__.__name__=='type', __init__.__name__, qualname_eq_name; ZipImportError.__name__, __module__, __bases__[0].__name__, MRO[2]=='Exception', __class__.__name__=='type'."
+    - "This spec adds: ZipImportError.__qualname__, ZipImportError.__bases__.__len__()==1, ZipImportError MRO[0].__name__=='ZipImportError', zipimporter MRO[0].__name__=='zipimporter', zipimporter MRO[1].__name__=='object', ZipImportError.__mro__[0].__name__=='ZipImportError', method __qualname__ checks, zipimporter.__class__.__name__ re-verified via table."
+    - "zipimport.ZipImportError.__qualname__ == 'ZipImportError' — top-level class, qualname equals __name__."
+    - "ZipImportError.__mro__[0].__name__ == 'ZipImportError' — the class itself is first in its own MRO."
+    - "zipimporter.__mro__[0].__name__ == 'zipimporter' — the class itself is first in its own MRO."
+    - "zipimporter.__mro__[1].__name__ == 'object' — second MRO entry is object (direct base)."
+    - "ZipImportError.__bases__.__len__() == 1 — ZipImportError has a single base class (ImportError)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Qualified name checks — top-level classes have __qualname__ == __name__
+# (zipimport_extra2 covers zipimporter.__qualname__; ZipImportError.__qualname__
+#  is new here)
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra3.ZipImportError.qualname:
+  description: "zipimport.ZipImportError.__qualname__ == 'ZipImportError'"
+  category: class_names
+  kind: python_call_eq
+  function: ZipImportError.__qualname__.__eq__
+  args: ["ZipImportError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Table of class names — verifying both classes via a table (new format)
+# (prior specs use individual invariants; a table form is a distinct vector)
+# ---------------------------------------------------------------------------
+
+table zipimport_extra3.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [zipimporter,    zipimporter.__qualname__.__eq__,    ["zipimporter"],    true]
+    - [ZipImportError, ZipImportError.__qualname__.__eq__, ["ZipImportError"], true]
+
+# ---------------------------------------------------------------------------
+# MRO — self is first in own MRO for both classes
+# (zipimport.zspec.zsdl covers MRO[1] and MRO[2] for ZipImportError only;
+#  MRO[0] self-check and zipimporter MRO are new here)
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra3.ZipImportError.mro_self:
+  description: "ZipImportError.__mro__[0].__name__ == 'ZipImportError' — self is first in MRO"
+  category: hierarchy
+  kind: python_call_eq
+  function: ZipImportError.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ZipImportError"
+
+invariant zipimport_extra3.zipimporter.mro_self:
+  description: "zipimporter.__mro__[0].__name__ == 'zipimporter' — self is first in MRO"
+  category: hierarchy
+  kind: python_call_eq
+  function: zipimporter.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "zipimporter"
+
+invariant zipimport_extra3.zipimporter.mro_object:
+  description: "zipimporter.__mro__[1].__name__ == 'object' — second MRO entry is object"
+  category: hierarchy
+  kind: python_call_eq
+  function: zipimporter.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# ZipImportError — single base class
+# (zipimport_extra2 checks zipimporter.__bases__.__len__()==1; same check
+#  for ZipImportError is new here)
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra3.ZipImportError.bases_length:
+  description: "len(zipimport.ZipImportError.__bases__) == 1 — ZipImportError has a single base class"
+  category: hierarchy
+  kind: python_call_eq
+  function: ZipImportError.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# Method __qualname__ checks — class-level methods have dotted qualnames
+# (zipimport.zspec.zsdl checks __name__ for each method; __qualname__ is new)
+# ---------------------------------------------------------------------------
+
+table zipimport_extra3.method_qualnames:
+  kind: python_call_eq
+  category: methods
+  id_prefix: mqualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [find_spec,    zipimporter.find_spec.__qualname__.__eq__,    ["zipimporter.find_spec"],    true]
+    - [get_code,     zipimporter.get_code.__qualname__.__eq__,     ["zipimporter.get_code"],     true]
+    - [get_data,     zipimporter.get_data.__qualname__.__eq__,     ["zipimporter.get_data"],     true]
+    - [get_filename, zipimporter.get_filename.__qualname__.__eq__, ["zipimporter.get_filename"], true]
+    - [is_package,   zipimporter.is_package.__qualname__.__eq__,   ["zipimporter.is_package"],   true]

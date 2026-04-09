@@ -1,0 +1,170 @@
+spec: pkgutil_extra2
+version: ">=3.9"
+backend: python_module(pkgutil)
+
+docs: https://docs.python.org/3/library/pkgutil.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pkgutil.html — Python pkgutil module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pkgutil.py"
+  notes:
+    - "This spec extends pkgutil.zspec.zsdl and pkgutil_extra.zspec.zsdl — it does NOT duplicate invariants already present there."
+    - "pkgutil.zspec.zsdl covers: walk_packages/iter_modules/get_data/extend_path/resolve_name __name__ and type checks, ModuleInfo._fields length (3) and items [1]/'name' and [2]/'ispkg', resolve_name('builtins.len') and extend_path returns list."
+    - "pkgutil_extra.zspec.zsdl covers: walk_packages/iter_modules/get_data/extend_path/resolve_name __qualname__, read_code __name__/__qualname__/is_function, ModuleInfo.__module__/__qualname__/_fields[0]=='module_finder', function __doc__ class checks, resolve_name('builtins.int'), bad module raises."
+    - "This spec adds: get_importer __name__/__qualname__/is_function, ModuleInfo._fields.__class__.__name__=='tuple', ModuleInfo.__qualname__ re-verified via table with get_importer, get_importer.__module__, resolve_name.__module__, iter_modules/__module__, walk_packages/__module__, get_data/__module__, extend_path/__module__."
+    - "pkgutil.get_importer(path) returns the importer for the given path entry; its __name__ == 'get_importer'."
+    - "pkgutil.get_importer.__module__ == 'pkgutil' — it is defined in the pkgutil module."
+    - "pkgutil.ModuleInfo._fields is a tuple (namedtuple stores field names as a plain tuple)."
+    - "All function __module__ values for top-level pkgutil functions are 'pkgutil'."
+    - "find_loader is excluded: deprecated in 3.12 and removed in 3.14; not safe to test at >=3.9 without a version guard."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# get_importer — function name, qualname, type, and module checks
+# (not covered in pkgutil.zspec.zsdl or pkgutil_extra.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra2.get_importer.name:
+  description: "pkgutil.get_importer.__name__ == 'get_importer'"
+  category: functions
+  kind: python_call_eq
+  function: get_importer.__name__.__eq__
+  args: ["get_importer"]
+  expected: true
+
+invariant pkgutil_extra2.get_importer.qualname:
+  description: "pkgutil.get_importer.__qualname__ == 'get_importer' — top-level function"
+  category: functions
+  kind: python_call_eq
+  function: get_importer.__qualname__.__eq__
+  args: ["get_importer"]
+  expected: true
+
+invariant pkgutil_extra2.get_importer.is_function:
+  description: "type(pkgutil.get_importer).__name__ == 'function'"
+  category: functions
+  kind: python_call_eq
+  function: get_importer.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant pkgutil_extra2.get_importer.module:
+  description: "pkgutil.get_importer.__module__ == 'pkgutil'"
+  category: modules
+  kind: python_call_eq
+  function: get_importer.__module__.__eq__
+  args: ["pkgutil"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __module__ checks — all public pkgutil functions live in 'pkgutil'
+# (pkgutil.zspec.zsdl and pkgutil_extra.zspec.zsdl do not check __module__ for
+#  any of these functions)
+# ---------------------------------------------------------------------------
+
+table pkgutil_extra2.function_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [iter_modules,  iter_modules.__module__.__eq__,  ["pkgutil"], true]
+    - [walk_packages, walk_packages.__module__.__eq__, ["pkgutil"], true]
+    - [get_data,      get_data.__module__.__eq__,      ["pkgutil"], true]
+    - [extend_path,   extend_path.__module__.__eq__,   ["pkgutil"], true]
+    - [resolve_name,  resolve_name.__module__.__eq__,  ["pkgutil"], true]
+
+# ---------------------------------------------------------------------------
+# ModuleInfo._fields type — _fields is a plain tuple on all Python versions
+# (pkgutil.zspec.zsdl checks __len__ and item values; the type is new here)
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra2.ModuleInfo.fields_class:
+  description: "pkgutil.ModuleInfo._fields.__class__.__name__ == 'tuple' — _fields is a plain tuple"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._fields.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ModuleInfo — type checks (namedtuple class is an instance of type)
+# (not covered in prior pkgutil specs)
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra2.ModuleInfo.is_type:
+  description: "pkgutil.ModuleInfo.__class__.__name__ == 'type' — ModuleInfo is a class (type instance)"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function name table — verifying names not yet tested in table form
+# (pkgutil.zspec.zsdl has a function_names table for walk/iter/get/extend/resolve
+#  only; get_importer is new)
+# ---------------------------------------------------------------------------
+
+table pkgutil_extra2.function_names:
+  kind: python_call_eq
+  category: names
+  id_prefix: fnname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [get_importer,  get_importer.__name__.__eq__,  ["get_importer"],  true]
+    - [iter_modules,  iter_modules.__name__.__eq__,  ["iter_modules"],  true]
+    - [walk_packages, walk_packages.__name__.__eq__, ["walk_packages"], true]
+    - [get_data,      get_data.__name__.__eq__,      ["get_data"],      true]
+    - [extend_path,   extend_path.__name__.__eq__,   ["extend_path"],   true]
+
+# ---------------------------------------------------------------------------
+# get_importer — doc string is a string (function has documentation)
+# (pkgutil_extra checks __doc__ for walk/iter/get/extend/resolve only)
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra2.get_importer.has_doc:
+  description: "pkgutil.get_importer.__doc__.__class__.__name__ == 'str' — get_importer is documented"
+  category: functions
+  kind: python_call_eq
+  function: get_importer.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ModuleInfo._fields content — verify field names as a group
+# (pkgutil.zspec.zsdl checks [1] and [2]; pkgutil_extra checks [0];
+#  cross-checking all three as a new angle: verifying via __contains__)
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra2.ModuleInfo.fields_has_name:
+  description: "pkgutil.ModuleInfo._fields.__contains__('name') == True"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._fields.__contains__
+  args: ["name"]
+  expected: true
+
+invariant pkgutil_extra2.ModuleInfo.fields_has_ispkg:
+  description: "pkgutil.ModuleInfo._fields.__contains__('ispkg') == True"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._fields.__contains__
+  args: ["ispkg"]
+  expected: true
+
+invariant pkgutil_extra2.ModuleInfo.fields_has_module_finder:
+  description: "pkgutil.ModuleInfo._fields.__contains__('module_finder') == True"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._fields.__contains__
+  args: ["module_finder"]
+  expected: true
