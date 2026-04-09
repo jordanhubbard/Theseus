@@ -1,0 +1,118 @@
+spec: smtplib_extra2
+version: ">=3.9"
+backend: python_module(smtplib)
+
+docs: https://docs.python.org/3/library/smtplib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/smtplib.html — Python smtplib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/smtplib.py internal socket/TLS implementation details"
+  notes:
+    - "This spec extends smtplib.zspec.zsdl and smtplib_extra.zspec.zsdl."
+    - "smtplib.zspec.zsdl covers: SMTP/SMTP_SSL/__name__, SMTPException/SMTPConnectError/SMTPAuthenticationError/__name__, SMTPException.__bases__[0]=='OSError', SMTP.__module__, SMTP_PORT/SMTP_SSL_PORT values."
+    - "smtplib_extra.zspec.zsdl covers: SMTP/SMTP_SSL/SMTPException/SMTPConnectError/SMTPAuthenticationError __name__, SMTPException hierarchy, SMTP_PORT type and value."
+    - "This spec adds: SMTPServerDisconnected, SMTPResponseException __name__; SMTP_SSL.__bases__[0].__name__=='SMTP'; SMTPServerDisconnected.__bases__[0].__name__=='SMTPException'; SMTP.default_port type and value."
+    - "smtplib.SMTP.default_port is the class-level default port attribute (25) on the SMTP class itself."
+    - "SMTPServerDisconnected is raised when the server unexpectedly disconnects."
+    - "SMTPResponseException is the base for exceptions that carry an SMTP response code and message."
+    - "SMTPSenderRefused inherits from SMTPResponseException."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Exception class name checks — classes not yet covered by prior specs
+# smtplib.zspec.zsdl already covers SMTPSenderRefused.__name__ in its table,
+# but does NOT cover SMTPServerDisconnected or SMTPResponseException names
+# as standalone invariants. We add new vectors here.
+# ---------------------------------------------------------------------------
+
+table smtplib_extra2.exception_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: excname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [SMTPServerDisconnected,  SMTPServerDisconnected.__name__.__eq__,  ["SMTPServerDisconnected"],  true]
+    - [SMTPResponseException,   SMTPResponseException.__name__.__eq__,   ["SMTPResponseException"],   true]
+
+# ---------------------------------------------------------------------------
+# SMTP_SSL inheritance — SMTP_SSL.__bases__[0].__name__ == 'SMTP'
+# Not covered in smtplib.zspec.zsdl or smtplib_extra.zspec.zsdl.
+# ---------------------------------------------------------------------------
+
+invariant smtplib_extra2.hierarchy.SMTP_SSL_base_is_SMTP:
+  description: "smtplib.SMTP_SSL.__bases__[0].__name__ == 'SMTP' — SMTP_SSL inherits from SMTP"
+  category: hierarchy
+  kind: python_call_eq
+  function: SMTP_SSL.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "SMTP"
+
+# ---------------------------------------------------------------------------
+# SMTPServerDisconnected hierarchy — inherits from SMTPException
+# ---------------------------------------------------------------------------
+
+invariant smtplib_extra2.hierarchy.SMTPServerDisconnected_base:
+  description: "smtplib.SMTPServerDisconnected.__bases__[0].__name__ == 'SMTPException'"
+  category: hierarchy
+  kind: python_call_eq
+  function: SMTPServerDisconnected.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "SMTPException"
+
+# ---------------------------------------------------------------------------
+# SMTPResponseException hierarchy — inherits from SMTPException
+# ---------------------------------------------------------------------------
+
+invariant smtplib_extra2.hierarchy.SMTPResponseException_base:
+  description: "smtplib.SMTPResponseException.__bases__[0].__name__ == 'SMTPException'"
+  category: hierarchy
+  kind: python_call_eq
+  function: SMTPResponseException.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "SMTPException"
+
+# ---------------------------------------------------------------------------
+# SMTPSenderRefused hierarchy — inherits from SMTPResponseException
+# (smtplib.zspec.zsdl checks SMTPSenderRefused.__name__ but not its base)
+# ---------------------------------------------------------------------------
+
+invariant smtplib_extra2.hierarchy.SMTPSenderRefused_base:
+  description: "smtplib.SMTPSenderRefused.__bases__[0].__name__ == 'SMTPResponseException'"
+  category: hierarchy
+  kind: python_call_eq
+  function: SMTPSenderRefused.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "SMTPResponseException"
+
+# ---------------------------------------------------------------------------
+# SMTP.default_port — class-level attribute: type and value
+# smtplib_extra.zspec.zsdl checks SMTP_PORT (module-level constant).
+# This spec checks SMTP.default_port (class-level attribute on SMTP itself).
+# ---------------------------------------------------------------------------
+
+invariant smtplib_extra2.SMTP.default_port_type:
+  description: "smtplib.SMTP.default_port.__class__.__name__ == 'int' — class variable is an int"
+  category: class_attributes
+  kind: python_call_eq
+  function: SMTP.default_port.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant smtplib_extra2.SMTP.default_port_value:
+  description: "smtplib.SMTP.default_port == 25 — default SMTP port is 25"
+  category: class_attributes
+  kind: python_call_eq
+  function: SMTP.default_port.__eq__
+  args: [25]
+  expected: true

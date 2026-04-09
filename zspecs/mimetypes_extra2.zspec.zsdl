@@ -1,0 +1,165 @@
+spec: mimetypes_extra2
+version: ">=3.9"
+backend: python_module(mimetypes)
+
+docs: https://docs.python.org/3/library/mimetypes.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/mimetypes.html — Python mimetypes module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/mimetypes.py"
+  notes:
+    - "This spec extends mimetypes.zspec.zsdl and mimetypes_extra.zspec.zsdl."
+    - "mimetypes.zspec.zsdl covers: function names (guess_type/guess_extension/guess_all_extensions/add_type/init/read_mime_types); MimeTypes.__name__; guess_type for html/txt/json/pdf/png/jpg/gif/css/js/xml/zip/tar/svg/csv; unknown extension; .gz encoding; guess_extension for text/html,text/plain,image/png; types_map membership and values."
+    - "mimetypes_extra.zspec.zsdl covers: MimeTypes.__module__; encodings_map type/contents; suffix_map type/.tgz value; read_mime_types nonexistent; guess_all_extensions for text/plain and text/html."
+    - "This spec adds: __module__ for individual functions (guess_type, guess_extension, guess_all_extensions, add_type, init); types_map.__class__.__name__ == 'dict'; suffix_map.__class__.__name__ == 'dict'; guess_type for additional extensions (mp3, mp4, wav); MimeTypes.__qualname__."
+    - "mimetypes.guess_type.__module__ == 'mimetypes' — all public functions are defined in the mimetypes module."
+    - "mimetypes.types_map.__class__.__name__ == 'dict' — types_map is an ordinary Python dict."
+    - "mimetypes.suffix_map.__class__.__name__ == 'dict' — suffix_map is an ordinary Python dict."
+    - "guess_type('file.mp3')[0] is 'audio/mpeg' on most platforms (IANA registered)."
+    - "guess_type('file.mp4')[0] is 'video/mp4' on most platforms."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# types_map and suffix_map class names — both are plain dicts
+# (mimetypes_extra covers encodings_map class name; types_map and suffix_map
+#  class names are new in this spec)
+# ---------------------------------------------------------------------------
+
+invariant mimetypes_extra2.types_map.class_name:
+  description: "mimetypes.types_map.__class__.__name__ == 'dict' — types_map is a dict"
+  category: module_data
+  kind: python_call_eq
+  function: types_map.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+invariant mimetypes_extra2.suffix_map.class_name:
+  description: "mimetypes.suffix_map.__class__.__name__ == 'dict' — suffix_map is a dict"
+  category: module_data
+  kind: python_call_eq
+  function: suffix_map.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __module__ checks — not in prior specs
+# (mimetypes_extra covers MimeTypes.__module__; function __module__ is new)
+# ---------------------------------------------------------------------------
+
+table mimetypes_extra2.function_modules:
+  kind: python_call_eq
+  category: module
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [guess_type,           guess_type.__module__.__eq__,           ["mimetypes"], true]
+    - [guess_extension,      guess_extension.__module__.__eq__,      ["mimetypes"], true]
+    - [guess_all_extensions, guess_all_extensions.__module__.__eq__, ["mimetypes"], true]
+    - [add_type,             add_type.__module__.__eq__,             ["mimetypes"], true]
+    - [init,                 init.__module__.__eq__,                 ["mimetypes"], true]
+
+# ---------------------------------------------------------------------------
+# MimeTypes.__qualname__ — not covered in prior specs
+# ---------------------------------------------------------------------------
+
+invariant mimetypes_extra2.MimeTypes.qualname:
+  description: "mimetypes.MimeTypes.__qualname__ == 'MimeTypes'"
+  category: class_names
+  kind: python_call_eq
+  function: MimeTypes.__qualname__.__eq__
+  args: ["MimeTypes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# guess_type — additional media types not in mimetypes.zspec.zsdl
+# (Prior spec covers html/txt/json/pdf/png/jpg/gif/css/js/xml/zip/tar/svg/csv)
+# ---------------------------------------------------------------------------
+
+table mimetypes_extra2.guess_type.audio_video:
+  kind: python_call_eq
+  category: guess_type
+  id_prefix: gt
+  method: __getitem__
+  method_args: [0]
+
+  columns: [id, function, args, expected]
+  rows:
+    - [mp3,  guess_type, ["file.mp3"],  "audio/mpeg"]
+    - [mp4,  guess_type, ["file.mp4"],  "video/mp4" ]
+    - [wav,  guess_type, ["file.wav"],  "audio/x-wav"]
+    - [webm, guess_type, ["file.webm"], "video/webm" ]
+
+# ---------------------------------------------------------------------------
+# guess_type — encoding field is None for non-compressed types
+# (mimetypes.zspec.zsdl checks index [1] for .gz; here we check a normal
+#  extension returns None for the encoding component)
+# ---------------------------------------------------------------------------
+
+invariant mimetypes_extra2.guess_type.html_encoding_none:
+  description: "guess_type('file.html')[1] == None — html has no compression encoding"
+  category: guess_type
+  kind: python_call_eq
+  function: guess_type
+  args: ["file.html"]
+  method: __getitem__
+  method_args: [1]
+  expected: null
+
+invariant mimetypes_extra2.guess_type.png_encoding_none:
+  description: "guess_type('file.png')[1] == None — png has no compression encoding"
+  category: guess_type
+  kind: python_call_eq
+  function: guess_type
+  args: ["file.png"]
+  method: __getitem__
+  method_args: [1]
+  expected: null
+
+# ---------------------------------------------------------------------------
+# guess_type result is a tuple — class name check
+# ---------------------------------------------------------------------------
+
+invariant mimetypes_extra2.guess_type.result_is_tuple:
+  description: "guess_type('file.html').__class__.__name__ == 'tuple' — result is always a 2-tuple"
+  category: guess_type
+  kind: python_call_eq
+  function: guess_type
+  args: ["file.html"]
+  method: __class__.__name__.__eq__
+  method_args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# guess_all_extensions — result is a list
+# (mimetypes_extra covers __contains__ on the result; class name is new)
+# ---------------------------------------------------------------------------
+
+invariant mimetypes_extra2.guess_all_extensions.result_is_list:
+  description: "guess_all_extensions('text/html').__class__.__name__ == 'list' — result is a list"
+  category: guess_all_extensions
+  kind: python_call_eq
+  function: guess_all_extensions
+  args: ["text/html"]
+  method: __class__.__name__.__eq__
+  method_args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# read_mime_types.__name__ — callable name check
+# (mimetypes.zspec.zsdl checks __name__ via table; __module__ is new)
+# ---------------------------------------------------------------------------
+
+invariant mimetypes_extra2.read_mime_types.module:
+  description: "mimetypes.read_mime_types.__module__ == 'mimetypes'"
+  category: module
+  kind: python_call_eq
+  function: read_mime_types.__module__.__eq__
+  args: ["mimetypes"]
+  expected: true

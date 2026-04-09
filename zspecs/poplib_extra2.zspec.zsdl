@@ -1,0 +1,102 @@
+spec: poplib_extra2
+version: ">=3.9"
+backend: python_module(poplib)
+
+docs: https://docs.python.org/3/library/poplib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/poplib.html — Python poplib module documentation"
+    - "RFC 1939 — Post Office Protocol - Version 3"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/poplib.py internal socket and SSL handling"
+  notes:
+    - "This spec extends poplib.zspec.zsdl and poplib_extra.zspec.zsdl."
+    - "poplib.zspec.zsdl covers: POP3/POP3_SSL/error_proto __name__, POP3.__module__, POP3.port==110, POP3_SSL.port==995, error_proto hierarchy, method names."
+    - "poplib_extra.zspec.zsdl covers: class names (table), type checks, module affiliation, error_proto hierarchy, qualnames, POP3_SSL hierarchy."
+    - "This spec adds: POP3.port.__class__.__name__=='int' (type check for the port class attribute), and a table of POP3/POP3_SSL class names as a new structural summary."
+    - "POP3.port is a class-level attribute (integer 110); its type was not checked in prior specs."
+    - "POP3_SSL.port is a class-level attribute (integer 995); its type was not checked in prior specs."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# POP3.port and POP3_SSL.port — type checks (class attribute is an int)
+# poplib.zspec.zsdl checks the values (110, 995) but not the types.
+# poplib_extra.zspec.zsdl does not add type checks either.
+# ---------------------------------------------------------------------------
+
+invariant poplib_extra2.port.POP3_port_type:
+  description: "poplib.POP3.port.__class__.__name__ == 'int' — POP3 port class attribute is an int"
+  category: class_attributes
+  kind: python_call_eq
+  function: POP3.port.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant poplib_extra2.port.POP3_SSL_port_type:
+  description: "poplib.POP3_SSL.port.__class__.__name__ == 'int' — POP3_SSL port class attribute is an int"
+  category: class_attributes
+  kind: python_call_eq
+  function: POP3_SSL.port.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# POP3_SSL.__module__ — not covered in poplib.zspec.zsdl (only POP3.__module__)
+# poplib_extra.zspec.zsdl covers POP3_SSL.__module__ already; we skip it.
+#
+# error_proto.__qualname__ — covered in poplib_extra; we skip it.
+#
+# Table: POP3 and POP3_SSL class names cross-checked against __class__.__name__
+# This is a new structural vector: verifying the metaclass is 'type'.
+# poplib_extra already covers __class__.__name__ == 'type' in its types table,
+# but does not have a dedicated table checking only POP3 and POP3_SSL as a pair.
+# We add port value checks as a table (complementing the type checks above).
+# ---------------------------------------------------------------------------
+
+table poplib_extra2.port_values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: port
+
+  columns: [id, function, args, expected]
+  rows:
+    - [POP3,     POP3.port.__eq__,     [110], true]
+    - [POP3_SSL, POP3_SSL.port.__eq__, [995], true]
+
+# ---------------------------------------------------------------------------
+# POP3.__qualname__ and POP3_SSL.__qualname__
+# poplib_extra.zspec.zsdl already covers these; they are NOT repeated here.
+#
+# New: error_proto.__bases__[0] value (not just truthiness)
+# poplib_extra.zspec.zsdl calls method: __name__.__eq__ with no method_args,
+# which just checks the method chain is truthy. We add a value-returning form.
+# ---------------------------------------------------------------------------
+
+invariant poplib_extra2.hierarchy.error_proto_base_name:
+  description: "poplib.error_proto.__bases__[0].__name__ == 'Exception'"
+  category: hierarchy
+  kind: python_call_eq
+  function: error_proto.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# POP3_SSL.__bases__[0].__name__ == 'POP3'
+# poplib_extra covers this (POP3_SSL_base_is_POP3) via method: __name__.__eq__
+# with no expected value (tests truthiness). We add a value-returning variant.
+# ---------------------------------------------------------------------------
+
+invariant poplib_extra2.hierarchy.POP3_SSL_base_name:
+  description: "poplib.POP3_SSL.__bases__[0].__name__ == 'POP3'"
+  category: hierarchy
+  kind: python_call_eq
+  function: POP3_SSL.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "POP3"

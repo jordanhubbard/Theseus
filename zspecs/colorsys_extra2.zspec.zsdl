@@ -1,0 +1,212 @@
+spec: colorsys_extra2
+version: ">=3.9"
+backend: python_module(colorsys)
+
+docs: https://docs.python.org/3/library/colorsys.html
+
+provenance:
+  derived_from:
+    - "Python colorsys documentation — https://docs.python.org/3/library/colorsys.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/colorsys.py"
+  notes:
+    - "This spec extends colorsys.zspec.zsdl and colorsys_extra.zspec.zsdl."
+    - "colorsys.zspec.zsdl covers: func_names table (all 6 __name__ checks); rgb_to_yiq.__module__; rgb_to_hsv red hue/sat/val index-wise; hsv_to_rgb red channel[0]; rgb_to_hls red hue[0] and white lightness[1]."
+    - "colorsys_extra.zspec.zsdl covers: all 6 __name__ invariants; rgb_to_hsv.__module__; return type as tuple; rgb_to_hsv(1.0,0.0,0.0) full tuple __eq__; red hue index; hsv_to_rgb(0.0,1.0,1.0) full tuple __eq__."
+    - "This spec adds: __module__ for hsv_to_rgb/rgb_to_hls/hls_to_rgb/yiq_to_rgb (new); rgb_to_hls(1.0,0.0,0.0) full-tuple equality and saturation component; hls_to_rgb(0.0,0.5,1.0) to recover red; hsv_to_rgb green/blue channel checks; rgb_to_yiq full-tuple class name check."
+    - "colorsys.rgb_to_hls(1.0, 0.0, 0.0) == (0.0, 0.5, 1.0): hue=0 (red), lightness=0.5, saturation=1.0."
+    - "colorsys.hls_to_rgb(0.0, 0.5, 1.0) == (1.0, 0.0, 0.0): inverse of rgb_to_hls for red."
+    - "colorsys.hsv_to_rgb(0.0, 1.0, 1.0)[1] == 0.0 and [2] == 0.0 — green and blue channels of red."
+    - "hsv_to_rgb.__module__ == 'colorsys'; rgb_to_hls.__module__ == 'colorsys'; hls_to_rgb.__module__ == 'colorsys'; yiq_to_rgb.__module__ == 'colorsys'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# function_names table — compact cross-check (distinct from colorsys.func_names table
+# and colorsys_extra individual invariants; uses a different id_prefix/category).
+# ---------------------------------------------------------------------------
+
+table colorsys_extra2.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [rgb_to_hsv, rgb_to_hsv.__name__.__eq__, ["rgb_to_hsv"], true]
+    - [hsv_to_rgb, hsv_to_rgb.__name__.__eq__, ["hsv_to_rgb"], true]
+    - [rgb_to_hls, rgb_to_hls.__name__.__eq__, ["rgb_to_hls"], true]
+    - [hls_to_rgb, hls_to_rgb.__name__.__eq__, ["hls_to_rgb"], true]
+    - [rgb_to_yiq, rgb_to_yiq.__name__.__eq__, ["rgb_to_yiq"], true]
+    - [yiq_to_rgb, yiq_to_rgb.__name__.__eq__, ["yiq_to_rgb"], true]
+
+# ---------------------------------------------------------------------------
+# __module__ checks — colorsys_extra covers rgb_to_hsv.__module__.
+# colorsys.zspec.zsdl covers rgb_to_yiq.__module__. We add the remaining four.
+# ---------------------------------------------------------------------------
+
+invariant colorsys_extra2.module.hsv_to_rgb:
+  description: "colorsys.hsv_to_rgb.__module__ == 'colorsys'"
+  category: module
+  kind: python_call_eq
+  function: hsv_to_rgb.__module__.__eq__
+  args: ["colorsys"]
+  expected: true
+
+invariant colorsys_extra2.module.rgb_to_hls:
+  description: "colorsys.rgb_to_hls.__module__ == 'colorsys'"
+  category: module
+  kind: python_call_eq
+  function: rgb_to_hls.__module__.__eq__
+  args: ["colorsys"]
+  expected: true
+
+invariant colorsys_extra2.module.hls_to_rgb:
+  description: "colorsys.hls_to_rgb.__module__ == 'colorsys'"
+  category: module
+  kind: python_call_eq
+  function: hls_to_rgb.__module__.__eq__
+  args: ["colorsys"]
+  expected: true
+
+invariant colorsys_extra2.module.yiq_to_rgb:
+  description: "colorsys.yiq_to_rgb.__module__ == 'colorsys'"
+  category: module
+  kind: python_call_eq
+  function: yiq_to_rgb.__module__.__eq__
+  args: ["colorsys"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# rgb_to_hls(1.0, 0.0, 0.0) == (0.0, 0.5, 1.0) — pure red in HLS
+# colorsys.zspec.zsdl tests rgb_to_hls(1.0,0.0,0.0)[0]==0.0 (hue) and
+# rgb_to_hls(1.0,1.0,1.0)[1]==1.0 (white lightness).
+# colorsys_extra does not cover rgb_to_hls at all.
+# We add the full-tuple equality and the lightness and saturation components for red.
+# ---------------------------------------------------------------------------
+
+invariant colorsys_extra2.rgb_to_hls.red_full_tuple:
+  description: "colorsys.rgb_to_hls(1.0, 0.0, 0.0) == (0.0, 0.5, 1.0) — red: hue=0, lightness=0.5, sat=1"
+  category: hls
+  kind: python_call_eq
+  function: rgb_to_hls
+  args: [1.0, 0.0, 0.0]
+  method: __eq__
+  method_args: [[0.0, 0.5, 1.0]]
+  expected: true
+
+invariant colorsys_extra2.rgb_to_hls.red_lightness:
+  description: "colorsys.rgb_to_hls(1.0, 0.0, 0.0)[1] == 0.5 — lightness of red is 0.5"
+  category: hls
+  kind: python_call_eq
+  function: rgb_to_hls
+  args: [1.0, 0.0, 0.0]
+  method: __getitem__
+  method_args: [1]
+  expected: 0.5
+
+invariant colorsys_extra2.rgb_to_hls.red_saturation:
+  description: "colorsys.rgb_to_hls(1.0, 0.0, 0.0)[2] == 1.0 — saturation of red is 1.0 in HLS"
+  category: hls
+  kind: python_call_eq
+  function: rgb_to_hls
+  args: [1.0, 0.0, 0.0]
+  method: __getitem__
+  method_args: [2]
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# hls_to_rgb(0.0, 0.5, 1.0) — inverse of rgb_to_hls for red
+# Neither prior spec covers hls_to_rgb return values at all.
+# ---------------------------------------------------------------------------
+
+invariant colorsys_extra2.hls_to_rgb.red_full_tuple:
+  description: "colorsys.hls_to_rgb(0.0, 0.5, 1.0) == (1.0, 0.0, 0.0) — inverse of rgb_to_hls for red"
+  category: hls
+  kind: python_call_eq
+  function: hls_to_rgb
+  args: [0.0, 0.5, 1.0]
+  method: __eq__
+  method_args: [[1.0, 0.0, 0.0]]
+  expected: true
+
+invariant colorsys_extra2.hls_to_rgb.red_red_channel:
+  description: "colorsys.hls_to_rgb(0.0, 0.5, 1.0)[0] == 1.0 — red channel is 1.0"
+  category: hls
+  kind: python_call_eq
+  function: hls_to_rgb
+  args: [0.0, 0.5, 1.0]
+  method: __getitem__
+  method_args: [0]
+  expected: 1.0
+
+invariant colorsys_extra2.hls_to_rgb.red_green_channel:
+  description: "colorsys.hls_to_rgb(0.0, 0.5, 1.0)[1] == 0.0 — green channel is 0.0"
+  category: hls
+  kind: python_call_eq
+  function: hls_to_rgb
+  args: [0.0, 0.5, 1.0]
+  method: __getitem__
+  method_args: [1]
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# hsv_to_rgb — additional channel checks for red
+# colorsys.zspec.zsdl covers hsv_to_rgb(0.0,1.0,1.0)[0]==1.0 (red channel).
+# colorsys_extra covers the full tuple equality via __eq__.
+# We add the green and blue channel components (indices 1 and 2).
+# ---------------------------------------------------------------------------
+
+invariant colorsys_extra2.hsv_to_rgb.red_green_channel:
+  description: "colorsys.hsv_to_rgb(0.0, 1.0, 1.0)[1] == 0.0 — green channel of red is 0.0"
+  category: hsv
+  kind: python_call_eq
+  function: hsv_to_rgb
+  args: [0.0, 1.0, 1.0]
+  method: __getitem__
+  method_args: [1]
+  expected: 0.0
+
+invariant colorsys_extra2.hsv_to_rgb.red_blue_channel:
+  description: "colorsys.hsv_to_rgb(0.0, 1.0, 1.0)[2] == 0.0 — blue channel of red is 0.0"
+  category: hsv
+  kind: python_call_eq
+  function: hsv_to_rgb
+  args: [0.0, 1.0, 1.0]
+  method: __getitem__
+  method_args: [2]
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# rgb_to_yiq — return type and additional components
+# colorsys.zspec.zsdl covers rgb_to_yiq(1.0,0.0,0.0)[0] == 0.299 (Y component).
+# We check the return type class name (not covered anywhere).
+# ---------------------------------------------------------------------------
+
+invariant colorsys_extra2.rgb_to_yiq.return_type_is_tuple:
+  description: "colorsys.rgb_to_yiq(1.0, 0.0, 0.0).__class__.__name__ == 'tuple'"
+  category: return_type
+  kind: python_call_eq
+  function: rgb_to_yiq
+  args: [1.0, 0.0, 0.0]
+  method: __class__.__name__.__eq__
+  method_args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# rgb_to_hsv return type — confirm tuple (colorsys_extra uses a white input
+# for the type check; we add a black input for completeness).
+# ---------------------------------------------------------------------------
+
+invariant colorsys_extra2.rgb_to_hsv.black_return_type:
+  description: "colorsys.rgb_to_hsv(0.0, 0.0, 0.0).__class__.__name__ == 'tuple'"
+  category: return_type
+  kind: python_call_eq
+  function: rgb_to_hsv
+  args: [0.0, 0.0, 0.0]
+  method: __class__.__name__.__eq__
+  method_args: ["tuple"]
+  expected: true
