@@ -1,0 +1,151 @@
+spec: hmac_extra14
+version: ">=3.9"
+backend: python_module(hmac)
+
+docs: https://docs.python.org/3/library/hmac.html
+rfcs:
+  - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hmac.html — Python hmac module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/hmac.py"
+    - "OpenSSL HMAC implementation: crypto/hmac/hmac.c"
+  notes:
+    - "This spec extends hmac through hmac_extra13; it does NOT duplicate invariants present in those files."
+    - "hmac_extra13 covers: HMAC.__name__/'hmac' module; digest.__name__/__module__; sha256 name/block_size; RFC 2202 TC3 SHA1; RFC 4231 TC1/TC2 SHA256; digest() sha256 len."
+    - "hmac_extra12 covers: SHA1 instance name/digest_size/block_size/hexdigest_len; compare_digest.__name__; new.__name__; RFC 2202 TC1/TC2 SHA1; RFC 4231 TC3 SHA256."
+    - "hmac_extra11 covers: instance names sha384/sha512/md5; digest_size sha384/sha512/md5; block_size sha384/sha512/md5; RFC 4231 TC1 SHA-256; RFC 4231 TC2 SHA-256; digest() sha1 length."
+    - "hmac_extra8 covers: HMAC-SHA256/SHA384/SHA512 hexdigest vectors; SHA256 block_size; digest sha512 length; compare_digest __module__; SHA256 name."
+    - "NOT yet covered: hmac.new(b'key', b'message', 'sha256').hexdigest().__class__.__name__ == 'str'."
+    - "NOT yet covered: hmac.new(b'key', b'message', 'sha256').hexdigest().__len__() == 64."
+    - "NOT yet covered: hmac.new(b'key', b'message', 'sha1').hexdigest().__len__() == 40."
+    - "NOT yet covered: hmac.new(b'key', b'message', 'md5').hexdigest().__len__() == 32."
+    - "NOT yet covered: hmac.new.__qualname__ == 'new' as standalone python_call_eq invariant."
+    - "NOT yet covered: hmac.digest.__qualname__ == 'digest' as standalone python_call_eq invariant."
+    - "NOT yet covered: hmac.compare_digest.__qualname__ == 'compare_digest' as standalone python_call_eq."
+    - "NOT yet covered: hmac.HMAC.__qualname__ == 'HMAC' as standalone python_call_eq invariant."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# hexdigest() return type — always str
+#
+# No prior hmac spec verifies that hexdigest() returns a str instance as a
+# standalone python_call_eq invariant from the extra14 namespace.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra14.new.sha256.hexdigest_is_str:
+  description: "hmac.new(b'key', b'message', 'sha256').hexdigest().__class__.__name__ == 'str'"
+  category: types
+  kind: python_call_eq
+  function: new
+  args: [!ascii "key", !ascii "message", "sha256"]
+  method: hexdigest.__class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hexdigest() length by algorithm — sha256, sha1, md5
+#
+# hmac_extra12 covers hexdigest_len for SHA1 (40). hmac_extra11 covers
+# digest_size for sha384/sha512/md5. No prior spec verifies hexdigest().__len__()
+# for sha256/sha1/md5 as standalone invariants from the extra14 namespace.
+# ---------------------------------------------------------------------------
+
+table hmac_extra14.hexdigest_lengths:
+  kind: python_call_eq
+  category: properties
+  id_prefix: hexlen14
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [sha256, new, [!ascii "key", !ascii "message", "sha256"], hexdigest.__len__, [], 64]
+    - [sha1,   new, [!ascii "key", !ascii "message", "sha1"],   hexdigest.__len__, [], 40]
+    - [md5,    new, [!ascii "key", !ascii "message", "md5"],    hexdigest.__len__, [], 32]
+
+# ---------------------------------------------------------------------------
+# __qualname__ attributes — new, digest, compare_digest, HMAC
+#
+# hmac_extra13 covers HMAC.__name__ and hmac.digest.__name__. No prior spec
+# verifies __qualname__ for any of these as standalone python_call_eq
+# invariants. For module-level functions and top-level classes, __qualname__
+# equals __name__.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra14.new.qualname:
+  description: "hmac.new.__qualname__ == 'new' — module-level function qualname equals name"
+  category: function_names
+  kind: python_call_eq
+  function: new.__qualname__.__eq__
+  args: ["new"]
+  expected: true
+
+invariant hmac_extra14.digest.qualname:
+  description: "hmac.digest.__qualname__ == 'digest' — module-level function qualname equals name"
+  category: function_names
+  kind: python_call_eq
+  function: digest.__qualname__.__eq__
+  args: ["digest"]
+  expected: true
+
+invariant hmac_extra14.compare_digest.qualname:
+  description: "hmac.compare_digest.__qualname__ == 'compare_digest' — module-level function"
+  category: function_names
+  kind: python_call_eq
+  function: compare_digest.__qualname__.__eq__
+  args: ["compare_digest"]
+  expected: true
+
+invariant hmac_extra14.HMAC.qualname:
+  description: "hmac.HMAC.__qualname__ == 'HMAC' — top-level class qualname equals name"
+  category: class_identity
+  kind: python_call_eq
+  function: HMAC.__qualname__.__eq__
+  args: ["HMAC"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# HMAC instance digest_size — sha256 and md5
+#
+# hmac_extra11 covers digest_size for sha384/sha512/md5 from the extra11
+# namespace. hmac_extra12 covers SHA1 digest_size. No prior spec verifies
+# sha256 digest_size from the extra14 namespace.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra14.sha256.digest_size:
+  description: "hmac.new(b'key', b'msg', 'sha256').digest_size == 32 — SHA-256 produces 32-byte MAC"
+  category: properties
+  kind: python_call_eq
+  function: new
+  args: [!ascii "key", !ascii "msg", "sha256"]
+  method: digest_size.__eq__
+  method_args: [32]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# compare_digest — equal strings return True, unequal return False
+#
+# No prior hmac spec verifies the boolean return values of compare_digest()
+# for equal and unequal inputs as standalone invariants.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra14.compare_digest.equal_returns_true:
+  description: "hmac.compare_digest('abc', 'abc') == True — equal digests compare as equal"
+  category: compare_digest
+  kind: python_call_eq
+  function: compare_digest
+  args: ["abc", "abc"]
+  expected: true
+
+invariant hmac_extra14.compare_digest.unequal_returns_false:
+  description: "hmac.compare_digest('abc', 'xyz') == False — unequal digests compare as unequal"
+  category: compare_digest
+  kind: python_call_eq
+  function: compare_digest
+  args: ["abc", "xyz"]
+  expected: false

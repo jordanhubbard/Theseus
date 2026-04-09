@@ -1,0 +1,175 @@
+spec: decimal_extra14
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+rfcs:
+  - "IBM General Decimal Arithmetic specification"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "This spec extends decimal.zspec.zsdl and prior extras (decimal_extra through decimal_extra13)."
+    - "decimal_extra8 covers is_zero and is_signed; decimal_extra13 covers sqrt, number_class, rounding constants."
+    - "No prior spec covers Decimal('1.50').normalize().__str__() == '1.5' (trailing zero removal)."
+    - "No prior spec covers Decimal('123').adjusted() == 2 or Decimal('0.001').adjusted() == -3."
+    - "No prior spec covers decimal.getcontext().__class__.__name__ == 'Context'."
+    - "No prior spec covers decimal.getcontext().prec == 28 (default precision)."
+    - "No prior spec covers decimal.Context.__name__ == 'Context'."
+    - "decimal_extra8 covers is_zero and is_signed with simple numeric strings."
+    - "This spec adds is_zero(False case) and is_signed with complementary vectors."
+    - "Decimal('1.50').normalize().__str__() == '1.5' — normalize removes trailing zeros."
+    - "Decimal('0').is_zero() == True — zero is zero."
+    - "Decimal('1').is_zero() == False — non-zero is not zero."
+    - "Decimal('1.5').is_signed() == False — positive value is not signed."
+    - "Decimal('-1.5').is_signed() == True — negative value is signed."
+    - "Decimal('123').adjusted() == 2 — most significant digit is at position 10^2."
+    - "Decimal('0.001').adjusted() == -3 — most significant digit is at position 10^-3."
+    - "decimal.getcontext().__class__.__name__ == 'Context' — context runtime type."
+    - "decimal.getcontext().prec == 28 — default precision of 28 significant digits."
+    - "decimal.Context.__name__ == 'Context' — class name attribute."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# normalize — remove trailing zeros, reduce to shortest representation
+#
+# Decimal('1.50').normalize() removes the trailing zero, yielding Decimal('1.5').
+# normalize() takes no arguments, so no Decimal-typed method_args are needed.
+# Checked as string via method_chain: __str__.
+# No prior spec covers normalize.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra14.Decimal.normalize_trailing_zero:
+  description: "Decimal('1.50').normalize().__str__() == '1.5' — trailing zero removed by normalize"
+  category: normalization
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.50"]
+  method: normalize
+  method_chain: __str__
+  expected: "1.5"
+
+# ---------------------------------------------------------------------------
+# is_zero — predicate: is the value exactly zero?
+#
+# decimal_extra8 covers is_zero with specific vectors; we add complementary ones.
+# Decimal('0').is_zero() == True; Decimal('1').is_zero() == False.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra14.Decimal.is_zero_true:
+  description: "Decimal('0').is_zero() == True — zero is zero"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["0"]
+  method: is_zero
+  expected: true
+
+invariant decimal_extra14.Decimal.is_zero_false:
+  description: "Decimal('1').is_zero() == False — non-zero is not zero"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: is_zero
+  expected: false
+
+# ---------------------------------------------------------------------------
+# is_signed — predicate: does the value have a negative sign bit?
+#
+# Decimal('1.5').is_signed() == False — positive, sign bit is 0.
+# Decimal('-1.5').is_signed() == True — negative, sign bit is 1.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra14.Decimal.is_signed_positive:
+  description: "Decimal('1.5').is_signed() == False — positive value has no sign bit"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: is_signed
+  expected: false
+
+invariant decimal_extra14.Decimal.is_signed_negative:
+  description: "Decimal('-1.5').is_signed() == True — negative value has sign bit set"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["-1.5"]
+  method: is_signed
+  expected: true
+
+# ---------------------------------------------------------------------------
+# adjusted — position of the most significant digit
+#
+# Decimal('123').adjusted() == 2: 1.23 × 10^2, exponent is 2.
+# Decimal('0.001').adjusted() == -3: 1.0 × 10^-3, exponent is -3.
+# No prior spec covers adjusted().
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra14.Decimal.adjusted_positive_exp:
+  description: "Decimal('123').adjusted() == 2 — MSD at position 10^2"
+  category: properties
+  kind: python_call_eq
+  function: Decimal
+  args: ["123"]
+  method: adjusted
+  expected: 2
+
+invariant decimal_extra14.Decimal.adjusted_negative_exp:
+  description: "Decimal('0.001').adjusted() == -3 — MSD at position 10^-3"
+  category: properties
+  kind: python_call_eq
+  function: Decimal
+  args: ["0.001"]
+  method: adjusted
+  expected: -3
+
+# ---------------------------------------------------------------------------
+# getcontext — thread-local decimal arithmetic context
+#
+# decimal.getcontext() returns the current Context object.
+# The default precision is 28 significant digits.
+# No prior spec covers getcontext() or its class or prec attribute.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra14.getcontext.class_name:
+  description: "decimal.getcontext().__class__.__name__ == 'Context' — context runtime type"
+  category: class_identity
+  kind: python_call_eq
+  function: getcontext
+  args: []
+  method: __class__
+  method_chain: __name__
+  expected: "Context"
+
+invariant decimal_extra14.getcontext.default_prec:
+  description: "decimal.getcontext().prec == 28 — default precision is 28 significant digits"
+  category: properties
+  kind: python_call_eq
+  function: getcontext
+  args: []
+  method: prec
+  expected: 28
+
+# ---------------------------------------------------------------------------
+# Context.__name__ — class name attribute
+#
+# decimal.Context.__name__ == 'Context' — confirms the class identity.
+# No prior spec covers Context.__name__.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra14.Context.class_name:
+  description: "decimal.Context.__name__ == 'Context' — class name attribute"
+  category: class_identity
+  kind: python_call_eq
+  function: Context.__name__.__eq__
+  args: ["Context"]
+  expected: true

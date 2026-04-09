@@ -1,0 +1,210 @@
+spec: math_extra15
+version: ">=3.9"
+backend: python_module(math)
+
+docs: https://docs.python.org/3/library/math.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/math.html — Python math documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mathmodule.c"
+  notes:
+    - "This spec extends math.zspec.zsdl and prior extras through math_extra14.zspec.zsdl."
+    - "No prior spec covers math.floor(3.7) == 3 or math.floor(-3.2) == -4."
+    - "No prior spec covers math.ceil(3.2) == 4 or math.ceil(-3.7) == -3."
+    - "No prior spec covers math.modf(3.5) fractional part == 0.5 or integer part == 3.0."
+    - "No prior spec covers math.frexp(1.0) returning [0.5, 1]."
+    - "No prior spec covers math.ldexp(0.5, 1) == 1.0."
+    - "No prior spec covers math.factorial(5) == 120 or math.factorial(0) == 1."
+    - "No prior spec covers math.perm(5, 2) == 20 (Python 3.8+)."
+    - "No prior spec covers math.comb(5, 2) == 10 (Python 3.8+)."
+    - "math.floor(3.7) == 3 — greatest integer not exceeding 3.7."
+    - "math.floor(-3.2) == -4 — greatest integer not exceeding -3.2 is -4."
+    - "math.ceil(3.2) == 4 — smallest integer not less than 3.2."
+    - "math.ceil(-3.7) == -3 — smallest integer not less than -3.7 is -3."
+    - "math.modf(3.5) — fractional part is 0.5, integer part is 3.0."
+    - "math.frexp(1.0) — returns (0.5, 1): mantissa 0.5, exponent 1 (so 0.5 * 2^1 == 1.0)."
+    - "math.ldexp(0.5, 1) == 1.0 — 0.5 * 2^1 == 1.0, inverse of frexp."
+    - "math.factorial(5) == 120 — 5! = 5*4*3*2*1 = 120."
+    - "math.factorial(0) == 1 — 0! is defined as 1 by convention."
+    - "math.perm(5, 2) == 20 — number of ordered arrangements of 2 items from 5: 5*4 = 20."
+    - "math.comb(5, 2) == 10 — number of unordered selections of 2 from 5: 5!/(2!*3!) = 10."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# floor — round down toward negative infinity
+#
+# math.floor(3.7) == 3: floor of positive non-integer is the lower integer.
+# math.floor(-3.2) == -4: floor of negative non-integer rounds away from zero.
+# No prior spec covers these vectors.
+# ---------------------------------------------------------------------------
+
+invariant math_extra15.floor.positive:
+  description: "math.floor(3.7) == 3 — greatest integer not exceeding 3.7"
+  category: rounding
+  kind: python_call_eq
+  function: floor
+  args: [3.7]
+  expected: 3
+
+invariant math_extra15.floor.negative:
+  description: "math.floor(-3.2) == -4 — floor of negative rounds toward negative infinity"
+  category: rounding
+  kind: python_call_eq
+  function: floor
+  args: [-3.2]
+  expected: -4
+
+# ---------------------------------------------------------------------------
+# ceil — round up toward positive infinity
+#
+# math.ceil(3.2) == 4: ceil of positive non-integer is the upper integer.
+# math.ceil(-3.7) == -3: ceil of negative non-integer rounds toward zero.
+# No prior spec covers these vectors.
+# ---------------------------------------------------------------------------
+
+invariant math_extra15.ceil.positive:
+  description: "math.ceil(3.2) == 4 — smallest integer not less than 3.2"
+  category: rounding
+  kind: python_call_eq
+  function: ceil
+  args: [3.2]
+  expected: 4
+
+invariant math_extra15.ceil.negative:
+  description: "math.ceil(-3.7) == -3 — ceil of negative rounds toward positive infinity"
+  category: rounding
+  kind: python_call_eq
+  function: ceil
+  args: [-3.7]
+  expected: -3
+
+# ---------------------------------------------------------------------------
+# modf — split float into fractional and integer parts
+#
+# math.modf(3.5) returns (0.5, 3.0): fractional part 0.5, integer part 3.0.
+# The result is a tuple; we check each element via method index access.
+# No prior spec covers modf.
+# ---------------------------------------------------------------------------
+
+invariant math_extra15.modf.fractional_part:
+  description: "math.modf(3.5) fractional part == 0.5 — first element of modf result"
+  category: decomposition
+  kind: python_call_eq
+  function: modf
+  args: [3.5]
+  method: __getitem__
+  method_args: [0]
+  expected: 0.5
+
+invariant math_extra15.modf.integer_part:
+  description: "math.modf(3.5) integer part == 3.0 — second element of modf result"
+  category: decomposition
+  kind: python_call_eq
+  function: modf
+  args: [3.5]
+  method: __getitem__
+  method_args: [1]
+  expected: 3.0
+
+# ---------------------------------------------------------------------------
+# frexp — decompose float into mantissa and exponent
+#
+# math.frexp(1.0) returns (0.5, 1): 0.5 * 2^1 == 1.0.
+# Checks each tuple element via __getitem__.
+# No prior spec covers frexp.
+# ---------------------------------------------------------------------------
+
+invariant math_extra15.frexp.mantissa:
+  description: "math.frexp(1.0) mantissa == 0.5 — first element, 0.5 * 2^1 == 1.0"
+  category: decomposition
+  kind: python_call_eq
+  function: frexp
+  args: [1.0]
+  method: __getitem__
+  method_args: [0]
+  expected: 0.5
+
+invariant math_extra15.frexp.exponent:
+  description: "math.frexp(1.0) exponent == 1 — second element, exponent so 0.5 * 2^1 == 1.0"
+  category: decomposition
+  kind: python_call_eq
+  function: frexp
+  args: [1.0]
+  method: __getitem__
+  method_args: [1]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# ldexp — reconstruct float from mantissa and exponent
+#
+# math.ldexp(0.5, 1) == 1.0: 0.5 * 2^1 == 1.0 — exact inverse of frexp(1.0).
+# No prior spec covers ldexp.
+# ---------------------------------------------------------------------------
+
+invariant math_extra15.ldexp.half_exp_one:
+  description: "math.ldexp(0.5, 1) == 1.0 — 0.5 * 2^1 == 1.0, inverse of frexp"
+  category: arithmetic
+  kind: python_call_eq
+  function: ldexp
+  args: [0.5, 1]
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# factorial — integer factorial
+#
+# math.factorial(5) == 120: 5! = 5*4*3*2*1 = 120.
+# math.factorial(0) == 1: 0! is defined as 1 by convention.
+# No prior spec covers factorial.
+# ---------------------------------------------------------------------------
+
+invariant math_extra15.factorial.five:
+  description: "math.factorial(5) == 120 — 5! = 5*4*3*2*1 = 120"
+  category: combinatorics
+  kind: python_call_eq
+  function: factorial
+  args: [5]
+  expected: 120
+
+invariant math_extra15.factorial.zero:
+  description: "math.factorial(0) == 1 — 0! is defined as 1 by convention"
+  category: combinatorics
+  kind: python_call_eq
+  function: factorial
+  args: [0]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# perm — permutations P(n, k) (Python 3.8+)
+#
+# math.perm(5, 2) == 20: ordered arrangements of 2 from 5, P(5,2) = 5*4 = 20.
+# No prior spec covers perm.
+# ---------------------------------------------------------------------------
+
+invariant math_extra15.perm.five_two:
+  description: "math.perm(5, 2) == 20 — P(5,2) = 5*4 = 20 ordered arrangements"
+  category: combinatorics
+  kind: python_call_eq
+  function: perm
+  args: [5, 2]
+  expected: 20
+
+# ---------------------------------------------------------------------------
+# comb — combinations C(n, k) (Python 3.8+)
+#
+# math.comb(5, 2) == 10: unordered selections of 2 from 5, C(5,2) = 5!/(2!*3!) = 10.
+# No prior spec covers comb.
+# ---------------------------------------------------------------------------
+
+invariant math_extra15.comb.five_two:
+  description: "math.comb(5, 2) == 10 — C(5,2) = 5!/(2!*3!) = 10 unordered selections"
+  category: combinatorics
+  kind: python_call_eq
+  function: comb
+  args: [5, 2]
+  expected: 10

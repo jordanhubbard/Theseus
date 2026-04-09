@@ -1,0 +1,180 @@
+spec: difflib_extra10
+version: ">=3.9"
+backend: python_module(difflib)
+
+docs: https://docs.python.org/3/library/difflib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/difflib.html — Python difflib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/difflib.py"
+  notes:
+    - "This spec extends difflib.zspec.zsdl and prior extras through difflib_extra9.zspec.zsdl."
+    - "difflib_extra9 covers: SequenceMatcher.ratio identical/empty/single-disjoint/partial; ndiff removed-line prefix; get_close_matches 'teh'/'speling'."
+    - "difflib_extra8 covers: IS_LINE_JUNK/IS_CHARACTER_JUNK qualname and behavioral; Differ base class; SequenceMatcher/Differ mro_len; context_diff qualname; get_close_matches wheat/n=1."
+    - "difflib_extra5 covers: quick_ratio disjoint; real_quick_ratio equal-length; restore/__name__/__module__; Differ/__module__; HtmlDiff/__module__; IS_LINE_JUNK/__module__; IS_CHARACTER_JUNK/__module__; get_close_matches banana."
+    - "difflib_extra2 covers: SequenceMatcher.__name__/__module__; Differ.__name__; ndiff prefix; IS_LINE_JUNK/__name__; IS_CHARACTER_JUNK/__name__; unified_diff/__module__/ndiff/__module__/context_diff/__module__/get_close_matches/__module__."
+    - "NOT yet covered: difflib.SequenceMatcher(None,'abcde','abcdf').ratio() == 0.8 — 4-of-5 partial match."
+    - "NOT yet covered: difflib.SequenceMatcher(None,'abc','ab').real_quick_ratio() == 0.8 — unequal lengths."
+    - "NOT yet covered: difflib.get_close_matches('rat', ['cat','bat','hat'], cutoff=0.5) == ['hat','cat','bat'] — low cutoff returns all three."
+    - "NOT yet covered: difflib.get_close_matches('appel', ['ape','apple','peach'], cutoff=0.8) == ['apple'] — high cutoff filters to one."
+    - "NOT yet covered: difflib.ndiff(['one\\n','two\\n'],['one\\n','new\\n','two\\n'])[1] == '+ new\\n' — added-line prefix."
+    - "NOT yet covered: difflib.HtmlDiff.mro().__len__() == 2 — only SequenceMatcher/Differ MRO checked before."
+    - "NOT yet covered: difflib.SequenceMatcher(None,'abcde','abcdf').quick_ratio() == 0.8 — 5-char 4-match quick ratio."
+    - "difflib.SequenceMatcher(None,'abcde','abcdf').ratio() == 0.8 — 4 chars match out of 5 on each side."
+    - "difflib.SequenceMatcher(None,'abc','ab').real_quick_ratio() == 0.8 — unequal-length sequences give 2*min/(len+len)."
+    - "difflib.get_close_matches('rat', ['cat','bat','hat'], cutoff=0.5) == ['hat','cat','bat'] — all three rank above 0.5 cutoff."
+    - "difflib.get_close_matches('appel', ['ape','apple','peach'], cutoff=0.8) == ['apple'] — only apple clears high cutoff."
+    - "difflib.ndiff(['one\\n','two\\n'],['one\\n','new\\n','two\\n'])[1] == '+ new\\n' — added-line prefix is '+ '."
+    - "difflib.HtmlDiff.mro().__len__() == 2 — HtmlDiff inherits only from object."
+    - "difflib.SequenceMatcher(None,'abcde','abcdf').quick_ratio() == 0.8 — 5-char 4-match quick_ratio."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# SequenceMatcher.ratio — 4-of-5 partial match (0.8)
+#
+# difflib_extra9 covers ratio for: identical 4-char, empty, single-disjoint,
+# and 3-of-4 partial (0.75). difflib_extra7/extra8 cover 5-char identical
+# and 3-char disjoint (0.0).
+# No prior spec tests a 5-char string where 4 chars match: 'abcde'/'abcdf'.
+# ratio = 2*4 / (5+5) = 0.8.
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra10.SequenceMatcher.ratio_partial_4of5:
+  description: "difflib.SequenceMatcher(None,'abcde','abcdf').ratio() == 0.8 — 4 of 5 chars match"
+  category: SequenceMatcher
+  kind: python_call_eq
+  function: SequenceMatcher
+  args: [~, "abcde", "abcdf"]
+  method: ratio.__eq__
+  method_args: [0.8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SequenceMatcher.quick_ratio — 5-char 4-match
+#
+# difflib_extra5 covers quick_ratio for disjoint 'abc'/'xyz' == 0.0.
+# difflib.zspec.zsdl covers quick_ratio for identical inputs (== 1.0).
+# No prior spec covers quick_ratio for a partial 5-char pair 'abcde'/'abcdf'.
+# quick_ratio computes 2*matching_chars/(len_a+len_b); same as ratio here == 0.8.
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra10.SequenceMatcher.quick_ratio_partial:
+  description: "difflib.SequenceMatcher(None,'abcde','abcdf').quick_ratio() == 0.8 — 5-char 4-match"
+  category: SequenceMatcher
+  kind: python_call_eq
+  function: SequenceMatcher
+  args: [~, "abcde", "abcdf"]
+  method: quick_ratio.__eq__
+  method_args: [0.8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SequenceMatcher.real_quick_ratio — unequal-length sequences
+#
+# difflib_extra5 covers real_quick_ratio for equal-length sequences ('abc'/'xyz')
+# giving 1.0 (equal lengths always give 1.0 from this upper-bound estimate).
+# No prior spec checks real_quick_ratio for unequal-length sequences.
+# real_quick_ratio = 2*min(len_a,len_b)/(len_a+len_b).
+# For 'abc'(3) and 'ab'(2): 2*2/(3+2) = 4/5 = 0.8.
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra10.SequenceMatcher.real_quick_ratio_unequal:
+  description: "difflib.SequenceMatcher(None,'abc','ab').real_quick_ratio() == 0.8 — unequal lengths"
+  category: SequenceMatcher
+  kind: python_call_eq
+  function: SequenceMatcher
+  args: [~, "abc", "ab"]
+  method: real_quick_ratio.__eq__
+  method_args: [0.8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# HtmlDiff.mro().__len__() == 2
+#
+# difflib_extra8 covers SequenceMatcher.mro().__len__() == 2 and
+# Differ.mro().__len__() == 2. No prior spec checks HtmlDiff MRO length.
+# HtmlDiff is a plain Python class inheriting directly from object, so its
+# MRO is [HtmlDiff, object] with length 2.
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra10.HtmlDiff.mro_len:
+  description: "difflib.HtmlDiff.mro().__len__() == 2 — [HtmlDiff, object]"
+  category: class_identity
+  kind: python_call_eq
+  function: HtmlDiff.mro
+  args: []
+  method: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# ndiff — added-line prefix ('+ ')
+#
+# difflib_extra9 covers ndiff with a removed line ('- two\n' prefix).
+# difflib_extra2/extra7 cover the equal-line prefix ('  hello\n').
+# No prior spec tests the added-line prefix ('+ new\n') from ndiff.
+# ndiff(['one\n','two\n'], ['one\n','new\n','two\n'])[1] == '+ new\n'.
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra10.ndiff.added_line:
+  description: "difflib.ndiff(['one\\n','two\\n'],['one\\n','new\\n','two\\n'])[1] == '+ new\\n' — added-line prefix"
+  category: ndiff
+  kind: python_call_eq
+  function: ndiff
+  args: [["one\n", "two\n"], ["one\n", "new\n", "two\n"]]
+  method: __next__.__next__
+  expected: "+ new\n"
+
+# ---------------------------------------------------------------------------
+# get_close_matches — cutoff parameter vectors
+#
+# Prior specs use only the default cutoff=0.6. difflib.zspec.zsdl covers a
+# high-cutoff vector ('apple' only). No prior spec uses cutoff=0.5 or
+# cutoff=0.8 as an explicit keyword argument.
+# cutoff=0.8: 'appel' vs ['ape','apple','peach'] -> only 'apple' qualifies.
+# cutoff=0.5: 'rat' vs ['cat','bat','hat'] -> all three qualify; sorted by score.
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra10.get_close_matches.cutoff_high:
+  description: "difflib.get_close_matches('appel',['ape','apple','peach'],cutoff=0.8) == ['apple']"
+  category: get_close_matches
+  kind: python_call_eq
+  function: get_close_matches
+  args: ["appel", ["ape", "apple", "peach"]]
+  kwargs: {cutoff: 0.8}
+  expected: ["apple"]
+
+invariant difflib_extra10.get_close_matches.cutoff_low:
+  description: "difflib.get_close_matches('rat',['cat','bat','hat'],cutoff=0.5) == ['hat','cat','bat']"
+  category: get_close_matches
+  kind: python_call_eq
+  function: get_close_matches
+  args: ["rat", ["cat", "bat", "hat"]]
+  kwargs: {cutoff: 0.5}
+  expected: ["hat", "cat", "bat"]
+
+# ---------------------------------------------------------------------------
+# Table: SequenceMatcher ratio/quick_ratio partial-match vectors
+#
+# Groups ratio and quick_ratio for the 5-char partial pair in one table.
+# ---------------------------------------------------------------------------
+
+table difflib_extra10.ratio_partial_vectors:
+  description: "SequenceMatcher ratio and quick_ratio for partial 5-char pair"
+  kind: python_call_eq
+  category: SequenceMatcher
+  id_prefix: rp
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [ratio_4of5,       SequenceMatcher, [~, "abcde", "abcdf"], ratio.__eq__,       [0.8], true]
+    - [quick_ratio_4of5, SequenceMatcher, [~, "abcde", "abcdf"], quick_ratio.__eq__,  [0.8], true]
+
+# Note: get_close_matches cutoff variants require the kwargs field which is only
+# supported on standalone invariants (not table rows). The two cutoff vectors
+# are expressed as standalone invariants above (cutoff_high and cutoff_low).

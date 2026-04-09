@@ -1,0 +1,156 @@
+spec: statistics_extra13
+version: ">=3.8"
+backend: python_module(statistics)
+
+docs: https://docs.python.org/3/library/statistics.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/statistics.html — Python statistics documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/statistics.py"
+  notes:
+    - "This spec extends statistics.zspec.zsdl and prior extras through statistics_extra12.zspec.zsdl."
+    - "No prior spec covers statistics.mode([1,1,2,3]) == 1 (integer mode)."
+    - "No prior spec covers statistics.mode(['a','a','b']) == 'a' (string mode)."
+    - "No prior spec covers statistics.multimode([1,1,2,2,3]) == [1, 2]."
+    - "No prior spec covers statistics.quantiles([1..10], n=4) returning 3 quartile cut points."
+    - "No prior spec covers NormalDist(0,1).mean == 0.0 or NormalDist(0,1).stdev == 1.0."
+    - "No prior spec covers NormalDist.__name__ == 'NormalDist' or StatisticsError.__name__ == 'StatisticsError'."
+    - "statistics.mode([1,1,2,3]) == 1 — most common value in an integer list."
+    - "statistics.mode(['a','a','b']) == 'a' — most common value in a string list."
+    - "statistics.multimode([1,1,2,2,3]) == [1, 2] — all modes when there is a tie."
+    - "statistics.quantiles([1..10], n=4) returns list of 3 quartile cut points."
+    - "NormalDist(0,1).__class__.__name__ == 'NormalDist' — instance type identity."
+    - "NormalDist(0,1).mean == 0.0 — mean parameter of standard normal distribution."
+    - "NormalDist(0,1).stdev == 1.0 — standard deviation of standard normal distribution."
+    - "NormalDist.__name__ == 'NormalDist' — class name attribute."
+    - "StatisticsError.__name__ == 'StatisticsError' — exception class name attribute."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# mode — most common value in a dataset
+#
+# statistics.mode([1,1,2,3]) == 1: 1 appears twice, all others once.
+# statistics.mode(['a','a','b']) == 'a': works with strings too.
+# No prior spec covers mode.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra13.mode.integer_list:
+  description: "statistics.mode([1,1,2,3]) == 1 — most common integer value"
+  category: mode
+  kind: python_call_eq
+  function: mode
+  args: [[1, 1, 2, 3]]
+  expected: 1
+
+invariant statistics_extra13.mode.string_list:
+  description: "statistics.mode(['a','a','b']) == 'a' — most common string value"
+  category: mode
+  kind: python_call_eq
+  function: mode
+  args: [["a", "a", "b"]]
+  expected: "a"
+
+# ---------------------------------------------------------------------------
+# multimode — all modes when data has ties
+#
+# statistics.multimode([1,1,2,2,3]) == [1, 2]: both 1 and 2 appear twice.
+# multimode always returns a list, even when there is one unique mode.
+# No prior spec covers multimode.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra13.multimode.tie:
+  description: "statistics.multimode([1,1,2,2,3]) == [1, 2] — both values appear twice"
+  category: mode
+  kind: python_call_eq
+  function: multimode
+  args: [[1, 1, 2, 2, 3]]
+  expected: [1, 2]
+
+# ---------------------------------------------------------------------------
+# quantiles — cut points dividing a dataset into equal-probability intervals
+#
+# statistics.quantiles([1..10], n=4) returns 3 quartile cut points (Q1, Q2, Q3).
+# We verify the length of the returned list is 3 (n-1 cut points for n intervals).
+# Actual values: [2.75, 5.5, 8.25].
+# No prior spec covers quantiles.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra13.quantiles.length_quartiles:
+  description: "statistics.quantiles([1..10], n=4) returns list of length 3 — Q1, Q2, Q3"
+  category: quantiles
+  kind: python_call_eq
+  function: quantiles
+  args: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  method: __len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# NormalDist — normal distribution class (Python 3.8+)
+#
+# NormalDist(mu, sigma) creates a normal distribution object.
+# No prior spec covers NormalDist or any of its properties.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra13.NormalDist.instance_class_name:
+  description: "NormalDist(0,1).__class__.__name__ == 'NormalDist' — instance type identity"
+  category: class_identity
+  kind: python_call_eq
+  function: NormalDist
+  args: [0, 1]
+  method: __class__
+  method_chain: __name__
+  expected: "NormalDist"
+
+invariant statistics_extra13.NormalDist.mean:
+  description: "NormalDist(0,1).mean == 0.0 — mean parameter of standard normal distribution"
+  category: properties
+  kind: python_call_eq
+  function: NormalDist
+  args: [0, 1]
+  method: mean
+  expected: 0.0
+
+invariant statistics_extra13.NormalDist.stdev:
+  description: "NormalDist(0,1).stdev == 1.0 — standard deviation of standard normal distribution"
+  category: properties
+  kind: python_call_eq
+  function: NormalDist
+  args: [0, 1]
+  method: stdev
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# NormalDist.__name__ — class name attribute
+#
+# Confirms the class is named 'NormalDist' at the class level.
+# No prior spec covers NormalDist.__name__.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra13.NormalDist.class_name:
+  description: "NormalDist.__name__ == 'NormalDist' — class name attribute"
+  category: class_identity
+  kind: python_call_eq
+  function: NormalDist.__name__.__eq__
+  args: ["NormalDist"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# StatisticsError.__name__ — exception class name attribute
+#
+# StatisticsError is the module's custom exception. No prior spec checks its
+# class name. StatisticsError.__name__ == 'StatisticsError'.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra13.StatisticsError.class_name:
+  description: "StatisticsError.__name__ == 'StatisticsError' — exception class name attribute"
+  category: class_identity
+  kind: python_call_eq
+  function: StatisticsError.__name__.__eq__
+  args: ["StatisticsError"]
+  expected: true

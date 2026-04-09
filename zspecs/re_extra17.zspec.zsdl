@@ -1,0 +1,206 @@
+spec: re_extra17
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec extends re.zspec.zsdl and prior extras through re_extra16.zspec.zsdl."
+    - "re_extra16 covers: sub whitespace-to-hyphen and vowel-replacement; findall word-tokens and uppercase letters; search first-uppercase; match decimal group(1) and group(2)."
+    - "re_extra14 covers: RegexFlag.__name__/__qualname__/__module__; RegexFlag base IntFlag; compile(r'[a-z]+').pattern; match group(2); match groups().__len__; subn digit result/count; match digit start/end."
+    - "re_extra15 covers: fullmatch match/none; split whitespace three-word and comma; findall digit runs and alpha runs; escape dot and dollar."
+    - "re_extra7 covers: RegexFlag member values IGNORECASE/MULTILINE/DOTALL/VERBOSE/ASCII/NOFLAG .value attributes."
+    - "NOT yet covered: re.escape('[abc]') == '\\\\[abc\\\\]' — square-bracket metacharacter escaping."
+    - "NOT yet covered: re.escape('a*b') == 'a\\\\*b' — star metacharacter escaping."
+    - "NOT yet covered: re.split(r'\\.', 'a.b.c') == ['a', 'b', 'c'] — splitting on escaped dot."
+    - "NOT yet covered: re.split(r'\\d+', 'a1b2c3') == ['a', 'b', 'c', ''] — splitting on digit runs."
+    - "NOT yet covered: re.findall(r'\\w+', 'foo bar baz') == ['foo', 'bar', 'baz'] — 3-word extraction."
+    - "NOT yet covered: re.match(r'(\\w+)\\s+(\\w+)\\s+(\\w+)', ...).group(3) — third capture group."
+    - "NOT yet covered: re.match(r'(\\w+)\\s+(\\w+)\\s+(\\w+)', ...).groups().__len__() == 3."
+    - "NOT yet covered: re.match(r'(?P<year>\\d{4})', '2024ab').group('year') == '2024' — named-group access by name."
+    - "NOT yet covered: re.compile(r'(?P<y>\\d{4})-(?P<m>\\d{2})').groupindex has length 2."
+    - "re.escape('[abc]') == '\\\\[abc\\\\]' — square brackets are regex metacharacters."
+    - "re.escape('a*b') == 'a\\\\*b' — star is a regex metacharacter."
+    - "re.split(r'\\.', 'a.b.c') == ['a', 'b', 'c'] — escaped dot splits on literal dot."
+    - "re.split(r'\\d+', 'a1b2c3') == ['a', 'b', 'c', ''] — digit runs split the string."
+    - "re.findall(r'\\w+', 'foo bar baz') == ['foo', 'bar', 'baz'] — three word tokens."
+    - "re.match(r'(\\w+)\\s+(\\w+)\\s+(\\w+)', 'hello world test').group(3) == 'test'."
+    - "re.match(r'(\\w+)\\s+(\\w+)\\s+(\\w+)', 'hello world test').groups().__len__() == 3."
+    - "re.match(r'(?P<year>\\d{4})', '2024ab').group('year') == '2024' — named group access by string key."
+    - "re.compile(r'(?P<y>\\d{4})-(?P<m>\\d{2})').groupindex.__len__() == 2 — two named groups."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.escape — square-bracket and star metacharacters
+#
+# re_extra10/extra12/extra15 cover escape with 'a.b', 'hello', 'hello.world',
+# 'price$', 'a.b+c', '1+1'. No prior spec tests escape with square brackets
+# or the star quantifier. '[abc]' -> '\\[abc\\]'; 'a*b' -> 'a\\*b'.
+# ---------------------------------------------------------------------------
+
+invariant re_extra17.escape.brackets:
+  description: "re.escape('[abc]') == '\\\\[abc\\\\]' — square brackets are metacharacters"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["[abc]"]
+  expected: "\\[abc\\]"
+
+invariant re_extra17.escape.star:
+  description: "re.escape('a*b') == 'a\\\\*b' — star is a regex metacharacter"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["a*b"]
+  expected: "a\\*b"
+
+# ---------------------------------------------------------------------------
+# re.split — escaped-dot and digit-run patterns
+#
+# Prior specs cover split with r'\s+' (whitespace), r',' (literal comma), and
+# r',\s*' (comma-whitespace). No prior spec uses r'\.' (escaped dot) or
+# r'\d+' (digit runs) as the split pattern.
+# re.split(r'\.', 'a.b.c') == ['a', 'b', 'c']
+# re.split(r'\d+', 'a1b2c3') == ['a', 'b', 'c', '']
+# ---------------------------------------------------------------------------
+
+invariant re_extra17.split.escaped_dot:
+  description: "re.split(r'\\.', 'a.b.c') == ['a', 'b', 'c'] — escaped dot splits on literal dot"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["\\.", "a.b.c"]
+  expected: ["a", "b", "c"]
+
+invariant re_extra17.split.digit_runs:
+  description: "re.split(r'\\d+', 'a1b2c3') == ['a', 'b', 'c', ''] — digit runs split string"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["\\d+", "a1b2c3"]
+  expected: ["a", "b", "c", ""]
+
+# ---------------------------------------------------------------------------
+# re.findall — three-word extraction
+#
+# re_extra16 covers findall(r'\w+', 'hello world') == ['hello', 'world'] (2 words).
+# No prior spec uses a three-word input 'foo bar baz' with r'\w+'.
+# re.findall(r'\w+', 'foo bar baz') == ['foo', 'bar', 'baz'].
+# ---------------------------------------------------------------------------
+
+invariant re_extra17.findall.three_words:
+  description: "re.findall(r'\\w+', 'foo bar baz') == ['foo', 'bar', 'baz'] — three-word extraction"
+  category: findall
+  kind: python_call_eq
+  function: findall
+  args: ["\\w+", "foo bar baz"]
+  expected: ["foo", "bar", "baz"]
+
+# ---------------------------------------------------------------------------
+# re.match — three capture groups: group(3) and groups().__len__() == 3
+#
+# re_extra14 covers match(r'(\w+)\s+(\w+)', ...).group(2) and .groups().__len__()==2.
+# No prior spec tests a pattern with THREE capture groups. The pattern
+# r'(\w+)\s+(\w+)\s+(\w+)' extracts three whitespace-separated words.
+# group(3) == 'test'; groups().__len__() == 3.
+# ---------------------------------------------------------------------------
+
+invariant re_extra17.match.group_three:
+  description: "re.match(r'(\\w+)\\s+(\\w+)\\s+(\\w+)', 'hello world test').group(3) == 'test'"
+  category: match_groups
+  kind: python_call_eq
+  function: match
+  args: ["(\\w+)\\s+(\\w+)\\s+(\\w+)", "hello world test"]
+  method: group
+  method_args: [3]
+  expected: "test"
+
+invariant re_extra17.match.three_groups_len:
+  description: "re.match(r'(\\w+)\\s+(\\w+)\\s+(\\w+)', 'hello world test').groups().__len__() == 3"
+  category: match_groups
+  kind: python_call_eq
+  function: match
+  args: ["(\\w+)\\s+(\\w+)\\s+(\\w+)", "hello world test"]
+  method: groups.__len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# re.match — named group access by string key
+#
+# Prior specs access named groups only via .groupdict() (extra11) or the
+# .groupindex attribute (extra11). No prior spec calls .group('year') with a
+# string key to retrieve a named capture group value directly.
+# re.match(r'(?P<year>\d{4})', '2024ab').group('year') == '2024'.
+# ---------------------------------------------------------------------------
+
+invariant re_extra17.match.named_group_by_name:
+  description: "re.match(r'(?P<year>\\d{4})', '2024ab').group('year') == '2024' — named group by string key"
+  category: match_groups
+  kind: python_call_eq
+  function: match
+  args: ["(?P<year>\\d{4})", "2024ab"]
+  method: group
+  method_args: ["year"]
+  expected: "2024"
+
+# ---------------------------------------------------------------------------
+# re.compile — groupindex with two named groups
+#
+# re_extra11 covers groupindex with 0 named groups (length 0) and 1 named group
+# (length 1). No prior spec tests a compiled pattern with TWO named groups.
+# re.compile(r'(?P<y>\d{4})-(?P<m>\d{2})').groupindex has length 2.
+# ---------------------------------------------------------------------------
+
+invariant re_extra17.compile.groupindex_two_named:
+  description: "re.compile(r'(?P<y>\\d{4})-(?P<m>\\d{2})').groupindex.__len__() == 2 — two named groups"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["(?P<y>\\d{4})-(?P<m>\\d{2})"]
+  method: groupindex.__len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# Table: escape metacharacter variety
+#
+# Groups bracket and star escape vectors. No prior spec provides a table for
+# non-dot-dollar escape patterns.
+# ---------------------------------------------------------------------------
+
+table re_extra17.escape_metacharacters:
+  description: "re.escape metacharacter variety vectors — brackets and star"
+  kind: python_call_eq
+  category: escape
+  id_prefix: em
+
+  columns: [id, function, args, expected]
+  rows:
+    - [brackets, escape, ["[abc]"], "\\[abc\\]"]
+    - [star,     escape, ["a*b"],   "a\\*b"]
+
+# ---------------------------------------------------------------------------
+# Table: split pattern variety — dot and digit
+#
+# Groups the escaped-dot and digit-run split vectors in one indexed table.
+# ---------------------------------------------------------------------------
+
+table re_extra17.split_pattern_variety:
+  description: "re.split pattern variety — escaped dot and digit runs"
+  kind: python_call_eq
+  category: split
+  id_prefix: sp
+
+  columns: [id, function, args, expected]
+  rows:
+    - [dot,    split, ["\\.",  "a.b.c"], ["a", "b", "c"]]
+    - [digits, split, ["\\d+", "a1b2c3"], ["a", "b", "c", ""]]
