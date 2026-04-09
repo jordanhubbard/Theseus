@@ -1,0 +1,175 @@
+spec: ctypes_extra4
+version: ">=3.9"
+backend: python_module(ctypes)
+
+docs: https://docs.python.org/3/library/ctypes.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ctypes.html — Python ctypes module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ctypes/__init__.py"
+    - "CPython source: Modules/_ctypes/"
+  notes:
+    - "This spec extends ctypes.zspec.zsdl, ctypes_extra.zspec.zsdl, ctypes_extra2.zspec.zsdl, ctypes_extra3.zspec.zsdl, and ctypes_module.zspec.zsdl."
+    - "Prior specs cover: __name__ and __module__ for all major types; __qualname__ for all major types; instance .value for c_int/c_double/c_bool; fixed-width aliases; helper function names; bases checks for Structure/Union."
+    - "This spec adds: c_ubyte instance .value behavior; c_short instance .value behavior; c_ushort instance .value behavior; c_wchar instance .value behavior; PyDLL.__module__ check; PyDLL.__qualname__ check; LibraryLoader.__module__ check; LibraryLoader.__qualname__ check; addressof.__name__ and __qualname__ (addressof was in ctypes_module helper_names but __qualname__ was never checked)."
+    - "c_ubyte wraps C unsigned char; c_ubyte(200).value == 200."
+    - "c_short wraps C short; c_short(-32768).value == -32768 (minimum signed 16-bit)."
+    - "c_ushort wraps C unsigned short; c_ushort(65535).value == 65535 (maximum unsigned 16-bit)."
+    - "c_wchar wraps a single wide character; c_wchar('A').value == 'A'."
+    - "PyDLL.__module__ == 'ctypes' — PyDLL is defined in the Python-level ctypes package."
+    - "PyDLL.__qualname__ == 'PyDLL' — top-level class; qualname equals name."
+    - "LibraryLoader.__module__ == 'ctypes' — LibraryLoader is defined in the Python-level ctypes package."
+    - "LibraryLoader.__qualname__ == 'LibraryLoader' — top-level class; qualname equals name."
+    - "addressof.__qualname__ == 'addressof' — C builtin helper; qualname equals name."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# c_ubyte instance .value behavior
+#
+# c_ubyte wraps unsigned char (0..255). The .value attribute returns a Python int.
+# No prior spec exercises c_ubyte instance behavior.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra4.c_ubyte.value_200:
+  description: "ctypes.c_ubyte(200).value == 200 — unsigned byte round-trip"
+  category: instance_values
+  kind: python_call_eq
+  function: c_ubyte
+  args: [200]
+  method: value
+  expected: 200
+
+invariant ctypes_extra4.c_ubyte.value_zero:
+  description: "ctypes.c_ubyte(0).value == 0 — unsigned byte minimum value"
+  category: instance_values
+  kind: python_call_eq
+  function: c_ubyte
+  args: [0]
+  method: value
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# c_short instance .value behavior
+#
+# c_short wraps C signed short (int16). No prior spec exercises c_short instance.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra4.c_short.value_min:
+  description: "ctypes.c_short(-32768).value == -32768 — minimum signed 16-bit value"
+  category: instance_values
+  kind: python_call_eq
+  function: c_short
+  args: [-32768]
+  method: value
+  expected: -32768
+
+invariant ctypes_extra4.c_short.value_max:
+  description: "ctypes.c_short(32767).value == 32767 — maximum signed 16-bit value"
+  category: instance_values
+  kind: python_call_eq
+  function: c_short
+  args: [32767]
+  method: value
+  expected: 32767
+
+# ---------------------------------------------------------------------------
+# c_ushort instance .value behavior
+#
+# c_ushort wraps C unsigned short (uint16). No prior spec exercises c_ushort instance.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra4.c_ushort.value_max:
+  description: "ctypes.c_ushort(65535).value == 65535 — maximum unsigned 16-bit value"
+  category: instance_values
+  kind: python_call_eq
+  function: c_ushort
+  args: [65535]
+  method: value
+  expected: 65535
+
+# ---------------------------------------------------------------------------
+# c_wchar instance .value behavior
+#
+# c_wchar wraps a single wide character (wchar_t). The .value returns a Python str
+# of length 1. No prior spec exercises c_wchar instance behavior.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra4.c_wchar.value_A:
+  description: "ctypes.c_wchar('A').value == 'A' — wide char round-trip for ASCII"
+  category: instance_values
+  kind: python_call_eq
+  function: c_wchar
+  args: ["A"]
+  method: value.__eq__
+  method_args: ["A"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PyDLL — module and qualname
+#
+# PyDLL is defined in the Python-level ctypes package.
+# ctypes.zspec.zsdl and ctypes_module.zspec.zsdl verify PyDLL.__name__ == 'PyDLL'.
+# Neither spec checks __module__ or __qualname__ for PyDLL.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra4.PyDLL.module:
+  description: "ctypes.PyDLL.__module__ == 'ctypes' — PyDLL is defined in the Python-level ctypes package"
+  category: class_modules
+  kind: python_call_eq
+  function: PyDLL.__module__.__eq__
+  args: ["ctypes"]
+  expected: true
+
+invariant ctypes_extra4.PyDLL.qualname:
+  description: "ctypes.PyDLL.__qualname__ == 'PyDLL' — top-level class has flat qualname"
+  category: qualnames
+  kind: python_call_eq
+  function: PyDLL.__qualname__.__eq__
+  args: ["PyDLL"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# LibraryLoader — module and qualname
+#
+# LibraryLoader is defined in the Python-level ctypes package.
+# ctypes.zspec.zsdl and ctypes_module.zspec.zsdl verify LibraryLoader.__name__.
+# Neither spec checks __module__ or __qualname__ for LibraryLoader.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra4.LibraryLoader.module:
+  description: "ctypes.LibraryLoader.__module__ == 'ctypes' — LibraryLoader is a Python-level class"
+  category: class_modules
+  kind: python_call_eq
+  function: LibraryLoader.__module__.__eq__
+  args: ["ctypes"]
+  expected: true
+
+invariant ctypes_extra4.LibraryLoader.qualname:
+  description: "ctypes.LibraryLoader.__qualname__ == 'LibraryLoader' — top-level class has flat qualname"
+  category: qualnames
+  kind: python_call_eq
+  function: LibraryLoader.__qualname__.__eq__
+  args: ["LibraryLoader"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# addressof — __qualname__
+#
+# ctypes_module.zspec.zsdl checks addressof.__name__ == 'addressof'.
+# No prior spec checks addressof.__qualname__.
+# For a module-level builtin_function_or_method, __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra4.addressof.qualname:
+  description: "ctypes.addressof.__qualname__ == 'addressof' — C helper function has flat qualname"
+  category: qualnames
+  kind: python_call_eq
+  function: addressof.__qualname__.__eq__
+  args: ["addressof"]
+  expected: true

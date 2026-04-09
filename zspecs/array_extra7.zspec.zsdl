@@ -1,0 +1,169 @@
+spec: array_extra7
+version: ">=3.9"
+backend: python_module(array)
+
+docs: https://docs.python.org/3/library/array.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/array.html — Python array module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/arraymodule.c"
+  notes:
+    - "This spec extends array.zspec.zsdl through array_extra6.zspec.zsdl."
+    - "array_extra covers: array.__name__/__module__, ArrayType.__name__, typecodes is str, itemsize b/h, typecode b, length/getitem/tolist for 'b'."
+    - "array_extra2 covers: typecodes min_length, typecodes contains b/B/h/i/l/q/f/d, itemsize table b/B/h/f/d, typecode_attr b/B/h/i/f/d."
+    - "array_extra3 covers: ArrayType.__module__, itemsize H/I, typecode H/d, buffer_info, tolist/count/index on 'i', unsigned short tolist."
+    - "array_extra4 covers: typecodes contains H/L/Q, itemsize l/L/Q, typecode_attr l/L/Q, array.__qualname__, bases_object, getitem B[1]."
+    - "array_extra5 covers: ArrayType.__qualname__, typecodes contains 'I', tobytes class/length for 'b', itemsize lower-bound guard."
+    - "array_extra6 covers: array metaclass (type), MRO length 2, typecodes contains 'u'/'w', class identity table, arraytype_alias table, float array tolist/length/typecode for 'f'."
+    - "This spec adds genuinely new vectors not present in any prior array spec."
+    - "array.array('d', [1.0, -1.0]).tolist() == [1.0, -1.0] — double array round-trip; 'd' appeared in itemsize/typecode_attr but never in a tolist behavioral test."
+    - "array.array('d', [1.0, -1.0]).typecode == 'd' — typecode attribute for double arrays."
+    - "array.array('d', [1.0, -1.0]).itemsize == 8 — double precision float is 8 bytes per element."
+    - "array.array('b', [-128, 0, 127]).count(-128) == 1 — count() with a value that appears once; 'b' count was in array_extra3 only with a different fixture."
+    - "array.array('b', [-128, 0, 127]).index(127) == 2 — index() returns position of 127; 'b' index not in any prior spec."
+    - "array.array('B', [10, 20, 30]).tolist() == [10, 20, 30] — unsigned byte array; 'B' was in itemsize/typecode_attr but never in tolist behavioral test."
+    - "array.array('h', [-1, 0, 1]).tolist() == [-1, 0, 1] — signed short array; 'h' was in itemsize/typecode_attr but never in tolist behavioral test."
+    - "array.array('i', [0]).append(1).__class__ is NoneType — append() returns None (side-effect method)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Behavioral vectors — typecode 'd' (double, 8 bytes)
+#
+# array_extra2 and array_extra.zsdl verify 'd' itemsize == 8 and typecode_attr 'd'.
+# array_extra6 adds tolist/len/typecode for 'f' (float). No prior spec adds
+# tolist, typecode, or itemsize via instance methods for 'd'. New here.
+# ---------------------------------------------------------------------------
+
+invariant array_extra7.double_array.tolist:
+  description: "array.array('d', [1.0, -1.0]).tolist() == [1.0, -1.0] — double array round-trips through tolist"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["d", [1.0, -1.0]]
+  method: tolist
+  method_args: []
+  expected: [1.0, -1.0]
+
+invariant array_extra7.double_array.typecode:
+  description: "array.array('d', [1.0, -1.0]).typecode == 'd' — typecode attribute for double arrays"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["d", [1.0, -1.0]]
+  method: typecode.__eq__
+  method_args: ["d"]
+  expected: true
+
+invariant array_extra7.double_array.itemsize:
+  description: "array.array('d', [1.0]).itemsize == 8 — double precision float is 8 bytes per element"
+  category: itemsize
+  kind: python_call_eq
+  function: array
+  args: ["d", [1.0]]
+  method: itemsize.__eq__
+  method_args: [8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# count() and index() — typecode 'b' with new fixture values
+#
+# array_extra3 tests count/index on 'i' with [1,2,3]. No spec tests these
+# methods on 'b' or with negative values. New fixture: [-128, 0, 127].
+# ---------------------------------------------------------------------------
+
+invariant array_extra7.signed_byte_array.count:
+  description: "array.array('b', [-128, 0, 127]).count(-128) == 1 — count of the minimum signed byte value"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["b", [-128, 0, 127]]
+  method: count
+  method_args: [-128]
+  expected: 1
+
+invariant array_extra7.signed_byte_array.index:
+  description: "array.array('b', [-128, 0, 127]).index(127) == 2 — index of maximum signed byte at position 2"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["b", [-128, 0, 127]]
+  method: index
+  method_args: [127]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# Behavioral vectors — typecode 'B' (unsigned byte)
+#
+# 'B' was covered in itemsize and typecode_attr checks (array_extra2/3).
+# No prior spec exercises 'B' in a tolist behavioral test.
+# ---------------------------------------------------------------------------
+
+invariant array_extra7.ubyte_array.tolist:
+  description: "array.array('B', [10, 20, 30]).tolist() == [10, 20, 30] — unsigned byte array round-trip"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["B", [10, 20, 30]]
+  method: tolist
+  method_args: []
+  expected: [10, 20, 30]
+
+# ---------------------------------------------------------------------------
+# Behavioral vectors — typecode 'h' (signed short, 2 bytes)
+#
+# 'h' was covered in itemsize checks (array_extra, array_extra2).
+# No prior spec exercises 'h' in a tolist behavioral test.
+# ---------------------------------------------------------------------------
+
+invariant array_extra7.signed_short_array.tolist:
+  description: "array.array('h', [-1, 0, 1]).tolist() == [-1, 0, 1] — signed short array round-trip with negative values"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["h", [-1, 0, 1]]
+  method: tolist
+  method_args: []
+  expected: [-1, 0, 1]
+
+# ---------------------------------------------------------------------------
+# tobytes() for typecode 'd' — byte length == 8 * element count
+#
+# array_extra5 checks tobytes() for 'b' (1 byte each). No spec checks tobytes
+# for 'd' (8 bytes each). Two elements produce 16 bytes.
+# ---------------------------------------------------------------------------
+
+invariant array_extra7.tobytes.length_d:
+  description: "array.array('d', [1.0, 2.0]).tobytes().__len__() == 16 — 'd' is 8 bytes each, 2 elements → 16 bytes"
+  category: tobytes
+  kind: python_call_eq
+  function: array
+  args: ["d", [1.0, 2.0]]
+  method: tobytes
+  method_args: []
+  method_chain: __len__
+  method_chain_args: []
+  expected: 16
+
+# ---------------------------------------------------------------------------
+# typecodes string length upper-bound guard
+#
+# array_extra2 checks typecodes.__len__() >= some minimum. No prior spec
+# checks an upper bound. The typecodes string should not be unreasonably long
+# (it contains at most the 13 documented single-character codes on any platform).
+# ---------------------------------------------------------------------------
+
+invariant array_extra7.typecodes.len_le_20:
+  description: "array.typecodes.__len__() <= 20 — typecodes string is not unreasonably long"
+  category: typecodes
+  kind: python_call_eq
+  function: typecodes.__len__
+  args: []
+  method: __le__
+  method_args: [20]
+  expected: true

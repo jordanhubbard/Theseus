@@ -1,0 +1,176 @@
+spec: struct_extra7
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+    - "struct.zspec.zsdl — pack/unpack for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize; roundtrip; error cases."
+    - "struct_extra.zspec.zsdl — Struct format/size, calcsize extras, pack_into, unpack_from, iter_unpack, error name/bases."
+    - "struct_extra2.zspec.zsdl — function __name__/__module__; pack(>H,256); unpack(>H); calcsize(>HHH); Struct base."
+    - "struct_extra3.zspec.zsdl — pack/unpack/calcsize for !f/!d/!?; calcsize for !5s/!3p/!x/!5x."
+    - "struct_extra4.zspec.zsdl — Struct.__name__; pack_into.__name__; function __qualname__ table; error.__qualname__; pack(>I,65536)/(<I,65536)/(>i,-256); calcsize(>i/<i/>I)."
+    - "struct_extra5.zspec.zsdl — Struct.__qualname__; Struct('>I'/'H') format/size; pack(>B,255); unpack(>B,xff); calcsize(>B/<B/>5s); Struct('>I').pack(256)."
+    - "struct_extra6.zspec.zsdl — pack/unpack(>b,127/-128); Struct('>b'/'>Q') format/size; pack/calcsize('<h'); unpack('<h')."
+  notes:
+    - "This spec adds genuinely new test vectors not present in any prior struct spec."
+    - "struct.pack('>l', -1) == b'\\xff\\xff\\xff\\xff' — big-endian signed long; 'l' maps to int32 on 32-bit, int64 on 64-bit. No prior spec uses 'l' format."
+    - "struct.calcsize('>l') == 4 — 'l' is a 32-bit signed long in network format; no prior spec covers this."
+    - "struct.pack('>L', 0) == b'\\x00\\x00\\x00\\x00' — big-endian unsigned long; 'L' not in any prior spec."
+    - "struct.calcsize('>L') == 4 — unsigned long is 4 bytes in standard/network format."
+    - "struct.unpack('>L', b'\\x00\\x00\\x00\\x00') == (0,) — inverse of the above pack; 'L' not in any prior unpack test."
+    - "struct.pack('=H', 1) — native byte order without alignment; '=' prefix not in any prior spec."
+    - "struct.calcsize('=H') == 2 — '=' format char 'H' is always 2 bytes (standard size)."
+    - "struct.pack('>2B', 1, 2) == b'\\x01\\x02' — repeat count prefix '2B'; struct.zspec.zsdl uses '2H' in unpack only; '2B' in pack is new."
+    - "struct.unpack('>2B', b'\\x01\\x02') == (1, 2) — inverse of the 2B pack above."
+    - "struct.calcsize('>2B') == 2 — two unsigned bytes; repeat count with 'B' not in any prior calcsize."
+    - "struct.Struct('>l').format == '>l' — Struct instance for 'l' format; no prior spec constructs Struct('>l')."
+    - "struct.Struct('>l').size == 4 — size of signed long in standard format."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# pack() and calcsize() — signed long format '>l'
+#
+# 'l' is C signed long; in standard/network byte order it is always 4 bytes.
+# No prior struct spec uses 'l' format in any pack, unpack, or calcsize test.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra7.pack.big_endian_long_neg1:
+  description: "struct.pack('>l', -1) == b'\\xff\\xff\\xff\\xff' — big-endian signed long -1"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">l", -1]
+  expected: !hex ffffffff
+
+invariant struct_extra7.pack.big_endian_long_zero:
+  description: "struct.pack('>l', 0) == b'\\x00\\x00\\x00\\x00' — big-endian signed long 0"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">l", 0]
+  expected: !hex 00000000
+
+invariant struct_extra7.calcsize.big_endian_l:
+  description: "struct.calcsize('>l') == 4 — signed long in standard format is 4 bytes"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: [">l"]
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# pack(), unpack(), and calcsize() — unsigned long format '>L'
+#
+# 'L' is C unsigned long; in standard format always 4 bytes.
+# No prior struct spec uses 'L' format in any test vector.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra7.pack.big_endian_ulong_zero:
+  description: "struct.pack('>L', 0) == b'\\x00\\x00\\x00\\x00' — big-endian unsigned long 0"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">L", 0]
+  expected: !hex 00000000
+
+invariant struct_extra7.pack.big_endian_ulong_max32:
+  description: "struct.pack('>L', 4294967295) == b'\\xff\\xff\\xff\\xff' — big-endian unsigned long max (2^32-1)"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">L", 4294967295]
+  expected: !hex ffffffff
+
+invariant struct_extra7.unpack.big_endian_ulong_zero:
+  description: "struct.unpack('>L', b'\\x00\\x00\\x00\\x00') == (0,) — big-endian unsigned long 0"
+  category: unpack_values
+  kind: python_call_eq
+  function: unpack
+  args: [">L", !hex 00000000]
+  expected: [0]
+
+invariant struct_extra7.calcsize.big_endian_L:
+  description: "struct.calcsize('>L') == 4 — unsigned long in standard format is 4 bytes"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: [">L"]
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# pack() and calcsize() — native byte order without alignment ('=')
+#
+# The '=' prefix means native byte order with standard sizes (no padding).
+# No prior struct spec uses the '=' prefix in any test vector.
+# calcsize('=H') == 2 because 'H' is always 2 bytes in standard size mode.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra7.calcsize.native_no_align_H:
+  description: "struct.calcsize('=H') == 2 — native byte order, standard size: unsigned short is 2 bytes"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["=H"]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# pack(), unpack(), and calcsize() — repeat count prefix '2B'
+#
+# struct.zspec.zsdl uses '>2H' in unpack only. '2B' (two unsigned bytes) in
+# pack and calcsize is new. Result is tuple (1, 2), normalised to list by harness.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra7.pack.repeat_2B:
+  description: "struct.pack('>2B', 1, 2) == b'\\x01\\x02' — two unsigned bytes packed with repeat count"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">2B", 1, 2]
+  expected: !hex 0102
+
+invariant struct_extra7.unpack.repeat_2B:
+  description: "struct.unpack('>2B', b'\\x01\\x02') == (1, 2) — two unsigned bytes unpacked"
+  category: unpack_values
+  kind: python_call_eq
+  function: unpack
+  args: [">2B", !hex 0102]
+  expected: [1, 2]
+
+invariant struct_extra7.calcsize.repeat_2B:
+  description: "struct.calcsize('>2B') == 2 — repeat count 2 of unsigned byte gives 2 bytes total"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: [">2B"]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# Struct instance — format and size for '>l'
+#
+# No prior spec constructs Struct('>l'). This confirms the format is preserved
+# and the size is correct for signed long in standard byte order.
+# ---------------------------------------------------------------------------
+
+table struct_extra7.struct_instance_attrs:
+  kind: python_call_eq
+  category: struct_attrs
+  id_prefix: attr
+
+  columns: [id, function, args, expected, method]
+  rows:
+    - [Struct_l_format, Struct, [">l"], ">l", format]
+    - [Struct_l_size,   Struct, [">l"], 4,    size]

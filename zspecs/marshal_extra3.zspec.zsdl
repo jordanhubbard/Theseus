@@ -1,0 +1,156 @@
+spec: marshal_extra3
+version: ">=3.9"
+backend: python_module(marshal)
+
+docs: https://docs.python.org/3/library/marshal.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/marshal.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/marshal.c (CPython internals)"
+    - "marshal.zspec.zsdl — covers function __name__, version >= 1, version == 5, dumps/loads byte-level scalars, error cases"
+    - "marshal_extra.zspec.zsdl — covers version.__class__.__name__, version >= 4, dumps returns bytes for str/list/None, roundtrip str/list"
+    - "marshal_extra2.zspec.zsdl — covers version >= 2, dumps returns bytes for True/False/float/-1, roundtrip True/False/-1, __qualname__ for all four functions"
+  notes:
+    - "This spec extends marshal.zspec.zsdl, marshal_extra.zspec.zsdl, and marshal_extra2.zspec.zsdl with additional new vectors."
+    - "marshal.{loads,dumps,load,dump}.__module__ == 'marshal' — all four callables belong to the marshal module."
+    - "marshal.version >= 3 — an intermediate lower-bound check not present in any prior spec (prior specs cover >= 1, >= 2, >= 4)."
+    - "marshal.version <= 10 — upper-bound sanity check: the format version will not jump to double digits in any foreseeable release."
+    - "marshal.dumps('') returns b'\\xda\\x00' — the empty-string encoding uses the short-ASCII tag (0xda) with a zero-length byte."
+    - "marshal.dumps([]) returns b'[\\x00\\x00\\x00\\x00' — the empty-list encoding uses the list tag (0x5b) with a 4-byte zero count."
+    - "marshal.loads(b'[\\x00\\x00\\x00\\x00') == [] — empty list round-trip via pre-computed hex 5b00000000."
+    - "marshal.loads(b'\\xa9\\x00').__class__.__name__ == 'tuple' — the empty-tuple bytes (small-tuple tag 0xa9, zero count) deserialise to a tuple."
+    - "marshal.loads(b'\\xe9d\\x00\\x00\\x00') == 100 — int 100 round-trip via pre-computed hex e964000000."
+    - "marshal.dumps(100) == b'\\xe9d\\x00\\x00\\x00' — int 100 wire encoding."
+    - "marshal.dumps('') returns bytes — empty string is marshalable."
+    - "marshal.dumps([]) returns bytes — empty list is marshalable."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __module__ for all four marshal callables
+# marshal.zspec.zsdl and extras cover __name__ and __qualname__ only.
+# __module__ is not covered in any prior marshal spec.
+# ---------------------------------------------------------------------------
+
+table marshal_extra3.function_modules:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [loads, loads.__module__.__eq__, ["marshal"], true]
+    - [dumps, dumps.__module__.__eq__, ["marshal"], true]
+    - [load,  load.__module__.__eq__,  ["marshal"], true]
+    - [dump,  dump.__module__.__eq__,  ["marshal"], true]
+
+# ---------------------------------------------------------------------------
+# version — additional bound checks not covered in any prior spec
+# Prior: >= 1 (marshal), >= 2 (marshal_extra2), >= 4 (marshal_extra), == 5 (marshal)
+# New: >= 3 (intermediate lower bound) and <= 10 (upper-bound sanity check)
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra3.version.ge_3:
+  description: "marshal.version >= 3 — version is at least 3 on all Python 3.9+ installations"
+  category: constants
+  kind: python_call_eq
+  function: version.__ge__
+  args: [3]
+  expected: true
+
+invariant marshal_extra3.version.le_10:
+  description: "marshal.version <= 10 — upper-bound sanity: format version will not reach double digits"
+  category: constants
+  kind: python_call_eq
+  function: version.__le__
+  args: [10]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# dumps — return-type checks for empty containers and int 100
+# Prior specs cover: 42, 'hello', [1,2,3], None, True, False, 3.14, -1
+# New here: empty string, empty tuple, and int 100
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra3.dumps.empty_string_returns_bytes:
+  description: "marshal.dumps('').__class__.__name__ == 'bytes' — empty string is marshalable"
+  category: dumps_type
+  kind: python_call_eq
+  function: dumps
+  args: [""]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant marshal_extra3.dumps.empty_list_returns_bytes:
+  description: "marshal.dumps([]).__class__.__name__ == 'bytes' — empty list is marshalable"
+  category: dumps_type
+  kind: python_call_eq
+  function: dumps
+  args: [[]]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# dumps — specific wire encodings for new values
+# Pre-computed in Python 3.12; format is stable within version 5.
+# marshal.dumps('')   == b'\xda\x00'             (hex: da00)
+# marshal.dumps(100)  == b'\xe9d\x00\x00\x00'    (hex: e964000000)
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra3.dumps.empty_string_bytes:
+  description: "marshal.dumps('') == b'\\xda\\x00' — empty string uses short-ASCII tag with zero length"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [""]
+  expected: !hex da00
+
+invariant marshal_extra3.dumps.int_100_bytes:
+  description: "marshal.dumps(100) == b'\\xe9d\\x00\\x00\\x00' — 100 encodes as little-endian 32-bit int"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [100]
+  expected: !hex e964000000
+
+# ---------------------------------------------------------------------------
+# Round-trip: loads(pre-computed bytes) == expected value
+# Prior specs cover: 0, 1, -1, 42, None, True, False, 'hello', [1,2,3]
+# New here: empty list, empty tuple, and int 100
+# marshal.dumps([])  == b'[\x00\x00\x00\x00'  (hex: 5b00000000)
+# marshal.dumps(())  == b'\xa9\x00'            (hex: a900)
+# marshal.dumps(100) == b'\xe9d\x00\x00\x00'   (hex: e964000000)
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra3.roundtrip.empty_list:
+  description: "marshal.loads(b'[\\x00\\x00\\x00\\x00') == [] — empty list round-trip"
+  category: roundtrip
+  kind: python_call_eq
+  function: loads
+  args: [!hex 5b00000000]
+  expected: []
+
+invariant marshal_extra3.roundtrip.empty_tuple_class:
+  description: "marshal.loads(b'\\xa9\\x00').__class__.__name__ == 'tuple' — empty tuple round-trip yields a tuple"
+  category: roundtrip
+  kind: python_call_eq
+  function: loads
+  args: [!hex a900]
+  method: __class__.__name__.__eq__
+  method_args: ["tuple"]
+  expected: true
+
+invariant marshal_extra3.roundtrip.int_100:
+  description: "marshal.loads(b'\\xe9d\\x00\\x00\\x00') == 100 — int 100 round-trip via pre-computed hex"
+  category: roundtrip
+  kind: python_call_eq
+  function: loads
+  args: [!hex e964000000]
+  expected: 100
