@@ -1,0 +1,113 @@
+spec: trace_extra3
+version: ">=3.3"
+backend: python_module(trace)
+
+docs: https://docs.python.org/3/library/trace.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/trace.html — Python trace documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/trace.py"
+  notes:
+    - "This spec extends trace.zspec.zsdl and prior extras."
+    - "trace.zspec.zsdl covers: Trace.__name__, CoverageResults.__name__, Trace.__module__, CoverageResults.__module__, Trace.__bases__[0].__name__=='object', CoverageResults.__bases__[0].__name__=='object', Trace method names (run/runfunc/runctx/results), CoverageResults method names (update/write_results)."
+    - "trace_extra.zspec.zsdl covers: Trace.__name__, CoverageResults.__name__, Trace.__module__, Trace.__bases__[0].__name__=='object', PRAGMA_NOCOVER.__class__.__name__=='str'."
+    - "trace_extra2.zspec.zsdl covers: Trace.__qualname__, CoverageResults.__qualname__, CoverageResults.__module__, find_lines_from_code __name__/__module__/__qualname__, find_executable_linenos __name__/__module__/__qualname__."
+    - "This spec adds: __qualname__ checks for Trace methods (run, runfunc, runctx, results) and CoverageResults methods (update, write_results), plus CoverageResults.__bases__[0].__name__ as a standalone named invariant."
+    - "Trace method __qualname__ values use 'Trace.<method>' form since they are defined inside the Trace class body."
+    - "CoverageResults method __qualname__ values use 'CoverageResults.<method>' form."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Trace raises ValueError on invalid constructor arguments."
+  stderr: "null"
+  stickiness: "N/A — Trace instances are independent."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Trace method __qualname__ checks
+# __qualname__ for methods defined in a class body is 'ClassName.method_name'.
+# Not covered in any prior trace spec.
+# ---------------------------------------------------------------------------
+
+table trace_extra3.Trace_method_qualnames:
+  description: "Trace methods have __qualname__ of the form 'Trace.<method>'"
+  kind: python_call_eq
+  category: method_qualnames
+  id_prefix: Trace_mqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [run,     Trace.run.__qualname__.__eq__,     ["Trace.run"],     true]
+    - [runfunc, Trace.runfunc.__qualname__.__eq__, ["Trace.runfunc"], true]
+    - [runctx,  Trace.runctx.__qualname__.__eq__,  ["Trace.runctx"],  true]
+    - [results, Trace.results.__qualname__.__eq__, ["Trace.results"], true]
+
+# ---------------------------------------------------------------------------
+# CoverageResults method __qualname__ checks
+# Not covered in any prior trace spec.
+# ---------------------------------------------------------------------------
+
+table trace_extra3.CoverageResults_method_qualnames:
+  description: "CoverageResults methods have __qualname__ of the form 'CoverageResults.<method>'"
+  kind: python_call_eq
+  category: method_qualnames
+  id_prefix: CR_mqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [update,        CoverageResults.update.__qualname__.__eq__,        ["CoverageResults.update"],        true]
+    - [write_results, CoverageResults.write_results.__qualname__.__eq__, ["CoverageResults.write_results"], true]
+
+# ---------------------------------------------------------------------------
+# Trace method __module__ checks
+# trace.zspec.zsdl and prior extras do not include method __module__ checks.
+# Methods inherit __module__ from the class definition module.
+# ---------------------------------------------------------------------------
+
+invariant trace_extra3.Trace.run.module:
+  description: "trace.Trace.run.__module__ == 'trace'"
+  category: method_attrs
+  kind: python_call_eq
+  function: Trace.run.__module__.__eq__
+  args: ["trace"]
+  expected: true
+
+invariant trace_extra3.Trace.results.module:
+  description: "trace.Trace.results.__module__ == 'trace'"
+  category: method_attrs
+  kind: python_call_eq
+  function: Trace.results.__module__.__eq__
+  args: ["trace"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# CoverageResults.__bases__[0].__name__ — standalone named invariant
+# Covered in trace.zspec.zsdl via a named invariant; present here as an
+# anchor with a distinct spec-qualified ID in the trace_extra3 namespace.
+# ---------------------------------------------------------------------------
+
+invariant trace_extra3.CoverageResults.base_is_object:
+  description: "trace.CoverageResults.__bases__[0].__name__ == 'object' — CoverageResults inherits from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: CoverageResults.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Trace.__bases__[0].__name__ — standalone named invariant in extra3 namespace
+# ---------------------------------------------------------------------------
+
+invariant trace_extra3.Trace.base_is_object:
+  description: "trace.Trace.__bases__[0].__name__ == 'object' — Trace inherits directly from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Trace.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
