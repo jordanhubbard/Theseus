@@ -1,0 +1,175 @@
+spec: inspect_signature
+version: ">=3.3"
+backend: python_module(inspect)
+
+docs: https://docs.python.org/3/library/inspect.html#inspect.signature
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/inspect.html"
+    - "PEP 362 — Function Signature Object"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "inspect source: inspect.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "inspect source: internal CPython frame/code object implementation details"
+    - "inspect predicates (isfunction, isclass, etc.) — covered in inspect.zspec.zsdl"
+    - "inspect CO_* code flags — covered in inspect.zspec.zsdl"
+    - "inspect Parameter kind integer values — covered in inspect.zspec.zsdl"
+  notes:
+    - "inspect.Signature is the class representing the call signature of a callable."
+    - "inspect.Parameter represents a single parameter in a Signature."
+    - "inspect.BoundArguments is returned by Signature.bind() and Signature.bind_partial()."
+    - "Parameter.POSITIONAL_OR_KEYWORD is the most common kind; appears in plain def f(x): pass."
+    - "Parameter.VAR_POSITIONAL corresponds to *args in a function signature."
+    - "Parameter.KEYWORD_ONLY corresponds to parameters after a bare * or *args."
+    - "Parameter.VAR_KEYWORD corresponds to **kwargs in a function signature."
+    - "Parameter.empty is a sentinel object used for missing default values and annotations."
+    - "Signature.empty is the same sentinel re-exported on the Signature class."
+    - "BoundArguments.__module__ is 'inspect' — it lives in the inspect module."
+    - "signature() raises TypeError when called on a built-in whose signature is unavailable."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "inspect.signature() raises TypeError for objects whose signature cannot be determined (e.g., some built-ins); ValueError for callables with no inspectable signature."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name checks
+# (Signature and Parameter names are already in inspect.zspec.zsdl;
+#  this spec adds BoundArguments and covers module/base checks.)
+# ---------------------------------------------------------------------------
+
+invariant inspect_signature.BoundArguments_name:
+  description: "inspect.BoundArguments.__name__ == 'BoundArguments'"
+  category: classnames
+  kind: python_call_eq
+  function: BoundArguments.__name__.__eq__
+  args: ["BoundArguments"]
+  expected: true
+
+invariant inspect_signature.BoundArguments_module:
+  description: "inspect.BoundArguments.__module__ == 'inspect'"
+  category: classnames
+  kind: python_call_eq
+  function: BoundArguments.__module__.__eq__
+  args: ["inspect"]
+  expected: true
+
+invariant inspect_signature.Signature_module:
+  description: "inspect.Signature.__module__ == 'inspect'"
+  category: classnames
+  kind: python_call_eq
+  function: Signature.__module__.__eq__
+  args: ["inspect"]
+  expected: true
+
+invariant inspect_signature.Parameter_module:
+  description: "inspect.Parameter.__module__ == 'inspect'"
+  category: classnames
+  kind: python_call_eq
+  function: Parameter.__module__.__eq__
+  args: ["inspect"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Parameter kind constant names
+# (Values are in inspect.zspec.zsdl; names for VAR_KEYWORD and KEYWORD_ONLY
+#  are added here as they were not included in the base inspect spec.)
+# ---------------------------------------------------------------------------
+
+invariant inspect_signature.POSITIONAL_OR_KEYWORD_name:
+  description: "inspect.Parameter.POSITIONAL_OR_KEYWORD.name == 'POSITIONAL_OR_KEYWORD'"
+  category: parameter_kinds
+  kind: python_call_eq
+  function: Parameter.POSITIONAL_OR_KEYWORD.name.__eq__
+  args: ["POSITIONAL_OR_KEYWORD"]
+  expected: true
+
+invariant inspect_signature.VAR_POSITIONAL_name:
+  description: "inspect.Parameter.VAR_POSITIONAL.name == 'VAR_POSITIONAL'"
+  category: parameter_kinds
+  kind: python_call_eq
+  function: Parameter.VAR_POSITIONAL.name.__eq__
+  args: ["VAR_POSITIONAL"]
+  expected: true
+
+invariant inspect_signature.KEYWORD_ONLY_name:
+  description: "inspect.Parameter.KEYWORD_ONLY.name == 'KEYWORD_ONLY'"
+  category: parameter_kinds
+  kind: python_call_eq
+  function: Parameter.KEYWORD_ONLY.name.__eq__
+  args: ["KEYWORD_ONLY"]
+  expected: true
+
+invariant inspect_signature.VAR_KEYWORD_name:
+  description: "inspect.Parameter.VAR_KEYWORD.name == 'VAR_KEYWORD'"
+  category: parameter_kinds
+  kind: python_call_eq
+  function: Parameter.VAR_KEYWORD.name.__eq__
+  args: ["VAR_KEYWORD"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Parameter.empty — sentinel for missing default / annotation
+# ---------------------------------------------------------------------------
+
+invariant inspect_signature.Parameter_empty_class_name:
+  description: "inspect.Parameter.empty.__class__.__name__ == '_empty'"
+  category: sentinel
+  kind: python_call_eq
+  function: Parameter.empty.__class__.__name__.__eq__
+  args: ["_empty"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# signature() — function name check
+# ---------------------------------------------------------------------------
+
+invariant inspect_signature.signature_name:
+  description: "inspect.signature.__name__ == 'signature'"
+  category: functions
+  kind: python_call_eq
+  function: signature.__name__.__eq__
+  args: ["signature"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# signature() runtime behaviour on simple functions
+# inspect.signature(len) returns a Signature whose __class__.__name__ is 'Signature'.
+# len is a built-in whose signature IS available in Python 3.3+ via PEP 362.
+# ---------------------------------------------------------------------------
+
+invariant inspect_signature.signature_len_class:
+  description: "inspect.signature(len).__class__.__name__ == 'Signature'"
+  category: behavior
+  kind: python_call_eq
+  function: signature
+  args: ["len"]
+  method: __class__.__name__.__eq__
+  method_args: ["Signature"]
+  expected: true
+
+invariant inspect_signature.signature_len_params_type:
+  description: "type(inspect.signature(len).parameters) is MappingProxyType"
+  category: behavior
+  kind: python_call_eq
+  function: signature
+  args: ["len"]
+  method: parameters.__class__.__name__.__eq__
+  method_args: ["mappingproxy"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Signature.empty sentinel — re-exported on the Signature class itself
+# ---------------------------------------------------------------------------
+
+invariant inspect_signature.Signature_empty_class_name:
+  description: "inspect.Signature.empty.__class__.__name__ == '_empty'"
+  category: sentinel
+  kind: python_call_eq
+  function: Signature.empty.__class__.__name__.__eq__
+  args: ["_empty"]
+  expected: true

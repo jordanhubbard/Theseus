@@ -1,0 +1,150 @@
+spec: importlib_util
+version: ">=3.4"
+backend: python_module(importlib.util)
+
+docs: https://docs.python.org/3/library/importlib.html#importlib.util
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/importlib.html#importlib.util"
+    - "PEP 302 — New Import Hooks"
+    - "PEP 451 — A ModuleSpec Type for the Import System"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "importlib source: importlib/util.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "importlib source: internal _bootstrap, _bootstrap_external internals"
+    - "importlib top-level API (import_module, reload) — covered in importlib.zspec.zsdl"
+    - "importlib.metadata — covered in importlib_metadata.zspec.zsdl"
+    - "importlib.resources — covered in importlib_resources.zspec.zsdl"
+  notes:
+    - "importlib.util.find_spec(name) returns a ModuleSpec for an importable module, or None if not found."
+    - "importlib.util.find_spec('os') always returns a non-None ModuleSpec — os is always available."
+    - "ModuleSpec has attributes: name (str), origin (str or None), submodule_search_locations, loader, has_location."
+    - "importlib.util.spec_from_file_location(name, location) constructs a ModuleSpec from a file path."
+    - "importlib.util.spec_from_loader(name, loader) constructs a ModuleSpec from a loader instance."
+    - "importlib.util.module_from_spec(spec) creates a new module object from a ModuleSpec."
+    - "importlib.util.resolve_name(name, package) resolves a relative import name to an absolute one."
+    - "resolve_name('.os', 'importlib') == 'importlib.os' — relative to the given package."
+    - "find_spec('nonexistent_theseus_xyz') returns None — unknown modules yield None, not an exception."
+    - "ModuleSpec.__module__ == 'importlib._bootstrap' — it is defined in the bootstrap internals."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "importlib.util functions raise ModuleNotFoundError for unresolvable relative names; TypeError for bad argument types."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table importlib_util.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [find_spec,              find_spec.__name__.__eq__,              ["find_spec"],              true]
+    - [spec_from_file_location, spec_from_file_location.__name__.__eq__, ["spec_from_file_location"], true]
+    - [spec_from_loader,       spec_from_loader.__name__.__eq__,       ["spec_from_loader"],       true]
+    - [module_from_spec,       module_from_spec.__name__.__eq__,       ["module_from_spec"],       true]
+    - [resolve_name,           resolve_name.__name__.__eq__,           ["resolve_name"],           true]
+
+# ---------------------------------------------------------------------------
+# find_spec('os') — always returns a non-None ModuleSpec
+# os is a mandatory stdlib module; its spec is always discoverable.
+# ---------------------------------------------------------------------------
+
+invariant importlib_util.find_spec_os_not_none:
+  description: "importlib.util.find_spec('os') is not None"
+  category: find_spec
+  kind: python_call_eq
+  function: find_spec
+  args: ["os"]
+  method: __class__.__name__.__eq__
+  method_args: ["ModuleSpec"]
+  expected: true
+
+invariant importlib_util.find_spec_os_name:
+  description: "importlib.util.find_spec('os').name == 'os'"
+  category: find_spec
+  kind: python_call_eq
+  function: find_spec
+  args: ["os"]
+  method: name.__eq__
+  method_args: ["os"]
+  expected: true
+
+invariant importlib_util.find_spec_sys_name:
+  description: "importlib.util.find_spec('sys').name == 'sys'"
+  category: find_spec
+  kind: python_call_eq
+  function: find_spec
+  args: ["sys"]
+  method: name.__eq__
+  method_args: ["sys"]
+  expected: true
+
+invariant importlib_util.find_spec_nonexistent_none:
+  description: "importlib.util.find_spec('nonexistent_theseus_xyz') == None"
+  category: find_spec
+  kind: python_call_eq
+  function: find_spec
+  args: ["nonexistent_theseus_xyz"]
+  expected: null
+
+# ---------------------------------------------------------------------------
+# ModuleSpec class identity
+# ModuleSpec is defined in importlib._bootstrap (CPython internal).
+# Its __name__ is always 'ModuleSpec'.
+# ---------------------------------------------------------------------------
+
+invariant importlib_util.ModuleSpec_name:
+  description: "importlib.util.find_spec('os').__class__.__name__ == 'ModuleSpec'"
+  category: classnames
+  kind: python_call_eq
+  function: find_spec
+  args: ["os"]
+  method: __class__.__name__.__eq__
+  method_args: ["ModuleSpec"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# resolve_name — converts relative import names to absolute
+# resolve_name('.os', 'importlib') resolves to 'importlib.os'
+# resolve_name('os', None) is already absolute; returns 'os' unchanged.
+# ---------------------------------------------------------------------------
+
+invariant importlib_util.resolve_name_relative:
+  description: "importlib.util.resolve_name('.os', 'importlib') == 'importlib.os'"
+  category: resolve_name
+  kind: python_call_eq
+  function: resolve_name
+  args: [".os", "importlib"]
+  expected: "importlib.os"
+
+invariant importlib_util.resolve_name_absolute:
+  description: "importlib.util.resolve_name('os', 'importlib') == 'os' — absolute name unchanged"
+  category: resolve_name
+  kind: python_call_eq
+  function: resolve_name
+  args: ["os", "importlib"]
+  expected: "os"
+
+# ---------------------------------------------------------------------------
+# module_from_spec — creates a new module object from a spec
+# The returned object must have __class__.__name__ == 'module'.
+# ---------------------------------------------------------------------------
+
+invariant importlib_util.module_from_spec_class:
+  description: "importlib.util.module_from_spec(find_spec('os')).__class__.__name__ == 'module'"
+  category: module_from_spec
+  kind: python_call_eq
+  function: module_from_spec
+  args: ["find_spec('os')"]
+  method: __class__.__name__.__eq__
+  method_args: ["module"]
+  expected: true

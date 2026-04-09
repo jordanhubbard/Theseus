@@ -1,0 +1,213 @@
+spec: hashlib_extra
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "RFC 7693 — The BLAKE2 Cryptographic Hash and Message Authentication Code (MAC)"
+  - "FIPS 202 — SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions"
+  - "RFC 2898 — PKCS #5: Password-Based Cryptography Specification Version 2.0"
+
+provenance:
+  derived_from:
+    - "RFC 7693 — The BLAKE2 Cryptographic Hash and Message Authentication Code (MAC)"
+    - "FIPS 202 — SHA-3 Standard, NIST, August 2015"
+    - "RFC 2898 — PKCS #5: Password-Based Cryptography Specification Version 2.0"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified by running Python 3.12 hashlib on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_blake2/blake2module.c"
+    - "CPython source: Modules/_sha3/sha3module.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "hashlib.zspec.zsdl covers: sha256, sha1, md5, sha512, sha3_256, sha3_512 vectors; blake2b/blake2s vectors; algorithms_guaranteed core set; digest_consistency, copy_independence, api_equivalence."
+    - "blake2b accepts a digest_size keyword argument (1–64); default is 64. blake2s max is 32."
+    - "SHA3-224 block_size is 144 bytes (rate = 1600 - 2*224 = 1152 bits / 8)."
+    - "SHA3-384 digest_size is 48 bytes (384 bits); block_size is 104 bytes."
+    - "algorithms_available is a plain set; algorithms_guaranteed is also a set; both are module-level attributes."
+    - "pbkdf2_hmac is a built-in function in the hashlib module (not a class method)."
+    - "pbkdf2_hmac('sha256', b'', b'', 1) returns 32 bytes (SHA-256 output length)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "hashlib raises ValueError for unknown algorithm names. pbkdf2_hmac raises ValueError for iterations < 1 and TypeError for wrong argument types."
+  stderr: "null"
+  stickiness: "N/A — hash objects are independent; module-level attributes are read-only sets."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# BLAKE2b digest_size variants
+# Default digest_size == 64; constructor accepts digest_size keyword to resize.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra.blake2b.default_digest_size:
+  description: "hashlib.blake2b().digest_size == 64 (default 512-bit output)"
+  category: properties
+  kind: python_call_eq
+  function: blake2b
+  args: []
+  method: digest_size.__eq__
+  method_args: [64]
+  expected: true
+
+invariant hashlib_extra.blake2b.custom_digest_size_32:
+  description: "hashlib.blake2b(digest_size=32).digest_size == 32 (BLAKE2b-256 mode)"
+  category: properties
+  kind: python_call_eq
+  function: blake2b
+  args: []
+  kwargs: {digest_size: 32}
+  method: digest_size.__eq__
+  method_args: [32]
+  expected: true
+
+invariant hashlib_extra.blake2b.name_attr:
+  description: "hashlib.blake2b().name == 'blake2b'"
+  category: properties
+  kind: python_call_eq
+  function: blake2b
+  args: []
+  method: name.__eq__
+  method_args: ["blake2b"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BLAKE2s — name attribute (digest_size/block_size covered in hashlib.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra.blake2s.name_attr:
+  description: "hashlib.blake2s().name == 'blake2s'"
+  category: properties
+  kind: python_call_eq
+  function: blake2s
+  args: []
+  method: name.__eq__
+  method_args: ["blake2s"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SHA3-224 — not covered in hashlib.zspec.zsdl
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra.sha3_224.digest_size:
+  description: "hashlib.sha3_224().digest_size == 28 (224 bits = 28 bytes)"
+  category: properties
+  kind: python_call_eq
+  function: sha3_224
+  args: []
+  method: digest_size.__eq__
+  method_args: [28]
+  expected: true
+
+invariant hashlib_extra.sha3_224.block_size:
+  description: "hashlib.sha3_224().block_size == 144 (rate = 1600 - 2*224 bits, divided by 8)"
+  category: properties
+  kind: python_call_eq
+  function: sha3_224
+  args: []
+  method: block_size.__eq__
+  method_args: [144]
+  expected: true
+
+invariant hashlib_extra.sha3_224.name_attr:
+  description: "hashlib.sha3_224().name == 'sha3_224'"
+  category: properties
+  kind: python_call_eq
+  function: sha3_224
+  args: []
+  method: name.__eq__
+  method_args: ["sha3_224"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SHA3-384 — not covered in hashlib.zspec.zsdl
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra.sha3_384.digest_size:
+  description: "hashlib.sha3_384().digest_size == 48 (384 bits = 48 bytes)"
+  category: properties
+  kind: python_call_eq
+  function: sha3_384
+  args: []
+  method: digest_size.__eq__
+  method_args: [48]
+  expected: true
+
+invariant hashlib_extra.sha3_384.block_size:
+  description: "hashlib.sha3_384().block_size == 104 (rate = 1600 - 2*384 bits, divided by 8)"
+  category: properties
+  kind: python_call_eq
+  function: sha3_384
+  args: []
+  method: block_size.__eq__
+  method_args: [104]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed — SHA3-224 and SHA3-384 membership
+# (sha3_256, sha3_512, blake2b, blake2s already tested in hashlib.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+table hashlib_extra.algorithms_guaranteed.extended_membership:
+  kind: python_call_eq
+  category: algorithms
+  id_prefix: alg_guaranteed
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sha3_224, algorithms_guaranteed.__contains__, ["sha3_224"], true]
+    - [sha3_384, algorithms_guaranteed.__contains__, ["sha3_384"], true]
+
+# ---------------------------------------------------------------------------
+# algorithms_available — is a set; is a superset of algorithms_guaranteed
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra.algorithms_available.type_is_set:
+  description: "type(hashlib.algorithms_available).__name__ == 'set'"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true
+
+invariant hashlib_extra.algorithms_available.contains_sha256:
+  description: "algorithms_available contains 'sha256' (present on every platform)"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__contains__
+  args: ["sha256"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pbkdf2_hmac — function identity and return-type checks
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra.pbkdf2_hmac.function_name:
+  description: "hashlib.pbkdf2_hmac.__name__ == 'pbkdf2_hmac'"
+  category: functions
+  kind: python_call_eq
+  function: pbkdf2_hmac.__name__.__eq__
+  args: ["pbkdf2_hmac"]
+  expected: true
+
+invariant hashlib_extra.pbkdf2_hmac.return_length_sha256:
+  description: "len(pbkdf2_hmac('sha256', b'', b'', 1)) == 32 (SHA-256 output is 32 bytes)"
+  category: functions
+  kind: python_call_eq
+  function: pbkdf2_hmac
+  args: ["sha256", "", "", 1]
+  method: __len__
+  method_args: []
+  expected: 32
+
+invariant hashlib_extra.pbkdf2_hmac.return_length_sha512:
+  description: "len(pbkdf2_hmac('sha512', b'', b'', 1)) == 64 (SHA-512 output is 64 bytes)"
+  category: functions
+  kind: python_call_eq
+  function: pbkdf2_hmac
+  args: ["sha512", "", "", 1]
+  method: __len__
+  method_args: []
+  expected: 64

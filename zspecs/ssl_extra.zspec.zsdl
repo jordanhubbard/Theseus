@@ -1,0 +1,176 @@
+spec: ssl_extra
+version: ">=3.7"
+backend: python_module(ssl)
+
+docs: https://docs.python.org/3/library/ssl.html
+rfcs:
+  - "RFC 5280 — Internet X.509 Public Key Infrastructure Certificate and CRL Profile"
+  - "RFC 8446 — The Transport Layer Security (TLS) Protocol Version 1.3"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ssl.html — Python ssl module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "ssl source: internal CPython _ssl C extension"
+    - "OpenSSL source: ssl/ directory"
+  notes:
+    - "This spec extends ssl.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "ssl.zspec.zsdl covers: SSLError/SSLContext/SSLSocket/SSLCertVerificationError class names; SSLError.__bases__[0] == OSError; SSLError.__module__; CERT_NONE/CERT_OPTIONAL/CERT_REQUIRED values; HAS_SNI/HAS_ALPN type checks."
+    - "SSLContext.__bases__[0].__name__ == 'object' — SSLContext does not publicly inherit from a named Python base class."
+    - "create_default_context() returns an SSLContext instance; its check_hostname attribute is True by default."
+    - "SSLContext.load_verify_locations is a method (callable) on SSLContext instances."
+    - "OP_NO_SSLv2 and OP_NO_SSLv3 are integer option bitmask constants; they compare via __and__ with themselves."
+    - "ssl.Purpose is an enum.Enum subclass with members SERVER_AUTH and CLIENT_AUTH."
+    - "ssl.Purpose.SERVER_AUTH and ssl.Purpose.CLIENT_AUTH are instances of ssl.Purpose."
+    - "TLSVersion.TLSv1_2 and TLSVersion.TLSv1_3 exist on Python >=3.7 builds with OpenSSL support."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "ssl.SSLError (subclass of OSError) is raised for TLS-level failures. ssl.SSLCertVerificationError is raised on certificate verification failures. FileNotFoundError is raised when certificate files do not exist."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are stateless attribute reads or pure-Python class inspections."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# SSLContext class hierarchy
+# SSLContext.__bases__[0].__name__ == 'object'
+# (class names already covered in ssl.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra.SSLContext.module:
+  description: "ssl.SSLContext.__module__ == '_ssl' (implemented in the C extension)"
+  category: classnames
+  kind: python_call_eq
+  function: SSLContext.__module__.__eq__
+  args: ["_ssl"]
+  expected: true
+
+invariant ssl_extra.SSLCertVerificationError.module:
+  description: "ssl.SSLCertVerificationError.__module__ == 'ssl'"
+  category: classnames
+  kind: python_call_eq
+  function: SSLCertVerificationError.__module__.__eq__
+  args: ["ssl"]
+  expected: true
+
+invariant ssl_extra.SSLCertVerificationError.base:
+  description: "ssl.SSLCertVerificationError.__bases__[0].__name__ == 'SSLError'"
+  category: hierarchy
+  kind: python_call_eq
+  function: SSLCertVerificationError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "SSLError"
+
+# ---------------------------------------------------------------------------
+# create_default_context — function identity
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra.create_default_context.function_name:
+  description: "ssl.create_default_context.__name__ == 'create_default_context'"
+  category: functions
+  kind: python_call_eq
+  function: create_default_context.__name__.__eq__
+  args: ["create_default_context"]
+  expected: true
+
+invariant ssl_extra.create_default_context.returns_sslcontext:
+  description: "ssl.create_default_context().__class__.__name__ == 'SSLContext'"
+  category: functions
+  kind: python_call_eq
+  function: create_default_context
+  args: []
+  method: __class__
+  method_args: []
+  method_chain: __name__.__eq__
+  method_chain_args: ["SSLContext"]
+  expected: true
+
+invariant ssl_extra.create_default_context.check_hostname_default:
+  description: "ssl.create_default_context().check_hostname == True (security-on-by-default)"
+  category: functions
+  kind: python_call_eq
+  function: create_default_context
+  args: []
+  method: check_hostname.__eq__
+  method_args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SSLContext.load_verify_locations — callable attribute check
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra.SSLContext.load_verify_locations_callable:
+  description: "ssl.SSLContext.load_verify_locations is callable"
+  category: methods
+  kind: python_call_eq
+  function: SSLContext.load_verify_locations.__class__.__name__.__eq__
+  args: ["method_descriptor"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# OP_NO_SSLv2 and OP_NO_SSLv3 — integer bitmask option constants
+# These are non-zero ints; testing type and truthiness rather than exact value
+# because the exact value is OpenSSL-build-dependent.
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra.OP_NO_SSLv2.type:
+  description: "type(ssl.OP_NO_SSLv2).__name__ == 'Options' (IntFlag member)"
+  category: constants
+  kind: python_call_eq
+  function: OP_NO_SSLv2.__class__.__name__.__eq__
+  args: ["Options"]
+  expected: true
+
+invariant ssl_extra.OP_NO_SSLv3.type:
+  description: "type(ssl.OP_NO_SSLv3).__name__ == 'Options' (IntFlag member)"
+  category: constants
+  kind: python_call_eq
+  function: OP_NO_SSLv3.__class__.__name__.__eq__
+  args: ["Options"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Purpose enum — class name and member names
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra.Purpose.class_name:
+  description: "ssl.Purpose.__name__ == 'Purpose'"
+  category: classnames
+  kind: python_call_eq
+  function: Purpose.__name__.__eq__
+  args: ["Purpose"]
+  expected: true
+
+invariant ssl_extra.Purpose.SERVER_AUTH_name:
+  description: "ssl.Purpose.SERVER_AUTH.name == 'SERVER_AUTH'"
+  category: constants
+  kind: python_call_eq
+  function: Purpose.SERVER_AUTH.name.__eq__
+  args: ["SERVER_AUTH"]
+  expected: true
+
+invariant ssl_extra.Purpose.CLIENT_AUTH_name:
+  description: "ssl.Purpose.CLIENT_AUTH.name == 'CLIENT_AUTH'"
+  category: constants
+  kind: python_call_eq
+  function: Purpose.CLIENT_AUTH.name.__eq__
+  args: ["CLIENT_AUTH"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PROTOCOL_TLS_CLIENT and PROTOCOL_TLS_SERVER — present since Python 3.6
+# ---------------------------------------------------------------------------
+
+table ssl_extra.protocol_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: protocol
+
+  columns: [id, function, args, expected]
+  rows:
+    - [tls_client_class, PROTOCOL_TLS_CLIENT.__class__.__name__.__eq__, ["Protocol"], true]
+    - [tls_server_class, PROTOCOL_TLS_SERVER.__class__.__name__.__eq__, ["Protocol"], true]

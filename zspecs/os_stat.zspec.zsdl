@@ -1,0 +1,197 @@
+spec: os_stat
+version: ">=3.3"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html#os.stat
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/os.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "os source: posixmodule.c (PSF; source inspection permitted)"
+  not_derived_from:
+    - "os source: internal platform-specific system call wrappers"
+    - "os.path — covered separately in os_path.zspec.zsdl"
+    - "stat module constants — covered in stat.zspec.zsdl"
+  notes:
+    - "os.stat(path) returns a stat_result named-tuple-like object (posix.stat_result on POSIX)."
+    - "stat_result fields: st_mode, st_ino, st_dev, st_nlink, st_uid, st_gid, st_size, st_atime, st_mtime, st_ctime."
+    - "os.stat('.') always succeeds (current directory always exists); st_mode for a dir has the directory bit set."
+    - "os.getcwd() returns a non-empty str (the current working directory absolute path)."
+    - "os.getpid() returns a positive int — the current process ID."
+    - "os.cpu_count() returns a positive int or None; on any CI host it is >= 1."
+    - "os.sep is '/' on all POSIX platforms — a single-character str."
+    - "os.linesep is '\\n' on POSIX; '\\r\\n' on Windows. POSIX-only CI tested here."
+    - "os.curdir == '.', os.pardir == '..', os.extsep == '.' on all platforms."
+    - "os.altsep is None on POSIX (no alternate separator); '/' on Windows."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "os.stat() raises FileNotFoundError (subclass of OSError) for nonexistent paths; TypeError for bad argument types."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# stat_result class name and module
+# os.stat returns a posix.stat_result on POSIX platforms.
+# ---------------------------------------------------------------------------
+
+invariant os_stat.stat_result_class_name:
+  description: "os.stat('.').__class__.__name__ == 'stat_result'"
+  category: classnames
+  kind: python_call_eq
+  function: stat
+  args: ["."]
+  method: __class__.__name__.__eq__
+  method_args: ["stat_result"]
+  expected: true
+
+invariant os_stat.stat_result_class_module:
+  description: "os.stat('.').__class__.__module__ == 'posix' on POSIX"
+  category: classnames
+  kind: python_call_eq
+  function: stat
+  args: ["."]
+  method: __class__.__module__.__eq__
+  method_args: ["posix"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.stat('.') — return type and directory st_mode sanity
+# stat_result.st_mode for the current directory always has the directory bit.
+# st_nlink >= 2 because every directory has '.' and '..' links.
+# st_size >= 0 always; directories have varying sizes but are always non-negative.
+# ---------------------------------------------------------------------------
+
+invariant os_stat.stat_dot_st_mode_is_int:
+  description: "os.stat('.').st_mode.__class__.__name__ == 'int'"
+  category: stat_result
+  kind: python_call_eq
+  function: stat
+  args: ["."]
+  method: st_mode.__class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+invariant os_stat.stat_dot_st_nlink_ge_2:
+  description: "os.stat('.').st_nlink >= 2 — directories always have at least 2 hard links"
+  category: stat_result
+  kind: python_call_eq
+  function: stat
+  args: ["."]
+  method: st_nlink.__ge__
+  method_args: [2]
+  expected: true
+
+invariant os_stat.stat_dot_st_size_nonneg:
+  description: "os.stat('.').st_size >= 0 — size is always non-negative"
+  category: stat_result
+  kind: python_call_eq
+  function: stat
+  args: ["."]
+  method: st_size.__ge__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.getcwd() — return type
+# ---------------------------------------------------------------------------
+
+invariant os_stat.getcwd_returns_str:
+  description: "os.getcwd().__class__.__name__ == 'str'"
+  category: getcwd
+  kind: python_call_eq
+  function: getcwd()
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+invariant os_stat.getcwd_nonempty:
+  description: "len(os.getcwd()) > 0 — current directory path is always non-empty"
+  category: getcwd
+  kind: python_call_eq
+  function: getcwd()
+  args: []
+  method: __len__
+  method_chain: __gt__
+  method_chain_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.getpid() — always > 0
+# ---------------------------------------------------------------------------
+
+invariant os_stat.getpid_positive:
+  description: "os.getpid() > 0 — process ID is always a positive integer"
+  category: process
+  kind: python_call_eq
+  function: getpid()
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+invariant os_stat.getpid_is_int:
+  description: "os.getpid().__class__.__name__ == 'int'"
+  category: process
+  kind: python_call_eq
+  function: getpid()
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.cpu_count() — positive int (or None, but always >= 1 on real/CI hosts)
+# ---------------------------------------------------------------------------
+
+invariant os_stat.cpu_count_is_int:
+  description: "os.cpu_count().__class__.__name__ == 'int'"
+  category: cpu
+  kind: python_call_eq
+  function: cpu_count()
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+invariant os_stat.cpu_count_ge_1:
+  description: "os.cpu_count() >= 1 — at least one CPU is always present on a real or CI host"
+  category: cpu
+  kind: python_call_eq
+  function: cpu_count()
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Path separator string constants — POSIX-specific values
+# ---------------------------------------------------------------------------
+
+invariant os_stat.sep_posix:
+  description: "os.sep == '/' on POSIX"
+  category: constants
+  kind: python_call_eq
+  function: sep.__eq__
+  args: ["/"]
+  expected: true
+
+invariant os_stat.linesep_posix:
+  description: "os.linesep == '\\n' on POSIX"
+  category: constants
+  kind: python_call_eq
+  function: linesep.__eq__
+  args: ["\n"]
+  expected: true
+
+invariant os_stat.altsep_posix:
+  description: "os.altsep is None on POSIX — no alternate path separator"
+  category: constants
+  kind: python_call_eq
+  function: altsep.__eq__
+  args: [null]
+  expected: true

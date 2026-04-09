@@ -1,0 +1,175 @@
+spec: datetime_timedelta
+version: ">=3.7"
+backend: python_module(datetime)
+
+docs: https://docs.python.org/3/library/datetime.html
+rfcs:
+  - "ISO 8601 — Date and time — Representations for information interchange"
+
+provenance:
+  derived_from:
+    - "Python 3 datetime documentation — https://docs.python.org/3/library/datetime.html"
+    - "ISO 8601 date/time format specification"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython datetime source: Modules/_datetimemodule.c"
+  notes:
+    - "This spec extends datetime.zspec.zsdl with deeper timedelta arithmetic and timezone behaviors."
+    - "timedelta stores duration internally as (days, seconds, microseconds); hours/minutes/weeks are normalized."
+    - "timedelta.seconds holds the sub-day seconds component (0–86399); use total_seconds() for full duration."
+    - "timedelta(weeks=1) == timedelta(days=7); the weeks kwarg is normalized to days."
+    - "timedelta(hours=1).seconds == 3600; timedelta(minutes=90).seconds == 5400."
+    - "timedelta resolution is timedelta(microseconds=1); timedelta.resolution.microseconds == 1."
+    - "timedelta.max.days == 999999999 (documented maximum)."
+    - "timedelta.min.days == -999999999 (documented minimum)."
+    - "timezone(timedelta(hours=5, minutes=30)) represents UTC+05:30."
+    - "timezone.utc.utcoffset(None) returns timedelta(0)."
+    - "datetime with tzinfo=timezone.utc produces an aware datetime; isoformat() appends '+00:00'."
+    - "Negative timedelta: timedelta(days=-1, seconds=86399) has days==-1 and seconds==86399 (representing -1 second total)."
+    - "timedelta arithmetic: timedelta(days=3) + timedelta(hours=12) == timedelta(days=3, seconds=43200)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# timedelta — keyword normalisation
+# ---------------------------------------------------------------------------
+
+invariant datetime_timedelta.weeks_to_days:
+  description: "timedelta(weeks=1).days == 7 — weeks kwarg is normalised to days"
+  category: timedelta_normalize
+  kind: python_call_eq
+  function: timedelta
+  kwargs: {weeks: 1}
+  method: days
+  expected: 7
+
+invariant datetime_timedelta.hours_to_seconds:
+  description: "timedelta(hours=1).seconds == 3600 — hours kwarg stored as sub-day seconds"
+  category: timedelta_normalize
+  kind: python_call_eq
+  function: timedelta
+  kwargs: {hours: 1}
+  method: seconds
+  expected: 3600
+
+invariant datetime_timedelta.minutes_to_seconds:
+  description: "timedelta(minutes=90).seconds == 5400 — 90 minutes = 5400 seconds"
+  category: timedelta_normalize
+  kind: python_call_eq
+  function: timedelta
+  kwargs: {minutes: 90}
+  method: seconds
+  expected: 5400
+
+invariant datetime_timedelta.microseconds_attr:
+  description: "timedelta(microseconds=500).microseconds == 500"
+  category: timedelta_normalize
+  kind: python_call_eq
+  function: timedelta
+  kwargs: {microseconds: 500}
+  method: microseconds
+  expected: 500
+
+# ---------------------------------------------------------------------------
+# timedelta — total_seconds for multi-unit durations
+# ---------------------------------------------------------------------------
+
+invariant datetime_timedelta.days_and_seconds_total:
+  description: "timedelta(days=1, seconds=3600).total_seconds() == 90000.0 — one day plus one hour"
+  category: timedelta_total_seconds
+  kind: python_call_eq
+  function: timedelta
+  args: [1, 3600]
+  method: total_seconds
+  expected: 90000.0
+
+invariant datetime_timedelta.weeks_total_seconds:
+  description: "timedelta(weeks=1).total_seconds() == 604800.0 — 7 * 24 * 3600"
+  category: timedelta_total_seconds
+  kind: python_call_eq
+  function: timedelta
+  kwargs: {weeks: 1}
+  method: total_seconds
+  expected: 604800.0
+
+# ---------------------------------------------------------------------------
+# timedelta — class constants (min, max, resolution)
+# ---------------------------------------------------------------------------
+
+invariant datetime_timedelta.resolution_microseconds:
+  description: "timedelta.resolution.microseconds == 1 — finest representable duration is 1 microsecond"
+  category: timedelta_constants
+  kind: python_call_eq
+  function: timedelta.resolution.microseconds.__eq__
+  args: [1]
+  expected: true
+
+invariant datetime_timedelta.max_days:
+  description: "timedelta.max.days == 999999999 — documented maximum day component"
+  category: timedelta_constants
+  kind: python_call_eq
+  function: timedelta.max.days.__eq__
+  args: [999999999]
+  expected: true
+
+invariant datetime_timedelta.min_days:
+  description: "timedelta.min.days == -999999999 — documented minimum day component"
+  category: timedelta_constants
+  kind: python_call_eq
+  function: timedelta.min.days.__eq__
+  args: [-999999999]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# timezone — UTC and fixed-offset zones
+# ---------------------------------------------------------------------------
+
+invariant datetime_timedelta.timezone_utc_class_name:
+  description: "timezone.__name__ == 'timezone'"
+  category: timezone_classnames
+  kind: python_call_eq
+  function: timezone.__name__.__eq__
+  args: ["timezone"]
+  expected: true
+
+invariant datetime_timedelta.timezone_utc_utcoffset:
+  description: "timezone.utc.utcoffset(None) == timedelta(0) — UTC has zero offset"
+  category: timezone_utc
+  kind: python_call_eq
+  function: timezone.utc.utcoffset
+  args: [~]
+  method: total_seconds
+  method_args: []
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# aware datetime — isoformat includes UTC offset
+# ---------------------------------------------------------------------------
+
+invariant datetime_timedelta.aware_datetime_isoformat:
+  description: "datetime(2024, 3, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat() == '2024-03-15T12:00:00+00:00'"
+  category: aware_datetime
+  rfc: "ISO 8601"
+  kind: python_call_eq
+  function: datetime
+  args: [2024, 3, 15, 12, 0, 0]
+  kwargs: {tzinfo: "timezone.utc"}
+  method: isoformat
+  expected: "2024-03-15T12:00:00+00:00"
+
+# ---------------------------------------------------------------------------
+# timedelta errors
+# ---------------------------------------------------------------------------
+
+table datetime_timedelta.timedelta.errors:
+  kind: python_call_raises
+  category: error
+  id_prefix: timedelta
+  function: timedelta
+  expected_exception: OverflowError
+
+  columns: [id, kwargs, description]
+  rows:
+    - [overflow_days_raises, {days: 1000000000}, "timedelta(days=1_000_000_000) raises OverflowError — exceeds max"]

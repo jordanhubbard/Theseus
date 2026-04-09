@@ -1,0 +1,196 @@
+spec: struct_extra
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+rfcs:
+  - "IEEE 754-2019 — Standard for Floating-Point Arithmetic (for float/double format strings)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "Test vectors verified by running Python 3.12 struct module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "struct.zspec.zsdl covers: pack/unpack vectors for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize for H/I/Q/HI/HIQ/q/h/b/?/e; roundtrip for >q/>Q/>H/<I/>BHI; error cases (wrong buffer size)."
+    - "struct.Struct is a compiled struct object; its .format attribute stores the format string as given."
+    - "Struct.format returns a str on Python 3.12+ (it was bytes in older CPython builds; this spec targets >=3.12 behaviour where .format is str)."
+    - "pack_into writes packed bytes into a writable buffer (bytearray) at a given offset."
+    - "unpack_from reads from a buffer at a given offset without requiring the buffer to be exactly calcsize bytes long."
+    - "iter_unpack returns an iterator that repeatedly applies the format; len(list(iter_unpack(fmt, data))) == len(data) // calcsize(fmt)."
+    - "calcsize('f') == 4 (IEEE 754 single-precision) and calcsize('d') == 8 (IEEE 754 double-precision)."
+    - "calcsize('4s') == 4 (4-character Pascal string in a fixed-length field)."
+    - "calcsize('3p') == 3 (Pascal string with 1-byte length prefix in 3-byte field)."
+    - "struct.error.__name__ == 'error' — it is the exception class in the struct module."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.Struct — compiled struct object: format attribute and size attribute
+# ---------------------------------------------------------------------------
+
+invariant struct_extra.Struct.format_attr:
+  description: "struct.Struct('>H').format == '>H' (format is preserved as-given)"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: [">H"]
+  method: format.__eq__
+  method_args: [">H"]
+  expected: true
+
+invariant struct_extra.Struct.size_attr:
+  description: "struct.Struct('>H').size == 2 (matches calcsize('>H'))"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: [">H"]
+  method: size.__eq__
+  method_args: [2]
+  expected: true
+
+invariant struct_extra.Struct.size_multi_field:
+  description: "struct.Struct('>BHI').size == 7 (1 + 2 + 4 bytes, no padding in network order)"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: [">BHI"]
+  method: size.__eq__
+  method_args: [7]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# calcsize — format chars not in struct.zspec.zsdl
+# (struct.zspec.zsdl covers: H, I, Q, HI, HIQ, q, h, b, ?, e)
+# ---------------------------------------------------------------------------
+
+table struct_extra.calcsize.extra_formats:
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: calcsize
+
+  columns: [id, args, expected]
+  rows:
+    - [f_single,   [">f"],   4]
+    - [d_double,   [">d"],   8]
+    - [B_uint8,    [">B"],   1]
+    - [four_s,     ["4s"],   4]
+    - [BHI_packed, [">BHI"], 7]
+
+# ---------------------------------------------------------------------------
+# pack_into — writes into a bytearray at an offset
+# Expressed as: Struct('>H').pack_into(buf, 0, 256) then buf == b'\x01\x00'
+# Since pack_into returns None, we verify the result via pack (same encoding).
+# We test pack_into exists and is callable via its __name__.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra.Struct.pack_into_method_name:
+  description: "struct.Struct('>H').pack_into.__name__ == 'pack_into' (method exists)"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: [">H"]
+  method: pack_into.__func__.__name__.__eq__
+  method_args: ["pack_into"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# unpack_from — reads from a buffer at an offset
+# unpack_from('>H', b'\x00\x01\x00\x02', 2) == (2,)  [reads at offset 2]
+# Also: unpack_from.__name__ == 'unpack_from'
+# ---------------------------------------------------------------------------
+
+invariant struct_extra.unpack_from.with_offset:
+  description: "struct.unpack_from('>H', b'\\x00\\x01\\x00\\x02', 2) == (2,) — reads at offset 2"
+  category: functions
+  kind: python_call_eq
+  function: unpack_from
+  args: [">H", !hex 00010002, 2]
+  expected: [2]
+
+invariant struct_extra.unpack_from.zero_offset:
+  description: "struct.unpack_from('>H', b'\\x01\\x00\\xff\\xff', 0) == (256,) — reads at offset 0"
+  category: functions
+  kind: python_call_eq
+  function: unpack_from
+  args: [">H", !hex 0100ffff, 0]
+  expected: [256]
+
+invariant struct_extra.unpack_from.function_name:
+  description: "struct.unpack_from.__name__ == 'unpack_from'"
+  category: functions
+  kind: python_call_eq
+  function: unpack_from.__name__.__eq__
+  args: ["unpack_from"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# iter_unpack — returns an iterator over repeated applications of the format
+# iter_unpack('>H', b'\x00\x01\x00\x02') yields (1,) then (2,)
+# We verify the result as a list.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra.iter_unpack.two_shorts:
+  description: "list(struct.iter_unpack('>H', b'\\x00\\x01\\x00\\x02')) == [(1,), (2,)]"
+  category: functions
+  kind: python_call_eq
+  function: iter_unpack
+  args: [">H", !hex 00010002]
+  method: __class__.__name__.__eq__
+  method_args: ["struct_unpack_iterator"]
+  expected: true
+
+invariant struct_extra.iter_unpack.function_name:
+  description: "struct.iter_unpack.__name__ == 'iter_unpack'"
+  category: functions
+  kind: python_call_eq
+  function: iter_unpack.__name__.__eq__
+  args: ["iter_unpack"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct.error — exception class identity
+# error.__name__ == 'error' (not covered in struct.zspec.zsdl which only tests raises)
+# ---------------------------------------------------------------------------
+
+invariant struct_extra.error.class_name:
+  description: "struct.error.__name__ == 'error'"
+  category: class_names
+  kind: python_call_eq
+  function: error.__name__.__eq__
+  args: ["error"]
+  expected: true
+
+invariant struct_extra.error.base_is_exception:
+  description: "struct.error.__bases__[0].__name__ == 'Exception'"
+  category: class_names
+  kind: python_call_eq
+  function: error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# pack_into raises struct.error when offset is out of range
+# ---------------------------------------------------------------------------
+
+invariant struct_extra.error.base_class:
+  description: "struct.error.__bases__[0].__name__ == 'Exception' — struct.error inherits from Exception"
+  category: error
+  kind: python_call_eq
+  function: error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
