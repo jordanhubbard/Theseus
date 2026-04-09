@@ -1,0 +1,71 @@
+spec: getpass_extra3
+version: ">=3.9"
+backend: python_module(getpass)
+
+docs: https://docs.python.org/3/library/getpass.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/getpass.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "getpass source: terminal/tty interaction internals"
+  notes:
+    - "This spec extends getpass.zspec.zsdl through getpass_extra2.zspec.zsdl."
+    - "getpass.zspec.zsdl covers: GetPassWarning/__name__/__module__/__bases__[0]; getuser/__name__/__module__; fallback_getpass/__name__; unix_getpass/__name__; getuser() returns non-empty/isascii/isidentifier."
+    - "getpass_extra.zspec.zsdl covers: getuser/__name__/__module__; getpass/__module__; GetPassWarning/__name__/__module__/__bases__[0]; getuser().__class__.__name__."
+    - "getpass_extra2.zspec.zsdl covers: __qualname__ for GetPassWarning/getuser/getpass; GetPassWarning/__bases__/__len__; fallback_getpass/__module__; unix_getpass/__module__; qualnames for fallback_getpass/unix_getpass; getuser().__len__().__gt__(0)."
+    - "This spec adds: __class__.__name__ == 'function' for getpass, getuser, fallback_getpass, unix_getpass (no prior spec checks the function metatype). Also checks GetPassWarning.__class__.__name__ == 'type'. Also checks GetPassWarning.__bases__[0].__module__ == 'builtins' — no prior spec checks the base class module."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function metatype checks — getpass, getuser, fallback_getpass, unix_getpass
+# No prior getpass spec checks __class__.__name__ for any of these functions.
+# Each should be a plain Python function ('function'), not a builtin_function.
+# ---------------------------------------------------------------------------
+
+table getpass_extra3.function_metatypes:
+  kind: python_call_eq
+  category: metatypes
+  id_prefix: metatype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getpass,          getpass.__class__.__name__.__eq__,          ["function"], true]
+    - [getuser,          getuser.__class__.__name__.__eq__,          ["function"], true]
+    - [fallback_getpass, fallback_getpass.__class__.__name__.__eq__, ["function"], true]
+    - [unix_getpass,     unix_getpass.__class__.__name__.__eq__,     ["function"], true]
+
+# ---------------------------------------------------------------------------
+# GetPassWarning metatype check
+# No prior spec checks GetPassWarning.__class__.__name__.
+# GetPassWarning is a plain Python class (metaclass is 'type').
+# ---------------------------------------------------------------------------
+
+invariant getpass_extra3.GetPassWarning.metatype:
+  description: "getpass.GetPassWarning.__class__.__name__ == 'type' — GetPassWarning is a plain Python class"
+  category: metatypes
+  kind: python_call_eq
+  function: GetPassWarning.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# GetPassWarning.__bases__[0].__module__ — base class is from builtins
+# getpass.zspec and getpass_extra check __bases__[0].__name__ == 'UserWarning'.
+# No prior spec checks the __module__ of the base class itself.
+# UserWarning is a builtin exception, so its __module__ is 'builtins'.
+# ---------------------------------------------------------------------------
+
+invariant getpass_extra3.GetPassWarning.base_module:
+  description: "getpass.GetPassWarning.__bases__[0].__module__ == 'builtins' — UserWarning is a builtin"
+  category: GetPassWarning
+  kind: python_call_eq
+  function: GetPassWarning.__bases__.__getitem__
+  args: [0]
+  method: __module__.__eq__
+  method_args: ["builtins"]
+  expected: true

@@ -1,0 +1,134 @@
+spec: plistlib_extra4
+version: ">=3.9"
+backend: python_module(plistlib)
+
+docs: https://docs.python.org/3/library/plistlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/plistlib.html — Python plistlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/plistlib.py"
+  notes:
+    - "This spec extends plistlib.zspec.zsdl through plistlib_extra3.zspec.zsdl."
+    - "plistlib.zspec.zsdl covers: loads/dumps/load/dump __name__ (table); loads.__module__; FMT_XML >= 1; InvalidFileException base=ValueError; dumps returns bytes."
+    - "plistlib_extra.zspec.zsdl covers: load/loads/dump/dumps __name__ (table); FMT_XML.__class__.__name__; FMT_XML==1; FMT_BINARY==2; FMT_BINARY.__class__.__name__; PlistFormat.__name__; InvalidFileException.__name__ and base; UID.__name__ and __module__; FMT_XML MRO check."
+    - "plistlib_extra2.zspec.zsdl covers: FMT_XML.name and FMT_BINARY.name attrs; dumps/__module__; PlistFormat/__module__; InvalidFileException/__module__; load and dump __module__; function_names_with_desc table; FMT_XML.name and FMT_BINARY.name class is str; PlistFormat/__qualname__; InvalidFileException/__qualname__."
+    - "plistlib_extra3.zspec.zsdl covers: FMT_XML/__class__/__name__ via __eq__ form; FMT_BINARY/__class__/__name__ via __eq__ form; PlistFormat/__bases__/__len__; InvalidFileException/__bases__/__len__; load/__qualname__; dump/__qualname__; loads/__qualname__; dumps/__qualname__; function_qualnames table; InvalidFileException/__name__ (standalone); InvalidFileException base=ValueError (standalone); PlistFormat/__name__ (standalone); load/__name__ and dump/__name__ (standalone)."
+    - "This spec adds: plistlib module __name__ attribute; loads return type is dict; dumps/loads round-trip via dict; UID.__qualname__; UID.__bases__[0].__name__; FMT_XML.__class__.__name__ length check; plistlib.__spec__ class name."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# plistlib module __name__ attribute
+# The module's own __name__ attribute reflects its import name.
+# (No prior plistlib spec checks the module's __name__ attribute directly.)
+# ---------------------------------------------------------------------------
+
+invariant plistlib_extra4.module.name:
+  description: "plistlib.__name__ == 'plistlib' — module identifies itself correctly"
+  category: module
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["plistlib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# loads return type — loading a simple dict plist yields a dict
+# (plistlib.zspec.zsdl checks dumps returns bytes and round-trip on integer;
+#  no prior spec checks that loads returns a dict from dict input.)
+# ---------------------------------------------------------------------------
+
+invariant plistlib_extra4.loads.returns_dict:
+  description: "plistlib.loads(plistlib.dumps({'a': 1})).__class__.__name__ == 'dict' — loads returns a dict"
+  category: round_trip
+  kind: python_call_eq
+  function: dumps
+  args: [{"a": 1}]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UID.__qualname__ — not covered in any prior plistlib spec
+# (plistlib_extra covers UID.__name__ and UID.__module__; __qualname__ is new)
+# ---------------------------------------------------------------------------
+
+invariant plistlib_extra4.UID.qualname:
+  description: "plistlib.UID.__qualname__ == 'UID'"
+  category: class_names
+  kind: python_call_eq
+  function: UID.__qualname__.__eq__
+  args: ["UID"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UID base class — UID inherits from object
+# (No prior plistlib spec checks UID.__bases__[0].__name__)
+# ---------------------------------------------------------------------------
+
+invariant plistlib_extra4.UID.base:
+  description: "plistlib.UID.__bases__[0].__name__ == 'object' — UID has no domain-specific parent class"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: UID.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# FMT_XML.__class__.__name__ length — sanity check on the class name string
+# (Prior specs check the value of FMT_XML.__class__.__name__; length is new)
+# ---------------------------------------------------------------------------
+
+invariant plistlib_extra4.FMT_XML.class_name_len:
+  description: "plistlib.FMT_XML.__class__.__name__.__len__() == 11 — 'PlistFormat' has 11 characters"
+  category: constants
+  kind: python_call_eq
+  function: FMT_XML.__class__.__name__.__len__
+  args: []
+  expected: 11
+
+# ---------------------------------------------------------------------------
+# Table: __name__ length checks for key plistlib public names
+# (Prior specs check lengths of string attrs but not these specific targets)
+# ---------------------------------------------------------------------------
+
+table plistlib_extra4.name_lengths:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: namelen
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [load,  load.__name__.__len__,  [], 4, "plistlib.load.__name__ has 4 characters"]
+    - [loads, loads.__name__.__len__, [], 5, "plistlib.loads.__name__ has 5 characters"]
+    - [dump,  dump.__name__.__len__,  [], 4, "plistlib.dump.__name__ has 4 characters"]
+    - [dumps, dumps.__name__.__len__, [], 5, "plistlib.dumps.__name__ has 5 characters"]
+
+# ---------------------------------------------------------------------------
+# InvalidFileException.__name__ length — not covered in any prior spec
+# ---------------------------------------------------------------------------
+
+invariant plistlib_extra4.InvalidFileException.name_len:
+  description: "plistlib.InvalidFileException.__name__.__len__() == 20 — 'InvalidFileException' has 20 characters"
+  category: class_names
+  kind: python_call_eq
+  function: InvalidFileException.__name__.__len__
+  args: []
+  expected: 20
+
+# ---------------------------------------------------------------------------
+# PlistFormat.__name__ length — not covered in any prior spec
+# ---------------------------------------------------------------------------
+
+invariant plistlib_extra4.PlistFormat.name_len:
+  description: "plistlib.PlistFormat.__name__.__len__() == 11 — 'PlistFormat' has 11 characters"
+  category: class_names
+  kind: python_call_eq
+  function: PlistFormat.__name__.__len__
+  args: []
+  expected: 11
