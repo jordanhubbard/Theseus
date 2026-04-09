@@ -4,15 +4,13 @@
 
 **Theseus** is a toolchain for normalizing package recipes from four ecosystems into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
 
-Two ecosystems are **directly walked from source trees**:
-- [**Nixpkgs**](https://github.com/NixOS/nixpkgs) — traversed via `--nixpkgs`, with dependency graphs filled by `fill_nixpkgs_deps.py`
-- [**FreeBSD Ports**](https://github.com/freebsd/freebsd-ports) — traversed via `--ports`
+All four ecosystems are first-class citizens:
+- [**Nixpkgs**](https://github.com/NixOS/nixpkgs) — traversed directly via `--nixpkgs`, dependency graphs filled by `fill_nixpkgs_deps.py`
+- [**FreeBSD Ports**](https://github.com/freebsd/freebsd-ports) — traversed directly via `--ports`
+- [**PyPI**](https://pypi.org/) — imported via the PyPI JSON API (`make import-pypi`); source repositories backtracked to GitHub via `project_urls`
+- [**npm**](https://www.npmjs.com/) — imported via the npm registry API (`make import-npm`); source repositories backtracked to GitHub via the `repository` field
 
-Two more are **seed-derived and imported separately**: a FreeBSD Ports snapshot is first used to generate seed lists (`make seed`), which are then fetched independently:
-- **PyPI** — fetched via `make import-pypi` from a ports-derived seed list
-- **npm** — fetched via `make import-npm` from a ports-derived seed list
-
-On top of that pipeline sits a **Z-layer behavioral spec system**: 70 machine-readable contracts, one per OSS library, verified against the real installed library across macOS, Linux, and FreeBSD.
+On top of that pipeline sits a **Z-layer behavioral spec system**: 70 machine-readable contracts, one per OSS library, verified against the real installed library across macOS, Linux, and FreeBSD. An **end-to-end validation harness** (`make validate-e2e`) goes further — fetching upstream source, building from scratch, and running the spec against the freshly built artifact on any configured target host.
 
 [![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
@@ -32,11 +30,12 @@ The user guide covers installation, the complete pipeline walkthrough, how to wr
 
 ### Layer 1 — Package Recipe Pipeline
 
-Normalizes package metadata from Nixpkgs and FreeBSD Ports into a shared canonical JSON schema, then ranks and extracts the most important candidates for downstream work.
+Normalizes package metadata from all four ecosystems into a shared canonical JSON schema, ranks by importance, and extracts top candidates. npm and PyPI records include backtracked GitHub `source_repository` URLs for use by the validation harness.
 
 | Tool | Purpose |
 |------|---------|
 | `tools/bootstrap_canonical_recipes.py` | Walk Nixpkgs and FreeBSD Ports trees; emit canonical records |
+| `theseus/importer.py` | Import PyPI and npm metadata; backtrack `source_repository` to GitHub |
 | `tools/overlap_report.py` | Classify packages as overlap, one-ecosystem-only, or version-skewed |
 | `tools/top_candidates.py` | Score and rank packages by dual-ecosystem presence, confidence, and dependency count |
 | `tools/extract_candidates.py` | Merge top-N candidates into unified extraction records |
@@ -46,10 +45,11 @@ Normalizes package metadata from Nixpkgs and FreeBSD Ports into a shared canonic
 | `tools/generate_stub.py` | Merge snapshot records into per-package stub JSON files in `stubs/` |
 | `tools/build_spec.py` | Run a record through a driver; dispatch to build target; store artifact |
 | `tools/seed_from_ports.py` | Derive PyPI/npm seed lists from a FreeBSD Ports snapshot (`make seed`) |
+| `tools/build_and_verify.py` | **End-to-end harness**: fetch source → build → install → verify Z-spec on any target |
 
 ### Layer 2 — Z-Layer Behavioral Spec System
 
-Machine-readable contracts that describe how OSS libraries actually behave, derived from public documentation only (not source code), verified against the installed library on every CI run.
+Machine-readable contracts that describe how OSS libraries actually behave, derived from public documentation only (not source code), verified against the installed library on every CI run. The end-to-end harness additionally validates the full supply chain — building from upstream source in a clean prefix before verifying.
 
 | Component | Purpose |
 |-----------|---------|
@@ -191,6 +191,9 @@ make compile-zsdl        Compile zspecs/*.zspec.zsdl → _build/zspecs/*.zspec.j
 make verify-all-specs    Run every spec; text summary
 make verify-all-specs-json  Run every spec; write JSON results
 make verify-behavior     Run one spec (ZSPEC=path)
+make validate-e2e        Build from source + verify spec end-to-end (E2E_RECORD=, E2E_ZSPEC=)
+make import-pypi         Fetch PyPI metadata with source_repository backtracking
+make import-npm          Fetch npm metadata with source_repository backtracking
 make spec-coverage       Coverage report (EXTRACTION_DIR= required)
 make validate-zspecs     Validate Z-spec JSON files against schema
 make clean               Remove build artifacts

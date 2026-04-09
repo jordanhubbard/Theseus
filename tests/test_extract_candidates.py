@@ -480,8 +480,13 @@ def test_main_skips_missing_candidates(tmp_path):
 # behavioral_spec auto-injection
 # ---------------------------------------------------------------------------
 
-def test_find_behavioral_spec_known_library():
+def test_find_behavioral_spec_known_library(tmp_path, monkeypatch):
     """Libraries with a matching zspec get a behavioral_spec path."""
+    build_dir = tmp_path / "_build" / "zspecs"
+    build_dir.mkdir(parents=True)
+    for name in ("openssl", "zlib", "curl", "sqlite3"):
+        (build_dir / f"{name}.zspec.json").write_text("{}")
+    monkeypatch.setattr(ec, "REPO_ROOT", tmp_path)
     assert ec._find_behavioral_spec("openssl") == "_build/zspecs/openssl.zspec.json"
     assert ec._find_behavioral_spec("zlib")    == "_build/zspecs/zlib.zspec.json"
     assert ec._find_behavioral_spec("curl")    == "_build/zspecs/curl.zspec.json"

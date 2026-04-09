@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage release docs docs-serve help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage validate-e2e release docs docs-serve help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -22,6 +22,13 @@ NPM_TOP ?= 100
 IMPORT_OUT ?= ./snapshots/$(shell date +%Y-%m-%d)
 IMPORT_TIMEOUT ?= 15
 PYTHON ?= python3
+
+E2E_PACKAGE ?=
+E2E_RECORD ?=
+E2E_ZSPEC ?=
+E2E_TARGET ?=
+E2E_TIMEOUT ?= 600
+E2E_JSON_OUT ?=
 
 all:
 	@$(PYTHON) --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
@@ -109,6 +116,17 @@ import-npm:
 	@test -f "$(NPM_SEED)" || (echo "Run 'make seed SNAPSHOT=...' first to generate $(NPM_SEED)" && exit 1)
 	$(PYTHON) theseus/importer.py --npm-list "$(NPM_SEED)" \
 		--out "$(IMPORT_OUT)" --timeout "$(IMPORT_TIMEOUT)"
+
+validate-e2e: compile-zsdl
+	@test -n "$(E2E_RECORD)" || (echo "Usage: make validate-e2e E2E_RECORD=specs/zlib.json E2E_ZSPEC=_build/zspecs/zlib.zspec.json [E2E_TARGET=ubuntu.local] [E2E_JSON_OUT=out.json]" && exit 1)
+	@test -n "$(E2E_ZSPEC)" || (echo "Usage: make validate-e2e E2E_RECORD=specs/zlib.json E2E_ZSPEC=_build/zspecs/zlib.zspec.json [E2E_TARGET=ubuntu.local] [E2E_JSON_OUT=out.json]" && exit 1)
+	python3 tools/build_and_verify.py \
+		--record "$(E2E_RECORD)" \
+		--zspec "$(E2E_ZSPEC)" \
+		$(if $(E2E_TARGET),--target "$(E2E_TARGET)") \
+		$(if $(E2E_JSON_OUT),--json-out "$(E2E_JSON_OUT)") \
+		$(if $(VERBOSE),--verbose) \
+		$(if $(ALL_TARGETS),--all-targets)
 
 bulk-build:
 	@test -n "$(SNAPSHOT)" || (echo "Usage: make bulk-build SNAPSHOT=<dir> [BULK_RANKED=file] [BULK_TOP=100] [BULK_MIN_REFS=5] [BULK_JOBS=2]" && exit 1)
@@ -198,6 +216,7 @@ help:
 	@echo "  make import-npm     Fetch npm package metadata (requires npm-seed.txt)"
 	@echo "  make compile-zsdl   Compile zspecs/*.zspec.zsdl → _build/zspecs/*.zspec.json (ZSDL=file for one)"
 	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: _build/zspecs/zlib.zspec.json)"
+	@echo "  make validate-e2e   Build from source and verify behavioral spec (E2E_RECORD=, E2E_ZSPEC=)"
 	@echo "  make verify-all-specs Run every spec in _build/zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)"
 	@echo "  make verify-all-specs-json  Run all specs and write JSON results (OUT=file optional, SPECS=paths optional)"
 	@echo "  make spec-coverage    Report which extracted candidates have a behavioral spec (EXTRACTION_DIR= required)"

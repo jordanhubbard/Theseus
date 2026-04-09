@@ -1172,6 +1172,77 @@ def _parse_pep508(req_str: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Source repository helpers
+# ---------------------------------------------------------------------------
+
+_PERMISSIVE_LICENSE_PREFIXES = (
+    "MIT", "BSD", "Apache", "ISC", "0BSD", "Unlicense", "Zlib",
+    "OpenSSL", "curl", "PSF", "Python-",
+)
+
+_GPL_LICENSE_SUBSTRINGS = (
+    "GPL", "AGPL", "LGPL", "copyleft",
+)
+
+
+def _license_is_permissive(license_str: str):
+    """Return True if license is permissive, False if GPL-family, None if unknown."""
+    if not license_str:
+        return None
+    upper = license_str.upper()
+    if any(s.upper() in upper for s in _GPL_LICENSE_SUBSTRINGS):
+        return False
+    if any(license_str.startswith(p) for p in _PERMISSIVE_LICENSE_PREFIXES):
+        return True
+    return None
+
+
+def _normalize_github_url(raw: str) -> str:
+    """Normalize various GitHub URL forms to https://github.com/owner/repo."""
+    url = raw.strip()
+    # Strip git+ prefix
+    if url.startswith("git+"):
+        url = url[4:]
+    # git://github.com/ → https://github.com/
+    if url.startswith("git://github.com/"):
+        url = "https://github.com/" + url[len("git://github.com/"):]
+    # github:owner/repo shorthand
+    if url.startswith("github:"):
+        url = "https://github.com/" + url[7:]
+    # Strip .git suffix
+    if url.endswith(".git"):
+        url = url[:-4]
+    # Bare owner/repo (no scheme, single slash, no dots in owner)
+    if url and "/" in url and not url.startswith("http") and url.count("/") == 1:
+        url = "https://github.com/" + url
+    return url.strip()
+
+
+def _pypi_source_repo(info: dict) -> str:
+    """Extract source repository URL from PyPI package info.
+
+    Priority: project_urls["Source"] > project_urls["Repository"] >
+    project_urls["Code"] > project_urls["Source Code"] >
+    home_page (if github.com).
+    """
+    project_urls = info.get("project_urls") or {}
+    for key in ("Source", "Repository", "Code", "Source Code"):
+        val = (project_urls.get(key) or "").strip()
+        if val and "github.com" in val:
+            return val
+    # Non-GitHub explicit source URLs
+    for key in ("Source", "Repository", "Code", "Source Code"):
+        val = (project_urls.get(key) or "").strip()
+        if val:
+            return val
+    # home_page if it looks like GitHub
+    hp = (info.get("home_page") or "").strip()
+    if hp and "github.com" in hp:
+        return hp
+    return ""
+
+
+# ---------------------------------------------------------------------------
 # PyPI importer
 # ---------------------------------------------------------------------------
 
@@ -1236,6 +1307,8 @@ def import_pypi(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int
                     homepage = hp
                     break
 
+        source_repository = _pypi_source_repo(info)
+
         rec = {
             "schema_version": SCHEMA_VERSION,
             "identity": {
@@ -1286,6 +1359,7 @@ def import_pypi(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int
                 "pypi": {
                     "requires_python": (info.get("requires_python") or "").strip(),
                     "classifiers": (info.get("classifiers") or [])[:10],
+                    "source_repository": source_repository,
                 }
             },
         }
@@ -1359,6 +1433,7 @@ def import_npm(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int:
         if isinstance(repo, str):
             repo = {"url": repo}
         repo_url = (repo.get("url") or "").strip()
+        source_repository = _normalize_github_url(repo_url) if repo_url else ""
 
         keywords = (ver_data.get("keywords") or data.get("keywords") or [])[:10]
 
@@ -1412,6 +1487,7 @@ def import_npm(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int:
                 "npm": {
                     "engines": ver_data.get("engines") or {},
                     "keywords": keywords,
+                    "source_repository": source_repository,
                 }
             },
         }

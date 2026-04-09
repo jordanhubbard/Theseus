@@ -100,6 +100,9 @@ def _resolve_arg(val, atype: str):
 class LibraryLoader:
     """Loads the target library — either a shared library via ctypes or a Python module."""
 
+    def __init__(self, lib_dirs=None):
+        self._lib_dirs = lib_dirs or []
+
     def load(self, lib_spec: dict):
         backend = lib_spec.get("backend", "ctypes")
         if backend == "python_module":
@@ -202,6 +205,17 @@ class LibraryLoader:
 
     def _load_ctypes(self, lib_spec: dict) -> ctypes.CDLL:
         patterns = lib_spec.get("soname_patterns", [])
+        # Try explicit lib-dir paths first
+        for lib_dir in (self._lib_dirs if hasattr(self, '_lib_dirs') else []):
+            for name in patterns:
+                for suffix in (".dylib", ".so", ".so.1", ".so.2", ".so.7"):
+                    candidate = str(Path(lib_dir) / f"lib{name}{suffix}")
+                    try:
+                        lib = ctypes.CDLL(candidate)
+                        self._setup(lib)
+                        return lib
+                    except OSError:
+                        pass
         for name in patterns:
             found = ctypes.util.find_library(name)
             if found:
@@ -1647,6 +1661,10 @@ def main(argv=None) -> int:
             "Clears the terminal before each run. Press Ctrl-C to stop."
         ),
     )
+    parser.add_argument(
+        "--lib-dir", dest="lib_dirs", metavar="PATH", action="append", default=[],
+        help="Additional directory to search for shared libraries (prepended to ctypes search)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -1656,7 +1674,7 @@ def main(argv=None) -> int:
         return 2
 
     try:
-        lib = LibraryLoader().load(spec["library"])
+        lib = LibraryLoader(lib_dirs=args.lib_dirs).load(spec["library"])
     except LibraryNotFoundError as exc:
         print(f"ERROR loading library: {exc}", file=sys.stderr)
         return 2

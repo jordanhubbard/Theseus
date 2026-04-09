@@ -259,3 +259,132 @@ def _build_remote(
         driver=driver,
         command=cmd,
     )
+
+
+# ---------------------------------------------------------------------------
+# Source-fetch and from-source build
+# ---------------------------------------------------------------------------
+
+_BUILD_SYSTEM_COMMANDS: dict[str, str] = {
+    "cmake": (
+        "cmake -S {src} -B {src}/_build_theseus "
+        "-DCMAKE_INSTALL_PREFIX={prefix} -DCMAKE_BUILD_TYPE=Release 2>&1 && "
+        "cmake --build {src}/_build_theseus --parallel 4 2>&1 && "
+        "cmake --install {src}/_build_theseus 2>&1"
+    ),
+    "autotools": (
+        "cd {src} && "
+        "([ -f configure ] || ([ -f autogen.sh ] && sh autogen.sh 2>&1) || autoreconf -fi 2>&1) && "
+        "./configure --prefix={prefix} 2>&1 && "
+        "make -j4 2>&1 && make install 2>&1"
+    ),
+    "meson": (
+        "cd {src} && meson setup _build_theseus --prefix={prefix} 2>&1 && "
+        "meson compile -C _build_theseus 2>&1 && "
+        "meson install -C _build_theseus 2>&1"
+    ),
+    "pypi": (
+        "pip3 install --target={prefix} --no-deps "
+        "--disable-pip-version-check -q {pkg}=={ver} 2>&1"
+    ),
+    "npm": (
+        "mkdir -p {prefix} && "
+        "npm install --prefix {prefix} --no-save {pkg}@{ver} 2>&1"
+    ),
+}
+
+
+@dataclass
+class SourceBuildResult:
+    success: bool
+    prefix: str          # absolute path to the install prefix on the target
+    stdout: str
+    stderr: str
+    returncode: int
+    target: str = ""
+    phase: str = ""      # "clone", "build", "install"
+
+
+def build_from_source_on_target(
+    source_repo_url: str,
+    version_tag: str,
+    system_kind: str,
+    pkg_name: str,
+    pkg_version: str,
+    target_cfg: dict,
+    *,
+    work_base: str = "/tmp/theseus-e2e",
+    timeout: int = 600,
+) -> SourceBuildResult:
+    """Clone a source repository on the target, build, and install to a temp prefix.
+
+    For package-manager installs (pypi, npm) the clone step is skipped and the
+    package is fetched directly from the registry.
+
+    Returns a SourceBuildResult with the prefix path on the target.
+    """
+    target_name = target_cfg.get("name", "unknown")
+    is_local = target_cfg.get("local", False)
+    safe_name = pkg_name.replace("/", "__").replace("@", "")
+    work_dir = f"{work_base}/{safe_name}"
+    src_dir = f"{work_dir}/src"
+    prefix = f"{work_dir}/prefix"
+
+    def _run(cmd: str, phase: str, t: int = timeout):
+        if is_local:
+            import subprocess as _sp
+            r = _sp.run(cmd, shell=True, capture_output=True, text=True, timeout=t)
+            if r.returncode != 0:
+                return SourceBuildResult(
+                    success=False, prefix=prefix, stdout=r.stdout,
+                    stderr=r.stderr, returncode=r.returncode,
+                    target=target_name, phase=phase,
+                )
+            return None
+        else:
+            dest = _ssh_dest(target_cfg)
+            rc, out, err = _ssh_run(dest, cmd, timeout=t)
+            if rc != 0:
+                return SourceBuildResult(
+                    success=False, prefix=prefix, stdout=out,
+                    stderr=err, returncode=rc,
+                    target=target_name, phase=phase,
+                )
+            return None
+
+    def _run_ok(cmd: str, phase: str, t: int = timeout):
+        """Run cmd; return error message or None on success."""
+        r = _run(cmd, phase, t)
+        return r.stderr if r else None
+
+    # 1. Create working directory
+    err = _run_ok(f"mkdir -p {src_dir} {prefix}", "setup", 30)
+    if err:
+        return SourceBuildResult(False, prefix, "", err, 1, target_name, "setup")
+
+    # 2. Fetch source (skip for package-manager builds)
+    if system_kind not in ("pypi", "npm"):
+        if not source_repo_url:
+            return SourceBuildResult(
+                False, prefix, "", "No source_repository URL in record", 1,
+                target_name, "clone",
+            )
+        tag_flags = f"--branch {version_tag} --depth 1" if version_tag else "--depth 1"
+        clone_cmd = f"git clone {tag_flags} {source_repo_url} {src_dir} 2>&1"
+        err = _run_ok(clone_cmd, "clone", 120)
+        if err:
+            return SourceBuildResult(False, prefix, "", err, 1, target_name, "clone")
+
+    # 3. Build and install
+    tpl = _BUILD_SYSTEM_COMMANDS.get(system_kind, _BUILD_SYSTEM_COMMANDS["autotools"])
+    build_cmd = tpl.format(
+        src=src_dir, prefix=prefix, pkg=pkg_name, ver=pkg_version,
+    )
+    err = _run_ok(build_cmd, "build", timeout)
+    if err:
+        return SourceBuildResult(False, prefix, "", err, 1, target_name, "build")
+
+    return SourceBuildResult(
+        success=True, prefix=prefix, stdout="", stderr="",
+        returncode=0, target=target_name, phase="done",
+    )

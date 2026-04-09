@@ -250,6 +250,39 @@ the spec. Stick to RFC test vectors, official API documentation, and `man` pages
 
 ---
 
+## Source Code Inspection Policy
+
+AI agents working in this repository **may** clone and read the source code of packages
+when all of the following conditions hold:
+
+1. **License is permissive** — the package is licensed under BSD (any clause), MIT,
+   Apache 2.0, ISC, or another license that grants inspection rights without copyleft
+   obligations. Check the `license` field in the canonical record or the package
+   registry metadata.
+
+2. **Purpose is spec validation or harness development** — reading source is permitted
+   to understand API shape, build system, or test vectors when those facts are also
+   visible in public documentation. Source inspection must not be the *sole* basis for
+   a spec invariant.
+
+3. **The package is not dual-licensed with a GPL-family option** — if any license in
+   the `license` list includes GPL, LGPL, AGPL, or any copyleft variant (including
+   dual-licensing where GPL is one choice), **do not inspect the implementation source**.
+   API headers, man pages, and official documentation remain available.
+
+**Explicitly prohibited for GPL/LGPL/AGPL packages:** do not `git clone`, `make
+extract`, `nix build`, or in any other way access the C/Python/JS implementation
+source. This includes `deflate.c`, `inflate.c`, and similar implementation files
+listed in a spec's `provenance.not_derived_from` block.
+
+**How to check before cloning:**
+- npm: check `extensions.npm.source_repository` and `descriptive.license` in the canonical record
+- PyPI: check `extensions.pypi.source_repository` and `descriptive.license`
+- Nixpkgs: check `descriptive.license` (mapped to SPDX in the importer)
+- FreeBSD Ports: run `make -C /usr/ports/<cat>/<port> -V LICENSE` before `make extract`
+
+---
+
 ## What NOT to Do
 
 - Do not add runtime pip dependencies to `tools/` or `theseus/`
