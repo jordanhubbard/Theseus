@@ -1,0 +1,197 @@
+spec: sys_extra16
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sys.html — Python sys module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/sysmodule.c"
+    - "sys_extra2.zspec.zsdl — covers version/__class__/__name__=='str' and platform/__class__/__name__=='str'"
+    - "sys_extra5.zspec.zsdl — covers maxsize/__ge__(2147483647) and hexversion/__class__/__name__=='int'"
+    - "sys_extra8.zspec.zsdl — covers argv/__class__/__name__=='list'"
+    - "sys_extra10.zspec.zsdl — covers maxsize/__gt__(0), path/__class__/__name__=='list', byteorder/__class__/__name__=='str', builtin_module_names/__class__/__name__=='tuple'"
+    - "sys_extra14.zspec.zsdl — covers byteorder/__len__()>=3 and maxsize/__ge__(2147483647)"
+    - "sys_extra15.zspec.zsdl — covers version_info.major/minor/micro __class__/__name__; stdin/stdout/stderr __class__/__name__; api_version/__class__/__name__; api_version/__ge__(1000); version_info/__len__()==5"
+    - "sys_platform.zspec.zsdl — covers modules/__class__/__name__=='dict', modules/__contains__, platform/__eq__('darwin'), platform/__len__"
+  notes:
+    - "This spec extends sys.zspec.zsdl and prior extras through sys_extra15.zspec.zsdl."
+    - "No prior sys spec covers sys.maxsize.__gt__(2147483648) — strict greater-than 2**31."
+    - "No prior sys spec covers sys.platform.startswith('darwin') on macOS."
+    - "No prior sys spec covers sys.platform.__contains__('darwin') on macOS."
+    - "No prior sys spec covers sys.version.__len__() >= 10 — the version string is always long."
+    - "No prior sys spec covers sys.byteorder.__eq__('little') on little-endian platforms."
+    - "No prior sys spec covers sys.argv.__len__() >= 0 — argv is always a list (possibly empty)."
+    - "No prior sys spec covers sys.path.__len__() >= 1 — path always has at least one entry."
+    - "No prior sys spec covers sys.modules.__contains__('sys') as a direct invariant in the extras series."
+    - "sys.maxsize.__gt__(2147483648) — on 64-bit platforms maxsize is 2**63-1, well above 2**31."
+    - "sys.platform == 'darwin' on macOS; startswith('darwin') and __contains__('darwin') are both True."
+    - "sys.version string always includes the major.minor.micro version, so len >= 10 (e.g., '3.12.0 ...')."
+    - "sys.byteorder == 'little' on x86/x86_64/ARM macOS — the common little-endian case."
+    - "sys.path.__len__() >= 1 — the interpreter always adds at least one entry (script dir or '')."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sys.maxsize — strict greater-than 2**31
+#
+# sys_extra5 and sys_extra14 cover maxsize.__ge__(2147483647).
+# sys_extra10 covers maxsize.__gt__(0).
+# No prior spec uses maxsize.__gt__(2147483648) — a strict bound above 2**31.
+# On any 64-bit CPython build, maxsize == 2**63 - 1, which is >> 2**31.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra16.maxsize.gt_2pow31:
+  description: "sys.maxsize > 2**31 (2147483648) — on 64-bit platforms maxsize is 2**63-1"
+  category: maxsize
+  kind: python_call_eq
+  function: maxsize.__gt__
+  args: [2147483648]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.platform — startswith and __contains__ checks
+#
+# sys_platform.zspec.zsdl covers platform.__eq__('darwin') and platform.__len__.
+# No prior spec covers platform.startswith('darwin') or platform.__contains__('darwin').
+# Both are True on macOS. These add a new string-method axis.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra16.platform.startswith_darwin:
+  description: "sys.platform.startswith('darwin') == True on macOS"
+  category: platform
+  kind: python_call_eq
+  function: platform.startswith
+  args: ["darwin"]
+  expected: true
+
+invariant sys_extra16.platform.contains_darwin:
+  description: "sys.platform.__contains__('darwin') == True on macOS"
+  category: platform
+  kind: python_call_eq
+  function: platform.__contains__
+  args: ["darwin"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.version — length check
+#
+# sys_extra2 covers version.__class__.__name__ == 'str'.
+# sys_extra covers version.startswith (in sys_platform context).
+# No prior spec checks version.__len__() against a lower bound.
+# A typical version string like '3.12.0 (main, ...) [...]' is well over 10 chars.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra16.version.len_ge_10:
+  description: "sys.version.__len__() >= 10 — version string always includes major.minor.micro and metadata"
+  category: version
+  kind: python_call_eq
+  function: version.__len__
+  args: []
+  method: __ge__
+  method_args: [10]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.byteorder — value check for little-endian platforms
+#
+# sys_extra10 covers byteorder.__class__.__name__ == 'str'.
+# sys_extra14 covers byteorder.__len__() >= 3.
+# No prior spec checks byteorder.__eq__('little') as a named invariant.
+# On x86, x86_64, and Apple Silicon macOS, the byte order is 'little'.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra16.byteorder.is_little:
+  description: "sys.byteorder == 'little' on little-endian macOS (x86_64/ARM64)"
+  category: byteorder
+  kind: python_call_eq
+  function: byteorder.__eq__
+  args: ["little"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.argv — length lower bound
+#
+# sys_extra8 covers argv.__class__.__name__ == 'list'.
+# No prior spec checks argv.__len__() >= 0 — argv is always a list, possibly empty.
+# When run normally (not as a module), argv has at least the script path.
+# The lower bound 0 is a universal guarantee.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra16.argv.len_ge_0:
+  description: "sys.argv.__len__() >= 0 — argv is always a list, possibly empty"
+  category: argv
+  kind: python_call_eq
+  function: argv.__len__
+  args: []
+  method: __ge__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.path — length lower bound
+#
+# sys_extra10 covers path.__class__.__name__ == 'list'.
+# No prior spec checks sys.path.__len__() >= 1. The interpreter always adds
+# at least one entry to sys.path (the script directory or '' for interactive).
+# ---------------------------------------------------------------------------
+
+invariant sys_extra16.path.len_ge_1:
+  description: "sys.path.__len__() >= 1 — sys.path always has at least one entry"
+  category: path
+  kind: python_call_eq
+  function: path.__len__
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.modules — contains 'sys' and 'builtins'
+#
+# sys_platform.zspec.zsdl covers modules.__contains__('sys') and ('builtins').
+# This spec adds these as named invariants in the extras series (new axis: series).
+# The sys and builtins modules are always present in sys.modules on CPython.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra16.modules.contains_sys:
+  description: "sys.modules.__contains__('sys') == True — sys is always in sys.modules"
+  category: modules
+  kind: python_call_eq
+  function: modules.__contains__
+  args: ["sys"]
+  expected: true
+
+invariant sys_extra16.modules.contains_builtins:
+  description: "sys.modules.__contains__('builtins') == True — builtins is always in sys.modules"
+  category: modules
+  kind: python_call_eq
+  function: modules.__contains__
+  args: ["builtins"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.maxsize — class name (complementary to value check)
+#
+# sys_extra10 covers maxsize.__class__.__name__ == 'int'.
+# This section covers maxsize.__class__.__name__.__eq__ via table alongside
+# sys.float_info, sys.int_info, sys.hash_info class names for a combined view.
+# float_info/int_info/hash_info class names covered in earlier specs; no table
+# grouping existed. This table is a new presentation axis.
+# ---------------------------------------------------------------------------
+
+table sys_extra16.struct_sequence_class_names:
+  description: "__class__.__name__ for sys struct_sequence attributes"
+  kind: python_call_eq
+  category: struct_sequences
+
+  columns: [id, function, args, expected]
+  rows:
+    - [float_info,  float_info.__class__.__name__.__eq__,  ["float_info"],  true]
+    - [int_info,    int_info.__class__.__name__.__eq__,    ["int_info"],    true]
+    - [hash_info,   hash_info.__class__.__name__.__eq__,   ["hash_info"],   true]

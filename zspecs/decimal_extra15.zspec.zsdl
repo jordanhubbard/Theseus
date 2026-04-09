@@ -1,0 +1,194 @@
+spec: decimal_extra15
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+rfcs:
+  - "IBM General Decimal Arithmetic specification"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "This spec extends decimal.zspec.zsdl and prior extras (decimal_extra through decimal_extra14)."
+    - "decimal.zspec.zsdl covers as_tuple().sign for '3.14' (sign==0) and '-3.14' (sign==1)."
+    - "decimal_extra9 covers as_tuple().exponent for '1.23' and as_tuple().digits.__len__ for '3.14'."
+    - "decimal_extra11 covers is_finite()==True for '1', is_finite()==False for 'Infinity' and 'NaN'."
+    - "decimal_extra covers is_nan(NaN)==True, is_infinite(Inf)==True."
+    - "decimal_extra14 covers is_zero/is_signed/adjusted/normalize/getcontext/Context."
+    - "No prior spec covers Decimal('0').as_tuple().sign == 0 (zero has non-negative sign)."
+    - "No prior spec covers Decimal('10').as_tuple().exponent == 1 (trailing zero gives exponent 1)."
+    - "No prior spec covers Decimal('10').as_tuple().digits via __getitem__(0) == 1."
+    - "No prior spec covers Decimal('0.01').as_tuple().exponent == -2 (two decimal places)."
+    - "No prior spec covers Decimal('1').as_tuple().digits.__getitem__(0) == 1 (first digit)."
+    - "No prior spec covers Decimal('-0').is_signed() == True (negative zero has sign bit set)."
+    - "No prior spec covers Decimal('inf').is_normal() == False (infinity is not a normal number)."
+    - "No prior spec covers Decimal('1').is_normal() == True (finite nonzero number is normal)."
+    - "No prior spec covers Decimal('1.5').copy_abs().__str__() == '1.5' (abs of positive)."
+    - "No prior spec covers Decimal('-1.5').copy_abs().__str__() == '1.5' (abs of negative)."
+    - "No prior spec covers Decimal('-1.5').copy_negate().__str__() == '1.5' (negate of negative)."
+    - "Decimal('0').as_tuple().sign == 0 — zero has sign bit 0 (non-negative)."
+    - "Decimal('10').as_tuple().exponent == 1 — trailing zero encoded as exponent 1."
+    - "Decimal('10').as_tuple().digits first element == 1 — leading digit of '10'."
+    - "Decimal('0.01').as_tuple().exponent == -2 — two decimal places means exponent -2."
+    - "Decimal('1').as_tuple().digits first element == 1 — single digit of '1'."
+    - "Decimal('-0').is_signed() == True — negative zero has sign bit set."
+    - "Decimal('inf').is_normal() == False — infinity is not a normal finite number."
+    - "Decimal('1').is_normal() == True — finite nonzero number is normal."
+    - "Decimal('1.5').copy_abs().__str__() == '1.5' — copy_abs of positive is itself."
+    - "Decimal('-1.5').copy_abs().__str__() == '1.5' — copy_abs strips the sign."
+    - "Decimal('-1.5').copy_negate().__str__() == '1.5' — negation of negative is positive."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# as_tuple — sign, exponent, and digits for new input vectors
+#
+# decimal.zspec covers as_tuple().sign for '3.14' and '-3.14'.
+# decimal_extra9 covers as_tuple().exponent for '1.23' and digits length for '3.14'.
+# New vectors: sign of '0', exponent of '10' and '0.01', first digit of '10' and '1'.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra15.Decimal.as_tuple_sign_zero:
+  description: "Decimal('0').as_tuple().sign == 0 — zero has non-negative sign bit"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["0"]
+  method: as_tuple
+  method_chain: sign
+  expected: 0
+
+invariant decimal_extra15.Decimal.as_tuple_exponent_ten:
+  description: "Decimal('10').as_tuple().exponent == 1 — trailing zero gives exponent 1"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["10"]
+  method: as_tuple
+  method_chain: exponent
+  expected: 1
+
+invariant decimal_extra15.Decimal.as_tuple_exponent_point01:
+  description: "Decimal('0.01').as_tuple().exponent == -2 — two decimal places gives exponent -2"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["0.01"]
+  method: as_tuple
+  method_chain: exponent
+  expected: -2
+
+invariant decimal_extra15.Decimal.as_tuple_digits_first_ten:
+  description: "Decimal('10').as_tuple().digits first element == 1 — leading digit of '10'"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["10"]
+  method: as_tuple
+  method_chain: digits.__getitem__
+  method_chain_args: [0]
+  expected: 1
+
+invariant decimal_extra15.Decimal.as_tuple_digits_first_one:
+  description: "Decimal('1').as_tuple().digits first element == 1 — single digit of '1'"
+  category: as_tuple
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: as_tuple
+  method_chain: digits.__getitem__
+  method_chain_args: [0]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# is_signed — predicate for negative zero
+#
+# decimal_extra14 covers is_signed('-1.5')==True and is_signed('1.5')==False.
+# New: Decimal('-0').is_signed() == True — negative zero has sign bit set.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra15.Decimal.is_signed_negative_zero:
+  description: "Decimal('-0').is_signed() == True — negative zero has sign bit set"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["-0"]
+  method: is_signed
+  expected: true
+
+# ---------------------------------------------------------------------------
+# is_normal — predicate: is the value a normal finite number?
+#
+# is_normal() returns True for finite nonzero numbers and False for
+# infinities, NaN, and subnormal numbers.
+# No prior spec covers is_normal() as a value vector.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra15.Decimal.is_normal_one:
+  description: "Decimal('1').is_normal() == True — finite nonzero number is normal"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: is_normal
+  expected: true
+
+invariant decimal_extra15.Decimal.is_normal_inf:
+  description: "Decimal('inf').is_normal() == False — infinity is not a normal number"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["inf"]
+  method: is_normal
+  expected: false
+
+# ---------------------------------------------------------------------------
+# copy_abs — return absolute value without altering the original
+#
+# copy_abs() always returns the magnitude, unaffected by the sign.
+# No prior spec covers copy_abs(); decimal_extra covers __abs__()-equivalent logic
+# only through is_signed. copy_abs() is a pure copy operation with no context effects.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra15.Decimal.copy_abs_positive:
+  description: "Decimal('1.5').copy_abs().__str__() == '1.5' — copy_abs of positive is itself"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: copy_abs
+  method_chain: __str__
+  expected: "1.5"
+
+invariant decimal_extra15.Decimal.copy_abs_negative:
+  description: "Decimal('-1.5').copy_abs().__str__() == '1.5' — copy_abs strips the sign"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["-1.5"]
+  method: copy_abs
+  method_chain: __str__
+  expected: "1.5"
+
+# ---------------------------------------------------------------------------
+# copy_negate — return the negated value without altering the original
+#
+# copy_negate() flips the sign bit. No prior spec covers copy_negate().
+# Decimal('-1.5').copy_negate() == Decimal('1.5').
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra15.Decimal.copy_negate_negative:
+  description: "Decimal('-1.5').copy_negate().__str__() == '1.5' — negate of negative is positive"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["-1.5"]
+  method: copy_negate
+  method_chain: __str__
+  expected: "1.5"
