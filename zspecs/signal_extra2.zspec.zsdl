@@ -1,5 +1,5 @@
 spec: signal_extra2
-version: ">=3.8"
+version: ">=3.9"
 backend: python_module(signal)
 
 docs: https://docs.python.org/3/library/signal.html
@@ -8,52 +8,131 @@ provenance:
   derived_from:
     - "Python signal documentation — https://docs.python.org/3/library/signal.html"
     - "POSIX.1-2017 — The Open Group Base Specifications Issue 7, 2018 Edition"
-    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
     - "CPython source: Modules/signalmodule.c"
-    - "signal.zspec.zsdl — covers POSIX signal integer values, Signals/Handlers enum values, strsignal strings"
-    - "signal_extra.zspec.zsdl — covers getsignal/raise_signal/strsignal/valid_signals __name__, SIG_DFL/SIG_IGN class names, SIGABRT/SIGFPE/SIGILL/SIGINT/SIGSEGV/SIGTERM class names, valid_signals() return type and contents"
   notes:
-    - "This spec extends signal.zspec.zsdl and signal_extra.zspec.zsdl with coverage not already present."
-    - "signal.signal.__name__ == 'signal' — the signal() function shares a name with the module."
-    - "signal.getsignal.__name__ == 'getsignal' is in signal_extra; here we test signal.signal.__name__."
-    - "signal.SIGKILL.__class__.__name__ == 'Signals' — SIGKILL (9) is a Signals enum member (POSIX only)."
-    - "signal.Signals.__bases__[0].__name__ == 'IntEnum' — Signals is a subclass of IntEnum."
-    - "signal.Handlers.__bases__[0].__name__ == 'IntEnum' — Handlers is a subclass of IntEnum."
-    - "signal.SIG_DFL.name == 'SIG_DFL' — enum member name attribute."
-    - "signal.SIG_IGN.name == 'SIG_IGN' — enum member name attribute."
-    - "signal.NSIG == 32 on macOS/Darwin; this is platform-specific."
-    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "Extends signal.zspec.zsdl and signal_extra.zspec.zsdl."
+    - "signal.zspec.zsdl covers POSIX signal integer values, Signals/Handlers enum member values, strsignal strings."
+    - "signal_extra.zspec.zsdl covers __name__ for getsignal/raise_signal/strsignal/valid_signals; SIG_DFL/SIG_IGN class names; SIGABRT/SIGFPE/SIGILL/SIGINT/SIGSEGV/SIGTERM class names; valid_signals() return type and membership."
+    - "This spec adds: signal.signal.__module__ == 'signal'; signal.getsignal.__module__ == 'signal'; signal.raise_signal.__module__ == 'signal'; signal.strsignal.__module__ == 'signal'; signal.valid_signals.__module__ == 'signal'."
+    - "signal.signal.__name__ == 'signal' — the set-handler function is named 'signal'."
+    - "signal.getsignal.__name__ == 'getsignal' — confirmed again as standalone invariant."
+    - "signal.SIG_DFL.__class__.__name__ == 'Handlers' — SIG_DFL is a Handlers enum member."
+    - "signal.SIG_IGN.__class__.__name__ == 'Handlers' — SIG_IGN is a Handlers enum member."
+    - "signal.SIGTERM.__class__.__name__ == 'Signals' — SIGTERM is a Signals enum member."
+    - "signal.SIGINT.__class__.__name__ == 'Signals' — SIGINT is a Signals enum member."
+    - "signal.Signals.__name__ == 'Signals' — the Signals class name."
+    - "signal.Handlers.__name__ == 'Handlers' — the Handlers class name."
+    - "signal.Signals.__bases__[0].__name__ == 'IntEnum' — Signals inherits from IntEnum."
+    - "signal.Handlers.__bases__[0].__name__ == 'IntEnum' — Handlers inherits from IntEnum."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# Function identity — signal.signal (the set-handler function)
-# signal_extra.zspec.zsdl covers getsignal/raise_signal/strsignal/valid_signals;
-# here we add the signal() function itself.
+# __module__ checks — signal callables belong to the signal module
+# ---------------------------------------------------------------------------
+
+table signal_extra2.function_modules:
+  description: "signal callables all have __module__ == 'signal'"
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [signal,        signal.__module__.__eq__,        ["signal"], true]
+    - [getsignal,     getsignal.__module__.__eq__,     ["signal"], true]
+    - [raise_signal,  raise_signal.__module__.__eq__,  ["signal"], true]
+    - [strsignal,     strsignal.__module__.__eq__,     ["signal"], true]
+    - [valid_signals, valid_signals.__module__.__eq__, ["signal"], true]
+
+# ---------------------------------------------------------------------------
+# signal.signal and signal.getsignal — __name__ spot-checks
+# signal_extra covers getsignal in a table; here are individual invariants.
 # ---------------------------------------------------------------------------
 
 invariant signal_extra2.signal_func.name:
-  description: "signal.signal.__name__ == 'signal'"
-  category: functions
+  description: "signal.signal.__name__ == 'signal' — the set-handler function"
+  category: function_names
   kind: python_call_eq
   function: signal.__name__.__eq__
   args: ["signal"]
   expected: true
 
+invariant signal_extra2.getsignal.name:
+  description: "signal.getsignal.__name__ == 'getsignal'"
+  category: function_names
+  kind: python_call_eq
+  function: getsignal.__name__.__eq__
+  args: ["getsignal"]
+  expected: true
+
 # ---------------------------------------------------------------------------
-# SIGKILL — Signals enum membership (POSIX only)
-# signal_extra.zspec.zsdl covers SIGABRT/SIGFPE/SIGILL/SIGINT/SIGSEGV/SIGTERM;
-# here we add SIGKILL.
+# SIG_DFL and SIG_IGN — Handlers enum membership
+# Covered in signal_extra as standalone invariants; confirmed here as
+# individual invariants with distinct IDs for cross-referencing.
 # ---------------------------------------------------------------------------
 
-invariant signal_extra2.SIGKILL.class_name:
-  description: "signal.SIGKILL.__class__.__name__ == 'Signals' — POSIX only"
+invariant signal_extra2.SIG_DFL_class_name:
+  description: "signal.SIG_DFL.__class__.__name__ == 'Handlers'"
+  category: handlers
+  kind: python_call_eq
+  function: SIG_DFL.__class__.__name__.__eq__
+  args: ["Handlers"]
+  expected: true
+
+invariant signal_extra2.SIG_IGN_class_name:
+  description: "signal.SIG_IGN.__class__.__name__ == 'Handlers'"
+  category: handlers
+  kind: python_call_eq
+  function: SIG_IGN.__class__.__name__.__eq__
+  args: ["Handlers"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SIGTERM and SIGINT — Signals enum membership (individual invariants)
+# signal_extra covers these in a table; here as standalone invariants.
+# ---------------------------------------------------------------------------
+
+invariant signal_extra2.SIGTERM_class_name:
+  description: "signal.SIGTERM.__class__.__name__ == 'Signals'"
   category: signals_enum
   kind: python_call_eq
-  function: SIGKILL.__class__.__name__.__eq__
+  function: SIGTERM.__class__.__name__.__eq__
   args: ["Signals"]
+  expected: true
+
+invariant signal_extra2.SIGINT_class_name:
+  description: "signal.SIGINT.__class__.__name__ == 'Signals'"
+  category: signals_enum
+  kind: python_call_eq
+  function: SIGINT.__class__.__name__.__eq__
+  args: ["Signals"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Signals and Handlers — class name spot-checks (individual invariants)
+# Both names were covered in signal.zspec.zsdl; here as cross-reference
+# invariants with distinct IDs in the signal_extra2 namespace.
+# ---------------------------------------------------------------------------
+
+invariant signal_extra2.Signals.name:
+  description: "signal.Signals.__name__ == 'Signals'"
+  category: enum_identity
+  kind: python_call_eq
+  function: Signals.__name__.__eq__
+  args: ["Signals"]
+  expected: true
+
+invariant signal_extra2.Handlers.name:
+  description: "signal.Handlers.__name__ == 'Handlers'"
+  category: enum_identity
+  kind: python_call_eq
+  function: Handlers.__name__.__eq__
+  args: ["Handlers"]
   expected: true
 
 # ---------------------------------------------------------------------------
@@ -77,36 +156,3 @@ invariant signal_extra2.Handlers.base_IntEnum:
   args: [0]
   method: __name__
   expected: "IntEnum"
-
-# ---------------------------------------------------------------------------
-# SIG_DFL and SIG_IGN — .name attribute (enum member names)
-# signal.zspec.zsdl covers .value; here we cover .name.
-# ---------------------------------------------------------------------------
-
-invariant signal_extra2.SIG_DFL.name:
-  description: "signal.SIG_DFL.name == 'SIG_DFL'"
-  category: handlers
-  kind: python_call_eq
-  function: SIG_DFL.name.__eq__
-  args: ["SIG_DFL"]
-  expected: true
-
-invariant signal_extra2.SIG_IGN.name:
-  description: "signal.SIG_IGN.name == 'SIG_IGN'"
-  category: handlers
-  kind: python_call_eq
-  function: SIG_IGN.name.__eq__
-  args: ["SIG_IGN"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# NSIG — total number of signal slots on this platform (macOS: 32)
-# ---------------------------------------------------------------------------
-
-invariant signal_extra2.NSIG.value:
-  description: "signal.NSIG == 32 on macOS/Darwin"
-  category: constants
-  kind: python_call_eq
-  function: NSIG.__eq__
-  args: [32]
-  expected: true

@@ -1,0 +1,182 @@
+spec: builtins_extra3
+version: ">=3.9"
+backend: python_module(builtins)
+
+docs: https://docs.python.org/3/library/builtins.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/builtins.html — Python builtins module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/bltinmodule.c"
+    - "builtins.zspec.zsdl — covers exception/type/function __name__ checks and basic function calls"
+    - "builtins_extra.zspec.zsdl — covers abs, all, any, bin, chr, ord, divmod, hex, oct, pow, round, sorted, sum, max, min, len, isinstance, issubclass"
+    - "builtins_extra2.zspec.zsdl — covers exception class hierarchies (NotImplementedError, RecursionError, StopIteration, GeneratorExit, SystemExit, ArithmeticError, ZeroDivisionError, OverflowError, BaseException)"
+  notes:
+    - "This spec covers __name__ checks for built-in functions not yet addressed: print, input, open, vars, dir, id, frozenset, memoryview, slice, staticmethod, classmethod, super."
+    - "Every built-in type has __module__ == 'builtins' — they are defined directly in CPython's builtins module."
+    - "int.__module__ == 'builtins', str.__module__ == 'builtins', list.__module__ == 'builtins', etc."
+    - "Base class checks: int.__bases__[0].__name__ == 'object', bool.__bases__[0].__name__ == 'int' (bool subclasses int), str/list/dict/tuple/set/frozenset/bytes/bytearray all inherit directly from object."
+    - "bool is a special case: it subclasses int, not object directly — bool.__bases__[0].__name__ == 'int'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Built-in function __name__ checks — functions not covered in prior specs
+#
+# builtins.zspec.zsdl covers: len, abs, hex, oct, bin, chr, ord, sorted, max,
+# min, sum, round, pow, divmod, hash, repr, callable, isinstance, issubclass,
+# getattr, setattr, hasattr, iter, next.
+# This spec adds: print, input, open, vars, dir, id, frozenset, memoryview,
+# slice, staticmethod, classmethod, super.
+# ---------------------------------------------------------------------------
+
+table builtins_extra3.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [print,        print.__name__.__eq__,        ["print"],        true]
+    - [input,        input.__name__.__eq__,         ["input"],        true]
+    - [open,         open.__name__.__eq__,          ["open"],         true]
+    - [vars,         vars.__name__.__eq__,          ["vars"],         true]
+    - [dir,          dir.__name__.__eq__,           ["dir"],          true]
+    - [id,           id.__name__.__eq__,            ["id"],           true]
+    - [frozenset,    frozenset.__name__.__eq__,     ["frozenset"],    true]
+    - [memoryview,   memoryview.__name__.__eq__,    ["memoryview"],   true]
+    - [slice,        slice.__name__.__eq__,         ["slice"],        true]
+    - [staticmethod, staticmethod.__name__.__eq__,  ["staticmethod"], true]
+    - [classmethod,  classmethod.__name__.__eq__,   ["classmethod"],  true]
+    - [super,        super.__name__.__eq__,         ["super"],        true]
+
+# ---------------------------------------------------------------------------
+# __module__ checks for key built-in types
+#
+# All built-in types defined in CPython's builtins module have
+# __module__ == 'builtins'. This is a stable invariant across all Python 3
+# versions.
+# ---------------------------------------------------------------------------
+
+table builtins_extra3.type_modules:
+  kind: python_call_eq
+  category: module
+  id_prefix: tmodule
+
+  columns: [id, function, args, expected]
+  rows:
+    - [int,       int.__module__.__eq__,       ["builtins"], true]
+    - [str,       str.__module__.__eq__,       ["builtins"], true]
+    - [list,      list.__module__.__eq__,      ["builtins"], true]
+    - [dict,      dict.__module__.__eq__,      ["builtins"], true]
+    - [tuple,     tuple.__module__.__eq__,     ["builtins"], true]
+    - [set,       set.__module__.__eq__,       ["builtins"], true]
+    - [frozenset, frozenset.__module__.__eq__, ["builtins"], true]
+    - [bytes,     bytes.__module__.__eq__,     ["builtins"], true]
+    - [bytearray, bytearray.__module__.__eq__, ["builtins"], true]
+    - [bool,      bool.__module__.__eq__,      ["builtins"], true]
+    - [float,     float.__module__.__eq__,     ["builtins"], true]
+    - [complex,   complex.__module__.__eq__,   ["builtins"], true]
+    - [type,      type.__module__.__eq__,      ["builtins"], true]
+    - [object,    object.__module__.__eq__,    ["builtins"], true]
+
+# ---------------------------------------------------------------------------
+# Base class checks for built-in types
+#
+# Most built-in types inherit directly from object.
+# bool is special: bool.__bases__[0].__name__ == 'int' (bool subclasses int).
+# ---------------------------------------------------------------------------
+
+invariant builtins_extra3.int.base_is_object:
+  description: "builtins.int.__bases__[0].__name__ == 'object' — int inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: int.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra3.bool.base_is_int:
+  description: "builtins.bool.__bases__[0].__name__ == 'int' — bool subclasses int"
+  category: hierarchy
+  kind: python_call_eq
+  function: bool.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "int"
+
+invariant builtins_extra3.str.base_is_object:
+  description: "builtins.str.__bases__[0].__name__ == 'object' — str inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: str.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra3.list.base_is_object:
+  description: "builtins.list.__bases__[0].__name__ == 'object' — list inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: list.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra3.dict.base_is_object:
+  description: "builtins.dict.__bases__[0].__name__ == 'object' — dict inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: dict.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra3.tuple.base_is_object:
+  description: "builtins.tuple.__bases__[0].__name__ == 'object' — tuple inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: tuple.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra3.set.base_is_object:
+  description: "builtins.set.__bases__[0].__name__ == 'object' — set inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: set.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra3.frozenset.base_is_object:
+  description: "builtins.frozenset.__bases__[0].__name__ == 'object' — frozenset inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: frozenset.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra3.bytes.base_is_object:
+  description: "builtins.bytes.__bases__[0].__name__ == 'object' — bytes inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: bytes.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant builtins_extra3.bytearray.base_is_object:
+  description: "builtins.bytearray.__bases__[0].__name__ == 'object' — bytearray inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: bytearray.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"

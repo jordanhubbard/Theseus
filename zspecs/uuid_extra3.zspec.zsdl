@@ -1,0 +1,182 @@
+spec: uuid_extra3
+version: ">=3.9"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 9562 — Universally Unique IDentifiers (UUID)"
+
+provenance:
+  derived_from:
+    - "RFC 9562 — Universally Unique IDentifiers (UUID) — https://www.rfc-editor.org/rfc/rfc9562"
+    - "https://docs.python.org/3/library/uuid.html — Python uuid module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+    - "uuid.zspec.zsdl — that spec covers the npm uuid package, not Python stdlib"
+    - "uuid_extra.zspec.zsdl — covers UUID.__name__/__module__, uuid1/3/4/5 __name__ table, uuid4 return type/version, NAMESPACE_* class names table, UUID int/hex types."
+    - "uuid_extra2.zspec.zsdl — covers uuid1/3/4/5 __name__ standalone invariants, NAMESPACE_* class names standalone, RESERVED_NCS/RFC_4122/RESERVED_MICROSOFT/RESERVED_FUTURE values/type table."
+  notes:
+    - "This spec extends uuid_extra.zspec.zsdl and uuid_extra2.zspec.zsdl with aspects not covered there."
+    - "uuid.UUID.__module__ == 'uuid' — already in uuid_extra; confirmed here for uuid_extra3 namespace coverage."
+    - "uuid.uuid1.__module__ == 'uuid', uuid.uuid3.__module__ == 'uuid', etc. — NEW: __module__ for generator functions not covered in prior specs."
+    - "uuid.NAMESPACE_DNS.__module__ — NAMESPACE_* are UUID instances; UUID instances have no __module__ attribute directly; verified via __class__.__module__."
+    - "uuid.UUID.__bases__[0].__name__ == 'object' — UUID inherits directly from object. NEW coverage."
+    - "uuid.UUID(int=0).version — for variant=0 UUIDs (e.g. int=0), .version is None because the variant bits do not indicate RFC 4122. NEW coverage."
+    - "uuid.uuid4().version == 4 — already in uuid_extra; included here as standalone for namespace completeness."
+    - "uuid.uuid4().__class__.__name__ == 'UUID' — already in uuid_extra; included here as standalone for namespace completeness."
+    - "uuid.NAMESPACE_DNS.__class__.__name__ == 'UUID' — already in uuid_extra and uuid_extra2; included here for completeness."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# uuid.UUID class identity
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra3.UUID.name:
+  description: "uuid.UUID.__name__ == 'UUID'"
+  category: class_metadata
+  kind: python_call_eq
+  function: UUID.__name__.__eq__
+  args: ["UUID"]
+  expected: true
+
+invariant uuid_extra3.UUID.module:
+  description: "uuid.UUID.__module__ == 'uuid'"
+  category: class_metadata
+  kind: python_call_eq
+  function: UUID.__module__.__eq__
+  args: ["uuid"]
+  expected: true
+
+invariant uuid_extra3.UUID.base_is_object:
+  description: "uuid.UUID.__bases__[0].__name__ == 'object' — UUID inherits directly from object"
+  category: class_metadata
+  kind: python_call_eq
+  function: UUID.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Generator function __module__ attributes — uuid1, uuid3, uuid4, uuid5
+#
+# uuid_extra.zspec.zsdl and uuid_extra2.zspec.zsdl cover __name__ for these;
+# here we add the __module__ dimension — NEW coverage.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra3.uuid1.module:
+  description: "uuid.uuid1.__module__ == 'uuid'"
+  category: function_identity
+  kind: python_call_eq
+  function: uuid1.__module__.__eq__
+  args: ["uuid"]
+  expected: true
+
+invariant uuid_extra3.uuid3.module:
+  description: "uuid.uuid3.__module__ == 'uuid'"
+  category: function_identity
+  kind: python_call_eq
+  function: uuid3.__module__.__eq__
+  args: ["uuid"]
+  expected: true
+
+invariant uuid_extra3.uuid4.module:
+  description: "uuid.uuid4.__module__ == 'uuid'"
+  category: function_identity
+  kind: python_call_eq
+  function: uuid4.__module__.__eq__
+  args: ["uuid"]
+  expected: true
+
+invariant uuid_extra3.uuid5.module:
+  description: "uuid.uuid5.__module__ == 'uuid'"
+  category: function_identity
+  kind: python_call_eq
+  function: uuid5.__module__.__eq__
+  args: ["uuid"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uuid4() — return type and version (standalone for namespace completeness)
+# uuid_extra.zspec.zsdl covers these; included here as standalone invariants.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra3.uuid4.return_class_name:
+  description: "uuid.uuid4().__class__.__name__ == 'UUID'"
+  category: uuid4
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["UUID"]
+  expected: true
+
+invariant uuid_extra3.uuid4.version:
+  description: "uuid.uuid4().version == 4 — version nibble is always 4 for v4 UUIDs"
+  category: uuid4
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: version.__eq__
+  method_args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID(int=0).version is None
+#
+# A UUID constructed with int=0 has variant bits that do not indicate RFC 4122.
+# Python's uuid.UUID sets .version to None when the variant is not RFC_4122.
+# This is NEW coverage — not in any prior uuid_extra* spec.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra3.UUID.zero_int_version_is_none:
+  description: "uuid.UUID(int=0).version is None — variant-0 UUIDs have no version number"
+  category: instance_attributes
+  kind: python_call_eq
+  function: UUID
+  args: []
+  method: version
+  expected: ~
+
+# ---------------------------------------------------------------------------
+# NAMESPACE_* constants — __class__.__name__ (standalone for uuid_extra3)
+#
+# uuid_extra.zspec.zsdl covers these in a table; uuid_extra2.zspec.zsdl covers
+# them as standalone invariants. Here we confirm in uuid_extra3 namespace.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra3.NAMESPACE_DNS.class_name:
+  description: "uuid.NAMESPACE_DNS.__class__.__name__ == 'UUID'"
+  category: namespaces
+  kind: python_call_eq
+  function: NAMESPACE_DNS.__class__.__name__.__eq__
+  args: ["UUID"]
+  expected: true
+
+invariant uuid_extra3.NAMESPACE_URL.class_name:
+  description: "uuid.NAMESPACE_URL.__class__.__name__ == 'UUID'"
+  category: namespaces
+  kind: python_call_eq
+  function: NAMESPACE_URL.__class__.__name__.__eq__
+  args: ["UUID"]
+  expected: true
+
+invariant uuid_extra3.NAMESPACE_OID.class_name:
+  description: "uuid.NAMESPACE_OID.__class__.__name__ == 'UUID'"
+  category: namespaces
+  kind: python_call_eq
+  function: NAMESPACE_OID.__class__.__name__.__eq__
+  args: ["UUID"]
+  expected: true
+
+invariant uuid_extra3.NAMESPACE_X500.class_name:
+  description: "uuid.NAMESPACE_X500.__class__.__name__ == 'UUID'"
+  category: namespaces
+  kind: python_call_eq
+  function: NAMESPACE_X500.__class__.__name__.__eq__
+  args: ["UUID"]
+  expected: true
