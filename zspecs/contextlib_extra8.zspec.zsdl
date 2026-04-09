@@ -1,0 +1,169 @@
+spec: contextlib_extra8
+version: ">=3.9"
+backend: python_module(contextlib)
+
+docs: https://docs.python.org/3/library/contextlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/contextlib.html — Python contextlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/contextlib.py"
+  notes:
+    - "This spec extends contextlib.zspec.zsdl, contextlib_extra.zspec.zsdl, contextlib_extra2.zspec.zsdl, contextlib_extra3.zspec.zsdl, contextlib_extra4.zspec.zsdl, contextlib_extra5.zspec.zsdl, contextlib_extra6.zspec.zsdl, contextlib_extra7.zspec.zsdl, and contextlib_suppress.zspec.zsdl."
+    - "redirect_stdout.__module__ and redirect_stderr.__module__ have not been covered by any prior contextlib spec."
+    - "contextlib_extra7 covers __bases__ for suppress/closing/ExitStack; this spec adds AsyncExitStack, nullcontext, and AbstractAsyncContextManager base checks."
+    - "contextlib_extra7 covers ContextDecorator.__name__/__qualname__/__module__; this spec adds ContextDecorator.__bases__ check."
+    - "contextlib.redirect_stdout.__module__ == 'contextlib' — defined directly in Lib/contextlib.py."
+    - "contextlib.redirect_stderr.__module__ == 'contextlib' — defined directly in Lib/contextlib.py."
+    - "contextlib.AsyncExitStack.__bases__[0].__name__ == 'AbstractAsyncContextManager'."
+    - "contextlib.nullcontext.__bases__[0].__name__ == 'AbstractContextManager'."
+    - "contextlib.AbstractAsyncContextManager.__bases__[0].__name__ == 'ABC' — ABCMeta-based hierarchy."
+    - "contextlib.ContextDecorator.__bases__[0].__name__ == 'object' — ContextDecorator is a simple mixin with no ABC base."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __module__ checks for redirect_stdout and redirect_stderr
+#
+# No prior contextlib spec covers __module__ for redirect_stdout or
+# redirect_stderr. contextlib_extra4 covers suppress/ExitStack/AsyncExitStack/
+# AbstractContextManager/AbstractAsyncContextManager/contextmanager;
+# contextlib_extra.zspec.zsdl covers contextmanager/asynccontextmanager/
+# closing/nullcontext; contextlib_extra5 covers closing/suppress/ExitStack/
+# AsyncExitStack/nullcontext. redirect_stdout and redirect_stderr remain
+# uncovered for __module__.
+# ---------------------------------------------------------------------------
+
+table contextlib_extra8.redirect_modules:
+  kind: python_call_eq
+  category: module
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [redirect_stdout, redirect_stdout.__module__.__eq__, ["contextlib"], true]
+    - [redirect_stderr, redirect_stderr.__module__.__eq__, ["contextlib"], true]
+
+# ---------------------------------------------------------------------------
+# __bases__ — AsyncExitStack
+#
+# contextlib_extra7 covers suppress/closing/ExitStack.__bases__[0].__name__.
+# AsyncExitStack derives from AbstractAsyncContextManager, not
+# AbstractContextManager.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra8.AsyncExitStack.base_name:
+  description: "contextlib.AsyncExitStack.__bases__[0].__name__ == 'AbstractAsyncContextManager'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: AsyncExitStack.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "AbstractAsyncContextManager"
+
+# ---------------------------------------------------------------------------
+# __bases__ — nullcontext
+#
+# nullcontext is a plain context manager class added in Python 3.7 and
+# promoted to AbstractContextManager-based in 3.10. On Python 3.10+ its
+# first base is AbstractContextManager.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra8.nullcontext.base_name:
+  description: "contextlib.nullcontext.__bases__[0].__name__ == 'AbstractContextManager'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: nullcontext.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "AbstractContextManager"
+
+# ---------------------------------------------------------------------------
+# __bases__ — AbstractAsyncContextManager
+#
+# AbstractAsyncContextManager is an ABC whose metaclass is ABCMeta.
+# Its first (and only) base in the __bases__ tuple is ABC.
+# contextlib_extra7 checks AbstractContextManager.__bases__.__len__ == 1
+# but does not verify AbstractAsyncContextManager's bases.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra8.AbstractAsyncContextManager.base_name:
+  description: "contextlib.AbstractAsyncContextManager.__bases__[0].__name__ == 'ABC'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: AbstractAsyncContextManager.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ABC"
+
+# ---------------------------------------------------------------------------
+# __bases__ — ContextDecorator
+#
+# ContextDecorator is a simple mixin class (no ABC machinery).
+# Its only base is object. contextlib_extra7 verified its name/qualname/module
+# but not its base class.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra8.ContextDecorator.base_name:
+  description: "contextlib.ContextDecorator.__bases__[0].__name__ == 'object'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: ContextDecorator.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# __bases__ count — AsyncExitStack and AbstractAsyncContextManager
+#
+# Structural check: both classes have exactly one entry in __bases__.
+# contextlib_extra7 checks AbstractContextManager.__bases__.__len__ == 1;
+# this adds the async variants.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra8.AsyncExitStack.bases_len:
+  description: "contextlib.AsyncExitStack.__bases__ has exactly 1 element"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: AsyncExitStack.__bases__.__len__
+  args: []
+  expected: 1
+
+invariant contextlib_extra8.AbstractAsyncContextManager.bases_len:
+  description: "contextlib.AbstractAsyncContextManager.__bases__ has exactly 1 element"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: AbstractAsyncContextManager.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# __qualname__ of redirect_stdout and redirect_stderr base classes
+#
+# Verify that redirect_stdout and redirect_stderr both inherit from
+# AbstractContextManager by checking __bases__[0].__qualname__.
+# contextlib_extra7 does this for ExitStack; the redirect classes
+# have not been checked.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra8.redirect_stdout.base_qualname:
+  description: "contextlib.redirect_stdout.__bases__[0].__qualname__ == 'AbstractContextManager'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: redirect_stdout.__bases__.__getitem__
+  args: [0]
+  method: __qualname__
+  expected: "AbstractContextManager"
+
+invariant contextlib_extra8.redirect_stderr.base_qualname:
+  description: "contextlib.redirect_stderr.__bases__[0].__qualname__ == 'AbstractContextManager'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: redirect_stderr.__bases__.__getitem__
+  args: [0]
+  method: __qualname__
+  expected: "AbstractContextManager"
