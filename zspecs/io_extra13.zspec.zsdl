@@ -1,0 +1,229 @@
+spec: io_extra13
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/_pyio.py"
+  notes:
+    - "This spec extends io.zspec.zsdl through io_extra12.zspec.zsdl."
+    - "io_extra12 covers: UnsupportedOperation.__mro__ len(6) and mro[1].__name__=='OSError'; BufferedRandom.__mro__ len(4); BytesIO/StringIO getvalue() on empty; BytesIO/StringIO .closed==False; BytesIO(b'hello').read()==b'hello'; StringIO('hello').read()=='hello'."
+    - "io_extra11 covers: BufferedReader/Writer/Random/TextIOWrapper __bases__[0].__name__; BytesIO/StringIO readable/writable/seekable; DEFAULT_BUFFER_SIZE == 8192."
+    - "NOT yet covered: BytesIO.tell() after partial read; StringIO.tell() after partial read; BytesIO.read(n) returning a slice of bytes; BytesIO.getvalue().__len__() on seeded content; io module __name__ attribute; IncrementalNewlineDecoder class name; UnsupportedOperation.__mro__[0].__name__ (the class itself); io.RawIOBase.__name__; io.IOBase.__name__; io.BufferedIOBase.__name__; io.TextIOBase.__name__."
+    - "io.IOBase.__name__ == 'IOBase' — the abstract root class of the io hierarchy."
+    - "io.RawIOBase.__name__ == 'RawIOBase' — abstract base for raw binary streams."
+    - "io.BufferedIOBase.__name__ == 'BufferedIOBase' — abstract base for buffered binary streams."
+    - "io.TextIOBase.__name__ == 'TextIOBase' — abstract base for text streams."
+    - "io.UnsupportedOperation.__mro__[0].__name__ == 'UnsupportedOperation' — first MRO entry is the class itself."
+    - "io.IncrementalNewlineDecoder.__name__ == 'IncrementalNewlineDecoder' — not covered in any prior spec."
+    - "io.BytesIO(b'hello').getvalue().__len__() == 5 — seeded BytesIO getvalue length."
+    - "io.BytesIO(b'hello').read(3) == b'hel' — partial read returns a bytes prefix."
+    - "io.StringIO('hello world').read(5) == 'hello' — partial read returns a text prefix (distinct from base spec's 'hello world' fixture)."
+    - "io.StringIO('hello\\nworld').tell() == 0 — tell() at initial position."
+    - "io.BytesIO(b'hello').tell() == 0 — tell() at initial position (with seeded content)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Abstract base class names — IOBase, RawIOBase, BufferedIOBase, TextIOBase
+#
+# No prior spec checks the __name__ attribute of the four abstract ABC classes
+# directly. (Prior specs focused on concrete classes and UnsupportedOperation.)
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.IOBase.class_name:
+  description: "io.IOBase.__name__ == 'IOBase' — root abstract base class of io hierarchy"
+  category: class_names
+  kind: python_call_eq
+  function: IOBase.__name__.__eq__
+  args: ["IOBase"]
+  expected: true
+
+invariant io_extra13.RawIOBase.class_name:
+  description: "io.RawIOBase.__name__ == 'RawIOBase' — abstract base for raw binary streams"
+  category: class_names
+  kind: python_call_eq
+  function: RawIOBase.__name__.__eq__
+  args: ["RawIOBase"]
+  expected: true
+
+invariant io_extra13.BufferedIOBase.class_name:
+  description: "io.BufferedIOBase.__name__ == 'BufferedIOBase' — abstract base for buffered binary streams"
+  category: class_names
+  kind: python_call_eq
+  function: BufferedIOBase.__name__.__eq__
+  args: ["BufferedIOBase"]
+  expected: true
+
+invariant io_extra13.TextIOBase.class_name:
+  description: "io.TextIOBase.__name__ == 'TextIOBase' — abstract base for text streams"
+  category: class_names
+  kind: python_call_eq
+  function: TextIOBase.__name__.__eq__
+  args: ["TextIOBase"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IncrementalNewlineDecoder — class name
+#
+# io.IncrementalNewlineDecoder wraps a codec to handle universal newline
+# translation. Its class name has not been checked in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.IncrementalNewlineDecoder.class_name:
+  description: "io.IncrementalNewlineDecoder.__name__ == 'IncrementalNewlineDecoder'"
+  category: class_names
+  kind: python_call_eq
+  function: IncrementalNewlineDecoder.__name__.__eq__
+  args: ["IncrementalNewlineDecoder"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UnsupportedOperation.__mro__[0].__name__ — the class itself is first in MRO
+#
+# io_extra12 confirmed mro length (6) and mro[1] ('OSError'). The first entry
+# (index 0) in any class MRO is the class itself; not previously verified.
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.UnsupportedOperation.mro_first:
+  description: "io.UnsupportedOperation.__mro__[0].__name__ == 'UnsupportedOperation' — first MRO entry is the class itself"
+  category: mro
+  kind: python_call_eq
+  function: UnsupportedOperation.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "UnsupportedOperation"
+
+# ---------------------------------------------------------------------------
+# BytesIO — getvalue() length on seeded content
+#
+# io_extra12 tested getvalue() on an empty BytesIO (b'') and a read() on seeded.
+# No prior spec tests getvalue().__len__() on seeded content (5 bytes for b'hello').
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.BytesIO.getvalue_seeded_len:
+  description: "io.BytesIO(b'hello').getvalue().__len__() == 5 — seeded BytesIO getvalue length"
+  category: stream_ops
+  kind: python_call_eq
+  function: BytesIO
+  args: [!b64 aGVsbG8=]
+  method: getvalue
+  method_chain: __len__
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# BytesIO — partial read returns a bytes prefix
+#
+# io_extra12 tested read() with no argument (reads all). No prior spec tests
+# read(n) on BytesIO with a count argument.
+# BytesIO(b'hello').read(3) == b'hel'
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.BytesIO.read_partial:
+  description: "io.BytesIO(b'hello').read(3) == b'hel' — partial read returns 3-byte prefix"
+  category: stream_ops
+  kind: python_call_eq
+  function: BytesIO
+  args: [!b64 aGVsbG8=]
+  method: read
+  method_args: [3]
+  expected: !b64 aGVs
+
+# ---------------------------------------------------------------------------
+# BytesIO — tell() at initial position with seeded content
+#
+# io.zspec.zsdl tests BytesIO().tell() == 0 (empty). No prior spec tests
+# tell() on a seeded BytesIO before any read.
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.BytesIO.tell_seeded_initial:
+  description: "io.BytesIO(b'hello').tell() == 0 — initial stream position is 0 even with seeded content"
+  category: stream_state
+  kind: python_call_eq
+  function: BytesIO
+  args: [!b64 aGVsbG8=]
+  method: tell
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# StringIO — partial read with a distinct fixture from the base spec
+#
+# io.zspec.zsdl tests StringIO('hello world').read(5) == 'hello'. This uses
+# a different fixture to confirm the partial-read contract independently.
+# 'abcde'.read(3) == 'abc'
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.StringIO.read_partial:
+  description: "io.StringIO('abcde').read(3) == 'abc' — partial text read of first 3 characters"
+  category: stream_ops
+  kind: python_call_eq
+  function: StringIO
+  args: ["abcde"]
+  method: read
+  method_args: [3]
+  expected: "abc"
+
+# ---------------------------------------------------------------------------
+# StringIO — tell() at initial position with seeded content
+#
+# io.zspec.zsdl tests StringIO('hello world').tell() == 0 (with that exact
+# fixture). No prior spec checks tell() on a StringIO with different content.
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.StringIO.tell_seeded_initial:
+  description: "io.StringIO('foo\\nbar').tell() == 0 — initial stream position is 0"
+  category: stream_state
+  kind: python_call_eq
+  function: StringIO
+  args: ["foo\nbar"]
+  method: tell
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# StringIO — getvalue() length on seeded content
+#
+# io.zspec.zsdl tests getvalue().__len__() == 11 for 'hello world'. No prior
+# spec tests getvalue().__len__() with a different fixture size.
+# 'abc' has length 3.
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.StringIO.getvalue_len_three:
+  description: "io.StringIO('abc').getvalue().__len__() == 3 — three-character buffer"
+  category: stream_ops
+  kind: python_call_eq
+  function: StringIO
+  args: ["abc"]
+  method: getvalue
+  method_chain: __len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# IOBase — class membership check (is a type object)
+#
+# All four abstract io classes are type objects. No prior spec checks
+# IOBase.__class__.__name__ == 'type'.
+# ---------------------------------------------------------------------------
+
+invariant io_extra13.IOBase.is_type:
+  description: "io.IOBase.__class__.__name__ == 'type' — IOBase is a class object"
+  category: class_names
+  kind: python_call_eq
+  function: IOBase.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant io_extra13.RawIOBase.is_type:
+  description: "io.RawIOBase.__class__.__name__ == 'type' — RawIOBase is a class object"
+  category: class_names
+  kind: python_call_eq
+  function: RawIOBase.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true

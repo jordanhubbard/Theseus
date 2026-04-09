@@ -1,0 +1,170 @@
+spec: sys_extra11
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sys.html — Python sys module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/sysmodule.c"
+  notes:
+    - "This spec extends sys.zspec.zsdl and prior extras through sys_extra10.zspec.zsdl."
+    - "sys_extra10 covers: maxsize > 0; maxunicode == 1114111; builtin_module_names is tuple; builtin_module_names contains 'sys'/'builtins'; prefix/exec_prefix/executable are str; getdefaultencoding == 'utf-8'; getrecursionlimit > 0; hash_info.imag == 1000003; hash_info.algorithm is str; thread_info.name is str; version.startswith('3.')."
+    - "sys_extra8 covers: float_info.dig == 15; float_info.mant_dig == 53; float_info.max_exp == 1024; float_info.min_exp == -1021; hash_info.modulus > 0; hash_info.width >= 32."
+    - "sys_extra3 covers: float_info.max > 0; float_info.max/min/epsilon class names ('float')."
+    - "sys_platform covers: float_info.max >= 1.7976931348623157e+308; float_info.epsilon <= 2.220446049250313e-16."
+    - "No prior spec covers sys.float_info.max > 1e300 as a distinct lower bound (sys_extra3 covers > 0 and sys_platform covers >= the exact IEEE 754 value)."
+    - "No prior spec covers sys.float_info.min > 0 as a value bound (sys_extra3 covers only the class name)."
+    - "No prior spec covers sys.float_info.min < 1 as an upper bound establishing it is a small positive number."
+    - "No prior spec covers sys.float_info.epsilon > 0 as a value bound."
+    - "No prior spec covers sys.float_info.epsilon < 1 as an upper bound."
+    - "No prior spec covers sys.int_info.bits_per_digit >= 15 as a lower-bound invariant."
+    - "No prior spec covers sys.flags.verbose.__class__.__name__ or sys.flags.inspect.__class__.__name__."
+    - "No prior spec covers sys.flags.dont_write_bytecode.__class__.__name__ or sys.flags.no_site.__class__.__name__."
+    - "No prior spec covers sys.flags.hash_randomization.__class__.__name__."
+    - "No prior spec covers sys.hash_info.cutoff.__class__.__name__."
+    - "sys.float_info.max > 1e300 — the maximum representable double far exceeds 10^300."
+    - "sys.float_info.min > 0 — the minimum positive normalized float is a small positive number."
+    - "sys.float_info.min < 1 — the minimum positive normalized float is less than one."
+    - "sys.float_info.epsilon > 0 — machine epsilon is a small positive number."
+    - "sys.float_info.epsilon < 1 — machine epsilon is less than one."
+    - "sys.int_info.bits_per_digit >= 15 — CPython uses at least 15 bits per digit (actually 30)."
+    - "sys.flags.verbose/inspect/dont_write_bytecode/no_site/hash_randomization are all ints."
+    - "sys.hash_info.cutoff.__class__.__name__ == 'int' — cutoff is an integer threshold."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sys.float_info.max — tighter lower bound
+#
+# sys_extra3 covers float_info.max > 0 (trivially true).
+# sys_platform covers float_info.max >= 1.7976931348623157e+308.
+# This spec adds float_info.max > 1e300 — a meaningful intermediate bound
+# that verifies the value is in the right order of magnitude.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra11.float_info.max_gt_1e300:
+  description: "sys.float_info.max > 1e300 — the maximum representable double far exceeds 10^300"
+  category: float_info
+  kind: python_call_eq
+  function: float_info.max.__gt__
+  args: [1.0e300]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.float_info.min — positivity and upper bound
+#
+# sys_extra3 covers only the class name ('float') of float_info.min.
+# No prior spec covers float_info.min > 0 or float_info.min < 1.
+# float_info.min is the minimum positive normalized float (~2.2e-308 on
+# IEEE 754 double), so it is strictly positive and strictly less than 1.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra11.float_info.min_positive:
+  description: "sys.float_info.min > 0 — the minimum positive normalized float is a small positive number"
+  category: float_info
+  kind: python_call_eq
+  function: float_info.min.__gt__
+  args: [0]
+  expected: true
+
+invariant sys_extra11.float_info.min_lt_one:
+  description: "sys.float_info.min < 1 — the minimum positive normalized float is less than one"
+  category: float_info
+  kind: python_call_eq
+  function: float_info.min.__lt__
+  args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.float_info.epsilon — positivity and upper bound
+#
+# sys_platform covers float_info.epsilon <= 2.220446049250313e-16.
+# sys_extra3 covers only its class name.
+# No prior spec covers float_info.epsilon > 0 or float_info.epsilon < 1.
+# Machine epsilon (~2.22e-16) is strictly positive and strictly less than 1.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra11.float_info.epsilon_positive:
+  description: "sys.float_info.epsilon > 0 — machine epsilon is a small positive number"
+  category: float_info
+  kind: python_call_eq
+  function: float_info.epsilon.__gt__
+  args: [0]
+  expected: true
+
+invariant sys_extra11.float_info.epsilon_lt_one:
+  description: "sys.float_info.epsilon < 1 — machine epsilon is less than one"
+  category: float_info
+  kind: python_call_eq
+  function: float_info.epsilon.__lt__
+  args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.int_info.bits_per_digit — lower bound
+#
+# sys_extra9 covers int_info.bits_per_digit == 30 (CPython specific).
+# No prior spec covers bits_per_digit >= 15 as a platform-portable lower bound.
+# The ZSDL spec says bits_per_digit >= 15; CPython uses 30.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra11.int_info.bits_per_digit_ge_15:
+  description: "sys.int_info.bits_per_digit >= 15 — CPython uses at least 15 bits per big-int digit"
+  category: int_info
+  kind: python_call_eq
+  function: int_info.bits_per_digit.__ge__
+  args: [15]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.flags — additional field class names
+#
+# sys_extra3 covers flags.debug and flags.optimize class names ('int').
+# No prior spec covers verbose/inspect/dont_write_bytecode/no_site/hash_randomization.
+# All sys.flags fields are plain Python ints.
+# ---------------------------------------------------------------------------
+
+table sys_extra11.flags_field_types:
+  kind: python_call_eq
+  category: flags
+  id_prefix: fld
+
+  columns: [id, function, args, expected]
+  rows:
+    - [verbose,             flags.verbose.__class__.__name__.__eq__,             ["int"], true]
+    - [inspect,             flags.inspect.__class__.__name__.__eq__,             ["int"], true]
+    - [dont_write_bytecode, flags.dont_write_bytecode.__class__.__name__.__eq__, ["int"], true]
+    - [no_site,             flags.no_site.__class__.__name__.__eq__,             ["int"], true]
+    - [hash_randomization,  flags.hash_randomization.__class__.__name__.__eq__,  ["int"], true]
+
+# ---------------------------------------------------------------------------
+# sys.hash_info.cutoff — class name
+#
+# sys_extra8 covers hash_info.modulus > 0 and hash_info.width >= 32.
+# sys_extra9 covers hash_info.inf and hash_info.nan values.
+# sys_extra10 covers hash_info.imag and hash_info.algorithm class name.
+# No prior spec covers hash_info.cutoff. It is the minimum string length
+# for which the siphash algorithm is used; its type is always int.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra11.hash_info.cutoff_is_int:
+  description: "sys.hash_info.cutoff.__class__.__name__ == 'int' — cutoff is an integer threshold"
+  category: hash_info
+  kind: python_call_eq
+  function: hash_info.cutoff.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant sys_extra11.hash_info.cutoff_nonneg:
+  description: "sys.hash_info.cutoff >= 0 — the hash cutoff threshold is non-negative"
+  category: hash_info
+  kind: python_call_eq
+  function: hash_info.cutoff.__ge__
+  args: [0]
+  expected: true

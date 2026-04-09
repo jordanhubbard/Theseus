@@ -1,0 +1,232 @@
+spec: collections_extra11
+version: ">=3.9"
+backend: python_module(collections)
+
+docs: https://docs.python.org/3/library/collections.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html — Python collections documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+    - "CPython source: Modules/_collectionsmodule.c"
+  notes:
+    - "This spec extends collections.zspec.zsdl and prior extras through collections_extra10.zspec.zsdl."
+    - "collections_extra10 covers: Counter/OrderedDict/defaultdict MRO __len__() == 3; deque MRO __len__() == 2; MRO[1].__name__ for Counter/OrderedDict/defaultdict; deque(maxlen=5).maxlen == 5; deque([]).maxlen is None; Counter()['missing'] == 0; UserDict.__contains__ present/absent."
+    - "collections_extra9 covers: __bases__.__len__ for deque/defaultdict/ChainMap/UserDict/UserList/UserString; deque.__bases__[0].__name__=='object'; UserString/UserList/UserDict .data __class__.__name__; UserString/UserList __len__."
+    - "collections.zspec.zsdl covers: ChainMap.__getitem__ for first/second map; ChainMap.maps.__len__() == 2; ChainMap.__len__() == 2 (unique keys)."
+    - "NOT yet covered in any prior spec: ChainMap.maps.__class__.__name__ == 'list' — the .maps attribute is a plain Python list."
+    - "NOT yet covered: ChainMap({'a':1}).get('a') == 1 — ChainMap.get() method (not tested as python_call_eq)."
+    - "NOT yet covered: ChainMap({'a':1}).get('missing', 0) == 0 — get() with default for absent key."
+    - "NOT yet covered: ChainMap({'a':1},{'b':2}).__contains__('a') == True — membership test."
+    - "NOT yet covered: ChainMap({'a':1},{'b':2}).__contains__('z') == False — absent key membership test."
+    - "NOT yet covered: UserDict({'x':1}).__class__.__name__ == 'UserDict' — instance class name (only __name__ on class itself covered)."
+    - "NOT yet covered: UserList([1,2,3]).__class__.__name__ == 'UserList' — instance class name."
+    - "NOT yet covered: UserString('hello').__class__.__name__ == 'UserString' — instance class name."
+    - "NOT yet covered: UserString('hello').data == 'hello' — actual value of .data, not just type."
+    - "NOT yet covered: UserList([1,2,3]).data.__len__() == 3 — length of .data list (distinct from UserList.__len__ covered in extra9)."
+    - "NOT yet covered: UserDict({'k': 'v'}).data.__len__() == 1 — length of .data dict."
+    - "NOT yet covered: ChainMap({'a':1}).__len__() == 1 — single-map ChainMap (prior spec uses two maps)."
+    - "NOT yet covered: UserDict({'a':1,'b':2}).__len__() == 2 — __len__ on the UserDict instance itself."
+    - "ChainMap.maps is a list (not a tuple) containing the underlying dicts in search order."
+    - "ChainMap.get() delegates to the underlying mapping chain, returning the default if the key is absent."
+    - "UserDict, UserList, UserString instances report their own class name (not 'dict', 'list', 'str') because they are Python wrappers."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ChainMap.maps.__class__.__name__ == 'list'
+#
+# collections.zspec.zsdl covers ChainMap.maps.__len__() == 2 (number of backing
+# maps). No prior spec checks the type of the .maps attribute itself.
+# Per the Python docs, ChainMap.maps is a user-updateable list of mappings.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra11.ChainMap.maps_class_name:
+  description: "ChainMap({'a':1},{'b':2}).maps.__class__.__name__ == 'list' — .maps is a plain Python list"
+  category: chainmap_attrs
+  kind: python_call_eq
+  function: ChainMap
+  args: [{"a": 1}, {"b": 2}]
+  method: maps.__class__.__name__.__eq__
+  method_args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ChainMap.get() — lookup with and without default
+#
+# collections.zspec.zsdl covers ChainMap.__getitem__ for first and second map.
+# No prior spec covers the .get() method on ChainMap. .get() returns the value
+# if the key is found, or the default (None if unspecified) if absent.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra11.ChainMap.get_present:
+  description: "ChainMap({'a':1}).get('a') == 1 — key found in first map"
+  category: chainmap_ops
+  kind: python_call_eq
+  function: ChainMap
+  args: [{"a": 1}]
+  method: get
+  method_args: ["a"]
+  expected: 1
+
+invariant collections_extra11.ChainMap.get_absent_default:
+  description: "ChainMap({'a':1}).get('missing', 0) == 0 — key absent, default returned"
+  category: chainmap_ops
+  kind: python_call_eq
+  function: ChainMap
+  args: [{"a": 1}]
+  method: get
+  method_args: ["missing", 0]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# ChainMap.__contains__ — membership test
+#
+# No prior spec checks __contains__ on a ChainMap instance. __contains__
+# searches all maps in order; a present key returns True, absent key False.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra11.ChainMap.contains_present:
+  description: "ChainMap({'a':1},{'b':2}).__contains__('a') == True — key found in chain"
+  category: chainmap_ops
+  kind: python_call_eq
+  function: ChainMap
+  args: [{"a": 1}, {"b": 2}]
+  method: __contains__
+  method_args: ["a"]
+  expected: true
+
+invariant collections_extra11.ChainMap.contains_absent:
+  description: "ChainMap({'a':1},{'b':2}).__contains__('z') == False — key absent from all maps"
+  category: chainmap_ops
+  kind: python_call_eq
+  function: ChainMap
+  args: [{"a": 1}, {"b": 2}]
+  method: __contains__
+  method_args: ["z"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Instance __class__.__name__ for UserDict, UserList, UserString
+#
+# Prior specs cover the class-level __name__ attribute (e.g. UserDict.__name__
+# == 'UserDict'). No prior spec checks the __class__.__name__ of an *instance*
+# of these types, which confirms the wrapper does not masquerade as the
+# underlying type (dict/list/str).
+# ---------------------------------------------------------------------------
+
+invariant collections_extra11.UserDict.instance_class_name:
+  description: "UserDict({'x':1}).__class__.__name__ == 'UserDict' — instance is a UserDict, not a dict"
+  category: user_types
+  kind: python_call_eq
+  function: UserDict
+  args: [{"x": 1}]
+  method: __class__.__name__.__eq__
+  method_args: ["UserDict"]
+  expected: true
+
+invariant collections_extra11.UserList.instance_class_name:
+  description: "UserList([1,2,3]).__class__.__name__ == 'UserList' — instance is a UserList, not a list"
+  category: user_types
+  kind: python_call_eq
+  function: UserList
+  args: [[1, 2, 3]]
+  method: __class__.__name__.__eq__
+  method_args: ["UserList"]
+  expected: true
+
+invariant collections_extra11.UserString.instance_class_name:
+  description: "UserString('hello').__class__.__name__ == 'UserString' — instance is a UserString, not a str"
+  category: user_types
+  kind: python_call_eq
+  function: UserString
+  args: ["hello"]
+  method: __class__.__name__.__eq__
+  method_args: ["UserString"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UserString.data value equality
+#
+# collections_extra9 checks UserString('hello').data.__class__.__name__ == 'str'.
+# No prior spec checks the *value* of .data. The .data attribute must equal
+# the string passed to the constructor.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra11.UserString.data_value:
+  description: "UserString('hello').data == 'hello' — .data holds the wrapped string value"
+  category: user_types
+  kind: python_call_eq
+  function: UserString
+  args: ["hello"]
+  method: data.__eq__
+  method_args: ["hello"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UserList.data and UserDict.data — length of the wrapped container
+#
+# collections_extra9 checks .data.__class__.__name__ for UserList/UserDict.
+# No prior spec checks the __len__() of the .data attribute on instances.
+# This verifies the wrapper faithfully stores the input data.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra11.UserList.data_len:
+  description: "UserList([1,2,3]).data.__len__() == 3 — .data list holds exactly 3 items"
+  category: user_types
+  kind: python_call_eq
+  function: UserList
+  args: [[1, 2, 3]]
+  method: data.__len__
+  method_args: []
+  expected: 3
+
+invariant collections_extra11.UserDict.data_len:
+  description: "UserDict({'k': 'v'}).data.__len__() == 1 — .data dict holds exactly 1 key"
+  category: user_types
+  kind: python_call_eq
+  function: UserDict
+  args: [{"k": "v"}]
+  method: data.__len__
+  method_args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# ChainMap single-map lookup and len
+#
+# Prior specs cover ChainMap with two maps. No prior spec checks a single-map
+# ChainMap for __len__() == 1 (one unique key) via python_call_eq.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra11.ChainMap.single_map_len:
+  description: "ChainMap({'a':1}).__len__() == 1 — single-map ChainMap with one key has len 1"
+  category: chainmap_ops
+  kind: python_call_eq
+  function: ChainMap
+  args: [{"a": 1}]
+  method: __len__
+  method_args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# UserDict.__len__ — length of a UserDict instance
+#
+# collections_extra9 covers UserDict.data.__class__.__name__ == 'dict'.
+# collections_extra11 covers UserDict.data.__len__() == 1.
+# No prior spec checks UserDict.__len__() directly on the instance (not .data).
+# UserDict delegates __len__ to .data; both must agree.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra11.UserDict.instance_len:
+  description: "UserDict({'a': 1, 'b': 2}).__len__() == 2 — UserDict __len__ delegates to wrapped dict"
+  category: user_types
+  kind: python_call_eq
+  function: UserDict
+  args: [{"a": 1, "b": 2}]
+  method: __len__
+  method_args: []
+  expected: 2

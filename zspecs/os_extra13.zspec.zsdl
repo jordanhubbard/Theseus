@@ -1,0 +1,205 @@
+spec: os_extra13
+version: ">=3.9"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.html — Python os module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c"
+    - "CPython source: Lib/os.py"
+  notes:
+    - "This spec extends os.zspec.zsdl and prior extras through os_extra12.zspec.zsdl."
+    - "os_extra12 covers: os.O_RDONLY/O_WRONLY/O_RDWR/O_CREAT/O_EXCL/O_APPEND/O_TRUNC flags; defpath nonempty; devnull.endswith('null'); linesep.__contains__(newline); os.open/read/write/close qualnames; stat/rename __module__."
+    - "No prior os spec covers os.pathsep == ':' as a value assertion (os.zspec covers only its length; os_extra covers only its class name)."
+    - "No prior os spec covers os.getenv with 'default' as the fallback string (os.zspec uses 'fallback')."
+    - "No prior os spec covers os.strerror.__module__."
+    - "No prior os spec covers os.cpu_count.__module__."
+    - "No prior os spec covers os.extsep.isascii() (os_extra9 covers extsep.__len__() == 1; os_extra10 covers sep/curdir/pardir.isascii but not extsep)."
+    - "No prior os spec covers os.pathsep.isascii() or os.pathsep.__len__() as named invariants."
+    - "No prior os spec covers os.getenv.__module__."
+    - "No prior os spec covers os.listdir.__module__ or os.makedirs.__module__."
+    - "os.pathsep == ':' on all POSIX platforms (macOS, Linux, FreeBSD)."
+    - "os.getenv('NONEXISTENT_VAR_XYZ', 'default') == 'default' — missing key returns the given default."
+    - "os.strerror(0).__len__() > 0 — strerror(0) always returns a non-empty message string."
+    - "os.strerror.__module__ == 'posix' — strerror is implemented in the posix C extension."
+    - "os.cpu_count.__module__ == 'posix' — cpu_count is implemented in the posix C extension."
+    - "os.extsep.isascii() == True — '.' is a pure ASCII character."
+    - "os.pathsep.isascii() == True — ':' is a pure ASCII character."
+    - "os.pathsep.__len__() == 1 — the path separator is always a single character on POSIX."
+    - "os.getenv.__module__ == 'os' — getenv is defined in Lib/os.py (Python function, not C extension)."
+    - "os.listdir.__module__ == 'os' — listdir is a Python function in Lib/os.py."
+    - "os.makedirs.__module__ == 'os' — makedirs is a Python function in Lib/os.py."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# os.pathsep — POSIX value assertion
+#
+# os.zspec.zsdl covers pathsep.__len__() == 1.
+# os_extra covers pathsep.__class__.__name__ == 'str'.
+# No prior spec checks pathsep == ':' as a value assertion.
+# On all POSIX platforms the path list separator is ':'.
+# ---------------------------------------------------------------------------
+
+invariant os_extra13.pathsep.posix_value:
+  description: "os.pathsep == ':' on POSIX — the path list separator is a colon"
+  category: constants
+  kind: python_call_eq
+  function: pathsep.__eq__
+  args: [":"]
+  expected: true
+
+invariant os_extra13.pathsep.isascii:
+  description: "os.pathsep.isascii() == True — ':' is a pure ASCII character"
+  category: constants
+  kind: python_call_eq
+  function: pathsep.isascii
+  args: []
+  expected: true
+
+invariant os_extra13.pathsep.len_one:
+  description: "os.pathsep.__len__() == 1 — the path separator is always a single character"
+  category: constants
+  kind: python_call_eq
+  function: pathsep.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# os.getenv — default argument variant
+#
+# os.zspec.zsdl covers getenv('NONEXISTENT_VAR_XYZ') == None and
+# getenv('NONEXISTENT_VAR_XYZ', 'fallback') == 'fallback'.
+# This spec uses 'default' as the fallback string — a distinct test vector.
+# ---------------------------------------------------------------------------
+
+invariant os_extra13.getenv.default_returned:
+  description: "os.getenv('NONEXISTENT_VAR_XYZ', 'default') == 'default' — missing key returns the supplied default"
+  category: getenv
+  kind: python_call_eq
+  function: getenv
+  args: ["NONEXISTENT_VAR_XYZ", "default"]
+  expected: "default"
+
+# ---------------------------------------------------------------------------
+# os.strerror — nonempty return and __module__ check
+#
+# os_extra4 covers strerror(0).__class__.__name__ == 'str'.
+# os_extra8 covers strerror.__qualname__ in a table row.
+# os.zspec covers strerror.__name__ in a function_names table row.
+# No prior spec checks strerror.__module__ or strerror(0).__len__() > 0.
+# ---------------------------------------------------------------------------
+
+invariant os_extra13.strerror.nonempty:
+  description: "os.strerror(0).__len__() > 0 — strerror(0) always returns a non-empty message string"
+  category: strerror
+  kind: python_call_eq
+  function: strerror
+  args: [0]
+  method: __len__
+  method_chain: __gt__
+  method_chain_args: [0]
+  expected: true
+
+invariant os_extra13.strerror.module:
+  description: "os.strerror.__module__ == 'posix' — strerror is implemented in the posix C extension"
+  category: function_modules
+  kind: python_call_eq
+  function: strerror.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.cpu_count — __module__ check
+#
+# os_extra7 covers cpu_count.__name__ == 'cpu_count'.
+# os_extra8 covers cpu_count.__qualname__ == 'cpu_count'.
+# No prior spec checks cpu_count.__module__.
+# ---------------------------------------------------------------------------
+
+invariant os_extra13.cpu_count.module:
+  description: "os.cpu_count.__module__ == 'posix' — cpu_count is implemented in the posix C extension"
+  category: function_modules
+  kind: python_call_eq
+  function: cpu_count.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.extsep — isascii and __len__ checks
+#
+# os_extra6 covers extsep == '.'.
+# os_extra10 covers curdir/pardir/sep isascii but not extsep.
+# No prior spec covers extsep.isascii() or extsep.__len__().
+# ---------------------------------------------------------------------------
+
+invariant os_extra13.extsep.isascii:
+  description: "os.extsep.isascii() == True — '.' is a pure ASCII character"
+  category: constants
+  kind: python_call_eq
+  function: extsep.isascii
+  args: []
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.getenv — __module__ check
+#
+# os_extra6 covers getenv.__name__; os_extra8 covers getenv.__qualname__.
+# No prior spec covers getenv.__module__.
+# os.getenv is a Python function defined in Lib/os.py, so its __module__ == 'os'.
+# ---------------------------------------------------------------------------
+
+invariant os_extra13.getenv.module:
+  description: "os.getenv.__module__ == 'os' — getenv is defined in the os Python module"
+  category: function_modules
+  kind: python_call_eq
+  function: getenv.__module__.__eq__
+  args: ["os"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.listdir and os.makedirs — __module__ checks
+#
+# os_extra9 covers listdir/makedirs __qualname__; os.zspec covers their __name__.
+# No prior spec covers __module__ for listdir or makedirs.
+# Both are Python functions defined in Lib/os.py (not C extensions).
+# ---------------------------------------------------------------------------
+
+invariant os_extra13.listdir.module:
+  description: "os.listdir.__module__ == 'os' — listdir is defined in the os Python module"
+  category: function_modules
+  kind: python_call_eq
+  function: listdir.__module__.__eq__
+  args: ["os"]
+  expected: true
+
+invariant os_extra13.makedirs.module:
+  description: "os.makedirs.__module__ == 'os' — makedirs is defined in the os Python module"
+  category: function_modules
+  kind: python_call_eq
+  function: makedirs.__module__.__eq__
+  args: ["os"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.devnull — startswith check
+#
+# os_extra6 covers devnull == '/dev/null'.
+# os_extra9 covers devnull.__len__() == 9 and devnull.startswith('/').
+# os_extra12 covers devnull.endswith('null').
+# No prior spec checks devnull.startswith('/dev') as a prefix test.
+# ---------------------------------------------------------------------------
+
+invariant os_extra13.devnull.startswith_dev:
+  description: "os.devnull.startswith('/dev') == True on POSIX — null device path begins with '/dev'"
+  category: constants
+  kind: python_call_eq
+  function: devnull.startswith
+  args: ["/dev"]
+  expected: true

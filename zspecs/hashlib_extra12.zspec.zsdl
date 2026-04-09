@@ -1,0 +1,221 @@
+spec: hashlib_extra12
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "FIPS 202 — SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "FIPS 202 — SHA-3 Standard, NIST, August 2015"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha3/sha3module.c"
+    - "CPython source: Modules/_blake2/blake2module.c"
+  notes:
+    - "This spec extends hashlib through hashlib_extra11; it does NOT duplicate invariants present in those files."
+    - "hashlib_extra11 covers: blake2b/blake2s __name__/__module__/__qualname__; blake2b/blake2s digest_size/block_size; new('blake2b'/'blake2s') digest_size and name; new('sha3_512') digest_size and name; algorithms_guaranteed contains 'shake_256' and 'sha3_384'."
+    - "hashlib_extra9 covers: md5/__name__, sha1/__name__, sha256/__name__ (openssl_ prefix); new.__name__=='__hash_new'; algorithms_guaranteed len >= 8; blake2s/blake2b/sha3_512 membership."
+    - "hashlib_extra7 covers: new('sha256').name == 'sha256'; new('md5').name == 'md5'."
+    - "NOT yet covered in any prior hashlib spec: digest().__class__.__name__ == 'bytes' for any algorithm."
+    - "NOT yet covered: algorithms_guaranteed.__contains__('shake_128') — shake_128 is guaranteed since Python 3.6+."
+    - "NOT yet covered: sha3_512().block_size == 72 — SHA3-512 rate = 1600 - 2*512 = 576 bits = 72 bytes."
+    - "NOT yet covered: sha3_256().block_size == 136 appears in hashlib.zspec.zsdl as hash_object_attr; not as python_call_eq invariant."
+    - "NOT yet covered: sha1(b'abc').digest().__len__() == 20 as an explicit __len__ check on digest bytes."
+    - "NOT yet covered: md5(b'abc').digest().__len__() == 16 as an explicit __len__ check on digest bytes."
+    - "NOT yet covered: sha256(b'').digest().__class__.__name__ == 'bytes' — return type of .digest()."
+    - "NOT yet covered: sha512(b'').digest().__class__.__name__ == 'bytes' — return type of .digest()."
+    - "NOT yet covered: sha256(b'abc').digest().__len__() == 32 — digest byte length via __len__."
+    - "NOT yet covered: new('sha512').digest_size == 64 via factory."
+    - "NOT yet covered: new('sha1').digest_size == 20 via factory."
+    - "hashlib.sha3_512().block_size == 72 — SHA3-512 uses 576-bit (72-byte) blocks per FIPS 202."
+    - "hashlib.sha256(b'').digest() returns a bytes object of length 32."
+    - "hashlib.sha1(b'abc').digest() returns a bytes object of length 20."
+    - "hashlib.md5(b'abc').digest() returns a bytes object of length 16."
+    - "shake_128 is in algorithms_guaranteed on all Python 3.6+ implementations."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# digest() return type — __class__.__name__ == 'bytes'
+#
+# No prior hashlib spec checks the __class__.__name__ of the object returned
+# by .digest(). The .hexdigest() return type (str) has been implicitly verified
+# by comparing strings, but the bytes return type of .digest() has not been
+# explicitly asserted via __class__.__name__ for any algorithm.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra12.sha256.digest_returns_bytes:
+  description: "hashlib.sha256(b'').digest().__class__.__name__ == 'bytes' — .digest() returns bytes"
+  category: return_types
+  kind: python_call_eq
+  function: sha256
+  args: [!hex ""]
+  method: digest.__class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant hashlib_extra12.sha512.digest_returns_bytes:
+  description: "hashlib.sha512(b'').digest().__class__.__name__ == 'bytes' — .digest() returns bytes"
+  category: return_types
+  kind: python_call_eq
+  function: sha512
+  args: [!hex ""]
+  method: digest.__class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# digest() byte length via __len__
+#
+# While digest_size attributes have been verified for sha256/sha512/sha1/md5,
+# no prior spec verifies the actual __len__() of the bytes object returned by
+# .digest() on a concrete hash object instance.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra12.sha256.digest_len:
+  description: "hashlib.sha256(b'abc').digest().__len__() == 32 — SHA-256 digest is 32 bytes"
+  category: return_types
+  kind: python_call_eq
+  function: sha256
+  args: [!hex 616263]
+  method: digest.__len__
+  method_args: []
+  expected: 32
+
+invariant hashlib_extra12.sha1.digest_len:
+  description: "hashlib.sha1(b'abc').digest().__len__() == 20 — SHA-1 digest is 20 bytes"
+  category: return_types
+  kind: python_call_eq
+  function: sha1
+  args: [!hex 616263]
+  method: digest.__len__
+  method_args: []
+  expected: 20
+
+invariant hashlib_extra12.md5.digest_len:
+  description: "hashlib.md5(b'abc').digest().__len__() == 16 — MD5 digest is 16 bytes"
+  category: return_types
+  kind: python_call_eq
+  function: md5
+  args: [!hex 616263]
+  method: digest.__len__
+  method_args: []
+  expected: 16
+
+# ---------------------------------------------------------------------------
+# SHA3-512 block_size
+#
+# SHA3-512 uses a rate of 1600 - 2*512 = 576 bits = 72 bytes. This is the
+# Keccak sponge rate for SHA3-512 per FIPS 202.
+# hashlib_extra.zspec.zsdl covers sha3_224.block_size == 144 and
+# sha3_384.block_size == 104. hashlib.zspec.zsdl covers sha3_256.block_size
+# as a hash_object_attr kind. No prior spec checks sha3_512.block_size as a
+# python_call_eq invariant.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra12.sha3_512.block_size:
+  description: "hashlib.sha3_512().block_size == 72 — SHA3-512 rate is 576 bits = 72 bytes per FIPS 202"
+  category: properties
+  kind: python_call_eq
+  function: sha3_512
+  args: []
+  method: block_size.__eq__
+  method_args: [72]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed — shake_128 membership
+#
+# hashlib_extra11 covers shake_256 and sha3_384 membership.
+# shake_128 is also in algorithms_guaranteed since Python 3.6+ but has not
+# been tested in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra12.algorithms_guaranteed.contains_shake_128:
+  description: "hashlib.algorithms_guaranteed.__contains__('shake_128') == True — guaranteed since Python 3.6+"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["shake_128"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hashlib.new() with sha512 and sha1 — via factory, digest_size
+#
+# hashlib_extra7 covers new('sha256').name, new('md5').name, new('sha256').digest_size,
+# new('sha3_256').digest_size, new('sha1').block_size, new('sha224').digest_size.
+# hashlib_extra10 covers new('sha3_224'), new('sha3_384').
+# hashlib_extra11 covers new('blake2b'), new('blake2s'), new('sha3_512').
+# NOT yet covered: new('sha512').digest_size and new('sha1').digest_size.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra12.new.sha512.digest_size:
+  description: "hashlib.new('sha512').digest_size == 64 — SHA-512 via new() factory produces 64 bytes"
+  category: new_factory
+  kind: python_call_eq
+  function: new
+  args: ["sha512"]
+  method: digest_size.__eq__
+  method_args: [64]
+  expected: true
+
+invariant hashlib_extra12.new.sha1.digest_size:
+  description: "hashlib.new('sha1').digest_size == 20 — SHA-1 via new() factory produces 20 bytes"
+  category: new_factory
+  kind: python_call_eq
+  function: new
+  args: ["sha1"]
+  method: digest_size.__eq__
+  method_args: [20]
+  expected: true
+
+invariant hashlib_extra12.new.sha512.name_attr:
+  description: "hashlib.new('sha512').name == 'sha512' — canonical name from new() factory"
+  category: new_factory
+  kind: python_call_eq
+  function: new
+  args: ["sha512"]
+  method: name.__eq__
+  method_args: ["sha512"]
+  expected: true
+
+invariant hashlib_extra12.new.sha1.name_attr:
+  description: "hashlib.new('sha1').name == 'sha1' — canonical name from new() factory"
+  category: new_factory
+  kind: python_call_eq
+  function: new
+  args: ["sha1"]
+  method: name.__eq__
+  method_args: ["sha1"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_available — sha512 and sha1 membership
+#
+# hashlib_extra covers algorithms_available containing 'sha256'.
+# No prior spec verifies 'sha512' or 'sha1' in algorithms_available explicitly.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra12.algorithms_available.contains_sha512:
+  description: "hashlib.algorithms_available.__contains__('sha512') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__contains__
+  args: ["sha512"]
+  expected: true
+
+invariant hashlib_extra12.algorithms_available.contains_sha1:
+  description: "hashlib.algorithms_available.__contains__('sha1') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__contains__
+  args: ["sha1"]
+  expected: true

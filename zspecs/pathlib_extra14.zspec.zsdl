@@ -1,0 +1,216 @@
+spec: pathlib_extra14
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+  notes:
+    - "This spec extends pathlib.zspec.zsdl through pathlib_extra13.zspec.zsdl."
+    - "pathlib_extra13 covers PurePosixPath.stem_no_suffix, drive_empty, anchor_relative, parts_relative_len, joinpath_absolute_reset, relative_to_two_levels, name_bare_file, truediv_simple, and a suffix_access table."
+    - "pathlib_extra12 covers parts.__len__, parts[0], parents.__len__, with_suffix strip/add, joinpath single/multi, match wildcard true/false, suffixes.__len__, suffixes[0]."
+    - "NOT yet covered: PurePosixPath('/a/b/c').stem == 'c' as a standalone invariant with a 3-component path."
+    - "NOT yet covered: PurePosixPath('/a/b/c.txt').stem == 'c' — single-extension, last-component stem."
+    - "NOT yet covered: PurePosixPath('/a/b/c.tar.gz').stem == 'c.tar' — multi-extension stem (drops only last suffix)."
+    - "NOT yet covered: PurePosixPath('/a/b/c.txt').suffix == '.txt' as a standalone invariant."
+    - "NOT yet covered: PurePosixPath('/a/b/c.tar.gz').suffix == '.gz' as a standalone invariant."
+    - "NOT yet covered: PurePosixPath('/a/b/c.tar.gz').suffixes == ['.tar', '.gz'] as a standalone invariant."
+    - "NOT yet covered: PurePosixPath('/a/b/c').suffixes == [] as a standalone invariant."
+    - "NOT yet covered: PurePosixPath('/a/b/c.txt').name == 'c.txt' as a standalone invariant."
+    - "NOT yet covered: PurePosixPath('/a/b').parent.__str__() == '/a' as standalone invariant."
+    - "NOT yet covered: PurePosixPath('/a/b/c').parts == ('/', 'a', 'b', 'c') as standalone invariant."
+    - "NOT yet covered: PurePosixPath('/a/b/c').root == '/' as standalone invariant."
+    - "NOT yet covered: PurePosixPath('a/b/c').root == '' — relative path has no root."
+    - "NOT yet covered: PurePosixPath('/a/b/c').drive == '' as standalone invariant."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.stem — various path shapes
+#
+# pathlib.zspec.zsdl covers stem for 'archive.tar.gz' == 'archive.tar'.
+# pathlib_extra13 covers stem for a bare filename without extension.
+# These invariants add stem access for the patterns specified in the content
+# guidance: a plain directory path (/a/b/c), a single-extension file
+# (/a/b/c.txt), and a multi-extension file (/a/b/c.tar.gz).
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra14.PurePosixPath.stem_plain:
+  description: "pathlib.PurePosixPath('/a/b/c').stem == 'c' — last component without extension"
+  category: stem
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: stem
+  expected: "c"
+
+invariant pathlib_extra14.PurePosixPath.stem_single_ext:
+  description: "pathlib.PurePosixPath('/a/b/c.txt').stem == 'c' — single-extension file"
+  category: stem
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: stem
+  expected: "c"
+
+invariant pathlib_extra14.PurePosixPath.stem_multi_ext:
+  description: "pathlib.PurePosixPath('/a/b/c.tar.gz').stem == 'c.tar' — only final suffix is dropped"
+  category: stem
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.tar.gz"]
+  method: stem
+  expected: "c.tar"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.suffix — standalone invariants for single and multi-extension
+#
+# pathlib.zspec.zsdl includes a suffix row in a table for 'archive.tar.gz'.
+# These add suffix as standalone invariants for the key test vectors.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra14.PurePosixPath.suffix_txt:
+  description: "pathlib.PurePosixPath('/a/b/c.txt').suffix == '.txt'"
+  category: suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: suffix
+  expected: ".txt"
+
+invariant pathlib_extra14.PurePosixPath.suffix_gz:
+  description: "pathlib.PurePosixPath('/a/b/c.tar.gz').suffix == '.gz' — last suffix only"
+  category: suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.tar.gz"]
+  method: suffix
+  expected: ".gz"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.suffixes — full list as a standalone invariant
+#
+# pathlib.zspec.zsdl includes a suffixes row for 'archive.tar.gz'.
+# pathlib_extra12 covers suffixes.__len__() and suffixes[0] but not the full list.
+# These add the full suffixes list and the empty-list case as standalone invariants.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra14.PurePosixPath.suffixes_multi:
+  description: "pathlib.PurePosixPath('/a/b/c.tar.gz').suffixes == ['.tar', '.gz']"
+  category: suffixes
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.tar.gz"]
+  method: suffixes
+  expected: [".tar", ".gz"]
+
+invariant pathlib_extra14.PurePosixPath.suffixes_none:
+  description: "pathlib.PurePosixPath('/a/b/c').suffixes == [] — path with no extension"
+  category: suffixes
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: suffixes
+  expected: []
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.name — file name with extension
+#
+# pathlib.zspec.zsdl covers .name for '/etc/passwd' == 'passwd'.
+# pathlib_extra13 covers name for a bare file with no directory component.
+# This adds a standalone invariant for name when the file has an extension.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra14.PurePosixPath.name_with_ext:
+  description: "pathlib.PurePosixPath('/a/b/c.txt').name == 'c.txt'"
+  category: name
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: name
+  expected: "c.txt"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.parent — string representation
+#
+# pathlib.zspec.zsdl covers parent via method_chain: __str__ for '/etc/passwd'.
+# This adds a standalone invariant using method: parent then method_chain __str__
+# for the simpler path '/a/b' → parent is '/a'.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra14.PurePosixPath.parent_str:
+  description: "str(pathlib.PurePosixPath('/a/b').parent) == '/a'"
+  category: parent
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: parent
+  method_chain: __str__
+  expected: "/a"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.parts — full tuple value
+#
+# pathlib.zspec.zsdl covers parts for '/usr/bin/python' == ['/', 'usr', 'bin', 'python'].
+# pathlib_extra12 covers parts.__len__() and parts[0] for '/a/b/c'.
+# This adds the full parts tuple value as a standalone invariant for '/a/b/c'.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra14.PurePosixPath.parts_tuple:
+  description: "pathlib.PurePosixPath('/a/b/c').parts == ('/', 'a', 'b', 'c')"
+  category: parts
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parts
+  expected: ["/", "a", "b", "c"]
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.root — absolute vs relative
+#
+# pathlib.zspec.zsdl covers root for '/etc/passwd' == '/' in a table row.
+# These add standalone invariants for the root attribute on both an absolute
+# path (== '/') and a relative path (== '').
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra14.PurePosixPath.root_absolute:
+  description: "pathlib.PurePosixPath('/a/b/c').root == '/'"
+  category: root
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: root
+  expected: "/"
+
+invariant pathlib_extra14.PurePosixPath.root_relative:
+  description: "pathlib.PurePosixPath('a/b/c').root == '' — relative path has no root"
+  category: root
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["a/b/c"]
+  method: root
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.drive — always empty on POSIX
+#
+# pathlib_extra13 adds a drive invariant for '/a/b'. This adds a second
+# standalone invariant for the three-component path '/a/b/c' to confirm
+# the POSIX drive rule with a different input.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra14.PurePosixPath.drive_absolute:
+  description: "pathlib.PurePosixPath('/a/b/c').drive == '' — POSIX paths have no drive letter"
+  category: drive
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: drive
+  expected: ""

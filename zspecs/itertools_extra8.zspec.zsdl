@@ -1,0 +1,159 @@
+spec: itertools_extra8
+version: ">=3.10"
+backend: python_module(itertools)
+
+docs: https://docs.python.org/3/library/itertools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/itertools.html — Python itertools documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/itertoolsmodule.c"
+  notes:
+    - "This spec extends itertools.zspec.zsdl and prior extras through itertools_extra7.zspec.zsdl."
+    - "Prior specs cover: __name__, __module__, __qualname__, __class__.__name__=='type', __bases__[0].__name__=='object', __bases__.__len__()==1 for all 16 public C types; chain.from_iterable qualname/name; first elements; length hints; class instance class names."
+    - "NEW in this spec: itertools.pairwise (Python 3.10+) — __name__, __module__, __qualname__, __class__.__name__, __bases__[0].__name__, __bases__.__len__(), and first-element behavior."
+    - "All other itertools types are exhaustively covered by prior specs."
+    - "itertools.pairwise was added in Python 3.10; this spec requires version >=3.10 accordingly."
+    - "itertools.pairwise.__name__ == 'pairwise' — the class name of the pairwise iterator type."
+    - "itertools.pairwise.__module__ == 'itertools' — defined in the itertools C extension."
+    - "itertools.pairwise.__qualname__ == 'pairwise' — top-level C type, qualname equals name."
+    - "itertools.pairwise.__class__.__name__ == 'type' — pairwise is a C-level type object."
+    - "itertools.pairwise.__bases__[0].__name__ == 'object' — single-inheritance from object."
+    - "itertools.pairwise.__bases__.__len__() == 1 — exactly one direct base."
+    - "itertools.pairwise([1,2,3,4]).__next__() == (1, 2) — first overlapping pair."
+    - "itertools.pairwise([1,2,3,4]).__class__.__name__ == 'pairwise' — instance class name."
+    - "itertools.pairwise('AB').__next__() == ('A', 'B') — works on any iterable, including strings."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pairwise — class identity (Python 3.10+)
+#
+# itertools.pairwise is a C-level type added in Python 3.10. It yields
+# consecutive overlapping pairs from the input iterable.
+# No prior itertools spec covers pairwise because it was absent from Python 3.9.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra8.pairwise.name:
+  description: "itertools.pairwise.__name__ == 'pairwise' — C-level class name"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise.__name__.__eq__
+  args: ["pairwise"]
+  expected: true
+
+invariant itertools_extra8.pairwise.module:
+  description: "itertools.pairwise.__module__ == 'itertools' — defined in the itertools C extension"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise.__module__.__eq__
+  args: ["itertools"]
+  expected: true
+
+invariant itertools_extra8.pairwise.qualname:
+  description: "itertools.pairwise.__qualname__ == 'pairwise' — top-level C type, qualname equals name"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise.__qualname__.__eq__
+  args: ["pairwise"]
+  expected: true
+
+invariant itertools_extra8.pairwise.is_type:
+  description: "itertools.pairwise.__class__.__name__ == 'type' — pairwise is a C-level type object"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant itertools_extra8.pairwise.base_is_object:
+  description: "itertools.pairwise.__bases__[0].__name__ == 'object' — single-inheritance from object"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant itertools_extra8.pairwise.bases_len:
+  description: "itertools.pairwise.__bases__.__len__() == 1 — exactly one direct base"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# pairwise — first element behavior
+#
+# pairwise([1,2,3,4]).__next__() yields (1, 2) — the first overlapping pair.
+# pairwise('AB').__next__() yields ('A', 'B') — works on strings too.
+# pairwise([10]).__class__.__name__ == 'pairwise' — instance is a pairwise object.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra8.pairwise.first_pair_ints:
+  description: "itertools.pairwise([1,2,3,4]).__next__() == (1, 2) — first overlapping pair of integers"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise
+  args: [[1, 2, 3, 4]]
+  method: __next__
+  expected: [1, 2]
+
+invariant itertools_extra8.pairwise.first_pair_strings:
+  description: "itertools.pairwise('AB').__next__() == ('A', 'B') — first overlapping pair of characters"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise
+  args: ["AB"]
+  method: __next__
+  expected: ["A", "B"]
+
+invariant itertools_extra8.pairwise.instance_class_name:
+  description: "itertools.pairwise([1,2]).__class__.__name__ == 'pairwise' — instance is a pairwise object"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise
+  args: [[1, 2]]
+  method: __class__.__name__.__eq__
+  method_args: ["pairwise"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pairwise — empty and single-element edge cases
+#
+# pairwise([]) yields nothing — __length_hint__() == 0.
+# pairwise([1]) yields nothing — __length_hint__() == 0.
+# pairwise([1,2,3]) __length_hint__() == 2 — three elements produce two pairs.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra8.pairwise.length_hint_zero_empty:
+  description: "itertools.pairwise([]).__length_hint__() == 0 — empty input produces no pairs"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise
+  args: [[]]
+  method: __length_hint__
+  expected: 0
+
+invariant itertools_extra8.pairwise.length_hint_zero_single:
+  description: "itertools.pairwise([1]).__length_hint__() == 0 — single element produces no pairs"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise
+  args: [[1]]
+  method: __length_hint__
+  expected: 0
+
+invariant itertools_extra8.pairwise.length_hint_two:
+  description: "itertools.pairwise([1,2,3]).__length_hint__() == 2 — three elements produce two pairs"
+  category: pairwise
+  kind: python_call_eq
+  function: pairwise
+  args: [[1, 2, 3]]
+  method: __length_hint__
+  expected: 2
