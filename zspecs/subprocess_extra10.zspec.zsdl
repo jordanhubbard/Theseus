@@ -1,0 +1,159 @@
+spec: subprocess_extra10
+version: ">=3.9"
+backend: python_module(subprocess)
+
+docs: https://docs.python.org/3/library/subprocess.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/subprocess.html — Python subprocess module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/subprocess.py"
+  notes:
+    - "This spec extends subprocess.zspec.zsdl and prior extras through subprocess_extra9.zspec.zsdl."
+    - "subprocess_extra9 covers: Popen method __qualname__ (communicate/wait/poll/kill/terminate); CalledProcessError/TimeoutExpired/SubprocessError __mro__[3]; PIPE/STDOUT/DEVNULL __neg__(); CompletedProcess.__module__; subprocess function __class__.__name__ == 'function'."
+    - "subprocess_extra8 covers: PIPE/STDOUT/DEVNULL __abs__(); PIPE.__add__(-2)==-3; PIPE.__ne__(-2)/STDOUT.__ne__(-1); CalledProcessError output/stderr kwargs; SubprocessError/CalledProcessError/TimeoutExpired __mro__[2]; getoutput/getstatusoutput __name__ standalone."
+    - "subprocess_extra6 covers: __qualname__ for CalledProcessError/TimeoutExpired/SubprocessError/run/call/check_call/check_output/Popen/CompletedProcess."
+    - "subprocess_extra4 covers: Popen.__bases__[0].__name__ == 'object'; Popen.__name__ standalone."
+    - "subprocess_extra2 covers: Popen.__module__; run.__module__."
+    - "subprocess.zspec.zsdl covers: CalledProcessError/__mro__[1].__name__; SubprocessError/__mro__[1].__name__; PIPE/STDOUT/DEVNULL integer values."
+    - "No prior spec covers: Popen.__mro__[1].__name__ == 'object' — Popen's single MRO step to object."
+    - "No prior spec covers: Popen.communicate/__module__ or Popen.wait/__module__ or other Popen method __module__."
+    - "No prior spec covers: CalledProcessError.__mro__[4].__name__ == 'object' — MRO terminus."
+    - "No prior spec covers: TimeoutExpired.__mro__[4].__name__ == 'object' — MRO terminus."
+    - "No prior spec covers: PIPE.__mul__(-1) == 1 — integer arithmetic identity (-1 * -1 == 1)."
+    - "No prior spec covers: STDOUT.__mul__(-1) == 2 — integer arithmetic identity (-2 * -1 == 2)."
+    - "No prior spec covers: DEVNULL.__floordiv__(3) == -1 — floor division (-3 // 3 == -1)."
+    - "No prior spec covers: Popen.__class__.__name__ == 'type' — Popen is a class object."
+    - "subprocess.Popen.__mro__: [Popen, object] — only two entries; Popen inherits directly from object."
+    - "Popen method __module__ is always 'subprocess' — methods defined in subprocess.py."
+    - "subprocess.PIPE == -1; PIPE.__mul__(-1) == 1 and STDOUT.__mul__(-1) == 2 (negation via multiplication)."
+    - "subprocess.DEVNULL.__floordiv__(3) == -1 because -3 // 3 == -1 in Python's floor division."
+    - "CalledProcessError.__mro__: [CalledProcessError, SubprocessError, Exception, BaseException, object] — index 4 == object."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Popen.__mro__[1] — Popen inherits directly from object
+#
+# subprocess_extra4 checks Popen.__bases__[0].__name__ == 'object'.
+# No prior spec checks Popen.__mro__[1].__name__ (MRO expression, not bases).
+# Popen.__mro__: [Popen, object] — only two entries (unlike exceptions).
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra10.Popen.mro_index1:
+  description: "subprocess.Popen.__mro__[1].__name__ == 'object' — Popen MRO terminates at object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Popen.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# CalledProcessError and TimeoutExpired MRO terminus (index 4)
+#
+# subprocess_extra9 checks __mro__[3] for CalledProcessError/TimeoutExpired (BaseException).
+# subprocess_extra8 checks __mro__[2] (Exception).
+# Index 4 is 'object' — the terminus of all Python class hierarchies.
+# CalledProcessError.__mro__: [CPE, SubprocessError, Exception, BaseException, object]
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra10.CalledProcessError.mro_index4:
+  description: "subprocess.CalledProcessError.__mro__[4].__name__ == 'object' — MRO terminus"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: CalledProcessError.__mro__.__getitem__
+  args: [4]
+  method: __name__
+  expected: "object"
+
+invariant subprocess_extra10.TimeoutExpired.mro_index4:
+  description: "subprocess.TimeoutExpired.__mro__[4].__name__ == 'object' — MRO terminus"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TimeoutExpired.__mro__.__getitem__
+  args: [4]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Popen method __module__ — all Popen methods are in 'subprocess'
+#
+# subprocess_extra9 checks Popen method __qualname__ for communicate/wait/poll/kill/terminate.
+# No prior spec checks the __module__ attribute of any Popen method.
+# All Popen instance methods are defined in subprocess.py, so __module__ == 'subprocess'.
+# ---------------------------------------------------------------------------
+
+table subprocess_extra10.Popen_method_modules:
+  description: "Popen instance methods have __module__ == 'subprocess'"
+  kind: python_call_eq
+  category: method_modules
+  id_prefix: pmmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [communicate,  Popen.communicate.__module__.__eq__,  ["subprocess"], true]
+    - [wait,         Popen.wait.__module__.__eq__,         ["subprocess"], true]
+    - [poll,         Popen.poll.__module__.__eq__,         ["subprocess"], true]
+    - [kill,         Popen.kill.__module__.__eq__,         ["subprocess"], true]
+    - [terminate,    Popen.terminate.__module__.__eq__,    ["subprocess"], true]
+    - [send_signal,  Popen.send_signal.__module__.__eq__,  ["subprocess"], true]
+
+# ---------------------------------------------------------------------------
+# Popen.__class__.__name__ — Popen is a class (type)
+#
+# subprocess_extra9 checks subprocess function __class__.__name__ == 'function'
+# for run/call/check_call/check_output/getoutput/getstatusoutput.
+# No prior spec checks Popen.__class__.__name__ == 'type'.
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra10.Popen.class_is_type:
+  description: "subprocess.Popen.__class__.__name__ == 'type' — Popen is a class object"
+  category: class_identity
+  kind: python_call_eq
+  function: Popen.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PIPE, STDOUT, DEVNULL arithmetic — multiplication and floor division
+#
+# subprocess_extra8 covers PIPE.__add__(-2) == -3; __abs__() and __neg__().
+# No prior spec covers __mul__ with -1 (negation identity via multiplication)
+# or DEVNULL.__floordiv__(3) == -1 (floor division identity).
+# PIPE.__mul__(-1) == 1 (same result as __neg__(), different operation).
+# STDOUT.__mul__(-1) == 2 (same result as __neg__(), different operation).
+# DEVNULL.__floordiv__(3) == -1 because -3 // 3 == -1 in Python floor division.
+# ---------------------------------------------------------------------------
+
+table subprocess_extra10.sentinel_arithmetic:
+  description: "PIPE/STDOUT/DEVNULL arithmetic: __mul__(-1) and DEVNULL.__floordiv__(3)"
+  kind: python_call_eq
+  category: constants
+  id_prefix: arith
+
+  columns: [id, function, args, expected]
+  rows:
+    - [PIPE_mul_neg1,       PIPE.__mul__,          [-1], 1]
+    - [STDOUT_mul_neg1,     STDOUT.__mul__,        [-1], 2]
+    - [DEVNULL_floordiv_3,  DEVNULL.__floordiv__,  [3],  -1]
+
+# ---------------------------------------------------------------------------
+# Popen.send_signal __qualname__
+#
+# subprocess_extra9 checks communicate/wait/poll/kill/terminate __qualname__.
+# send_signal is a Popen method with __qualname__ == 'Popen.send_signal'.
+# No prior spec checks Popen.send_signal.__qualname__.
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra10.Popen.send_signal_qualname:
+  description: "subprocess.Popen.send_signal.__qualname__ == 'Popen.send_signal'"
+  category: method_qualnames
+  kind: python_call_eq
+  function: Popen.send_signal.__qualname__.__eq__
+  args: ["Popen.send_signal"]
+  expected: true

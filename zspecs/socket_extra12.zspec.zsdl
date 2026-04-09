@@ -1,0 +1,197 @@
+spec: socket_extra12
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/socket.py"
+    - "CPython source: Modules/socketmodule.c"
+  notes:
+    - "This spec extends socket.zspec.zsdl and prior extras through socket_extra11.zspec.zsdl."
+    - "socket_extra11 covers: socket.socket.__name__/__module__/__bases__[0].__name__; SOCK_SEQPACKET.value/name; AF_APPLETALK.value/name; setdefaulttimeout/__module__; getdefaulttimeout/__module__; create_server/__module__; create_connection/__module__; timeout.__bases__[0].__name__; gaierror.__bases__[0].__name__."
+    - "socket_extra10 covers: inet_aton/inet_ntoa/htonl/ntohl/htons/ntohs __qualname__; SOCK_RAW.value; AF_UNIX.name; setdefaulttimeout/__module__."
+    - "socket_extra8 covers: __qualname__ for socket/error/timeout/gaierror/herror."
+    - "socket_extra5 covers: herror/__qualname__; gaierror/__qualname__; herror/__module__; gaierror/__module__; timeout/__module__ == 'builtins'."
+    - "socket_extra4 covers: AddressFamily/__bases__[0].__name__ == 'IntEnum'; SocketKind/__bases__[0].__name__ == 'IntEnum'; AddressFamily/__module__; SocketKind/__module__."
+    - "socket_extra3 covers: AddressFamily/__name__; SocketKind/__name__; herror/__bases__[0].__name__; gaierror/__bases__[0].__name__."
+    - "socket_extra2 covers: AF_INET/__class__.__name__; SOCK_STREAM/__class__.__name__; SOCK_DGRAM/__class__.__name__; error/__name__ == 'OSError'; timeout/__name__ == 'TimeoutError'; timeout/__bases__[0].__name__ == 'OSError'."
+    - "No prior spec covers: herror.__mro__[1].__name__ == 'OSError' (socket_extra11 covers gaierror but herror MRO not explicitly)."
+    - "No prior spec covers: gaierror.__mro__[2].__name__ == 'Exception' — MRO depth 2."
+    - "No prior spec covers: SocketType.__name__ == 'socket' (the C-level _socket.socket class; distinct from socket.socket which is the Python-level wrapper)."
+    - "No prior spec covers: SocketType.__module__ == '_socket' (SocketType is the C-level class; its module is '_socket', not 'socket')."
+    - "No prior spec covers: herror.__mro__[0].__name__ == 'herror' — MRO self-check at index 0."
+    - "No prior spec covers: gaierror.__mro__[0].__name__ == 'gaierror' — MRO self-check at index 0."
+    - "socket.SocketType is the C-level _socket.socket type (NOT the Python socket.socket class); SocketType.__name__ == 'socket' and __module__ == '_socket'."
+    - "socket.herror.__mro__: [herror, OSError, Exception, BaseException, object] — OSError at index 1."
+    - "socket.gaierror.__mro__: [gaierror, OSError, Exception, BaseException, object] — Exception at index 2."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# socket.SocketType — the C-level _socket.socket type
+#
+# socket.SocketType is NOT the same as socket.socket (the Python-level class).
+# socket.socket.__name__ == 'socket' and __module__ == 'socket' (socket_extra11).
+# socket.SocketType.__name__ == 'socket' but __module__ == '_socket' (C type).
+# No prior spec tests SocketType.__name__ or SocketType.__module__.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra12.SocketType.name:
+  description: "socket.SocketType.__name__ == 'socket' — the C-level _socket.socket type"
+  category: class_names
+  kind: python_call_eq
+  function: SocketType.__name__.__eq__
+  args: ["socket"]
+  expected: true
+
+invariant socket_extra12.SocketType.module:
+  description: "socket.SocketType.__module__ == '_socket' — SocketType is the C-level type"
+  category: modules
+  kind: python_call_eq
+  function: SocketType.__module__.__eq__
+  args: ["_socket"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# herror MRO — self-check (index 0) and OSError (index 1)
+#
+# socket_extra3 checks herror.__bases__[0].__name__ == 'OSError'.
+# socket_extra5 checks herror.__qualname__ and __module__.
+# No prior spec checks herror.__mro__[0] (the class itself) or herror.__mro__[1].
+# herror.__mro__: [herror, OSError, Exception, BaseException, object]
+# ---------------------------------------------------------------------------
+
+invariant socket_extra12.herror.mro_index0:
+  description: "socket.herror.__mro__[0].__name__ == 'herror' — MRO index 0 is the class itself"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: herror.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "herror"
+
+invariant socket_extra12.herror.mro_index1:
+  description: "socket.herror.__mro__[1].__name__ == 'OSError' — herror inherits directly from OSError"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: herror.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "OSError"
+
+invariant socket_extra12.herror.mro_index2:
+  description: "socket.herror.__mro__[2].__name__ == 'Exception' — herror MRO depth 2"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: herror.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# gaierror MRO — self-check (index 0) and depth 2 (Exception)
+#
+# socket_extra11 checks gaierror.__bases__[0].__name__ == 'OSError'.
+# socket_extra3 checks gaierror.__bases__[0].__name__ == 'OSError' as well.
+# No prior spec checks gaierror.__mro__[0] or gaierror.__mro__[2].
+# gaierror.__mro__: [gaierror, OSError, Exception, BaseException, object]
+# ---------------------------------------------------------------------------
+
+invariant socket_extra12.gaierror.mro_index0:
+  description: "socket.gaierror.__mro__[0].__name__ == 'gaierror' — MRO index 0 is the class itself"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: gaierror.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "gaierror"
+
+invariant socket_extra12.gaierror.mro_index2:
+  description: "socket.gaierror.__mro__[2].__name__ == 'Exception' — gaierror MRO depth 2"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: gaierror.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# AddressFamily and SocketKind __qualname__
+#
+# socket_extra4 checks AddressFamily/__module__ and SocketKind/__module__.
+# socket_extra3 checks AddressFamily/__name__ and SocketKind/__name__.
+# No prior spec checks AddressFamily.__qualname__ or SocketKind.__qualname__.
+# For top-level enum classes, __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra12.AddressFamily.qualname:
+  description: "socket.AddressFamily.__qualname__ == 'AddressFamily'"
+  category: qualnames
+  kind: python_call_eq
+  function: AddressFamily.__qualname__.__eq__
+  args: ["AddressFamily"]
+  expected: true
+
+invariant socket_extra12.SocketKind.qualname:
+  description: "socket.SocketKind.__qualname__ == 'SocketKind'"
+  category: qualnames
+  kind: python_call_eq
+  function: SocketKind.__qualname__.__eq__
+  args: ["SocketKind"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# AF_INET6.__class__.__name__ — AddressFamily member type
+#
+# socket_extra2 checks AF_INET.__class__.__name__ == 'AddressFamily'.
+# No prior spec checks AF_INET6.__class__.__name__.
+# Both AF_INET and AF_INET6 are AddressFamily members.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra12.AF_INET6.class_name:
+  description: "socket.AF_INET6.__class__.__name__ == 'AddressFamily'"
+  category: enum_members
+  kind: python_call_eq
+  function: AF_INET6.__class__.__name__.__eq__
+  args: ["AddressFamily"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SOCK_RAW.__class__.__name__ — SocketKind member type
+#
+# socket_extra4 checks SOCK_RAW.__class__.__name__ == 'SocketKind'.
+# Confirms as a standalone invariant from extra12 namespace.
+# socket_extra2 covers SOCK_STREAM/DGRAM class names.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra12.SOCK_RAW.class_name:
+  description: "socket.SOCK_RAW.__class__.__name__ == 'SocketKind'"
+  category: enum_members
+  kind: python_call_eq
+  function: SOCK_RAW.__class__.__name__.__eq__
+  args: ["SocketKind"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# herror MRO depth 3 — reaches BaseException
+#
+# socket_extra12 checks herror.__mro__[1] (OSError) and __mro__[2] (Exception).
+# herror.__mro__[3] reaches BaseException — no prior spec covers this depth.
+# herror.__mro__: [herror, OSError, Exception, BaseException, object]
+# ---------------------------------------------------------------------------
+
+invariant socket_extra12.herror.mro_index3:
+  description: "socket.herror.__mro__[3].__name__ == 'BaseException' — herror MRO depth 3"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: herror.__mro__.__getitem__
+  args: [3]
+  method: __name__
+  expected: "BaseException"

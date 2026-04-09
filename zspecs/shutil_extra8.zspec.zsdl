@@ -1,0 +1,151 @@
+spec: shutil_extra8
+version: ">=3.9"
+backend: python_module(shutil)
+
+docs: https://docs.python.org/3/library/shutil.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/shutil.html — Python shutil documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/shutil.py"
+  notes:
+    - "This spec extends shutil.zspec.zsdl and prior extras through shutil_extra7.zspec.zsdl."
+    - "shutil_extra7 covers: copy/rmtree/move/which __class__.__name__=='function'; copymode __name__/__module__/__qualname__/__class__.__name__; copystat __module__/__class__.__name__; chown __qualname__/__module__; get_unpack_formats __qualname__; get_terminal_size __module__."
+    - "shutil_extra6 covers: Error/SameFileError/ReadError __name__ table; Error/SameFileError/ReadError __module__ table; Error/ReadError __qualname__; SameFileError base bool form; ReadError base both forms."
+    - "shutil_extra5 covers: copy/copy2/copyfile/copytree/rmtree/move/make_archive/unpack_archive/disk_usage/which/get_terminal_size __qualname__; Error/SameFileError __qualname__; copy/copy2/copyfile/rmtree/move/which/unpack_archive __module__ table."
+    - "shutil_extra4 covers: copy/copy2/copyfile/copyfileobj/copytree/rmtree/move/disk_usage/which/get_terminal_size/get_archive_formats/make_archive __name__ table; Error/SameFileError base; disk_usage named-tuple class name; disk_usage total>0."
+    - "shutil_extra3 covers: disk_usage result class name 'usage'; SameFileError base; ExecError module/is_type."
+    - "shutil_extra2 covers: disk_usage total/used/free type == int (using '/' path)."
+    - "shutil.zspec.zsdl covers: disk_usage/_fields/total_positive/free_nonneg (using '/' path); which nonexistent; COPY_BUFSIZE."
+    - "No prior spec covers: copy2/__class__.__name__; copyfile/__class__.__name__; copyfileobj/__class__.__name__; copytree/__class__.__name__; make_archive/__class__.__name__; unpack_archive/__class__.__name__; chown/__class__.__name__; get_terminal_size/__class__.__name__."
+    - "No prior spec covers: Error.__mro__[1].__name__ == 'OSError' — MRO depth 1 (distinct from __bases__[0])."
+    - "No prior spec covers: Error.__mro__[2].__name__ == 'Exception' — MRO depth 2."
+    - "No prior spec covers: SameFileError.__mro__[2].__name__ == 'OSError' — SameFileError MRO depth 2."
+    - "No prior spec covers: disk_usage('/tmp').total.__gt__(0) == True using '/tmp' path (prior specs use '/')."
+    - "No prior spec covers: disk_usage('/tmp').used.__gt__(-1) == True — used bytes are always non-negative."
+    - "shutil.Error.__mro__: [Error, OSError, Exception, BaseException, object]."
+    - "shutil.SameFileError.__mro__: [SameFileError, Error, OSError, Exception, BaseException, object]."
+    - "All module-level shutil functions have __class__.__name__ == 'function' — they are plain Python functions."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __class__.__name__ == 'function' for remaining shutil functions
+#
+# shutil_extra7 covers copy/rmtree/move/which/copymode/copystat.
+# No prior spec covers copy2/copyfile/copyfileobj/copytree/make_archive/
+# unpack_archive/chown/get_terminal_size __class__.__name__.
+# ---------------------------------------------------------------------------
+
+table shutil_extra8.function_class_names:
+  description: "Additional shutil functions report __class__.__name__ == 'function'"
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: fclass8
+
+  columns: [id, function, args, expected]
+  rows:
+    - [copy2,           copy2.__class__.__name__.__eq__,           ["function"], true]
+    - [copyfile,        copyfile.__class__.__name__.__eq__,        ["function"], true]
+    - [copyfileobj,     copyfileobj.__class__.__name__.__eq__,     ["function"], true]
+    - [copytree,        copytree.__class__.__name__.__eq__,        ["function"], true]
+    - [make_archive,    make_archive.__class__.__name__.__eq__,    ["function"], true]
+    - [unpack_archive,  unpack_archive.__class__.__name__.__eq__,  ["function"], true]
+    - [chown,           chown.__class__.__name__.__eq__,           ["function"], true]
+    - [get_terminal_size, get_terminal_size.__class__.__name__.__eq__, ["function"], true]
+
+# ---------------------------------------------------------------------------
+# shutil.Error MRO — depth 1 and depth 2
+#
+# shutil_extra4 checks Error.__bases__[0].__name__ == 'OSError' (__bases__, not __mro__).
+# No prior spec checks Error.__mro__[1].__name__ or Error.__mro__[2].__name__.
+# Error.__mro__: [Error, OSError, Exception, BaseException, object]
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra8.Error.mro_index1:
+  description: "shutil.Error.__mro__[1].__name__ == 'OSError' — Error inherits from OSError"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Error.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "OSError"
+
+invariant shutil_extra8.Error.mro_index2:
+  description: "shutil.Error.__mro__[2].__name__ == 'Exception' — Error MRO depth 2"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Error.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# shutil.SameFileError MRO depth 2 — reaches OSError via Error
+#
+# shutil_extra3/4/6 check SameFileError.__bases__[0].__name__ == 'Error'.
+# No prior spec checks SameFileError.__mro__[2].__name__ == 'OSError'.
+# SameFileError.__mro__: [SameFileError, Error, OSError, Exception, BaseException, object]
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra8.SameFileError.mro_index2:
+  description: "shutil.SameFileError.__mro__[2].__name__ == 'OSError' — SameFileError MRO depth 2"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: SameFileError.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "OSError"
+
+# ---------------------------------------------------------------------------
+# disk_usage('/tmp') — total and used type checks using '/tmp' path
+#
+# shutil_extra2 checks disk_usage('/').total/used/free __class__.__name__ == 'int'.
+# shutil_extra4 checks disk_usage('/').total > 0.
+# No prior spec uses '/tmp' as the disk_usage argument, and no prior spec checks
+# disk_usage total.__gt__(0) or used.__gt__(-1) as separate invariants.
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra8.disk_usage_tmp.total_positive:
+  description: "shutil.disk_usage('/tmp').total.__gt__(0) == True — /tmp filesystem has non-zero capacity"
+  category: disk_usage
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/tmp"]
+  method: total
+  method_chain: __gt__.__eq__
+  method_chain_args: [0, true]
+  expected: true
+
+invariant shutil_extra8.disk_usage_tmp.used_nonneg:
+  description: "shutil.disk_usage('/tmp').used.__gt__(-1) == True — used bytes are always non-negative"
+  category: disk_usage
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/tmp"]
+  method: used
+  method_chain: __gt__.__eq__
+  method_chain_args: [-1, true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# disk_usage _fields length — 3 fields: total, used, free
+#
+# shutil.zspec.zsdl checks disk_usage._fields == ('total', 'used', 'free').
+# No prior spec checks disk_usage('/')._fields.__len__() == 3.
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra8.disk_usage_tmp.fields_length:
+  description: "shutil.disk_usage('/tmp')._fields.__len__() == 3 — named tuple has exactly 3 fields"
+  category: disk_usage
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/tmp"]
+  method: _fields
+  method_chain: __len__
+  method_chain_args: []
+  expected: 3
