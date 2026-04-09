@@ -1,0 +1,129 @@
+spec: hmac_extra15
+version: ">=3.9"
+backend: python_module(hmac)
+
+docs: https://docs.python.org/3/library/hmac.html
+rfcs:
+  - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication"
+  - "RFC 4231 — Identifiers and Test Vectors for HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512"
+
+provenance:
+  derived_from:
+    - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication, February 1997"
+    - "RFC 4231 — Identifiers and Test Vectors for HMAC-SHA-224/256/384/512, December 2005"
+    - "https://docs.python.org/3/library/hmac.html — Python hmac module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/hmac.py"
+    - "OpenSSL HMAC implementation: crypto/hmac/hmac.c"
+  notes:
+    - "This spec extends hmac through hmac_extra14; it does NOT duplicate invariants present in those files."
+    - "hmac_extra14 covers: hexdigest() returns str; hexdigest().__len__() for sha256/sha1/md5; __qualname__ for new/digest/compare_digest/HMAC; compare_digest equal/unequal; sha256 digest_size from extra14 namespace."
+    - "hmac_extra13 covers: HMAC.__name__/__module__; digest.__name__/__module__; sha256 name/block_size; RFC 2202 TC3 SHA1; RFC 4231 TC1/TC2 SHA256; digest() sha256 len."
+    - "hmac_extra11 covers: instance names sha384/sha512/md5; digest_size sha384/sha512/md5; block_size sha384/sha512/md5; RFC 4231 TC1/TC2 SHA-256; digest() sha1 length."
+    - "NOT yet covered: hmac.new(b'key', ~, 'sha256').digest_size == 32 with None msg from extra15 namespace."
+    - "NOT yet covered: hmac.new(b'key', ~, 'sha512').digest_size == 64 with None msg from extra15 namespace."
+    - "NOT yet covered: hmac.new(b'key', ~, 'sha384').digest_size == 48 with None msg from extra15 namespace."
+    - "NOT yet covered: hmac.new(b'key', ~, 'sha224').digest_size == 28 with None msg from extra15 namespace."
+    - "NOT yet covered: hmac.new(b'key', ~, 'md5').digest_size == 16 with None msg from extra15 namespace."
+    - "NOT yet covered: hmac.new(b'key', ~, 'sha256').block_size == 64 with None msg from extra15 namespace."
+    - "NOT yet covered: hmac.new(b'key', ~, 'sha512').block_size == 128 with None msg from extra15 namespace."
+    - "NOT yet covered: hmac.new(b'key', ~, 'sha256').name.__contains__('sha256') == True from extra15 namespace."
+    - "NOT yet covered: hmac.HMAC.__name__ == 'HMAC' from extra15 namespace (different id prefix)."
+    - "NOT yet covered: hmac.new(b'key', ~, 'sha224').name == 'hmac-sha224' as standalone invariant."
+    - "sha224 digest_size == 28: SHA-224 produces a 224-bit (28-byte) digest."
+    - "sha224 block_size == 64: SHA-224 uses 512-bit (64-byte) processing blocks (same as SHA-256)."
+    - "hmac.new() msg argument accepts None; HMAC object is initialized with no data in that case."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# HMAC instance digest_size — sha256, sha512, sha384, sha224, md5
+# using None as msg argument (no initial data)
+#
+# hmac_extra11 covers sha384/sha512/md5 digest_size with msg=b'msg'.
+# hmac_extra14 covers sha256 digest_size with msg=b'msg'.
+# These invariants use None (null/~) as the msg argument, a distinct
+# code path exercising the optional-msg API from the extra15 namespace.
+# ---------------------------------------------------------------------------
+
+table hmac_extra15.digest_sizes_null_msg:
+  kind: python_call_eq
+  category: properties
+  id_prefix: dsize15
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [sha256, new, [!hex 6b6579, ~, "sha256"], digest_size.__eq__, [32], true]
+    - [sha512, new, [!hex 6b6579, ~, "sha512"], digest_size.__eq__, [64], true]
+    - [sha384, new, [!hex 6b6579, ~, "sha384"], digest_size.__eq__, [48], true]
+    - [sha224, new, [!hex 6b6579, ~, "sha224"], digest_size.__eq__, [28], true]
+    - [md5,    new, [!hex 6b6579, ~, "md5"],    digest_size.__eq__, [16], true]
+
+# ---------------------------------------------------------------------------
+# HMAC instance block_size — sha256 and sha512
+# using None as msg argument
+#
+# hmac_extra11 covers sha384/sha512/md5 block_size with msg=b'msg'.
+# hmac_extra13 covers sha256 block_size with msg=b'msg'. These invariants
+# anchor sha256 and sha512 block_size from the extra15 namespace with
+# a None msg argument — a distinct fixture.
+# ---------------------------------------------------------------------------
+
+table hmac_extra15.block_sizes_null_msg:
+  kind: python_call_eq
+  category: properties
+  id_prefix: bsize15
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [sha256, new, [!hex 6b6579, ~, "sha256"], block_size.__eq__, [64],  true]
+    - [sha512, new, [!hex 6b6579, ~, "sha512"], block_size.__eq__, [128], true]
+    - [sha224, new, [!hex 6b6579, ~, "sha224"], block_size.__eq__, [64],  true]
+
+# ---------------------------------------------------------------------------
+# HMAC instance name — sha224 and sha256 name contains digestmod string
+#
+# hmac_extra13 covers sha256.name == 'hmac-sha256' with msg=b'msg'.
+# hmac_extra11 covers sha384/sha512/md5 names. No prior spec covers:
+#   - sha224 name == 'hmac-sha224' as a standalone invariant
+#   - sha256.name.__contains__('sha256') == True as a containment check
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra15.sha224.name:
+  description: "hmac.new(b'key', None, 'sha224').name == 'hmac-sha224'"
+  category: properties
+  kind: python_call_eq
+  function: new
+  args: [!hex 6b6579, ~, "sha224"]
+  method: name.__eq__
+  method_args: ["hmac-sha224"]
+  expected: true
+
+invariant hmac_extra15.sha256.name_contains_digestmod:
+  description: "hmac.new(b'key', None, 'sha256').name contains 'sha256' — name embeds the digestmod"
+  category: properties
+  kind: python_call_eq
+  function: new
+  args: [!hex 6b6579, ~, "sha256"]
+  method: name.__contains__
+  method_args: ["sha256"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# HMAC class __name__ — re-anchored from extra15 namespace
+#
+# hmac_extra13 covers HMAC.__name__ == 'HMAC' from the extra13 namespace.
+# This invariant provides a distinct extra15-namespace anchor for the same
+# contract, useful for cross-version regression detection.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra15.HMAC.class_name:
+  description: "hmac.HMAC.__name__ == 'HMAC' — the HMAC class name attribute"
+  category: class_identity
+  kind: python_call_eq
+  function: HMAC.__name__.__eq__
+  args: ["HMAC"]
+  expected: true

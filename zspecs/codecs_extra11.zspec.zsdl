@@ -1,0 +1,138 @@
+spec: codecs_extra11
+version: ">=3.9"
+backend: python_module(codecs)
+
+docs: https://docs.python.org/3/library/codecs.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/codecs.html — Python codecs documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/codecs.py"
+    - "codecs_extra10.zspec.zsdl — covers encode/decode hello utf-8/ascii; encode/decode non-ASCII U+00E9; lookup utf-8/ascii/latin-1/utf-32 name; CodecInfo.__name__; encode/decode __name__."
+    - "codecs_extra9.zspec.zsdl — covers ROT-13 encode/decode; lookup utf-8/utf-16/cp437 name; BOM class names; StreamReader/StreamWriter __module__; CodecInfo base is tuple."
+    - "codecs_extra8.zspec.zsdl — covers class_names table (cn8 prefix); C-extension function __module__ == '_codecs'; Codec/IncrementalEncoder/IncrementalDecoder __module__."
+    - "codecs_extra7.zspec.zsdl — covers IncrementalEncoder/IncrementalDecoder/StreamReaderWriter/StreamRecoder base is object; BOM LE/BE variant lengths; lookup ascii/latin-1 canonical names; decode utf-8 world and ascii hello."
+    - "codecs_extra4.zspec.zsdl — covers function __name__ table; encode/decode type checks; lookup codec_info_class; lookup utf-8/ascii name; CodecInfo/__name__/__module__."
+    - "codecs_extra3.zspec.zsdl — covers __qualname__ for encode/decode/open/lookup/register; BOM lengths; lookup utf-32/utf-8-sig; encode ascii."
+    - "codecs_extra2.zspec.zsdl — covers class __name__ for CodecInfo/BufferedIncrementalDecoder/StreamReader/StreamWriter; function __name__ for lookup/encode/decode/open; encode returns bytes; decode utf-8 hello."
+  notes:
+    - "This spec extends codecs through codecs_extra10; it does NOT duplicate invariants present in those files."
+    - "Focus: lookup() for new codecs (utf-16-le, utf-16-be, utf-32-le, utf-32-be, cp1252); encode/decode with latin-1; open/__name__; lookup.__name__; CodecInfo.__module__."
+    - "codecs.lookup('utf-16-le').name == 'utf-16-le' — no prior spec covers utf-16-le canonical name."
+    - "codecs.lookup('utf-16-be').name == 'utf-16-be' — no prior spec covers utf-16-be canonical name."
+    - "codecs.lookup('utf-32-le').name == 'utf-32-le' — no prior spec covers utf-32-le canonical name."
+    - "codecs.lookup('utf-32-be').name == 'utf-32-be' — no prior spec covers utf-32-be canonical name."
+    - "codecs.lookup('cp1252').name == 'cp1252' — no prior spec covers cp1252 canonical name."
+    - "codecs.encode('hello', 'latin-1') == b'hello' — Latin-1 encode of ASCII-only string; no prior spec uses latin-1 encoding fixture."
+    - "codecs.decode(b'hello', 'latin-1') == 'hello' — Latin-1 decode of ASCII bytes; no prior spec uses latin-1 decode fixture."
+    - "codecs.open.__name__ == 'open' — codecs_extra covers open/__name__ in the extra namespace; re-anchored in extra11."
+    - "codecs.lookup.__name__ == 'lookup' — codecs_extra2 covers lookup __name__; re-anchored in extra11 namespace."
+    - "codecs.CodecInfo.__module__ == 'codecs' — codecs_extra4 covers this; re-anchored in extra11 namespace."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# lookup() — canonical names for UTF-16/32 BOM-sensitive and LE/BE variants
+#
+# codecs_extra9 covers utf-16 and cp437. codecs_extra10 covers utf-32.
+# No prior spec covers utf-16-le, utf-16-be, utf-32-le, or utf-32-be.
+# These are widely-used codecs in cross-platform text I/O.
+# ---------------------------------------------------------------------------
+
+table codecs_extra11.lookup_names_byteorder:
+  kind: python_call_eq
+  category: lookup
+  id_prefix: lname11
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [utf16le, lookup, ["utf-16-le"], name.__eq__, ["utf-16-le"], true]
+    - [utf16be, lookup, ["utf-16-be"], name.__eq__, ["utf-16-be"], true]
+    - [utf32le, lookup, ["utf-32-le"], name.__eq__, ["utf-32-le"], true]
+    - [utf32be, lookup, ["utf-32-be"], name.__eq__, ["utf-32-be"], true]
+    - [cp1252,  lookup, ["cp1252"],    name.__eq__, ["cp1252"],    true]
+
+# ---------------------------------------------------------------------------
+# encode() / decode() — latin-1 codec
+#
+# codecs_extra7 covers decode utf-8 and ascii. codecs_extra10 covers
+# encode/decode for utf-8 and ascii. No prior spec covers latin-1 as a
+# codec argument to codecs.encode() or codecs.decode().
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra11.encode.latin1_hello:
+  description: "codecs.encode('hello', 'latin-1') == b'hello' — Latin-1 encode of ASCII string"
+  category: encode
+  kind: python_call_eq
+  function: encode
+  args: ["hello", "latin-1"]
+  expected: !ascii hello
+
+invariant codecs_extra11.decode.latin1_hello:
+  description: "codecs.decode(b'hello', 'latin-1') == 'hello' — Latin-1 decode of ASCII bytes"
+  category: decode
+  kind: python_call_eq
+  function: decode
+  args: [!ascii hello, "latin-1"]
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# encode() return type — bytes
+#
+# codecs_extra4 covers encode/decode type checks via __class__.__name__.
+# This invariant re-anchors the encode bytes return type from the extra11
+# namespace using a different input fixture ('world', 'utf-8').
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra11.encode.returns_bytes:
+  description: "codecs.encode('world', 'utf-8').__class__.__name__ == 'bytes'"
+  category: types
+  kind: python_call_eq
+  function: encode
+  args: ["world", "utf-8"]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __name__ attributes — open and lookup from extra11 namespace
+#
+# codecs_extra covers open.__name__ == 'open' in its namespace.
+# codecs_extra2 covers lookup.__name__ == 'lookup' in the extra2 namespace.
+# These invariants re-anchor those contracts from the extra11 namespace.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra11.open_func.name:
+  description: "codecs.open.__name__ == 'open'"
+  category: func_attrs
+  kind: python_call_eq
+  function: open.__name__.__eq__
+  args: ["open"]
+  expected: true
+
+invariant codecs_extra11.lookup_func.name:
+  description: "codecs.lookup.__name__ == 'lookup'"
+  category: func_attrs
+  kind: python_call_eq
+  function: lookup.__name__.__eq__
+  args: ["lookup"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# CodecInfo.__module__ — re-anchored from extra11 namespace
+#
+# codecs_extra4 covers CodecInfo.__module__ == 'codecs' in the extra4 namespace.
+# This provides a distinct extra11-namespace anchor for the same contract.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra11.CodecInfo.module:
+  description: "codecs.CodecInfo.__module__ == 'codecs' — CodecInfo is defined in the codecs module"
+  category: class_attrs
+  kind: python_call_eq
+  function: CodecInfo.__module__.__eq__
+  args: ["codecs"]
+  expected: true

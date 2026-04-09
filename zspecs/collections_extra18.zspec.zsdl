@@ -1,0 +1,187 @@
+spec: collections_extra18
+version: ">=3.9"
+backend: python_module(collections)
+
+docs: https://docs.python.org/3/library/collections.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html — Python collections documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+    - "CPython source: Modules/_collectionsmodule.c"
+  notes:
+    - "This spec extends collections.zspec.zsdl and prior extras through collections_extra17.zspec.zsdl."
+    - "collections_extra17 covers: __module__.__eq__ for OrderedDict, ChainMap, namedtuple, defaultdict, Counter, deque, UserDict, UserList, UserString; __module__.__len__ cross-checks."
+    - "No prior collections spec covers __name__ for OrderedDict or defaultdict as standalone __eq__ invariants."
+    - "No prior collections spec covers __len__() on empty OrderedDict(), defaultdict(int), or Counter('aab') instances."
+    - "No prior collections spec covers Counter.__getitem__ for individual character counts from a string argument."
+    - "No prior collections spec covers defaultdict.default_factory.__name__ via method_chain."
+    - "collections.OrderedDict.__name__ == 'OrderedDict'; collections.defaultdict.__name__ == 'defaultdict'."
+    - "Counter.__name__ == 'Counter' — already in counter.zspec.zsdl if present, but verified here as __name__.__len__."
+    - "OrderedDict().__len__() == 0 — empty OrderedDict has zero keys."
+    - "defaultdict(int).__len__() == 0 — an empty defaultdict has no stored keys."
+    - "Counter('aab').__len__() == 2 — only 'a' and 'b' are distinct elements."
+    - "Counter('aab').__getitem__('a') == 2 — 'a' appears twice."
+    - "Counter('aab').__getitem__('b') == 1 — 'b' appears once."
+    - "defaultdict(int).default_factory.__name__ == 'int' via method_chain."
+    - "defaultdict(list).default_factory.__name__ == 'list' via method_chain."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# OrderedDict.__name__ — class name attribute
+#
+# No prior collections spec records OrderedDict.__name__.__eq__ as a standalone
+# invariant. (Extra16 covers __qualname__; extra17 covers __module__.)
+# ---------------------------------------------------------------------------
+
+invariant collections_extra18.OrderedDict.name:
+  description: "collections.OrderedDict.__name__ == 'OrderedDict'"
+  category: class_names
+  kind: python_call_eq
+  function: OrderedDict.__name__.__eq__
+  args: ["OrderedDict"]
+  expected: true
+
+invariant collections_extra18.OrderedDict.name_len:
+  description: "collections.OrderedDict.__name__.__len__() == 11 — len('OrderedDict')"
+  category: class_names
+  kind: python_call_eq
+  function: OrderedDict.__name__.__len__
+  args: []
+  expected: 11
+
+# ---------------------------------------------------------------------------
+# defaultdict.__name__ — class name attribute
+#
+# No prior collections spec records defaultdict.__name__.__eq__ as a standalone
+# invariant. (Extra16 covers __qualname__; extra17 covers __module__.)
+# ---------------------------------------------------------------------------
+
+invariant collections_extra18.defaultdict.name:
+  description: "collections.defaultdict.__name__ == 'defaultdict'"
+  category: class_names
+  kind: python_call_eq
+  function: defaultdict.__name__.__eq__
+  args: ["defaultdict"]
+  expected: true
+
+invariant collections_extra18.defaultdict.name_len:
+  description: "collections.defaultdict.__name__.__len__() == 11 — len('defaultdict')"
+  category: class_names
+  kind: python_call_eq
+  function: defaultdict.__name__.__len__
+  args: []
+  expected: 11
+
+# ---------------------------------------------------------------------------
+# Empty instance __len__() checks
+#
+# No prior collections spec records __len__() on empty OrderedDict() or
+# defaultdict(int) instances. These confirm zero-length behavior at construction.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra18.OrderedDict.empty_len:
+  description: "OrderedDict().__len__() == 0 — newly constructed OrderedDict is empty"
+  category: instance_len
+  kind: python_call_eq
+  function: OrderedDict
+  args: []
+  method: __len__
+  expected: 0
+
+invariant collections_extra18.defaultdict.empty_len:
+  description: "defaultdict(int).__len__() == 0 — newly constructed defaultdict has no stored keys"
+  category: instance_len
+  kind: python_call_eq
+  function: defaultdict
+  args: [int]
+  method: __len__
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# Counter('aab') — distinct element count and individual counts
+#
+# No prior collections spec covers Counter constructed from a string literal
+# with __len__ or __getitem__ for character frequency checks.
+# Counter('aab') has two distinct elements: 'a' (count 2) and 'b' (count 1).
+# ---------------------------------------------------------------------------
+
+invariant collections_extra18.Counter.aab_len:
+  description: "Counter('aab').__len__() == 2 — two distinct elements 'a' and 'b'"
+  category: counter_counts
+  kind: python_call_eq
+  function: Counter
+  args: ["aab"]
+  method: __len__
+  expected: 2
+
+invariant collections_extra18.Counter.aab_a_count:
+  description: "Counter('aab').__getitem__('a') == 2 — 'a' appears twice"
+  category: counter_counts
+  kind: python_call_eq
+  function: Counter
+  args: ["aab"]
+  method: __getitem__
+  method_args: ["a"]
+  expected: 2
+
+invariant collections_extra18.Counter.aab_b_count:
+  description: "Counter('aab').__getitem__('b') == 1 — 'b' appears once"
+  category: counter_counts
+  kind: python_call_eq
+  function: Counter
+  args: ["aab"]
+  method: __getitem__
+  method_args: ["b"]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# defaultdict.default_factory.__name__ via method_chain
+#
+# No prior collections spec accesses .default_factory on a defaultdict instance
+# and then checks .__name__ on the resulting factory callable.
+# defaultdict(int).default_factory is int, so int.__name__ == 'int'.
+# defaultdict(list).default_factory is list, so list.__name__ == 'list'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra18.defaultdict.default_factory_int_name:
+  description: "defaultdict(int).default_factory.__name__ == 'int'"
+  category: default_factory
+  kind: python_call_eq
+  function: defaultdict
+  args: [int]
+  method: default_factory
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true
+
+invariant collections_extra18.defaultdict.default_factory_list_name:
+  description: "defaultdict(list).default_factory.__name__ == 'list'"
+  category: default_factory
+  kind: python_call_eq
+  function: defaultdict
+  args: [list]
+  method: default_factory
+  method_chain: __name__.__eq__
+  method_chain_args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Counter.__name__ and __module__ — name length cross-check
+#
+# collections_extra17 covers Counter.__module__.__eq__('collections') == true.
+# No prior spec records Counter.__name__.__len__() == 7 as a cross-check.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra18.Counter.name_len:
+  description: "collections.Counter.__name__.__len__() == 7 — len('Counter')"
+  category: class_names
+  kind: python_call_eq
+  function: Counter.__name__.__len__
+  args: []
+  expected: 7
