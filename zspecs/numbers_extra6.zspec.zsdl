@@ -1,0 +1,122 @@
+spec: numbers_extra6
+version: ">=3.0"
+backend: python_module(numbers)
+
+docs: https://docs.python.org/3/library/numbers.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/numbers.html — Python numbers documentation"
+    - "PEP 3141 — A Type Hierarchy for Numbers"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/numbers.py"
+  notes:
+    - "This spec extends numbers.zspec.zsdl and prior extras (numbers_extra through numbers_extra5)."
+    - "numbers_extra5 covers: MRO lengths for all five; bases_len for Complex/Real/Rational; Real abstract methods __float__/__le__/__lt__/__rfloordiv__/__rmod__/__round__; Integral abstract methods __rand__/__rlshift__/__ror__/__rshift__/__rxor__."
+    - "New axes: MRO self-entry [0] for all five classes; new Complex abstract methods (__add__, __radd__, __sub__, __rsub__, __truediv__, __rtruediv__); new Integral abstract methods (__neg__, __pos__, __abs__, __rpow__)."
+    - "numbers.Number.__mro__[0].__name__ == 'Number' — first MRO entry is the class itself."
+    - "numbers.Complex.__mro__[0].__name__ == 'Complex' — first MRO entry is the class itself."
+    - "numbers.Real.__mro__[0].__name__ == 'Real' — first MRO entry is the class itself."
+    - "numbers.Rational.__mro__[0].__name__ == 'Rational' — first MRO entry is the class itself."
+    - "numbers.Integral.__mro__[0].__name__ == 'Integral' — first MRO entry is the class itself."
+    - "numbers.Complex.__abstractmethods__.__contains__('__add__') == True."
+    - "numbers.Complex.__abstractmethods__.__contains__('__radd__') == True."
+    - "numbers.Complex.__abstractmethods__.__contains__('__sub__') == True."
+    - "numbers.Complex.__abstractmethods__.__contains__('__rsub__') == True."
+    - "numbers.Complex.__abstractmethods__.__contains__('__truediv__') == True."
+    - "numbers.Complex.__abstractmethods__.__contains__('__rtruediv__') == True."
+    - "numbers.Integral.__abstractmethods__.__contains__('__neg__') == True."
+    - "numbers.Integral.__abstractmethods__.__contains__('__pos__') == True."
+    - "numbers.Integral.__abstractmethods__.__contains__('__abs__') == True."
+    - "numbers.Integral.__abstractmethods__.__contains__('__rpow__') == True."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# MRO self-entry [0] — each class's first MRO entry is itself
+# Not covered in any prior numbers spec.
+# Prior specs check MRO lengths (numbers_extra5) and specific non-zero entries
+# (numbers_extra: bases[0]; numbers_extra2/3: bases via __eq__ style).
+# ---------------------------------------------------------------------------
+
+table numbers_extra6.mro_self_entry:
+  kind: python_call_eq
+  category: mro_self
+  id_prefix: mro0
+
+  columns: [id, function, args, method, expected]
+  rows:
+    - [Number,   Number.__mro__.__getitem__,   [0], __name__, "Number"]
+    - [Complex,  Complex.__mro__.__getitem__,  [0], __name__, "Complex"]
+    - [Real,     Real.__mro__.__getitem__,     [0], __name__, "Real"]
+    - [Rational, Rational.__mro__.__getitem__, [0], __name__, "Rational"]
+    - [Integral, Integral.__mro__.__getitem__, [0], __name__, "Integral"]
+
+# ---------------------------------------------------------------------------
+# Abstract method membership — Complex: arithmetic operators
+# numbers covers: __abs__, conjugate.
+# numbers_extra covers: real, imag.
+# numbers_extra4 covers: __neg__, __pos__, __mul__.
+# New here: __add__, __radd__, __sub__, __rsub__, __truediv__, __rtruediv__.
+# ---------------------------------------------------------------------------
+
+table numbers_extra6.abstract_methods.complex_arithmetic:
+  kind: python_call_eq
+  category: abstract_methods
+  id_prefix: complex_arith
+
+  columns: [id, function, args, expected]
+  rows:
+    - [add,      Complex.__abstractmethods__.__contains__, ["__add__"],      true]
+    - [radd,     Complex.__abstractmethods__.__contains__, ["__radd__"],     true]
+    - [sub,      Complex.__abstractmethods__.__contains__, ["__sub__"],      true]
+    - [rsub,     Complex.__abstractmethods__.__contains__, ["__rsub__"],     true]
+    - [truediv,  Complex.__abstractmethods__.__contains__, ["__truediv__"],  true]
+    - [rtruediv, Complex.__abstractmethods__.__contains__, ["__rtruediv__"], true]
+
+# ---------------------------------------------------------------------------
+# Abstract method membership — Integral: unary and power operators
+# numbers covers: __and__.
+# numbers_extra covers: __or__, __xor__, __lshift__.
+# numbers_extra3 covers: __int__, __rrshift__, __invert__.
+# numbers_extra4 covers: __pow__, __mod__, __floordiv__.
+# numbers_extra5 covers: __rand__, __rlshift__, __ror__, __rshift__, __rxor__.
+# New here: __neg__, __pos__, __abs__, __rpow__.
+# ---------------------------------------------------------------------------
+
+table numbers_extra6.abstract_methods.integral_unary:
+  kind: python_call_eq
+  category: abstract_methods
+  id_prefix: integral_unary
+
+  columns: [id, function, args, expected]
+  rows:
+    - [neg,  Integral.__abstractmethods__.__contains__, ["__neg__"],  true]
+    - [pos,  Integral.__abstractmethods__.__contains__, ["__pos__"],  true]
+    - [abs,  Integral.__abstractmethods__.__contains__, ["__abs__"],  true]
+    - [rpow, Integral.__abstractmethods__.__contains__, ["__rpow__"], true]
+
+# ---------------------------------------------------------------------------
+# Negative isinstance checks — type that is NOT in the tower
+# numbers_extra covers: Integral.__instancecheck__('x') == False (str not Integral).
+# New here: Real.__instancecheck__('x') == False, Number.__instancecheck__(None) == False.
+# ---------------------------------------------------------------------------
+
+invariant numbers_extra6.isinstance.str_not_Real:
+  description: "numbers.Real.__instancecheck__('x') == False — str is not a Real"
+  category: isinstance
+  kind: python_call_eq
+  function: Real.__instancecheck__
+  args: ["x"]
+  expected: false
+
+invariant numbers_extra6.isinstance.none_not_Number:
+  description: "numbers.Number.__instancecheck__(None) == False — NoneType is not a Number"
+  category: isinstance
+  kind: python_call_eq
+  function: Number.__instancecheck__
+  args: [~]
+  expected: false

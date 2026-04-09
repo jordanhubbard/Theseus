@@ -1,0 +1,163 @@
+spec: binascii_extra6
+version: ">=3.9"
+backend: python_module(binascii)
+
+docs: https://docs.python.org/3/library/binascii.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/binascii.html — Python binascii documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/binascii.c"
+  notes:
+    - "This spec extends binascii through binascii_extra5; it does NOT duplicate invariants present in those files."
+    - "binascii_extra4 covers: __module__ for unhexlify/b2a_hex/a2b_hex/crc_hqx/b2a_base64/a2b_base64; Error/Incomplete __module__; __qualname__ table for hexlify/unhexlify/b2a_hex/a2b_hex/crc32/crc_hqx; Error/Incomplete __qualname__; b2a_base64(hello) value/length; crc_hqx(b'A',0)==49664."
+    - "binascii_extra5 covers: b2a_base64/a2b_base64 __qualname__; hexlify(0xFF)/unhexlify('ff') single-byte round-trip; crc32(b'A'); unhexlify returns bytes; b2a_hex/a2b_hex __qualname__ standalone."
+    - "No prior spec covers: b2a_base64(b'abc') value; b2a_base64(b'') value; a2b_base64(b'AAAA') == b'\\x00\\x00\\x00'."
+    - "No prior spec covers: crc32 with a non-zero initial value (crc32(b'hello', 1))."
+    - "No prior spec covers: crc_hqx(b'hello', 0) value; crc_hqx(b'abc', 0) value."
+    - "No prior spec covers: hexlify with sep argument (Python 3.8+)."
+    - "No prior spec covers: unhexlify raises Error for non-hex characters."
+    - "No prior spec covers: a2b_base64 with strict_mode=True raises Error for invalid input."
+    - "binascii.b2a_base64(b'abc') == b'YWJj\\n' — RFC 4648 base64 with trailing newline."
+    - "binascii.b2a_base64(b'') == b'\\n' — empty input produces just a newline."
+    - "binascii.a2b_base64(b'AAAA') == b'\\x00\\x00\\x00' — three zero bytes."
+    - "binascii.crc32(b'hello', 1) == 191926070 — CRC-32 with non-zero initial value; verified on Python 3.12."
+    - "binascii.crc_hqx(b'hello', 0) == 50018 — CRC-CCITT of b'hello'; verified on Python 3.12."
+    - "binascii.crc_hqx(b'abc', 0) == 40406 — CRC-CCITT of b'abc'; verified on Python 3.12."
+    - "binascii.hexlify(b'hello', b':') == b'68:65:6c:6c:6f' — sep argument inserts separator between bytes (Python 3.8+)."
+    - "binascii.unhexlify(b'zz') raises binascii.Error — non-hex characters are rejected."
+    - "binascii.a2b_base64(b'!!!', strict_mode=True) raises binascii.Error — invalid base64 in strict mode."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# b2a_base64 — value vectors not in prior specs
+#
+# binascii_extra4 covers b2a_base64(b'hello') == b'aGVsbG8=\n'.
+# No prior spec records the result for b'abc' or the empty byte string.
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra6.b2a_base64.abc:
+  description: "binascii.b2a_base64(b'abc') == b'YWJj\\n'"
+  category: base64
+  kind: python_call_eq
+  function: b2a_base64
+  args: [!hex 616263]
+  expected: !ascii "YWJj\n"
+
+invariant binascii_extra6.b2a_base64.empty:
+  description: "binascii.b2a_base64(b'') == b'\\n' — empty input produces only the trailing newline"
+  category: base64
+  kind: python_call_eq
+  function: b2a_base64
+  args: [!ascii ""]
+  expected: !ascii "\n"
+
+# ---------------------------------------------------------------------------
+# a2b_base64 — binary (non-ASCII) output vector
+#
+# binascii_extra3 covers a2b_base64(b'aGVsbG8=') == b'hello' (ASCII text).
+# No prior spec records a2b_base64 decoding to a non-text byte sequence.
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra6.a2b_base64.three_zero_bytes:
+  description: "binascii.a2b_base64(b'AAAA') == b'\\x00\\x00\\x00' — three zero bytes"
+  category: base64
+  kind: python_call_eq
+  function: a2b_base64
+  args: [!ascii "AAAA"]
+  expected: !hex 000000
+
+# ---------------------------------------------------------------------------
+# crc32 with non-zero initial value
+#
+# binascii.zspec.zsdl and binascii_extra3 cover crc32(b'hello') with the default
+# initial value (0). The crc32 function accepts an optional second argument that
+# seeds the checksum, enabling chained CRC computation.
+# No prior spec uses a non-zero initial value.
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra6.crc32.hello_with_seed:
+  description: "binascii.crc32(b'hello', 1) == 191926070 — CRC-32 of b'hello' with initial value 1"
+  category: crc32
+  kind: python_call_eq
+  function: crc32
+  args: [!hex 68656c6c6f, 1]
+  expected: 191926070
+
+# ---------------------------------------------------------------------------
+# crc_hqx — additional vectors for b'hello' and b'abc'
+#
+# binascii_extra2 covers crc_hqx(b'', 0) == 0.
+# binascii_extra4 covers crc_hqx(b'A', 0) == 49664.
+# No prior spec covers crc_hqx for b'hello' or b'abc'.
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra6.crc_hqx.hello:
+  description: "binascii.crc_hqx(b'hello', 0) == 50018 — CRC-CCITT of b'hello'"
+  category: crc_hqx
+  kind: python_call_eq
+  function: crc_hqx
+  args: [!hex 68656c6c6f, 0]
+  expected: 50018
+
+invariant binascii_extra6.crc_hqx.abc:
+  description: "binascii.crc_hqx(b'abc', 0) == 40406 — CRC-CCITT of b'abc'"
+  category: crc_hqx
+  kind: python_call_eq
+  function: crc_hqx
+  args: [!hex 616263, 0]
+  expected: 40406
+
+# ---------------------------------------------------------------------------
+# hexlify with sep argument (Python 3.8+)
+#
+# binascii.hexlify accepts an optional sep argument that inserts a separator
+# byte between each hex pair. No prior spec exercises this overload.
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra6.hexlify.sep_colon:
+  description: "binascii.hexlify(b'hello', b':') == b'68:65:6c:6c:6f' — separator inserted between hex pairs"
+  category: hexlify
+  kind: python_call_eq
+  function: hexlify
+  args: [!hex 68656c6c6f, !ascii ":"]
+  expected: !ascii "68:65:6c:6c:6f"
+
+# ---------------------------------------------------------------------------
+# unhexlify — raises Error for non-hex character input
+#
+# binascii.zspec.zsdl covers unhexlify raising Error for odd-length input.
+# No prior spec covers the case where the length is valid but characters are
+# not valid hex digits (e.g., 'zz' has length 2 but 'z' is not a hex digit).
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra6.unhexlify.non_hex_raises:
+  description: "binascii.unhexlify('zz') raises binascii.Error — 'z' is not a hexadecimal digit"
+  category: errors
+  kind: python_call_raises
+  function: unhexlify
+  args: ["zz"]
+  expected: Error
+
+# ---------------------------------------------------------------------------
+# a2b_base64 with strict_mode=True — raises Error for invalid input
+#
+# a2b_base64 accepts an optional strict_mode keyword argument (Python 3.11+).
+# In strict mode, any non-base64 byte raises binascii.Error.
+# No prior spec exercises strict_mode.
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra6.a2b_base64.strict_mode_invalid:
+  description: "binascii.a2b_base64(b'!!!', strict_mode=True) raises binascii.Error — invalid base64 in strict mode"
+  category: errors
+  kind: python_call_raises
+  function: a2b_base64
+  args: [!ascii "!!!"]
+  kwargs:
+    strict_mode: true
+  expected: Error

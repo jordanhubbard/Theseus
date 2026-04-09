@@ -1,0 +1,193 @@
+spec: base64_extra6
+version: ">=3.9"
+backend: python_module(base64)
+
+docs: https://docs.python.org/3/library/base64.html
+rfcs:
+  - "RFC 4648 — The Base16, Base32, and Base64 Data Encodings"
+
+provenance:
+  derived_from:
+    - "RFC 4648 — The Base16, Base32, and Base64 Data Encodings, October 2006"
+    - "https://docs.python.org/3/library/base64.html — Python base64 module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/base64.py"
+    - "CPython source: Modules/binascii.c"
+  notes:
+    - "This spec extends base64 through base64_extra5; it does NOT duplicate invariants present in those files."
+    - "base64.zspec.zsdl covers b64encode/b64decode RFC 4648 vectors; urlsafe encode/decode; b32encode foo/foobar; b16encode; roundtrip invariants; b64decode invalid raises."
+    - "base64_extra4 covers urlsafe_b64encode/decode hello; b16encode/decode hello; b32encode/decode hello; urlsafe returns bytes."
+    - "base64_extra5 covers b64encode/decode __name__; __module__ for b64encode/decode/urlsafe/b32/b16decode; return type checks for b64encode/b16encode/b32encode; b64encode length for 1/3/6 bytes; b64encode/decode of zero bytes."
+    - "No prior spec covers: b32encode of b'A' (single byte, 3-char data group); b32encode of b'' (empty)."
+    - "No prior spec covers: b32decode of b'ME======' == b'a'; b32decode of b'MFRA====' == b'ab'."
+    - "No prior spec covers: b16encode(b'abc') == b'616263'; b16decode(b'616263') == b'abc'."
+    - "No prior spec covers: b16decode(b'FF') == b'\\xff' — binary byte via b16."
+    - "No prior spec covers: b16encode(b'\\xff') == b'FF' — uppercase hex from b16encode."
+    - "No prior spec covers: b85encode/b85decode for b'hello'."
+    - "No prior spec covers: b64decode of empty string returns b''."
+    - "No prior spec covers: b64encode of two input bytes (b'ab') == b'YWI=' (1-byte padding)."
+    - "base64.b32encode(b'A') == b'IE======' — verified on Python 3.12."
+    - "base64.b32encode(b'') == b'' — empty input produces empty output."
+    - "base64.b32decode(b'ME======') == b'a' — verified on Python 3.12."
+    - "base64.b32decode(b'MFRA====') == b'ab' — verified on Python 3.12."
+    - "base64.b16encode(b'abc') == b'616263' — lowercase input, uppercase hex output."
+    - "base64.b16decode(b'FF') == b'\\xff' — decodes to single binary byte."
+    - "base64.b85encode(b'hello') == b'Xk~0{Zv' — verified on Python 3.12."
+    - "base64.b64decode(b'') == b'' — empty base64 string decodes to empty bytes."
+    - "base64.b64encode(b'ab') == b'YWI=' — two bytes produce four base64 chars with one padding '='."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# b32encode — vectors not covered in prior specs
+#
+# base64.zspec.zsdl covers b32encode for b'foo' and b'foobar'.
+# base64_extra4 covers b32encode for b'hello'.
+# No prior spec covers b32encode for b'A' (single byte) or the empty byte string.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra6.b32encode.single_byte:
+  description: "base64.b32encode(b'A') == b'IE======' — single byte encodes to 8 base32 chars with padding"
+  category: b32
+  rfc: "RFC 4648"
+  kind: python_call_eq
+  function: b32encode
+  args: [!hex 41]
+  expected: !ascii "IE======"
+
+invariant base64_extra6.b32encode.empty:
+  description: "base64.b32encode(b'') == b'' — empty input produces empty base32 output"
+  category: b32
+  rfc: "RFC 4648"
+  kind: python_call_eq
+  function: b32encode
+  args: [!ascii ""]
+  expected: !ascii ""
+
+# ---------------------------------------------------------------------------
+# b32decode — vectors not covered in prior specs
+#
+# base64_extra4 covers b32decode for b'NBSWY3DPEB3W64TMMQ======' (hello).
+# No prior spec covers b32decode for shorter encoded values.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra6.b32decode.one_byte:
+  description: "base64.b32decode(b'ME======') == b'a' — decode single-byte b32 output"
+  category: b32
+  rfc: "RFC 4648"
+  kind: python_call_eq
+  function: b32decode
+  args: [!ascii "ME======"]
+  expected: !hex 61
+
+invariant base64_extra6.b32decode.two_bytes:
+  description: "base64.b32decode(b'MFRA====') == b'ab' — decode two-byte b32 output"
+  category: b32
+  rfc: "RFC 4648"
+  kind: python_call_eq
+  function: b32decode
+  args: [!ascii "MFRA===="]
+  expected: !hex 6162
+
+# ---------------------------------------------------------------------------
+# b16encode / b16decode — vectors not covered in prior specs
+#
+# base64.zspec.zsdl covers b16encode(b'foo') == b'666F6F' and b16encode(b'\\xde\\xad\\xbe\\xef').
+# base64_extra4 covers b16encode/decode for b'hello'.
+# No prior spec covers b16encode(b'abc') or b16decode(b'FF') / b16encode(b'\\xff').
+# ---------------------------------------------------------------------------
+
+invariant base64_extra6.b16encode.abc:
+  description: "base64.b16encode(b'abc') == b'616263' — uppercase hex encoding of ASCII 'abc'"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16encode
+  args: [!hex 616263]
+  expected: !ascii "616263"
+
+invariant base64_extra6.b16decode.abc:
+  description: "base64.b16decode(b'616263') == b'abc' — roundtrip with b16encode"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16decode
+  args: [!ascii "616263"]
+  expected: !hex 616263
+
+invariant base64_extra6.b16encode.ff_byte:
+  description: "base64.b16encode(b'\\xff') == b'FF' — single max-value byte encodes to 'FF'"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16encode
+  args: [!hex ff]
+  expected: !ascii "FF"
+
+invariant base64_extra6.b16decode.ff:
+  description: "base64.b16decode(b'FF') == b'\\xff' — 'FF' decodes to byte 0xFF"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16decode
+  args: [!ascii "FF"]
+  expected: !hex ff
+
+# ---------------------------------------------------------------------------
+# b85encode / b85decode — not covered in any prior base64 spec
+#
+# base64.b85encode and b85decode implement the Ascii85 variant used by git
+# binary diffs and PDF. No prior base64 spec records any b85 vectors.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra6.b85encode.hello:
+  description: "base64.b85encode(b'hello') == b'Xk~0{Zv' — verified on Python 3.12"
+  category: b85
+  kind: python_call_eq
+  function: b85encode
+  args: [!hex 68656c6c6f]
+  expected: !ascii "Xk~0{Zv"
+
+invariant base64_extra6.b85decode.hello:
+  description: "base64.b85decode(b'Xk~0{Zv') == b'hello' — roundtrip with b85encode"
+  category: b85
+  kind: python_call_eq
+  function: b85decode
+  args: [!ascii "Xk~0{Zv"]
+  expected: !hex 68656c6c6f
+
+# ---------------------------------------------------------------------------
+# b64decode of empty string — not covered in any prior base64 spec
+#
+# base64.zspec.zsdl covers b64encode of b'' (encodes to b'').
+# No prior spec records b64decode of b'' (should return b'').
+# ---------------------------------------------------------------------------
+
+invariant base64_extra6.b64decode.empty:
+  description: "base64.b64decode(b'') == b'' — empty base64 string decodes to empty bytes"
+  category: decode_values
+  rfc: "RFC 4648"
+  kind: python_call_eq
+  function: b64decode
+  args: [!ascii ""]
+  expected: !ascii ""
+
+# ---------------------------------------------------------------------------
+# b64encode of two input bytes — 1-byte padding
+#
+# base64_extra5 covers b64encode length for 1/3/6 bytes; 2-byte input was not
+# covered. base64_extra5 also covers the value for 1/3 zero-bytes.
+# b64encode(b'ab') == b'YWI=' — two bytes produce 4 base64 chars with one '='.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra6.b64encode.two_bytes_value:
+  description: "base64.b64encode(b'ab') == b'YWI=' — two bytes encode with single-char padding"
+  category: encode_values
+  rfc: "RFC 4648"
+  kind: python_call_eq
+  function: b64encode
+  args: [!hex 6162]
+  expected: !ascii "YWI="
