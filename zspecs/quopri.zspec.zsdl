@@ -1,0 +1,115 @@
+spec: quopri
+version: ">=3.x"
+backend: python_module(quopri)
+
+docs: https://docs.python.org/3/library/quopri.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/quopri.html"
+    - "RFC 2045 — MIME Part One: Format of Internet Message Bodies, §6.7 Quoted-Printable Content-Transfer-Encoding"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/quopri.py"
+  notes:
+    - "quopri.encodestring(s) and quopri.decodestring(s) operate on bytes objects and return bytes."
+    - "encodestring(b'hello') returns b'hello\\n' — a trailing newline is always appended."
+    - "Plain ASCII printable bytes (excluding '=') are passed through unchanged by decodestring."
+    - "The escape sequence '=3D' decodes to b'=' (0x3D is the ASCII code for '=')."
+    - "Empty input b'' decodes and encodes to b'' and b'\\n' respectively."
+    - "encode and decode operate on file-like objects (streams), not bytes directly."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "quopri functions raise no exceptions for well-formed quoted-printable input; malformed escape sequences are passed through literally."
+  stderr: "null"
+  stickiness: "N/A"
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name attributes — verify public API names are as documented
+# ---------------------------------------------------------------------------
+
+table quopri.func_names:
+  kind: python_call_eq
+  category: func_names
+  id_prefix: func_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [encode,       encode.__name__.__eq__,       ["encode"],       true]
+    - [decode,       decode.__name__.__eq__,       ["decode"],       true]
+    - [encodestring, encodestring.__name__.__eq__, ["encodestring"], true]
+    - [decodestring, decodestring.__name__.__eq__, ["decodestring"], true]
+
+# ---------------------------------------------------------------------------
+# Module identity
+# ---------------------------------------------------------------------------
+
+invariant quopri.module.encode_module:
+  description: "encode.__module__ == 'quopri' — encode is defined in the quopri module"
+  category: module
+  kind: python_call_eq
+  function: encode.__module__.__eq__
+  args: ["quopri"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# decodestring — plain ASCII is unchanged
+# ---------------------------------------------------------------------------
+
+invariant quopri.decodestring.plain_ascii:
+  description: "quopri.decodestring(b'hello') == b'hello' — plain ASCII bytes are not altered"
+  category: decodestring
+  kind: python_call_eq
+  function: decodestring
+  args: [!ascii "hello"]
+  expected: !ascii "hello"
+
+invariant quopri.decodestring.qp_equals_sign:
+  description: "quopri.decodestring(b'=3D') == b'=' — =3D is the quoted-printable escape for '='"
+  category: decodestring
+  kind: python_call_eq
+  function: decodestring
+  args: [!ascii "=3D"]
+  expected: !ascii "="
+
+invariant quopri.decodestring.empty_input:
+  description: "quopri.decodestring(b'') == b'' — empty bytes input yields empty bytes output"
+  category: decodestring
+  kind: python_call_eq
+  function: decodestring
+  args: [!ascii ""]
+  expected: !ascii ""
+
+# ---------------------------------------------------------------------------
+# encodestring — plain ASCII gets trailing newline appended
+# ---------------------------------------------------------------------------
+
+invariant quopri.encodestring.plain_ascii_newline:
+  description: "quopri.encodestring(b'hello') == b'hello\\n' — encodestring appends a trailing newline"
+  category: encodestring
+  kind: python_call_eq
+  function: encodestring
+  args: [!ascii "hello"]
+  expected: !ascii "hello\n"
+
+# ---------------------------------------------------------------------------
+# Callable type checks — encode and decode are plain functions
+# ---------------------------------------------------------------------------
+
+invariant quopri.callables.encode_is_function:
+  description: "encode.__class__.__name__ == 'function' — quopri.encode is a plain Python function"
+  category: callables
+  kind: python_call_eq
+  function: encode.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant quopri.callables.encodestring_is_function:
+  description: "encodestring.__class__.__name__ == 'function' — quopri.encodestring is a plain Python function"
+  category: callables
+  kind: python_call_eq
+  function: encodestring.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true

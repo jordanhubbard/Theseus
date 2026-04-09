@@ -1,0 +1,144 @@
+spec: contextvars
+version: ">=3.7"
+backend: python_module(contextvars)
+
+docs: https://docs.python.org/3/library/contextvars.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/contextvars.html"
+    - "PEP 567 — Context Variables (https://peps.python.org/pep-0567/)"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/_contextvars.py or C extension internals"
+  notes:
+    - "contextvars provides PEP 567 context-local state: ContextVar, Context, and Token."
+    - "copy_context() snapshots the current Context; the returned object is of type Context."
+    - "ContextVar(name) creates a variable; name is a read-only property returning the string passed at creation."
+    - "ContextVar.get(default) returns the current value or the supplied default when not set in the current context."
+    - "Token is returned by ContextVar.set() and is used by ContextVar.reset() to roll back the assignment."
+    - "Token.MISSING is a module-level sentinel object used to distinguish 'no previous value' from None."
+    - "Context is a dict-like mapping from ContextVar instances to their values; it is not directly instantiable."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class name checks — ContextVar, Context, Token
+# ---------------------------------------------------------------------------
+
+table contextvars.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [contextvar, ContextVar.__name__.__eq__, ["ContextVar"], true]
+    - [context,    Context.__name__.__eq__,    ["Context"],    true]
+    - [token,      Token.__name__.__eq__,      ["Token"],      true]
+
+# ---------------------------------------------------------------------------
+# Module identity
+# ---------------------------------------------------------------------------
+
+table contextvars.module_names:
+  kind: python_call_eq
+  category: module
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [contextvar_mod, ContextVar.__module__.__eq__, ["contextvars"], true]
+    - [context_mod,    Context.__module__.__eq__,    ["contextvars"], true]
+    - [token_mod,      Token.__module__.__eq__,      ["contextvars"], true]
+
+# ---------------------------------------------------------------------------
+# Function name — copy_context
+# ---------------------------------------------------------------------------
+
+invariant contextvars.fname.copy_context:
+  description: "contextvars.copy_context.__name__ == 'copy_context'"
+  category: functions
+  kind: python_call_eq
+  function: copy_context.__name__.__eq__
+  args: ["copy_context"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# copy_context() — returns a Context instance
+# ---------------------------------------------------------------------------
+
+invariant contextvars.copy_context.returns_context:
+  description: "copy_context().__class__.__name__ == 'Context'"
+  category: behavior
+  kind: python_call_eq
+  function: copy_context
+  args: []
+  method: __class__
+  method_args: []
+  method_chain: __name__
+  expected: "Context"
+
+# ---------------------------------------------------------------------------
+# ContextVar.get() with default — returns default when variable is unset
+# ---------------------------------------------------------------------------
+
+invariant contextvars.contextvar.get_default_str:
+  description: "ContextVar('x').get('default') == 'default' — returns supplied default when not set"
+  category: behavior
+  kind: python_call_eq
+  function: ContextVar
+  args: ["x"]
+  method: get
+  method_args: ["default"]
+  expected: "default"
+
+invariant contextvars.contextvar.get_default_none:
+  description: "ContextVar('y').get(None) is None — None is a valid default"
+  category: behavior
+  kind: python_call_eq
+  function: ContextVar
+  args: ["y"]
+  method: get
+  method_args: [null]
+  expected: null
+
+# ---------------------------------------------------------------------------
+# Token — base class is object
+# ---------------------------------------------------------------------------
+
+invariant contextvars.hierarchy.token_base:
+  description: "Token.__bases__[0].__name__ == 'object'"
+  category: hierarchy
+  kind: python_call_eq
+  function: Token.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Token.MISSING — sentinel is a distinct non-None object
+# ---------------------------------------------------------------------------
+
+invariant contextvars.token_missing_not_none:
+  description: "Token.MISSING is not None — MISSING sentinel is a distinct object"
+  category: constants
+  kind: python_call_eq
+  function: Token.MISSING.__class__.__name__.__eq__
+  args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ContextVar base class is object
+# ---------------------------------------------------------------------------
+
+invariant contextvars.hierarchy.contextvar_base:
+  description: "ContextVar.__bases__[0].__name__ == 'object'"
+  category: hierarchy
+  kind: python_call_eq
+  function: ContextVar.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"

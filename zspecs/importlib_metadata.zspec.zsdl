@@ -1,0 +1,136 @@
+spec: importlib_metadata
+version: ">=3.8"
+backend: python_module(importlib.metadata)
+
+docs: https://docs.python.org/3/library/importlib.metadata.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/importlib.metadata.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "importlib.metadata source: internal distribution discovery internals"
+  notes:
+    - "importlib.metadata was added in Python 3.8 (PEP 566 successor); the API stabilised in 3.10."
+    - "version(pkg) returns the installed version string for the named distribution package."
+    - "PackageNotFoundError is raised by version(), metadata(), files(), and requires() when the package is absent."
+    - "PackageNotFoundError inherits from ModuleNotFoundError (which inherits from ImportError)."
+    - "Distribution is the base class representing an installed distribution; it is not directly instantiated."
+    - "Metadata wraps the RFC-822 email-format metadata from the distribution's METADATA file."
+    - "distributions() returns an iterator over all installed Distribution objects."
+    - "files() returns the list of files belonging to a distribution, or None if the information is unavailable."
+    - "requires() returns a list of PEP 508 dependency strings, or None if absent."
+    - "pip is always installed in any CPython environment, so version('pip') is a safe behavioral probe."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class name checks
+# ---------------------------------------------------------------------------
+
+table importlib_metadata.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [package_not_found, PackageNotFoundError.__name__.__eq__, ["PackageNotFoundError"], true]
+    - [distribution,      Distribution.__name__.__eq__,         ["Distribution"],         true]
+    - [metadata,          Metadata.__name__.__eq__,             ["Metadata"],             true]
+
+# ---------------------------------------------------------------------------
+# Module identity
+# ---------------------------------------------------------------------------
+
+table importlib_metadata.module_names:
+  kind: python_call_eq
+  category: module
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pkg_not_found_mod, PackageNotFoundError.__module__.__eq__, ["importlib.metadata"], true]
+    - [distribution_mod,  Distribution.__module__.__eq__,         ["importlib.metadata"], true]
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table importlib_metadata.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [version,       version.__name__.__eq__,       ["version"],       true]
+    - [metadata,      metadata.__name__.__eq__,      ["metadata"],      true]
+    - [files,         files.__name__.__eq__,         ["files"],         true]
+    - [requires,      requires.__name__.__eq__,      ["requires"],      true]
+    - [distributions, distributions.__name__.__eq__, ["distributions"], true]
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy
+# ---------------------------------------------------------------------------
+
+invariant importlib_metadata.hierarchy.pkg_not_found_base:
+  description: "PackageNotFoundError.__bases__[0].__name__ == 'ModuleNotFoundError'"
+  category: hierarchy
+  kind: python_call_eq
+  function: PackageNotFoundError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ModuleNotFoundError"
+
+invariant importlib_metadata.hierarchy.pkg_not_found_is_import_error:
+  description: "PackageNotFoundError is a subclass of ImportError"
+  category: hierarchy
+  kind: python_call_eq
+  function: issubclass
+  args: ["PackageNotFoundError", "ImportError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# version() — pip is always installed; result is a str
+# ---------------------------------------------------------------------------
+
+invariant importlib_metadata.version.pip_returns_str:
+  description: "version('pip').__class__.__name__ == 'str'"
+  category: behavior
+  kind: python_call_eq
+  function: version
+  args: ["pip"]
+  method: __class__
+  method_args: []
+  method_chain: __name__
+  expected: "str"
+
+# ---------------------------------------------------------------------------
+# version() — PackageNotFoundError for absent package
+# ---------------------------------------------------------------------------
+
+invariant importlib_metadata.version.not_found:
+  description: "version('nonexistent-theseus-xyz-abc') raises PackageNotFoundError"
+  category: error
+  kind: python_call_raises
+  function: version
+  args: ["nonexistent-theseus-xyz-abc"]
+  expected_exception: PackageNotFoundError
+
+# ---------------------------------------------------------------------------
+# distributions() — returns an iterable (has __iter__)
+# ---------------------------------------------------------------------------
+
+invariant importlib_metadata.distributions.has_iter:
+  description: "distributions() result has __iter__ — it is iterable"
+  category: behavior
+  kind: python_call_eq
+  function: distributions
+  args: []
+  method: __iter__
+  method_args: []
+  method_chain: __class__.__name__
+  expected: "generator"

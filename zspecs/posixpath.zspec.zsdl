@@ -1,0 +1,209 @@
+spec: posixpath
+version: ">=3.0"
+backend: python_module(posixpath)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/os.path.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py internals"
+  notes:
+    - "posixpath is the POSIX implementation of os.path; on POSIX systems os.path is this module."
+    - "posixpath.join() appends path components using '/' and preserves absolute components."
+    - "posixpath.normpath() collapses redundant separators and up-level references (..)."
+    - "posixpath.splitext() splits 'foo.txt' into ('foo', '.txt'); the extension includes the dot."
+    - "posixpath.isabs() returns True only when the path begins with '/'."
+    - "posixpath.basename() and posixpath.dirname() mirror POSIX basename(1) and dirname(1) semantics."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table posixpath.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [join,          join.__name__.__eq__,          ["join"],          true]
+    - [split,         split.__name__.__eq__,         ["split"],         true]
+    - [dirname,       dirname.__name__.__eq__,       ["dirname"],       true]
+    - [basename,      basename.__name__.__eq__,      ["basename"],      true]
+    - [exists,        exists.__name__.__eq__,        ["exists"],        true]
+    - [isabs,         isabs.__name__.__eq__,         ["isabs"],         true]
+    - [isfile,        isfile.__name__.__eq__,        ["isfile"],        true]
+    - [isdir,         isdir.__name__.__eq__,         ["isdir"],         true]
+    - [normpath,      normpath.__name__.__eq__,      ["normpath"],      true]
+    - [abspath,       abspath.__name__.__eq__,       ["abspath"],       true]
+    - [expanduser,    expanduser.__name__.__eq__,    ["expanduser"],    true]
+    - [expandvars,    expandvars.__name__.__eq__,    ["expandvars"],    true]
+    - [splitext,      splitext.__name__.__eq__,      ["splitext"],      true]
+    - [commonpath,    commonpath.__name__.__eq__,    ["commonpath"],    true]
+    - [commonprefix,  commonprefix.__name__.__eq__,  ["commonprefix"],  true]
+    - [relpath,       relpath.__name__.__eq__,       ["relpath"],       true]
+
+# ---------------------------------------------------------------------------
+# Module identity
+# ---------------------------------------------------------------------------
+
+invariant posixpath.module.join:
+  description: "posixpath.join.__module__ == 'posixpath'"
+  category: module
+  kind: python_call_eq
+  function: join.__module__.__eq__
+  args: ["posixpath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# join — concatenation with '/'
+# ---------------------------------------------------------------------------
+
+invariant posixpath.join.two_components:
+  description: "posixpath.join('/a', 'b').__eq__('/a/b') == True"
+  category: behavior
+  kind: python_call_eq
+  function: join
+  args: ["/a", "b"]
+  method: __eq__
+  method_args: ["/a/b"]
+  expected: true
+
+invariant posixpath.join.three_components:
+  description: "posixpath.join('/usr', 'local', 'bin').__eq__('/usr/local/bin') == True"
+  category: behavior
+  kind: python_call_eq
+  function: join
+  args: ["/usr", "local", "bin"]
+  method: __eq__
+  method_args: ["/usr/local/bin"]
+  expected: true
+
+invariant posixpath.join.absolute_overrides:
+  description: "posixpath.join('/a', '/b') == '/b' — absolute second arg resets path"
+  category: behavior
+  kind: python_call_eq
+  function: join
+  args: ["/a", "/b"]
+  method: __eq__
+  method_args: ["/b"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# basename and dirname
+# ---------------------------------------------------------------------------
+
+invariant posixpath.basename.last_component:
+  description: "posixpath.basename('/a/b/c') == 'c'"
+  category: behavior
+  kind: python_call_eq
+  function: basename
+  args: ["/a/b/c"]
+  method: __eq__
+  method_args: ["c"]
+  expected: true
+
+invariant posixpath.basename.trailing_slash:
+  description: "posixpath.basename('/a/b/') == '' — trailing slash yields empty string"
+  category: behavior
+  kind: python_call_eq
+  function: basename
+  args: ["/a/b/"]
+  method: __eq__
+  method_args: [""]
+  expected: true
+
+invariant posixpath.dirname.parent:
+  description: "posixpath.dirname('/a/b/c') == '/a/b'"
+  category: behavior
+  kind: python_call_eq
+  function: dirname
+  args: ["/a/b/c"]
+  method: __eq__
+  method_args: ["/a/b"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# isabs — absolute vs relative detection
+# ---------------------------------------------------------------------------
+
+invariant posixpath.isabs.true_for_slash:
+  description: "posixpath.isabs('/a/b') == True"
+  category: behavior
+  kind: python_call_eq
+  function: isabs
+  args: ["/a/b"]
+  expected: true
+
+invariant posixpath.isabs.false_for_relative:
+  description: "posixpath.isabs('a/b') == False"
+  category: behavior
+  kind: python_call_eq
+  function: isabs
+  args: ["a/b"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# normpath — collapse redundant separators and dot-dot
+# ---------------------------------------------------------------------------
+
+invariant posixpath.normpath.double_slash_and_dotdot:
+  description: "posixpath.normpath('/a//b/../c') == '/a/c'"
+  category: behavior
+  kind: python_call_eq
+  function: normpath
+  args: ["/a//b/../c"]
+  method: __eq__
+  method_args: ["/a/c"]
+  expected: true
+
+invariant posixpath.normpath.trailing_slash:
+  description: "posixpath.normpath('/a/b/') == '/a/b'"
+  category: behavior
+  kind: python_call_eq
+  function: normpath
+  args: ["/a/b/"]
+  method: __eq__
+  method_args: ["/a/b"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# splitext — extension splitting
+# ---------------------------------------------------------------------------
+
+invariant posixpath.splitext.stem:
+  description: "posixpath.splitext('foo.txt')[0] == 'foo'"
+  category: behavior
+  kind: python_call_eq
+  function: splitext
+  args: ["foo.txt"]
+  method: __getitem__
+  method_args: [0]
+  expected: "foo"
+
+invariant posixpath.splitext.ext:
+  description: "posixpath.splitext('foo.txt')[1] == '.txt'"
+  category: behavior
+  kind: python_call_eq
+  function: splitext
+  args: ["foo.txt"]
+  method: __getitem__
+  method_args: [1]
+  expected: ".txt"
+
+invariant posixpath.splitext.no_ext:
+  description: "posixpath.splitext('README')[1] == '' — no extension yields empty string"
+  category: behavior
+  kind: python_call_eq
+  function: splitext
+  args: ["README"]
+  method: __getitem__
+  method_args: [1]
+  expected: ""
