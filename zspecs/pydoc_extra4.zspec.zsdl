@@ -1,0 +1,127 @@
+spec: pydoc_extra4
+version: ">=3.9"
+backend: python_module(pydoc)
+
+docs: https://docs.python.org/3/library/pydoc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pydoc.html — Python pydoc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pydoc.py"
+  notes:
+    - "This spec extends pydoc.zspec.zsdl through pydoc_extra3.zspec.zsdl."
+    - "pydoc.zspec.zsdl covers: HTMLDoc/TextDoc/ModuleScanner/ErrorDuringImport __name__ and __module__ (table); ErrorDuringImport hierarchy; describe/plain behavior; help/describe/locate/render_doc/plain/pager __name__ (table); module __name__."
+    - "pydoc_extra.zspec.zsdl covers: locate/render_doc/resolve __name__ and is_callable; TextDoc/HTMLDoc/Doc/ModuleScanner/Helper __name__ and __module__; plaintext/html/help singleton class names."
+    - "pydoc_extra2.zspec.zsdl covers: help.__class__.__name__ via method form; plain/render_doc/resolve/describe/locate __module__; function __name__ batch table."
+    - "pydoc_extra3.zspec.zsdl covers: Helper/__qualname__, TextDoc/__qualname__, HTMLDoc/__qualname__, ModuleScanner/__qualname__; Helper.__bases__[0].__name__=='object'; help.__class__.__qualname__; class_qualnames table."
+    - "This spec adds: Doc/__qualname__ and ErrorDuringImport/__qualname__ (not in any prior spec); TextDoc/__bases__[0].__name__=='Doc', HTMLDoc/__bases__[0].__name__=='Doc', Doc/__bases__[0].__name__=='object'; bases length for TextDoc/HTMLDoc/Doc/ErrorDuringImport; render_doc/__qualname__, plain/__qualname__, locate/__qualname__, describe/__qualname__."
+    - "pydoc.Doc is the base class shared by TextDoc and HTMLDoc; it inherits directly from object."
+    - "TextDoc.__bases__[0].__name__ == 'Doc' — TextDoc inherits from Doc, not object."
+    - "HTMLDoc.__bases__[0].__name__ == 'Doc' — HTMLDoc inherits from Doc, not object."
+    - "ErrorDuringImport.__bases__.__len__() == 1 — only one base class (Exception)."
+    - "TextDoc.__bases__.__len__() == 1 — only one base class (Doc)."
+    - "HTMLDoc.__bases__.__len__() == 1 — only one base class (Doc)."
+    - "Doc.__bases__.__len__() == 1 — only one base class (object)."
+    - "render_doc/__qualname__ == 'render_doc' — module-level function qualname matches name."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Doc and ErrorDuringImport — __qualname__
+# pydoc_extra3 adds __qualname__ for Helper/TextDoc/HTMLDoc/ModuleScanner.
+# This spec adds the two remaining significant classes not yet covered.
+# ---------------------------------------------------------------------------
+
+invariant pydoc_extra4.Doc.qualname:
+  description: "pydoc.Doc.__qualname__ == 'Doc' — top-level class qualname matches name"
+  category: classes
+  kind: python_call_eq
+  function: Doc.__qualname__.__eq__
+  args: ["Doc"]
+  expected: true
+
+invariant pydoc_extra4.ErrorDuringImport.qualname:
+  description: "pydoc.ErrorDuringImport.__qualname__ == 'ErrorDuringImport' — top-level class qualname matches name"
+  category: classes
+  kind: python_call_eq
+  function: ErrorDuringImport.__qualname__.__eq__
+  args: ["ErrorDuringImport"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class inheritance hierarchy for formatter classes
+# pydoc.zspec.zsdl checks ErrorDuringImport.__bases__[0].__name__ == 'Exception'.
+# pydoc_extra3 checks Helper.__bases__[0].__name__ == 'object'.
+# No prior spec checks the TextDoc or HTMLDoc inheritance chains,
+# or confirms that Doc itself inherits from object.
+# ---------------------------------------------------------------------------
+
+invariant pydoc_extra4.TextDoc.base_name:
+  description: "pydoc.TextDoc.__bases__[0].__name__ == 'Doc' — TextDoc inherits from Doc"
+  category: hierarchy
+  kind: python_call_eq
+  function: TextDoc.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "Doc"
+
+invariant pydoc_extra4.HTMLDoc.base_name:
+  description: "pydoc.HTMLDoc.__bases__[0].__name__ == 'Doc' — HTMLDoc inherits from Doc"
+  category: hierarchy
+  kind: python_call_eq
+  function: HTMLDoc.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "Doc"
+
+invariant pydoc_extra4.Doc.base_name:
+  description: "pydoc.Doc.__bases__[0].__name__ == 'object' — Doc inherits directly from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: Doc.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Base class counts for all four key classes
+# No prior spec checks __bases__.__len__ for any pydoc class.
+# ---------------------------------------------------------------------------
+
+table pydoc_extra4.bases_len:
+  kind: python_call_eq
+  category: hierarchy
+  id_prefix: bases_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [TextDoc,           TextDoc.__bases__.__len__,           [], 1]
+    - [HTMLDoc,           HTMLDoc.__bases__.__len__,           [], 1]
+    - [Doc,               Doc.__bases__.__len__,               [], 1]
+    - [ErrorDuringImport, ErrorDuringImport.__bases__.__len__, [], 1]
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ checks for core pydoc functions
+# pydoc_extra3 adds __qualname__ for class objects only.
+# No prior spec checks __qualname__ for any pydoc module-level function.
+# Module-level functions have __qualname__ == __name__ in CPython.
+# ---------------------------------------------------------------------------
+
+table pydoc_extra4.function_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: fqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [render_doc, render_doc.__qualname__.__eq__, ["render_doc"], true]
+    - [plain,      plain.__qualname__.__eq__,      ["plain"],      true]
+    - [locate,     locate.__qualname__.__eq__,     ["locate"],     true]
+    - [describe,   describe.__qualname__.__eq__,   ["describe"],   true]
