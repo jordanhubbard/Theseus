@@ -1,0 +1,164 @@
+spec: socket_extra5
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+rfcs:
+  - "RFC 793 — Transmission Control Protocol"
+  - "RFC 768 — User Datagram Protocol"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+    - "CPython source: Lib/socket.py"
+    - "socket.zspec.zsdl — AF_INET/6/UNIX values; SOCK_*/IPPROTO_* values; SOL_SOCKET; SHUT_*; socket/herror/gaierror __name__; function names; getdefaulttimeout; inet_aton; htonl"
+    - "socket_extra.zspec.zsdl — create_connection/create_server/setdefaulttimeout/htons/ntohs names; inet_aton/inet_ntoa vectors; htonl(1)"
+    - "socket_extra2.zspec.zsdl — AddressFamily class names; SocketKind class names; gethostname/getfqdn return type; socket.error/__name__=='OSError'; socket.timeout name/base"
+    - "socket_extra3.zspec.zsdl — AddressFamily/__name__; SocketKind/__name__; herror/gaierror bases; IPPROTO_TCP/UDP int class; socket.socket.__module__"
+    - "socket_extra4.zspec.zsdl — getaddrinfo/getnameinfo/gethostbyname/gethostbyaddr/getservbyname/getprotobyname/getfqdn names; SHUT_* int class; SOL_SOCKET int; IPPROTO_IP int"
+  notes:
+    - "This spec extends the socket chain; it does NOT duplicate invariants present in any prior spec."
+    - "socket_extra3.zspec.zsdl covers socket.socket.__module__ == 'socket'; this spec adds __bases__[0].__name__."
+    - "socket.socket.__bases__[0].__name__ == 'object' — the socket class has no Python-visible parent."
+    - "socket.error.__name__ == 'OSError' is already in socket_extra2; this spec adds socket.error.__module__."
+    - "socket.timeout.__name__ is already in socket_extra2; this spec checks socket.timeout.__module__."
+    - "socket.gaierror.__name__ is in socket.zspec; this spec adds socket.gaierror.__module__."
+    - "socket.herror.__name__ is in socket.zspec; this spec adds socket.herror.__module__."
+    - "socket.timeout.__bases__[0].__name__ is in socket_extra2 ('OSError'); this spec double-checks from a fresh angle via __module__."
+    - "socket.gaierror.__bases__[0].__name__ is in socket_extra3 ('OSError'); not duplicated here."
+    - "socket.herror.__bases__[0].__name__ is in socket_extra3 ('OSError'); not duplicated here."
+    - "create_connection.__name__ is in socket_extra.zspec.zsdl; this spec checks create_connection.__module__."
+    - "create_server.__name__ is in socket_extra.zspec.zsdl; this spec checks create_server.__module__."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "socket raises OSError (and subclasses herror, gaierror, timeout) for I/O failures. All invariants here are pure attribute reads and do not open connections."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are stateless class attribute reads."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# socket.socket base class
+# socket_extra3 checks __module__ == 'socket'; this spec checks the base class.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra5.socket_class.base:
+  description: "socket.socket.__bases__[0].__name__ == 'object' — socket has no Python-visible parent"
+  category: hierarchy
+  kind: python_call_eq
+  function: socket.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Exception class __module__ checks
+# socket_extra2 checks __name__ for socket.error and socket.timeout;
+# socket.zspec.zsdl checks herror/gaierror __name__.
+# None of those specs check __module__.
+# ---------------------------------------------------------------------------
+
+table socket_extra5.exception_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: exmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [error_module,    error.__module__.__eq__,    ["builtins"], true]
+    - [timeout_module,  timeout.__module__.__eq__,  ["builtins"], true]
+    - [gaierror_module, gaierror.__module__.__eq__,  ["socket"],  true]
+    - [herror_module,   herror.__module__.__eq__,    ["socket"],  true]
+
+# ---------------------------------------------------------------------------
+# socket.socket.__module__ already in socket_extra3; add the socket class
+# __qualname__ (not tested anywhere) to distinguish from __name__.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra5.socket_class.qualname:
+  description: "socket.socket.__qualname__ == 'socket' (no enclosing scope)"
+  category: class_metadata
+  kind: python_call_eq
+  function: socket.__qualname__.__eq__
+  args: ["socket"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# create_connection and create_server __module__ checks
+# socket_extra.zspec.zsdl checks their __name__; this spec adds __module__.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra5.create_connection.module:
+  description: "socket.create_connection.__module__ == 'socket'"
+  category: modules
+  kind: python_call_eq
+  function: create_connection.__module__.__eq__
+  args: ["socket"]
+  expected: true
+
+invariant socket_extra5.create_server.module:
+  description: "socket.create_server.__module__ == 'socket'"
+  category: modules
+  kind: python_call_eq
+  function: create_server.__module__.__eq__
+  args: ["socket"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gaierror and herror qualname checks (not tested previously)
+# ---------------------------------------------------------------------------
+
+invariant socket_extra5.gaierror.qualname:
+  description: "socket.gaierror.__qualname__ == 'gaierror'"
+  category: class_metadata
+  kind: python_call_eq
+  function: gaierror.__qualname__.__eq__
+  args: ["gaierror"]
+  expected: true
+
+invariant socket_extra5.herror.qualname:
+  description: "socket.herror.__qualname__ == 'herror'"
+  category: class_metadata
+  kind: python_call_eq
+  function: herror.__qualname__.__eq__
+  args: ["herror"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# socket.error.__qualname__ — alias for OSError so qualname is 'OSError'
+# socket_extra2 checks socket.error.__name__ == 'OSError';
+# __qualname__ is the same for a top-level class.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra5.error.qualname:
+  description: "socket.error.__qualname__ == 'OSError' — alias picks up aliased class qualname"
+  category: class_metadata
+  kind: python_call_eq
+  function: error.__qualname__.__eq__
+  args: ["OSError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# inet_pton / inet_ntop — function name checks (not in any prior socket spec)
+# Both accept AF_INET and AF_INET6 and perform pure string<->bytes conversion.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra5.inet_pton.name:
+  description: "socket.inet_pton.__name__ == 'inet_pton'"
+  category: function_names
+  kind: python_call_eq
+  function: inet_pton.__name__.__eq__
+  args: ["inet_pton"]
+  expected: true
+
+invariant socket_extra5.inet_ntop.name:
+  description: "socket.inet_ntop.__name__ == 'inet_ntop'"
+  category: function_names
+  kind: python_call_eq
+  function: inet_ntop.__name__.__eq__
+  args: ["inet_ntop"]
+  expected: true

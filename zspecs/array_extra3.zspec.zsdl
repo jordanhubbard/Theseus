@@ -1,0 +1,213 @@
+spec: array_extra3
+version: ">=3.9"
+backend: python_module(array)
+
+docs: https://docs.python.org/3/library/array.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/array.html — Python array module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/arraymodule.c"
+  notes:
+    - "This spec extends array.zspec.zsdl, array_extra.zspec.zsdl, and array_extra2.zspec.zsdl."
+    - "array.zspec.zsdl covers: typecode/itemsize/len/getitem/tolist/count/index for i/d/b/B/h/q/f."
+    - "array_extra.zspec.zsdl covers: array.__name__/__module__, ArrayType.__name__, typecodes is str, itemsize b/h, typecode b, length/getitem/tolist for b."
+    - "array_extra2.zspec.zsdl covers: array.__name__/__module__, typecodes is str + min_length, typecodes.contains, itemsize table (b/B/h/f/d), typecode_attr table."
+    - "This spec adds: ArrayType.__module__=='array'; array('H',[1,2,3]).itemsize==2; buffer_info().__class__.__name__=='tuple'; typecode attribute is a str instance; tolist() on unsigned short; count() on 'i' array; index() on 'i' array; tolist() on 'i' array; itemsize for 'I' unsigned int."
+    - "array.ArrayType.__module__ == 'array' — ArrayType is an alias and shares the same C-level type."
+    - "array.array('H', [1,2,3]).itemsize == 2 — unsigned short is 2 bytes (same as signed 'h')."
+    - "array.array('I', [1,2]).itemsize == 4 — unsigned int is 4 bytes (same as signed 'i')."
+    - "array.array('i', [1,2,3]).buffer_info() returns a 2-tuple of (address, length); its class name is 'tuple'."
+    - "array.array('i').typecode is a str, verifiable via typecode.__class__.__name__ == 'str'."
+    - "array.array('i', [1,2,3]).tolist() == [1,2,3] — already in array.zspec.zsdl for args ['i',[10,20,30]]; re-verified here with [1,2,3] for completeness."
+    - "array.array('i', [1,2,3]).count(2) == 1 — exactly one element equals 2."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ArrayType alias — module membership (NEW: __module__ not in array_extra)
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.ArrayType.module:
+  description: "array.ArrayType.__module__ == 'array' — ArrayType alias shares the C-level type's module"
+  category: arraytype_alias
+  kind: python_call_eq
+  function: ArrayType.__module__.__eq__
+  args: ["array"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# itemsize — unsigned short 'H' and unsigned int 'I'
+# (array_extra2 covers b/B/h/f/d; 'H' and 'I' are NEW)
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.itemsize.unsigned_short:
+  description: "array.array('H', [1,2,3]).itemsize == 2 — unsigned short is 2 bytes"
+  category: itemsize
+  kind: python_call_eq
+  function: array
+  args: ["H", [1, 2, 3]]
+  method: itemsize
+  expected: 2
+
+invariant array_extra3.itemsize.unsigned_int:
+  description: "array.array('I', [1,2]).itemsize == 4 — unsigned int is 4 bytes"
+  category: itemsize
+  kind: python_call_eq
+  function: array
+  args: ["I", [1, 2]]
+  method: itemsize
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# typecode — unsigned short 'H' and double 'd'
+# (array_extra2 typecode_attr table covers b/B/h/i/f/d; 'H' is NEW, 'd' via method chain re-verified)
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.typecode.unsigned_short:
+  description: "array.array('H', [1,2,3]).typecode == 'H' — typecode attribute reflects constructor arg"
+  category: typecode_attr
+  kind: python_call_eq
+  function: array
+  args: ["H", [1, 2, 3]]
+  method: typecode
+  expected: "H"
+
+invariant array_extra3.typecode.double:
+  description: "array.array('d', [1.0]).typecode == 'd'"
+  category: typecode_attr
+  kind: python_call_eq
+  function: array
+  args: ["d", [1.0]]
+  method: typecode
+  expected: "d"
+
+# ---------------------------------------------------------------------------
+# typecode is a str — verified via __class__.__name__
+# (typecodes is str is covered in array_extra/extra2; typecode attr as str is NEW)
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.typecode.class_name_is_str:
+  description: "array.array('i', []).typecode.__class__.__name__ == 'str'"
+  category: typecode_attr
+  kind: python_call_eq
+  function: array
+  args: ["i", []]
+  method: typecode
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# buffer_info() — returns a 2-tuple (address, length)
+# NEW: not covered in any prior spec
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.buffer_info.class_name:
+  description: "array.array('i', [1,2,3]).buffer_info().__class__.__name__ == 'tuple'"
+  category: buffer_info
+  kind: python_call_eq
+  function: array
+  args: ["i", [1, 2, 3]]
+  method: buffer_info
+  method_args: []
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["tuple"]
+  expected: true
+
+invariant array_extra3.buffer_info.length_field:
+  description: "array.array('i', [1,2,3]).buffer_info()[1] == 3 — second element is array length"
+  category: buffer_info
+  kind: python_call_eq
+  function: array
+  args: ["i", [1, 2, 3]]
+  method: buffer_info
+  method_args: []
+  method_chain: __getitem__
+  method_chain_args: [1]
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# tolist() — 'i' array with [1,2,3]
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.tolist.int_array:
+  description: "array.array('i', [1,2,3]).tolist() == [1,2,3]"
+  category: tolist
+  kind: python_call_eq
+  function: array
+  args: ["i", [1, 2, 3]]
+  method: tolist
+  method_args: []
+  expected: [1, 2, 3]
+
+# ---------------------------------------------------------------------------
+# count() — 'i' array: count(2) when exactly one element equals 2
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.count.single_occurrence:
+  description: "array.array('i', [1,2,3]).count(2) == 1 — exactly one element equals 2"
+  category: count
+  kind: python_call_eq
+  function: array
+  args: ["i", [1, 2, 3]]
+  method: count
+  method_args: [2]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# count() — zero occurrences
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.count.zero_occurrences:
+  description: "array.array('i', [1,2,3]).count(9) == 0 — 9 is not in the array"
+  category: count
+  kind: python_call_eq
+  function: array
+  args: ["i", [1, 2, 3]]
+  method: count
+  method_args: [9]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# index() — 'i' array
+# (array.zspec.zsdl covers index(3)==2 for [1,2,3,4,5]; here a distinct input)
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.index.first_element:
+  description: "array.array('i', [10,20,30]).index(10) == 0 — first occurrence at position 0"
+  category: index
+  kind: python_call_eq
+  function: array
+  args: ["i", [10, 20, 30]]
+  method: index
+  method_args: [10]
+  expected: 0
+
+invariant array_extra3.index.last_element:
+  description: "array.array('i', [10,20,30]).index(30) == 2 — first (and only) occurrence at position 2"
+  category: index
+  kind: python_call_eq
+  function: array
+  args: ["i", [10, 20, 30]]
+  method: index
+  method_args: [30]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# unsigned short array 'H' — tolist
+# ---------------------------------------------------------------------------
+
+invariant array_extra3.unsigned_short.tolist:
+  description: "array.array('H', [1,2,3]).tolist() == [1, 2, 3]"
+  category: tolist
+  kind: python_call_eq
+  function: array
+  args: ["H", [1, 2, 3]]
+  method: tolist
+  method_args: []
+  expected: [1, 2, 3]
