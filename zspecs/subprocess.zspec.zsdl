@@ -1,0 +1,169 @@
+spec: subprocess
+version: ">=3.5"
+backend: python_module(subprocess)
+
+docs: https://docs.python.org/3/library/subprocess.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/subprocess.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "subprocess source: subprocess.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "subprocess source: internal platform-specific Popen implementation details"
+  notes:
+    - "subprocess.PIPE=-1, STDOUT=-2, DEVNULL=-3 are sentinel constants passed to Popen stdin/stdout/stderr."
+    - "subprocess.run() returns a CompletedProcess instance; .returncode is the exit status."
+    - "subprocess.check_output() raises CalledProcessError if the command exits non-zero."
+    - "subprocess.CalledProcessError.returncode holds the non-zero exit code of the failing process."
+    - "The 'true' command is present on macOS, Linux, and FreeBSD and always exits 0."
+    - "The 'echo' command is present on macOS, Linux, and FreeBSD; 'echo hello' outputs 'hello\\n'."
+    - "All expected values verified by running Python 3.14.3 subprocess module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Functions raise subprocess.CalledProcessError (a subprocess.SubprocessError) on non-zero exit when check=True, subprocess.TimeoutExpired on timeout, and OSError / FileNotFoundError if the executable is not found."
+  stderr: "null"
+  stickiness: "N/A — each call spawns an independent child process."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name metadata — core classes exposed by subprocess
+# ---------------------------------------------------------------------------
+
+table subprocess.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [completedprocess,       CompletedProcess.__name__.__eq__,       ["CompletedProcess"],       true]
+    - [calledprocesserror,     CalledProcessError.__name__.__eq__,     ["CalledProcessError"],     true]
+    - [timeoutexpired,         TimeoutExpired.__name__.__eq__,         ["TimeoutExpired"],         true]
+    - [popen,                  Popen.__name__.__eq__,                  ["Popen"],                  true]
+    - [subprocesserror,        SubprocessError.__name__.__eq__,        ["SubprocessError"],        true]
+
+# ---------------------------------------------------------------------------
+# Function name metadata — top-level convenience functions
+# ---------------------------------------------------------------------------
+
+table subprocess.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [run,             run.__name__.__eq__,             ["run"],             true]
+    - [call,            call.__name__.__eq__,            ["call"],            true]
+    - [check_call,      check_call.__name__.__eq__,      ["check_call"],      true]
+    - [check_output,    check_output.__name__.__eq__,    ["check_output"],    true]
+    - [getstatusoutput, getstatusoutput.__name__.__eq__,  ["getstatusoutput"], true]
+    - [getoutput,       getoutput.__name__.__eq__,        ["getoutput"],       true]
+
+# ---------------------------------------------------------------------------
+# Sentinel constants — PIPE, STDOUT, DEVNULL
+# ---------------------------------------------------------------------------
+
+table subprocess.constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: const
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pipe,    PIPE.__eq__,    [-1], true]
+    - [stdout,  STDOUT.__eq__,  [-2], true]
+    - [devnull, DEVNULL.__eq__, [-3], true]
+
+# ---------------------------------------------------------------------------
+# run() — exit code from real process execution
+# ---------------------------------------------------------------------------
+
+invariant subprocess.run_true_exit0:
+  description: "subprocess.run(['true'], capture_output=True).returncode == 0 — 'true' always succeeds"
+  category: run
+  kind: python_call_eq
+  function: run
+  args: [["true"]]
+  kwargs: {capture_output: true}
+  method: returncode
+  expected: 0
+
+invariant subprocess.run_echo_stdout:
+  description: "subprocess.run(['echo', 'hello'], capture_output=True, text=True).stdout == 'hello\\n'"
+  category: run
+  kind: python_call_eq
+  function: run
+  args: [["echo", "hello"]]
+  kwargs: {capture_output: true, text: true}
+  method: stdout
+  expected: "hello\n"
+
+invariant subprocess.run_echo_stderr_empty:
+  description: "subprocess.run(['echo', 'hello'], capture_output=True, text=True).stderr == '' — echo writes nothing to stderr"
+  category: run
+  kind: python_call_eq
+  function: run
+  args: [["echo", "hello"]]
+  kwargs: {capture_output: true, text: true}
+  method: stderr
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# check_output() — captures stdout as a string
+# ---------------------------------------------------------------------------
+
+invariant subprocess.check_output_echo:
+  description: "subprocess.check_output(['echo', 'hello'], text=True) == 'hello\\n'"
+  category: check_output
+  kind: python_call_eq
+  function: check_output
+  args: [["echo", "hello"]]
+  kwargs: {text: true}
+  expected: "hello\n"
+
+# ---------------------------------------------------------------------------
+# CalledProcessError — constructor stores returncode and cmd attributes
+# ---------------------------------------------------------------------------
+
+invariant subprocess.calledprocesserror_returncode:
+  description: "CalledProcessError(1, 'cmd').returncode == 1 — stores the exit code"
+  category: exceptions
+  kind: python_call_eq
+  function: CalledProcessError
+  args: [1, "cmd"]
+  method: returncode
+  expected: 1
+
+invariant subprocess.calledprocesserror_cmd:
+  description: "CalledProcessError(1, 'cmd').cmd == 'cmd' — stores the command"
+  category: exceptions
+  kind: python_call_eq
+  function: CalledProcessError
+  args: [1, "cmd"]
+  method: cmd
+  expected: "cmd"
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy — CalledProcessError and TimeoutExpired are SubprocessError
+# ---------------------------------------------------------------------------
+
+invariant subprocess.calledprocesserror_mro:
+  description: "CalledProcessError.__mro__[1].__name__ == 'SubprocessError'"
+  category: exceptions
+  kind: python_call_eq
+  function: CalledProcessError.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "SubprocessError"
+
+invariant subprocess.timeoutexpired_mro:
+  description: "TimeoutExpired.__mro__[1].__name__ == 'SubprocessError'"
+  category: exceptions
+  kind: python_call_eq
+  function: TimeoutExpired.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "SubprocessError"

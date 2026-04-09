@@ -1,0 +1,182 @@
+spec: multiprocessing
+version: ">=3.4"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/multiprocessing.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "multiprocessing source: Lib/multiprocessing/ (CPython internals)"
+  notes:
+    - "This spec covers only the static API surface: class names, function names, and introspectable process state. No child processes are spawned."
+    - "On macOS, the default start method is 'spawn' (changed from 'fork' in Python 3.8). On Linux it is 'fork'."
+    - "cpu_count() returns the number of CPUs in the system. It is >= 1 and platform-dependent."
+    - "current_process() returns the Process object for the calling process. In the main process its name is 'MainProcess' and is_alive() is True."
+    - "active_children() returns a list of all live child Process objects. With no spawned children the list is empty."
+    - "multiprocessing.TimeoutError is a subclass of Exception (and also an alias for the built-in TimeoutError since Python 3.3)."
+    - "Pipe is a function, not a class, but it does have a __name__ attribute."
+    - "All expected values verified by running Python 3.14.3 multiprocessing module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "multiprocessing raises ProcessError (and subclasses) for process lifecycle errors, AuthenticationError for connection authentication failures, and BufferTooShort when a read buffer is too small."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless for the introspection functions covered here."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name metadata — core process and synchronisation classes
+# ---------------------------------------------------------------------------
+
+table multiprocessing.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [process,   Process.__name__.__eq__,   ["Process"],   true]
+    - [pool,      Pool.__name__.__eq__,      ["Pool"],      true]
+    - [queue,     Queue.__name__.__eq__,     ["Queue"],     true]
+    - [lock,      Lock.__name__.__eq__,      ["Lock"],      true]
+    - [rlock,     RLock.__name__.__eq__,     ["RLock"],     true]
+    - [semaphore, Semaphore.__name__.__eq__, ["Semaphore"], true]
+    - [event,     Event.__name__.__eq__,     ["Event"],     true]
+    - [value,     Value.__name__.__eq__,     ["Value"],     true]
+    - [array,     Array.__name__.__eq__,     ["Array"],     true]
+    - [manager,   Manager.__name__.__eq__,   ["Manager"],   true]
+
+# ---------------------------------------------------------------------------
+# Exception class name metadata
+# ---------------------------------------------------------------------------
+
+table multiprocessing.exception_names:
+  kind: python_call_eq
+  category: exceptions
+  id_prefix: ename
+
+  columns: [id, function, args, expected]
+  rows:
+    - [process_error,       ProcessError.__name__.__eq__,       ["ProcessError"],       true]
+    - [authentication_error, AuthenticationError.__name__.__eq__, ["AuthenticationError"], true]
+    - [buffer_too_short,    BufferTooShort.__name__.__eq__,     ["BufferTooShort"],     true]
+    - [timeout_error,       TimeoutError.__name__.__eq__,       ["TimeoutError"],       true]
+
+# ---------------------------------------------------------------------------
+# Function name metadata
+# ---------------------------------------------------------------------------
+
+table multiprocessing.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cpu_count,       cpu_count.__name__.__eq__,       ["cpu_count"],       true]
+    - [current_process, current_process.__name__.__eq__, ["current_process"], true]
+    - [active_children, active_children.__name__.__eq__, ["active_children"], true]
+    - [get_start_method, get_start_method.__name__.__eq__, ["get_start_method"], true]
+    - [get_context,     get_context.__name__.__eq__,     ["get_context"],     true]
+    - [parent_process,  parent_process.__name__.__eq__,  ["parent_process"],  true]
+
+# ---------------------------------------------------------------------------
+# cpu_count — number of CPUs in the system
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.cpu_count_ge_1:
+  description: "cpu_count() >= 1 — every system has at least one CPU"
+  category: cpu_count
+  kind: python_call_eq
+  function: cpu_count
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# current_process — introspect the main process
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.current_process_is_alive:
+  description: "current_process().is_alive() == True — the main process is running"
+  category: current_process
+  kind: python_call_eq
+  function: current_process
+  args: []
+  method: is_alive
+  method_args: []
+  expected: true
+
+invariant multiprocessing.current_process_name:
+  description: "current_process().name == 'MainProcess' when called from the main process"
+  category: current_process
+  kind: python_call_eq
+  function: current_process
+  args: []
+  method: name.__eq__
+  method_args: ["MainProcess"]
+  expected: true
+
+invariant multiprocessing.current_process_exitcode_none:
+  description: "current_process().exitcode is None — the main process has not exited"
+  category: current_process
+  kind: python_call_eq
+  function: current_process
+  args: []
+  method: exitcode.__eq__
+  method_args: [~]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# active_children — list of live child processes
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.active_children_is_list:
+  description: "active_children() returns a list"
+  category: active_children
+  kind: python_call_eq
+  function: active_children
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["list"]
+  expected: true
+
+invariant multiprocessing.active_children_empty:
+  description: "active_children() == [] when no child processes have been spawned"
+  category: active_children
+  kind: python_call_eq
+  function: active_children
+  args: []
+  method: __len__
+  method_args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# get_start_method — platform default process start method
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.get_start_method_is_str:
+  description: "get_start_method() returns a non-empty string ('spawn', 'fork', or 'forkserver')"
+  category: get_start_method
+  kind: python_call_eq
+  function: get_start_method
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+invariant multiprocessing.get_start_method_nonempty:
+  description: "get_start_method() is a non-empty string"
+  category: get_start_method
+  kind: python_call_eq
+  function: get_start_method
+  args: []
+  method: __len__
+  method_args: []
+  method: __ge__
+  method_args: [1]
+  expected: true

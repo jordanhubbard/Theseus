@@ -1,0 +1,177 @@
+spec: dis
+version: ">=3.0"
+backend: python_module(dis)
+
+docs: https://docs.python.org/3/library/dis.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/dis.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "dis source: internal CPython bytecode implementation (ceval.c, compile.c)"
+  notes:
+    - "dis.opname is a list of 267 entries (Python 3.12+). The list is indexed by opcode integer; unused slots have the string '<N>' where N is the slot index."
+    - "dis.opmap is a dict mapping opcode name strings to opcode integers. Python 3.12 has 154 entries."
+    - "POP_TOP opcode = 31 (Python 3.12); stack_effect is -1 (pops one item, pushes nothing)."
+    - "LOAD_FAST opcode = 84 (Python 3.12); stack_effect is +1 (pushes one item from locals)."
+    - "dis.hasjabs is empty in Python 3.12+ (all jumps use relative offsets). dis.hasjrel has entries."
+    - "dis.haslocal and dis.hasname are lists of opcodes that access local variables and names respectively."
+    - "dis.Bytecode wraps a code object and iterates over dis.Instruction namedtuples."
+    - "dis.code_info() returns a string with human-readable code object metadata including the function name."
+    - "All expected values verified by running Python 3.14.3 dis module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "dis functions raise TypeError for invalid argument types and ValueError for invalid opcode integers passed to stack_effect."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name metadata — verify __name__ of core dis classes
+# ---------------------------------------------------------------------------
+
+table dis.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [instruction, Instruction.__name__.__eq__, ["Instruction"], true]
+    - [bytecode,    Bytecode.__name__.__eq__,    ["Bytecode"],    true]
+
+# ---------------------------------------------------------------------------
+# Function name metadata — verify __name__ of top-level dis functions
+# ---------------------------------------------------------------------------
+
+table dis.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [dis_fn,          dis.__name__.__eq__,            ["dis"],            true]
+    - [disassemble,     disassemble.__name__.__eq__,    ["disassemble"],    true]
+    - [code_info,       code_info.__name__.__eq__,      ["code_info"],      true]
+    - [show_code,       show_code.__name__.__eq__,      ["show_code"],      true]
+    - [get_instructions, get_instructions.__name__.__eq__, ["get_instructions"], true]
+    - [stack_effect,    stack_effect.__name__.__eq__,   ["stack_effect"],   true]
+
+# ---------------------------------------------------------------------------
+# opname — list of 267 opcode name strings (Python 3.12)
+# ---------------------------------------------------------------------------
+
+invariant dis.opname_is_list:
+  description: "dis.opname is a list"
+  category: opname
+  kind: python_call_eq
+  function: opname.__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
+
+invariant dis.opname_len:
+  description: "dis.opname has 267 entries in Python 3.12"
+  category: opname
+  kind: python_call_eq
+  function: opname.__len__
+  args: []
+  expected: 267
+
+# ---------------------------------------------------------------------------
+# opmap — dict mapping opcode name -> opcode int
+# ---------------------------------------------------------------------------
+
+invariant dis.opmap_contains_load_fast:
+  description: "dis.opmap contains 'LOAD_FAST'"
+  category: opmap
+  kind: python_call_eq
+  function: opmap.__contains__
+  args: ["LOAD_FAST"]
+  expected: true
+
+invariant dis.opmap_contains_pop_top:
+  description: "dis.opmap contains 'POP_TOP'"
+  category: opmap
+  kind: python_call_eq
+  function: opmap.__contains__
+  args: ["POP_TOP"]
+  expected: true
+
+invariant dis.opmap_load_fast_value:
+  description: "dis.opmap['LOAD_FAST'] == 84 in Python 3.12"
+  category: opmap
+  kind: python_call_eq
+  function: opmap.__getitem__
+  args: ["LOAD_FAST"]
+  expected: 84
+
+invariant dis.opmap_pop_top_value:
+  description: "dis.opmap['POP_TOP'] == 31 in Python 3.12"
+  category: opmap
+  kind: python_call_eq
+  function: opmap.__getitem__
+  args: ["POP_TOP"]
+  expected: 31
+
+# ---------------------------------------------------------------------------
+# stack_effect — per-opcode stack depth delta
+# ---------------------------------------------------------------------------
+
+invariant dis.stack_effect_pop_top:
+  description: "stack_effect(31) == -1 — POP_TOP pops one item and pushes nothing"
+  category: stack_effect
+  kind: python_call_eq
+  function: stack_effect
+  args: [31]
+  expected: -1
+
+invariant dis.stack_effect_load_fast:
+  description: "stack_effect(84) == 1 — LOAD_FAST pushes one item from locals"
+  category: stack_effect
+  kind: python_call_eq
+  function: stack_effect
+  args: [84]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# haslocal / hasname — lists of opcodes accessing local vars / names
+# ---------------------------------------------------------------------------
+
+invariant dis.haslocal_is_list:
+  description: "dis.haslocal is a list"
+  category: opcode_sets
+  kind: python_call_eq
+  function: haslocal.__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
+
+invariant dis.haslocal_nonempty:
+  description: "dis.haslocal has at least one entry"
+  category: opcode_sets
+  kind: python_call_eq
+  function: haslocal.__len__
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true
+
+invariant dis.hasname_is_list:
+  description: "dis.hasname is a list"
+  category: opcode_sets
+  kind: python_call_eq
+  function: hasname.__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
+
+invariant dis.hasname_nonempty:
+  description: "dis.hasname has at least one entry"
+  category: opcode_sets
+  kind: python_call_eq
+  function: hasname.__len__
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true

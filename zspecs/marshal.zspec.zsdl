@@ -1,0 +1,178 @@
+spec: marshal
+version: ">=3.0"
+backend: python_module(marshal)
+
+docs: https://docs.python.org/3/library/marshal.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/marshal.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "marshal source: Python/marshal.c (CPython internals)"
+  notes:
+    - "marshal.version == 5 as of Python 3.12. The version integer controls the format used by dumps()."
+    - "marshal.dumps(0) produces b'\\xe9\\x00\\x00\\x00\\x00' (5-byte little-endian int format, type tag 0xe9='i')."
+    - "marshal.dumps(1) produces b'\\xe9\\x01\\x00\\x00\\x00'."
+    - "marshal.dumps(None) produces b'N' (single byte, type tag 0x4e)."
+    - "marshal.dumps(True) produces b'T' (single byte, type tag 0x54)."
+    - "marshal.dumps(False) produces b'F' (single byte, type tag 0x46)."
+    - "marshal.dumps('hello') produces b'\\xda\\x05hello' (short ASCII string, type tag 0xda, length byte, chars)."
+    - "marshal.dumps(-1) produces b'\\xe9\\xff\\xff\\xff\\xff' (two's complement 32-bit little-endian)."
+    - "marshal.loads(b'bad') raises ValueError; marshal.loads(b'') raises EOFError."
+    - "marshal is not designed for inter-version compatibility; the binary format may change between Python releases."
+    - "All expected values verified by running Python 3.14.3 marshal module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "marshal.loads raises ValueError for unrecognised type tags and EOFError for truncated input. marshal.dumps raises ValueError for objects that cannot be marshalled (e.g. arbitrary class instances)."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name metadata
+# ---------------------------------------------------------------------------
+
+table marshal.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [loads, loads.__name__.__eq__, ["loads"], true]
+    - [dumps, dumps.__name__.__eq__, ["dumps"], true]
+    - [load,  load.__name__.__eq__,  ["load"],  true]
+    - [dump,  dump.__name__.__eq__,  ["dump"],  true]
+
+# ---------------------------------------------------------------------------
+# version constant
+# ---------------------------------------------------------------------------
+
+invariant marshal.version_ge_1:
+  description: "marshal.version >= 1 — the marshal format version is a positive integer"
+  category: constants
+  kind: python_call_eq
+  function: version.__ge__
+  args: [1]
+  expected: true
+
+invariant marshal.version_eq_5:
+  description: "marshal.version == 5 in Python 3.12"
+  category: constants
+  kind: python_call_eq
+  function: version.__eq__
+  args: [5]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# loads — deserialise pre-computed wire bytes to Python objects
+#
+# All hex strings were produced by marshal.dumps(<value>) in Python 3.12.
+# ---------------------------------------------------------------------------
+
+table marshal.loads.scalars:
+  kind: python_call_eq
+  category: loads_scalar
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected]
+  rows:
+    - [zero,  [{type: bytes_hex, value: "e900000000"}],  0]
+    - [one,   [{type: bytes_hex, value: "e901000000"}],  1]
+    - [neg1,  [{type: bytes_hex, value: "e9ffffffff"}],  -1]
+    - [none,  [{type: bytes_hex, value: "4e"}],          ~]
+    - [true,  [{type: bytes_hex, value: "54"}],          true]
+    - [false, [{type: bytes_hex, value: "46"}],          false]
+
+invariant marshal.loads_hello:
+  description: "marshal.loads(marshal.dumps('hello')) == 'hello' — short ASCII string round-trip"
+  category: loads_string
+  kind: python_call_eq
+  function: loads
+  args: [{type: bytes_hex, value: "da0568656c6c6f"}]
+  expected: "hello"
+
+invariant marshal.loads_42:
+  description: "marshal.loads(marshal.dumps(42)) == 42 — small positive integer round-trip"
+  category: loads_scalar
+  kind: python_call_eq
+  function: loads
+  args: [{type: bytes_hex, value: "e92a000000"}]
+  expected: 42
+
+# ---------------------------------------------------------------------------
+# dumps — serialise Python objects to bytes
+# ---------------------------------------------------------------------------
+
+invariant marshal.dumps_returns_bytes:
+  description: "marshal.dumps(42) returns a bytes object"
+  category: dumps_type
+  kind: python_call_eq
+  function: dumps
+  args: [42]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant marshal.dumps_none:
+  description: "marshal.dumps(None) == b'N' — None serialises to a single type-tag byte"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [~]
+  expected: !hex 4e
+
+invariant marshal.dumps_true:
+  description: "marshal.dumps(True) == b'T'"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [true]
+  expected: !hex 54
+
+invariant marshal.dumps_false:
+  description: "marshal.dumps(False) == b'F'"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [false]
+  expected: !hex 46
+
+invariant marshal.dumps_zero:
+  description: "marshal.dumps(0) produces the expected little-endian integer encoding"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [0]
+  expected: !hex e900000000
+
+invariant marshal.dumps_one:
+  description: "marshal.dumps(1) produces the expected little-endian integer encoding"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [1]
+  expected: !hex e901000000
+
+# ---------------------------------------------------------------------------
+# Error cases
+# ---------------------------------------------------------------------------
+
+invariant marshal.loads_bad_data_raises:
+  description: "marshal.loads(b'bad') raises ValueError — unrecognised type tag 'b'"
+  category: error
+  kind: python_call_raises
+  function: loads
+  args: [{type: bytes_ascii, value: "bad"}]
+  expected_exception: ValueError
+
+invariant marshal.loads_empty_raises:
+  description: "marshal.loads(b'') raises EOFError — empty input has no type tag"
+  category: error
+  kind: python_call_raises
+  function: loads
+  args: [{type: bytes_hex, value: ""}]
+  expected_exception: EOFError

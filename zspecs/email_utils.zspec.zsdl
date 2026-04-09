@@ -1,0 +1,183 @@
+spec: email_utils
+version: ">=3.2"
+backend: python_module(email.utils)
+
+docs: https://docs.python.org/3/library/email.utils.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/email.utils.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/email/utils.py"
+  notes:
+    - "parseaddr returns a (display_name, email_address) tuple; empty strings on parse failure."
+    - "parseaddr('simple@example.com') returns ('', 'simple@example.com') — no display name."
+    - "parseaddr('invalid') returns ('', 'invalid') — bare tokens without @ are returned as email."
+    - "formataddr(('', 'a@b.com')) returns 'a@b.com' — no angle brackets when name is empty."
+    - "formataddr(('John Doe', 'john@example.com')) returns 'John Doe <john@example.com>'."
+    - "quote() wraps the string in single quotes and backslash-escapes embedded double quotes."
+    - "unquote() strips enclosing quotes and unescape backslash-quote sequences."
+    - "parsedate returns a 9-tuple compatible with time.mktime(); index 0=year, 1=month, 2=day."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table email_utils.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [parseaddr,   parseaddr.__name__.__eq__,   ["parseaddr"],   true]
+    - [formataddr,  formataddr.__name__.__eq__,  ["formataddr"],  true]
+    - [getaddresses,getaddresses.__name__.__eq__, ["getaddresses"],true]
+    - [parsedate,   parsedate.__name__.__eq__,   ["parsedate"],   true]
+    - [formatdate,  formatdate.__name__.__eq__,  ["formatdate"],  true]
+    - [quote,       quote.__name__.__eq__,       ["quote"],       true]
+    - [unquote,     unquote.__name__.__eq__,     ["unquote"],     true]
+    - [make_msgid,  make_msgid.__name__.__eq__,  ["make_msgid"],  true]
+
+# ---------------------------------------------------------------------------
+# parseaddr — structured address parsing
+# ---------------------------------------------------------------------------
+
+invariant email_utils.parseaddr_display:
+  description: "parseaddr('John Doe <john@example.com>')[0] == 'John Doe'"
+  category: parseaddr
+  kind: python_call_eq
+  function: parseaddr
+  args: ["John Doe <john@example.com>"]
+  method: __getitem__
+  method_args: [0]
+  expected: "John Doe"
+
+invariant email_utils.parseaddr_email:
+  description: "parseaddr('John Doe <john@example.com>')[1] == 'john@example.com'"
+  category: parseaddr
+  kind: python_call_eq
+  function: parseaddr
+  args: ["John Doe <john@example.com>"]
+  method: __getitem__
+  method_args: [1]
+  expected: "john@example.com"
+
+invariant email_utils.parseaddr_simple_email:
+  description: "parseaddr('simple@example.com')[1] == 'simple@example.com' — bare address has no display name"
+  category: parseaddr
+  kind: python_call_eq
+  function: parseaddr
+  args: ["simple@example.com"]
+  method: __getitem__
+  method_args: [1]
+  expected: "simple@example.com"
+
+invariant email_utils.parseaddr_simple_display:
+  description: "parseaddr('simple@example.com')[0] == '' — bare address yields empty display name"
+  category: parseaddr
+  kind: python_call_eq
+  function: parseaddr
+  args: ["simple@example.com"]
+  method: __getitem__
+  method_args: [0]
+  expected: ""
+
+invariant email_utils.parseaddr_empty_display:
+  description: "parseaddr('')[0] == '' — empty input yields empty display name"
+  category: parseaddr
+  kind: python_call_eq
+  function: parseaddr
+  args: [""]
+  method: __getitem__
+  method_args: [0]
+  expected: ""
+
+invariant email_utils.parseaddr_empty_email:
+  description: "parseaddr('')[1] == '' — empty input yields empty email"
+  category: parseaddr
+  kind: python_call_eq
+  function: parseaddr
+  args: [""]
+  method: __getitem__
+  method_args: [1]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# formataddr — address formatting
+# ---------------------------------------------------------------------------
+
+invariant email_utils.formataddr_no_name:
+  description: "formataddr(('', 'a@b.com')) == 'a@b.com' — no angle brackets when name is empty"
+  category: formataddr
+  kind: python_call_eq
+  function: formataddr
+  args: [["", "a@b.com"]]
+  expected: "a@b.com"
+
+invariant email_utils.formataddr_with_name:
+  description: "formataddr(('John Doe', 'john@example.com')) == 'John Doe <john@example.com>'"
+  category: formataddr
+  kind: python_call_eq
+  function: formataddr
+  args: [["John Doe", "john@example.com"]]
+  expected: "John Doe <john@example.com>"
+
+# ---------------------------------------------------------------------------
+# quote / unquote
+# ---------------------------------------------------------------------------
+
+invariant email_utils.quote_plain:
+  description: "quote('hello world') wraps in single quotes"
+  category: quoting
+  kind: python_call_eq
+  function: quote
+  args: ["hello world"]
+  expected: "'hello world'"
+
+invariant email_utils.unquote_plain:
+  description: "unquote('hello world') returns input unchanged — no quotes to strip"
+  category: quoting
+  kind: python_call_eq
+  function: unquote
+  args: ["hello world"]
+  expected: "hello world"
+
+# ---------------------------------------------------------------------------
+# parsedate — RFC 2822 date string parsing
+# ---------------------------------------------------------------------------
+
+invariant email_utils.parsedate_year:
+  description: "parsedate('Mon, 01 Jan 2024 00:00:00 +0000')[0] == 2024"
+  category: parsedate
+  kind: python_call_eq
+  function: parsedate
+  args: ["Mon, 01 Jan 2024 00:00:00 +0000"]
+  method: __getitem__
+  method_args: [0]
+  expected: 2024
+
+invariant email_utils.parsedate_month:
+  description: "parsedate('Mon, 01 Jan 2024 00:00:00 +0000')[1] == 1"
+  category: parsedate
+  kind: python_call_eq
+  function: parsedate
+  args: ["Mon, 01 Jan 2024 00:00:00 +0000"]
+  method: __getitem__
+  method_args: [1]
+  expected: 1
+
+invariant email_utils.parsedate_day:
+  description: "parsedate('Mon, 01 Jan 2024 00:00:00 +0000')[2] == 1"
+  category: parsedate
+  kind: python_call_eq
+  function: parsedate
+  args: ["Mon, 01 Jan 2024 00:00:00 +0000"]
+  method: __getitem__
+  method_args: [2]
+  expected: 1

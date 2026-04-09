@@ -1,0 +1,117 @@
+spec: importlib
+version: ">=3.1"
+backend: python_module(importlib)
+
+docs: https://docs.python.org/3/library/importlib.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/importlib.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "importlib source: importlib/__init__.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "importlib source: internal implementation details (_bootstrap, _bootstrap_external)"
+  notes:
+    - "importlib exposes four public top-level names: import_module, invalidate_caches, reload, sys."
+    - "import_module(name) imports and returns the named module, equivalent to __import__ but returns the leaf package."
+    - "import_module('nonexistent') raises ModuleNotFoundError (a subclass of ImportError)."
+    - "reload(module) reloads a previously imported module in-place and returns it."
+    - "invalidate_caches() tells all finders to invalidate their caches; returns None."
+    - "The returned object from import_module has type.__name__ == 'module'."
+    - "import_module('math').__name__ == 'math' — the returned module __name__ matches the requested name."
+    - "import_module('os.path') returns posixpath on POSIX, ntpath on Windows (leaf module, not os)."
+    - "import_module('collections.abc').__name__ == 'collections.abc' — subpackage names are preserved."
+    - "All expected values verified by running Python 3.12 importlib module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "importlib raises ModuleNotFoundError (subclass of ImportError) when a module cannot be found."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name metadata
+# ---------------------------------------------------------------------------
+
+table importlib.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [import_module,      import_module.__name__.__eq__,      ["import_module"],      true]
+    - [reload,             reload.__name__.__eq__,             ["reload"],             true]
+    - [invalidate_caches,  invalidate_caches.__name__.__eq__,  ["invalidate_caches"],  true]
+
+# ---------------------------------------------------------------------------
+# import_module — __name__ of returned module matches requested name
+# ---------------------------------------------------------------------------
+
+table importlib.import_module.name:
+  kind: python_call_eq
+  category: import_module
+  id_prefix: import_name
+  function: import_module
+  method: __name__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [math,            ["math"],            "math"]
+    - [json,            ["json"],            "json"]
+    - [os,              ["os"],              "os"]
+    - [sys,             ["sys"],             "sys"]
+    - [importlib_self,  ["importlib"],       "importlib"]
+    - [collections_abc, ["collections.abc"], "collections.abc"]
+
+# ---------------------------------------------------------------------------
+# import_module — result type is 'module'
+# ---------------------------------------------------------------------------
+
+invariant importlib.import_module.returns_module_type:
+  description: "type(importlib.import_module('math')).__name__ == 'module'"
+  category: import_module
+  kind: python_call_eq
+  function: import_module
+  args: ["math"]
+  method: __class__
+  method_args: []
+  method_chain: __name__
+  expected: "module"
+
+invariant importlib.import_module.returns_module_type_json:
+  description: "type(importlib.import_module('json')).__name__ == 'module'"
+  category: import_module
+  kind: python_call_eq
+  function: import_module
+  args: ["json"]
+  method: __class__
+  method_args: []
+  method_chain: __name__
+  expected: "module"
+
+# ---------------------------------------------------------------------------
+# import_module — ModuleNotFoundError for nonexistent module
+# ---------------------------------------------------------------------------
+
+invariant importlib.import_module.not_found:
+  description: "importlib.import_module('nonexistent_xyz_abc') raises ModuleNotFoundError"
+  category: error
+  kind: python_call_raises
+  function: import_module
+  args: ["nonexistent_module_theseus_xyz_abc"]
+  expected_exception: ModuleNotFoundError
+
+# ---------------------------------------------------------------------------
+# invalidate_caches — returns None
+# ---------------------------------------------------------------------------
+
+invariant importlib.invalidate_caches.returns_none:
+  description: "importlib.invalidate_caches() returns None"
+  category: invalidate_caches
+  kind: python_call_eq
+  function: invalidate_caches
+  args: []
+  expected: ~

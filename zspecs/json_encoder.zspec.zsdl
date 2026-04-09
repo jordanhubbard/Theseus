@@ -1,0 +1,193 @@
+spec: json_encoder
+version: ">=3.9"
+backend: python_module(json.encoder)
+
+docs: https://docs.python.org/3/library/json.html#json.JSONEncoder
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/json.html#json.JSONEncoder"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "json.encoder source: Lib/json/encoder.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "json.encoder source: Modules/_json.c (C accelerator internals)"
+  notes:
+    - "json.encoder provides the JSONEncoder class and low-level helpers used internally by json.dumps."
+    - "encode_basestring(s) wraps a Python string in double quotes with JSON escape sequences applied."
+    - "encode_basestring_ascii(s) does the same but also escapes non-ASCII characters as \\uXXXX."
+    - "INFINITY is the float sentinel float('inf') used in the encoder for NaN/Infinity handling."
+    - "JSONEncoder() with no arguments uses ensure_ascii=True, check_circular=True, sort_keys=False, skipkeys=False, indent=None."
+    - "JSONEncoder.encode(obj) returns a JSON string for Python primitives, lists, and dicts."
+    - "JSONEncoder(sort_keys=True) encodes dict keys in sorted alphabetical order."
+    - "JSONEncoder(ensure_ascii=True) escapes non-ASCII codepoints as \\uXXXX (the default)."
+    - "JSONEncoder(ensure_ascii=False) preserves non-ASCII Unicode characters in the output."
+    - "Tab characters (\\t) in strings are encoded as the two-char sequence \\t in JSON output."
+    - "Newline characters (\\n) in strings are encoded as the two-char sequence \\n in JSON output."
+    - "All expected values verified by running Python 3.12 json.encoder module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "JSONEncoder.encode() raises TypeError for non-serializable objects."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class and function name metadata
+# ---------------------------------------------------------------------------
+
+invariant json_encoder.class_name:
+  description: "json.encoder.JSONEncoder.__name__ == 'JSONEncoder'"
+  category: metadata
+  kind: python_call_eq
+  function: JSONEncoder.__name__.__eq__
+  args: ["JSONEncoder"]
+  expected: true
+
+table json_encoder.function_names:
+  kind: python_call_eq
+  category: metadata
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [encode_basestring,       encode_basestring.__name__.__eq__,       ["encode_basestring"],       true]
+    - [encode_basestring_ascii, encode_basestring_ascii.__name__.__eq__,  ["encode_basestring_ascii"], true]
+
+# ---------------------------------------------------------------------------
+# INFINITY constant
+# ---------------------------------------------------------------------------
+
+invariant json_encoder.infinity_gt_large:
+  description: "json.encoder.INFINITY > 1e300 — INFINITY is float('inf')"
+  category: constants
+  kind: python_call_eq
+  function: INFINITY.__gt__
+  args: [1.0e300]
+  expected: true
+
+invariant json_encoder.infinity_gt_zero:
+  description: "json.encoder.INFINITY > 0"
+  category: constants
+  kind: python_call_eq
+  function: INFINITY.__gt__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# encode_basestring — wraps a Python string in JSON double-quote delimiters,
+# escaping backslash, double-quote, and ASCII control characters.
+# ---------------------------------------------------------------------------
+
+table json_encoder.encode_basestring:
+  kind: python_call_eq
+  category: encode_basestring
+  id_prefix: eb
+  function: encode_basestring
+
+  columns: [id, args, expected]
+  rows:
+    - [simple,         ["hello"],         '"hello"']
+    - [with_space,     ["hello world"],   '"hello world"']
+    - [empty,          [""],              '""']
+    - [dquote,         ['say "hi"'],      '"say \"hi\""']
+    - [tab_escape,     ["tab\there"],     '"tab\there"']
+    - [newline_escape, ["a\nb"],          '"a\nb"']
+
+# ---------------------------------------------------------------------------
+# encode_basestring_ascii — same as encode_basestring, but also escapes non-ASCII
+# ---------------------------------------------------------------------------
+
+table json_encoder.encode_basestring_ascii:
+  kind: python_call_eq
+  category: encode_basestring_ascii
+  id_prefix: eba
+  function: encode_basestring_ascii
+
+  columns: [id, args, expected]
+  rows:
+    - [ascii_only, ["hello"],      '"hello"']
+    - [non_ascii,  ["café"],       '"caf\u00e9"']
+
+# ---------------------------------------------------------------------------
+# JSONEncoder.encode — primitive types
+# ---------------------------------------------------------------------------
+
+table json_encoder.encode.primitives:
+  kind: python_call_eq
+  category: encode
+  id_prefix: enc
+  function: JSONEncoder
+  args: []
+  method: encode
+
+  columns: [id, method_args, expected]
+  rows:
+    - [int_42,    [42],      "42"]
+    - [int_zero,  [0],       "0"]
+    - [int_neg,   [-7],      "-7"]
+    - [string,    ["hello"], '"hello"']
+    - [null,      [~],       "null"]
+    - [true_val,  [true],    "true"]
+    - [false_val, [false],   "false"]
+    - [float_pi,  [3.14],    "3.14"]
+
+# ---------------------------------------------------------------------------
+# JSONEncoder.encode — compound types
+# ---------------------------------------------------------------------------
+
+table json_encoder.encode.compound:
+  kind: python_call_eq
+  category: encode
+  id_prefix: enc_compound
+  function: JSONEncoder
+  args: []
+  method: encode
+
+  columns: [id, method_args, expected]
+  rows:
+    - [empty_list, [[]],        "[]"]
+    - [list_ints,  [[1, 2, 3]], "[1, 2, 3]"]
+    - [single_dict,[{a: 1}],   '{"a": 1}']
+    - [empty_dict, [{}],        "{}"]
+
+# ---------------------------------------------------------------------------
+# JSONEncoder(sort_keys=True) — keys are sorted alphabetically
+# ---------------------------------------------------------------------------
+
+invariant json_encoder.encode.sort_keys:
+  description: "JSONEncoder(sort_keys=True).encode({'b': 2, 'a': 1}) == '{\"a\": 1, \"b\": 2}'"
+  category: encode
+  kind: python_call_eq
+  function: JSONEncoder
+  args: []
+  kwargs: {sort_keys: true}
+  method: encode
+  method_args: [{b: 2, a: 1}]
+  expected: '{"a": 1, "b": 2}'
+
+# ---------------------------------------------------------------------------
+# JSONEncoder — ensure_ascii flag controls non-ASCII output
+# ---------------------------------------------------------------------------
+
+invariant json_encoder.encode.ensure_ascii_true:
+  description: "JSONEncoder(ensure_ascii=True).encode('café') escapes non-ASCII as \\uXXXX"
+  category: encode
+  kind: python_call_eq
+  function: JSONEncoder
+  args: []
+  kwargs: {ensure_ascii: true}
+  method: encode
+  method_args: ["café"]
+  expected: '"caf\u00e9"'
+
+invariant json_encoder.encode.ensure_ascii_false:
+  description: "JSONEncoder(ensure_ascii=False).encode('café') preserves the UTF-8 character"
+  category: encode
+  kind: python_call_eq
+  function: JSONEncoder
+  args: []
+  kwargs: {ensure_ascii: false}
+  method: encode
+  method_args: ["café"]
+  expected: '"café"'
