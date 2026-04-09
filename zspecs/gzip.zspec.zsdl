@@ -1,0 +1,172 @@
+spec: gzip
+version: ">=3.9"
+backend: python_module(gzip)
+
+docs: https://docs.python.org/3/library/gzip.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/gzip.html"
+    - "RFC 1952 — GZIP file format specification version 4.3"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "gzip source: gzip.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "gzip source: internal implementation details"
+  notes:
+    - "gzip.compress(data, compresslevel=9) compresses bytes using gzip format; returns bytes."
+    - "gzip.decompress(data) decompresses gzip-compressed bytes; returns bytes."
+    - "Compressed output includes gzip magic number 1f8b as first two bytes."
+    - "Decompressing invalid data raises gzip.BadGzipFile (subclass of OSError)."
+    - "All hex test vectors were computed with gzip.compress(..., compresslevel=9) on Python 3.12."
+    - "hello compressed hex: 1f8b08000000000002ffcb48cdc9c9070086a6103605000000"
+    - "hello world compressed hex: 1f8b08000000000002ffcb48cdc9c95728cf2fca49010085114a0d0b000000"
+    - "test data 12345 compressed hex: 1f8b08000000000002ff2b492d2e5148492c4954303432363105009b59d7690f000000"
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "gzip.decompress() raises gzip.BadGzipFile (subclass of OSError) on invalid input."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# decompress() — known test vectors (pre-computed with compresslevel=9)
+# ---------------------------------------------------------------------------
+
+invariant gzip.decompress.hello:
+  description: "decompress(compress(b'hello', level=9)) == b'hello' — round-trip via pre-computed hex"
+  category: decompress
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ffcb48cdc9c9070086a6103605000000"}]
+  method: decode
+  method_args: ["ascii"]
+  expected: "hello"
+
+invariant gzip.decompress.hello_world:
+  description: "decompress(compress(b'hello world', level=9)) == b'hello world' — round-trip via pre-computed hex"
+  category: decompress
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ffcb48cdc9c95728cf2fca49010085114a0d0b000000"}]
+  method: decode
+  method_args: ["ascii"]
+  expected: "hello world"
+
+invariant gzip.decompress.test_data_12345:
+  description: "decompress(compress(b'test data 12345', level=9)) == b'test data 12345' — round-trip via pre-computed hex"
+  category: decompress
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ff2b492d2e5148492c4954303432363105009b59d7690f000000"}]
+  method: decode
+  method_args: ["ascii"]
+  expected: "test data 12345"
+
+# ---------------------------------------------------------------------------
+# decompress() — output length checks
+# ---------------------------------------------------------------------------
+
+invariant gzip.decompress.hello_length:
+  description: "decompress of b'hello' compressed returns exactly 5 bytes"
+  category: decompress
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ffcb48cdc9c9070086a6103605000000"}]
+  method: __len__
+  expected: 5
+
+invariant gzip.decompress.hello_world_length:
+  description: "decompress of b'hello world' compressed returns exactly 11 bytes"
+  category: decompress
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ffcb48cdc9c95728cf2fca49010085114a0d0b000000"}]
+  method: __len__
+  expected: 11
+
+# ---------------------------------------------------------------------------
+# compress() — output is bytes; check magic number via hex prefix
+# ---------------------------------------------------------------------------
+
+invariant gzip.compress.hello_is_bytes:
+  description: "compress(b'hello').__class__.__name__ == 'bytes' — compress always returns bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_hex, value: "68656c6c6f"}]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant gzip.compress.hello_starts_with_magic:
+  description: "compress(b'hello')[:2].hex() == '1f8b' — gzip magic number as per RFC 1952"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: hex
+  expected: "1f8b08000000000002ffcb48cdc9c9070086a6103605000000"
+
+invariant gzip.compress.hello_world_hex:
+  description: "compress(b'hello world', compresslevel=9) produces known gzip bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello world"}, 9]
+  method: hex
+  expected: "1f8b08000000000002ffcb48cdc9c95728cf2fca49010085114a0d0b000000"
+
+# ---------------------------------------------------------------------------
+# compress() — output length checks
+# ---------------------------------------------------------------------------
+
+invariant gzip.compress.hello_output_length:
+  description: "compress(b'hello', compresslevel=9).__len__() == 25 — known compressed size"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}, 9]
+  method: __len__
+  expected: 25
+
+invariant gzip.compress.hello_world_output_length:
+  description: "compress(b'hello world', compresslevel=9).__len__() == 31 — known compressed size"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello world"}, 9]
+  method: __len__
+  expected: 31
+
+# ---------------------------------------------------------------------------
+# error handling — BadGzipFile on invalid input
+# ---------------------------------------------------------------------------
+
+invariant gzip.decompress.raises_on_invalid:
+  description: "decompress(b'not gzip data') raises BadGzipFile — invalid magic bytes"
+  category: error
+  kind: python_call_raises
+  function: decompress
+  args: [{type: bytes_ascii, value: "not gzip data"}]
+  expected_exception: BadGzipFile
+
+invariant gzip.decompress.raises_on_truncated:
+  description: "decompress(b'\\x1f\\x8b') raises BadGzipFile — truncated gzip data"
+  category: error
+  kind: python_call_raises
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b"}]
+  expected_exception: BadGzipFile
+
+# ---------------------------------------------------------------------------
+# BadGzipFile class — confirm class identity
+# ---------------------------------------------------------------------------
+
+invariant gzip.BadGzipFile.class_name:
+  description: "BadGzipFile.__name__ == 'BadGzipFile' — class name confirms identity"
+  category: BadGzipFile
+  kind: python_call_eq
+  function: BadGzipFile.__name__.__eq__
+  args: ["BadGzipFile"]
+  expected: true

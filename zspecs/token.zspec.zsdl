@@ -1,0 +1,168 @@
+spec: token
+version: ">=3.9"
+backend: python_module(token)
+
+docs: https://docs.python.org/3/library/token.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/token.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "token source: Lib/token.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "token source: internal CPython grammar/parser implementation details"
+  notes:
+    - "Token constants verified on Python 3.14.3: ENDMARKER=0, NAME=1, NUMBER=2, STRING=3, NEWLINE=4, INDENT=5, DEDENT=6."
+    - "Operator pseudo-token OP=55; COMMENT=65, NL=66, ERRORTOKEN=67, ENCODING=68 on Python 3.14."
+    - "TYPE_COMMENT=57, SOFT_KEYWORD=58, FSTRING_START=59, FSTRING_END=61 added in Python 3.8+/3.12+."
+    - "N_TOKENS=69 on Python 3.14; this value increases as new token types are added."
+    - "NT_OFFSET=256 is stable — non-terminal offset used by the parser."
+    - "Functions are named ISEOF, ISNONTERMINAL, ISTERMINAL (uppercase) on Python 3.14."
+    - "ISEOF(0) == True; ISEOF(1) == False."
+    - "ISTERMINAL(1) == True; ISNONTERMINAL(1) == False."
+    - "ISNONTERMINAL(300) == True (300 >= NT_OFFSET=256); ISTERMINAL(300) == False."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "token constants are integers; ISEOF/ISTERMINAL/ISNONTERMINAL accept any int and return bool."
+  stderr: "null"
+  stickiness: "N/A — all constants and functions are stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Core token constants — stable across all Python 3.x versions
+# ---------------------------------------------------------------------------
+
+table token.core_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: tok
+
+  columns: [id, function, args, expected]
+  rows:
+    - [endmarker, ENDMARKER.__eq__, [0], true]
+    - [name,      NAME.__eq__,      [1], true]
+    - [number,    NUMBER.__eq__,    [2], true]
+    - [string,    STRING.__eq__,    [3], true]
+    - [newline,   NEWLINE.__eq__,   [4], true]
+    - [indent,    INDENT.__eq__,    [5], true]
+    - [dedent,    DEDENT.__eq__,    [6], true]
+
+# ---------------------------------------------------------------------------
+# Extended token constants — Python 3.8+ additions; verified on 3.14
+# ---------------------------------------------------------------------------
+
+table token.extended_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: xtok
+
+  columns: [id, function, args, expected]
+  rows:
+    - [op,           OP.__eq__,           [55], true]
+    - [type_comment, TYPE_COMMENT.__eq__,  [57], true]
+    - [soft_keyword, SOFT_KEYWORD.__eq__,  [58], true]
+    - [comment,      COMMENT.__eq__,       [65], true]
+    - [nl,           NL.__eq__,            [66], true]
+    - [errortoken,   ERRORTOKEN.__eq__,    [67], true]
+    - [encoding,     ENCODING.__eq__,      [68], true]
+
+# ---------------------------------------------------------------------------
+# NT_OFFSET — non-terminal offset, stable at 256
+# ---------------------------------------------------------------------------
+
+invariant token.nt_offset:
+  description: "token.NT_OFFSET == 256"
+  category: constants
+  kind: python_call_eq
+  function: NT_OFFSET.__eq__
+  args: [256]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# tok_name — dict mapping token int → name string
+# ---------------------------------------------------------------------------
+
+table token.tok_name_lookups:
+  kind: python_call_eq
+  category: tok_name
+  id_prefix: tname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [endmarker, tok_name.__getitem__, [0], "ENDMARKER"]
+    - [name,      tok_name.__getitem__, [1], "NAME"]
+    - [number,    tok_name.__getitem__, [2], "NUMBER"]
+    - [string,    tok_name.__getitem__, [3], "STRING"]
+    - [newline,   tok_name.__getitem__, [4], "NEWLINE"]
+    - [indent,    tok_name.__getitem__, [5], "INDENT"]
+    - [dedent,    tok_name.__getitem__, [6], "DEDENT"]
+
+invariant token.tok_name_is_dict:
+  description: "token.tok_name.__class__.__name__ == 'dict'"
+  category: tok_name
+  kind: python_call_eq
+  function: tok_name.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ISEOF — only token 0 (ENDMARKER) is EOF
+# ---------------------------------------------------------------------------
+
+invariant token.ISEOF_zero:
+  description: "token.ISEOF(0) == True — ENDMARKER is the EOF token"
+  category: predicates
+  kind: python_call_eq
+  function: ISEOF
+  args: [0]
+  expected: true
+
+invariant token.ISEOF_one:
+  description: "token.ISEOF(1) == False — NAME is not EOF"
+  category: predicates
+  kind: python_call_eq
+  function: ISEOF
+  args: [1]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# ISTERMINAL — tokens < NT_OFFSET(256) are terminals
+# ---------------------------------------------------------------------------
+
+invariant token.ISTERMINAL_name:
+  description: "token.ISTERMINAL(1) == True — NAME is a terminal token"
+  category: predicates
+  kind: python_call_eq
+  function: ISTERMINAL
+  args: [1]
+  expected: true
+
+invariant token.ISTERMINAL_nonterminal:
+  description: "token.ISTERMINAL(300) == False — 300 >= NT_OFFSET so not terminal"
+  category: predicates
+  kind: python_call_eq
+  function: ISTERMINAL
+  args: [300]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# ISNONTERMINAL — tokens >= NT_OFFSET(256) are non-terminals
+# ---------------------------------------------------------------------------
+
+invariant token.ISNONTERMINAL_large:
+  description: "token.ISNONTERMINAL(300) == True — 300 >= NT_OFFSET(256)"
+  category: predicates
+  kind: python_call_eq
+  function: ISNONTERMINAL
+  args: [300]
+  expected: true
+
+invariant token.ISNONTERMINAL_terminal:
+  description: "token.ISNONTERMINAL(1) == False — NAME is a terminal, not a non-terminal"
+  category: predicates
+  kind: python_call_eq
+  function: ISNONTERMINAL
+  args: [1]
+  expected: false

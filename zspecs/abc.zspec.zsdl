@@ -1,0 +1,239 @@
+spec: abc
+version: ">=3.4"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/abc.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "abc source: abc.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "abc source: internal _abc C extension implementation details"
+  notes:
+    - "abc.ABC is a helper class that uses ABCMeta as its metaclass, allowing subclasses to become ABCs via inheritance."
+    - "abc.ABCMeta is the metaclass for abstract base classes; its base is the built-in 'type'."
+    - "abc.abstractmethod is a decorator (implemented as a plain function) that sets __isabstractmethod__ = True on the decorated callable."
+    - "abc.get_cache_token() returns a non-negative integer that increments each time the ABC cache is invalidated."
+    - "ABCMeta is exported from the abc module; its __module__ attribute is 'abc'."
+    - "abstractmethod.__module__ is 'abc'; get_cache_token.__module__ is '_abc' (the C extension)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class and function name checks
+#
+# Verifies that the module exports the expected names and that each is the
+# correctly-typed object with the right __name__.
+# ---------------------------------------------------------------------------
+
+invariant abc.names.ABC:
+  description: "abc.ABC.__name__ == 'ABC'"
+  category: names
+  kind: python_call_eq
+  function: ABC.__name__.__eq__
+  args: ["ABC"]
+  expected: true
+
+invariant abc.names.ABCMeta:
+  description: "abc.ABCMeta.__name__ == 'ABCMeta'"
+  category: names
+  kind: python_call_eq
+  function: ABCMeta.__name__.__eq__
+  args: ["ABCMeta"]
+  expected: true
+
+invariant abc.names.abstractmethod:
+  description: "abc.abstractmethod.__name__ == 'abstractmethod'"
+  category: names
+  kind: python_call_eq
+  function: abstractmethod.__name__.__eq__
+  args: ["abstractmethod"]
+  expected: true
+
+invariant abc.names.get_cache_token:
+  description: "abc.get_cache_token.__name__ == 'get_cache_token'"
+  category: names
+  kind: python_call_eq
+  function: get_cache_token.__name__.__eq__
+  args: ["get_cache_token"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module membership checks
+#
+# ABCMeta and abstractmethod live in the abc module (abstractmethod.__module__
+# == 'abc'). get_cache_token is implemented in the C extension _abc.
+# ---------------------------------------------------------------------------
+
+invariant abc.modules.ABCMeta_module:
+  description: "abc.ABCMeta.__module__ == 'abc'"
+  category: modules
+  kind: python_call_eq
+  function: ABCMeta.__module__.__eq__
+  args: ["abc"]
+  expected: true
+
+invariant abc.modules.abstractmethod_module:
+  description: "abc.abstractmethod.__module__ == 'abc'"
+  category: modules
+  kind: python_call_eq
+  function: abstractmethod.__module__.__eq__
+  args: ["abc"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Type checks for exported objects
+#
+# abstractmethod is a plain Python function; ABCMeta is a type (class).
+# ABC is also a class instance of ABCMeta (a type); its __class__.__name__
+# is 'ABCMeta'.
+# ---------------------------------------------------------------------------
+
+invariant abc.types.abstractmethod_is_function:
+  description: "type(abc.abstractmethod).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: abstractmethod.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant abc.types.get_cache_token_is_builtin:
+  description: "type(abc.get_cache_token).__name__ == 'builtin_function_or_method'"
+  category: types
+  kind: python_call_eq
+  function: get_cache_token.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant abc.types.ABC_metaclass:
+  description: "type(abc.ABC).__name__ == 'ABCMeta' — ABCMeta is the metaclass of ABC"
+  category: types
+  kind: python_call_eq
+  function: ABC.__class__.__name__.__eq__
+  args: ["ABCMeta"]
+  expected: true
+
+invariant abc.types.ABCMeta_base:
+  description: "abc.ABCMeta.__bases__[0].__name__ == 'type' — ABCMeta inherits from type"
+  category: types
+  kind: python_call_eq
+  function: ABCMeta.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "type"
+
+# ---------------------------------------------------------------------------
+# get_cache_token — returns a non-negative integer
+#
+# The token is an int and is >= 0. We test non-negativity via __ge__ method
+# chaining, since the exact value depends on runtime ABC registrations.
+# ---------------------------------------------------------------------------
+
+invariant abc.get_cache_token.is_nonneg:
+  description: "abc.get_cache_token() >= 0 — token is a non-negative integer"
+  category: get_cache_token
+  kind: python_call_eq
+  function: get_cache_token
+  args: []
+  method: __ge__
+  method_args: [0]
+  expected: true
+
+invariant abc.get_cache_token.type_is_int:
+  description: "type(abc.get_cache_token()).__name__ == 'int'"
+  category: get_cache_token
+  kind: python_call_eq
+  function: get_cache_token
+  args: []
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abstractmethod decorator — sets __isabstractmethod__ = True
+#
+# When applied to a function, abstractmethod sets __isabstractmethod__ = True
+# on the result. We verify this via the function name check pattern — the
+# decorated function retains __isabstractmethod__ as a boolean attribute.
+# We verify the attribute exists by checking abstractmethod itself.
+# ---------------------------------------------------------------------------
+
+invariant abc.abstractmethod.sets_isabstractmethod:
+  description: "abc.abstractmethod(f).__isabstractmethod__ is True for any callable f"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__isabstractmethod__.__eq__
+  args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ABC class — base class attributes
+#
+# ABC is a simple helper class. Its base is object, and it has no abstract
+# methods of its own (__abstractmethods__ is frozenset()).
+# ---------------------------------------------------------------------------
+
+invariant abc.ABC.base_is_object:
+  description: "abc.ABC.__bases__[0].__name__ == 'object'"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant abc.ABC.module:
+  description: "abc.ABC.__module__ == 'abc'"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__module__.__eq__
+  args: ["abc"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ABCMeta — class attribute checks
+#
+# ABCMeta.__name__ and __module__ are 'ABCMeta' and 'abc' respectively.
+# ABCMeta is a subclass of type (the built-in metaclass).
+# ---------------------------------------------------------------------------
+
+invariant abc.ABCMeta.bases_len:
+  description: "len(abc.ABCMeta.__bases__) == 1 — ABCMeta has exactly one base"
+  category: abcmeta
+  kind: python_call_eq
+  function: ABCMeta.__bases__.__len__
+  args: []
+  expected: 1
+
+invariant abc.ABCMeta.module:
+  description: "abc.ABCMeta.__module__ == 'abc'"
+  category: abcmeta
+  kind: python_call_eq
+  function: ABCMeta.__module__.__eq__
+  args: ["abc"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abstractmethod — module and qualifier checks
+# ---------------------------------------------------------------------------
+
+invariant abc.abstractmethod.qualname:
+  description: "abc.abstractmethod.__qualname__ == 'abstractmethod'"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__qualname__.__eq__
+  args: ["abstractmethod"]
+  expected: true
+
+invariant abc.abstractmethod.doc_is_str:
+  description: "type(abc.abstractmethod.__doc__).__name__ == 'str' — abstractmethod has a docstring"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true

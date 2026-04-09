@@ -1,0 +1,224 @@
+spec: sys
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/sys.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "sys source: built-in module (PSF; source inspection permitted)"
+  not_derived_from:
+    - "sys source: internal CPython implementation details"
+  notes:
+    - "sys.version_info.major == 3 for all Python 3.x releases."
+    - "sys.maxsize is platform-dependent (9223372036854775807 on 64-bit); always >= 2^31-1 = 2147483647."
+    - "sys.getdefaultencoding() returns 'utf-8' on all modern Python 3 builds."
+    - "sys.getfilesystemencoding() returns 'utf-8' on macOS/Linux; always non-empty."
+    - "sys.getrecursionlimit() defaults to 1000 on CPython."
+    - "sys.api_version == 1013 on CPython (all tested platforms)."
+    - "sys.hexversion >= 0x030900f0 (=50397424) for Python 3.9+."
+    - "'sys' and 'builtins' are always in sys.builtin_module_names."
+    - "sys.byteorder is 'little' on x86/ARM; 'big' on SPARC/s390x — not tested here."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Attribute access on sys raises AttributeError for missing attributes; functions raise TypeError/ValueError for bad args."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# version_info — named tuple, access major/minor via attribute chaining
+# ---------------------------------------------------------------------------
+
+invariant sys.version_major:
+  description: "sys.version_info.major == 3 — this is a Python 3 interpreter"
+  category: version
+  kind: python_call_eq
+  function: version_info.major.__eq__
+  args: [3]
+  expected: true
+
+invariant sys.version_info_class:
+  description: "type(sys.version_info).__name__ == 'version_info'"
+  category: version
+  kind: python_call_eq
+  function: version_info.__class__.__name__.__eq__
+  args: ["version_info"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hexversion — packed version integer, Python 3.9+ >= 0x030900f0 = 50397424
+# ---------------------------------------------------------------------------
+
+invariant sys.hexversion_min:
+  description: "sys.hexversion >= 0x030900f0 (50397424) — Python 3.9 or newer"
+  category: version
+  kind: python_call_eq
+  function: hexversion.__ge__
+  args: [50397424]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# api_version — stable C API version, always 1013 on CPython
+# ---------------------------------------------------------------------------
+
+invariant sys.api_version_value:
+  description: "sys.api_version == 1013"
+  category: version
+  kind: python_call_eq
+  function: api_version.__eq__
+  args: [1013]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# maxsize — maximum integer for platform pointer size (>= 2^31-1 on all platforms)
+# ---------------------------------------------------------------------------
+
+invariant sys.maxsize_min:
+  description: "sys.maxsize >= 2147483647 (2^31-1)"
+  category: limits
+  kind: python_call_eq
+  function: maxsize.__ge__
+  args: [2147483647]
+  expected: true
+
+invariant sys.maxsize_is_int:
+  description: "sys.maxsize.__class__.__name__ == 'int'"
+  category: limits
+  kind: python_call_eq
+  function: maxsize.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Encoding functions — stable UTF-8 defaults on modern Python 3
+# ---------------------------------------------------------------------------
+
+invariant sys.getdefaultencoding_value:
+  description: "sys.getdefaultencoding() == 'utf-8'"
+  category: encoding
+  kind: python_call_eq
+  function: getdefaultencoding
+  args: []
+  expected: "utf-8"
+
+invariant sys.getdefaultencoding_name:
+  description: "sys.getdefaultencoding.__name__ == 'getdefaultencoding'"
+  category: encoding
+  kind: python_call_eq
+  function: getdefaultencoding.__name__.__eq__
+  args: ["getdefaultencoding"]
+  expected: true
+
+invariant sys.getfilesystemencoding_nonempty:
+  description: "len(sys.getfilesystemencoding()) > 0 — always returns a non-empty encoding name"
+  category: encoding
+  kind: python_call_eq
+  function: getfilesystemencoding().__len__
+  args: []
+  expected: 3
+
+invariant sys.getfilesystemencoding_name:
+  description: "sys.getfilesystemencoding.__name__ == 'getfilesystemencoding'"
+  category: encoding
+  kind: python_call_eq
+  function: getfilesystemencoding.__name__.__eq__
+  args: ["getfilesystemencoding"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getrecursionlimit — CPython default is 1000
+# ---------------------------------------------------------------------------
+
+invariant sys.getrecursionlimit_min:
+  description: "sys.getrecursionlimit() >= 1000 — CPython default is 1000"
+  category: runtime
+  kind: python_call_eq
+  function: getrecursionlimit().__ge__
+  args: [1000]
+  expected: true
+
+invariant sys.getrecursionlimit_name:
+  description: "sys.getrecursionlimit.__name__ == 'getrecursionlimit'"
+  category: runtime
+  kind: python_call_eq
+  function: getrecursionlimit.__name__.__eq__
+  args: ["getrecursionlimit"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# builtin_module_names — tuple of always-built-in modules
+# ---------------------------------------------------------------------------
+
+invariant sys.builtin_has_sys:
+  description: "'sys' in sys.builtin_module_names — sys is always built-in"
+  category: modules
+  kind: python_call_eq
+  function: builtin_module_names.__contains__
+  args: ["sys"]
+  expected: true
+
+invariant sys.builtin_has_builtins:
+  description: "'builtins' in sys.builtin_module_names — builtins is always built-in"
+  category: modules
+  kind: python_call_eq
+  function: builtin_module_names.__contains__
+  args: ["builtins"]
+  expected: true
+
+invariant sys.builtin_is_tuple:
+  description: "sys.builtin_module_names.__class__.__name__ == 'tuple'"
+  category: modules
+  kind: python_call_eq
+  function: builtin_module_names.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Top-level function name checks
+# ---------------------------------------------------------------------------
+
+table sys.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getdefaultencoding, getdefaultencoding.__name__.__eq__, ["getdefaultencoding"], true]
+    - [getfilesystemencoding, getfilesystemencoding.__name__.__eq__, ["getfilesystemencoding"], true]
+    - [getrecursionlimit, getrecursionlimit.__name__.__eq__, ["getrecursionlimit"], true]
+    - [getsizeof, getsizeof.__name__.__eq__, ["getsizeof"], true]
+    - [intern, intern.__name__.__eq__, ["intern"], true]
+
+# ---------------------------------------------------------------------------
+# version and copyright — string type attributes
+# ---------------------------------------------------------------------------
+
+invariant sys.version_is_str:
+  description: "sys.version.__class__.__name__ == 'str'"
+  category: metadata
+  kind: python_call_eq
+  function: version.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant sys.copyright_contains_python:
+  description: "'Python' in sys.copyright"
+  category: metadata
+  kind: python_call_eq
+  function: copyright.__contains__
+  args: ["Python"]
+  expected: true
+
+invariant sys.platform_is_str:
+  description: "sys.platform.__class__.__name__ == 'str'"
+  category: metadata
+  kind: python_call_eq
+  function: platform.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
