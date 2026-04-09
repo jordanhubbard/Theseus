@@ -1,0 +1,125 @@
+spec: http_client_extra6
+version: ">=3.9"
+backend: python_module(http.client)
+
+docs: https://docs.python.org/3/library/http.client.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/http.client.html — Python http.client module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/http/client.py"
+  notes:
+    - "This spec extends http_client.zspec.zsdl through http_client_extra5.zspec.zsdl."
+    - "http_client.zspec.zsdl covers: status code integer equality table, HTTP_PORT/HTTPS_PORT, class __name__ table (HTTPResponse/HTTPConnection/HTTPSConnection/HTTPException/InvalidURL/BadStatusLine), responses dict (200/201/301/404/500)."
+    - "http_client_extra.zspec.zsdl covers: class __name__/__module__ for most connection/exception classes; HTTPException base == 'Exception'; NotConnected/InvalidURL bases; type identity for HTTPConnection/HTTPSConnection/HTTPResponse."
+    - "http_client_extra2.zspec.zsdl covers: __qualname__ for HTTPConnection/HTTPSConnection/HTTPResponse/HTTPException/NotConnected/InvalidURL; __module__ for HTTPException/HTTPResponse/NotConnected/InvalidURL; HTTP_PORT/HTTPS_PORT type and value."
+    - "http_client_extra3.zspec.zsdl covers: BadStatusLine/RemoteDisconnected __qualname__/__module__/base; OK/NOT_FOUND __class__.__name__ == 'HTTPStatus'; OK/NOT_FOUND/INTERNAL_SERVER_ERROR .value."
+    - "http_client_extra4.zspec.zsdl covers: additional .value checks (CREATED/NO_CONTENT/MOVED_PERMANENTLY/BAD_REQUEST/UNAUTHORIZED/FORBIDDEN/METHOD_NOT_ALLOWED/BAD_GATEWAY/SERVICE_UNAVAILABLE); .name checks (OK/NOT_FOUND/CREATED/INTERNAL_SERVER_ERROR); ImproperConnectionState/IncompleteRead/CannotSendRequest/CannotSendHeader name/qualname/module/base."
+    - "http_client_extra5.zspec.zsdl covers: responses dict (204/302/400/403/503); HTTPStatus class name/module; FOUND/NOT_MODIFIED .value and .name; CannotSendRequest/CannotSendHeader base hierarchy."
+    - "Focus: HTTPStatus .phrase accessor for OK/NOT_FOUND/INTERNAL_SERVER_ERROR (never tested in any prior spec); .name for remaining enum members (UNAUTHORIZED/FORBIDDEN/BAD_GATEWAY/METHOD_NOT_ALLOWED/NO_CONTENT/MOVED_PERMANENTLY/SERVICE_UNAVAILABLE); responses dict for 304/401/405/502; type identity for ImproperConnectionState/IncompleteRead."
+    - "HTTPStatus enum members expose a .phrase attribute (the human-readable reason phrase) distinct from .name (the symbolic identifier) and .value (the integer code)."
+    - "ImproperConnectionState and IncompleteRead are proper Python types; their __class__.__name__ == 'type'."
+    - "responses dict: 304 -> 'Not Modified', 401 -> 'Unauthorized', 405 -> 'Method Not Allowed', 502 -> 'Bad Gateway'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# responses dict — additional status codes not yet covered in any prior spec
+# http_client.zspec.zsdl covers 200/201/301/404/500.
+# http_client_extra5.zspec.zsdl covers 204/302/400/403/503.
+# 304/401/405/502 are new.
+# ---------------------------------------------------------------------------
+
+table http_client_extra6.responses_more:
+  kind: python_call_eq
+  category: responses
+  id_prefix: resp
+  function: responses.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [r304, [304], "Not Modified"       ]
+    - [r401, [401], "Unauthorized"       ]
+    - [r405, [405], "Method Not Allowed" ]
+    - [r502, [502], "Bad Gateway"        ]
+
+# ---------------------------------------------------------------------------
+# HTTPStatus .phrase accessor — human-readable reason phrase
+# No prior spec checks the .phrase attribute on any HTTPStatus member.
+# .name returns the symbolic identifier ('OK'); .phrase returns the HTTP phrase
+# ('OK', 'Not Found', 'Internal Server Error').
+# ---------------------------------------------------------------------------
+
+invariant http_client_extra6.OK.phrase:
+  description: "http.client.OK.phrase == 'OK'"
+  category: status_phrases
+  kind: python_call_eq
+  function: OK.phrase.__eq__
+  args: ["OK"]
+  expected: true
+
+invariant http_client_extra6.NOT_FOUND.phrase:
+  description: "http.client.NOT_FOUND.phrase == 'Not Found'"
+  category: status_phrases
+  kind: python_call_eq
+  function: NOT_FOUND.phrase.__eq__
+  args: ["Not Found"]
+  expected: true
+
+invariant http_client_extra6.INTERNAL_SERVER_ERROR.phrase:
+  description: "http.client.INTERNAL_SERVER_ERROR.phrase == 'Internal Server Error'"
+  category: status_phrases
+  kind: python_call_eq
+  function: INTERNAL_SERVER_ERROR.phrase.__eq__
+  args: ["Internal Server Error"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# HTTPStatus enum .name — remaining members not covered by extra4 or extra5
+# extra4 covers OK/NOT_FOUND/CREATED/INTERNAL_SERVER_ERROR .name.
+# extra5 covers FOUND/NOT_MODIFIED .name.
+# UNAUTHORIZED/FORBIDDEN/BAD_GATEWAY/METHOD_NOT_ALLOWED/NO_CONTENT/
+# MOVED_PERMANENTLY/SERVICE_UNAVAILABLE .name are new.
+# ---------------------------------------------------------------------------
+
+table http_client_extra6.status_names_extended:
+  kind: python_call_eq
+  category: status_names
+  id_prefix: sname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [NO_CONTENT,         NO_CONTENT.name.__eq__,         ["NO_CONTENT"],         true]
+    - [MOVED_PERMANENTLY,  MOVED_PERMANENTLY.name.__eq__,  ["MOVED_PERMANENTLY"],  true]
+    - [UNAUTHORIZED,       UNAUTHORIZED.name.__eq__,       ["UNAUTHORIZED"],       true]
+    - [FORBIDDEN,          FORBIDDEN.name.__eq__,          ["FORBIDDEN"],          true]
+    - [METHOD_NOT_ALLOWED, METHOD_NOT_ALLOWED.name.__eq__, ["METHOD_NOT_ALLOWED"], true]
+    - [BAD_GATEWAY,        BAD_GATEWAY.name.__eq__,        ["BAD_GATEWAY"],        true]
+    - [SERVICE_UNAVAILABLE,SERVICE_UNAVAILABLE.name.__eq__,["SERVICE_UNAVAILABLE"],true]
+
+# ---------------------------------------------------------------------------
+# Type identity — ImproperConnectionState and IncompleteRead
+# http_client_extra covers HTTPConnection/HTTPSConnection/HTTPResponse as types.
+# ImproperConnectionState and IncompleteRead are defined at module level and
+# are also proper Python types; this has not been verified in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant http_client_extra6.ImproperConnectionState.is_type:
+  description: "http.client.ImproperConnectionState.__class__.__name__ == 'type'"
+  category: type_identity
+  kind: python_call_eq
+  function: ImproperConnectionState.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant http_client_extra6.IncompleteRead.is_type:
+  description: "http.client.IncompleteRead.__class__.__name__ == 'type'"
+  category: type_identity
+  kind: python_call_eq
+  function: IncompleteRead.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true

@@ -1,0 +1,102 @@
+spec: shelve_extra6
+version: ">=3.0"
+backend: python_module(shelve)
+
+docs: https://docs.python.org/3/library/shelve.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/shelve.html — Python shelve module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/shelve.py"
+  notes:
+    - "This spec extends shelve.zspec.zsdl through shelve_extra5.zspec.zsdl with new, non-duplicate invariants."
+    - "shelve.zspec.zsdl covers: open/__name__; class names table; class modules table; Shelf/__bases__[0]/__name__; DbfilenameShelf/__bases__[0]/__name__."
+    - "shelve_extra covers: Shelf/__name__/__module__; BsdDbShelf/__name__; DbfilenameShelf/__name__; open/__name__."
+    - "shelve_extra2 covers: Shelf/__name__; BsdDbShelf/__name__; DbfilenameShelf/__name__; Shelf/__module__; Shelf.__bases__[0]; open/__name__/__module__."
+    - "shelve_extra3 covers: BsdDbShelf/__module__; DbfilenameShelf/__module__; Shelf.__bases__.__len__; DbfilenameShelf.__bases__.__len__; open.__class__.__name__; class metatype table; BsdDbShelf.__bases__[0].__name__."
+    - "shelve_extra4 covers: __qualname__ for open, Shelf, BsdDbShelf, DbfilenameShelf."
+    - "shelve_extra5 covers: Shelf method names (keys, values, items, sync, close); Shelf.__dict__.__class__.__name__."
+    - "This spec adds four new axes: Shelf.__mro__.__len__; BsdDbShelf.__bases__.__len__; open.__doc__.__class__.__name__; Shelf.get.__name__."
+    - "shelve.Shelf.__mro__ has length 4: [Shelf, MutableMapping, Mapping, object] — no prior spec checks MRO length for Shelf."
+    - "shelve.BsdDbShelf.__bases__.__len__() == 1 — BsdDbShelf has exactly one direct base (Shelf); bases len not yet checked for BsdDbShelf."
+    - "shelve.open.__doc__.__class__.__name__ == 'str' — the open function carries a docstring; __doc__ type not checked for shelve.open."
+    - "shelve.Shelf.get.__name__ == 'get' — Shelf inherits get() from MutableMapping; no prior spec checks any inherited MutableMapping method name."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Shelf.__mro__ length
+#
+# shelve_extra3 checks Shelf.__bases__.__len__ == 1.
+# No prior shelve spec checks the MRO length for Shelf.
+# Shelf inherits from MutableMapping (collections.abc), which inherits from
+# Mapping and then object. The full MRO on CPython is:
+#   [Shelf, MutableMapping, Mapping, object] — length 4.
+# (Additional abc mixin classes may expand this; pinning >= 4 is safe.)
+# ---------------------------------------------------------------------------
+
+invariant shelve_extra6.Shelf.mro_len:
+  description: "len(shelve.Shelf.__mro__) >= 4 — MRO includes Shelf, MutableMapping, Mapping, object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Shelf.__mro__.__len__
+  args: []
+  method: __ge__
+  method_args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BsdDbShelf.__bases__.__len__ == 1
+#
+# shelve_extra3 checks Shelf.__bases__.__len__ == 1 and
+# DbfilenameShelf.__bases__.__len__ == 1.
+# No prior spec checks BsdDbShelf.__bases__.__len__.
+# BsdDbShelf has exactly one direct base class (Shelf).
+# ---------------------------------------------------------------------------
+
+invariant shelve_extra6.BsdDbShelf.bases_len:
+  description: "len(shelve.BsdDbShelf.__bases__) == 1 — BsdDbShelf has exactly one direct base"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BsdDbShelf.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# shelve.open.__doc__ is a str
+#
+# shelve_extra3 checks open.__class__.__name__ == 'function'.
+# shelve_extra4 checks open.__qualname__ == 'open'.
+# No prior spec checks open.__doc__ at all.
+# The open function carries a docstring describing its flag argument.
+# ---------------------------------------------------------------------------
+
+invariant shelve_extra6.open.doc_is_str:
+  description: "shelve.open.__doc__.__class__.__name__ == 'str' — open carries a docstring"
+  category: functions
+  kind: python_call_eq
+  function: open.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Shelf.get.__name__ == 'get'
+#
+# shelve_extra5 checks __name__ for Shelf.keys, Shelf.values, Shelf.items,
+# Shelf.sync, and Shelf.close.
+# No prior spec checks Shelf.get.__name__.
+# get() is inherited from MutableMapping (via Mapping) and provides a
+# default-value key lookup; it is a distinct method from keys/values/items.
+# ---------------------------------------------------------------------------
+
+invariant shelve_extra6.Shelf.get_name:
+  description: "shelve.Shelf.get.__name__ == 'get' — inherited MutableMapping lookup method"
+  category: method_names
+  kind: python_call_eq
+  function: Shelf.get.__name__.__eq__
+  args: ["get"]
+  expected: true

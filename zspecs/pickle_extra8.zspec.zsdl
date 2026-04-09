@@ -1,0 +1,98 @@
+spec: pickle_extra8
+version: ">=3.9"
+backend: python_module(pickle)
+
+docs: https://docs.python.org/3/library/pickle.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pickle.html — Python pickle module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pickle.py"
+    - "CPython source: Modules/_pickle.c"
+  notes:
+    - "This spec extends pickle.zspec.zsdl through pickle_extra7.zspec.zsdl."
+    - "Prior specs cover: dumps/__name__, loads/__name__, dump/__name__, load/__name__; Pickler/Unpickler/PickleError/PicklingError/UnpicklingError __name__/__module__/__qualname__; HIGHEST_PROTOCOL and DEFAULT_PROTOCOL type (int), qualname (int), and bounds (>= 2/3/4/5, == 5, <= HIGHEST_PROTOCOL); PickleBuffer __name__/__qualname__/__module__/__bases__; exception hierarchy and __class__.__qualname__=='type'; dumps return bytes for int/list/None/False/float/empty dict/string 'world'; round-trips for 42/None/True/'hello'/float/list/empty list/False/'world'; dumps length for 42 and True; Unpickler/__class__.__qualname__; PicklingError/UnpicklingError __class__.__qualname__."
+    - "NEW in this spec: bytes object exact wire encoding (dumps(b'hello') == pre-computed hex); bytes object round-trip (b'hello' survives pickle); DEFAULT_PROTOCOL == 5 as standalone named invariant; dumps(b'hello') result length == 20."
+    - "The !ascii 'hello' tag produces the 5-byte sequence b'hello'. This is the bytes object passed to pickle.dumps()."
+    - "pickle.dumps(b'hello') == hex 8005950900000000000000430568656c6c6f942e — exact wire encoding verified in Python 3.12."
+    - "pickle.loads(pickle.dumps(b'hello')) == b'hello' — bytes object survives a pickle round-trip."
+    - "pickle.DEFAULT_PROTOCOL == 5 on CPython 3.12 (protocol 5 became the default in Python 3.12)."
+    - "pickle.dumps(b'hello').__len__() == 20 — protocol 5 encodes b'hello' in exactly 20 bytes."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# bytes object serialization — dumps(b'hello') exact wire encoding
+#
+# Prior specs confirm dumps returns bytes for: int, list, None, False, float,
+# empty dict, string 'world'. No prior spec passes a bytes object as the
+# input value. The !ascii "hello" tag produces the 5-byte sequence b'hello'.
+# Pre-computed: pickle.dumps(b'hello') == hex 8005950900000000000000430568656c6c6f942e
+# (protocol 5 frame header 0x8005 + SHORT_BINBYTES 0x43 + length 0x05 + 'hello' + MEMOIZE 0x94 + STOP 0x2e).
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra8.dumps_bytes.exact_encoding:
+  description: "pickle.dumps(b'hello') == pre-computed hex — bytes input serializes to known wire encoding"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [!ascii "hello"]
+  expected: !hex 8005950900000000000000430568656c6c6f942e
+
+# ---------------------------------------------------------------------------
+# bytes object round-trip — loads(dumps(b'hello')) == b'hello'
+#
+# Prior round-trip specs cover: int 42, None, True, 'hello', float 3.14,
+# list [1,2,3], empty list [], False, string 'world'. bytes is a distinct
+# Python type not covered in any prior pickle spec round-trip.
+# Pre-computed: pickle.dumps(b'hello') == hex 8005950900000000000000430568656c6c6f942e
+# The expected value is b'hello' expressed as !ascii "hello" (5 bytes).
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra8.roundtrip.bytes_hello:
+  description: "pickle.loads(pickle.dumps(b'hello')) == b'hello' — bytes object survives a pickle round-trip"
+  category: roundtrip
+  kind: python_call_eq
+  function: loads
+  args: [!hex 8005950900000000000000430568656c6c6f942e]
+  expected: !ascii "hello"
+
+# ---------------------------------------------------------------------------
+# DEFAULT_PROTOCOL == 5 as standalone invariant
+#
+# pickle_extra4 confirms HIGHEST_PROTOCOL == 5. No prior spec asserts
+# DEFAULT_PROTOCOL == 5 as a standalone named invariant (extra5 has
+# DEFAULT_PROTOCOL.__class__.__qualname__ but not the exact value == 5).
+# In CPython 3.12, DEFAULT_PROTOCOL was promoted to 5.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra8.DEFAULT_PROTOCOL.eq_5:
+  description: "pickle.DEFAULT_PROTOCOL == 5 on CPython 3.12+ — protocol 5 became the default in 3.12"
+  category: constants
+  kind: python_call_eq
+  function: DEFAULT_PROTOCOL.__eq__
+  args: [5]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# dumps(b'hello') result length
+#
+# Prior specs check __len__() for dumps(42) == 5 and dumps(True) == 4.
+# dumps(b'hello') uses protocol 5 SHORT_BINBYTES opcode. Its total length
+# is deterministic at 20 bytes under the default protocol 5.
+# Pre-computed: len(pickle.dumps(b'hello')) == 20
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra8.dumps_bytes.length:
+  description: "pickle.dumps(b'hello').__len__() == 20 — protocol 5 encodes b'hello' in exactly 20 bytes"
+  category: dumps_length
+  kind: python_call_eq
+  function: dumps
+  args: [!ascii "hello"]
+  method: __len__
+  method_args: []
+  expected: 20

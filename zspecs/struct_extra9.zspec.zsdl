@@ -1,0 +1,110 @@
+spec: struct_extra9
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+    - "struct.zspec.zsdl — pack/unpack for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize; roundtrip; error cases."
+    - "struct_extra.zspec.zsdl — Struct format/size, calcsize extras, pack_into, unpack_from, iter_unpack, error name/bases."
+    - "struct_extra2.zspec.zsdl — function __name__/__module__; pack(>H,256); unpack(>H); calcsize(>HHH); Struct base."
+    - "struct_extra3.zspec.zsdl — pack/unpack/calcsize for !f/!d/!?; calcsize for !5s/!3p/!x/!5x."
+    - "struct_extra4.zspec.zsdl — Struct.__name__; pack_into.__name__; function __qualname__ table; error.__qualname__; pack(>I,65536)/(<I,65536)/(>i,-256); calcsize(>i/<i/>I)."
+    - "struct_extra5.zspec.zsdl — Struct.__qualname__; Struct('>I'/'>H') format/size; pack('>B',255); unpack('>B',xff); calcsize('>B'/'<B'/'>5s'); Struct('>I').pack(256)."
+    - "struct_extra6.zspec.zsdl — pack/unpack('>b',127/-128); Struct('>b'/'>Q') format/size; pack/calcsize('<h'); unpack('<h')."
+    - "struct_extra7.zspec.zsdl — pack/unpack/calcsize for '>l'/'>L'/'=H'/'>2B'; Struct('>l') format/size."
+    - "struct_extra8.zspec.zsdl — function __module__ (all from '_struct' except error from 'struct'); pack return type/length for '>I'/'>H'; calcsize('>IHB'); unpack('>H',0100); Struct('>IHB') format/size; calcsize('>Q')."
+  notes:
+    - "This spec adds genuinely new test vectors not present in any prior struct spec."
+    - "struct.calcsize('c') == 1 — the char format character is 1 byte in all byte orders."
+    - "struct.calcsize('P') == 8 — the pointer-sized unsigned integer is 8 bytes on 64-bit platforms (Python 3.12 on macOS/Darwin 25.4.0)."
+    - "Struct instance method __qualname__ at the class level includes the 'Struct.' prefix: struct.Struct.unpack.__qualname__ == 'Struct.unpack'. This is distinct from the module-level struct.unpack.__qualname__ == 'unpack' (covered in struct_extra4)."
+    - "struct.Struct.pack.__qualname__ == 'Struct.pack' — method descriptor qualname includes class name."
+    - "struct.Struct.unpack.__qualname__ == 'Struct.unpack' — method descriptor qualname includes class name."
+    - "struct.Struct.pack_into.__qualname__ == 'Struct.pack_into' — method descriptor qualname includes class name."
+    - "struct.Struct.unpack_from.__qualname__ == 'Struct.unpack_from' — method descriptor qualname includes class name."
+    - "struct.Struct.iter_unpack.__qualname__ == 'Struct.iter_unpack' — method descriptor qualname includes class name."
+    - "struct.Struct.pack.__name__ == 'pack' — same single-word name as the module-level function."
+    - "struct.Struct.unpack.__name__ == 'unpack' — same single-word name as the module-level function."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# calcsize for single-character format codes not covered in prior specs
+#
+# struct.zspec.zsdl and extras cover: B, b, H, h, I, i, Q, q, f, d, ?,
+# e, x (padding), 5x, s (as 5s, 3p), !f, !d, !?, >l, >L, >B, <B, >i,
+# <i, >I, >IHB, >Q, >HHH, =H, >2B. No prior spec checks calcsize for
+# the 'c' or 'P' format codes.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra9.calcsize.char_c:
+  description: "struct.calcsize('c') == 1 — char format is 1 byte in all byte orders"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["c"]
+  expected: 1
+
+invariant struct_extra9.calcsize.pointer_P:
+  description: "struct.calcsize('P') == 8 — pointer-size unsigned int is 8 bytes on 64-bit platforms"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["P"]
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# Struct method descriptor __qualname__ — includes 'Struct.' class prefix
+#
+# struct_extra4 covers module-level function __qualname__ values:
+#   pack.__qualname__ == 'pack', unpack.__qualname__ == 'unpack', etc.
+# No prior spec checks __qualname__ on the Struct class method descriptors
+# (struct.Struct.pack, struct.Struct.unpack, etc.). At the class level,
+# the qualname includes the class prefix 'Struct.' — a distinct value from
+# the module-level function qualname. Accessed via dotted function attribute
+# chain (struct.Struct.<method>.__qualname__.__eq__).
+# ---------------------------------------------------------------------------
+
+table struct_extra9.Struct_method_qualnames:
+  kind: python_call_eq
+  category: qualname
+  id_prefix: mqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pack,        Struct.pack.__qualname__.__eq__,        ["Struct.pack"],        true]
+    - [unpack,      Struct.unpack.__qualname__.__eq__,      ["Struct.unpack"],      true]
+    - [pack_into,   Struct.pack_into.__qualname__.__eq__,   ["Struct.pack_into"],   true]
+    - [unpack_from, Struct.unpack_from.__qualname__.__eq__, ["Struct.unpack_from"], true]
+    - [iter_unpack, Struct.iter_unpack.__qualname__.__eq__, ["Struct.iter_unpack"], true]
+
+# ---------------------------------------------------------------------------
+# Struct method descriptor __name__ — single-word names matching module-level
+#
+# struct_extra4 covers pack_into.__name__ (module-level). No prior spec
+# accesses __name__ on the Struct class-level method descriptors. The names
+# are the same single words as the module-level functions (pack, unpack, etc.)
+# but accessed via struct.Struct.<method>.__name__.__eq__ as a function chain.
+# ---------------------------------------------------------------------------
+
+table struct_extra9.Struct_method_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: mname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pack,        Struct.pack.__name__.__eq__,        ["pack"],        true]
+    - [unpack,      Struct.unpack.__name__.__eq__,      ["unpack"],      true]
+    - [pack_into,   Struct.pack_into.__name__.__eq__,   ["pack_into"],   true]
+    - [unpack_from, Struct.unpack_from.__name__.__eq__, ["unpack_from"], true]
+    - [iter_unpack, Struct.iter_unpack.__name__.__eq__, ["iter_unpack"], true]
