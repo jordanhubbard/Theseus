@@ -1,0 +1,105 @@
+spec: sysconfig_extra3
+version: ">=3.2"
+backend: python_module(sysconfig)
+
+docs: https://docs.python.org/3/library/sysconfig.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/sysconfig.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/sysconfig.py"
+  notes:
+    - "This spec extends sysconfig.zspec.zsdl, sysconfig_extra.zspec.zsdl, and sysconfig_extra2.zspec.zsdl."
+    - "sysconfig.zspec.zsdl covers: function_names table (__name__ for 10 functions); return types for get_python_version/get_scheme_names/get_path_names/get_platform; get_scheme_names len==7; get_path_names contains stdlib/platlib."
+    - "sysconfig_extra.zspec.zsdl covers: func_names table (__name__ for 9 functions); return types for get_python_version/get_platform/get_scheme_names/get_path_names via method/method_chain."
+    - "sysconfig_extra2.zspec.zsdl covers: get_config_vars/get_paths return dict and non-empty; get_scheme_names contains 'posix_prefix'; get_path_names nonempty/contains 'scripts'/'data'; get_python_version contains '.'/'nonempty'."
+    - "This spec adds: __qualname__ checks for 9 public functions; __module__ checks for get_python_version and get_platform; get_default_scheme __name__ and __qualname__ (not in any prior spec)."
+    - "Module-level functions have __qualname__ equal to their simple __name__."
+    - "sysconfig.get_default_scheme() was added in Python 3.10; it returns the name of the default installation scheme as a str."
+    - "get_python_version.__module__ == 'sysconfig' — the function is defined in the sysconfig module."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks for public sysconfig functions
+# Not covered in any prior sysconfig spec (prior specs only check __name__).
+# ---------------------------------------------------------------------------
+
+table sysconfig_extra3.func_qualnames:
+  kind: python_call_eq
+  category: functions
+  id_prefix: qname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [get_python_version, "get_python_version.__qualname__.__eq__", ["get_python_version"], true]
+    - [get_platform,       "get_platform.__qualname__.__eq__",       ["get_platform"],       true]
+    - [get_scheme_names,   "get_scheme_names.__qualname__.__eq__",   ["get_scheme_names"],   true]
+    - [get_config_vars,    "get_config_vars.__qualname__.__eq__",    ["get_config_vars"],    true]
+    - [get_path,           "get_path.__qualname__.__eq__",           ["get_path"],           true]
+    - [get_paths,          "get_paths.__qualname__.__eq__",          ["get_paths"],          true]
+    - [get_path_names,     "get_path_names.__qualname__.__eq__",     ["get_path_names"],     true]
+    - [is_python_build,    "is_python_build.__qualname__.__eq__",    ["is_python_build"],    true]
+
+# ---------------------------------------------------------------------------
+# __module__ checks — not covered in any prior sysconfig spec
+# ---------------------------------------------------------------------------
+
+table sysconfig_extra3.func_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [get_python_version, "get_python_version.__module__.__eq__", ["sysconfig"], true]
+    - [get_platform,       "get_platform.__module__.__eq__",       ["sysconfig"], true]
+
+# ---------------------------------------------------------------------------
+# get_default_scheme — added in Python 3.10
+# Not present in any prior sysconfig spec.
+# get_default_scheme() returns the name of the currently active default
+# installation scheme as a non-empty string (e.g. 'posix_prefix').
+# ---------------------------------------------------------------------------
+
+invariant sysconfig_extra3.get_default_scheme.name:
+  description: "sysconfig.get_default_scheme.__name__ == 'get_default_scheme'"
+  category: functions
+  kind: python_call_eq
+  function: get_default_scheme.__name__.__eq__
+  args: ["get_default_scheme"]
+  expected: true
+
+invariant sysconfig_extra3.get_default_scheme.qualname:
+  description: "sysconfig.get_default_scheme.__qualname__ == 'get_default_scheme' — module-level function"
+  category: functions
+  kind: python_call_eq
+  function: get_default_scheme.__qualname__.__eq__
+  args: ["get_default_scheme"]
+  expected: true
+
+invariant sysconfig_extra3.get_default_scheme.returns_str:
+  description: "sysconfig.get_default_scheme().__class__.__name__ == 'str' — returns scheme name as string"
+  category: runtime
+  kind: python_call_eq
+  function: get_default_scheme
+  args: []
+  method: __class__
+  method_chain: __name__
+  expected: "str"
+
+invariant sysconfig_extra3.get_default_scheme.nonempty:
+  description: "len(sysconfig.get_default_scheme()) >= 1 — scheme name is a non-empty string"
+  category: runtime
+  kind: python_call_eq
+  function: get_default_scheme
+  args: []
+  method: __len__
+  method_args: []
+  method_chain: __ge__
+  method_chain_args: [1]
+  expected: true

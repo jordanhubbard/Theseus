@@ -1,0 +1,90 @@
+spec: getopt_extra3
+version: ">=3.9"
+backend: python_module(getopt)
+
+docs: https://docs.python.org/3/library/getopt.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/getopt.html — Python getopt module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/getopt.py"
+  notes:
+    - "This spec extends getopt.zspec.zsdl, getopt_extra.zspec.zsdl, and getopt_extra2.zspec.zsdl."
+    - "getopt.zspec.zsdl covers: getopt/gnu_getopt __name__ table; GetoptError __name__/__module__; error alias; behavioral vectors using '-a', '-b', '--foo', '--verbose', '--output'."
+    - "getopt_extra.zspec.zsdl covers: getopt/gnu_getopt __name__/__module__/__class__.__name__; GetoptError __name__/__module__/__class__.__name__/__bases__; error alias __name__/__module__; GetoptError.__init__/__str__ names."
+    - "getopt_extra2.zspec.zsdl covers: getopt/__qualname__, gnu_getopt/__qualname__, GetoptError/__qualname__; function_names table; GetoptError/__name__/__module__/base_is_Exception; error/__name__; getopt/gnu_getopt __name__/__module__ standalone invariants."
+    - "This spec adds: error.__qualname__ (alias qualname not yet checked); getopt(['-h'], 'h') behavioral vector (new option letter); getopt([], 'h') behavioral vector (new option letter for empty-args case)."
+    - "getopt.error.__qualname__ == 'GetoptError' because error is an alias bound to the same class object."
+    - "getopt.getopt(['-h'], 'h') == ([('-h', '')], []) — '-h' is a recognized flag; opts list has one entry, remaining args is empty."
+    - "getopt.getopt([], 'h') == ([], []) — empty input with 'h' shortopts; both opts and remaining args are empty."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# error.__qualname__ — alias qualname not checked in any prior getopt spec
+# getopt_extra2 checks GetoptError.__qualname__ but not error.__qualname__.
+# ---------------------------------------------------------------------------
+
+invariant getopt_extra3.error.qualname:
+  description: "getopt.error.__qualname__ == 'GetoptError' — error alias carries GNUTranslations qualname"
+  category: classes
+  kind: python_call_eq
+  function: error.__qualname__.__eq__
+  args: ["GetoptError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getopt(['-h'], 'h') — parse a single recognized '-h' flag
+# New option letter 'h'; prior behavioral tests use '-a', '-b', '--foo', etc.
+# Result: opts == [('-h', '')], remaining args == []
+# ---------------------------------------------------------------------------
+
+invariant getopt_extra3.getopt.h_flag_opts:
+  description: "getopt.getopt(['-h'], 'h') opts == [('-h', '')] — '-h' recognized as flag"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-h"], "h"]
+  method: __getitem__
+  method_args: [0]
+  expected: [["-h", ""]]
+
+invariant getopt_extra3.getopt.h_flag_args:
+  description: "getopt.getopt(['-h'], 'h') remaining args == [] — no non-option arguments"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-h"], "h"]
+  method: __getitem__
+  method_args: [1]
+  expected: []
+
+# ---------------------------------------------------------------------------
+# getopt([], 'h') — empty argv with 'h' shortopts
+# Prior empty-args test uses getopt([], 'ab'); 'h' is a distinct option string.
+# Result: opts == [], remaining args == []
+# ---------------------------------------------------------------------------
+
+invariant getopt_extra3.getopt.empty_h_opts:
+  description: "getopt.getopt([], 'h') opts == [] — empty argv produces no parsed options"
+  category: edge_cases
+  kind: python_call_eq
+  function: getopt
+  args: [[], "h"]
+  method: __getitem__
+  method_args: [0]
+  expected: []
+
+invariant getopt_extra3.getopt.empty_h_args:
+  description: "getopt.getopt([], 'h') remaining args == [] — empty argv produces no remaining args"
+  category: edge_cases
+  kind: python_call_eq
+  function: getopt
+  args: [[], "h"]
+  method: __getitem__
+  method_args: [1]
+  expected: []
