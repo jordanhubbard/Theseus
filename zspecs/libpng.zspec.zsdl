@@ -1,0 +1,80 @@
+spec: libpng
+version: ">=1.6.0"
+backend: ctypes(png)
+
+api_header: png.h
+docs: http://www.libpng.org/pub/png/libpng.html
+
+provenance:
+  derived_from:
+    - "libpng manual — http://www.libpng.org/pub/png/libpng-manual.txt"
+    - "libpng README — https://github.com/pnggroup/libpng#readme"
+    - "Test vectors verified with libpng 1.6.56 via Python 3.14.3 ctypes on macOS/Darwin 25.4.0, 2026-04-09"
+    - "libpng source: png.h, png.c (BSD-like / libpng license; source inspection permitted)"
+  not_derived_from:
+    - "libpng source: internal PNG chunk parsing"
+  notes:
+    - "png_access_version_number() returns the runtime version as a packed integer: major*10000 + minor*100 + release. For libpng 1.6.56 this is 10656."
+    - "png_get_libpng_ver(NULL) returns the runtime version as a C string (e.g. '1.6.56')."
+    - "png_get_header_ver(NULL) returns the header (compile-time) version string; on a consistent install matches png_get_libpng_ver."
+    - "png_sig_cmp() compares a candidate byte buffer to the 8-byte PNG magic signature. Returns 0 if the bytes match the PNG signature, non-zero otherwise."
+    - "The PNG magic signature is the 8-byte sequence: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A."
+    - "png_get_compression_buffer_size(NULL) returns 0 because no png_struct is provided; this is a safe no-op call."
+    - "Safe zero-arg or null-arg functions are limited to version queries and png_sig_cmp. PNG read/write API requires a fully initialized png_struct and is not exercised here."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Functions return 0 or NULL on error. Version query functions are stateless and always succeed."
+  stderr: "null"
+  stickiness: "N/A — version query functions are stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Version — numeric
+# ---------------------------------------------------------------------------
+
+invariant libpng.version.number_ge_10600:
+  description: "png_access_version_number() >= 10600 (libpng >= 1.6.0)"
+  category: version
+  kind: call_ge
+  function: png_access_version_number
+  args: []
+  arg_types: []
+  expected_min: 10600
+
+# ---------------------------------------------------------------------------
+# Version — runtime string
+# ---------------------------------------------------------------------------
+
+invariant libpng.version.runtime_string_prefix:
+  description: "png_get_libpng_ver(NULL) returns a string starting with '1.' (libpng 1.x)"
+  category: version
+  kind: version_prefix
+  function: png_get_libpng_ver
+  expected_prefix_b64: MS4=
+
+# ---------------------------------------------------------------------------
+# Version — header string
+# ---------------------------------------------------------------------------
+
+invariant libpng.version.header_string_prefix:
+  description: "png_get_header_ver(NULL) returns a string starting with '1.' (header is libpng 1.x)"
+  category: version
+  kind: version_prefix
+  function: png_get_header_ver
+  expected_prefix_b64: MS4=
+
+# ---------------------------------------------------------------------------
+# PNG signature check — png_sig_cmp
+# A valid PNG file starts with the 8-byte magic: 89 50 4E 47 0D 0A 1A 0A.
+# png_sig_cmp(buf, offset, num_to_check) returns 0 if the bytes match.
+# ---------------------------------------------------------------------------
+
+invariant libpng.sig.valid_png_magic_returns_0:
+  description: "png_sig_cmp(valid_PNG_magic, 0, 8) == 0 — correct PNG signature is accepted"
+  category: sig
+  kind: call_eq
+  function: png_sig_cmp
+  args: ["iVBORw0KGgo=", 0, 8]
+  arg_types: [bytes_b64, int, int]
+  expected: 0

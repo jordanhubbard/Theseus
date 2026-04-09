@@ -1,0 +1,100 @@
+spec: shlex
+version: ">=3.8"
+backend: python_module(shlex)
+
+docs: https://docs.python.org/3/library/shlex.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/shlex.html — Python shlex module documentation"
+    - "Test vectors verified by running Python 3.14.3 shlex module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/shlex.py"
+  notes:
+    - "shlex.split() uses POSIX mode by default on Unix. Quoted strings have their quotes stripped."
+    - "shlex.join() was added in Python 3.8; it calls shlex.quote() on each token and joins with a space."
+    - "shlex.quote() returns a shell-safe representation. Safe tokens are returned unchanged; unsafe tokens are wrapped in single quotes. Empty string returns two single quotes."
+    - "Unclosed quotation in shlex.split() raises ValueError."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# shlex.split — tokenize a shell string into a list of tokens
+# ---------------------------------------------------------------------------
+
+table shlex.split.basic:
+  kind: python_call_eq
+  category: split
+  id_prefix: split
+  function: split
+
+  columns: [id, args, expected]
+  rows:
+    - [simple_two_words,      ["hello world"],           ["hello", "world"]]
+    - [double_quoted_phrase,  ["\"hello world\""],        ["hello world"]]
+    - [single_quoted_phrase,  ["echo 'foo bar'"],         ["echo", "foo bar"]]
+    - [empty_string,          [""],                       []]
+    - [leading_trailing_space,["  spaces  "],             ["spaces"]]
+    - [equals_sign,           ["a=b"],                    ["a=b"]]
+    - [four_words,            ["a b c d"],                ["a", "b", "c", "d"]]
+    - [echo_foo,              ["echo foo"],               ["echo", "foo"]]
+    - [single_word,           ["hello"],                  ["hello"]]
+    - [two_quoted_args,       ["echo 'hello' 'world'"],   ["echo", "hello", "world"]]
+
+# ---------------------------------------------------------------------------
+# shlex.quote — shell-escape a single string
+# ---------------------------------------------------------------------------
+
+table shlex.quote.basic:
+  kind: python_call_eq
+  category: quote
+  id_prefix: quote
+  function: quote
+
+  columns: [id, args, expected]
+  rows:
+    - [safe_word,          ["hello"],         "hello"]
+    - [safe_alphanumeric,  ["safe123"],       "safe123"]
+    - [with_space,         ["hello world"],   "'hello world'"]
+    - [empty_string,       [""],              "''"]
+    - [dollar_sign,        ["foo$bar"],       "'foo$bar'"]
+    - [tab_char,           ["tab\there"],     "'tab\there'"]
+    - [newline,            ["new\nline"],     "'new\nline'"]
+
+# ---------------------------------------------------------------------------
+# shlex.join — join a list of tokens into a shell string
+# ---------------------------------------------------------------------------
+
+table shlex.join.basic:
+  kind: python_call_eq
+  category: join
+  id_prefix: join
+  function: join
+
+  columns: [id, args, expected]
+  rows:
+    - [two_safe_tokens,    [["echo", "hello"]],          "echo hello"]
+    - [token_with_space,   [["echo", "hello world"]],    "echo 'hello world'"]
+    - [empty_list,         [[]],                          ""]
+    - [single_token,       [["hello"]],                  "hello"]
+
+# ---------------------------------------------------------------------------
+# shlex.split — error cases
+# ---------------------------------------------------------------------------
+
+invariant shlex.split.unclosed_double_quote:
+  description: "shlex.split('unclosed \"quote') raises ValueError — no closing quotation"
+  category: error
+  kind: python_call_raises
+  function: split
+  args: ["unclosed \"quote"]
+  expected_exception: ValueError
+
+invariant shlex.split.unclosed_single_quote:
+  description: "shlex.split(\"it's a test\") raises ValueError — unmatched single quote in POSIX mode"
+  category: error
+  kind: python_call_raises
+  function: split
+  args: ["it's a test"]
+  expected_exception: ValueError

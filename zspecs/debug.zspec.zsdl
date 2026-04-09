@@ -1,0 +1,92 @@
+spec: debug
+version: ">=2.6.0"
+backend: node(debug)
+
+docs: https://github.com/debug-js/debug#readme
+
+provenance:
+  derived_from:
+    - "debug README — https://github.com/debug-js/debug#readme"
+    - "Test vectors verified with debug@2.6.9 via Node.js 25.6.0 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "debug source: debug.js, node.js (MIT; source inspection permitted)"
+  not_derived_from:
+    - "debug source: ANSI color selection internals"
+  notes:
+    - "debug exports a factory function as the default CJS export. Calling debug('namespace') returns a per-namespace logger function."
+    - "debug.enabled(ns) checks whether a namespace matches the current enabled set; default state (no DEBUG env var) returns false for all namespaces."
+    - "debug.coerce(val) returns an Error's string representation, passes other types through unchanged."
+    - "debug.humanize re-exports the ms() function: numbers to human-readable strings, strings to milliseconds."
+    - "Invariants run in isolated node -e processes; no DEBUG env var is set, so the default enable state is always clean."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "debug does not throw for normal inputs. node exits 0 for all invariants in this spec."
+  stderr: "null"
+  stickiness: "N/A — each invariant runs in a fresh node process with no DEBUG env var set."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# debug.enabled(namespace) — check if a namespace is currently enabled
+# Default state: no DEBUG env var, so all namespaces are disabled.
+# ---------------------------------------------------------------------------
+
+table debug.enabled.default:
+  kind: node_module_call_eq
+  function: enabled
+  category: enabled
+  id_prefix: enabled
+
+  columns: [id, args, expected]
+  rows:
+    - [any_ns,          ["myapp"],       false]
+    - [wildcard_ns,     ["ns:*"],        false]
+    - [nested_ns,       ["a:b:c"],       false]
+    - [empty_ns,        [""],            false]
+
+# ---------------------------------------------------------------------------
+# debug.coerce(value) — pass-through for non-Error values; Error → string
+# ---------------------------------------------------------------------------
+
+table debug.coerce:
+  kind: node_module_call_eq
+  function: coerce
+  category: coerce
+  id_prefix: coerce
+
+  columns: [id, args, expected]
+  rows:
+    - [null_val,    [null],    null]
+    - [number_val,  [42],      42]
+    - [string_val,  ["hello"], "hello"]
+    - [bool_true,   [true],    true]
+    - [bool_false,  [false],   false]
+    - [zero,        [0],       0]
+
+# ---------------------------------------------------------------------------
+# debug.humanize(value) — re-exports ms(); numbers to strings, strings to ms
+# ---------------------------------------------------------------------------
+
+table debug.humanize.num_to_str:
+  kind: node_module_call_eq
+  function: humanize
+  category: humanize
+  id_prefix: humanize
+
+  columns: [id, args, expected]
+  rows:
+    - [one_second,   [1000],    "1s"]
+    - [one_minute,   [60000],   "1m"]
+    - [one_hour,     [3600000], "1h"]
+    - [one_day,      [86400000],"1d"]
+
+table debug.humanize.str_to_num:
+  kind: node_module_call_eq
+  function: humanize
+  category: humanize
+  id_prefix: parse
+
+  columns: [id, args, expected]
+  rows:
+    - [parse_1s,  ["1s"],  1000]
+    - [parse_2h,  ["2h"],  7200000]
+    - [parse_1d,  ["1d"],  86400000]

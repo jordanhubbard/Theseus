@@ -1,0 +1,262 @@
+spec: sqlite3_cli
+version: ">=3.30.0"
+backend: cli(sqlite3)
+
+docs: https://www.sqlite.org/cli.html
+
+provenance:
+  derived_from:
+    - "SQLite CLI documentation — https://www.sqlite.org/cli.html"
+    - "SQLite built-in function reference — https://www.sqlite.org/lang_corefunc.html"
+    - "SQLite version history — https://www.sqlite.org/changes.html"
+    - "Test vectors verified with SQLite 3.51.0 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "sqlite3 source: shell.c (public domain; source inspection permitted)"
+  not_derived_from:
+    - "sqlite3 source: internal query optimizer"
+  notes:
+    - "All SQL invariants use ':memory:' as the database argument so no filesystem state is retained between tests."
+    - "sqlite3 --version exits 0 and prints the version string followed by build metadata to stdout."
+    - "sqlite3 --help exits 0 and prints usage information to stdout."
+    - "SQL errors (e.g. referencing a non-existent table) cause sqlite3 to exit with code 1."
+    - "Unknown dot-commands (e.g. '.badcmd') also cause exit code 1."
+    - "typeof() returns 'integer', 'real', 'text', 'blob', or 'null' depending on the storage class of its argument."
+    - "round(3.7) returns 4.0 (stored as real) which sqlite3 prints as '4.0'."
+    - "hex(255) returns 'FF' (upper-case hex, no 0x prefix)."
+    - "substr('hello',2,3) uses 1-based indexing and returns 'ell'."
+    - "printf('%d',42) is the sqlite3 built-in printf; prints '42'."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "sqlite3 exits 0 on success, non-zero on error."
+  stderr: "null"
+  stickiness: "N/A — each test uses a fresh :memory: database."
+  codes:
+    1: "SQL error or missing database"
+
+# ---------------------------------------------------------------------------
+# Version
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_cli.version.exits_0:
+  description: "sqlite3 --version exits with code 0"
+  category: version
+  kind: cli_exits_with
+  args: ["--version"]
+  expected_exit: 0
+
+invariant sqlite3_cli.version.stdout_contains_3_dot:
+  description: "sqlite3 --version stdout contains '3.' (SQLite 3.x)"
+  category: version
+  kind: cli_stdout_contains
+  args: ["--version"]
+  expected_substring: "3."
+
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_cli.help.exits_0:
+  description: "sqlite3 --help exits with code 0"
+  category: help
+  kind: cli_exits_with
+  args: ["--help"]
+  expected_exit: 0
+
+invariant sqlite3_cli.help.stdout_contains_usage:
+  description: "sqlite3 --help stdout contains 'Usage:'"
+  category: help
+  kind: cli_stdout_contains
+  args: ["--help"]
+  expected_substring: "Usage:"
+
+# ---------------------------------------------------------------------------
+# Basic arithmetic and literals
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_cli.sql.select_1:
+  description: "SELECT 1 prints '1'"
+  category: sql
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT 1;"]
+  expected_substring: "1"
+
+invariant sqlite3_cli.sql.select_1_plus_1:
+  description: "SELECT 1+1 prints '2'"
+  category: sql
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT 1+1;"]
+  expected_substring: "2"
+
+invariant sqlite3_cli.sql.select_string_literal:
+  description: "SELECT 'hello' prints 'hello'"
+  category: sql
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT 'hello';"]
+  expected_substring: "hello"
+
+invariant sqlite3_cli.sql.select_exits_0:
+  description: "A valid SELECT exits with code 0"
+  category: sql
+  kind: cli_exits_with
+  args: [":memory:", "SELECT 1;"]
+  expected_exit: 0
+
+# ---------------------------------------------------------------------------
+# typeof() — storage class introspection
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_cli.typeof.integer:
+  description: "typeof(1) returns 'integer'"
+  category: typeof
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT typeof(1);"]
+  expected_substring: "integer"
+
+invariant sqlite3_cli.typeof.real:
+  description: "typeof(1.5) returns 'real'"
+  category: typeof
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT typeof(1.5);"]
+  expected_substring: "real"
+
+invariant sqlite3_cli.typeof.text:
+  description: "typeof('x') returns 'text'"
+  category: typeof
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT typeof('x');"]
+  expected_substring: "text"
+
+invariant sqlite3_cli.typeof.null:
+  description: "typeof(NULL) returns 'null'"
+  category: typeof
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT typeof(NULL);"]
+  expected_substring: "null"
+
+# ---------------------------------------------------------------------------
+# String functions
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_cli.string.upper:
+  description: "upper('hello') returns 'HELLO'"
+  category: string
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT upper('hello');"]
+  expected_substring: "HELLO"
+
+invariant sqlite3_cli.string.lower:
+  description: "lower('HELLO') returns 'hello'"
+  category: string
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT lower('HELLO');"]
+  expected_substring: "hello"
+
+invariant sqlite3_cli.string.length:
+  description: "length('hello') returns 5"
+  category: string
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT length('hello');"]
+  expected_substring: "5"
+
+invariant sqlite3_cli.string.substr:
+  description: "substr('hello',2,3) returns 'ell' (1-based indexing)"
+  category: string
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT substr('hello',2,3);"]
+  expected_substring: "ell"
+
+invariant sqlite3_cli.string.replace:
+  description: "replace('hello','l','r') returns 'herro'"
+  category: string
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT replace('hello','l','r');"]
+  expected_substring: "herro"
+
+invariant sqlite3_cli.string.trim:
+  description: "trim('  hello  ') returns 'hello'"
+  category: string
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT trim('  hello  ');"]
+  expected_substring: "hello"
+
+# ---------------------------------------------------------------------------
+# Math functions
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_cli.math.abs:
+  description: "abs(-42) returns 42"
+  category: math
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT abs(-42);"]
+  expected_substring: "42"
+
+invariant sqlite3_cli.math.round:
+  description: "round(3.7) returns 4.0"
+  category: math
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT round(3.7);"]
+  expected_substring: "4.0"
+
+invariant sqlite3_cli.math.max:
+  description: "max(1,2,3) returns 3"
+  category: math
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT max(1,2,3);"]
+  expected_substring: "3"
+
+invariant sqlite3_cli.math.min:
+  description: "min(1,2,3) returns 1"
+  category: math
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT min(1,2,3);"]
+  expected_substring: "1"
+
+# ---------------------------------------------------------------------------
+# Other built-in functions
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_cli.builtins.hex:
+  description: "hex(255) returns 'FF'"
+  category: builtins
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT hex(255);"]
+  expected_substring: "FF"
+
+invariant sqlite3_cli.builtins.printf:
+  description: "printf('%d',42) returns '42'"
+  category: builtins
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT printf('%d',42);"]
+  expected_substring: "42"
+
+invariant sqlite3_cli.builtins.sqlite_version:
+  description: "sqlite_version() stdout contains '3.' (SQLite 3.x)"
+  category: builtins
+  kind: cli_stdout_contains
+  args: [":memory:", "SELECT sqlite_version();"]
+  expected_substring: "3."
+
+# ---------------------------------------------------------------------------
+# Error behavior
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_cli.error.bad_table_exits_1:
+  description: "Querying a nonexistent table exits with code 1"
+  category: error
+  kind: cli_exits_with
+  args: [":memory:", "SELECT * FROM nonexistent;"]
+  expected_exit: 1
+
+invariant sqlite3_cli.error.bad_table_stderr_contains_error:
+  description: "Querying a nonexistent table writes 'Error:' to stderr"
+  category: error
+  kind: cli_stderr_contains
+  args: [":memory:", "SELECT * FROM nonexistent;"]
+  expected_substring: "Error:"
+
+invariant sqlite3_cli.error.bad_dotcmd_exits_1:
+  description: "An unknown dot-command exits with code 1"
+  category: error
+  kind: cli_exits_with
+  args: [":memory:", ".badcmd"]
+  expected_exit: 1

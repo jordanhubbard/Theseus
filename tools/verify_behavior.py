@@ -164,6 +164,12 @@ class LibraryLoader:
                     "google.protobuf.message",
                     "google.protobuf.descriptor_pool",
                 ],
+                "rich": [
+                    "rich.markup",
+                    "rich.text",
+                    "rich.style",
+                    "rich.color",
+                ],
             }
             for sub in _SUBMODULE_PRELOADS.get(module_name, []):
                 try:

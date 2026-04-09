@@ -1,0 +1,117 @@
+spec: path_to_regexp
+version: ">=0.1.0"
+backend: node(path-to-regexp)
+
+docs: https://github.com/pillarjs/path-to-regexp/tree/0.1.x#readme
+
+provenance:
+  derived_from:
+    - "path-to-regexp README — https://github.com/pillarjs/path-to-regexp#readme"
+    - "Test vectors verified with path-to-regexp@0.1.13 via Node.js 25.6.0 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "path-to-regexp source: index.js (MIT; source inspection permitted)"
+  not_derived_from:
+    - "path-to-regexp source: internal token parsing regex"
+  notes:
+    - "Installed version is 0.1.13 (the Express 4.x / connect-compatible branch), not the newer v8+ API."
+    - "The module is a CJS function: path-to-regexp(path, [keys], [options]) → RegExp."
+    - "By default: case-insensitive, non-strict (trailing slash optional), end-anchored."
+    - "Params use :name syntax; optional params use :name?; wildcards use *."
+    - "node_factory_call_eq: m(...factory_args).test(...method_args) where m is the module function."
+    - "Keys array argument (second param) is passed as [] when only options are needed."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "path-to-regexp does not throw for valid path patterns. node exits 0 for all invariants in this spec."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Basic named parameter matching
+# ---------------------------------------------------------------------------
+
+table path_to_regexp.params:
+  kind: node_factory_call_eq
+  factory: ~
+  method: test
+  category: named_params
+  id_prefix: params
+
+  columns: [id, factory_args, method_args, expected]
+  rows:
+    - [id_match,       ["/users/:id"],      ["/users/42"],    true]
+    - [id_no_match,    ["/users/:id"],      ["/other"],       false]
+    - [id_empty_seg,   ["/users/:id"],      ["/users/"],      false]
+    - [multi_match,    ["/:foo/:bar"],      ["/hello/world"], true]
+    - [multi_partial,  ["/:foo/:bar"],      ["/hello"],       false]
+
+# ---------------------------------------------------------------------------
+# Optional parameter (:name?)
+# ---------------------------------------------------------------------------
+
+table path_to_regexp.optional:
+  kind: node_factory_call_eq
+  factory: ~
+  method: test
+  category: optional_params
+  id_prefix: optional
+
+  columns: [id, factory_args, method_args, expected]
+  rows:
+    - [opt_absent, ["/:id?"], ["/"],    true]
+    - [opt_present,["/:id?"], ["/42"],  true]
+
+# ---------------------------------------------------------------------------
+# Static paths
+# ---------------------------------------------------------------------------
+
+table path_to_regexp.static:
+  kind: node_factory_call_eq
+  factory: ~
+  method: test
+  category: static
+  id_prefix: static
+
+  columns: [id, factory_args, method_args, expected]
+  rows:
+    - [root_match,    ["/"],       ["/"],        true]
+    - [about_match,   ["/about"],  ["/about"],   true]
+    - [about_no_match,["/about"],  ["/contact"],  false]
+
+# ---------------------------------------------------------------------------
+# Wildcard / splat (*)
+# ---------------------------------------------------------------------------
+
+table path_to_regexp.wildcard:
+  kind: node_factory_call_eq
+  factory: ~
+  method: test
+  category: wildcard
+  id_prefix: wildcard
+
+  columns: [id, factory_args, method_args, expected]
+  rows:
+    - [bare_wildcard,  ["*"],         ["/any/deep/path"],  true]
+    - [prefix_wildcard,["/files/*"],  ["/files/a/b/c"],    true]
+    - [prefix_miss,    ["/files/*"],  ["/other"],          false]
+
+# ---------------------------------------------------------------------------
+# Options: case-insensitive (default), strict, end
+# ---------------------------------------------------------------------------
+
+table path_to_regexp.options:
+  kind: node_factory_call_eq
+  factory: ~
+  method: test
+  category: options
+  id_prefix: opts
+
+  columns: [id, factory_args, method_args, expected]
+  rows:
+    - [case_insensitive_default, ["/Users"], ["/users"], true]
+    - [case_sensitive_no_match,  ["/Users", [], {sensitive: true}], ["/users"], false]
+    - [case_sensitive_match,     ["/Users", [], {sensitive: true}], ["/Users"], true]
+    - [strict_trailing_no_match, ["/foo/",  [], {strict: true}],   ["/foo"],   false]
+    - [nonstrict_trailing_match, ["/foo/",  [], {strict: false}],  ["/foo"],   true]
+    - [end_false_prefix_match,   ["/foo",   [], {end: false}],     ["/foo/bar"], true]
+    - [end_true_no_suffix,       ["/foo",   [], {end: true}],      ["/foo/bar"], false]

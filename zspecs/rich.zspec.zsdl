@@ -1,0 +1,158 @@
+spec: rich
+version: ">=13.0"
+backend: python_module(rich)
+
+docs: https://rich.readthedocs.io/en/stable/
+
+provenance:
+  derived_from:
+    - "https://rich.readthedocs.io/en/stable/ — Rich library documentation"
+    - "Test vectors verified by running rich 14.3.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "rich source: rich/markup.py, rich/text.py, rich/style.py"
+  notes:
+    - "Backend is python_module(rich); all function paths use dotted names (e.g. 'markup.escape', 'text.Text') resolved by the harness via chained getattr from the rich module root. Submodule imports are triggered by the harness automatically."
+    - "rich.markup.escape() prefixes any '[' with a backslash, preventing markup interpretation. Other characters including '<', '>' and closing ']' are unaffected."
+    - "rich.text.Text is constructed with a plain string. The .plain attribute returns the text without markup. .__len__() returns character count. .cell_len returns display cell width."
+    - "rich.style.Style.parse() parses a style descriptor string. When an attribute (bold, italic, underline) is explicitly set, it is True; when absent it is None. The harness can only test the True case via method chaining (None is indistinguishable from 'attribute missing' in the harness sentinel). Use __str__ to verify the rendered style string instead."
+    - "Verified with rich==14.3.3 installed via pip on Python 3.14.3."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# rich.markup.escape — escape Rich markup brackets
+#
+# escape() replaces '[' with '\[', making text safe to pass to Rich's
+# renderer without being interpreted as markup tags. Closing brackets
+# and angle brackets are left unchanged.
+# ---------------------------------------------------------------------------
+
+table rich.markup.escape.basic:
+  kind: python_call_eq
+  category: markup_escape
+  id_prefix: escape
+  function: markup.escape
+
+  columns: [id, args, expected]
+  rows:
+    - [bold_tag,          ["[bold]hello"],             "\\[bold]hello"]
+    - [close_tag,         ["[/]"],                     "\\[/]"]
+    - [red_wrap,          ["[red]text[/red]"],          "\\[red]text\\[/red]"]
+    - [nested_tags,       ["[b][i]nested[/i][/b]"],     "\\[b]\\[i]nested\\[/i]\\[/b]"]
+    - [inline_bracket,    ["hello [world]"],            "hello \\[world]"]
+    - [plain_text,        ["normal text"],              "normal text"]
+    - [empty_string,      [""],                        ""]
+    - [angle_brackets,    ["<tag>"],                   "<tag>"]
+
+# ---------------------------------------------------------------------------
+# rich.text.Text — plain text extraction
+#
+# Text(str).plain returns the underlying string without any markup spans.
+# ---------------------------------------------------------------------------
+
+table rich.text.Text.plain:
+  kind: python_call_eq
+  category: text_plain
+  id_prefix: text_plain
+  function: text.Text
+
+  columns: [id, args, method, expected]
+  rows:
+    - [hello,        ["hello"],        plain,   "hello"]
+    - [hello_world,  ["hello world"],  plain,   "hello world"]
+    - [empty,        [""],             plain,   ""]
+
+# ---------------------------------------------------------------------------
+# rich.text.Text — character count via __len__
+# ---------------------------------------------------------------------------
+
+table rich.text.Text.len:
+  kind: python_call_eq
+  category: text_len
+  id_prefix: text_len
+  function: text.Text
+
+  columns: [id, args, method, expected]
+  rows:
+    - [hello_len,       ["hello"],        __len__,  5]
+    - [hello_world_len, ["hello world"],  __len__,  11]
+    - [empty_len,       [""],             __len__,  0]
+    - [abc_len,         ["abc"],          __len__,  3]
+
+# ---------------------------------------------------------------------------
+# rich.text.Text — display cell width
+#
+# cell_len is the number of terminal columns needed to render the text.
+# For ASCII text, cell_len == len(text).
+# ---------------------------------------------------------------------------
+
+table rich.text.Text.cell_len:
+  kind: python_call_eq
+  category: text_cell_len
+  id_prefix: text_cell_len
+  function: text.Text
+
+  columns: [id, args, method, expected]
+  rows:
+    - [hello_cell_len,       ["hello"],       cell_len,  5]
+    - [hello_world_cell_len, ["hello world"], cell_len,  11]
+    - [empty_cell_len,       [""],            cell_len,  0]
+
+# ---------------------------------------------------------------------------
+# rich.style.Style.parse — parse style descriptor into Style object
+#
+# Style.__str__ returns a canonical representation of the active style
+# attributes. This is always a non-None string, making it safe for harness
+# method chaining (where None is treated as 'attribute missing').
+# ---------------------------------------------------------------------------
+
+table rich.style.Style.parse.str:
+  kind: python_call_eq
+  category: style_parse
+  id_prefix: style_str
+  function: style.Style.parse
+
+  columns: [id, args, method, expected]
+  rows:
+    - [bold_str,          ["bold"],            __str__,  "bold"]
+    - [italic_str,        ["italic"],          __str__,  "italic"]
+    - [underline_str,     ["underline"],       __str__,  "underline"]
+    - [bold_italic_str,   ["bold italic"],     __str__,  "bold italic"]
+    - [empty_str,         [""],               __str__,  "none"]
+
+# ---------------------------------------------------------------------------
+# rich.style.Style.parse — individual bool attributes (True-only cases)
+#
+# When a style attribute is set, it returns True (not None). The harness
+# can verify these because True is not the None sentinel.
+# ---------------------------------------------------------------------------
+
+table rich.style.Style.parse.bold_true:
+  kind: python_call_eq
+  category: style_parse
+  id_prefix: style_bold_true
+  function: style.Style.parse
+
+  columns: [id, args, method, expected]
+  rows:
+    - [bold_is_true,        ["bold"],         bold,   true]
+    - [bold_italic_bold,    ["bold italic"],  bold,   true]
+
+invariant rich.style.parse.italic_is_true:
+  description: "Style.parse('italic').italic == True"
+  category: style_parse
+  kind: python_call_eq
+  function: style.Style.parse
+  args: ["italic"]
+  method: italic
+  expected: true
+
+invariant rich.style.parse.underline_is_true:
+  description: "Style.parse('underline').underline == True"
+  category: style_parse
+  kind: python_call_eq
+  function: style.Style.parse
+  args: ["underline"]
+  method: underline
+  expected: true
