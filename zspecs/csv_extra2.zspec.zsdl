@@ -1,0 +1,154 @@
+spec: csv_extra2
+version: ">=3.2"
+backend: python_module(csv)
+
+docs: https://docs.python.org/3/library/csv.html
+
+provenance:
+  derived_from:
+    - "Python csv documentation — https://docs.python.org/3/library/csv.html"
+    - "Test vectors verified by running Python 3.12 csv module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_csv.c"
+    - "csv.zspec.zsdl — covers reader parsing, QUOTE_* constant values, excel dialect properties, field_size_limit, and Dialect/excel/excel_tab __name__"
+    - "csv_extra.zspec.zsdl — covers DictReader, DictWriter, unix_dialect name/properties, excel_tab lineterminator/quoting, excel/__excel_tab __bases__"
+    - "_csv.zspec.zsdl — covers _csv C-extension Dialect/__name__, Error, reader/writer names and module membership, QUOTE_* constants"
+  notes:
+    - "This spec extends the csv family with Dialect.__module__, list_dialects() type/membership, QUOTE_* class type checks, and class name redundancy checks."
+    - "csv.Dialect.__module__ == '_csv' — the abstract Dialect class is defined in the C extension _csv, not in the csv Python module."
+    - "csv.list_dialects() returns a list of registered dialect name strings."
+    - "The 'excel' dialect is always registered; it appears in list_dialects()."
+    - "QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONNUMERIC, and QUOTE_NONE are all plain Python int values."
+    - "QUOTE_MINIMAL==0, QUOTE_ALL==1, QUOTE_NONNUMERIC==2, QUOTE_NONE==3 (pinned integer values)."
+    - "All expected values verified by running Python 3.12 csv module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# csv.Dialect — class name and module membership (defined in the C extension _csv)
+# ---------------------------------------------------------------------------
+
+invariant csv_extra2.Dialect.class_name:
+  description: "csv.Dialect.__name__ == 'Dialect'"
+  category: classnames
+  kind: python_call_eq
+  function: Dialect.__name__.__eq__
+  args: ["Dialect"]
+  expected: true
+
+invariant csv_extra2.Dialect.module:
+  description: "csv.Dialect.__module__ == '_csv' — Dialect is defined in the C extension"
+  category: classnames
+  kind: python_call_eq
+  function: Dialect.__module__.__eq__
+  args: ["_csv"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Dialect subclass name checks — excel, excel_tab, unix_dialect
+# ---------------------------------------------------------------------------
+
+invariant csv_extra2.excel.class_name:
+  description: "csv.excel.__name__ == 'excel'"
+  category: classnames
+  kind: python_call_eq
+  function: excel.__name__.__eq__
+  args: ["excel"]
+  expected: true
+
+invariant csv_extra2.excel_tab.class_name:
+  description: "csv.excel_tab.__name__ == 'excel_tab'"
+  category: classnames
+  kind: python_call_eq
+  function: excel_tab.__name__.__eq__
+  args: ["excel_tab"]
+  expected: true
+
+invariant csv_extra2.unix_dialect.class_name:
+  description: "csv.unix_dialect.__name__ == 'unix_dialect'"
+  category: classnames
+  kind: python_call_eq
+  function: unix_dialect.__name__.__eq__
+  args: ["unix_dialect"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Dialect inheritance — excel and excel_tab base class checks
+# ---------------------------------------------------------------------------
+
+invariant csv_extra2.excel.base_is_Dialect:
+  description: "csv.excel.__bases__[0].__name__ == 'Dialect' — excel inherits from Dialect"
+  category: classnames
+  kind: python_call_eq
+  function: excel.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "Dialect"
+
+invariant csv_extra2.excel_tab.base_is_excel:
+  description: "csv.excel_tab.__bases__[0].__name__ == 'excel' — excel_tab inherits from excel"
+  category: classnames
+  kind: python_call_eq
+  function: excel_tab.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "excel"
+
+# ---------------------------------------------------------------------------
+# list_dialects() — returns a list; 'excel' is always registered
+# ---------------------------------------------------------------------------
+
+invariant csv_extra2.list_dialects.returns_list:
+  description: "csv.list_dialects().__class__.__name__ == 'list'"
+  category: list_dialects
+  kind: python_call_eq
+  function: list_dialects
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["list"]
+  expected: true
+
+invariant csv_extra2.list_dialects.contains_excel:
+  description: "'excel' in csv.list_dialects() — excel dialect is always registered"
+  category: list_dialects
+  kind: python_call_eq
+  function: list_dialects
+  args: []
+  method: __contains__
+  method_args: ["excel"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# QUOTE_* constants — class type is int
+# ---------------------------------------------------------------------------
+
+table csv_extra2.quote_class_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: qtype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [QUOTE_ALL_type,         QUOTE_ALL.__class__.__name__.__eq__,         ["int"], true]
+    - [QUOTE_MINIMAL_type,     QUOTE_MINIMAL.__class__.__name__.__eq__,     ["int"], true]
+    - [QUOTE_NONNUMERIC_type,  QUOTE_NONNUMERIC.__class__.__name__.__eq__,  ["int"], true]
+    - [QUOTE_NONE_type,        QUOTE_NONE.__class__.__name__.__eq__,        ["int"], true]
+
+# ---------------------------------------------------------------------------
+# QUOTE_* constants — pin exact integer values
+# ---------------------------------------------------------------------------
+
+table csv_extra2.quote_values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: qval
+
+  columns: [id, function, args, expected]
+  rows:
+    - [QUOTE_MINIMAL,    QUOTE_MINIMAL.__eq__,    [0], true]
+    - [QUOTE_ALL,        QUOTE_ALL.__eq__,        [1], true]
+    - [QUOTE_NONNUMERIC, QUOTE_NONNUMERIC.__eq__,  [2], true]
+    - [QUOTE_NONE,       QUOTE_NONE.__eq__,       [3], true]
