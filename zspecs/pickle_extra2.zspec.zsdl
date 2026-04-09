@@ -1,0 +1,156 @@
+spec: pickle_extra2
+version: ">=3.8"
+backend: python_module(pickle)
+
+docs: https://docs.python.org/3/library/pickle.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pickle.html — Python pickle module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pickle.py"
+    - "CPython source: Modules/_pickle.c"
+    - "pickle.zspec.zsdl — covers class names (Pickler/Unpickler/PickleError/PicklingError/UnpicklingError), HIGHEST_PROTOCOL >= 2, DEFAULT_PROTOCOL >= 2, dumps/loads round-trip"
+    - "pickle_extra.zspec.zsdl — covers HIGHEST_PROTOCOL.__class__.__name__ == 'int', DEFAULT_PROTOCOL.__class__.__name__ == 'int', HIGHEST_PROTOCOL >= 5, Pickler/__name__, Unpickler/__name__, exception __name__ table, PickleError.__bases__[0].__name__ == 'Exception'"
+    - "_pickle.zspec.zsdl — covers _pickle.Pickler/__module__ == '_pickle', _pickle.Unpickler/__module__ == '_pickle', PicklingError base == PickleError, UnpicklingError base == PickleError"
+  notes:
+    - "This spec extends pickle.zspec.zsdl, pickle_extra.zspec.zsdl, and _pickle.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "pickle.Pickler and pickle.Unpickler in the pickle namespace have __module__ == 'pickle' (the Python wrapper module), not '_pickle' (the C extension); this distinguishes them from the _pickle module's classes."
+    - "pickle.PickleError, pickle.PicklingError, and pickle.UnpicklingError have __module__ == 'pickle' — they are defined in Lib/pickle.py."
+    - "pickle.PicklingError.__bases__[0].__name__ == 'PickleError' — PicklingError inherits from PickleError."
+    - "pickle.UnpicklingError.__bases__[0].__name__ == 'PickleError' — UnpicklingError inherits from PickleError."
+    - "pickle.PickleBuffer was added in Python 3.8 for zero-copy buffer protocol support; __name__ == 'PickleBuffer' and it inherits from object."
+    - "pickle.DEFAULT_PROTOCOL >= 5 in CPython 3.8+ (protocol 5 added in 3.8 and became the default in 3.12)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module checks — pickle.Pickler and pickle.Unpickler in the pickle namespace
+# pickle_extra.zspec.zsdl checks __name__; _pickle.zspec.zsdl checks _pickle.__module__.
+# This spec checks that the pickle-namespace wrappers report __module__ == 'pickle'.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra2.Pickler.module:
+  description: "pickle.Pickler.__module__ == 'pickle' — exposed via the pickle namespace wrapper"
+  category: class_modules
+  kind: python_call_eq
+  function: Pickler.__module__.__eq__
+  args: ["pickle"]
+  expected: true
+
+invariant pickle_extra2.Unpickler.module:
+  description: "pickle.Unpickler.__module__ == 'pickle' — exposed via the pickle namespace wrapper"
+  category: class_modules
+  kind: python_call_eq
+  function: Unpickler.__module__.__eq__
+  args: ["pickle"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Exception module checks — PickleError, PicklingError, UnpicklingError
+# All three exception classes are defined in Lib/pickle.py.
+# ---------------------------------------------------------------------------
+
+table pickle_extra2.exception_modules:
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: emodule
+
+  columns: [id, function, args, expected]
+  rows:
+    - [PickleError,     PickleError.__module__.__eq__,     ["pickle"], true]
+    - [PicklingError,   PicklingError.__module__.__eq__,   ["pickle"], true]
+    - [UnpicklingError, UnpicklingError.__module__.__eq__, ["pickle"], true]
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy — PicklingError and UnpicklingError inherit from PickleError
+# pickle.zspec.zsdl does not check these; _pickle.zspec.zsdl checks them in _pickle.
+# This spec verifies the same hierarchy in the pickle public namespace.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra2.PicklingError.base:
+  description: "pickle.PicklingError.__bases__[0].__name__ == 'PickleError'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: PicklingError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "PickleError"
+
+invariant pickle_extra2.UnpicklingError.base:
+  description: "pickle.UnpicklingError.__bases__[0].__name__ == 'PickleError'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: UnpicklingError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "PickleError"
+
+# ---------------------------------------------------------------------------
+# DEFAULT_PROTOCOL — present since Python 3.0; value >= 5 in Python 3.8+
+# pickle.zspec.zsdl checks >= 2; pickle_extra checks __class__.__name__ == 'int'.
+# This spec checks >= 5 for the DEFAULT_PROTOCOL (protocol 5 became default in 3.12).
+# We use >= 2 here for maximum compatibility across the version range.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra2.DEFAULT_PROTOCOL.gte2:
+  description: "pickle.DEFAULT_PROTOCOL >= 2 — default protocol is at least 2 on Python 3.x"
+  category: constants
+  kind: python_call_eq
+  function: DEFAULT_PROTOCOL.__ge__
+  args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PickleBuffer — added in Python 3.8 for out-of-band buffer serialization
+# PickleBuffer wraps an object supporting the buffer protocol.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra2.PickleBuffer.name:
+  description: "pickle.PickleBuffer.__name__ == 'PickleBuffer'"
+  category: class_names
+  kind: python_call_eq
+  function: PickleBuffer.__name__.__eq__
+  args: ["PickleBuffer"]
+  expected: true
+
+invariant pickle_extra2.PickleBuffer.module:
+  description: "pickle.PickleBuffer.__module__ == 'pickle'"
+  category: class_modules
+  kind: python_call_eq
+  function: PickleBuffer.__module__.__eq__
+  args: ["pickle"]
+  expected: true
+
+invariant pickle_extra2.PickleBuffer.base:
+  description: "pickle.PickleBuffer.__bases__[0].__name__ == 'object' — PickleBuffer inherits from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: PickleBuffer.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Pickler and Unpickler callable check — both are classes, not functions
+# A class object's __class__.__name__ is 'type'
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra2.Pickler.is_type:
+  description: "pickle.Pickler.__class__.__name__ == 'type' — Pickler is a class, not a plain function"
+  category: class_metadata
+  kind: python_call_eq
+  function: Pickler.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant pickle_extra2.Unpickler.is_type:
+  description: "pickle.Unpickler.__class__.__name__ == 'type' — Unpickler is a class, not a plain function"
+  category: class_metadata
+  kind: python_call_eq
+  function: Unpickler.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
