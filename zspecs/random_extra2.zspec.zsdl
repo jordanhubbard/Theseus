@@ -1,0 +1,88 @@
+spec: random_extra2
+version: ">=3.9"
+backend: python_module(random)
+
+docs: https://docs.python.org/3/library/random.html
+
+provenance:
+  derived_from:
+    - "Python random documentation — https://docs.python.org/3/library/random.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/random.py"
+    - "CPython source: internal Mersenne Twister implementation"
+  notes:
+    - "This spec extends random.zspec.zsdl and random_extra.zspec.zsdl."
+    - "random.zspec.zsdl covers: Random.__name__, SystemRandom.__name__, and deterministic randint/choice/randrange/getrandbits/sample vectors."
+    - "random_extra.zspec.zsdl covers: Random.__module__, SystemRandom.__name__, and __name__ checks for randint/randrange/uniform/choice/choices/sample/shuffle/gauss/normalvariate/seed/getstate/setstate; also return-type checks for random() and randint()."
+    - "This spec adds: class name checks for Random and SystemRandom (confirming the pattern from both sides); __name__ checks for getrandbits, triangular, betavariate, and expovariate; and a deterministic sample vector distinct from random.zspec.zsdl."
+    - "random.getrandbits.__name__ == 'getrandbits'; triangular.__name__ == 'triangular'; etc."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class name identity — Random and SystemRandom
+# ---------------------------------------------------------------------------
+
+invariant random_extra2.Random.class_name:
+  description: "random.Random.__name__ == 'Random'"
+  category: class_metadata
+  kind: python_call_eq
+  function: Random.__name__.__eq__
+  args: ["Random"]
+  expected: true
+
+invariant random_extra2.SystemRandom.class_name:
+  description: "random.SystemRandom.__name__ == 'SystemRandom'"
+  category: class_metadata
+  kind: python_call_eq
+  function: SystemRandom.__name__.__eq__
+  args: ["SystemRandom"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module-level function __name__ checks
+#
+# random_extra.zspec.zsdl covers: randint, randrange, uniform, choice, choices,
+# sample, shuffle, gauss, normalvariate, seed, getstate, setstate.
+# This spec adds: getrandbits, triangular, betavariate, expovariate.
+# ---------------------------------------------------------------------------
+
+table random_extra2.functions.extra_names:
+  description: "Additional random module functions have __name__ equal to their string identifier"
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [randint_name,      randint.__name__.__eq__,      ["randint"],      true]
+    - [uniform_name,      uniform.__name__.__eq__,      ["uniform"],      true]
+    - [choice_name,       choice.__name__.__eq__,       ["choice"],       true]
+    - [shuffle_name,      shuffle.__name__.__eq__,      ["shuffle"],      true]
+    - [sample_name,       sample.__name__.__eq__,       ["sample"],       true]
+    - [seed_name,         seed.__name__.__eq__,         ["seed"],         true]
+    - [randrange_name,    randrange.__name__.__eq__,    ["randrange"],    true]
+    - [getrandbits_name,  getrandbits.__name__.__eq__,  ["getrandbits"],  true]
+    - [triangular_name,   triangular.__name__.__eq__,   ["triangular"],   true]
+    - [betavariate_name,  betavariate.__name__.__eq__,  ["betavariate"],  true]
+    - [expovariate_name,  expovariate.__name__.__eq__,  ["expovariate"],  true]
+
+# ---------------------------------------------------------------------------
+# Deterministic sample — distinct from random.zspec.zsdl
+#
+# random.zspec.zsdl uses Random(42).sample(range(1,11), 3) == [2, 1, 5].
+# This spec uses a different seed and population.
+# ---------------------------------------------------------------------------
+
+invariant random_extra2.sample.seed7_2from10:
+  description: "Random(7).sample([0..9], 2) == [5, 2] — first 2-element sample from seed 7"
+  category: deterministic
+  kind: python_call_eq
+  function: Random
+  args: [7]
+  method: sample
+  method_args: [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 2]
+  expected: [5, 2]

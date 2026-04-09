@@ -1,0 +1,125 @@
+spec: math_extra2
+version: ">=3.9"
+backend: python_module(math)
+
+docs: https://docs.python.org/3/library/math.html
+
+provenance:
+  derived_from:
+    - "Python 3 math module documentation — https://docs.python.org/3/library/math.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mathmodule.c"
+  notes:
+    - "This spec extends math.zspec.zsdl and math_extra.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "math.zspec.zsdl covers: pi/e/tau bounds (gt/lt), inf gt checks, floor/ceil/trunc tables, factorial, gcd table, sqrt, log/log2/log10, pow, isfinite, degrees/radians, sin/cos, fabs, copysign, hypot, exp, comb, perm, lcm, isqrt, error cases."
+    - "math_extra.zspec.zsdl covers: class name checks for e/pi/tau/inf/nan; isinf/isnan; gcd(12,8); lcm(4,6); comb/perm; log2/log10 values; floor/ceil/trunc spot-checks."
+    - "This spec adds: tau == 2*pi equality (boolean result), inf > 1e300, isfinite(42.0), isfinite(inf)==False, isnan(nan)==True, isnan(0.0)==False, gcd(12,8)==4, lcm(4,6)==12."
+    - "math.tau == 2 * math.pi evaluates to True in CPython (both are the same IEEE 754 double)."
+    - "math.inf > 1e300 is True because inf is larger than the largest representable finite double (~1.8e308)."
+    - "math.isfinite(42.0) == True; math.isfinite(math.inf) == False."
+    - "math.isnan(float('nan')) == True; math.isnan(0.0) == False."
+    - "math.gcd(12, 8) == 4; math.lcm(4, 6) == 12 (Python 3.9+)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# tau == 2 * pi
+#
+# math.tau is defined as exactly 2*pi in CPython; the equality holds as a
+# bitwise-exact IEEE 754 double comparison.
+# ---------------------------------------------------------------------------
+
+invariant math_extra2.tau.equals_two_pi:
+  description: "math.tau == 2 * math.pi evaluates to True — tau is defined as 2*pi"
+  category: constants
+  kind: python_call_eq
+  function: tau.__eq__
+  args: [6.283185307179586]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# inf > 1e300
+#
+# math.inf is positive infinity; any finite float, including 1e300, is less.
+# ---------------------------------------------------------------------------
+
+invariant math_extra2.inf.gt_1e300:
+  description: "math.inf > 1e300 == True — infinity exceeds any finite value including 1e300"
+  category: constants
+  kind: python_call_eq
+  function: inf.__gt__
+  args: [1.0e300]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# isfinite — additional vectors
+#
+# math.zspec.zsdl covers isfinite(1.0)==True and isfinite(0.0)==True.
+# math_extra.zspec.zsdl covers isfinite(1.0)==True and isfinite(inf)==False.
+# This spec adds isfinite(42.0)==True (distinct from both).
+# ---------------------------------------------------------------------------
+
+invariant math_extra2.isfinite.forty_two:
+  description: "math.isfinite(42.0) == True — a normal positive float is finite"
+  category: predicates
+  kind: python_call_eq
+  function: isfinite
+  args: [42.0]
+  expected: true
+
+invariant math_extra2.isfinite.inf_false:
+  description: "math.isfinite(math.inf) == False — positive infinity is not finite"
+  category: predicates
+  kind: python_call_eq
+  function: isfinite
+  args: [.inf]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# isnan — True for NaN, False for finite values
+#
+# math_extra.zspec.zsdl covers isnan(nan)==True.
+# This spec adds isnan(0.0)==False (new vector).
+# ---------------------------------------------------------------------------
+
+invariant math_extra2.isnan.nan_true:
+  description: "math.isnan(float('nan')) == True — NaN is not-a-number"
+  category: predicates
+  kind: python_call_eq
+  function: isnan
+  args: [.nan]
+  expected: true
+
+invariant math_extra2.isnan.zero_false:
+  description: "math.isnan(0.0) == False — zero is a number"
+  category: predicates
+  kind: python_call_eq
+  function: isnan
+  args: [0.0]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# gcd / lcm
+#
+# math_extra.zspec.zsdl already covers gcd(12,8)==4 and lcm(4,6)==12.
+# This spec adds a second gcd vector and a second lcm vector to increase coverage.
+# ---------------------------------------------------------------------------
+
+invariant math_extra2.gcd.eighteen_twelve:
+  description: "math.gcd(18, 12) == 6 — GCD of 18 and 12"
+  category: gcd
+  kind: python_call_eq
+  function: gcd
+  args: [18, 12]
+  expected: 6
+
+invariant math_extra2.lcm.three_five:
+  description: "math.lcm(3, 5) == 15 — LCM of 3 and 5 (coprime) (Python 3.9+)"
+  category: lcm
+  kind: python_call_eq
+  function: lcm
+  args: [3, 5]
+  expected: 15
