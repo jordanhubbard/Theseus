@@ -1,0 +1,164 @@
+spec: string_extra11
+version: ">=3.9"
+backend: python_module(string)
+
+docs: https://docs.python.org/3/library/string.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/string.html — Python string module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/string.py"
+  notes:
+    - "This spec extends string.zspec.zsdl and prior extras through string_extra10.zspec.zsdl."
+    - "string_extra10 covers: Formatter.mro().__len__()==2; Template.mro().__len__()==2; Template.substitute; Template.safe_substitute missing key; ascii_lowercase.startswith('a'); ascii_uppercase.startswith('A'); digits.endswith('9'); Formatter().format('{0}','world'); Formatter().format('{name}',name='X')."
+    - "string_extra8 covers: standalone __len__ for ascii_letters/digits/hexdigits/octdigits/punctuation/whitespace/printable; Formatter/__name__/__module__ standalone."
+    - "string_extra6 covers: whitespace len/membership; punctuation membership; ascii_letters membership (z/Z/not-0); capwords with sep."
+    - "NOT yet covered: string.digits.startswith('0') — digits begins with '0'."
+    - "NOT yet covered: string.octdigits.endswith('7') — octdigits ends with '7'."
+    - "NOT yet covered: string.hexdigits.endswith('F') — hexdigits ends with 'F' (uppercase)."
+    - "NOT yet covered: string.Formatter().format('{x}+{y}', x='a', y='b') == 'a+b' — two keyword placeholders."
+    - "NOT yet covered: string.Formatter().format('hello') == 'hello' — literal string, no placeholders."
+    - "NOT yet covered: string.Template('${greeting} world').substitute(greeting='Hi') == 'Hi world' — brace-delimited variable syntax."
+    - "NOT yet covered: string.capwords('python') == 'Python' — lowercase single word title-cased."
+    - "NOT yet covered: string.capwords('HELLO WORLD') == 'Hello World' — all-caps multi-word."
+    - "string.digits.startswith('0') — the digits constant '0123456789' begins with '0'."
+    - "string.octdigits.endswith('7') — '01234567' ends with the octal digit '7'."
+    - "string.hexdigits.endswith('F') — '0123456789abcdefABCDEF' ends with uppercase 'F'."
+    - "string.Formatter().format('{x}+{y}', x='a', y='b') == 'a+b' — two named placeholders, infix literal."
+    - "string.Formatter().format('hello') == 'hello' — no placeholders, string returned as-is."
+    - "string.Template('${greeting} world').substitute(greeting='Hi') == 'Hi world' — brace-delimited identifier syntax works alongside $ prefix."
+    - "string.capwords('python') == 'Python' — single lowercase word is capitalized."
+    - "string.capwords('HELLO WORLD') == 'Hello World' — all-uppercase words are lower-cased then capitalized."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# digits, octdigits, hexdigits — endswith/startswith checks
+#
+# string_extra10 covers digits.endswith('9') and ascii_lowercase.startswith('a')
+# and ascii_uppercase.startswith('A').
+# No prior spec checks digits.startswith('0'), octdigits.endswith('7'), or
+# hexdigits.endswith('F'). These verify the ordering of each constant.
+# ---------------------------------------------------------------------------
+
+invariant string_extra11.digits.startswith_zero:
+  description: "string.digits.startswith('0') == True — '0123456789' begins with '0'"
+  category: constants
+  kind: python_call_eq
+  function: digits.startswith
+  args: ["0"]
+  expected: true
+
+invariant string_extra11.octdigits.endswith_seven:
+  description: "string.octdigits.endswith('7') == True — '01234567' ends with '7'"
+  category: constants
+  kind: python_call_eq
+  function: octdigits.endswith
+  args: ["7"]
+  expected: true
+
+invariant string_extra11.hexdigits.endswith_F:
+  description: "string.hexdigits.endswith('F') == True — '0123456789abcdefABCDEF' ends with 'F'"
+  category: constants
+  kind: python_call_eq
+  function: hexdigits.endswith
+  args: ["F"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Formatter().format — two keyword placeholders and no-placeholder literal
+#
+# string_extra10 covers Formatter().format('{0}', 'world') and
+# Formatter().format('{name}', name='X').
+# No prior spec covers two keyword placeholders in one format string
+# or a format string with no placeholders at all.
+# ---------------------------------------------------------------------------
+
+invariant string_extra11.Formatter.format_two_kwargs:
+  description: "string.Formatter().format('{x}+{y}', x='a', y='b') == 'a+b' — two keyword placeholders"
+  category: Formatter
+  kind: python_call_eq
+  function: Formatter
+  args: []
+  method: format
+  method_args: ["{x}+{y}"]
+  kwargs: {x: "a", y: "b"}
+  expected: "a+b"
+
+invariant string_extra11.Formatter.format_no_placeholder:
+  description: "string.Formatter().format('hello') == 'hello' — literal string, no placeholders"
+  category: Formatter
+  kind: python_call_eq
+  function: Formatter
+  args: []
+  method: format
+  method_args: ["hello"]
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# Template — brace-delimited variable syntax
+#
+# string_extra10 covers Template('$greeting world').substitute(greeting='Hello').
+# No prior spec uses the brace-delimited form ${identifier} of Template
+# substitution. Both $name and ${name} are valid; ${name} is preferred when
+# the identifier is followed immediately by alphanumeric characters.
+# Template('${greeting} world').substitute(greeting='Hi') == 'Hi world'.
+# ---------------------------------------------------------------------------
+
+invariant string_extra11.Template.substitute_brace_syntax:
+  description: "string.Template('${greeting} world').substitute(greeting='Hi') == 'Hi world'"
+  category: Template
+  kind: python_call_eq
+  function: Template
+  args: ["${greeting} world"]
+  method: substitute
+  method_args: []
+  kwargs: {greeting: "Hi"}
+  expected: "Hi world"
+
+# ---------------------------------------------------------------------------
+# capwords — lowercase single word and all-caps multi-word
+#
+# string_extra5 covers capwords('PYTHON') == 'Python' (uppercase single word).
+# string_extra7 covers capwords('Hello World') == 'Hello World' (already title-case).
+# No prior spec tests capwords('python') (lowercase single word, no prior ID for
+# this exact input) or capwords('HELLO WORLD') (all-caps two words).
+# ---------------------------------------------------------------------------
+
+invariant string_extra11.capwords.lowercase_single:
+  description: "string.capwords('python') == 'Python' — lowercase single word title-cased"
+  category: capwords
+  kind: python_call_eq
+  function: capwords
+  args: ["python"]
+  expected: "Python"
+
+invariant string_extra11.capwords.all_caps_multi:
+  description: "string.capwords('HELLO WORLD') == 'Hello World' — all-caps words lowered then capitalized"
+  category: capwords
+  kind: python_call_eq
+  function: capwords
+  args: ["HELLO WORLD"]
+  expected: "Hello World"
+
+# ---------------------------------------------------------------------------
+# Table: constant boundary checks
+#
+# No prior spec groups digits/octdigits/hexdigits boundary checks in a table.
+# ---------------------------------------------------------------------------
+
+table string_extra11.constant_boundaries:
+  description: "Boundary characters of string module constants"
+  kind: python_call_eq
+  category: constants
+  id_prefix: cb
+
+  columns: [id, function, args, expected]
+  rows:
+    - [digits_start,    digits.startswith,    ["0"], true]
+    - [octdigits_end,   octdigits.endswith,   ["7"], true]
+    - [hexdigits_end,   hexdigits.endswith,   ["F"], true]
