@@ -1,0 +1,199 @@
+spec: json_decoder
+version: ">=3.0"
+backend: python_module(json.decoder)
+
+docs: https://docs.python.org/3/library/json.html#json.JSONDecoder
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/json.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "json.decoder source: Lib/json/decoder.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "json.decoder source: Modules/_json.c (C accelerator implementation)"
+  notes:
+    - "json.zspec.zsdl covers the high-level json.loads() / json.dumps() API. This spec covers json.decoder internals."
+    - "JSONDecoder is the low-level decoder class; JSONDecodeError is raised for malformed JSON."
+    - "JSONDecodeError is a subclass of ValueError."
+    - "scanstring(s, end) takes a JSON string (including surrounding quotes) and the index after the opening quote; it returns (decoded_str, end_index)."
+    - "scanstring('\"hello world\"', 1) returns ('hello world', 13)."
+    - "JSONDecoder(strict=False) allows control characters inside JSON strings."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# class_names — verify __name__ of core decoder classes
+# ---------------------------------------------------------------------------
+
+table json_decoder.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [json_decoder,      JSONDecoder.__name__.__eq__,     ["JSONDecoder"],     true]
+    - [json_decode_error, JSONDecodeError.__name__.__eq__,  ["JSONDecodeError"], true]
+
+# ---------------------------------------------------------------------------
+# function_names — verify __name__ of scanstring
+# ---------------------------------------------------------------------------
+
+invariant json_decoder.function_names.scanstring:
+  description: "scanstring.__name__ == 'scanstring'"
+  category: functions
+  kind: python_call_eq
+  function: scanstring.__name__.__eq__
+  args: ["scanstring"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# decode — JSONDecoder().decode() for primitive and compound values
+# ---------------------------------------------------------------------------
+
+invariant json_decoder.decode_int:
+  description: "JSONDecoder().decode('42') == 42"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["42"]
+  expected: 42
+
+invariant json_decoder.decode_string:
+  description: "JSONDecoder().decode('\"hello\"') == 'hello'"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["\"hello\""]
+  expected: "hello"
+
+invariant json_decoder.decode_null:
+  description: "JSONDecoder().decode('null') == None"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["null"]
+  expected: ~
+
+invariant json_decoder.decode_true:
+  description: "JSONDecoder().decode('true') == True"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["true"]
+  expected: true
+
+invariant json_decoder.decode_false:
+  description: "JSONDecoder().decode('false') == False"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["false"]
+  expected: false
+
+invariant json_decoder.decode_array:
+  description: "JSONDecoder().decode('[1, 2, 3]') == [1, 2, 3]"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["[1, 2, 3]"]
+  expected: [1, 2, 3]
+
+invariant json_decoder.decode_object:
+  description: "JSONDecoder().decode('{\"a\": 1}') == {'a': 1}"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["{\"a\": 1}"]
+  expected: {a: 1}
+
+invariant json_decoder.decode_negative_int:
+  description: "JSONDecoder().decode('-7') == -7"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["-7"]
+  expected: -7
+
+# ---------------------------------------------------------------------------
+# decode errors — JSONDecodeError raised for invalid JSON
+# ---------------------------------------------------------------------------
+
+table json_decoder.decode_errors:
+  kind: python_call_raises
+  category: errors
+  id_prefix: decode_err
+  function: JSONDecoder
+  args: []
+  method: decode
+  expected_exception: json.JSONDecodeError
+
+  columns: [id, method_args]
+  rows:
+    - [invalid_token,    ["invalid json"]]
+    - [truncated_object, ["{"]]
+    - [bare_string,      ["hello"]]
+    - [empty_string,     [""]]
+
+# ---------------------------------------------------------------------------
+# scanstring — decode a JSON-encoded string
+# ---------------------------------------------------------------------------
+
+invariant json_decoder.scanstring_value:
+  description: "scanstring('\"hello world\"', 1)[0] == 'hello world'"
+  category: scanstring
+  kind: python_call_eq
+  function: scanstring
+  args: ["\"hello world\"", 1]
+  method: __getitem__
+  method_args: [0]
+  expected: "hello world"
+
+invariant json_decoder.scanstring_end_index:
+  description: "scanstring('\"hello world\"', 1)[1] == 13 — end index after closing quote"
+  category: scanstring
+  kind: python_call_eq
+  function: scanstring
+  args: ["\"hello world\"", 1]
+  method: __getitem__
+  method_args: [1]
+  expected: 13
+
+# ---------------------------------------------------------------------------
+# JSONDecodeError — error attributes
+# ---------------------------------------------------------------------------
+
+invariant json_decoder.decode_error_bases:
+  description: "JSONDecodeError.__bases__[0].__name__ == 'ValueError'"
+  category: errors
+  kind: python_call_eq
+  function: JSONDecodeError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ValueError"
+
+invariant json_decoder.decode_error_module:
+  description: "JSONDecodeError.__module__ == 'json.decoder'"
+  category: classes
+  kind: python_call_eq
+  function: JSONDecodeError.__module__.__eq__
+  args: ["json.decoder"]
+  expected: true

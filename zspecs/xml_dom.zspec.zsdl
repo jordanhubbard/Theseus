@@ -1,0 +1,197 @@
+spec: xml_dom
+version: ">=3.0"
+backend: python_module(xml.dom.minidom)
+
+docs: https://docs.python.org/3/library/xml.dom.minidom.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/xml.dom.minidom.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "xml.dom.minidom source: Lib/xml/dom/minidom.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "xml.dom.minidom source: internal DOM tree implementation"
+  notes:
+    - "xml.dom.minidom is a lightweight DOM Level 1/2 implementation included in the Python stdlib."
+    - "The backend is python_module(xml.dom.minidom); all top-level names (Document, Element, Node, parseString, etc.) are resolved from that module."
+    - "Node type constants (ELEMENT_NODE, TEXT_NODE, etc.) are on xml.dom.minidom.Node, accessible as Node.ELEMENT_NODE."
+    - "parseString returns a Document; documentElement is the root Element."
+    - "Document() can be constructed directly; createElement and createTextNode return Element and Text nodes."
+    - "toxml() returns a string beginning with the XML declaration."
+    - "getDOMImplementation() returns a DOMImplementation instance."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Malformed XML raises xml.etree.ElementTree.ParseError (or xml.parsers.expat.ExpatError). Each call is independent and stateless."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# class_names — verify __name__ of core DOM classes
+# ---------------------------------------------------------------------------
+
+table xml_dom.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [document,                Document.__name__.__eq__,               ["Document"],               true]
+    - [element,                 Element.__name__.__eq__,                ["Element"],                true]
+    - [text,                    Text.__name__.__eq__,                   ["Text"],                   true]
+    - [attr,                    Attr.__name__.__eq__,                   ["Attr"],                   true]
+    - [node,                    Node.__name__.__eq__,                   ["Node"],                   true]
+    - [comment,                 Comment.__name__.__eq__,                ["Comment"],                true]
+    - [processing_instruction,  ProcessingInstruction.__name__.__eq__,  ["ProcessingInstruction"],  true]
+    - [cdata_section,           CDATASection.__name__.__eq__,           ["CDATASection"],           true]
+    - [document_fragment,       DocumentFragment.__name__.__eq__,       ["DocumentFragment"],       true]
+    - [document_type,           DocumentType.__name__.__eq__,           ["DocumentType"],           true]
+    - [dom_implementation,      DOMImplementation.__name__.__eq__,      ["DOMImplementation"],      true]
+
+# ---------------------------------------------------------------------------
+# function_names — verify __name__ of top-level functions
+# ---------------------------------------------------------------------------
+
+table xml_dom.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [parse_string,          parseString.__name__.__eq__,         ["parseString"],         true]
+    - [parse,                 parse.__name__.__eq__,               ["parse"],               true]
+    - [get_dom_implementation, getDOMImplementation.__name__.__eq__, ["getDOMImplementation"], true]
+
+# ---------------------------------------------------------------------------
+# node_type_constants — pin exact integer values for DOM node type constants
+# ---------------------------------------------------------------------------
+
+table xml_dom.node_type_constants:
+  kind: python_call_eq
+  category: node_types
+  id_prefix: nodetype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [element_node,   Node.ELEMENT_NODE.__eq__,    [1],  true]
+    - [attribute_node, Node.ATTRIBUTE_NODE.__eq__,  [2],  true]
+    - [text_node,      Node.TEXT_NODE.__eq__,        [3],  true]
+    - [cdata_node,     Node.CDATA_SECTION_NODE.__eq__, [4], true]
+    - [comment_node,   Node.COMMENT_NODE.__eq__,    [8],  true]
+    - [document_node,  Node.DOCUMENT_NODE.__eq__,   [9],  true]
+
+# ---------------------------------------------------------------------------
+# parseString — parse XML strings and inspect the DOM
+# ---------------------------------------------------------------------------
+
+invariant xml_dom.parse_tagname:
+  description: "parseString('<root/>').documentElement.tagName == 'root'"
+  category: parse
+  kind: python_call_eq
+  function: parseString
+  args: ["<root/>"]
+  method: documentElement
+  method_args: []
+  method_chain: tagName
+  expected: "root"
+
+invariant xml_dom.parse_nodename:
+  description: "parseString('<root/>').documentElement.nodeName == 'root'"
+  category: parse
+  kind: python_call_eq
+  function: parseString
+  args: ["<root/>"]
+  method: documentElement
+  method_args: []
+  method_chain: nodeName
+  expected: "root"
+
+invariant xml_dom.parse_nodetype_document:
+  description: "parseString('<r/>').nodeType == 9 (DOCUMENT_NODE)"
+  category: parse
+  kind: python_call_eq
+  function: parseString
+  args: ["<r/>"]
+  method: nodeType
+  expected: 9
+
+invariant xml_dom.parse_nodetype_element:
+  description: "parseString('<r/>').documentElement.nodeType == 1 (ELEMENT_NODE)"
+  category: parse
+  kind: python_call_eq
+  function: parseString
+  args: ["<r/>"]
+  method: documentElement
+  method_args: []
+  method_chain: nodeType
+  expected: 1
+
+invariant xml_dom.parse_get_attribute:
+  description: "parseString('<r foo=\"bar\"/>').documentElement.getAttribute('foo') == 'bar'"
+  category: parse
+  kind: python_call_eq
+  function: parseString
+  args: ['<r foo="bar"/>']
+  method: documentElement
+  method_args: []
+  method_chain: getAttribute
+  method_chain_args: ["foo"]
+  expected: "bar"
+
+invariant xml_dom.toxml_type:
+  description: "parseString('<r/>').toxml() returns a str"
+  category: parse
+  kind: python_call_eq
+  function: parseString
+  args: ["<r/>"]
+  method: toxml
+  method_args: []
+  method_chain: __class__
+  method_chain_args: []
+  method_chain_2: __name__
+  expected: "str"
+
+# ---------------------------------------------------------------------------
+# Document construction — createElement and createTextNode
+# ---------------------------------------------------------------------------
+
+invariant xml_dom.create_element_tagname:
+  description: "Document().createElement('div').tagName == 'div'"
+  category: document
+  kind: python_call_eq
+  function: Document
+  args: []
+  method: createElement
+  method_args: ["div"]
+  method_chain: tagName
+  expected: "div"
+
+invariant xml_dom.create_textnode_data:
+  description: "Document().createTextNode('hello').data == 'hello'"
+  category: document
+  kind: python_call_eq
+  function: Document
+  args: []
+  method: createTextNode
+  method_args: ["hello"]
+  method_chain: data
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# getDOMImplementation — returns a DOMImplementation instance
+# ---------------------------------------------------------------------------
+
+invariant xml_dom.get_dom_implementation_type:
+  description: "getDOMImplementation().__class__.__name__ == 'DOMImplementation'"
+  category: implementation
+  kind: python_call_eq
+  function: getDOMImplementation
+  args: []
+  method: __class__
+  method_args: []
+  method_chain: __name__
+  expected: "DOMImplementation"

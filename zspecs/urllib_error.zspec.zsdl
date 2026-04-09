@@ -1,0 +1,139 @@
+spec: urllib_error
+version: ">=3.0"
+backend: python_module(urllib.error)
+
+docs: https://docs.python.org/3/library/urllib.error.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/urllib.error.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "urllib.error source: Lib/urllib/error.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "urllib.error source: internal socket/HTTP implementation details"
+  notes:
+    - "urllib.error defines three exception classes: URLError, HTTPError, and ContentTooShortError."
+    - "URLError wraps a reason (string or another exception) for failed URL operations."
+    - "HTTPError is a subclass of both URLError and urllib.response.addinfourl; it carries HTTP status code, reason, url, and headers."
+    - "URLError.__bases__[0] is OSError."
+    - "HTTPError.__bases__ are [URLError, addinfourl]."
+    - "ContentTooShortError is raised when the downloaded data is shorter than expected (e.g. urlretrieve)."
+    - "HTTPError args: (url, code, msg, hdrs, fp); hdrs can be an empty dict, fp can be None."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Each class is an exception; they are raised by urllib.request operations on network failures or HTTP errors. Each construction is stateless."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# class_names — verify __name__ of urllib.error exception classes
+# ---------------------------------------------------------------------------
+
+table urllib_error.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [url_error,             URLError.__name__.__eq__,             ["URLError"],             true]
+    - [http_error,            HTTPError.__name__.__eq__,            ["HTTPError"],            true]
+    - [content_too_short,     ContentTooShortError.__name__.__eq__,  ["ContentTooShortError"], true]
+
+# ---------------------------------------------------------------------------
+# module membership — verify __module__ of exception classes
+# ---------------------------------------------------------------------------
+
+table urllib_error.modules:
+  kind: python_call_eq
+  category: module
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [url_error_module,         URLError.__module__.__eq__,          ["urllib.error"], true]
+    - [http_error_module,        HTTPError.__module__.__eq__,         ["urllib.error"], true]
+    - [content_too_short_module, ContentTooShortError.__module__.__eq__, ["urllib.error"], true]
+
+# ---------------------------------------------------------------------------
+# URLError — construction and attributes
+# ---------------------------------------------------------------------------
+
+invariant urllib_error.urlerror_reason:
+  description: "URLError('connection refused').reason == 'connection refused'"
+  category: urlerror
+  kind: python_call_eq
+  function: URLError
+  args: ["connection refused"]
+  method: reason
+  expected: "connection refused"
+
+invariant urllib_error.urlerror_reason_test:
+  description: "URLError('test reason').reason == 'test reason'"
+  category: urlerror
+  kind: python_call_eq
+  function: URLError
+  args: ["test reason"]
+  method: reason
+  expected: "test reason"
+
+invariant urllib_error.urlerror_base_class:
+  description: "URLError.__bases__[0].__name__ == 'OSError'"
+  category: urlerror
+  kind: python_call_eq
+  function: URLError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "OSError"
+
+# ---------------------------------------------------------------------------
+# HTTPError — construction and attributes
+# ---------------------------------------------------------------------------
+
+invariant urllib_error.httperror_code:
+  description: "HTTPError('http://example.com', 404, 'Not Found', {}, None).code == 404"
+  category: httperror
+  kind: python_call_eq
+  function: HTTPError
+  args: ["http://example.com", 404, "Not Found", {}, null]
+  method: code
+  expected: 404
+
+invariant urllib_error.httperror_reason:
+  description: "HTTPError('http://example.com', 404, 'Not Found', {}, None).reason == 'Not Found'"
+  category: httperror
+  kind: python_call_eq
+  function: HTTPError
+  args: ["http://example.com", 404, "Not Found", {}, null]
+  method: reason
+  expected: "Not Found"
+
+invariant urllib_error.httperror_url:
+  description: "HTTPError('http://example.com', 404, 'Not Found', {}, None).url == 'http://example.com'"
+  category: httperror
+  kind: python_call_eq
+  function: HTTPError
+  args: ["http://example.com", 404, "Not Found", {}, null]
+  method: url
+  expected: "http://example.com"
+
+invariant urllib_error.httperror_500_code:
+  description: "HTTPError('http://example.com', 500, 'Internal Server Error', {}, None).code == 500"
+  category: httperror
+  kind: python_call_eq
+  function: HTTPError
+  args: ["http://example.com", 500, "Internal Server Error", {}, null]
+  method: code
+  expected: 500
+
+invariant urllib_error.httperror_is_urlerror:
+  description: "HTTPError.__bases__[0].__name__ == 'URLError' — HTTPError subclasses URLError"
+  category: httperror
+  kind: python_call_eq
+  function: HTTPError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "URLError"

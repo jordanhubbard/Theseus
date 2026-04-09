@@ -1,0 +1,166 @@
+spec: ctypes_module
+version: ">=3.0"
+backend: python_module(ctypes)
+
+docs: https://docs.python.org/3/library/ctypes.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/ctypes.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "ctypes source: Lib/ctypes/__init__.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "ctypes source: internal _ctypes C extension implementation"
+  notes:
+    - "This spec covers the Python ctypes MODULE (class names, type objects, instance values) — NOT the Theseus ctypes backend for C shared-library verification."
+    - "c_longlong.__name__ is 'c_long' on 64-bit platforms where long == long long; similarly c_ulonglong.__name__ == 'c_ulong'."
+    - "c_size_t.__name__ == 'c_ulong' and c_ssize_t.__name__ == 'c_long' on 64-bit Darwin."
+    - "c_bool(True).value is True (Python bool); c_bool(False).value is False."
+    - "c_double(3.14).value returns the exact IEEE 754 double repr of 3.14."
+    - "sizeof() is not exercised here because passing a ctypes type class as a JSON arg is not supported by the ZSDL python_call_eq harness."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# C fundamental type class names
+#
+# Each ctypes C type is a class; __name__ identifies its canonical alias.
+# On 64-bit Darwin: c_longlong.__name__ == 'c_long', c_size_t.__name__ == 'c_ulong'.
+# ---------------------------------------------------------------------------
+
+table ctypes_module.ctype_names:
+  kind: python_call_eq
+  category: ctype_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [c_int,       c_int.__name__.__eq__,       ["c_int"],    true]
+    - [c_long,      c_long.__name__.__eq__,       ["c_long"],   true]
+    - [c_float,     c_float.__name__.__eq__,      ["c_float"],  true]
+    - [c_double,    c_double.__name__.__eq__,     ["c_double"], true]
+    - [c_char,      c_char.__name__.__eq__,       ["c_char"],   true]
+    - [c_bool,      c_bool.__name__.__eq__,       ["c_bool"],   true]
+    - [c_byte,      c_byte.__name__.__eq__,       ["c_byte"],   true]
+    - [c_ubyte,     c_ubyte.__name__.__eq__,      ["c_ubyte"],  true]
+    - [c_short,     c_short.__name__.__eq__,      ["c_short"],  true]
+    - [c_ushort,    c_ushort.__name__.__eq__,     ["c_ushort"], true]
+    - [c_uint,      c_uint.__name__.__eq__,       ["c_uint"],   true]
+    - [c_ulong,     c_ulong.__name__.__eq__,      ["c_ulong"],  true]
+    - [c_char_p,    c_char_p.__name__.__eq__,     ["c_char_p"], true]
+    - [c_wchar_p,   c_wchar_p.__name__.__eq__,    ["c_wchar_p"], true]
+    - [c_void_p,    c_void_p.__name__.__eq__,     ["c_void_p"], true]
+    - [c_wchar,     c_wchar.__name__.__eq__,      ["c_wchar"],  true]
+
+# ---------------------------------------------------------------------------
+# Composite/container type class names
+# ---------------------------------------------------------------------------
+
+table ctypes_module.container_names:
+  kind: python_call_eq
+  category: container_names
+  id_prefix: cont
+
+  columns: [id, function, args, expected]
+  rows:
+    - [structure,  Structure.__name__.__eq__,  ["Structure"],  true]
+    - [union,      Union.__name__.__eq__,      ["Union"],      true]
+    - [array,      Array.__name__.__eq__,      ["Array"],      true]
+
+# ---------------------------------------------------------------------------
+# Library loader class names
+# ---------------------------------------------------------------------------
+
+invariant ctypes_module.loader.CDLL_name:
+  description: "ctypes.CDLL.__name__ == 'CDLL'"
+  category: loader_names
+  kind: python_call_eq
+  function: CDLL.__name__.__eq__
+  args: ["CDLL"]
+  expected: true
+
+invariant ctypes_module.loader.PyDLL_name:
+  description: "ctypes.PyDLL.__name__ == 'PyDLL'"
+  category: loader_names
+  kind: python_call_eq
+  function: PyDLL.__name__.__eq__
+  args: ["PyDLL"]
+  expected: true
+
+invariant ctypes_module.loader.LibraryLoader_name:
+  description: "ctypes.LibraryLoader.__name__ == 'LibraryLoader'"
+  category: loader_names
+  kind: python_call_eq
+  function: LibraryLoader.__name__.__eq__
+  args: ["LibraryLoader"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# c_int instance — .value attribute
+#
+# c_int(42) wraps the C int 42; the .value attribute retrieves the Python int.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_module.c_int.value_42:
+  description: "ctypes.c_int(42).value == 42"
+  category: instance_values
+  kind: python_call_eq
+  function: c_int
+  args: [42]
+  method: value
+  expected: 42
+
+# ---------------------------------------------------------------------------
+# c_double instance — .value attribute
+# ---------------------------------------------------------------------------
+
+invariant ctypes_module.c_double.value_3_14:
+  description: "ctypes.c_double(3.14).value == 3.14"
+  category: instance_values
+  kind: python_call_eq
+  function: c_double
+  args: [3.14]
+  method: value
+  expected: 3.14
+
+# ---------------------------------------------------------------------------
+# c_bool instance — .value attribute
+# ---------------------------------------------------------------------------
+
+invariant ctypes_module.c_bool.value_true:
+  description: "ctypes.c_bool(True).value == True"
+  category: instance_values
+  kind: python_call_eq
+  function: c_bool
+  args: [true]
+  method: value
+  expected: true
+
+invariant ctypes_module.c_bool.value_false:
+  description: "ctypes.c_bool(False).value == False"
+  category: instance_values
+  kind: python_call_eq
+  function: c_bool
+  args: [false]
+  method: value
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Helper function name checks
+#
+# byref, cast, addressof, and POINTER are core ctypes helper callables.
+# ---------------------------------------------------------------------------
+
+table ctypes_module.helper_names:
+  kind: python_call_eq
+  category: helper_names
+  id_prefix: hname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [byref,      byref.__name__.__eq__,      ["byref"],      true]
+    - [cast,       cast.__name__.__eq__,        ["cast"],       true]
+    - [addressof,  addressof.__name__.__eq__,   ["addressof"],  true]
+    - [POINTER,    POINTER.__name__.__eq__,     ["POINTER"],    true]

@@ -1,0 +1,170 @@
+spec: mimetypes
+version: ">=3.0"
+backend: python_module(mimetypes)
+
+docs: https://docs.python.org/3/library/mimetypes.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/mimetypes.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "mimetypes source: Lib/mimetypes.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "mimetypes source: internal OS MIME database lookup tables"
+  notes:
+    - "guess_type(url) returns a (type, encoding) tuple; type is None if unknown, encoding is None for non-compressed files."
+    - "guess_type('.gz') returns (None, 'gzip') — encoding, not a content type."
+    - "guess_extension(type) returns the primary file extension for the given MIME type."
+    - "guess_all_extensions(type) returns a list of all known extensions for the type."
+    - "types_map is a dict mapping file extensions (with leading dot) to MIME type strings."
+    - "All MIME type values verified on macOS/Darwin 25.4.0 with Python 3.12 on 2026-04-09."
+    - "The .js extension maps to 'text/javascript' on this platform (RFC 9239 standard)."
+    - "The .xml extension maps to 'application/xml' on this platform."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table mimetypes.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [guess_type,           guess_type.__name__.__eq__,           ["guess_type"],           true]
+    - [guess_extension,      guess_extension.__name__.__eq__,      ["guess_extension"],      true]
+    - [guess_all_extensions, guess_all_extensions.__name__.__eq__, ["guess_all_extensions"], true]
+    - [add_type,             add_type.__name__.__eq__,             ["add_type"],             true]
+    - [init,                 init.__name__.__eq__,                 ["init"],                 true]
+    - [read_mime_types,      read_mime_types.__name__.__eq__,      ["read_mime_types"],      true]
+
+# ---------------------------------------------------------------------------
+# Class name check
+# ---------------------------------------------------------------------------
+
+invariant mimetypes.MimeTypes_name:
+  description: "mimetypes.MimeTypes.__name__ == 'MimeTypes'"
+  category: class_names
+  kind: python_call_eq
+  function: MimeTypes.__name__.__eq__
+  args: ["MimeTypes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# guess_type — common file extensions
+# ---------------------------------------------------------------------------
+
+table mimetypes.guess_type_mime:
+  kind: python_call_eq
+  category: guess_type
+  id_prefix: gt
+  method: __getitem__
+  method_args: [0]
+
+  columns: [id, function, args, expected]
+  rows:
+    - [html, guess_type, ["file.html"], "text/html"      ]
+    - [txt,  guess_type, ["file.txt"],  "text/plain"     ]
+    - [json, guess_type, ["file.json"], "application/json"]
+    - [pdf,  guess_type, ["file.pdf"],  "application/pdf" ]
+    - [png,  guess_type, ["file.png"],  "image/png"       ]
+    - [jpg,  guess_type, ["file.jpg"],  "image/jpeg"      ]
+    - [gif,  guess_type, ["file.gif"],  "image/gif"       ]
+    - [css,  guess_type, ["file.css"],  "text/css"        ]
+    - [js,   guess_type, ["file.js"],   "text/javascript" ]
+    - [xml,  guess_type, ["file.xml"],  "application/xml" ]
+    - [zip,  guess_type, ["file.zip"],  "application/zip" ]
+    - [tar,  guess_type, ["file.tar"],  "application/x-tar"]
+    - [svg,  guess_type, ["file.svg"],  "image/svg+xml"   ]
+    - [csv,  guess_type, ["file.csv"],  "text/csv"        ]
+
+# ---------------------------------------------------------------------------
+# guess_type — unknown extension returns None as type
+# ---------------------------------------------------------------------------
+
+invariant mimetypes.unknown_type:
+  description: "guess_type('file.unknownxyz')[0] == None — unrecognized extension"
+  category: guess_type
+  kind: python_call_eq
+  function: guess_type
+  args: ["file.unknownxyz"]
+  method: __getitem__
+  method_args: [0]
+  expected: null
+
+# ---------------------------------------------------------------------------
+# guess_type — .gz returns encoding, not MIME type
+# ---------------------------------------------------------------------------
+
+invariant mimetypes.gz_encoding:
+  description: "guess_type('file.gz')[1] == 'gzip' — .gz is a compression encoding"
+  category: guess_type
+  kind: python_call_eq
+  function: guess_type
+  args: ["file.gz"]
+  method: __getitem__
+  method_args: [1]
+  expected: "gzip"
+
+invariant mimetypes.gz_type_null:
+  description: "guess_type('file.gz')[0] == None — .gz has no standalone MIME type"
+  category: guess_type
+  kind: python_call_eq
+  function: guess_type
+  args: ["file.gz"]
+  method: __getitem__
+  method_args: [0]
+  expected: null
+
+# ---------------------------------------------------------------------------
+# guess_extension — MIME type → extension
+# ---------------------------------------------------------------------------
+
+table mimetypes.guess_extension_table:
+  kind: python_call_eq
+  category: guess_extension
+  id_prefix: gext
+  function: guess_extension
+
+  columns: [id, args, expected]
+  rows:
+    - [text_html,       ["text/html"],        ".html"]
+    - [text_plain,      ["text/plain"],       ".txt" ]
+    - [image_png,       ["image/png"],        ".png" ]
+
+# ---------------------------------------------------------------------------
+# types_map — extension registry
+# ---------------------------------------------------------------------------
+
+table mimetypes.types_map_contains:
+  kind: python_call_eq
+  category: types_map
+  id_prefix: tm_has
+  function: types_map.__contains__
+
+  columns: [id, args, expected]
+  rows:
+    - [html, [".html"], true]
+    - [txt,  [".txt"],  true]
+    - [png,  [".png"],  true]
+    - [pdf,  [".pdf"],  true]
+    - [json, [".json"], true]
+
+table mimetypes.types_map_values:
+  kind: python_call_eq
+  category: types_map
+  id_prefix: tm_val
+  function: types_map.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [html, [".html"], "text/html"        ]
+    - [txt,  [".txt"],  "text/plain"       ]
+    - [png,  [".png"],  "image/png"        ]
+    - [pdf,  [".pdf"],  "application/pdf"  ]
+    - [json, [".json"], "application/json" ]
