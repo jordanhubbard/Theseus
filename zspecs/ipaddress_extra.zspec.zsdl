@@ -1,0 +1,181 @@
+spec: ipaddress_extra
+version: ">=3.3"
+backend: python_module(ipaddress)
+
+docs: https://docs.python.org/3/library/ipaddress.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/ipaddress.html"
+    - "RFC 791 — Internet Protocol (IPv4)"
+    - "RFC 1918 — Address Allocation for Private Internets"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ipaddress.py"
+    - "ipaddress.zspec.zsdl — that spec covers IPv4Address/IPv6Address attributes, IPv4Network attributes, IPv6Network, ip_address/ip_network factories, and error cases"
+  notes:
+    - "This spec covers ipaddress class names, module attributes, and additional type checks not in ipaddress.zspec.zsdl."
+    - "All six public classes (IPv4Address, IPv6Address, IPv4Network, IPv6Network, IPv4Interface, IPv6Interface) are defined directly in the ipaddress module."
+    - "IPv4Address.__module__ == 'ipaddress' for all six classes."
+    - "IPv4Address('192.168.1.1').packed returns bytes; packed.__class__.__name__ == 'bytes'."
+    - "IPv4Address('192.168.1.1').is_private == True (RFC 1918 192.168.0.0/16 range)."
+    - "IPv4Address('8.8.8.8').is_private == False (Google public DNS, not in any RFC 1918 range)."
+    - "IPv4Network('192.168.1.0/24').prefixlen == 24 and .num_addresses == 256."
+    - "ip_address('127.0.0.1').__class__.__name__ == 'IPv4Address' — factory returns correct type."
+    - "ip_network('10.0.0.0/8').__class__.__name__ == 'IPv4Network' — factory returns correct type."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class name checks — all six public ipaddress classes
+#
+# Each class has a __name__ matching its unqualified class name and a
+# __module__ of 'ipaddress'.
+# ---------------------------------------------------------------------------
+
+table ipaddress_extra.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [IPv4Address,   IPv4Address.__name__.__eq__,   ["IPv4Address"],   true]
+    - [IPv6Address,   IPv6Address.__name__.__eq__,   ["IPv6Address"],   true]
+    - [IPv4Network,   IPv4Network.__name__.__eq__,   ["IPv4Network"],   true]
+    - [IPv6Network,   IPv6Network.__name__.__eq__,   ["IPv6Network"],   true]
+    - [IPv4Interface, IPv4Interface.__name__.__eq__, ["IPv4Interface"], true]
+    - [IPv6Interface, IPv6Interface.__name__.__eq__, ["IPv6Interface"], true]
+
+# ---------------------------------------------------------------------------
+# Module checks — all six public classes live in the ipaddress module
+# ---------------------------------------------------------------------------
+
+table ipaddress_extra.class_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [IPv4Address,   IPv4Address.__module__.__eq__,   ["ipaddress"], true]
+    - [IPv6Address,   IPv6Address.__module__.__eq__,   ["ipaddress"], true]
+    - [IPv4Network,   IPv4Network.__module__.__eq__,   ["ipaddress"], true]
+    - [IPv6Network,   IPv6Network.__module__.__eq__,   ["ipaddress"], true]
+    - [IPv4Interface, IPv4Interface.__module__.__eq__, ["ipaddress"], true]
+    - [IPv6Interface, IPv6Interface.__module__.__eq__, ["ipaddress"], true]
+
+# ---------------------------------------------------------------------------
+# IPv4Address.packed — returns bytes
+#
+# packed is a bytes object containing the 4-byte big-endian representation.
+# We confirm the type via __class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra.IPv4Address.packed_is_bytes:
+  description: "IPv4Address('192.168.1.1').packed.__class__.__name__ == 'bytes'"
+  category: IPv4Address
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["192.168.1.1"]
+  method: packed
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv4Address.is_private — RFC 1918 private and public addresses
+#
+# 192.168.1.1 is in RFC 1918 192.168.0.0/16 — is_private == True.
+# 8.8.8.8 (Google DNS) is a public address — is_private == False.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra.IPv4Address.is_private_192:
+  description: "IPv4Address('192.168.1.1').is_private == True — RFC 1918 private range"
+  category: IPv4Address
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["192.168.1.1"]
+  method: is_private
+  expected: true
+
+invariant ipaddress_extra.IPv4Address.is_private_8888:
+  description: "IPv4Address('8.8.8.8').is_private == False — public address"
+  category: IPv4Address
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["8.8.8.8"]
+  method: is_private
+  expected: false
+
+# ---------------------------------------------------------------------------
+# IPv4Network('192.168.1.0/24') — prefixlen and num_addresses
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra.IPv4Network.prefixlen_24:
+  description: "IPv4Network('192.168.1.0/24').prefixlen == 24"
+  category: IPv4Network
+  kind: python_call_eq
+  function: IPv4Network
+  args: ["192.168.1.0/24"]
+  method: prefixlen
+  expected: 24
+
+invariant ipaddress_extra.IPv4Network.num_addresses_24:
+  description: "IPv4Network('192.168.1.0/24').num_addresses == 256"
+  category: IPv4Network
+  kind: python_call_eq
+  function: IPv4Network
+  args: ["192.168.1.0/24"]
+  method: num_addresses
+  expected: 256
+
+# ---------------------------------------------------------------------------
+# ip_address() factory — returned type is IPv4Address or IPv6Address
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra.ip_address.ipv4_class:
+  description: "ip_address('127.0.0.1').__class__.__name__ == 'IPv4Address'"
+  category: ip_address_factory
+  kind: python_call_eq
+  function: ip_address
+  args: ["127.0.0.1"]
+  method: __class__.__name__.__eq__
+  method_args: ["IPv4Address"]
+  expected: true
+
+invariant ipaddress_extra.ip_address.ipv6_class:
+  description: "ip_address('::1').__class__.__name__ == 'IPv6Address'"
+  category: ip_address_factory
+  kind: python_call_eq
+  function: ip_address
+  args: ["::1"]
+  method: __class__.__name__.__eq__
+  method_args: ["IPv6Address"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ip_network() factory — returned type is IPv4Network or IPv6Network
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra.ip_network.ipv4_class:
+  description: "ip_network('10.0.0.0/8').__class__.__name__ == 'IPv4Network'"
+  category: ip_network_factory
+  kind: python_call_eq
+  function: ip_network
+  args: ["10.0.0.0/8"]
+  method: __class__.__name__.__eq__
+  method_args: ["IPv4Network"]
+  expected: true
+
+invariant ipaddress_extra.ip_network.ipv6_class:
+  description: "ip_network('2001:db8::/32').__class__.__name__ == 'IPv6Network'"
+  category: ip_network_factory
+  kind: python_call_eq
+  function: ip_network
+  args: ["2001:db8::/32"]
+  method: __class__.__name__.__eq__
+  method_args: ["IPv6Network"]
+  expected: true

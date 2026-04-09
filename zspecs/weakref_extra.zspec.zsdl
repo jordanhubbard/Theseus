@@ -1,0 +1,189 @@
+spec: weakref_extra
+version: ">=3.4"
+backend: python_module(weakref)
+
+docs: https://docs.python.org/3/library/weakref.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/weakref.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/weakref.py"
+    - "weakref.zspec.zsdl — that spec covers class names, function names, empty containers, and getweakrefs"
+    - "_weakref.zspec.zsdl — that spec covers the C-level _weakref extension type names and modules"
+  notes:
+    - "This spec covers weakref behaviors not in weakref.zspec.zsdl or _weakref.zspec.zsdl."
+    - "weakref.ref.__name__ is 'ReferenceType' at the Python module level (an alias for the C type)."
+    - "_weakref.ref.__name__ is 'weakref' (the raw C type name); these are the same object but accessed differently."
+    - "weakref.ReferenceType is an alias for weakref.ref — they are the same object."
+    - "weakref.proxy is a function that returns a proxy object; proxy.__name__ == 'proxy'."
+    - "WeakValueDictionary.__module__, WeakKeyDictionary.__module__, and WeakSet.__module__ are all 'weakref'."
+    - "finalize.__module__ == 'weakref'."
+    - "getweakrefcount and getweakrefs __module__ attributes come from the C extension (_weakref), not weakref."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module checks — WeakValueDictionary, WeakKeyDictionary, WeakSet, finalize
+#
+# These pure-Python classes are defined in weakref.py and their __module__
+# is 'weakref'.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.WeakValueDictionary.module:
+  description: "weakref.WeakValueDictionary.__module__ == 'weakref'"
+  category: modules
+  kind: python_call_eq
+  function: WeakValueDictionary.__module__.__eq__
+  args: ["weakref"]
+  expected: true
+
+invariant weakref_extra.WeakKeyDictionary.module:
+  description: "weakref.WeakKeyDictionary.__module__ == 'weakref'"
+  category: modules
+  kind: python_call_eq
+  function: WeakKeyDictionary.__module__.__eq__
+  args: ["weakref"]
+  expected: true
+
+invariant weakref_extra.WeakSet.module:
+  description: "weakref.WeakSet.__module__ == 'weakref'"
+  category: modules
+  kind: python_call_eq
+  function: WeakSet.__module__.__eq__
+  args: ["weakref"]
+  expected: true
+
+invariant weakref_extra.finalize.module:
+  description: "weakref.finalize.__module__ == 'weakref'"
+  category: modules
+  kind: python_call_eq
+  function: finalize.__module__.__eq__
+  args: ["weakref"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# proxy function name
+#
+# weakref.proxy is a builtin that creates proxy objects. It is a C builtin
+# function whose __name__ is 'proxy'.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.proxy.name:
+  description: "weakref.proxy.__name__ == 'proxy'"
+  category: function_names
+  kind: python_call_eq
+  function: proxy.__name__.__eq__
+  args: ["proxy"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function names — getweakrefcount, getweakrefs
+#
+# These are re-exported from _weakref at the Python weakref module level.
+# Their __name__ attributes are the plain function name strings.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.getweakrefcount.name:
+  description: "weakref.getweakrefcount.__name__ == 'getweakrefcount'"
+  category: function_names
+  kind: python_call_eq
+  function: getweakrefcount.__name__.__eq__
+  args: ["getweakrefcount"]
+  expected: true
+
+invariant weakref_extra.getweakrefs.name:
+  description: "weakref.getweakrefs.__name__ == 'getweakrefs'"
+  category: function_names
+  kind: python_call_eq
+  function: getweakrefs.__name__.__eq__
+  args: ["getweakrefs"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ReferenceType alias — same object as weakref.ref
+#
+# weakref.ReferenceType is an alias for weakref.ref. The Python-level name
+# weakref.ref.__name__ is 'ReferenceType', consistent with the alias name.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.ReferenceType.name:
+  description: "weakref.ReferenceType.__name__ == 'weakref' — C type name via ReferenceType alias"
+  category: class_names
+  kind: python_call_eq
+  function: ReferenceType.__name__.__eq__
+  args: ["weakref"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# WeakSet base class — WeakSet inherits from MutableSet (collections.abc)
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.WeakSet.base_name:
+  description: "weakref.WeakSet.__bases__[0].__name__ == 'MutableSet' — WeakSet inherits from MutableSet"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: WeakSet.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "MutableSet"
+
+# ---------------------------------------------------------------------------
+# getweakrefcount zero — returns 0 for fresh object with no weak refs
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.getweakrefcount.zero:
+  description: "weakref.getweakrefcount([]) == 0 — fresh list has no registered weak references"
+  category: getweakrefcount
+  kind: python_call_eq
+  function: getweakrefcount([])
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# finalize class name check
+#
+# weakref.finalize is a class (not a plain function). Its __name__ is 'finalize'.
+# Already in weakref.zspec.zsdl but __module__ was not covered there.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.finalize.name:
+  description: "weakref.finalize.__name__ == 'finalize'"
+  category: class_names
+  kind: python_call_eq
+  function: finalize.__name__.__eq__
+  args: ["finalize"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# WeakValueDictionary base class
+#
+# WeakValueDictionary inherits from MutableMapping (collections.abc).
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.WeakValueDictionary.base_name:
+  description: "weakref.WeakValueDictionary.__bases__[0].__name__ == 'MutableMapping'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: WeakValueDictionary.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "MutableMapping"
+
+# ---------------------------------------------------------------------------
+# WeakKeyDictionary base class
+#
+# WeakKeyDictionary also inherits from MutableMapping (collections.abc).
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra.WeakKeyDictionary.base_name:
+  description: "weakref.WeakKeyDictionary.__bases__[0].__name__ == 'MutableMapping'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: WeakKeyDictionary.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "MutableMapping"

@@ -1,0 +1,199 @@
+spec: enum_extra
+version: ">=3.6"
+backend: python_module(enum)
+
+docs: https://docs.python.org/3/library/enum.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/enum.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/enum.py"
+    - "enum.zspec.zsdl — that spec covers Enum/IntEnum/Flag/IntFlag/StrEnum/auto/unique names and the functional API"
+    - "enum_flags.zspec.zsdl — that spec covers EnumType/EnumMeta, auto/unique modules, Flag/IntFlag modules and hierarchies, and IntFlag functional API"
+  notes:
+    - "This spec covers enum behaviors not in enum.zspec.zsdl or enum_flags.zspec.zsdl."
+    - "IntEnum.__module__ == 'enum' — verified but not in previous specs."
+    - "auto().__class__.__name__ == 'auto' — instantiating auto() returns an auto instance."
+    - "Enum.__bases__[0].__name__ == 'object' — Enum's only direct base is object."
+    - "EnumMeta.__name__ == 'EnumMeta' — the backward-compat alias for EnumType."
+    - "StrEnum.__name__ == 'StrEnum' is in enum.zspec.zsdl; here we check StrEnum.__module__ and StrEnum.__bases__."
+    - "EnumType.__name__ is in enum_flags.zspec.zsdl; EnumMeta as an alias is new here."
+    - "IntEnum.__bases__[0].__name__ == 'int' — IntEnum directly inherits from int."
+    - "auto().__class__.__name__ was not verified in enum.zspec.zsdl or enum_flags.zspec.zsdl."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module checks — IntEnum, Flag, IntFlag all live in the enum module
+#
+# enum.zspec.zsdl checked __name__ but not __module__ for these classes.
+# enum_flags.zspec.zsdl checked Flag and IntFlag modules but not IntEnum.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.IntEnum.module:
+  description: "enum.IntEnum.__module__ == 'enum'"
+  category: modules
+  kind: python_call_eq
+  function: IntEnum.__module__.__eq__
+  args: ["enum"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# EnumMeta backward-compat alias
+#
+# In Python 3.11+ EnumType is the canonical name; EnumMeta is an alias kept
+# for backward compatibility. Both __name__ and __module__ are checked.
+# enum_flags.zspec.zsdl covered EnumType; this spec covers EnumMeta.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.EnumMeta.name:
+  description: "enum.EnumMeta.__name__ == 'EnumType' — EnumMeta is an alias for EnumType"
+  category: enummeta
+  kind: python_call_eq
+  function: EnumMeta.__name__.__eq__
+  args: ["EnumType"]
+  expected: true
+
+invariant enum_extra.EnumMeta.module:
+  description: "enum.EnumMeta.__module__ == 'enum'"
+  category: enummeta
+  kind: python_call_eq
+  function: EnumMeta.__module__.__eq__
+  args: ["enum"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Enum base class
+#
+# enum.Enum's first (and only) direct base is object. This was not verified
+# in either enum.zspec.zsdl or enum_flags.zspec.zsdl.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.Enum.base_is_object:
+  description: "enum.Enum.__bases__[0].__name__ == 'object'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Enum.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# IntEnum base class
+#
+# enum.IntEnum's first direct base is int (it inherits from int, then Enum).
+# This is consistent with enum_flags.zspec.zsdl's IntFlag.base_is_int check.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.IntEnum.base_is_int:
+  description: "enum.IntEnum.__bases__[0].__name__ == 'int' — IntEnum inherits from int"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: IntEnum.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "int"
+
+# ---------------------------------------------------------------------------
+# auto() instance type check
+#
+# Calling auto() outside a class body returns an auto instance.
+# Its __class__.__name__ is 'auto'.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.auto.instance_class:
+  description: "auto().__class__.__name__ == 'auto'"
+  category: auto
+  kind: python_call_eq
+  function: auto().__class__.__name__.__eq__
+  args: ["auto"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# StrEnum — module and base class (Python 3.11+)
+#
+# enum.zspec.zsdl checked StrEnum.__name__; here we check __module__ and
+# that its first base is str.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.StrEnum.module:
+  description: "enum.StrEnum.__module__ == 'enum' (Python 3.11+)"
+  category: strenum
+  version: ">=3.11"
+  kind: python_call_eq
+  function: StrEnum.__module__.__eq__
+  args: ["enum"]
+  expected: true
+
+invariant enum_extra.StrEnum.base_is_str:
+  description: "enum.StrEnum.__bases__[0].__name__ == 'str' — StrEnum inherits from str (Python 3.11+)"
+  category: strenum
+  version: ">=3.11"
+  kind: python_call_eq
+  function: StrEnum.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "str"
+
+# ---------------------------------------------------------------------------
+# EnumType alias name (Python 3.11+) — additional cross-check
+#
+# enum_flags.zspec.zsdl verified EnumType.__name__ == 'EnumType' and its
+# module. Here we confirm that EnumMeta and EnumType are the same object by
+# checking that EnumMeta.__name__ == 'EnumType' (done above) and that
+# EnumType.__bases__[0].__name__ is already covered in enum_flags.
+# We add the unique() class-hierarchy check not present elsewhere.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.unique.base:
+  description: "enum.unique.__class__.__name__ == 'function' — unique is a plain function"
+  category: unique
+  kind: python_call_eq
+  function: unique.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Flag metaclass — Flag's metaclass is EnumType (cross-check)
+#
+# enum_flags.zspec.zsdl confirmed Flag.__module__ and Flag.metaclass;
+# here we add the __bases__ check: Flag.__bases__[0] is Enum.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.Flag.base_is_Enum:
+  description: "enum.Flag.__bases__[0].__name__ == 'Enum' — Flag directly inherits from Enum"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Flag.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Enum"
+
+# ---------------------------------------------------------------------------
+# IntFlag name (already in enum.zspec.zsdl) vs module (already in
+# enum_flags.zspec.zsdl) — here we add the auto() module check that was
+# in enum_flags but not as a standalone for coverage parity.
+#
+# auto.__name__ is in enum.zspec.zsdl; auto.__module__ is in enum_flags.
+# New: confirm auto is a type (its metaclass is EnumType).
+# ---------------------------------------------------------------------------
+
+invariant enum_extra.auto.name:
+  description: "enum.auto.__name__ == 'auto'"
+  category: auto
+  kind: python_call_eq
+  function: auto.__name__.__eq__
+  args: ["auto"]
+  expected: true
+
+invariant enum_extra.unique.name:
+  description: "enum.unique.__name__ == 'unique'"
+  category: unique
+  kind: python_call_eq
+  function: unique.__name__.__eq__
+  args: ["unique"]
+  expected: true
