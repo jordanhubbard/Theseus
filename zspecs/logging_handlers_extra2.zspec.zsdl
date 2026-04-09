@@ -1,0 +1,97 @@
+spec: logging_handlers_extra2
+version: ">=3.2"
+backend: python_module(logging.handlers)
+
+docs: https://docs.python.org/3/library/logging.handlers.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/logging.handlers.html — Python logging.handlers documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/logging/handlers.py"
+  notes:
+    - "This spec extends logging_handlers.zspec.zsdl and logging_handlers_extra.zspec.zsdl."
+    - "logging_handlers covers: class __name__ table, port constants, SysLogHandler priority/facility constants, MemoryHandler capacity."
+    - "logging_handlers_extra covers: class __qualname__ table, class __module__ table."
+    - "NEW in this spec: class __bases__[0].__name__ checks for all handler classes — the direct parent class name for each handler."
+    - "BaseRotatingHandler.__bases__[0].__name__ == 'FileHandler' — inherits from logging.FileHandler."
+    - "RotatingFileHandler.__bases__[0].__name__ == 'BaseRotatingHandler'."
+    - "TimedRotatingFileHandler.__bases__[0].__name__ == 'BaseRotatingHandler'."
+    - "SocketHandler.__bases__[0].__name__ == 'Handler' — inherits directly from logging.Handler."
+    - "DatagramHandler.__bases__[0].__name__ == 'SocketHandler'."
+    - "SysLogHandler.__bases__[0].__name__ == 'Handler'."
+    - "SMTPHandler.__bases__[0].__name__ == 'Handler'."
+    - "MemoryHandler.__bases__[0].__name__ == 'BufferingHandler'."
+    - "HTTPHandler.__bases__[0].__name__ == 'Handler'."
+    - "QueueHandler.__bases__[0].__name__ == 'Handler'."
+    - "QueueListener.__bases__[0].__name__ == 'object' — not a Handler subclass; owns a queue and dispatches to other handlers."
+    - "WatchedFileHandler.__bases__[0].__name__ == 'FileHandler'."
+    - "BufferingHandler.__bases__[0].__name__ == 'Handler' — included as it is a direct parent of MemoryHandler."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class __bases__[0].__name__ checks — direct parent class for each handler
+#
+# Neither logging_handlers.zspec.zsdl nor logging_handlers_extra.zspec.zsdl
+# covers the inheritance hierarchy via __bases__[0].__name__.  This table
+# verifies the direct parent of each handler class, a distinct test axis.
+# ---------------------------------------------------------------------------
+
+table logging_handlers_extra2.class_bases:
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: base
+
+  columns: [id, function, args, expected]
+  rows:
+    - [baserotating,         BaseRotatingHandler.__bases__.__getitem__,         [0], "FileHandler"]
+    - [rotatingfile,         RotatingFileHandler.__bases__.__getitem__,         [0], "BaseRotatingHandler"]
+    - [timedrotatingfile,    TimedRotatingFileHandler.__bases__.__getitem__,    [0], "BaseRotatingHandler"]
+    - [socket,               SocketHandler.__bases__.__getitem__,               [0], "Handler"]
+    - [datagram,             DatagramHandler.__bases__.__getitem__,             [0], "SocketHandler"]
+    - [syslog,               SysLogHandler.__bases__.__getitem__,               [0], "Handler"]
+    - [smtp,                 SMTPHandler.__bases__.__getitem__,                 [0], "Handler"]
+    - [buffering,            BufferingHandler.__bases__.__getitem__,            [0], "Handler"]
+    - [memory,               MemoryHandler.__bases__.__getitem__,               [0], "BufferingHandler"]
+    - [http,                 HTTPHandler.__bases__.__getitem__,                 [0], "Handler"]
+    - [queue,                QueueHandler.__bases__.__getitem__,                [0], "Handler"]
+    - [watchedfile,          WatchedFileHandler.__bases__.__getitem__,          [0], "FileHandler"]
+
+# ---------------------------------------------------------------------------
+# QueueListener base is object — QueueListener is NOT a logging.Handler
+# subclass; it owns handlers and dispatches to them.
+# ---------------------------------------------------------------------------
+
+invariant logging_handlers_extra2.QueueListener_base_is_object:
+  description: "QueueListener.__bases__[0].__name__ == 'object' — QueueListener is not a Handler subclass"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: QueueListener.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# BufferingHandler __name__ and __module__ — BufferingHandler is used as a
+# parent by MemoryHandler but is itself a public API class.
+# ---------------------------------------------------------------------------
+
+invariant logging_handlers_extra2.BufferingHandler_name:
+  description: "logging.handlers.BufferingHandler.__name__ == 'BufferingHandler'"
+  category: class_names
+  kind: python_call_eq
+  function: BufferingHandler.__name__.__eq__
+  args: ["BufferingHandler"]
+  expected: true
+
+invariant logging_handlers_extra2.BufferingHandler_module:
+  description: "logging.handlers.BufferingHandler.__module__ == 'logging.handlers'"
+  category: class_modules
+  kind: python_call_eq
+  function: BufferingHandler.__module__.__eq__
+  args: ["logging.handlers"]
+  expected: true
