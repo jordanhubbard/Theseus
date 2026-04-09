@@ -1,0 +1,99 @@
+spec: range_parser
+version: ">=1.0.0"
+backend: node(range-parser)
+
+docs: https://github.com/jshttp/range-parser#readme
+
+provenance:
+  derived_from:
+    - "range-parser README — https://github.com/jshttp/range-parser#readme"
+    - "RFC 7233 — HTTP/1.1: Range Requests"
+    - "Test vectors verified with range-parser@1.2.1 via Node.js 25.6.0 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "range-parser source: index.js (MIT; source inspection permitted)"
+  not_derived_from:
+    - "range-parser source: internal tokenizer details"
+  notes:
+    - "range-parser exports itself as a single callable function: rp(size, header[, options])."
+    - "Returns an array of {start, end} objects with a non-enumerable-indexed .type property (e.g. 'bytes')."
+    - "Returns -1 for an unsatisfiable range (e.g. start > end, or start >= size)."
+    - "Returns -2 for an invalid range header (malformed syntax with no recognized unit prefix)."
+    - "Suffix ranges (bytes=-N) resolve to {start: size-N, end: size-1}."
+    - "Open-end ranges (bytes=N-) resolve to {start: N, end: size-1}."
+    - "The combine:true option merges overlapping or adjacent ranges into minimal covering ranges."
+    - "Without combine, overlapping ranges are returned as-is in the original order."
+    - "JSON.stringify of the result array includes only the {start, end} items; .type is not serialized."
+    - "A suffix range larger than the file size (bytes=-N where N > size) returns -1."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Returns -1 (unsatisfiable) or -2 (invalid) for error cases; never throws for those. node exits 0 for all invariants."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# range-parser — single ranges
+# ---------------------------------------------------------------------------
+
+table range_parser.single:
+  kind: node_module_call_eq
+  function: ~
+  id_prefix: single
+
+  columns: [id, category, args, expected]
+  rows:
+    - [first_hundred,     single,   [1000, "bytes=0-99"],   [{start: 0, end: 99}]]
+    - [middle_range,      single,   [1000, "bytes=100-199"],[{start: 100, end: 199}]]
+    - [last_range,        single,   [1000, "bytes=900-999"],[{start: 900, end: 999}]]
+    - [full_range,        single,   [1000, "bytes=0-999"],  [{start: 0, end: 999}]]
+    - [single_byte,       single,   [100,  "bytes=0-0"],    [{start: 0, end: 0}]]
+    - [exact_file_size,   single,   [500,  "bytes=0-499"],  [{start: 0, end: 499}]]
+
+# ---------------------------------------------------------------------------
+# range-parser — suffix and open-end ranges
+# ---------------------------------------------------------------------------
+
+table range_parser.open:
+  kind: node_module_call_eq
+  function: ~
+  id_prefix: open
+
+  columns: [id, category, args, expected]
+  rows:
+    - [suffix_last_100,   suffix,   [1000, "bytes=-100"],   [{start: 900, end: 999}]]
+    - [suffix_last_1,     suffix,   [1000, "bytes=-1"],     [{start: 999, end: 999}]]
+    - [open_end_from_900, open_end, [1000, "bytes=900-"],   [{start: 900, end: 999}]]
+    - [open_end_from_0,   open_end, [1000, "bytes=0-"],     [{start: 0, end: 999}]]
+
+# ---------------------------------------------------------------------------
+# range-parser — multiple ranges
+# ---------------------------------------------------------------------------
+
+table range_parser.multi:
+  kind: node_module_call_eq
+  function: ~
+  id_prefix: multi
+
+  columns: [id, category, args, expected]
+  rows:
+    - [two_non_overlapping,   multi,   [1000, "bytes=0-99,200-299"],                              [{start: 0, end: 99}, {start: 200, end: 299}]]
+    - [two_adjacent,          multi,   [1000, "bytes=0-499,500-999"],                             [{start: 0, end: 499}, {start: 500, end: 999}]]
+    - [overlapping_no_combine,multi,   [1000, "bytes=0-99,50-150"],                               [{start: 0, end: 99}, {start: 50, end: 150}]]
+    - [combined_overlapping,  combine, [1000, "bytes=0-99,50-150",   {combine: true}],            [{start: 0, end: 150}]]
+    - [combined_non_overlap,  combine, [1000, "bytes=0-99,200-299",  {combine: true}],            [{start: 0, end: 99}, {start: 200, end: 299}]]
+
+# ---------------------------------------------------------------------------
+# range-parser — error cases
+# ---------------------------------------------------------------------------
+
+table range_parser.errors:
+  kind: node_module_call_eq
+  function: ~
+  id_prefix: err
+
+  columns: [id, category, args, expected]
+  rows:
+    - [unsatisfiable_inverted,  unsatisfiable, [1000, "bytes=500-200"],  -1]
+    - [unsatisfiable_beyond,    unsatisfiable, [1000, "bytes=2000-2999"],-1]
+    - [invalid_syntax,          invalid,       [1000, "invalid"],        -2]
+    - [suffix_too_large,        unsatisfiable, [100,  "bytes=-200"],     -1]

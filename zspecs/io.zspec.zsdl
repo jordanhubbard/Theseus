@@ -1,0 +1,299 @@
+spec: io
+version: ">=3.2"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "Python io documentation — https://docs.python.org/3/library/io.html"
+    - "Test vectors verified by running Python 3.14.3 io module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+  notes:
+    - "io.StringIO() is an in-memory text stream; read/write methods accept and return str."
+    - "io.BytesIO() is an in-memory binary stream; read/write methods accept and return bytes."
+    - "io.DEFAULT_BUFFER_SIZE is platform-dependent but typically 131072 on macOS."
+    - "SEEK_SET=0, SEEK_CUR=1, SEEK_END=2 are stream positioning constants."
+    - "StringIO and BytesIO are both readable, writable, and seekable by default."
+    - "tell() returns the current stream position as an integer (0 at creation)."
+    - "getvalue() returns the full stream content regardless of current position."
+    - "StringIO.readline() returns one line including the newline character."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module constants — SEEK_SET, SEEK_CUR, SEEK_END, DEFAULT_BUFFER_SIZE
+#
+# These are integer attributes on the io module; accessed via dotted attribute
+# path and compared with __eq__ or __ge__.
+# ---------------------------------------------------------------------------
+
+invariant io.SEEK_SET.value:
+  description: "io.SEEK_SET == 0 — stream positioning constant for absolute positioning"
+  category: constants
+  kind: python_call_eq
+  function: SEEK_SET.__eq__
+  args: [0]
+  expected: true
+
+invariant io.SEEK_CUR.value:
+  description: "io.SEEK_CUR == 1 — stream positioning constant for relative positioning"
+  category: constants
+  kind: python_call_eq
+  function: SEEK_CUR.__eq__
+  args: [1]
+  expected: true
+
+invariant io.SEEK_END.value:
+  description: "io.SEEK_END == 2 — stream positioning constant for end-relative positioning"
+  category: constants
+  kind: python_call_eq
+  function: SEEK_END.__eq__
+  args: [2]
+  expected: true
+
+invariant io.DEFAULT_BUFFER_SIZE.ge_4096:
+  description: "io.DEFAULT_BUFFER_SIZE >= 4096 — platform buffer size is at least 4 KiB"
+  category: constants
+  kind: python_call_eq
+  function: DEFAULT_BUFFER_SIZE.__ge__
+  args: [4096]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class identity — StringIO and BytesIO are types (class objects)
+# ---------------------------------------------------------------------------
+
+invariant io.StringIO.class_name:
+  description: "io.StringIO.__name__ == 'StringIO'"
+  category: class_metadata
+  kind: python_call_eq
+  function: StringIO.__name__.__eq__
+  args: ["StringIO"]
+  expected: true
+
+invariant io.BytesIO.class_name:
+  description: "io.BytesIO.__name__ == 'BytesIO'"
+  category: class_metadata
+  kind: python_call_eq
+  function: BytesIO.__name__.__eq__
+  args: ["BytesIO"]
+  expected: true
+
+invariant io.StringIO.is_type:
+  description: "type(io.StringIO).__name__ == 'type' — StringIO is a class object"
+  category: class_metadata
+  kind: python_call_eq
+  function: StringIO.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant io.BytesIO.is_type:
+  description: "type(io.BytesIO).__name__ == 'type' — BytesIO is a class object"
+  category: class_metadata
+  kind: python_call_eq
+  function: BytesIO.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# StringIO — read and getvalue
+#
+# StringIO wraps an in-memory text buffer. read() consumes from position;
+# getvalue() always returns the full buffer content.
+# ---------------------------------------------------------------------------
+
+invariant io.stringio.read_all:
+  description: "io.StringIO('hello world').read() == 'hello world'"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello world"]
+  method: read
+  method_args: []
+  expected: "hello world"
+
+invariant io.stringio.read_n:
+  description: "io.StringIO('hello world').read(5) == 'hello'"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello world"]
+  method: read
+  method_args: [5]
+  expected: "hello"
+
+invariant io.stringio.getvalue_nonempty:
+  description: "io.StringIO('hello').getvalue() == 'hello'"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello"]
+  method: getvalue
+  method_args: []
+  expected: "hello"
+
+invariant io.stringio.getvalue_empty:
+  description: "io.StringIO().getvalue() == '' — empty StringIO has empty value"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: []
+  method: getvalue
+  method_args: []
+  expected: ""
+
+invariant io.stringio.readline:
+  description: "io.StringIO('hello\\nworld').readline() == 'hello\\n'"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello\nworld"]
+  method: readline
+  method_args: []
+  expected: "hello\n"
+
+invariant io.stringio.getvalue_length:
+  description: "len(io.StringIO('hello world').getvalue()) == 11"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello world"]
+  method: getvalue
+  method_chain: __len__
+  expected: 11
+
+# ---------------------------------------------------------------------------
+# StringIO — stream state: tell, readable, writable, seekable, closed
+# ---------------------------------------------------------------------------
+
+invariant io.stringio.tell_initial:
+  description: "io.StringIO('hello world').tell() == 0 — initial position is 0"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello world"]
+  method: tell
+  method_args: []
+  expected: 0
+
+invariant io.stringio.readable:
+  description: "io.StringIO('hello').readable() == True"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello"]
+  method: readable
+  method_args: []
+  expected: true
+
+invariant io.stringio.writable:
+  description: "io.StringIO('hello').writable() == True"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello"]
+  method: writable
+  method_args: []
+  expected: true
+
+invariant io.stringio.seekable:
+  description: "io.StringIO('hello').seekable() == True"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello"]
+  method: seekable
+  method_args: []
+  expected: true
+
+invariant io.stringio.closed_is_false:
+  description: "io.StringIO('hi').closed == False — open stream is not closed"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hi"]
+  method: closed
+  method_args: []
+  expected: false
+
+# ---------------------------------------------------------------------------
+# BytesIO — stream state: tell, readable, writable, seekable
+#
+# BytesIO.read() returns bytes, which are not JSON-comparable as primitives.
+# Tests focus on integer/bool-returning methods and getvalue length.
+# ---------------------------------------------------------------------------
+
+invariant io.bytesio.tell_initial:
+  description: "io.BytesIO(b'hello').tell() == 0 — initial position is 0"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: tell
+  method_args: []
+  expected: 0
+
+invariant io.bytesio.readable:
+  description: "io.BytesIO(b'hello').readable() == True"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: readable
+  method_args: []
+  expected: true
+
+invariant io.bytesio.writable:
+  description: "io.BytesIO(b'hello').writable() == True"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: writable
+  method_args: []
+  expected: true
+
+invariant io.bytesio.seekable:
+  description: "io.BytesIO(b'hello').seekable() == True"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: seekable
+  method_args: []
+  expected: true
+
+invariant io.bytesio.getvalue_length:
+  description: "len(io.BytesIO(b'hello').getvalue()) == 5"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: getvalue
+  method_chain: __len__
+  expected: 5
+
+invariant io.bytesio.empty_tell:
+  description: "io.BytesIO().tell() == 0 — empty BytesIO starts at position 0"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: []
+  method: tell
+  method_args: []
+  expected: 0
+
+invariant io.bytesio.closed_is_false:
+  description: "io.BytesIO(b'hi').closed == False — open stream is not closed"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: [{type: bytes_ascii, value: "hi"}]
+  method: closed
+  method_args: []
+  expected: false

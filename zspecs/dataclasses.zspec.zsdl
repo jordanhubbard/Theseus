@@ -1,0 +1,180 @@
+spec: dataclasses
+version: ">=3.7"
+backend: python_module(dataclasses)
+
+docs: https://docs.python.org/3/library/dataclasses.html
+
+provenance:
+  derived_from:
+    - "Python dataclasses documentation — https://docs.python.org/3/library/dataclasses.html"
+    - "Test vectors verified by running Python 3.14.3 dataclasses module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/dataclasses.py"
+  notes:
+    - "dataclasses.make_dataclass(name, fields) creates a dataclass programmatically at runtime."
+    - "dataclasses.is_dataclass(obj) returns True for dataclass instances and dataclass classes, False otherwise."
+    - "dataclasses.MISSING is a sentinel object used for missing default values; its type is _MISSING_TYPE."
+    - "dataclasses.KW_ONLY is a sentinel used as a field name to mark subsequent fields as keyword-only; its type is _KW_ONLY_TYPE."
+    - "All public functions (dataclass, field, fields, asdict, astuple, is_dataclass, make_dataclass, replace) are Python functions."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function types — all public dataclasses callables are Python functions
+# ---------------------------------------------------------------------------
+
+invariant dataclasses.types.dataclass_is_function:
+  description: "type(dataclasses.dataclass).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: dataclass.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant dataclasses.types.field_is_function:
+  description: "type(dataclasses.field).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: field.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant dataclasses.types.fields_is_function:
+  description: "type(dataclasses.fields).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: fields.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant dataclasses.types.asdict_is_function:
+  description: "type(dataclasses.asdict).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: asdict.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant dataclasses.types.astuple_is_function:
+  description: "type(dataclasses.astuple).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: astuple.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant dataclasses.types.is_dataclass_is_function:
+  description: "type(dataclasses.is_dataclass).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: is_dataclass.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant dataclasses.types.make_dataclass_is_function:
+  description: "type(dataclasses.make_dataclass).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: make_dataclass.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant dataclasses.types.replace_is_function:
+  description: "type(dataclasses.replace).__name__ == 'function'"
+  category: types
+  kind: python_call_eq
+  function: replace.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# is_dataclass — returns False for non-dataclass objects
+#
+# is_dataclass works on any object; non-dataclass types and instances all
+# return False. This is safe to test with plain JSON-compatible values.
+# ---------------------------------------------------------------------------
+
+table dataclasses.is_dataclass.false_cases:
+  description: "is_dataclass() returns False for non-dataclass objects"
+  kind: python_call_eq
+  category: is_dataclass
+  id_prefix: idc_false
+  function: is_dataclass
+
+  columns: [id, args, expected]
+  rows:
+    - [dict,   [{}],    false]
+    - [int,    [42],    false]
+    - [str,    ["hi"],  false]
+    - [list,   [[]],    false]
+    - [none,   [null],  false]
+
+# ---------------------------------------------------------------------------
+# make_dataclass — creates a new dataclass class at runtime
+#
+# make_dataclass('Point', ['x', 'y']) returns a new class whose __name__ is
+# 'Point'. The class object is not JSON-serializable, but __name__ (a string
+# attribute) is accessible via the method chain.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses.make_dataclass.class_name:
+  description: "make_dataclass('Point', ['x','y']).__name__ == 'Point'"
+  category: make_dataclass
+  kind: python_call_eq
+  function: make_dataclass
+  args: ["Point", ["x", "y"]]
+  method: __name__
+  method_args: []
+  expected: "Point"
+
+invariant dataclasses.make_dataclass.single_field_name:
+  description: "make_dataclass('Node', ['value']).__name__ == 'Node'"
+  category: make_dataclass
+  kind: python_call_eq
+  function: make_dataclass
+  args: ["Node", ["value"]]
+  method: __name__
+  method_args: []
+  expected: "Node"
+
+invariant dataclasses.make_dataclass.no_fields_name:
+  description: "make_dataclass('Empty', []).__name__ == 'Empty'"
+  category: make_dataclass
+  kind: python_call_eq
+  function: make_dataclass
+  args: ["Empty", []]
+  method: __name__
+  method_args: []
+  expected: "Empty"
+
+# ---------------------------------------------------------------------------
+# MISSING sentinel — type identity check
+#
+# dataclasses.MISSING is a sentinel for absent defaults; its class is
+# _MISSING_TYPE. Access via dotted attribute chain on the module-level object.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses.MISSING.type_name:
+  description: "type(dataclasses.MISSING).__name__ == '_MISSING_TYPE'"
+  category: sentinels
+  kind: python_call_eq
+  function: MISSING.__class__.__name__.__eq__
+  args: ["_MISSING_TYPE"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# KW_ONLY sentinel — type identity check
+#
+# dataclasses.KW_ONLY is used as a pseudo field-name to mark subsequent fields
+# as keyword-only. Its class is _KW_ONLY_TYPE.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses.KW_ONLY.type_name:
+  description: "type(dataclasses.KW_ONLY).__name__ == '_KW_ONLY_TYPE'"
+  category: sentinels
+  kind: python_call_eq
+  function: KW_ONLY.__class__.__name__.__eq__
+  args: ["_KW_ONLY_TYPE"]
+  expected: true
