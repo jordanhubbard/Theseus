@@ -1,0 +1,85 @@
+spec: cgi_extra3
+version: ">=3.9,<3.13"
+backend: python_module(cgi)
+
+docs: https://docs.python.org/3/library/cgi.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/cgi.html — Python cgi module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/cgi.py"
+  notes:
+    - "The cgi module was deprecated in Python 3.11 and removed in Python 3.13."
+    - "This spec extends cgi.zspec.zsdl, cgi_extra.zspec.zsdl, and cgi_extra2.zspec.zsdl."
+    - "cgi.zspec.zsdl covers: __name__ for FieldStorage, MiniFieldStorage, parse, parse_header, escape; parse_header and escape behavioral invariants."
+    - "cgi_extra.zspec.zsdl covers: __module__ for FieldStorage, MiniFieldStorage; __name__ for print_exception."
+    - "cgi_extra2.zspec.zsdl covers: __name__ for parse_multipart, parse_qs, parse_qsl; __bases__ checks; parse_header return-type checks."
+    - "This spec adds: __qualname__ checks for FieldStorage, MiniFieldStorage, parse, parse_header."
+    - "cgi.escape was removed before Python 3.9 (deprecated in 3.2, removed in 3.8) — no __qualname__ vector for escape."
+    - "FieldStorage.__qualname__ == 'FieldStorage' — module-scope class, qualname equals name."
+    - "parse_header.__qualname__ == 'parse_header' — module-scope function, qualname equals name."
+    - "FieldStorage.__module__ == 'cgi' is already in cgi_extra.zspec.zsdl; not duplicated here."
+    - "parse_header('text/html; charset=utf-8') returns ('text/html', {'charset': 'utf-8'}); element-wise checks covered in cgi.zspec.zsdl."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks for classes
+# ---------------------------------------------------------------------------
+
+table cgi_extra3.class_qualnames:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [FieldStorage,     FieldStorage.__qualname__.__eq__,     ["FieldStorage"],     true]
+    - [MiniFieldStorage, MiniFieldStorage.__qualname__.__eq__, ["MiniFieldStorage"], true]
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks for functions
+# ---------------------------------------------------------------------------
+
+table cgi_extra3.function_qualnames:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [parse,        parse.__qualname__.__eq__,        ["parse"],        true]
+    - [parse_header, parse_header.__qualname__.__eq__,  ["parse_header"], true]
+
+# ---------------------------------------------------------------------------
+# parse_header — charset value from 'text/html; charset=utf-8'
+# cgi.zspec.zsdl covers [0] == 'text/html' and [1]['charset'] with method_chain.
+# This spec adds a direct __eq__ on the charset value via a different content-type
+# string not previously tested.
+# ---------------------------------------------------------------------------
+
+invariant cgi_extra3.parse_header.content_type_xml_charset:
+  description: "parse_header('application/xml; charset=utf-8')[0] == 'application/xml'"
+  category: parse_header
+  kind: python_call_eq
+  function: parse_header
+  args: ["application/xml; charset=utf-8"]
+  method: __getitem__
+  method_args: [0]
+  expected: "application/xml"
+
+invariant cgi_extra3.parse_header.content_type_xml_param:
+  description: "parse_header('application/xml; charset=utf-8')[1]['charset'] == 'utf-8'"
+  category: parse_header
+  kind: python_call_eq
+  function: parse_header
+  args: ["application/xml; charset=utf-8"]
+  method: __getitem__
+  method_args: [1]
+  method_chain: __getitem__
+  method_chain_args: ["charset"]
+  expected: "utf-8"
