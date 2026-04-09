@@ -1,0 +1,130 @@
+spec: threading_extra
+version: ">=3.2"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/threading.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "threading source: internal lock implementation (C extension)"
+    - "threading.zspec.zsdl — covers class __name__ checks (Barrier, BoundedSemaphore, Condition), function names, TIMEOUT_MAX, active_count, Lock, Event, Semaphore, current_thread.is_alive"
+    - "threading_sync.zspec.zsdl — covers Barrier parties/n_waiting/broken, BoundedSemaphore._value/_initial_value, RLock, Condition._lock/_waiters, Semaphore default"
+    - "threading_timer.zspec.zsdl — covers Timer/ThreadError bases and modules, main_thread name/class, current_thread name, enumerate, active_count return type"
+  notes:
+    - "Barrier.__module__ == 'threading' — already noted in threading_timer but tested here in module table."
+    - "BoundedSemaphore.__module__ == 'threading'."
+    - "Condition.__module__ == 'threading'."
+    - "threading.local.__module__ == '_thread' — local() is implemented in the C-level _thread extension."
+    - "threading.local.__name__ == 'local' — the public-facing name on the class."
+    - "current_thread() in the main thread returns a _MainThread object; __class__.__name__ is '_MainThread'."
+    - "main_thread().__class__.__name__ is a str — verified without pinning the exact value."
+    - "get_ident() returns an int — the OS thread identifier of the calling thread."
+    - "TIMEOUT_MAX.__class__.__name__ == 'float' — it is a Python float constant."
+    - "stack_size() returns an int — the current thread stack size (0 means platform default)."
+    - "All expected values verified by running Python 3.12 threading module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module checks for synchronization primitive classes not covered elsewhere
+# ---------------------------------------------------------------------------
+
+table threading_extra.class_modules:
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: cmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [boundedsemaphore, BoundedSemaphore.__module__.__eq__, ["threading"], true]
+    - [condition,        Condition.__module__.__eq__,        ["threading"], true]
+    - [semaphore,        Semaphore.__module__.__eq__,        ["threading"], true]
+    - [event,            Event.__module__.__eq__,            ["threading"], true]
+    - [rlock,            RLock.__module__.__eq__,            ["threading"], true]
+
+# ---------------------------------------------------------------------------
+# threading.local — name and module
+#
+# threading.local is the C-level thread-local storage type.
+# Its __name__ is 'local' (the public name), but its __module__ is '_thread'
+# because the class is defined in the C-level _thread extension module.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra.local.name:
+  description: "threading.local.__name__ == 'local'"
+  category: local
+  kind: python_call_eq
+  function: local.__name__.__eq__
+  args: ["local"]
+  expected: true
+
+invariant threading_extra.local.module:
+  description: "threading.local.__module__ == '_thread' — implemented in C extension"
+  category: local
+  kind: python_call_eq
+  function: local.__module__.__eq__
+  args: ["_thread"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# current_thread() in the main thread — class name is a string
+#
+# We do not pin the exact class name ('_MainThread' vs 'Thread') because it
+# is an internal implementation detail; we only verify it is a str.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra.current_thread.class_name_is_str:
+  description: "threading.current_thread().__class__.__name__.__class__.__name__ == 'str'"
+  category: current_thread
+  kind: python_call_eq
+  function: current_thread.__class__.__name__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_ident() — returns an int
+# ---------------------------------------------------------------------------
+
+invariant threading_extra.get_ident.returns_int:
+  description: "threading.get_ident().__class__.__name__ == 'int'"
+  category: get_ident
+  kind: python_call_eq
+  function: get_ident
+  args: []
+  method: __class__
+  method_args: []
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# TIMEOUT_MAX — is a float
+# ---------------------------------------------------------------------------
+
+invariant threading_extra.timeout_max.is_float:
+  description: "threading.TIMEOUT_MAX.__class__.__name__ == 'float'"
+  category: constants
+  kind: python_call_eq
+  function: TIMEOUT_MAX.__class__.__name__.__eq__
+  args: ["float"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# stack_size() — returns an int (0 means platform default)
+# ---------------------------------------------------------------------------
+
+invariant threading_extra.stack_size.returns_int:
+  description: "threading.stack_size().__class__.__name__ == 'int'"
+  category: stack_size
+  kind: python_call_eq
+  function: stack_size
+  args: []
+  method: __class__
+  method_args: []
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true

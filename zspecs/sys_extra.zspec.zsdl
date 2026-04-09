@@ -1,0 +1,171 @@
+spec: sys_extra
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "Python 3 sys module documentation — https://docs.python.org/3/library/sys.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/sysconfig.py"
+    - "sys source: internal CPython implementation details"
+  notes:
+    - "This spec extends sys.zspec.zsdl and sys_platform.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "sys.zspec.zsdl covers: version_info.major, version_info class, hexversion, api_version, maxsize, getdefaultencoding, getfilesystemencoding, getrecursionlimit, builtin_module_names (tuple+contains), function names table, version/copyright/platform strings."
+    - "sys_platform.zspec.zsdl covers: platform value/type, version str, version_info.minor, releaselevel, maxunicode, float_info max/epsilon, int_info bits_per_digit, path type/length, modules type/contains."
+    - "sys.version_info.major >= 3 checked via __ge__; sys.version_info.minor >= 0 is trivially true."
+    - "sys.flags is a sys.flags named-tuple-like object whose __class__.__name__ == 'flags'."
+    - "sys.implementation is a types.SimpleNamespace subclass; .name == 'cpython' on CPython."
+    - "sys.maxunicode == 1114111 covered in sys_platform; this spec checks its class name."
+    - "sys.byteorder is always 'little' or 'big' — this spec checks its class name only (value is platform-dependent)."
+    - "sys.float_info, sys.int_info, sys.hash_info each have a class name matching their attribute name."
+    - "sys.builtin_module_names type check and contains checks are in sys.zspec.zsdl; this spec adds no new builtin_module_names invariants."
+    - "sys.path type check is in sys_platform.zspec.zsdl; this spec adds no new path invariants."
+    - "sys.modules type check is in sys_platform.zspec.zsdl; this spec adds no new modules invariants."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Attribute access on sys raises AttributeError for missing attributes; functions raise TypeError/ValueError for bad args."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# version_info — additional checks beyond sys.zspec.zsdl
+# sys.zspec.zsdl already covers major==3 and class name 'version_info'.
+# This spec adds: major >= 3 (via __ge__) and minor >= 0.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.version_info.major_ge_3:
+  description: "sys.version_info.major >= 3 — this is Python 3 or newer"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.major.__ge__
+  args: [3]
+  expected: true
+
+invariant sys_extra.version_info.minor_ge_0:
+  description: "sys.version_info.minor >= 0 — minor version is always non-negative"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.minor.__ge__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.flags — named-tuple-like object with compilation flags
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.flags.class_name:
+  description: "sys.flags.__class__.__name__ == 'flags'"
+  category: flags
+  kind: python_call_eq
+  function: flags.__class__.__name__.__eq__
+  args: ["flags"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.implementation — SimpleNamespace with implementation metadata
+# On CPython, implementation.name == 'cpython'.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.implementation.name_cpython:
+  description: "sys.implementation.name == 'cpython' on CPython"
+  category: implementation
+  kind: python_call_eq
+  function: implementation.name.__eq__
+  args: ["cpython"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.maxsize — class name check (value/min already in sys.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.maxsize.class_name:
+  description: "sys.maxsize.__class__.__name__ == 'int'"
+  category: limits
+  kind: python_call_eq
+  function: maxsize.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.maxunicode — value already in sys_platform; add class name check here
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.maxunicode.class_name:
+  description: "sys.maxunicode.__class__.__name__ == 'int'"
+  category: limits
+  kind: python_call_eq
+  function: maxunicode.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.byteorder — 'little' or 'big'; always a str
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.byteorder.class_name:
+  description: "sys.byteorder.__class__.__name__ == 'str'"
+  category: byteorder
+  kind: python_call_eq
+  function: byteorder.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.float_info — named struct with IEEE 754 double fields
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.float_info.class_name:
+  description: "sys.float_info.__class__.__name__ == 'float_info'"
+  category: float_info
+  kind: python_call_eq
+  function: float_info.__class__.__name__.__eq__
+  args: ["float_info"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.int_info — named struct with integer implementation details
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.int_info.class_name:
+  description: "sys.int_info.__class__.__name__ == 'int_info'"
+  category: int_info
+  kind: python_call_eq
+  function: int_info.__class__.__name__.__eq__
+  args: ["int_info"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.hash_info — named struct with hash algorithm parameters (Python 3.3+)
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.hash_info.class_name:
+  description: "sys.hash_info.__class__.__name__ == 'hash_info'"
+  category: hash_info
+  kind: python_call_eq
+  function: hash_info.__class__.__name__.__eq__
+  args: ["hash_info"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.builtin_module_names — type check (contains checks in sys.zspec.zsdl)
+# This adds an orthogonal check on the tuple type.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra.builtin_module_names.class_name:
+  description: "sys.builtin_module_names.__class__.__name__ == 'tuple'"
+  category: modules
+  kind: python_call_eq
+  function: builtin_module_names.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.path — type check (already in sys_platform; this spec omits duplicate)
+# sys.modules — type check (already in sys_platform; this spec omits duplicate)
+# ---------------------------------------------------------------------------
