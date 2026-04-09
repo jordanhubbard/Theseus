@@ -1,0 +1,178 @@
+spec: binascii_extra2
+version: ">=3.9"
+backend: python_module(binascii)
+
+docs: https://docs.python.org/3/library/binascii.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/binascii.html — Python binascii module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/binascii.c"
+  notes:
+    - "This spec covers identity invariants not present in binascii.zspec.zsdl or binascii_extra.zspec.zsdl."
+    - "hexlify and b2a_hex are aliases for the same underlying C function; both return bytes of lowercase hex digits."
+    - "unhexlify and a2b_hex are aliases for the same underlying C function; both decode a hex string to bytes."
+    - "crc32 and crc_hqx are distinct CRC algorithms: crc32 is CRC-32 (ISO 3309), crc_hqx is CRC-CCITT used by BinHex."
+    - "binascii.Error is a subclass of ValueError; it is raised for malformed input."
+    - "binascii.Incomplete is a direct subclass of Exception; it is raised when partial data is encountered in block-oriented codecs."
+    - "All __name__ values are verified against Python 3.12 on Darwin."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __name__ checks — hex encode/decode aliases
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra2.function_names.hexlify:
+  description: "binascii.hexlify.__name__ == 'hexlify' — canonical name of the b2a_hex alias"
+  category: function_names
+  kind: python_call_eq
+  function: hexlify.__name__.__eq__
+  args: ["hexlify"]
+  expected: true
+
+invariant binascii_extra2.function_names.unhexlify:
+  description: "binascii.unhexlify.__name__ == 'unhexlify' — canonical name of the a2b_hex alias"
+  category: function_names
+  kind: python_call_eq
+  function: unhexlify.__name__.__eq__
+  args: ["unhexlify"]
+  expected: true
+
+invariant binascii_extra2.function_names.b2a_hex:
+  description: "binascii.b2a_hex.__name__ == 'b2a_hex'"
+  category: function_names
+  kind: python_call_eq
+  function: b2a_hex.__name__.__eq__
+  args: ["b2a_hex"]
+  expected: true
+
+invariant binascii_extra2.function_names.a2b_hex:
+  description: "binascii.a2b_hex.__name__ == 'a2b_hex'"
+  category: function_names
+  kind: python_call_eq
+  function: a2b_hex.__name__.__eq__
+  args: ["a2b_hex"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __name__ checks — CRC functions
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra2.function_names.crc32:
+  description: "binascii.crc32.__name__ == 'crc32'"
+  category: function_names
+  kind: python_call_eq
+  function: crc32.__name__.__eq__
+  args: ["crc32"]
+  expected: true
+
+invariant binascii_extra2.function_names.crc_hqx:
+  description: "binascii.crc_hqx.__name__ == 'crc_hqx'"
+  category: function_names
+  kind: python_call_eq
+  function: crc_hqx.__name__.__eq__
+  args: ["crc_hqx"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module affiliation
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra2.module.hexlify:
+  description: "binascii.hexlify.__module__ == 'binascii'"
+  category: module
+  kind: python_call_eq
+  function: hexlify.__module__.__eq__
+  args: ["binascii"]
+  expected: true
+
+invariant binascii_extra2.module.crc32:
+  description: "binascii.crc32.__module__ == 'binascii'"
+  category: module
+  kind: python_call_eq
+  function: crc32.__module__.__eq__
+  args: ["binascii"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Exception class identity — Error
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra2.exceptions.error_name:
+  description: "binascii.Error.__name__ == 'Error'"
+  category: exceptions
+  kind: python_call_eq
+  function: Error.__name__.__eq__
+  args: ["Error"]
+  expected: true
+
+invariant binascii_extra2.exceptions.error_base:
+  description: "binascii.Error.__bases__[0].__name__ == 'ValueError' — Error inherits from ValueError"
+  category: exceptions
+  kind: python_call_eq
+  function: Error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ValueError"
+
+# ---------------------------------------------------------------------------
+# Exception class identity — Incomplete
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra2.exceptions.incomplete_name:
+  description: "binascii.Incomplete.__name__ == 'Incomplete'"
+  category: exceptions
+  kind: python_call_eq
+  function: Incomplete.__name__.__eq__
+  args: ["Incomplete"]
+  expected: true
+
+invariant binascii_extra2.exceptions.incomplete_base:
+  description: "binascii.Incomplete.__bases__[0].__name__ == 'Exception' — Incomplete inherits directly from Exception"
+  category: exceptions
+  kind: python_call_eq
+  function: Incomplete.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# b2a_hex value correctness — same behavior as hexlify
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra2.b2a_hex.dead_bytes:
+  description: "binascii.b2a_hex(b'\\xde\\xad') == b'dead' — same result as hexlify"
+  category: b2a_hex
+  kind: python_call_eq
+  function: b2a_hex
+  args: [!hex dead]
+  expected: !ascii "dead"
+
+# ---------------------------------------------------------------------------
+# a2b_hex value correctness — same behavior as unhexlify
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra2.a2b_hex.dead_string:
+  description: "binascii.a2b_hex('dead') == b'\\xde\\xad' — same result as unhexlify"
+  category: a2b_hex
+  kind: python_call_eq
+  function: a2b_hex
+  args: ["dead"]
+  expected: !hex dead
+
+# ---------------------------------------------------------------------------
+# crc_hqx correctness — known CRC-CCITT value
+# crc_hqx(data, crc) takes an initial CRC value; 0 is the standard starting value
+# ---------------------------------------------------------------------------
+
+invariant binascii_extra2.crc_hqx.empty:
+  description: "binascii.crc_hqx(b'', 0) == 0 — empty input with initial CRC 0 returns 0"
+  category: crc_hqx
+  kind: python_call_eq
+  function: crc_hqx
+  args: [!ascii "", 0]
+  expected: 0

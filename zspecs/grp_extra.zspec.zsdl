@@ -1,0 +1,156 @@
+spec: grp_extra
+version: ">=3.9"
+backend: python_module(grp)
+
+docs: https://docs.python.org/3/library/grp.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/grp.html — Python grp module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/grpmodule.c"
+  notes:
+    - "This spec covers identity invariants not present in grp.zspec.zsdl."
+    - "grp is a POSIX-only module; not available on Windows."
+    - "struct_group is a C struct-sequence type, not a namedtuple; it does NOT have a _fields attribute."
+    - "struct_group.__match_args__ == ('gr_name', 'gr_passwd', 'gr_gid', 'gr_mem') — available in Python 3.10+."
+    - "struct_group.n_sequence_fields == 4 on all POSIX platforms (verified on Darwin 25.4.0)."
+    - "getgrall, getgrgid, getgrnam are C-level builtin_function_or_method objects."
+    - "getgrall.__name__ == 'getgrall', getgrgid.__name__ == 'getgrgid', getgrnam.__name__ == 'getgrnam'."
+    - "struct_group.__name__ == 'struct_group', struct_group.__module__ == 'grp'."
+    - "The four positional fields are gr_name (str), gr_passwd (str), gr_gid (int), gr_mem (list of str)."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __name__ checks
+# ---------------------------------------------------------------------------
+
+invariant grp_extra.function_names.getgrall:
+  description: "grp.getgrall.__name__ == 'getgrall'"
+  category: function_names
+  kind: python_call_eq
+  function: getgrall.__name__.__eq__
+  args: ["getgrall"]
+  expected: true
+
+invariant grp_extra.function_names.getgrgid:
+  description: "grp.getgrgid.__name__ == 'getgrgid'"
+  category: function_names
+  kind: python_call_eq
+  function: getgrgid.__name__.__eq__
+  args: ["getgrgid"]
+  expected: true
+
+invariant grp_extra.function_names.getgrnam:
+  description: "grp.getgrnam.__name__ == 'getgrnam'"
+  category: function_names
+  kind: python_call_eq
+  function: getgrnam.__name__.__eq__
+  args: ["getgrnam"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct_group class identity
+# ---------------------------------------------------------------------------
+
+invariant grp_extra.struct_group.name:
+  description: "grp.struct_group.__name__ == 'struct_group'"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_group.__name__.__eq__
+  args: ["struct_group"]
+  expected: true
+
+invariant grp_extra.struct_group.module:
+  description: "grp.struct_group.__module__ == 'grp'"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_group.__module__.__eq__
+  args: ["grp"]
+  expected: true
+
+invariant grp_extra.struct_group.is_type:
+  description: "type(grp.struct_group).__name__ == 'type' — struct_group is a class object"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_group.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct_group field count
+# ---------------------------------------------------------------------------
+
+invariant grp_extra.struct_group.n_sequence_fields:
+  description: "grp.struct_group.n_sequence_fields == 4 — four positional fields: gr_name, gr_passwd, gr_gid, gr_mem"
+  category: struct
+  kind: python_call_eq
+  function: struct_group.n_sequence_fields.__eq__
+  args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct_group.__match_args__ — tuple of positional field names (Python 3.10+)
+# Note: struct_group does not have _fields (it is not a namedtuple).
+# __match_args__ provides the same information for C struct-sequence types.
+# ---------------------------------------------------------------------------
+
+invariant grp_extra.struct_group.match_args_is_tuple:
+  description: "grp.struct_group.__match_args__.__class__.__name__ == 'tuple'"
+  category: struct
+  kind: python_call_eq
+  function: struct_group.__match_args__.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant grp_extra.struct_group.match_args_len:
+  description: "len(grp.struct_group.__match_args__) == 4 — exactly four named fields"
+  category: struct
+  kind: python_call_eq
+  function: struct_group.__match_args__.__len__
+  args: []
+  expected: 4
+
+table grp_extra.struct_group.match_args_contains:
+  kind: python_call_eq
+  category: struct
+  id_prefix: field
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gr_name,   struct_group.__match_args__.__contains__, ["gr_name"],   true]
+    - [gr_passwd, struct_group.__match_args__.__contains__, ["gr_passwd"], true]
+    - [gr_gid,    struct_group.__match_args__.__contains__, ["gr_gid"],    true]
+    - [gr_mem,    struct_group.__match_args__.__contains__, ["gr_mem"],    true]
+
+# ---------------------------------------------------------------------------
+# Functions are C-level builtins
+# ---------------------------------------------------------------------------
+
+table grp_extra.func_types:
+  kind: python_call_eq
+  category: types
+  id_prefix: func_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getgrall, getgrall.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+    - [getgrgid, getgrgid.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+    - [getgrnam, getgrnam.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+
+# ---------------------------------------------------------------------------
+# getgrall returns a list
+# ---------------------------------------------------------------------------
+
+invariant grp_extra.getgrall.returns_list:
+  description: "grp.getgrall() returns a list"
+  category: behavior
+  kind: python_call_eq
+  function: getgrall
+  args: []
+  method: __class__
+  method_chain: __name__
+  expected: "list"

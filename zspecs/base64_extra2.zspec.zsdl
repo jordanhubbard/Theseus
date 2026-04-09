@@ -1,0 +1,157 @@
+spec: base64_extra2
+version: ">=3.9"
+backend: python_module(base64)
+
+docs: https://docs.python.org/3/library/base64.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/base64.html — Python base64 module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/base64.py"
+  notes:
+    - "This spec covers __name__ identity invariants not present in base64.zspec.zsdl or base64_extra.zspec.zsdl."
+    - "b16encode, b32encode, b85encode, a85encode, urlsafe_b64encode are all module-level functions."
+    - "decodebytes and encodebytes replaced the deprecated decodestring/encodestring in Python 3.1."
+    - "b16decode, b32decode, b85decode are the corresponding decode functions."
+    - "base64.b16encode.__module__ == 'base64' — the function is defined in the base64 pure-Python module."
+    - "b85encode and a85encode were added in Python 3.4 for MIME and git binary diff applications."
+    - "encodebytes wraps lines at 76 characters (MIME convention); decodebytes ignores newlines."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __name__ checks — encode functions
+# ---------------------------------------------------------------------------
+
+table base64_extra2.encode_function_names:
+  kind: python_call_eq
+  category: identity
+  id_prefix: name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [b16encode,           b16encode.__name__.__eq__,           ["b16encode"],           true]
+    - [b32encode,           b32encode.__name__.__eq__,           ["b32encode"],           true]
+    - [b85encode,           b85encode.__name__.__eq__,           ["b85encode"],           true]
+    - [a85encode,           a85encode.__name__.__eq__,           ["a85encode"],           true]
+    - [urlsafe_b64encode,   urlsafe_b64encode.__name__.__eq__,   ["urlsafe_b64encode"],   true]
+    - [encodebytes,         encodebytes.__name__.__eq__,         ["encodebytes"],         true]
+
+# ---------------------------------------------------------------------------
+# Function __name__ checks — decode functions
+# ---------------------------------------------------------------------------
+
+table base64_extra2.decode_function_names:
+  kind: python_call_eq
+  category: identity
+  id_prefix: name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [b16decode,   b16decode.__name__.__eq__,   ["b16decode"],   true]
+    - [b32decode,   b32decode.__name__.__eq__,   ["b32decode"],   true]
+    - [b85decode,   b85decode.__name__.__eq__,   ["b85decode"],   true]
+    - [decodebytes, decodebytes.__name__.__eq__,  ["decodebytes"], true]
+
+# ---------------------------------------------------------------------------
+# Module affiliation — functions belong to the 'base64' module
+# ---------------------------------------------------------------------------
+
+invariant base64_extra2.module.b16encode:
+  description: "base64.b16encode.__module__ == 'base64' — b16encode is defined in the base64 module"
+  category: module
+  kind: python_call_eq
+  function: b16encode.__module__.__eq__
+  args: ["base64"]
+  expected: true
+
+invariant base64_extra2.module.encodebytes:
+  description: "base64.encodebytes.__module__ == 'base64' — encodebytes is defined in the base64 module"
+  category: module
+  kind: python_call_eq
+  function: encodebytes.__module__.__eq__
+  args: ["base64"]
+  expected: true
+
+invariant base64_extra2.module.b85encode:
+  description: "base64.b85encode.__module__ == 'base64' — b85encode is defined in the base64 module"
+  category: module
+  kind: python_call_eq
+  function: b85encode.__module__.__eq__
+  args: ["base64"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# encodebytes — wraps at 76 chars (MIME), output ends with newline
+# ---------------------------------------------------------------------------
+
+invariant base64_extra2.encodebytes.hello:
+  description: "base64.encodebytes(b'hello') == b'aGVsbG8=\\n' — short input fits on one line with trailing newline"
+  category: encodebytes
+  kind: python_call_eq
+  function: encodebytes
+  args: [!ascii hello]
+  expected: !ascii "aGVsbG8=\n"
+
+# ---------------------------------------------------------------------------
+# decodebytes — ignores embedded newlines in base64 input
+# ---------------------------------------------------------------------------
+
+invariant base64_extra2.decodebytes.hello:
+  description: "base64.decodebytes(b'aGVsbG8=\\n') == b'hello' — newline-terminated base64 line decodes correctly"
+  category: decodebytes
+  kind: python_call_eq
+  function: decodebytes
+  args: [!ascii "aGVsbG8=\n"]
+  expected: !ascii hello
+
+# ---------------------------------------------------------------------------
+# b85encode value correctness
+# ---------------------------------------------------------------------------
+
+invariant base64_extra2.b85encode.hello:
+  description: "base64.b85encode(b'hello') == b'Xk~0{Zv' — RFC 1924 base85 encoding of 'hello'"
+  category: b85
+  kind: python_call_eq
+  function: b85encode
+  args: [!ascii hello]
+  expected: !ascii "Xk~0{Zv"
+
+# ---------------------------------------------------------------------------
+# b85decode value correctness
+# ---------------------------------------------------------------------------
+
+invariant base64_extra2.b85decode.hello:
+  description: "base64.b85decode(b'Xk~0{Zv') == b'hello' — roundtrip with b85encode"
+  category: b85
+  kind: python_call_eq
+  function: b85decode
+  args: [!ascii "Xk~0{Zv"]
+  expected: !ascii hello
+
+# ---------------------------------------------------------------------------
+# urlsafe_b64encode is callable and returns bytes
+# ---------------------------------------------------------------------------
+
+invariant base64_extra2.urlsafe_b64encode.class_name:
+  description: "base64.urlsafe_b64encode.__class__.__name__ is a function type"
+  category: identity
+  kind: python_call_eq
+  function: urlsafe_b64encode.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# decodebytes is callable and belongs to the base64 module
+# ---------------------------------------------------------------------------
+
+invariant base64_extra2.module.decodebytes:
+  description: "base64.decodebytes.__module__ == 'base64' — decodebytes is defined in the base64 module"
+  category: module
+  kind: python_call_eq
+  function: decodebytes.__module__.__eq__
+  args: ["base64"]
+  expected: true
