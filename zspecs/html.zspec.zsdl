@@ -1,0 +1,183 @@
+spec: html
+version: ">=3.2"
+backend: python_module(html)
+
+docs: https://docs.python.org/3/library/html.html
+
+provenance:
+  derived_from:
+    - "Python html documentation — https://docs.python.org/3/library/html.html"
+    - "HTML 5 spec — HTML character references"
+    - "Test vectors verified by running Python 3.14.3 html module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/html/__init__.py"
+  notes:
+    - "html.escape() converts <, >, and & to HTML entities unconditionally."
+    - "html.escape() with quote=True (the default) also converts \" to &quot; and ' to &#x27;."
+    - "html.escape() with quote=False leaves \" and ' unchanged."
+    - "html.unescape() converts named entities (&lt; &gt; &amp; &quot; &apos;) to characters."
+    - "html.unescape() also converts decimal (&#65;) and hex (&#x41;) numeric character references."
+    - "html.unescape('normal') returns 'normal' unchanged."
+    - "html.escape('') and html.unescape('') both return ''."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# html.escape(s, quote=True) — special characters → HTML entities
+# ---------------------------------------------------------------------------
+
+table html.escape.special:
+  kind: python_call_eq
+  function: escape
+  category: escape
+  id_prefix: esc
+
+  columns: [id, args, expected]
+  rows:
+    - [lt,           ["<"],                  "&lt;"]
+    - [gt,           [">"],                  "&gt;"]
+    - [amp,          ["&"],                  "&amp;"]
+    - [lt_gt_amp,    ["<b>Hello & World</b>"], "&lt;b&gt;Hello &amp; World&lt;/b&gt;"]
+    - [lt_b,         ["a < b"],              "a &lt; b"]
+    - [gt_b,         ["a > b"],              "a &gt; b"]
+    - [amp_b,        ["a & b"],              "a &amp; b"]
+    - [compound,     ["a < b && b > c"],     "a &lt; b &amp;&amp; b &gt; c"]
+    - [script_tag,   ["<script>alert(1)</script>"], "&lt;script&gt;alert(1)&lt;/script&gt;"]
+
+# ---------------------------------------------------------------------------
+# html.escape(s, quote=True) — quote=True converts " and '
+# ---------------------------------------------------------------------------
+
+invariant html.escape.dquote_default:
+  description: "html.escape('\"quoted\"') with default quote=True encodes double-quote as &quot;"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["\"quoted\""]
+  expected: "&quot;quoted&quot;"
+
+invariant html.escape.squote_quoted:
+  description: "html.escape(\"'single'\", quote=True) encodes single-quote as &#x27;"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["'single'"]
+  kwargs: {quote: true}
+  expected: "&#x27;single&#x27;"
+
+invariant html.escape.dquote_quoted:
+  description: "html.escape('\"q\"', quote=True) encodes double-quote as &quot;"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["\"q\""]
+  kwargs: {quote: true}
+  expected: "&quot;q&quot;"
+
+# ---------------------------------------------------------------------------
+# html.escape(s, quote=False) — quote=False leaves " and ' unchanged
+# ---------------------------------------------------------------------------
+
+invariant html.escape.dquote_noquote:
+  description: "html.escape('\"test\"', quote=False) leaves double-quote unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["\"test\""]
+  kwargs: {quote: false}
+  expected: "\"test\""
+
+invariant html.escape.squote_noquote:
+  description: "html.escape(\"'test'\", quote=False) leaves single-quote unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["'test'"]
+  kwargs: {quote: false}
+  expected: "'test'"
+
+invariant html.escape.lt_noquote:
+  description: "html.escape('a < b', quote=False) still encodes < with quote=False"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["a < b"]
+  kwargs: {quote: false}
+  expected: "a &lt; b"
+
+# ---------------------------------------------------------------------------
+# html.escape — edge cases
+# ---------------------------------------------------------------------------
+
+table html.escape.edge:
+  kind: python_call_eq
+  function: escape
+  category: escape_edge
+  id_prefix: esc_edge
+
+  columns: [id, args, expected]
+  rows:
+    - [normal,  ["hello"],    "hello"]
+    - [empty,   [""],         ""]
+    - [digits,  ["123"],      "123"]
+    - [space,   [" "],        " "]
+
+# ---------------------------------------------------------------------------
+# html.unescape(s) — named entities → characters
+# ---------------------------------------------------------------------------
+
+table html.unescape.named:
+  kind: python_call_eq
+  function: unescape
+  category: unescape_named
+  id_prefix: unesc_named
+
+  columns: [id, args, expected]
+  rows:
+    - [lt,       ["&lt;"],    "<"]
+    - [gt,       ["&gt;"],    ">"]
+    - [amp,      ["&amp;"],   "&"]
+    - [quot,     ["&quot;"],  "\""]
+    - [apos,     ["&apos;"],  "'"]
+    - [lt_gt,    ["&lt;&gt;"], "<>"]
+
+# ---------------------------------------------------------------------------
+# html.unescape(s) — numeric character references
+# ---------------------------------------------------------------------------
+
+table html.unescape.numeric:
+  kind: python_call_eq
+  function: unescape
+  category: unescape_numeric
+  id_prefix: unesc_num
+
+  columns: [id, args, expected]
+  rows:
+    - [decimal_65,  ["&#65;"],   "A"]
+    - [hex_41,      ["&#x41;"],  "A"]
+    - [hex_26,      ["&#x26;"],  "&"]
+
+# ---------------------------------------------------------------------------
+# html.unescape — round-trip and edge cases
+# ---------------------------------------------------------------------------
+
+invariant html.unescape.roundtrip_html:
+  description: "html.unescape('&lt;b&gt;Hello&lt;/b&gt;') == '<b>Hello</b>'"
+  category: unescape_roundtrip
+  kind: python_call_eq
+  function: unescape
+  args: ["&lt;b&gt;Hello&lt;/b&gt;"]
+  expected: "<b>Hello</b>"
+
+table html.unescape.edge:
+  kind: python_call_eq
+  function: unescape
+  category: unescape_edge
+  id_prefix: unesc_edge
+
+  columns: [id, args, expected]
+  rows:
+    - [normal,  ["normal"],  "normal"]
+    - [empty,   [""],        ""]
+    - [digits,  ["123"],     "123"]

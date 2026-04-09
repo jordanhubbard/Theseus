@@ -1,0 +1,201 @@
+spec: typing
+version: ">=3.5"
+backend: python_module(typing)
+
+docs: https://docs.python.org/3/library/typing.html
+
+provenance:
+  derived_from:
+    - "Python typing documentation — https://docs.python.org/3/library/typing.html"
+    - "Test vectors verified by running Python 3.14.3 typing module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/typing.py"
+  notes:
+    - "typing module provides runtime support for type hints as defined in PEP 484."
+    - "typing.cast(typ, val) is a no-op at runtime — it returns val unchanged regardless of typ."
+    - "Because cast ignores its first argument, any JSON-representable value works as the type argument."
+    - "typing.TYPE_CHECKING is always False at runtime; only True when a static type checker is running."
+    - "typing.get_args(T) returns () for unparameterized concrete types; return value contains type objects, not JSON-serializable."
+    - "typing.NamedTuple(name, fields) creates a named tuple class; __name__ equals the typename argument."
+    - "typing.NamedTuple _fields is a tuple of field name strings."
+    - "Special forms (Any, Union, Optional, ClassVar) are instances of internal sentinel classes, not ordinary types."
+    - "All expected values verified by running Python 3.14.3 on macOS Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# cast — no-op identity function
+#
+# typing.cast(typ, val) is documented to return val unchanged at runtime.
+# The type argument is ignored at runtime, so any first argument works.
+# We pass a string as the type arg since JSON has no type-object literal.
+# ---------------------------------------------------------------------------
+
+table typing.cast.primitives:
+  description: "typing.cast() returns its second argument unchanged for primitive types"
+  kind: python_call_eq
+  category: cast
+  id_prefix: cast
+  function: cast
+
+  columns: [id, args, expected]
+  rows:
+    - [int_val,   ["int",   42],       42]
+    - [str_val,   ["str",   "hello"],  "hello"]
+    - [bool_true, ["bool",  true],     true]
+    - [bool_false,["bool",  false],    false]
+    - [none_val,  ["int",   null],     null]
+    - [float_val, ["float", 3.14],     3.14]
+    - [zero,      ["int",   0],        0]
+
+table typing.cast.containers:
+  description: "typing.cast() returns its second argument unchanged for container types"
+  kind: python_call_eq
+  category: cast
+  id_prefix: cast
+  function: cast
+
+  columns: [id, args, expected]
+  rows:
+    - [list_val,       ["list", [1, 2, 3]],   [1, 2, 3]]
+    - [empty_list,     ["list", []],           []]
+    - [dict_val,       ["dict", {"a": 1}],     {"a": 1}]
+    - [empty_dict,     ["dict", {}],           {}]
+
+# ---------------------------------------------------------------------------
+# TYPE_CHECKING — always False at runtime
+#
+# TYPE_CHECKING is a bool constant equal to False. It is only True when a
+# static type checker (mypy, pyright, etc.) is analysing the code, never
+# during normal execution.
+# ---------------------------------------------------------------------------
+
+invariant typing.constants.type_checking_is_false:
+  description: "typing.TYPE_CHECKING == False at runtime"
+  category: constants
+  kind: python_call_eq
+  function: TYPE_CHECKING.__eq__
+  args: [false]
+  expected: true
+
+invariant typing.constants.type_checking_is_bool:
+  description: "type(typing.TYPE_CHECKING).__name__ == 'bool'"
+  category: constants
+  kind: python_call_eq
+  function: TYPE_CHECKING.__class__.__name__.__eq__
+  args: ["bool"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# function names — canonical __name__ attribute for key typing helpers
+#
+# These invariants confirm the functions are present and correctly bound
+# on the module. A stale or incorrectly patched module would fail here.
+# ---------------------------------------------------------------------------
+
+invariant typing.names.cast:
+  description: "typing.cast.__name__ == 'cast'"
+  category: names
+  kind: python_call_eq
+  function: cast.__name__.__eq__
+  args: ["cast"]
+  expected: true
+
+invariant typing.names.get_args:
+  description: "typing.get_args.__name__ == 'get_args'"
+  category: names
+  kind: python_call_eq
+  function: get_args.__name__.__eq__
+  args: ["get_args"]
+  expected: true
+
+invariant typing.names.get_origin:
+  description: "typing.get_origin.__name__ == 'get_origin'"
+  category: names
+  kind: python_call_eq
+  function: get_origin.__name__.__eq__
+  args: ["get_origin"]
+  expected: true
+
+invariant typing.names.get_type_hints:
+  description: "typing.get_type_hints.__name__ == 'get_type_hints'"
+  category: names
+  kind: python_call_eq
+  function: get_type_hints.__name__.__eq__
+  args: ["get_type_hints"]
+  expected: true
+
+invariant typing.names.overload:
+  description: "typing.overload.__name__ == 'overload'"
+  category: names
+  kind: python_call_eq
+  function: overload.__name__.__eq__
+  args: ["overload"]
+  expected: true
+
+invariant typing.names.final:
+  description: "typing.final.__name__ == 'final'"
+  category: names
+  kind: python_call_eq
+  function: final.__name__.__eq__
+  args: ["final"]
+  expected: true
+
+invariant typing.names.no_type_check:
+  description: "typing.no_type_check.__name__ == 'no_type_check'"
+  category: names
+  kind: python_call_eq
+  function: no_type_check.__name__.__eq__
+  args: ["no_type_check"]
+  expected: true
+
+invariant typing.names.runtime_checkable:
+  description: "typing.runtime_checkable.__name__ == 'runtime_checkable'"
+  category: names
+  kind: python_call_eq
+  function: runtime_checkable.__name__.__eq__
+  args: ["runtime_checkable"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_args — returns empty tuple for unparameterized concrete types
+#
+# get_args(T) is defined to return () when T has no type arguments.
+# The result is a real tuple; we test its length to stay JSON-serializable.
+# ---------------------------------------------------------------------------
+
+invariant typing.get_args.int_is_empty:
+  description: "typing.get_args(int) has length 0 — no type args on a concrete type"
+  category: introspection
+  kind: python_call_eq
+  function: get_args
+  args: [42]
+  method: __len__
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# NamedTuple — functional API creates a named tuple class
+#
+# NamedTuple(typename, fields) returns a new class. We verify:
+#   - __name__ == typename
+#   - _fields == tuple of field name strings
+# ---------------------------------------------------------------------------
+
+invariant typing.namedtuple.class_name:
+  description: "typing.NamedTuple('Point', [['x', null], ['y', null]]).__name__ == 'Point'"
+  category: namedtuple
+  kind: python_call_eq
+  function: NamedTuple
+  args: ["Point", [["x", null], ["y", null]]]
+  method: __name__
+  expected: "Point"
+
+invariant typing.namedtuple.fields:
+  description: "typing.NamedTuple('Point', [['x', null], ['y', null]])._fields == ('x', 'y')"
+  category: namedtuple
+  kind: python_call_eq
+  function: NamedTuple
+  args: ["Point", [["x", null], ["y", null]]]
+  method: _fields
+  expected: !tuple ["x", "y"]

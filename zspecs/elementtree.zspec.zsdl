@@ -1,0 +1,212 @@
+spec: elementtree
+version: ">=3.3"
+backend: python_module(xml.etree.ElementTree)
+
+docs: https://docs.python.org/3/library/xml.etree.elementtree.html
+
+provenance:
+  derived_from:
+    - "Python xml.etree.ElementTree documentation — https://docs.python.org/3/library/xml.etree.elementtree.html"
+    - "Test vectors verified by running Python 3.14.3 xml.etree.ElementTree module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/xml/etree/ElementTree.py"
+  notes:
+    - "ET.fromstring(xml_string) parses an XML string and returns the root Element."
+    - "Element.tag returns the tag name as a string."
+    - "Element.text returns the text content of the element, or None if absent."
+    - "Element.get(attr) returns the attribute value as a string, or None if absent."
+    - "Element.get(attr, default) returns the default if the attribute is absent."
+    - "Element.findtext(path) returns the text content of the first matching child."
+    - "Element.attrib is a dict mapping attribute names to string values."
+    - "len(element) returns the number of direct children."
+    - "ET.Element(tag) creates a new empty element with the given tag."
+    - "ET.tostring(element) returns a bytes representation of the element."
+    - "ET.fromstring() raises xml.etree.ElementTree.ParseError for invalid XML."
+    - "ET.SubElement(parent, tag) creates a child element and appends it to parent."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# fromstring — tag attribute
+# ---------------------------------------------------------------------------
+
+table elementtree.fromstring.tag:
+  kind: python_call_eq
+  function: fromstring
+  category: fromstring
+  id_prefix: fromstring_tag
+  method: tag
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [self_closing,  ["<root/>"],                        "root"]
+    - [with_children, ["<root><child>text</child></root>"], "root"]
+    - [element_a,     ["<a/>"],                           "a"]
+    - [nested,        ["<parent><child/></parent>"],      "parent"]
+
+# ---------------------------------------------------------------------------
+# fromstring — findtext method
+# ---------------------------------------------------------------------------
+
+table elementtree.fromstring.findtext:
+  kind: python_call_eq
+  function: fromstring
+  category: fromstring
+  id_prefix: fromstring_findtext
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [child_a,   ["<root><a>hello</a><b>world</b></root>"], findtext, ["a"], "hello"]
+    - [child_b,   ["<root><a>hello</a><b>world</b></root>"], findtext, ["b"], "world"]
+    - [missing,   ["<root><a>hello</a></root>"],             findtext, ["c"], ~]
+    - [deep_text, ["<root><x>deep</x></root>"],              findtext, ["x"], "deep"]
+
+# ---------------------------------------------------------------------------
+# fromstring — get (attribute access)
+# ---------------------------------------------------------------------------
+
+table elementtree.fromstring.get:
+  kind: python_call_eq
+  function: fromstring
+  category: fromstring
+  id_prefix: fromstring_get
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [attr_str,    ["<root attr=\"value\"/>"],          get, ["attr"],    "value"]
+    - [attr_num,    ["<root num=\"42\"/>"],               get, ["num"],     "42"]
+    - [missing_attr,["<root attr=\"value\"/>"],           get, ["missing"], ~]
+
+invariant elementtree.fromstring.get_default:
+  description: "ET.fromstring('<root/>').get('missing', 'default') == 'default'"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<root/>"]
+  method: get
+  method_args: ["missing", "default"]
+  expected: "default"
+
+# ---------------------------------------------------------------------------
+# fromstring — __len__ (number of direct children)
+# ---------------------------------------------------------------------------
+
+table elementtree.fromstring.len:
+  kind: python_call_eq
+  function: fromstring
+  category: fromstring
+  id_prefix: fromstring_len
+  method: __len__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [three_children, ["<root><a/><b/><c/></root>"], 3]
+    - [two_children,   ["<root><a/><b/></root>"],     2]
+    - [one_child,      ["<root><a/></root>"],          1]
+    - [leaf,           ["<leaf/>"],                    0]
+
+# ---------------------------------------------------------------------------
+# fromstring — text attribute
+# ---------------------------------------------------------------------------
+
+invariant elementtree.fromstring.text_content:
+  description: "ET.fromstring('<root>hello world</root>').text == 'hello world'"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<root>hello world</root>"]
+  method: __getattribute__
+  method_args: ["text"]
+  expected: "hello world"
+
+invariant elementtree.fromstring.text_with_entities:
+  description: "ET.fromstring('<root>foo &amp; bar</root>').text == 'foo & bar' (entities decoded)"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<root>foo &amp; bar</root>"]
+  method: __getattribute__
+  method_args: ["text"]
+  expected: "foo & bar"
+
+# ---------------------------------------------------------------------------
+# fromstring — attrib dict length and access
+# ---------------------------------------------------------------------------
+
+invariant elementtree.fromstring.attrib_len_two:
+  description: "len(ET.fromstring('<root x=\"1\" y=\"2\"/>').attrib) == 2"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<root x=\"1\" y=\"2\"/>"]
+  method: __getattribute__
+  method_args: ["attrib"]
+  method_chain: __len__
+  expected: 2
+
+invariant elementtree.fromstring.attrib_get_x:
+  description: "ET.fromstring('<root x=\"1\" y=\"2\"/>').attrib['x'] == '1' via get()"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<root x=\"1\" y=\"2\"/>"]
+  method: get
+  method_args: ["x"]
+  expected: "1"
+
+# ---------------------------------------------------------------------------
+# ET.Element(tag) constructor
+# ---------------------------------------------------------------------------
+
+invariant elementtree.element.tag:
+  description: "ET.Element('mytag').tag == 'mytag'"
+  category: element
+  kind: python_call_eq
+  function: Element
+  args: ["mytag"]
+  method: tag
+  method_args: []
+  expected: "mytag"
+
+invariant elementtree.element.len_empty:
+  description: "len(ET.Element('empty')) == 0 — newly created element has no children"
+  category: element
+  kind: python_call_eq
+  function: Element
+  args: ["empty"]
+  method: __len__
+  method_args: []
+  expected: 0
+
+invariant elementtree.element.tag_check:
+  description: "ET.Element('myelement').tag.startswith('my') == True"
+  category: element
+  kind: python_call_eq
+  function: Element
+  args: ["myelement"]
+  method: tag
+  method_args: []
+  expected: "myelement"
+
+# ---------------------------------------------------------------------------
+# ParseError on invalid XML
+# ---------------------------------------------------------------------------
+
+invariant elementtree.fromstring.parse_error_invalid:
+  description: "ET.fromstring('not xml') raises ParseError"
+  category: error
+  kind: python_call_raises
+  function: fromstring
+  args: ["not xml"]
+  expected_exception: xml.etree.ElementTree.ParseError
+
+invariant elementtree.fromstring.parse_error_unclosed:
+  description: "ET.fromstring('<unclosed>') raises ParseError"
+  category: error
+  kind: python_call_raises
+  function: fromstring
+  args: ["<unclosed>"]
+  expected_exception: xml.etree.ElementTree.ParseError
