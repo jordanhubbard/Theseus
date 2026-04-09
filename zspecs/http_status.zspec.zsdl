@@ -1,0 +1,146 @@
+spec: http_status
+version: ">=3.5"
+backend: python_module(http)
+
+docs: https://docs.python.org/3/library/http.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/http.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "http source: Lib/http/__init__.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "http.client spec — that spec covers http.client connection classes and status constants as plain ints; this spec tests http.HTTPStatus as an IntEnum"
+    - "http.server, http.cookies, http.cookiejar — covered by separate specs"
+  notes:
+    - "http.HTTPStatus was added in Python 3.5 (PEP 3151 / bpo-21793) as an IntEnum in the top-level http package."
+    - "http.HTTPStatus members compare equal to their integer values via IntEnum inheritance."
+    - "http.HTTPStatus.__bases__[0].__name__ == 'IntEnum' — HTTPStatus inherits directly from IntEnum."
+    - "http.HTTPStatus.__module__ == 'http' — the class is defined in http/__init__.py."
+    - "Status 204 (NO_CONTENT) has no body; 304 (NOT_MODIFIED) is a redirect-like cache response."
+    - "phrase and description are string attributes on each HTTPStatus member (Python 3.9+)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "http.HTTPStatus is an IntEnum; accessing a non-existent member raises KeyError (via __getitem__) or AttributeError (via attribute access)."
+  stderr: "null"
+  stickiness: "N/A — enum lookups are stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# HTTPStatus class identity
+# ---------------------------------------------------------------------------
+
+invariant http_status.class_name:
+  description: "http.HTTPStatus.__name__ == 'HTTPStatus'"
+  category: class_identity
+  kind: python_call_eq
+  function: HTTPStatus.__name__.__eq__
+  args: ["HTTPStatus"]
+  expected: true
+
+invariant http_status.class_module:
+  description: "http.HTTPStatus.__module__ == 'http'"
+  category: class_identity
+  kind: python_call_eq
+  function: HTTPStatus.__module__.__eq__
+  args: ["http"]
+  expected: true
+
+invariant http_status.base_class:
+  description: "http.HTTPStatus.__bases__[0].__name__ == 'IntEnum'"
+  category: class_identity
+  kind: python_call_eq
+  function: HTTPStatus.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "IntEnum"
+
+# ---------------------------------------------------------------------------
+# Status code integer values — 2xx success
+# ---------------------------------------------------------------------------
+
+table http_status.success_codes:
+  kind: python_call_eq
+  category: status_values
+  id_prefix: http2xx
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ok,         HTTPStatus.OK.value.__eq__,          [200], true]
+    - [created,    HTTPStatus.CREATED.value.__eq__,     [201], true]
+    - [no_content, HTTPStatus.NO_CONTENT.value.__eq__,  [204], true]
+
+# ---------------------------------------------------------------------------
+# Status code integer values — 3xx redirection
+# ---------------------------------------------------------------------------
+
+invariant http_status.not_modified_value:
+  description: "http.HTTPStatus.NOT_MODIFIED.value == 304"
+  category: status_values
+  kind: python_call_eq
+  function: HTTPStatus.NOT_MODIFIED.value.__eq__
+  args: [304]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Status code integer values — 4xx client error
+# ---------------------------------------------------------------------------
+
+table http_status.client_error_codes:
+  kind: python_call_eq
+  category: status_values
+  id_prefix: http4xx
+
+  columns: [id, function, args, expected]
+  rows:
+    - [bad_request,   HTTPStatus.BAD_REQUEST.value.__eq__,   [400], true]
+    - [unauthorized,  HTTPStatus.UNAUTHORIZED.value.__eq__,  [401], true]
+    - [forbidden,     HTTPStatus.FORBIDDEN.value.__eq__,     [403], true]
+    - [not_found,     HTTPStatus.NOT_FOUND.value.__eq__,     [404], true]
+
+# ---------------------------------------------------------------------------
+# Status code integer values — 5xx server error
+# ---------------------------------------------------------------------------
+
+invariant http_status.internal_server_error_value:
+  description: "http.HTTPStatus.INTERNAL_SERVER_ERROR.value == 500"
+  category: status_values
+  kind: python_call_eq
+  function: HTTPStatus.INTERNAL_SERVER_ERROR.value.__eq__
+  args: [500]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IntEnum integer identity — HTTPStatus.OK == 200 via IntEnum __eq__
+# ---------------------------------------------------------------------------
+
+invariant http_status.ok_int_eq:
+  description: "http.HTTPStatus.OK == 200 — IntEnum members compare equal to their integer values"
+  category: int_identity
+  kind: python_call_eq
+  function: HTTPStatus.OK.__eq__
+  args: [200]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# HTTPStatus.phrase — human-readable reason phrase
+# ---------------------------------------------------------------------------
+
+invariant http_status.ok_phrase:
+  description: "http.HTTPStatus.OK.phrase == 'OK'"
+  category: phrase
+  kind: python_call_eq
+  function: HTTPStatus.OK.phrase.__eq__
+  args: ["OK"]
+  expected: true
+
+invariant http_status.not_found_phrase:
+  description: "http.HTTPStatus.NOT_FOUND.phrase == 'Not Found'"
+  category: phrase
+  kind: python_call_eq
+  function: HTTPStatus.NOT_FOUND.phrase.__eq__
+  args: ["Not Found"]
+  expected: true

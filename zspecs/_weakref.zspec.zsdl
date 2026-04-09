@@ -1,0 +1,136 @@
+spec: _weakref
+version: ">=3.0"
+backend: python_module(_weakref)
+
+docs: https://docs.python.org/3/library/weakref.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/weakref.html"
+    - "CPython source: Modules/_weakref.c (PSF; source inspection permitted)"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "weakref spec — that spec covers the Python-level weakref module (weakref.py) including WeakValueDictionary, WeakKeyDictionary, WeakSet, and finalize; this spec covers the underlying C extension _weakref"
+  notes:
+    - "_weakref is the C-level extension module that backs the weakref package."
+    - "_weakref.ref is the raw C type; its __name__ is 'weakref' (not 'ref' or 'ReferenceType' — the Python-level alias weakref.ref sets __name__ differently)."
+    - "_weakref.ProxyType.__name__ == 'weakproxy' — the non-callable proxy C type."
+    - "_weakref.CallableProxyType.__name__ == 'weakcallableproxy' — the callable proxy C type."
+    - "_weakref.getweakrefs and _weakref.getweakrefcount are builtin_function_or_method objects from the C extension."
+    - "_weakref.ReferenceType is an alias for _weakref.ref — they are the same object."
+    - "getweakrefcount returns 0 for a fresh object with no registered weak references."
+    - "getweakrefs returns an empty list for a fresh object."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "_weakref.ref raises TypeError when called on a type that does not support weak references (e.g., basic int literals). getweakrefcount and getweakrefs accept any object."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# C type name checks — __name__ values come from the C struct definition
+# ---------------------------------------------------------------------------
+
+invariant _weakref.ref_name:
+  description: "_weakref.ref.__name__ == 'weakref' — the C type's tp_name"
+  category: type_names
+  kind: python_call_eq
+  function: ref.__name__.__eq__
+  args: ["weakref"]
+  expected: true
+
+invariant _weakref.proxy_type_name:
+  description: "_weakref.ProxyType.__name__ == 'weakproxy'"
+  category: type_names
+  kind: python_call_eq
+  function: ProxyType.__name__.__eq__
+  args: ["weakproxy"]
+  expected: true
+
+invariant _weakref.callable_proxy_type_name:
+  description: "_weakref.CallableProxyType.__name__ == 'weakcallableproxy'"
+  category: type_names
+  kind: python_call_eq
+  function: CallableProxyType.__name__.__eq__
+  args: ["weakcallableproxy"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ReferenceType alias — _weakref.ReferenceType is the same object as _weakref.ref
+# ---------------------------------------------------------------------------
+
+invariant _weakref.reference_type_alias_name:
+  description: "_weakref.ReferenceType.__name__ == 'weakref' — ReferenceType is an alias for ref"
+  category: type_names
+  kind: python_call_eq
+  function: ReferenceType.__name__.__eq__
+  args: ["weakref"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function name checks — getweakrefcount and getweakrefs are C builtins
+# ---------------------------------------------------------------------------
+
+table _weakref.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getweakrefcount, getweakrefcount.__name__.__eq__, ["getweakrefcount"], true]
+    - [getweakrefs,     getweakrefs.__name__.__eq__,     ["getweakrefs"],     true]
+
+# ---------------------------------------------------------------------------
+# getweakrefcount — returns 0 for a fresh list (no weak refs registered)
+# ---------------------------------------------------------------------------
+
+invariant _weakref.getweakrefcount_zero:
+  description: "_weakref.getweakrefcount([]) == 0 — fresh list has no weak references"
+  category: getweakrefcount
+  kind: python_call_eq
+  function: getweakrefcount([])
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# getweakrefs — returns empty list for a fresh list
+# ---------------------------------------------------------------------------
+
+invariant _weakref.getweakrefs_empty_len:
+  description: "_weakref.getweakrefs([]) returns a list of length 0"
+  category: getweakrefs
+  kind: python_call_eq
+  function: getweakrefs([]).__len__
+  args: []
+  expected: 0
+
+invariant _weakref.getweakrefs_empty_class:
+  description: "_weakref.getweakrefs([]) returns a list"
+  category: getweakrefs
+  kind: python_call_eq
+  function: getweakrefs([]).__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ref __module__ — _weakref types are homed in the _weakref C extension
+# ---------------------------------------------------------------------------
+
+invariant _weakref.ref_module:
+  description: "_weakref.ref.__module__ == '_weakref'"
+  category: type_names
+  kind: python_call_eq
+  function: ref.__module__.__eq__
+  args: ["_weakref"]
+  expected: true
+
+invariant _weakref.proxy_type_module:
+  description: "_weakref.ProxyType.__module__ == '_weakref'"
+  category: type_names
+  kind: python_call_eq
+  function: ProxyType.__module__.__eq__
+  args: ["_weakref"]
+  expected: true

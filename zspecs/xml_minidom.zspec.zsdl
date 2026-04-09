@@ -1,0 +1,165 @@
+spec: xml_minidom
+version: ">=3.0"
+backend: python_module(xml.dom.minidom)
+
+docs: https://docs.python.org/3/library/xml.dom.minidom.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/xml.dom.minidom.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "xml.dom.minidom source: Lib/xml/dom/minidom.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "xml_dom spec — that spec covers node-type constants, Document construction, and toxml; this spec focuses on __module__ provenance, NodeList, and Text node behavior"
+  notes:
+    - "xml_dom.zspec.zsdl uses the same backend (python_module(xml.dom.minidom)) and covers class names, node-type constants, parseString DOM traversal, Document construction, and getDOMImplementation."
+    - "This spec focuses on complementary invariants: __module__ attributes confirming classes belong to xml.dom.minidom, NodeList length/item access, Text node data, and Attr name/value."
+    - "NodeList is an internal minidom sequence class; childNodes on a freshly parsed Document is a NodeList."
+    - "parseString('<a>hello</a>').documentElement.firstChild is a Text node with data 'hello'."
+    - "parseString('<a/>').childNodes.__class__.__name__ == 'NodeList' — the document-level child list."
+    - "Attr nodes returned by getAttributeNode have both .name and .value attributes."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Malformed XML passed to parseString raises xml.parsers.expat.ExpatError. Each call is stateless and independent."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# __module__ checks — confirm classes are homed in xml.dom.minidom
+# ---------------------------------------------------------------------------
+
+table xml_minidom.class_modules:
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: cmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [document,  Document.__module__.__eq__,  ["xml.dom.minidom"],  true]
+    - [element,   Element.__module__.__eq__,   ["xml.dom.minidom"],  true]
+    - [text,      Text.__module__.__eq__,      ["xml.dom.minidom"],  true]
+    - [attr,      Attr.__module__.__eq__,      ["xml.dom.minidom"],  true]
+    - [comment,   Comment.__module__.__eq__,   ["xml.dom.minidom"],  true]
+
+# ---------------------------------------------------------------------------
+# NodeList — childNodes on a parsed document is a NodeList of length 1
+# ---------------------------------------------------------------------------
+
+invariant xml_minidom.childnodes_class:
+  description: "parseString('<a/>').childNodes.__class__.__name__ == 'NodeList'"
+  category: nodelist
+  kind: python_call_eq
+  function: parseString
+  args: ["<a/>"]
+  method: childNodes
+  method_args: []
+  method_chain: __class__
+  method_chain_args: []
+  method_chain_2: __name__
+  expected: "NodeList"
+
+invariant xml_minidom.childnodes_len:
+  description: "parseString('<a/>').childNodes.length == 1 — document has exactly one child (the root element)"
+  category: nodelist
+  kind: python_call_eq
+  function: parseString
+  args: ["<a/>"]
+  method: childNodes
+  method_args: []
+  method_chain: length
+  expected: 1
+
+invariant xml_minidom.childnodes_item_tagname:
+  description: "parseString('<a/>').childNodes.item(0).tagName == 'a'"
+  category: nodelist
+  kind: python_call_eq
+  function: parseString
+  args: ["<a/>"]
+  method: childNodes
+  method_args: []
+  method_chain: item
+  method_chain_args: [0]
+  method_chain_2: tagName
+  expected: "a"
+
+# ---------------------------------------------------------------------------
+# Text node — firstChild of an element with text content
+# ---------------------------------------------------------------------------
+
+invariant xml_minidom.text_node_class:
+  description: "parseString('<a>hi</a>').documentElement.firstChild.__class__.__name__ == 'Text'"
+  category: text_node
+  kind: python_call_eq
+  function: parseString
+  args: ["<a>hi</a>"]
+  method: documentElement
+  method_args: []
+  method_chain: firstChild
+  method_chain_args: []
+  method_chain_2: __class__
+  method_chain_2_args: []
+  method_chain_3: __name__
+  expected: "Text"
+
+invariant xml_minidom.text_node_data:
+  description: "parseString('<a>hello</a>').documentElement.firstChild.data == 'hello'"
+  category: text_node
+  kind: python_call_eq
+  function: parseString
+  args: ["<a>hello</a>"]
+  method: documentElement
+  method_args: []
+  method_chain: firstChild
+  method_chain_args: []
+  method_chain_2: data
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# Attr node — getAttributeNode returns an Attr with name and value
+# ---------------------------------------------------------------------------
+
+invariant xml_minidom.attr_node_name:
+  description: "parseString('<r k=\"v\"/>').documentElement.getAttributeNode('k').name == 'k'"
+  category: attr_node
+  kind: python_call_eq
+  function: parseString
+  args: ['<r k="v"/>']
+  method: documentElement
+  method_args: []
+  method_chain: getAttributeNode
+  method_chain_args: ["k"]
+  method_chain_2: name
+  expected: "k"
+
+invariant xml_minidom.attr_node_value:
+  description: "parseString('<r k=\"v\"/>').documentElement.getAttributeNode('k').value == 'v'"
+  category: attr_node
+  kind: python_call_eq
+  function: parseString
+  args: ['<r k="v"/>']
+  method: documentElement
+  method_args: []
+  method_chain: getAttributeNode
+  method_chain_args: ["k"]
+  method_chain_2: value
+  expected: "v"
+
+# ---------------------------------------------------------------------------
+# getElementsByTagName — returns a NodeList
+# ---------------------------------------------------------------------------
+
+invariant xml_minidom.getelementsbytagname_len:
+  description: "parseString('<r><b/><b/></r>').documentElement.getElementsByTagName('b').length == 2"
+  category: traversal
+  kind: python_call_eq
+  function: parseString
+  args: ["<r><b/><b/></r>"]
+  method: documentElement
+  method_args: []
+  method_chain: getElementsByTagName
+  method_chain_args: ["b"]
+  method_chain_2: length
+  expected: 2

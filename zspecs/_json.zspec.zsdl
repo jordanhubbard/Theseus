@@ -1,0 +1,136 @@
+spec: _json
+version: ">=3.0"
+backend: python_module(_json)
+
+docs: https://docs.python.org/3/library/json.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/json.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "_json source: Modules/_json.c (PSF; C extension)"
+  not_derived_from:
+    - "_json source: internal scanner/encoder state machine details"
+  notes:
+    - "_json is the C-extension backend for the json stdlib module."
+    - "encode_basestring(s) wraps s in double quotes and escapes special characters."
+    - "encode_basestring_ascii(s) does the same but also escapes all non-ASCII characters as \\uXXXX."
+    - "encode_basestring('hello') == '\"hello\"' — plain ASCII string, no escaping needed."
+    - "encode_basestring_ascii('hello') == '\"hello\"' — same result for pure ASCII input."
+    - "encode_basestring('hello\\nworld') == '\"hello\\\\nworld\"' — newline becomes \\n escape sequence."
+    - "Scanner is the C-level type for scanning JSON tokens; its __name__ is 'Scanner'."
+    - "Encoder is the C-level type for encoding Python objects to JSON; its __name__ is 'Encoder'."
+    - "All expected values verified by running Python 3.12 _json module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class name checks
+# ---------------------------------------------------------------------------
+
+invariant _json.Scanner_name:
+  description: "_json.Scanner.__name__ == 'Scanner'"
+  category: classes
+  kind: python_call_eq
+  function: Scanner.__name__.__eq__
+  args: ["Scanner"]
+  expected: true
+
+invariant _json.Encoder_name:
+  description: "_json.Encoder.__name__ == 'Encoder'"
+  category: classes
+  kind: python_call_eq
+  function: Encoder.__name__.__eq__
+  args: ["Encoder"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+invariant _json.encode_basestring_name:
+  description: "_json.encode_basestring.__name__ == 'encode_basestring'"
+  category: functions
+  kind: python_call_eq
+  function: encode_basestring.__name__.__eq__
+  args: ["encode_basestring"]
+  expected: true
+
+invariant _json.encode_basestring_ascii_name:
+  description: "_json.encode_basestring_ascii.__name__ == 'encode_basestring_ascii'"
+  category: functions
+  kind: python_call_eq
+  function: encode_basestring_ascii.__name__.__eq__
+  args: ["encode_basestring_ascii"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function module checks
+# ---------------------------------------------------------------------------
+
+table _json.function_modules:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [encode_basestring,       encode_basestring.__module__.__eq__,       ["_json"], true]
+    - [encode_basestring_ascii, encode_basestring_ascii.__module__.__eq__, ["_json"], true]
+
+# ---------------------------------------------------------------------------
+# encode_basestring — behavioral checks
+# ---------------------------------------------------------------------------
+
+invariant _json.encode_basestring_plain:
+  description: "encode_basestring('hello') == '\"hello\"' — plain ASCII wrapped in double quotes"
+  category: behavioral
+  kind: python_call_eq
+  function: encode_basestring
+  args: ["hello"]
+  expected: "\"hello\""
+
+invariant _json.encode_basestring_newline:
+  description: "encode_basestring('hello\\nworld') == '\"hello\\\\nworld\"' — newline is escaped"
+  category: behavioral
+  kind: python_call_eq
+  function: encode_basestring
+  args: ["hello\nworld"]
+  expected: "\"hello\\nworld\""
+
+invariant _json.encode_basestring_empty:
+  description: "encode_basestring('') == '\"\"' — empty string becomes empty JSON string"
+  category: behavioral
+  kind: python_call_eq
+  function: encode_basestring
+  args: [""]
+  expected: "\"\""
+
+# ---------------------------------------------------------------------------
+# encode_basestring_ascii — behavioral checks
+# ---------------------------------------------------------------------------
+
+invariant _json.encode_basestring_ascii_plain:
+  description: "encode_basestring_ascii('hello') == '\"hello\"' — pure ASCII, no escaping"
+  category: behavioral
+  kind: python_call_eq
+  function: encode_basestring_ascii
+  args: ["hello"]
+  expected: "\"hello\""
+
+invariant _json.encode_basestring_ascii_empty:
+  description: "encode_basestring_ascii('') == '\"\"' — empty string becomes empty JSON string"
+  category: behavioral
+  kind: python_call_eq
+  function: encode_basestring_ascii
+  args: [""]
+  expected: "\"\""
+
+invariant _json.encode_basestring_ascii_tab:
+  description: "encode_basestring_ascii('a\\tb') escapes tab as \\t"
+  category: behavioral
+  kind: python_call_eq
+  function: encode_basestring_ascii
+  args: ["a\tb"]
+  expected: "\"a\\tb\""
