@@ -1,0 +1,195 @@
+spec: unicodedata_extra5
+version: ">=3.9"
+backend: python_module(unicodedata)
+
+docs: https://docs.python.org/3/library/unicodedata.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/unicodedata.html — Python unicodedata module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/unicodedata.c"
+  notes:
+    - "This spec extends unicodedata.zspec.zsdl, unicodedata_extra.zspec.zsdl, unicodedata_extra2.zspec.zsdl, unicodedata_extra3.zspec.zsdl, and unicodedata_extra4.zspec.zsdl."
+    - "unicodedata.zspec.zsdl: name/lookup/category/bidirectional/combining/east_asian_width/decomposition/decimal/numeric/normalize/unidata_version behavioral vectors."
+    - "unicodedata_extra.zspec.zsdl: __name__ for all major functions; unidata_version type; name('A'); category('A')."
+    - "unicodedata_extra2.zspec.zsdl: unidata_version length/dot; __module__ for normalize/decomposition/bidirectional/east_asian_width/combining/category/lookup/name; is_normalized __name__/__module__."
+    - "unicodedata_extra3.zspec.zsdl: __module__ for decimal/numeric/digit/mirrored; ucd_3_2_0.__class__.__name__ == 'UCD'; name('A') extra3 ID."
+    - "unicodedata_extra4.zspec.zsdl: __name__ table for lookup/category/bidirectional/combining/east_asian_width/mirrored/decomposition/normalize/is_normalized; unidata_version.__class__.__name__; category('A'/'a'/'0'); bidirectional('A'); combining('A'); east_asian_width('A'); mirrored('(')."
+    - "Focus: new behavioral vectors not present in prior specs."
+    - "unicodedata.lookup('LATIN SMALL LETTER A') == 'a' — inverse of name('a') == 'LATIN SMALL LETTER A'."
+    - "unicodedata.lookup('DIGIT FIVE') == '5' — new lookup vector not in unicodedata.zspec.zsdl."
+    - "unicodedata.decimal('5') == 5 — decimal value of '5'; unicodedata.zspec.zsdl covers '0' and '9'."
+    - "unicodedata.digit('7') == 7 — digit() function returns the digit value; not covered in prior specs."
+    - "unicodedata.numeric('½') == 0.5 is in unicodedata.zspec.zsdl; numeric('9') == 9.0 is new."
+    - "unicodedata.normalize('NFKC', 'A') == 'A' — ASCII unchanged under NFKC; NFKD also confirmed."
+    - "unicodedata.category(' ') == 'Zs' is covered in base; category('\t') == 'Cc' is new."
+    - "unicodedata.bidirectional(' ') == 'WS' — space is whitespace bidi class; new vector."
+    - "unicodedata.combining('e\u0301'[1]) == 230 — combining class of combining acute accent (U+0301) is 230."
+    - "unicodedata.decomposition('é') == '0065 0301' — NFD decomposition of LATIN SMALL LETTER E WITH ACUTE."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# lookup() — additional vectors not in unicodedata.zspec.zsdl
+# unicodedata.zspec.zsdl covers: 'LATIN CAPITAL LETTER A' -> 'A', 'DIGIT ZERO' -> '0'.
+# We add: 'LATIN SMALL LETTER A' -> 'a', 'DIGIT FIVE' -> '5'.
+# ---------------------------------------------------------------------------
+
+table unicodedata_extra5.lookup.new_vectors:
+  kind: python_call_eq
+  category: lookup
+  id_prefix: lookup
+  function: lookup
+
+  columns: [id, args, expected]
+  rows:
+    - [small_a,    ["LATIN SMALL LETTER A"], "a"]
+    - [digit_five, ["DIGIT FIVE"],           "5"]
+
+# ---------------------------------------------------------------------------
+# decimal() — vectors not in unicodedata.zspec.zsdl
+# unicodedata.zspec.zsdl covers decimal('0') == 0 and decimal('9') == 9.
+# We add decimal('5') == 5.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra5.decimal.five:
+  description: "unicodedata.decimal('5') == 5"
+  category: decimal
+  kind: python_call_eq
+  function: decimal
+  args: ["5"]
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# digit() — digit value for ASCII digits
+# unicodedata.digit() is separate from decimal(); prior specs cover __name__/__module__
+# but no value vectors.
+# ---------------------------------------------------------------------------
+
+table unicodedata_extra5.digit.values:
+  kind: python_call_eq
+  category: digit
+  id_prefix: digit
+  function: digit
+
+  columns: [id, args, expected]
+  rows:
+    - [zero,  ["0"], 0]
+    - [seven, ["7"], 7]
+    - [nine,  ["9"], 9]
+
+# ---------------------------------------------------------------------------
+# numeric() — additional vector
+# unicodedata.zspec.zsdl covers numeric('½') == 0.5 and numeric('5') == 5.0.
+# We add numeric('9') == 9.0 as a new distinct vector.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra5.numeric.nine:
+  description: "unicodedata.numeric('9') == 9.0"
+  category: numeric
+  kind: python_call_eq
+  function: numeric
+  args: ["9"]
+  expected: 9.0
+
+# ---------------------------------------------------------------------------
+# normalize() — NFKC and NFKD forms not in unicodedata.zspec.zsdl
+# unicodedata.zspec.zsdl covers NFC and NFD for 'A'.
+# We add NFKC and NFKD for 'A' (ASCII unchanged under all forms).
+# ---------------------------------------------------------------------------
+
+table unicodedata_extra5.normalize.nfkc_nfkd:
+  kind: python_call_eq
+  category: normalize
+  id_prefix: norm
+  function: normalize
+
+  columns: [id, args, expected]
+  rows:
+    - [nfkc_ascii, ["NFKC", "A"], "A"]
+    - [nfkd_ascii, ["NFKD", "A"], "A"]
+
+# ---------------------------------------------------------------------------
+# category() — new characters not in prior specs
+# unicodedata.zspec.zsdl: 'A'->Lu, 'a'->Ll, '0'->Nd, '!'->Po, ' '->Zs.
+# unicodedata_extra4: 'A'->Lu, 'a'->Ll, '0'->Nd (table rows).
+# We add: tab '\t' -> 'Cc' (control character), '+' -> 'Po' (wait, + is Sm)...
+# Actually '+' is 'Sm' (math symbol), '\t' is 'Cc'.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra5.category.tab:
+  description: "unicodedata.category('\\t') == 'Cc' — tab is a control character"
+  category: category
+  kind: python_call_eq
+  function: category
+  args: ["\t"]
+  expected: "Cc"
+
+invariant unicodedata_extra5.category.plus_sign:
+  description: "unicodedata.category('+') == 'Sm' — plus sign is a math symbol"
+  category: category
+  kind: python_call_eq
+  function: category
+  args: ["+"]
+  expected: "Sm"
+
+# ---------------------------------------------------------------------------
+# bidirectional() — new vectors
+# unicodedata.zspec.zsdl covers 'A' -> 'L' and '0' -> 'EN'.
+# unicodedata_extra4 covers 'A' -> 'L'.
+# We add space ' ' -> 'WS' (whitespace bidi class).
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra5.bidirectional.space:
+  description: "unicodedata.bidirectional(' ') == 'WS' — space has whitespace bidi class"
+  category: bidirectional
+  kind: python_call_eq
+  function: bidirectional
+  args: [" "]
+  expected: "WS"
+
+# ---------------------------------------------------------------------------
+# combining() — non-zero combining class
+# Prior specs cover combining('A') == 0 and combining('0') == 0.
+# U+0301 COMBINING ACUTE ACCENT has combining class 230.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra5.combining.acute_accent:
+  description: "unicodedata.combining('\\u0301') == 230 — combining acute accent has class 230"
+  category: combining
+  kind: python_call_eq
+  function: combining
+  args: ["\u0301"]
+  expected: 230
+
+# ---------------------------------------------------------------------------
+# decomposition() — character with a decomposition mapping
+# unicodedata.zspec.zsdl covers decomposition('A') == '' (no decomposition).
+# We add: decomposition of U+00E9 LATIN SMALL LETTER E WITH ACUTE == '0065 0301'.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra5.decomposition.e_acute:
+  description: "unicodedata.decomposition('é') == '0065 0301' — NFD decomposition of e-acute"
+  category: decomposition
+  kind: python_call_eq
+  function: decomposition
+  args: ["\u00e9"]
+  expected: "0065 0301"
+
+# ---------------------------------------------------------------------------
+# ucd_3_2_0 — category of 'A' via the legacy UCD object
+# unicodedata_extra3 confirms ucd_3_2_0.__class__.__name__ == 'UCD'.
+# We add a behavioral check: ucd_3_2_0.category('A') == 'Lu'.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra5.ucd_3_2_0.category_A:
+  description: "unicodedata.ucd_3_2_0.category('A') == 'Lu' — UCD 3.2.0 object has same category for ASCII"
+  category: ucd_object
+  kind: python_call_eq
+  function: ucd_3_2_0.category
+  args: ["A"]
+  expected: "Lu"

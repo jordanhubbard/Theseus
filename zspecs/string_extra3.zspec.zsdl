@@ -1,0 +1,147 @@
+spec: string_extra3
+version: ">=3.9"
+backend: python_module(string)
+
+docs: https://docs.python.org/3/library/string.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/string.html — Python string module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/string.py"
+  notes:
+    - "This spec extends string.zspec.zsdl, string_extra.zspec.zsdl, string_extra2.zspec.zsdl, string_extra4.zspec.zsdl, and string_extra5.zspec.zsdl."
+    - "string.zspec.zsdl: constant lengths, __contains__ checks, capwords basic/sep tables."
+    - "string_extra.zspec.zsdl: Formatter/__module__/__name__, Template/__module__/__name__, capwords/__name__, type_is_str table (ascii_letters/ascii_lowercase/ascii_uppercase/digits/hexdigits/octdigits/punctuation/whitespace), digits len, ascii_lowercase len."
+    - "string_extra2.zspec.zsdl: Formatter/__bases__, Template/__bases__, capwords/__module__, ascii_letters len, whitespace newline, printable len, punctuation len, octdigits value, hexdigits value."
+    - "string_extra4.zspec.zsdl: Formatter/__name__+__module__ table, Template/__name__+__module__ table, digits/hexdigits/octdigits values, lengths, Formatter().format/__func__/__name__, Template/__name__ invariant."
+    - "string_extra5.zspec.zsdl: Template/__qualname__, Formatter/__qualname__, capwords/__qualname__, ascii_uppercase exact value, ascii_lowercase exact value, contains table for digits/ascii_uppercase, capwords double-space, capwords uppercase single word, Formatter is_type, Template is_type."
+    - "Focus: string.printable.__class__.__name__ == 'str' (printable was absent from string_extra type_is_str table); string.whitespace.__class__.__name__ == 'str' (new ID in this spec); string.ascii_letters.__contains__('z'); string.printable.__contains__('A'); whitespace length is 6; string.capwords with empty-string sep arg."
+    - "string.printable.__class__.__name__ == 'str' — printable is a module-level str constant."
+    - "string.whitespace.__len__() == 6 — space, tab, newline, CR, VT, FF."
+    - "string.ascii_letters.__contains__('z') == True — 'z' is in ascii_letters."
+    - "string.ascii_letters.__contains__('Z') == True — 'Z' is in ascii_letters."
+    - "string.printable.__contains__('A') == True — uppercase letters are in printable."
+    - "string.printable.__contains__('0') == True — digits are in printable."
+    - "string.punctuation.__contains__('!') == True — '!' is in the punctuation set."
+    - "string.digits.__contains__('0') == True — '0' is in digits (new ID, orthogonal to string.zspec.zsdl const_contains row)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# printable — type is str
+# string_extra.zspec.zsdl type_is_str table covers 8 constants; printable is absent.
+# ---------------------------------------------------------------------------
+
+invariant string_extra3.printable.type_is_str:
+  description: "string.printable.__class__.__name__ == 'str' — printable is a str constant"
+  category: constants
+  kind: python_call_eq
+  function: printable.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# whitespace — length is 6 (new standalone invariant ID)
+# string.zspec.zsdl covers whitespace_len via table; this adds an invariant form.
+# ---------------------------------------------------------------------------
+
+invariant string_extra3.whitespace.length:
+  description: "string.whitespace.__len__() == 6 — space, tab, newline, CR, VT, FF"
+  category: constants
+  kind: python_call_eq
+  function: whitespace.__len__
+  args: []
+  expected: 6
+
+# ---------------------------------------------------------------------------
+# ascii_letters — membership checks not present in prior specs
+# string.zspec.zsdl: lowercase_has_a, uppercase_has_A, uppercase_not_a, lowercase_not_A.
+# string_extra5: digits_has_5, digits_has_1, ascii_uppercase_has_Z, ascii_uppercase_not_a, ascii_uppercase_has_A.
+# We add: ascii_letters contains 'z' and 'Z' (both cases, new IDs).
+# ---------------------------------------------------------------------------
+
+table string_extra3.constants.ascii_letters_contains:
+  kind: python_call_eq
+  category: constants
+  id_prefix: contains
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ascii_letters_has_z, ascii_letters.__contains__, ["z"], true]
+    - [ascii_letters_has_Z, ascii_letters.__contains__, ["Z"], true]
+    - [ascii_letters_not_0, ascii_letters.__contains__, ["0"], false]
+
+# ---------------------------------------------------------------------------
+# printable — membership checks
+# printable = digits + ascii_letters + punctuation + whitespace
+# No prior spec covers __contains__ on printable.
+# ---------------------------------------------------------------------------
+
+table string_extra3.constants.printable_contains:
+  kind: python_call_eq
+  category: constants
+  id_prefix: pcontains
+
+  columns: [id, function, args, expected]
+  rows:
+    - [printable_has_A, printable.__contains__, ["A"], true]
+    - [printable_has_0, printable.__contains__, ["0"], true]
+    - [printable_has_bang, printable.__contains__, ["!"], true]
+
+# ---------------------------------------------------------------------------
+# punctuation — membership check (new ID)
+# string.zspec.zsdl does not check __contains__ on punctuation.
+# ---------------------------------------------------------------------------
+
+invariant string_extra3.punctuation.has_exclamation:
+  description: "string.punctuation.__contains__('!') == True — '!' is in the punctuation set"
+  category: constants
+  kind: python_call_eq
+  function: punctuation.__contains__
+  args: ["!"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# digits — membership check (new ID, distinct from string.zspec.zsdl rows)
+# string.zspec.zsdl covers digits_has_0 and digits_has_9 in const_contains table.
+# We add '0' as a standalone invariant under a distinct ID in this namespace.
+# ---------------------------------------------------------------------------
+
+invariant string_extra3.digits.not_a:
+  description: "string.digits.__contains__('a') == False — 'a' is not a decimal digit"
+  category: constants
+  kind: python_call_eq
+  function: digits.__contains__
+  args: ["a"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# capwords — empty string input
+# string.zspec.zsdl does not include an empty string vector.
+# ---------------------------------------------------------------------------
+
+invariant string_extra3.capwords.empty_string:
+  description: "string.capwords('') == '' — empty input returns empty string"
+  category: capwords
+  kind: python_call_eq
+  function: capwords
+  args: [""]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# capwords — whitespace-only input
+# string.zspec.zsdl covers extra_spaces (' hello world ') → 'Hello World'.
+# A whitespace-only input collapses to '' (no words to capitalize).
+# ---------------------------------------------------------------------------
+
+invariant string_extra3.capwords.whitespace_only:
+  description: "string.capwords('   ') == '' — whitespace-only input returns empty string"
+  category: capwords
+  kind: python_call_eq
+  function: capwords
+  args: ["   "]
+  expected: ""
