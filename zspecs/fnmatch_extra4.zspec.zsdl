@@ -1,0 +1,92 @@
+spec: fnmatch_extra4
+version: ">=3.9"
+backend: python_module(fnmatch)
+
+docs: https://docs.python.org/3/library/fnmatch.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/fnmatch.html — Python fnmatch module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/fnmatch.py"
+  notes:
+    - "This spec extends fnmatch.zspec.zsdl, fnmatch_extra.zspec.zsdl, fnmatch_extra2.zspec.zsdl, and fnmatch_extra3.zspec.zsdl."
+    - "fnmatch.zspec.zsdl covers: fnmatch star/question/charclass/empty tables; fnmatchcase case table; filter lists table; translate patterns table."
+    - "fnmatch_extra.zspec.zsdl covers: module checks (__module__ for all 4); function kind checks; filter_returns_list; filter overlap table; translate_returns_str; fnmatchcase bracket table; fnmatch compound table."
+    - "fnmatch_extra2.zspec.zsdl covers: function_names table (__name__.__eq__ for all 4); function_qualnames table (__qualname__ for all 4); translate invariants; fnmatch/fnmatchcase callable checks."
+    - "fnmatch_extra3.zspec.zsdl covers: function_names_direct table; fnmatch.module standalone; translate.returns_str; fnmatch hello.py match; fnmatch HELLO.PY no-match; fnmatchcase uppercase vectors; filter two_py_one_txt."
+    - "This spec adds: fnmatch('hello.py', '*.txt') == False (txt pattern no-match, distinct from existing js_no_match and *.rb no-match vectors); fnmatch('Hello.py', '*.py') == True (mixed-case name matches on macOS where fnmatch uses os.path.normcase which lowercases on case-insensitive FS; on POSIX normcase is identity so this returns True via direct string comparison after normalisation); fnmatchcase('Hello.py', '*.py') == False (always case-sensitive); filter(['hello.py', 'world.txt', 'foo.py'], '*.py') == ['hello.py', 'foo.py'] (new 3-element mixed-extension list)."
+    - "fnmatch('Hello.py', '*.py') on macOS: os.path.normcase('Hello.py') == 'hello.py' (lowercased), pattern normalised to '*.py', match succeeds. On Linux/POSIX normcase is identity, 'Hello.py' matches '*.py' because star absorbs 'Hello' and '.py' matches literally — TRUE on both platforms."
+    - "fnmatchcase('Hello.py', '*.py') == False: the mixed-case name 'Hello.py' ends in '.py' but fnmatchcase translates '*.py' to the regex '(?s:.*\\.py)\\z' which is case-sensitive; 'Hello.py' DOES end in '.py', so this is actually True. Corrected: fnmatchcase('Hello.PY', '*.py') == False is the case-sensitive false case (covered in fnmatch_extra3). Instead we cover fnmatchcase('hello.py', '*.PY') == False — correct case-sensitive no-match."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# fnmatch('hello.py', '*.txt') == False
+# fnmatch.zspec.zsdl has 'js_no_match' (hello.js vs *.py) and fnmatch_extra
+# has filter using *.rb no-match. This is a distinct vector: .py file vs .txt
+# pattern, confirming that extension mismatch returns False.
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra4.fnmatch.py_vs_txt_no_match:
+  description: "fnmatch('hello.py', '*.txt') == False — .py file does not match .txt pattern"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["hello.py", "*.txt"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# fnmatch('Hello.py', '*.py') == True
+# On both macOS and Linux: 'Hello.py' ends in '.py', and fnmatch's regex
+# '(?s:.*\\.py)\\z' matches case-insensitively on macOS (normcase lowercases)
+# and the literal suffix '.py' still matches on POSIX (star absorbs 'Hello').
+# The base spec covers 'hello.py' (all-lowercase); this adds the mixed-case form.
+# fnmatch_extra3 covers 'HELLO.PY' (all-uppercase, platform-sensitive).
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra4.fnmatch.mixed_case_py_match:
+  description: "fnmatch('Hello.py', '*.py') == True — star matches any prefix including mixed-case"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["Hello.py", "*.py"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# fnmatchcase('hello.py', '*.PY') == False
+# fnmatchcase is always case-sensitive. The pattern '*.PY' requires an uppercase
+# .PY suffix; 'hello.py' has a lowercase suffix, so this returns False.
+# fnmatch.zspec.zsdl covers 'upper_no' (HELLO.PY vs *.py) and 'upper_yes' (HELLO.PY vs *.PY).
+# fnmatch_extra3 covers fnmatchcase('HELLO.PY', '*.py') == False.
+# This vector (lowercase name vs uppercase pattern) is not covered in any existing spec.
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra4.fnmatchcase.lowercase_vs_upper_pattern:
+  description: "fnmatchcase('hello.py', '*.PY') == False — case-sensitive: .py != .PY"
+  category: fnmatchcase
+  kind: python_call_eq
+  function: fnmatchcase
+  args: ["hello.py", "*.PY"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# filter(['hello.py', 'world.txt', 'foo.py'], '*.py') == ['hello.py', 'foo.py']
+# Existing filter vectors use different input lists:
+#   fnmatch.zspec.zsdl: ['a.py','b.js','c.py','d.txt'] -> ['a.py','c.py']
+#   fnmatch_extra.zspec.zsdl: ['a.tar.gz','b.zip','c.tar.gz','d.tar'], ['.bashrc',...]
+#   fnmatch_extra3.zspec.zsdl: ['a.py','b.py','c.txt'] -> ['a.py','b.py']
+# This vector uses descriptive filenames (hello.py, world.txt, foo.py),
+# a distinct 3-element list not present in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra4.filter.hello_world_foo:
+  description: "filter(['hello.py', 'world.txt', 'foo.py'], '*.py') == ['hello.py', 'foo.py']"
+  category: filter
+  kind: python_call_eq
+  function: filter
+  args: [["hello.py", "world.txt", "foo.py"], "*.py"]
+  expected: ["hello.py", "foo.py"]

@@ -1,0 +1,106 @@
+spec: bz2_extra4
+version: ">=3.9"
+backend: python_module(bz2)
+
+docs: https://docs.python.org/3/library/bz2.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/bz2.html — Python bz2 module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_bz2module.c"
+    - "CPython source: Lib/bz2.py"
+    - "bz2.zspec.zsdl — covers class_names, module_checks, function_names tables, compress magic bytes, compress nonempty output, BZ2Compressor/BZ2Decompressor is_type, BZ2Decompressor.eof initially false"
+    - "bz2_extra.zspec.zsdl — covers BZ2File/BZ2Compressor/BZ2Decompressor __name__/__module__, compress/decompress/open __name__, compress returns bytes (method_chain)"
+    - "bz2_extra2.zspec.zsdl — covers compress/decompress/open __module__ table, BZ2Compressor/BZ2Decompressor instance method names, BZ2File method names, base class checks, class_is_type checks"
+    - "bz2_extra3.zspec.zsdl — covers BZ2File/__name__, BZ2Compressor/__name__, BZ2Decompressor/__name__, compress/decompress/open __name__ table, BZ2File/__module__, BZ2Compressor/__module__, compress returns bytes (method_chain on b'hello'), compress magic B/Z, compress/__module__, decompress/__module__"
+  notes:
+    - "This spec adds __qualname__ vectors for bz2 classes and functions."
+    - "bz2.BZ2File.__qualname__ == 'BZ2File' — top-level class."
+    - "bz2.BZ2Compressor.__qualname__ == 'BZ2Compressor' — top-level class (C extension type)."
+    - "bz2.BZ2Decompressor.__qualname__ == 'BZ2Decompressor' — top-level class (C extension type)."
+    - "bz2.open.__qualname__ == 'open' — module-level function."
+    - "bz2.compress.__qualname__ == 'compress' — module-level function."
+    - "bz2.decompress.__qualname__ == 'decompress' — module-level function."
+    - "bz2.compress(b'').__class__.__name__ == 'bytes' — empty input still returns bytes."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks — BZ2File, BZ2Compressor, BZ2Decompressor
+# Top-level classes (including C extension types) have __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+table bz2_extra4.class_qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [BZ2File,         BZ2File.__qualname__.__eq__,         ["BZ2File"],         true]
+    - [BZ2Compressor,   BZ2Compressor.__qualname__.__eq__,   ["BZ2Compressor"],   true]
+    - [BZ2Decompressor, BZ2Decompressor.__qualname__.__eq__, ["BZ2Decompressor"], true]
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks — module-level functions
+# All three are plain module-level functions; qualname == name.
+# ---------------------------------------------------------------------------
+
+table bz2_extra4.function_qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: fqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [open,       open.__qualname__.__eq__,       ["open"],       true]
+    - [compress,   compress.__qualname__.__eq__,   ["compress"],   true]
+    - [decompress, decompress.__qualname__.__eq__, ["decompress"], true]
+
+# ---------------------------------------------------------------------------
+# compress(b'') returns bytes — via method_chain in invariant block
+# Prior specs cover b'hello' compress-returns-bytes; this is b'' (distinct vector).
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra4.compress.empty_class_name:
+  description: "bz2.compress(b'').__class__.__name__ == 'bytes' — empty input still returns bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [!hex ""]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __qualname__ attribute is itself a str — type sanity check
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra4.BZ2File.qualname_is_str:
+  description: "bz2.BZ2File.__qualname__.__class__.__name__ == 'str' — __qualname__ is always a str"
+  category: qualnames
+  kind: python_call_eq
+  function: BZ2File.__qualname__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# compress(b'') — output is non-empty bytes (bz2 stream has a header even for empty input)
+# bz2_extra3 covers magic B/Z for b'hello'; this checks length > 0 for b''.
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra4.compress.empty_nonempty_output:
+  description: "len(bz2.compress(b'')) > 0 — bz2 stream for empty input still has a header"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [!hex ""]
+  method: __len__
+  method_chain: __gt__
+  method_chain_args: [0]
+  expected: true
