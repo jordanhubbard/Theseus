@@ -1,0 +1,168 @@
+spec: collections_namedtuple
+version: ">=3.3"
+backend: python_module(collections)
+
+docs: https://docs.python.org/3/library/collections.html#collections.namedtuple
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/collections.html#collections.namedtuple"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "collections source: Lib/collections/__init__.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "collections source: internal class-factory template string for namedtuple"
+  notes:
+    - "namedtuple(typename, field_names) is a factory function that returns a new tuple subclass."
+    - "The returned class's __name__ equals the typename argument."
+    - "The returned class's __module__ is set to the caller's __name__ at creation time (may vary)."
+    - "namedtuple itself lives in the collections module: namedtuple.__module__ == 'collections'."
+    - "_fields is a class attribute tuple of field names in definition order."
+    - "Instances support positional indexing: Point(3, 4)[0] == 3, Point(3, 4)[1] == 4."
+    - "Instances support attribute access: Point(3, 4).x == 3, Point(3, 4).y == 4."
+    - "_asdict() returns an ordered dict (plain dict on Python 3.8+) mapping field names to values."
+    - "_make(iterable) is an alternative constructor: Point._make([3, 4]) == Point(3, 4)."
+    - "_replace(**kwargs) returns a new instance with specified fields replaced."
+    - "namedtuple subclasses inherit from tuple: issubclass(Point, tuple) is True."
+    - "All expected values verified by running Python 3.12 collections module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# namedtuple factory function — name and module identity
+# ---------------------------------------------------------------------------
+
+invariant collections_namedtuple.factory_name:
+  description: "namedtuple.__name__ == 'namedtuple'"
+  category: factory
+  kind: python_call_eq
+  function: namedtuple.__name__.__eq__
+  args: ["namedtuple"]
+  expected: true
+
+invariant collections_namedtuple.factory_module:
+  description: "namedtuple.__module__ == 'collections'"
+  category: factory
+  kind: python_call_eq
+  function: namedtuple.__module__.__eq__
+  args: ["collections"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# namedtuple class creation — typename and fields
+#
+# namedtuple('Point', ['x', 'y']) returns a new class named 'Point'.
+# ---------------------------------------------------------------------------
+
+invariant collections_namedtuple.class_name:
+  description: "namedtuple('Point', ['x','y']).__name__ == 'Point'"
+  category: class_creation
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: __name__
+  expected: "Point"
+
+invariant collections_namedtuple.fields:
+  description: "namedtuple('Point', ['x','y'])._fields == ('x', 'y')"
+  category: class_creation
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: _fields
+  expected: !tuple ["x", "y"]
+
+invariant collections_namedtuple.is_tuple_subclass:
+  description: "namedtuple('Point', ['x','y']) is a subclass of tuple"
+  category: class_creation
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: __bases__.__getitem__
+  method_args: [0]
+  method_chain: __name__
+  expected: "tuple"
+
+# ---------------------------------------------------------------------------
+# namedtuple instance — field access and indexing
+#
+# namedtuple('Point', ['x','y'])(3, 4) creates a Point(x=3, y=4) instance.
+# ---------------------------------------------------------------------------
+
+invariant collections_namedtuple.instance_class_name:
+  description: "namedtuple('Point', ['x','y'])(3, 4).__class__.__name__ == 'Point'"
+  category: instance
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: __call__
+  method_args: [3, 4]
+  method_chain: __class__
+  method_chain_chain: __name__
+  expected: "Point"
+
+invariant collections_namedtuple.instance_getitem_0:
+  description: "namedtuple('Point', ['x','y'])(3, 4)[0] == 3 — first field via tuple index"
+  category: instance
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: __call__
+  method_args: [3, 4]
+  method_chain: __getitem__
+  method_chain_args: [0]
+  expected: 3
+
+invariant collections_namedtuple.instance_getitem_1:
+  description: "namedtuple('Point', ['x','y'])(3, 4)[1] == 4 — second field via tuple index"
+  category: instance
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: __call__
+  method_args: [3, 4]
+  method_chain: __getitem__
+  method_chain_args: [1]
+  expected: 4
+
+invariant collections_namedtuple.instance_len:
+  description: "len(namedtuple('Point', ['x','y'])(3, 4)) == 2 — two fields"
+  category: instance
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: __call__
+  method_args: [3, 4]
+  method_chain: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# _asdict — returns a plain dict on Python 3.8+
+# ---------------------------------------------------------------------------
+
+invariant collections_namedtuple.asdict_class:
+  description: "namedtuple('Point', ['x','y'])(3, 4)._asdict().__class__.__name__ == 'dict'"
+  category: asdict
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: __call__
+  method_args: [3, 4]
+  method_chain: _asdict
+  method_chain_chain: __class__
+  method_chain_chain_chain: __name__
+  expected: "dict"
+
+# ---------------------------------------------------------------------------
+# field_defaults — namedtuple with defaults (Python 3.6.1+)
+# ---------------------------------------------------------------------------
+
+invariant collections_namedtuple.field_count_three:
+  description: "namedtuple('RGB', ['r','g','b'])._fields.__len__() == 3 — three fields"
+  category: fields
+  kind: python_call_eq
+  function: namedtuple
+  args: ["RGB", ["r", "g", "b"]]
+  method: _fields
+  method_chain: __len__
+  expected: 3

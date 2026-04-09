@@ -1,0 +1,97 @@
+spec: this
+version: ">=3.0"
+backend: python_module(this)
+
+docs: https://docs.python.org/3/library/this.html
+
+provenance:
+  derived_from:
+    - "CPython source — Lib/this.py (PSF; source inspection permitted)"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "this: PEP 20 — The Zen of Python, by Tim Peters"
+  notes:
+    - "The 'this' module is a Python easter egg: importing it prints the Zen of Python to stdout."
+    - "The module exposes two module-level attributes: s (the ROT-13-encoded Zen text) and d (the decoding dict)."
+    - "'s' is a non-empty str containing the ROT-13-encoded version of the Zen of Python."
+    - "'d' is a non-empty dict mapping each ciphertext uppercase letter to its plaintext counterpart."
+    - "The encoding is a simple substitution cipher (ROT-13 variant) covering A-Z and a-z."
+    - "Verified cipher mappings: d['G'] == 'T', d['Z'] == 'M', d['A'] == 'N' (ROT-13)."
+    - "The encoded text begins with 'Gur Mra bs Clguba' which decodes to 'The Zen of Python'."
+    - "All expected values verified by running Python 3.12 this module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "No public functions; all invariants are attribute accesses on module-level data."
+  stderr: "null"
+  stickiness: "N/A — module-level attribute reads are stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Type checks — s (encoded string) and d (decoding dict)
+# ---------------------------------------------------------------------------
+
+invariant this.s_is_str:
+  description: "this.s.__class__.__name__ == 'str'"
+  category: types
+  kind: python_call_eq
+  function: s.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant this.d_is_dict:
+  description: "this.d.__class__.__name__ == 'dict'"
+  category: types
+  kind: python_call_eq
+  function: d.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Non-emptiness checks
+# ---------------------------------------------------------------------------
+
+invariant this.s_nonempty:
+  description: "this.s is non-empty (len > 0)"
+  category: contents
+  kind: python_call_eq
+  function: s.__len__
+  args: []
+  expected_gt: 0
+
+invariant this.d_nonempty:
+  description: "this.d is non-empty (len > 0)"
+  category: contents
+  kind: python_call_eq
+  function: d.__len__
+  args: []
+  expected_gt: 0
+
+# ---------------------------------------------------------------------------
+# Encoded text prefix check
+# ---------------------------------------------------------------------------
+
+invariant this.s_contains_encoded_prefix:
+  description: "this.s contains 'Gur Mra bs Clguba' (ROT-13 of 'The Zen of Python')"
+  category: contents
+  kind: python_call_eq
+  function: s.__contains__
+  args: ["Gur Mra bs Clguba"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Cipher mapping spot-checks (ROT-13)
+# ---------------------------------------------------------------------------
+
+table this.d.cipher_mappings:
+  kind: python_call_eq
+  category: cipher
+  id_prefix: cipher
+
+  columns: [id, function, args, expected]
+  rows:
+    - [G_to_T, d.__getitem__, ["G"], "T"]
+    - [Z_to_M, d.__getitem__, ["Z"], "M"]
+    - [A_to_N, d.__getitem__, ["A"], "N"]
+    - [N_to_A, d.__getitem__, ["N"], "A"]
+    - [T_to_G, d.__getitem__, ["T"], "G"]

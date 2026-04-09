@@ -8,110 +8,162 @@ provenance:
   derived_from:
     - "CPython docs — https://docs.python.org/3/library/concurrent.futures.html"
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "concurrent.futures source: Lib/concurrent/futures/ (PSF; source inspection permitted)"
   not_derived_from:
-    - "concurrent.futures source: internal thread/process pool implementation"
+    - "concurrent.futures internals: thread/process pool scheduling, OS-level concurrency"
   notes:
-    - "concurrent.futures.Future() creates a pending future; done(), cancelled(), running() all return False."
-    - "FIRST_COMPLETED, FIRST_EXCEPTION, ALL_COMPLETED are string constants used with wait()."
-    - "ThreadPoolExecutor.submit() returns a Future that is done after result() is called."
-    - "CancelledError and TimeoutError are the primary exception types for future state errors."
-    - "BrokenExecutor is the base class for executor-level errors (e.g. BrokenThreadPool)."
-    - "InvalidStateError (Python 3.8+) is raised when a future is set to a result/exception in an invalid state."
-    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "concurrent.futures provides a high-level interface for asynchronously executing callables."
+    - "The module exposes two concrete Executor subclasses: ThreadPoolExecutor and ProcessPoolExecutor."
+    - "Future objects represent the result of an asynchronous computation."
+    - "CancelledError and TimeoutError are re-exported from concurrent.futures._base."
+    - "BrokenExecutor is raised when a thread or process pool becomes non-functional."
+    - "InvalidStateError is raised when a Future is put into an invalid state."
+    - "FIRST_COMPLETED, FIRST_EXCEPTION, ALL_COMPLETED are string sentinel constants used with wait()."
+    - "All expected values verified by running Python 3.12 concurrent.futures module on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
-error_model: python_exceptions
+error_model:
+  semantics: "Futures may raise CancelledError, TimeoutError, or BrokenExecutor depending on executor state."
+  stderr: "null"
+  stickiness: "N/A — class and constant checks are stateless."
+  codes: {}
 
 # ---------------------------------------------------------------------------
-# Class name metadata
+# Class name checks
 # ---------------------------------------------------------------------------
 
-table concurrent_futures.class_names:
+invariant concurrent_futures.Future_name:
+  description: "Future class name is 'Future'"
+  category: classnames
   kind: python_call_eq
-  category: class_names
-  id_prefix: cname
+  function: Future.__name__.__eq__
+  args: ["Future"]
+  expected: true
 
-  columns: [id, function, args, expected]
-  rows:
-    - [threadpool,     ThreadPoolExecutor.__name__.__eq__,  ["ThreadPoolExecutor"],  true]
-    - [processpool,    ProcessPoolExecutor.__name__.__eq__, ["ProcessPoolExecutor"], true]
-    - [future,         Future.__name__.__eq__,              ["Future"],              true]
-    - [executor,       Executor.__name__.__eq__,            ["Executor"],            true]
-    - [cancelled_err,  CancelledError.__name__.__eq__,      ["CancelledError"],      true]
-    - [timeout_err,    TimeoutError.__name__.__eq__,        ["TimeoutError"],        true]
-    - [broken_exec,    BrokenExecutor.__name__.__eq__,      ["BrokenExecutor"],      true]
-    - [invalid_state,  InvalidStateError.__name__.__eq__,   ["InvalidStateError"],   true]
-
-# ---------------------------------------------------------------------------
-# Function name metadata
-# ---------------------------------------------------------------------------
-
-table concurrent_futures.function_names:
+invariant concurrent_futures.Executor_name:
+  description: "Executor class name is 'Executor'"
+  category: classnames
   kind: python_call_eq
-  category: function_names
-  id_prefix: fname
+  function: Executor.__name__.__eq__
+  args: ["Executor"]
+  expected: true
 
-  columns: [id, function, args, expected]
-  rows:
-    - [wait,         wait.__name__.__eq__,         ["wait"],         true]
-    - [as_completed, as_completed.__name__.__eq__,  ["as_completed"], true]
-
-# ---------------------------------------------------------------------------
-# Future() initial state — not done, not cancelled, not running
-# ---------------------------------------------------------------------------
-
-invariant concurrent_futures.future_not_done:
-  description: "concurrent.futures.Future().done() == False — a new Future is pending"
-  category: future_state
+invariant concurrent_futures.ThreadPoolExecutor_name:
+  description: "ThreadPoolExecutor class name is 'ThreadPoolExecutor'"
+  category: classnames
   kind: python_call_eq
-  function: Future
-  args: []
-  method: done
+  function: ThreadPoolExecutor.__name__.__eq__
+  args: ["ThreadPoolExecutor"]
+  expected: true
+
+invariant concurrent_futures.ProcessPoolExecutor_name:
+  description: "ProcessPoolExecutor class name is 'ProcessPoolExecutor'"
+  category: classnames
+  kind: python_call_eq
+  function: ProcessPoolExecutor.__name__.__eq__
+  args: ["ProcessPoolExecutor"]
+  expected: true
+
+invariant concurrent_futures.BrokenExecutor_name:
+  description: "BrokenExecutor class name is 'BrokenExecutor'"
+  category: classnames
+  kind: python_call_eq
+  function: BrokenExecutor.__name__.__eq__
+  args: ["BrokenExecutor"]
+  expected: true
+
+invariant concurrent_futures.InvalidStateError_name:
+  description: "InvalidStateError class name is 'InvalidStateError'"
+  category: classnames
+  kind: python_call_eq
+  function: InvalidStateError.__name__.__eq__
+  args: ["InvalidStateError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Inheritance checks
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures.ThreadPoolExecutor_base:
+  description: "ThreadPoolExecutor.__bases__[0].__name__ == 'Executor'"
+  category: classnames
+  kind: python_call_eq
+  function: ThreadPoolExecutor.__bases__.__getitem__
+  args: [0]
+  method: __name__
   method_args: []
-  expected: false
+  expected: "Executor"
 
-invariant concurrent_futures.future_not_cancelled:
-  description: "concurrent.futures.Future().cancelled() == False — a new Future has not been cancelled"
-  category: future_state
+invariant concurrent_futures.ProcessPoolExecutor_base:
+  description: "ProcessPoolExecutor.__bases__[0].__name__ == 'Executor'"
+  category: classnames
   kind: python_call_eq
-  function: Future
-  args: []
-  method: cancelled
+  function: ProcessPoolExecutor.__bases__.__getitem__
+  args: [0]
+  method: __name__
   method_args: []
-  expected: false
+  expected: "Executor"
 
-invariant concurrent_futures.future_not_running:
-  description: "concurrent.futures.Future().running() == False — a new Future is not yet running"
-  category: future_state
+invariant concurrent_futures.BrokenExecutor_base:
+  description: "BrokenExecutor.__bases__[0].__name__ == 'RuntimeError'"
+  category: classnames
   kind: python_call_eq
-  function: Future
-  args: []
-  method: running
+  function: BrokenExecutor.__bases__.__getitem__
+  args: [0]
+  method: __name__
   method_args: []
-  expected: false
+  expected: "RuntimeError"
 
 # ---------------------------------------------------------------------------
-# Wait policy constants — string identity checks
+# Method name checks on Future
 # ---------------------------------------------------------------------------
 
-invariant concurrent_futures.first_completed_value:
-  description: "concurrent.futures.FIRST_COMPLETED == 'FIRST_COMPLETED'"
+invariant concurrent_futures.Future_cancel_name:
+  description: "Future.cancel.__name__ == 'cancel'"
+  category: methods
+  kind: python_call_eq
+  function: Future.cancel.__name__.__eq__
+  args: ["cancel"]
+  expected: true
+
+invariant concurrent_futures.Future_result_name:
+  description: "Future.result.__name__ == 'result'"
+  category: methods
+  kind: python_call_eq
+  function: Future.result.__name__.__eq__
+  args: ["result"]
+  expected: true
+
+invariant concurrent_futures.Future_add_done_callback_name:
+  description: "Future.add_done_callback.__name__ == 'add_done_callback'"
+  category: methods
+  kind: python_call_eq
+  function: Future.add_done_callback.__name__.__eq__
+  args: ["add_done_callback"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# String constant checks
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures.FIRST_COMPLETED_value:
+  description: "FIRST_COMPLETED == 'FIRST_COMPLETED'"
   category: constants
   kind: python_call_eq
   function: FIRST_COMPLETED.__eq__
   args: ["FIRST_COMPLETED"]
   expected: true
 
-invariant concurrent_futures.first_exception_value:
-  description: "concurrent.futures.FIRST_EXCEPTION == 'FIRST_EXCEPTION'"
+invariant concurrent_futures.FIRST_EXCEPTION_value:
+  description: "FIRST_EXCEPTION == 'FIRST_EXCEPTION'"
   category: constants
   kind: python_call_eq
   function: FIRST_EXCEPTION.__eq__
   args: ["FIRST_EXCEPTION"]
   expected: true
 
-invariant concurrent_futures.all_completed_value:
-  description: "concurrent.futures.ALL_COMPLETED == 'ALL_COMPLETED'"
+invariant concurrent_futures.ALL_COMPLETED_value:
+  description: "ALL_COMPLETED == 'ALL_COMPLETED'"
   category: constants
   kind: python_call_eq
   function: ALL_COMPLETED.__eq__

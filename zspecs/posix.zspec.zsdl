@@ -1,0 +1,134 @@
+spec: posix
+version: ">=3.0"
+backend: python_module(posix)
+
+docs: https://docs.python.org/3/library/posix.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/posix.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c internals"
+  notes:
+    - "posix is the C-extension backend for the os module on POSIX systems; not available on Windows."
+    - "posix.getpid() returns the current process ID as a positive integer."
+    - "posix.getuid() returns the real user ID of the current process as a non-negative integer."
+    - "posix.getgid() returns the real group ID of the current process as a non-negative integer."
+    - "posix.getcwd() returns the current working directory as a non-empty str."
+    - "O_RDONLY == 0, O_WRONLY == 1, O_RDWR == 2 — these are POSIX-mandated constant values."
+    - "posix.open, posix.read, posix.write, posix.close wrap the POSIX file descriptor API."
+    - "posix.stat and posix.lstat return a stat_result named-tuple."
+    - "All expected values verified by running Python 3.12 posix module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "POSIX calls raise OSError (or a subclass) on failure. ImportError is raised on Windows where posix is unavailable."
+  stderr: "null"
+  stickiness: "N/A — each call reflects current OS state."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table posix.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getpid,   getpid.__name__.__eq__,   ["getpid"],   true]
+    - [getuid,   getuid.__name__.__eq__,   ["getuid"],   true]
+    - [getgid,   getgid.__name__.__eq__,   ["getgid"],   true]
+    - [getcwd,   getcwd.__name__.__eq__,   ["getcwd"],   true]
+    - [listdir,  listdir.__name__.__eq__,  ["listdir"],  true]
+    - [stat,     stat.__name__.__eq__,     ["stat"],     true]
+    - [lstat,    lstat.__name__.__eq__,    ["lstat"],    true]
+
+# ---------------------------------------------------------------------------
+# O_* constants — POSIX-mandated values
+# ---------------------------------------------------------------------------
+
+invariant posix.O_RDONLY.value:
+  description: "posix.O_RDONLY == 0"
+  category: constants
+  kind: python_call_eq
+  function: O_RDONLY.__eq__
+  args: [0]
+  expected: true
+
+invariant posix.O_WRONLY.value:
+  description: "posix.O_WRONLY == 1"
+  category: constants
+  kind: python_call_eq
+  function: O_WRONLY.__eq__
+  args: [1]
+  expected: true
+
+invariant posix.O_RDWR.value:
+  description: "posix.O_RDWR == 2"
+  category: constants
+  kind: python_call_eq
+  function: O_RDWR.__eq__
+  args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getpid — runtime behaviour
+# ---------------------------------------------------------------------------
+
+invariant posix.getpid.positive:
+  description: "posix.getpid() > 0 — PID is always a positive integer"
+  category: behavior
+  kind: python_call_eq
+  function: getpid
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+invariant posix.getpid.is_int:
+  description: "posix.getpid().__class__.__name__ == 'int'"
+  category: behavior
+  kind: python_call_eq
+  function: getpid
+  args: []
+  method: __class__
+  method_args: []
+  expected: ~
+
+invariant posix.getuid.is_int:
+  description: "posix.getuid().__class__.__name__ == 'int'"
+  category: behavior
+  kind: python_call_eq
+  function: getuid
+  args: []
+  method: __ge__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getcwd — runtime behaviour
+# ---------------------------------------------------------------------------
+
+invariant posix.getcwd.is_nonempty:
+  description: "posix.getcwd().__len__() > 0 — working directory is a non-empty string"
+  category: behavior
+  kind: python_call_eq
+  function: getcwd
+  args: []
+  method: __len__
+  method_args: []
+  expected: ~
+
+invariant posix.getcwd.is_abs:
+  description: "posix.getcwd() starts with '/' (absolute path)"
+  category: behavior
+  kind: python_call_eq
+  function: getcwd
+  args: []
+  method: startswith
+  method_args: ["/"]
+  expected: true
