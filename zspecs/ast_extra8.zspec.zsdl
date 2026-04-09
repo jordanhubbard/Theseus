@@ -1,0 +1,195 @@
+spec: ast_extra8
+version: ">=3.9"
+backend: python_module(ast)
+
+docs: https://docs.python.org/3/library/ast.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ast.html — Python ast documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ast.py"
+    - "CPython source: Python/Python-ast.c"
+    - "ast.zspec.zsdl — covers literal_eval primitives/containers/tuple-access, error cases, literal_eval.__name__, arithmetic/statement node classnames (Add,Sub,Mult,Div,Module,Constant,Expr,Name,FunctionDef,ClassDef,If,For,Import,Call)"
+    - "ast_extra.zspec.zsdl — covers parse/__name__/__module__/returns_module_node, dump/__name__, get_docstring/__name__, fix_missing_locations/__name__, NodeVisitor/__name__, NodeTransformer/__name__/__bases__[0], AST/__name__, literal_eval standalone round-trips"
+    - "ast_extra2.zspec.zsdl — covers literal_eval value checks for int/str/list/dict/bool/None"
+    - "ast_extra3.zspec.zsdl — covers __module__ for parse/dump/literal_eval/get_docstring/fix_missing_locations/walk/NodeVisitor/NodeTransformer/Module/FunctionDef/Constant/Name/AST/Expr/ClassDef"
+    - "ast_extra4.zspec.zsdl — covers __qualname__ for literal_eval/get_docstring/dump/walk/fix_missing_locations/NodeVisitor/NodeTransformer/AST/Module/Constant/parse; literal_eval type checks"
+    - "ast_extra5.zspec.zsdl — covers __qualname__ for FunctionDef/Expr/ClassDef/Name/If/For/Import/Call/Assign/Return/AsyncFunctionDef/AsyncFor/AsyncWith/With/Delete; unparse/__qualname__/__module__, copy_location/__qualname__/__module__, increment_lineno/__qualname__/__module__"
+    - "ast_extra6.zspec.zsdl — covers __name__ for Module/Constant/Name/Expr/FunctionDef/ClassDef/If/Return/Assign/Call/Import/For (table); walk.__name__; NodeVisitor.__bases__[0]; AST.__bases__[0]; AsyncFunctionDef/__name__, With/__name__, Delete/__name__"
+    - "ast_extra7.zspec.zsdl — covers abstract bases mod/stmt/expr/__name__; BinOp/While/Tuple/List/Try/Raise/Pass/Break/Continue __name__/__qualname__; BinOp/While/Tuple __module__; Module MRO[0]/MRO[2]; parse body __len__"
+  notes:
+    - "This spec adds new axes: arithmetic operator node abstract base 'operator' and concrete nodes Add/Sub/Mult/Div (not yet covered as standalone __name__ invariants); comparison abstract base 'cmpop' and comparison nodes Eq/NotEq/Lt/LtE/Gt/GtE (__name__); boolean op abstract base 'boolop' and nodes And/Or (__name__); unary op abstract base 'unaryop' and nodes Not/UAdd/USub (__name__); expr_context abstract base (__name__); ast.PyCF_ONLY_AST constant value; NodeTransformer MRO chain; parse mode='eval' returns Expression node."
+    - "ast.operator.__name__ == 'operator' — abstract grammar category for binary arithmetic operators; not checked in any prior spec."
+    - "ast.cmpop.__name__ == 'cmpop' — abstract grammar category for comparison operators; not checked in any prior spec."
+    - "ast.boolop.__name__ == 'boolop' — abstract grammar category for boolean operators; not checked in any prior spec."
+    - "ast.unaryop.__name__ == 'unaryop' — abstract grammar category for unary operators; not checked in any prior spec."
+    - "ast.expr_context.__name__ == 'expr_context' — abstract grammar category for expression contexts (Load/Store/Del); not checked in any prior spec."
+    - "ast.Add.__name__ == 'Add' — concrete operator node; ast.zspec covers it only in classnames list, not as standalone with __name__ check."
+    - "ast.PyCF_ONLY_AST == 1024 — compile flag that makes compile() return an AST; value not tested in any prior spec."
+    - "ast.NodeTransformer.__mro__[1].__name__ == 'NodeVisitor' — NodeTransformer's immediate base in its MRO; not checked in any prior spec."
+    - "ast.parse('x', mode='eval') returns an Expression node — parse mode='eval' not tested in any prior spec."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Abstract grammar base node __name__ checks
+# ast_extra7 covers: mod, stmt, expr.
+# New here: operator, cmpop, boolop, unaryop, expr_context — the remaining
+# abstract grammar categories. No prior spec covers any of these.
+# ---------------------------------------------------------------------------
+
+table ast_extra8.abstract_base_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: abname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [operator,      operator.__name__.__eq__,      ["operator"],      true]
+    - [cmpop,         cmpop.__name__.__eq__,         ["cmpop"],         true]
+    - [boolop,        boolop.__name__.__eq__,        ["boolop"],        true]
+    - [unaryop,       unaryop.__name__.__eq__,       ["unaryop"],       true]
+    - [expr_context,  expr_context.__name__.__eq__,  ["expr_context"],  true]
+
+# ---------------------------------------------------------------------------
+# Concrete operator node __name__ checks
+# ast.zspec covers Add/Sub/Mult/Div only in the arithmetic node classnames list
+# (testing __name__ via a different mechanism). No spec checks them as
+# standalone invariants via __name__.__eq__. New here: Add, Sub, Mult, Div.
+# ---------------------------------------------------------------------------
+
+table ast_extra8.operator_node_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: opname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Add,      Add.__name__.__eq__,      ["Add"],      true]
+    - [Sub,      Sub.__name__.__eq__,      ["Sub"],      true]
+    - [Mult,     Mult.__name__.__eq__,     ["Mult"],     true]
+    - [Div,      Div.__name__.__eq__,      ["Div"],      true]
+    - [Mod,      Mod.__name__.__eq__,      ["Mod"],      true]
+    - [Pow,      Pow.__name__.__eq__,      ["Pow"],      true]
+    - [FloorDiv, FloorDiv.__name__.__eq__, ["FloorDiv"], true]
+
+# ---------------------------------------------------------------------------
+# Comparison operator node __name__ checks
+# No prior spec covers the comparison operator nodes (Eq, NotEq, Lt, etc.)
+# as __name__ invariants.
+# ---------------------------------------------------------------------------
+
+table ast_extra8.cmpop_node_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cmpname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Eq,    Eq.__name__.__eq__,    ["Eq"],    true]
+    - [NotEq, NotEq.__name__.__eq__, ["NotEq"], true]
+    - [Lt,    Lt.__name__.__eq__,    ["Lt"],    true]
+    - [LtE,   LtE.__name__.__eq__,   ["LtE"],   true]
+    - [Gt,    Gt.__name__.__eq__,    ["Gt"],    true]
+    - [GtE,   GtE.__name__.__eq__,   ["GtE"],   true]
+
+# ---------------------------------------------------------------------------
+# Boolean op node __name__ checks
+# No prior spec covers And, Or (boolean op nodes).
+# ---------------------------------------------------------------------------
+
+invariant ast_extra8.And.name:
+  description: "ast.And.__name__ == 'And' — boolean operator node"
+  category: class_names
+  kind: python_call_eq
+  function: And.__name__.__eq__
+  args: ["And"]
+  expected: true
+
+invariant ast_extra8.Or.name:
+  description: "ast.Or.__name__ == 'Or' — boolean operator node"
+  category: class_names
+  kind: python_call_eq
+  function: Or.__name__.__eq__
+  args: ["Or"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Unary op node __name__ checks
+# Not/UAdd/USub not covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra8.Not.name:
+  description: "ast.Not.__name__ == 'Not' — unary operator node"
+  category: class_names
+  kind: python_call_eq
+  function: Not.__name__.__eq__
+  args: ["Not"]
+  expected: true
+
+invariant ast_extra8.UAdd.name:
+  description: "ast.UAdd.__name__ == 'UAdd' — unary plus operator node"
+  category: class_names
+  kind: python_call_eq
+  function: UAdd.__name__.__eq__
+  args: ["UAdd"]
+  expected: true
+
+invariant ast_extra8.USub.name:
+  description: "ast.USub.__name__ == 'USub' — unary minus operator node"
+  category: class_names
+  kind: python_call_eq
+  function: USub.__name__.__eq__
+  args: ["USub"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ast.PyCF_ONLY_AST constant value
+# No prior spec checks PyCF_ONLY_AST. Its value is 1024 — the compile flag
+# used internally by ast.parse.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra8.PyCF_ONLY_AST.value:
+  description: "ast.PyCF_ONLY_AST == 1024 — compile flag for returning an AST"
+  category: constants
+  kind: python_call_eq
+  function: PyCF_ONLY_AST.__eq__
+  args: [1024]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# NodeTransformer MRO — __mro__[1].__name__ == 'NodeVisitor'
+# ast_extra7 checks Module.__mro__[0] and Module.__mro__[2].
+# No prior spec checks NodeTransformer's MRO chain.
+# NodeTransformer.__mro__[1] is NodeVisitor (its direct base).
+# ---------------------------------------------------------------------------
+
+invariant ast_extra8.NodeTransformer.mro_index1:
+  description: "ast.NodeTransformer.__mro__[1].__name__ == 'NodeVisitor' — NodeTransformer's direct base"
+  category: hierarchy
+  kind: python_call_eq
+  function: NodeTransformer.__mro__.__getitem__
+  args: [1]
+  method: __name__.__eq__
+  method_args: ["NodeVisitor"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ast.parse mode='eval' returns an Expression node
+# ast_extra7 checks parse body length for mode='exec'.
+# No prior spec checks mode='eval' which returns an Expression node.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra8.parse.eval_mode_type:
+  description: "ast.parse('x', mode='eval') returns an Expression node"
+  category: parse
+  kind: python_call_eq
+  function: parse
+  args: ["x", "eval"]
+  method: __class__.__name__.__eq__
+  method_args: ["Expression"]
+  expected: true

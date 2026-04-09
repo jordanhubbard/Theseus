@@ -1,0 +1,153 @@
+spec: weakref_extra8
+version: ">=3.9"
+backend: python_module(weakref)
+
+docs: https://docs.python.org/3/library/weakref.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/weakref.html — Python weakref module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_weakref.c"
+    - "CPython source: Lib/weakref.py"
+  notes:
+    - "This spec extends weakref.zspec.zsdl through weakref_extra7.zspec.zsdl."
+    - "weakref_extra7 covers WeakValueDictionary/WeakKeyDictionary/WeakSet mro[0] and WeakValueDictionary mro[-1]."
+    - "NOT yet covered: mro[-1] for WeakKeyDictionary, WeakSet, finalize, WeakMethod."
+    - "NOT yet covered: WeakSet.__mro__.__len__ == 2 and finalize.__mro__.__len__ == 2."
+    - "NOT yet covered: WeakMethod.__mro__.__len__ == 3."
+    - "NOT yet covered: WeakMethod.__mro__[1].__name__ == 'ReferenceType' (intermediate MRO entry)."
+    - "NOT yet covered: WeakValueDictionary.__mro__[1].__name__ == 'MutableMapping' and WeakKeyDictionary.__mro__[1].__name__ == 'MutableMapping'."
+    - "NOT yet covered: getweakrefcount/__class__.__name__ and getweakrefs/__class__.__name__."
+    - "weakref.WeakSet.__mro__.__len__() == 2 — WeakSet MRO: [WeakSet, object]."
+    - "weakref.finalize.__mro__.__len__() == 2 — finalize MRO: [finalize, object]."
+    - "weakref.WeakMethod.__mro__.__len__() == 3 — WeakMethod MRO: [WeakMethod, ReferenceType, object]."
+    - "weakref.WeakMethod.__mro__[1].__name__ == 'ReferenceType' — WeakMethod intermediate base."
+    - "weakref.WeakValueDictionary.__mro__[1].__name__ == 'MutableMapping'."
+    - "weakref.WeakKeyDictionary.__mro__[1].__name__ == 'MutableMapping'."
+    - "weakref.WeakKeyDictionary.__mro__[-1].__name__ == 'object'."
+    - "weakref.WeakSet.__mro__[-1].__name__ == 'object'."
+    - "weakref.finalize.__mro__[-1].__name__ == 'object'."
+    - "weakref.WeakMethod.__mro__[-1].__name__ == 'object'."
+    - "weakref.getweakrefcount.__class__.__name__ == 'builtin_function_or_method'."
+    - "weakref.getweakrefs.__class__.__name__ == 'builtin_function_or_method'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# MRO length checks — WeakSet and finalize
+#
+# weakref_extra7 checks WeakValueDictionary/WeakKeyDictionary/WeakSet mro[0].
+# No prior spec tests __mro__.__len__ for WeakSet or finalize.
+# WeakSet.__mro__ == [WeakSet, object] (len 2).
+# finalize.__mro__ == [finalize, object] (len 2).
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra8.WeakSet.mro_len:
+  description: "weakref.WeakSet.__mro__.__len__() == 2 — MRO is [WeakSet, object]"
+  category: mro
+  kind: python_call_eq
+  function: WeakSet.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant weakref_extra8.finalize.mro_len:
+  description: "weakref.finalize.__mro__.__len__() == 2 — MRO is [finalize, object]"
+  category: mro
+  kind: python_call_eq
+  function: finalize.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# WeakMethod MRO length and intermediate base
+#
+# WeakMethod extends weakref.ref (ReferenceType), so its MRO is:
+#   [WeakMethod, ReferenceType, object] — length 3.
+# weakref_extra7 checks WeakMethod.__bases__[0].__name__ == 'ReferenceType'
+# but no prior spec checks mro[1] (the same ReferenceType at MRO position 1)
+# or the total MRO length of 3.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra8.WeakMethod.mro_len:
+  description: "weakref.WeakMethod.__mro__.__len__() == 3 — MRO is [WeakMethod, ReferenceType, object]"
+  category: mro
+  kind: python_call_eq
+  function: WeakMethod.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant weakref_extra8.WeakMethod.mro_mid:
+  description: "weakref.WeakMethod.__mro__[1].__name__ == 'ReferenceType' — intermediate MRO entry"
+  category: mro
+  kind: python_call_eq
+  function: WeakMethod.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "ReferenceType"
+
+# ---------------------------------------------------------------------------
+# MRO second element — WeakValueDictionary and WeakKeyDictionary
+#
+# weakref_extra and weakref_extra2 check __bases__[0].__name__ == 'MutableMapping'.
+# No prior spec checks mro[1] (the first base in the MRO after the class itself).
+# For WeakValueDictionary and WeakKeyDictionary, mro[1] is also 'MutableMapping'.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra8.WeakValueDictionary.mro_mid:
+  description: "weakref.WeakValueDictionary.__mro__[1].__name__ == 'MutableMapping'"
+  category: mro
+  kind: python_call_eq
+  function: WeakValueDictionary.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "MutableMapping"
+
+invariant weakref_extra8.WeakKeyDictionary.mro_mid:
+  description: "weakref.WeakKeyDictionary.__mro__[1].__name__ == 'MutableMapping'"
+  category: mro
+  kind: python_call_eq
+  function: WeakKeyDictionary.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "MutableMapping"
+
+# ---------------------------------------------------------------------------
+# MRO last element — WeakKeyDictionary, WeakSet, finalize, WeakMethod
+#
+# weakref_extra7 tests mro[-1] only for WeakValueDictionary.
+# All classes terminate in object; this extends coverage to the remaining ones.
+# ---------------------------------------------------------------------------
+
+table weakref_extra8.mro_last:
+  kind: python_call_eq
+  category: mro
+  id_prefix: mro_last
+
+  columns: [id, function, args, method, expected]
+  rows:
+    - [WeakKeyDictionary, WeakKeyDictionary.__mro__.__getitem__, [-1], __name__, "object"]
+    - [WeakSet,           WeakSet.__mro__.__getitem__,           [-1], __name__, "object"]
+    - [finalize,          finalize.__mro__.__getitem__,          [-1], __name__, "object"]
+    - [WeakMethod,        WeakMethod.__mro__.__getitem__,        [-1], __name__, "object"]
+
+# ---------------------------------------------------------------------------
+# getweakrefcount and getweakrefs — function class type
+#
+# weakref_extra2/extra4/extra6 cover __name__, __qualname__, __module__ for
+# these functions. No prior spec checks their __class__.__name__, which
+# should be 'builtin_function_or_method' for C-level functions.
+# ---------------------------------------------------------------------------
+
+table weakref_extra8.function_class_types:
+  kind: python_call_eq
+  category: function_types
+  id_prefix: ftype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getweakrefcount, getweakrefcount.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+    - [getweakrefs,     getweakrefs.__class__.__name__.__eq__,     ["builtin_function_or_method"], true]
