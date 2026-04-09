@@ -1,0 +1,92 @@
+spec: linecache_extra5
+version: ">=3.9"
+backend: python_module(linecache)
+
+docs: https://docs.python.org/3/library/linecache.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/linecache.html — Python linecache module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/linecache.py"
+    - "linecache.zspec.zsdl — covers function_names table (getline/getlines/clearcache/checkcache/updatecache/lazycache __name__); getline_module; getline for /nonexistent_path_xyz/file.py; getlines nonexistent; clearcache/checkcache return None"
+    - "linecache_extra.zspec.zsdl — covers getline/__name__/__module__, getlines/__name__, clearcache/__name__, checkcache/__name__, cache.__class__.__name__=='dict', getline('',1)==''."
+    - "linecache_extra2.zspec.zsdl — covers all six functions by __name__ and __module__; cache.__class__.__name__=='dict'."
+    - "linecache_extra3.zspec.zsdl — covers function_names table; getline.__module__ standalone; updatecache.__name__ standalone; checkcache.__class__.__name__=='function'; getlines('/dev/null',{}).__class__.__name__=='list'; getline('nonexistent_file_xyz.py',1)==''."
+    - "linecache_extra4.zspec.zsdl — covers __qualname__ for getline/getlines/clearcache/checkcache/updatecache (table); getline('/dev/null',1)==''; getlines('/dev/null')==[]."
+  notes:
+    - "This spec adds: lazycache.__qualname__ (not in extra4 table which stops at updatecache); __class__.__name__ == 'function' for getline/getlines/clearcache/updatecache (checkcache is covered in extra3); getline('',0)=='' (lineno=0 not covered for empty filename — linecache returns '' for lineno < 1); lazycache.__class__.__name__ == 'function'."
+    - "linecache_extra4 covers __qualname__ for getline/getlines/clearcache/checkcache/updatecache but NOT lazycache."
+    - "linecache_extra3 covers checkcache.__class__.__name__ == 'function'; this spec covers the others."
+    - "linecache.getline(filename, lineno) returns '' for lineno == 0 because line numbers are 1-based."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# lazycache.__qualname__
+# linecache_extra4 table covers qualnames for getline/getlines/clearcache/
+# checkcache/updatecache — but NOT lazycache. This is the first qualname
+# check for lazycache.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra5.lazycache.qualname:
+  description: "linecache.lazycache.__qualname__ == 'lazycache'"
+  category: function_qualnames
+  kind: python_call_eq
+  function: lazycache.__qualname__.__eq__
+  args: ["lazycache"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __class__.__name__ == 'function' for linecache callables
+# linecache_extra3 covers checkcache.__class__.__name__ == 'function'.
+# This table extends that check to the remaining public functions.
+# ---------------------------------------------------------------------------
+
+table linecache_extra5.function_class_names:
+  description: "linecache public functions are Python functions (__class__.__name__ == 'function')"
+  kind: python_call_eq
+  category: function_class
+  id_prefix: fclass
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getline,     getline.__class__.__name__.__eq__,     ["function"], true]
+    - [getlines,    getlines.__class__.__name__.__eq__,    ["function"], true]
+    - [clearcache,  clearcache.__class__.__name__.__eq__,  ["function"], true]
+    - [updatecache, updatecache.__class__.__name__.__eq__, ["function"], true]
+    - [lazycache,   lazycache.__class__.__name__.__eq__,   ["function"], true]
+
+# ---------------------------------------------------------------------------
+# getline('', 0) == ''
+# linecache uses 1-based line numbers; lineno == 0 is out of range and returns ''.
+# Existing specs cover lineno=1 for empty/missing filenames but not lineno=0.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra5.getline.empty_filename_lineno0:
+  description: "linecache.getline('', 0) == '' — lineno 0 is out of range, returns ''"
+  category: behavior
+  kind: python_call_eq
+  function: getline
+  args: ["", 0]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# lazycache.__module__ via __qualname__ cross-check
+# linecache_extra2 covers lazycache.__module__ == 'linecache'.
+# This spec uses __qualname__ as the primary new axis for lazycache.
+# Adding a __name__ == 'lazycache' standalone as the simplest anchor.
+# linecache.zspec.zsdl covers this in a table, but a standalone invariant
+# in this spec provides an independent spec-level anchor.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra5.lazycache.name:
+  description: "linecache.lazycache.__name__ == 'lazycache'"
+  category: function_names
+  kind: python_call_eq
+  function: lazycache.__name__.__eq__
+  args: ["lazycache"]
+  expected: true
