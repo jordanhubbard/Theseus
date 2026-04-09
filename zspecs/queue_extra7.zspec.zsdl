@@ -1,0 +1,158 @@
+spec: queue_extra7
+version: ">=3.9"
+backend: python_module(queue)
+
+docs: https://docs.python.org/3/library/queue.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/queue.html — Python queue module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/queue.py"
+  notes:
+    - "This spec extends queue.zspec.zsdl and prior extras through queue_extra6.zspec.zsdl."
+    - "queue_extra6 covers: LifoQueue method names (get/put/empty/full/qsize); PriorityQueue method names; Queue.task_done/__name__; Queue.join/__name__; Empty/__qualname__ standalone; Full/__qualname__ standalone."
+    - "queue_extra5 covers: class hierarchy (__bases__[0].__name__) for Queue/LifoQueue/PriorityQueue/SimpleQueue; Queue method names (get/put/empty/full/qsize); SimpleQueue method names (get/put/empty/qsize); SimpleQueue instance class name."
+    - "queue_extra3 covers: __module__ for all 6 classes."
+    - "This spec adds NEW axes:"
+    - "  (1) MRO[1].__name__ for Queue/LifoQueue/PriorityQueue/SimpleQueue — __bases__[0] covered, MRO check is orthogonal."
+    - "  (2) MRO[1].__name__ for Empty and Full — __bases__[0] covered in both queue.zspec and queue_extra3; MRO is new."
+    - "  (3) Queue.get_nowait.__name__ and Queue.put_nowait.__name__ — extra5/6 cover get/put/empty/full/qsize but not the nowait variants."
+    - "  (4) LifoQueue.task_done.__name__ and LifoQueue.join.__name__ — extra6 covers these on Queue; LifoQueue inherits them unchanged but no prior spec checks them on LifoQueue."
+    - "  (5) PriorityQueue.task_done.__name__ and PriorityQueue.join.__name__ — same rationale as LifoQueue above."
+    - "queue.Queue.__mro__[1].__name__ == 'object' — MRO consistent with __bases__[0] == 'object'."
+    - "queue.LifoQueue.__mro__[1].__name__ == 'Queue' — MRO consistent with __bases__[0] == 'Queue'."
+    - "queue.PriorityQueue.__mro__[1].__name__ == 'Queue' — MRO consistent with __bases__[0] == 'Queue'."
+    - "queue.SimpleQueue.__mro__[1].__name__ == 'object' — MRO consistent with __bases__[0] == 'object'."
+    - "queue.Empty.__mro__[1].__name__ == 'Exception' — MRO consistent with __bases__[0] == 'Exception'."
+    - "queue.Full.__mro__[1].__name__ == 'Exception' — MRO consistent with __bases__[0] == 'Exception'."
+    - "queue.Queue.get_nowait.__name__ == 'get_nowait' — non-blocking get method."
+    - "queue.Queue.put_nowait.__name__ == 'put_nowait' — non-blocking put method."
+    - "queue.LifoQueue.task_done.__name__ == 'task_done' — inherited from Queue unchanged."
+    - "queue.LifoQueue.join.__name__ == 'join' — inherited from Queue unchanged."
+    - "queue.PriorityQueue.task_done.__name__ == 'task_done' — inherited from Queue unchanged."
+    - "queue.PriorityQueue.join.__name__ == 'join' — inherited from Queue unchanged."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# MRO[1].__name__ for queue classes
+#
+# queue_extra5 checks __bases__[0].__name__ for Queue/LifoQueue/PriorityQueue/
+# SimpleQueue. queue.zspec and queue_extra3 check __bases__[0].__name__ for
+# Empty and Full. This spec verifies __mro__[1].__name__ as an independent,
+# orthogonal check: for single-inheritance classes MRO[1] == __bases__[0].
+# ---------------------------------------------------------------------------
+
+table queue_extra7.class_mro1:
+  description: "queue module classes have correct __mro__[1].__name__"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: mro1
+
+  columns: [id, function, args, method, expected]
+  rows:
+    - [Queue,         Queue.__mro__.__getitem__,         [1], __name__, "object"]
+    - [LifoQueue,     LifoQueue.__mro__.__getitem__,     [1], __name__, "Queue"]
+    - [PriorityQueue, PriorityQueue.__mro__.__getitem__, [1], __name__, "Queue"]
+    - [SimpleQueue,   SimpleQueue.__mro__.__getitem__,   [1], __name__, "object"]
+
+# ---------------------------------------------------------------------------
+# MRO[1].__name__ for exception classes
+#
+# Empty and Full both inherit from Exception. __bases__[0] is checked in
+# queue.zspec.zsdl (queue.empty_base_is_exception / queue.full_base_is_exception)
+# and queue_extra3. MRO[1] is a new, orthogonal verification.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra7.Empty.mro_index1:
+  description: "queue.Empty.__mro__[1].__name__ == 'Exception' — consistent with __bases__[0]"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: Empty.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "Exception"
+
+invariant queue_extra7.Full.mro_index1:
+  description: "queue.Full.__mro__[1].__name__ == 'Exception' — consistent with __bases__[0]"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: Full.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# Queue.get_nowait and Queue.put_nowait — __name__ checks
+#
+# queue_extra5 covers Queue.get/__name__ and Queue.put/__name__.
+# The nowait variants are distinct methods defined in Lib/queue.py.
+# No prior queue spec checks get_nowait or put_nowait __name__.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra7.Queue.get_nowait.name:
+  description: "queue.Queue.get_nowait.__name__ == 'get_nowait' — non-blocking get variant"
+  category: method_names
+  kind: python_call_eq
+  function: Queue.get_nowait.__name__.__eq__
+  args: ["get_nowait"]
+  expected: true
+
+invariant queue_extra7.Queue.put_nowait.name:
+  description: "queue.Queue.put_nowait.__name__ == 'put_nowait' — non-blocking put variant"
+  category: method_names
+  kind: python_call_eq
+  function: Queue.put_nowait.__name__.__eq__
+  args: ["put_nowait"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# LifoQueue inherited task-done protocol methods — task_done and join
+#
+# queue_extra6 checks Queue.task_done.__name__ and Queue.join.__name__.
+# LifoQueue inherits these methods from Queue without override.
+# No prior spec verifies the __name__ of task_done or join on LifoQueue.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra7.LifoQueue.task_done.name:
+  description: "queue.LifoQueue.task_done.__name__ == 'task_done' — inherited from Queue"
+  category: method_names
+  kind: python_call_eq
+  function: LifoQueue.task_done.__name__.__eq__
+  args: ["task_done"]
+  expected: true
+
+invariant queue_extra7.LifoQueue.join.name:
+  description: "queue.LifoQueue.join.__name__ == 'join' — inherited from Queue"
+  category: method_names
+  kind: python_call_eq
+  function: LifoQueue.join.__name__.__eq__
+  args: ["join"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PriorityQueue inherited task-done protocol methods — task_done and join
+#
+# PriorityQueue inherits task_done and join from Queue without override.
+# No prior spec verifies the __name__ of task_done or join on PriorityQueue.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra7.PriorityQueue.task_done.name:
+  description: "queue.PriorityQueue.task_done.__name__ == 'task_done' — inherited from Queue"
+  category: method_names
+  kind: python_call_eq
+  function: PriorityQueue.task_done.__name__.__eq__
+  args: ["task_done"]
+  expected: true
+
+invariant queue_extra7.PriorityQueue.join.name:
+  description: "queue.PriorityQueue.join.__name__ == 'join' — inherited from Queue"
+  category: method_names
+  kind: python_call_eq
+  function: PriorityQueue.join.__name__.__eq__
+  args: ["join"]
+  expected: true

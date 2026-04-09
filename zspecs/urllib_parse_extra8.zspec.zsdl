@@ -1,0 +1,170 @@
+spec: urllib_parse_extra8
+version: ">=3.9"
+backend: python_module(urllib.parse)
+
+docs: https://docs.python.org/3/library/urllib.parse.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/urllib.parse.html — Python urllib.parse module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/urllib/parse.py"
+  notes:
+    - "This spec extends urllib_parse.zspec.zsdl through urllib_parse_extra7.zspec.zsdl."
+    - "urllib_parse.zspec.zsdl covers: urlparse components table (scheme/netloc/path/query/fragment/port), quoting table, urljoin, urlencode, parse_qs."
+    - "urllib_parse_extra3.zspec.zsdl covers: urlparse scheme/netloc/path behavioral invariants; urljoin basic; urlencode single; quote/unquote basic."
+    - "urllib_parse_extra6.zspec.zsdl covers: urlparse query/fragment/empty_query behavioral invariants."
+    - "urllib_parse_extra7.zspec.zsdl covers: urlsplit scheme/netloc/path/query behavioral invariants; urldefrag url/fragment; parse_qsl two_pairs; urlencode list_of_pairs; function __module__ for quote_plus/unquote_plus/parse_qs/parse_qsl/urldefrag."
+    - "Focus: new axes not yet tested in any prior urllib_parse spec."
+    - "urlsplit.port — urlsplit extra7 covers scheme/netloc/path/query but NOT port; urlsplit port is a distinct attribute."
+    - "urlsplit.fragment — urlsplit extra7 covers scheme/netloc/path/query but NOT fragment."
+    - "urlsplit.username and urlsplit.password — SplitResult has username/password properties; never tested."
+    - "urlparse.port — urllib_parse.zspec.zsdl table covers port via method chain but urlparse_extra3 invariants cover only scheme/netloc/path; port as standalone invariant is new."
+    - "urlparse.username — userinfo covered in urllib_parse.zspec.zsdl with call: syntax only; here tested via python_call_eq backend."
+    - "urlunparse behavioral — urlunsplit/urlunparse reconstruct URLs from tuples; no prior spec tests their behavioral output."
+    - "quote_plus behavioral — urllib_parse.zspec.zsdl tests quote_plus in a table with kwargs=~; extra3 tests quote basic. A specific all-safe-chars check is new."
+    - "unquote_plus behavioral with plus sign — no prior spec explicitly tests plus→space via unquote_plus."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# urlsplit behavioral — port and fragment fields
+# urllib_parse_extra7 covers urlsplit scheme/netloc/path/query.
+# port and fragment are the remaining SplitResult fields not yet tested.
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra8.urlsplit.port:
+  description: "urllib.parse.urlsplit('http://example.com:9000/p?q=1').port == 9000"
+  category: urlsplit
+  kind: python_call_eq
+  function: urlsplit
+  args: ["http://example.com:9000/p?q=1"]
+  method: port.__eq__
+  method_args: [9000]
+  expected: true
+
+invariant urllib_parse_extra8.urlsplit.fragment:
+  description: "urllib.parse.urlsplit('http://example.com/p?q=1#sect').fragment == 'sect'"
+  category: urlsplit
+  kind: python_call_eq
+  function: urlsplit
+  args: ["http://example.com/p?q=1#sect"]
+  method: fragment.__eq__
+  method_args: ["sect"]
+  expected: true
+
+invariant urllib_parse_extra8.urlsplit.username:
+  description: "urllib.parse.urlsplit('http://user:secret@example.com/').username == 'user'"
+  category: urlsplit
+  kind: python_call_eq
+  function: urlsplit
+  args: ["http://user:secret@example.com/"]
+  method: username.__eq__
+  method_args: ["user"]
+  expected: true
+
+invariant urllib_parse_extra8.urlsplit.password:
+  description: "urllib.parse.urlsplit('http://user:secret@example.com/').password == 'secret'"
+  category: urlsplit
+  kind: python_call_eq
+  function: urlsplit
+  args: ["http://user:secret@example.com/"]
+  method: password.__eq__
+  method_args: ["secret"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# urlparse — port and username via python_call_eq
+# urllib_parse.zspec.zsdl table covers port via method chain; extra3 covers
+# scheme/netloc/path as standalone invariants. Port as a standalone python_call_eq
+# invariant and username via the backend are new axes.
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra8.urlparse.port:
+  description: "urllib.parse.urlparse('https://example.com:8080/path').port == 8080"
+  category: urlparse
+  kind: python_call_eq
+  function: urlparse
+  args: ["https://example.com:8080/path"]
+  method: port.__eq__
+  method_args: [8080]
+  expected: true
+
+invariant urllib_parse_extra8.urlparse.username:
+  description: "urllib.parse.urlparse('https://alice:pw@example.com/').username == 'alice'"
+  category: urlparse
+  kind: python_call_eq
+  function: urlparse
+  args: ["https://alice:pw@example.com/"]
+  method: username.__eq__
+  method_args: ["alice"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# urlunparse behavioral — reconstructs a URL from a 6-tuple
+# No prior spec tests the behavioral output of urlunparse or urlunsplit.
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra8.urlunparse.basic:
+  description: "urllib.parse.urlunparse(('https', 'example.com', '/path', '', 'q=1', 'frag')) == 'https://example.com/path?q=1#frag'"
+  category: urlunparse
+  kind: python_call_eq
+  function: urlunparse
+  args: [["https", "example.com", "/path", "", "q=1", "frag"]]
+  expected: "https://example.com/path?q=1#frag"
+
+invariant urllib_parse_extra8.urlunparse.no_query_no_fragment:
+  description: "urllib.parse.urlunparse(('http', 'example.com', '/page', '', '', '')) == 'http://example.com/page'"
+  category: urlunparse
+  kind: python_call_eq
+  function: urlunparse
+  args: [["http", "example.com", "/page", "", "", ""]]
+  expected: "http://example.com/page"
+
+# ---------------------------------------------------------------------------
+# urlunsplit behavioral — reconstructs a URL from a 5-tuple
+# urlunsplit is the SplitResult counterpart (no params field).
+# No prior spec tests its behavioral output.
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra8.urlunsplit.basic:
+  description: "urllib.parse.urlunsplit(('https', 'example.com', '/path', 'q=1', 'frag')) == 'https://example.com/path?q=1#frag'"
+  category: urlunsplit
+  kind: python_call_eq
+  function: urlunsplit
+  args: [["https", "example.com", "/path", "q=1", "frag"]]
+  expected: "https://example.com/path?q=1#frag"
+
+invariant urllib_parse_extra8.urlunsplit.no_query:
+  description: "urllib.parse.urlunsplit(('ftp', 'ftp.example.com', '/pub/file.txt', '', '')) == 'ftp://ftp.example.com/pub/file.txt'"
+  category: urlunsplit
+  kind: python_call_eq
+  function: urlunsplit
+  args: [["ftp", "ftp.example.com", "/pub/file.txt", "", ""]]
+  expected: "ftp://ftp.example.com/pub/file.txt"
+
+# ---------------------------------------------------------------------------
+# quote_plus and unquote_plus behavioral — specific new vectors
+# urllib_parse.zspec.zsdl tests quote_plus("hello world") == "hello+world" and
+# unquote_plus("a=1&b=hello+world") == "a=1&b=hello world".
+# Testing a numeric string and a pure-plus roundtrip are new axes.
+# ---------------------------------------------------------------------------
+
+invariant urllib_parse_extra8.quote_plus.numeric_string:
+  description: "urllib.parse.quote_plus('a=1') == 'a%3D1' — '=' is encoded by quote_plus"
+  category: quote_plus
+  kind: python_call_eq
+  function: quote_plus
+  args: ["a=1"]
+  expected: "a%3D1"
+
+invariant urllib_parse_extra8.unquote_plus.plus_to_space:
+  description: "urllib.parse.unquote_plus('hello+world') == 'hello world' — plus sign decoded to space"
+  category: unquote_plus
+  kind: python_call_eq
+  function: unquote_plus
+  args: ["hello+world"]
+  expected: "hello world"

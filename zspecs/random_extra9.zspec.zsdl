@@ -1,0 +1,175 @@
+spec: random_extra9
+version: ">=3.9"
+backend: python_module(random)
+
+docs: https://docs.python.org/3/library/random.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/random.html — Python random module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/random.py"
+  notes:
+    - "This spec extends random.zspec.zsdl and prior extras through random_extra8.zspec.zsdl."
+    - "Prior specs cover: class names (__name__/__module__/__qualname__) for Random/SystemRandom; BPF==53, VERSION==2, RECIP_BPF; deterministic randint/choice/randrange/getrandbits/sample vectors; class hierarchy; shuffle returns None; choices returns list; getrandbits(0)==0; randrange with step."
+    - "NEW in this spec: deterministic Random(seed).random() float values (first call from seeded instance); deterministic Random(seed).uniform(a,b) values; new randint seeds not previously tested; getrandbits with 32-bit width; randrange two-argument form (start, stop) without step."
+    - "Random(42).random() == 0.6394267984578837 — first float from seed 42."
+    - "Random(99).random() == 0.40397807494366633 — first float from seed 99."
+    - "Random(42).uniform(0, 10) == 6.394267984578837 — uniform over [0,10) with seed 42."
+    - "Random(7).uniform(1, 100) == 33.059443718483074 — uniform over [1,100) with seed 7."
+    - "Random(13).getrandbits(32) == 1112433019 — first 32-bit value from seed 13."
+    - "Random(42).randrange(5, 15) == 6 — two-argument randrange with seed 42."
+    - "Random(99).randrange(100, 200) == 151 — two-argument randrange with seed 99."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Random.random() — deterministic float values
+#
+# random.zspec.zsdl verifies that random.random() returns a float (via class
+# name check). No prior spec tests the actual numeric output of random() with
+# a fixed seed. The value equals 0.getrandbits(53) * RECIP_BPF internally.
+# ---------------------------------------------------------------------------
+
+invariant random_extra9.random.seed42_value:
+  description: "Random(42).random() == 0.6394267984578837 — first float from seed 42"
+  category: random_float
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: random
+  method_args: []
+  expected: 0.6394267984578837
+
+invariant random_extra9.random.seed99_value:
+  description: "Random(99).random() == 0.40397807494366633 — first float from seed 99"
+  category: random_float
+  kind: python_call_eq
+  function: Random
+  args: [99]
+  method: random
+  method_args: []
+  expected: 0.40397807494366633
+
+# ---------------------------------------------------------------------------
+# Random.uniform() — deterministic float values
+#
+# uniform(a, b) returns a random float N such that a <= N <= b. Internally it
+# is computed as a + (b-a)*random(). No prior spec tests uniform() with a
+# fixed seed and verifies the exact returned value.
+# ---------------------------------------------------------------------------
+
+invariant random_extra9.uniform.seed42_0_10:
+  description: "Random(42).uniform(0, 10) == 6.394267984578837 — first uniform value from seed 42 in [0, 10]"
+  category: uniform
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: uniform
+  method_args: [0, 10]
+  expected: 6.394267984578837
+
+invariant random_extra9.uniform.seed7_1_100:
+  description: "Random(7).uniform(1, 100) == 33.059443718483074 — first uniform value from seed 7 in [1, 100]"
+  category: uniform
+  kind: python_call_eq
+  function: Random
+  args: [7]
+  method: uniform
+  method_args: [1, 100]
+  expected: 33.059443718483074
+
+invariant random_extra9.uniform.seed0_0_1:
+  description: "Random(0).uniform(0, 1) == 0.8444218515250481 — first uniform value from seed 0 in [0, 1]"
+  category: uniform
+  kind: python_call_eq
+  function: Random
+  args: [0]
+  method: uniform
+  method_args: [0, 1]
+  expected: 0.8444218515250481
+
+# ---------------------------------------------------------------------------
+# getrandbits() — 32-bit width (new; prior specs only test 4, 8, 16, 0 bits)
+#
+# getrandbits(32) returns a random unsigned 32-bit integer. No prior spec
+# tests a 32-bit request; the value range is [0, 2^32).
+# ---------------------------------------------------------------------------
+
+invariant random_extra9.getrandbits.seed13_32bits:
+  description: "Random(13).getrandbits(32) == 1112433019 — first 32-bit value from seed 13"
+  category: getrandbits
+  kind: python_call_eq
+  function: Random
+  args: [13]
+  method: getrandbits
+  method_args: [32]
+  expected: 1112433019
+
+invariant random_extra9.getrandbits.seed0_32bits:
+  description: "Random(0).getrandbits(32) == 3626764237 — first 32-bit value from seed 0"
+  category: getrandbits
+  kind: python_call_eq
+  function: Random
+  args: [0]
+  method: getrandbits
+  method_args: [32]
+  expected: 3626764237
+
+# ---------------------------------------------------------------------------
+# randrange() — two-argument form (start, stop), no step
+#
+# All prior randrange tests use either a single argument (start=0 implied) or
+# three arguments (with step). This section covers the two-argument form
+# randrange(start, stop) which selects from [start, stop).
+# ---------------------------------------------------------------------------
+
+invariant random_extra9.randrange.two_arg_seed42:
+  description: "Random(42).randrange(5, 15) == 6 — two-argument randrange with seed 42 in [5, 15)"
+  category: randrange
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: randrange
+  method_args: [5, 15]
+  expected: 6
+
+invariant random_extra9.randrange.two_arg_seed99:
+  description: "Random(99).randrange(100, 200) == 151 — two-argument randrange with seed 99 in [100, 200)"
+  category: randrange
+  kind: python_call_eq
+  function: Random
+  args: [99]
+  method: randrange
+  method_args: [100, 200]
+  expected: 151
+
+# ---------------------------------------------------------------------------
+# randint() — additional seeds not covered in prior specs
+#
+# Prior specs cover seeds 0, 5, 7, 17, 42, 99, 100. This adds seeds 3 and 5
+# with new ranges, and seed 1 which appears only in choice tests.
+# ---------------------------------------------------------------------------
+
+invariant random_extra9.randint.seed5_1_10:
+  description: "Random(5).randint(1, 10) == 10 — first randint from seed 5 in [1, 10]"
+  category: randint
+  kind: python_call_eq
+  function: Random
+  args: [5]
+  method: randint
+  method_args: [1, 10]
+  expected: 10
+
+invariant random_extra9.randint.seed3_1_100:
+  description: "Random(3).randint(1, 100) == 31 — first randint from seed 3 in [1, 100]"
+  category: randint
+  kind: python_call_eq
+  function: Random
+  args: [3]
+  method: randint
+  method_args: [1, 100]
+  expected: 31

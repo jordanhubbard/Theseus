@@ -1,0 +1,179 @@
+spec: os_extra12
+version: ">=3.9"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.html — Python os module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c"
+    - "CPython source: Lib/os.py"
+  notes:
+    - "This spec extends os.zspec.zsdl and prior extras through os_extra11.zspec.zsdl."
+    - "os_extra11 covers: F_OK/R_OK/W_OK/X_OK constants; SEEK_SET/SEEK_CUR/SEEK_END constants; os.error alias; getpid/getcwd/getlogin __module__; getlogin __qualname__; stat_result/DirEntry/terminal_size metaclass."
+    - "No prior os spec covers os.O_RDONLY, os.O_WRONLY, os.O_RDWR, os.O_CREAT, os.O_EXCL, os.O_APPEND, os.O_TRUNC (open(2) flag constants)."
+    - "No prior os spec covers os.defpath or its class name."
+    - "No prior os spec covers os.devnull.endswith('null') or os.linesep.__contains__."
+    - "No prior os spec covers __name__/__qualname__/__module__ for os.open, os.read, os.write, os.close, os.stat, os.rename."
+    - "os.O_RDONLY==0, os.O_WRONLY==1, os.O_RDWR==2 — standard open(2) access mode flags."
+    - "os.O_CREAT==512, os.O_EXCL==2048, os.O_APPEND==8, os.O_TRUNC==1024 on macOS (POSIX values vary by platform; all are int)."
+    - "os.defpath == '/bin:/usr/bin' on macOS — the default PATH used when PATH is not set."
+    - "os.devnull.endswith('null') == True on POSIX (the null device is /dev/null)."
+    - "os.linesep.__contains__(chr(10)) == True — POSIX line separator always contains a newline."
+    - "os.open/__qualname__/'open'; os.read/__qualname__/'read'; os.write/__qualname__/'write'; os.close/__qualname__/'close' — module-level C built-ins."
+    - "os.open, os.read, os.write, os.close, os.stat, os.rename have __module__ == 'posix'."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# os.O_RDONLY, os.O_WRONLY, os.O_RDWR — access mode flag types
+#
+# No prior os spec covers these flags. O_RDONLY==0, O_WRONLY==1, O_RDWR==2
+# are the standard open(2) access mode bits. All are plain Python ints.
+# ---------------------------------------------------------------------------
+
+table os_extra12.open_flags_access_values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: oflag
+
+  columns: [id, function, args, expected]
+  rows:
+    - [O_RDONLY, O_RDONLY.__eq__, [0], true]
+    - [O_WRONLY, O_WRONLY.__eq__, [1], true]
+    - [O_RDWR,   O_RDWR.__eq__,   [2], true]
+
+table os_extra12.open_flags_access_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: oflag_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [O_RDONLY, O_RDONLY.__class__.__name__.__eq__, ["int"], true]
+    - [O_WRONLY, O_WRONLY.__class__.__name__.__eq__, ["int"], true]
+    - [O_RDWR,   O_RDWR.__class__.__name__.__eq__,   ["int"], true]
+
+# ---------------------------------------------------------------------------
+# os.O_CREAT, os.O_EXCL, os.O_APPEND, os.O_TRUNC — creation/write flags
+#
+# No prior os spec covers these flags. All are ints (platform values vary,
+# but their types are invariant across all POSIX platforms).
+# ---------------------------------------------------------------------------
+
+table os_extra12.open_flags_creation_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: cflag_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [O_CREAT,  O_CREAT.__class__.__name__.__eq__,  ["int"], true]
+    - [O_EXCL,   O_EXCL.__class__.__name__.__eq__,   ["int"], true]
+    - [O_APPEND, O_APPEND.__class__.__name__.__eq__, ["int"], true]
+    - [O_TRUNC,  O_TRUNC.__class__.__name__.__eq__,  ["int"], true]
+
+# ---------------------------------------------------------------------------
+# os.defpath — the default PATH search string
+#
+# os.defpath is a str constant used by os.execvpe when PATH is absent.
+# No prior os spec covers os.defpath at all.
+# ---------------------------------------------------------------------------
+
+invariant os_extra12.defpath.class_name:
+  description: "os.defpath.__class__.__name__ == 'str' — defpath is always a str"
+  category: constants
+  kind: python_call_eq
+  function: defpath.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant os_extra12.defpath.nonempty:
+  description: "os.defpath.__len__() > 0 — defpath is always a non-empty string"
+  category: constants
+  kind: python_call_eq
+  function: defpath.__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.devnull — additional string-method axes
+#
+# os_extra6 covers devnull == '/dev/null'.
+# os_extra9 covers devnull.__len__() == 9 and devnull.startswith('/').
+# No prior spec checks devnull.endswith('null').
+# ---------------------------------------------------------------------------
+
+invariant os_extra12.devnull.endswith_null:
+  description: "os.devnull.endswith('null') == True — the null device path ends with 'null'"
+  category: constants
+  kind: python_call_eq
+  function: devnull.endswith
+  args: ["null"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.linesep — __contains__ check for newline character
+#
+# os_extra6 covers linesep == '\n' (POSIX).
+# os_extra9 covers linesep.__len__() == 1.
+# No prior spec checks linesep.__contains__(chr(10)).
+# ---------------------------------------------------------------------------
+
+invariant os_extra12.linesep.contains_newline:
+  description: "os.linesep.__contains__(chr(10)) == True — line separator always contains a newline"
+  category: constants
+  kind: python_call_eq
+  function: linesep.__contains__
+  args: ["\n"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.open, os.read, os.write, os.close — __qualname__ checks
+#
+# No prior spec covers __qualname__ for os.open, os.read, os.write, os.close.
+# These are low-level POSIX file-descriptor functions; __qualname__ == __name__
+# for module-level C built-ins.
+# ---------------------------------------------------------------------------
+
+table os_extra12.fd_function_qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: fdq
+
+  columns: [id, function, args, expected]
+  rows:
+    - [open,  open.__qualname__.__eq__,  ["open"],  true]
+    - [read,  read.__qualname__.__eq__,  ["read"],  true]
+    - [write, write.__qualname__.__eq__, ["write"], true]
+    - [close, close.__qualname__.__eq__, ["close"], true]
+
+# ---------------------------------------------------------------------------
+# os.stat, os.rename — __module__ checks
+#
+# No prior spec covers __module__ for os.stat or os.rename.
+# Both are implemented in the posix C extension module.
+# ---------------------------------------------------------------------------
+
+invariant os_extra12.stat.module:
+  description: "os.stat.__module__ == 'posix' — stat is implemented in the posix C extension"
+  category: function_modules
+  kind: python_call_eq
+  function: stat.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+invariant os_extra12.rename.module:
+  description: "os.rename.__module__ == 'posix' — rename is implemented in the posix C extension"
+  category: function_modules
+  kind: python_call_eq
+  function: rename.__module__.__eq__
+  args: ["posix"]
+  expected: true

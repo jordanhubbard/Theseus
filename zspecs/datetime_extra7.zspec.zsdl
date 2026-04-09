@@ -1,0 +1,189 @@
+spec: datetime_extra7
+version: ">=3.9"
+backend: python_module(datetime)
+
+docs: https://docs.python.org/3/library/datetime.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/datetime.html — Python datetime module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_datetimemodule.c"
+    - "CPython source: Lib/datetime.py"
+  notes:
+    - "This spec extends datetime.zspec.zsdl and prior extras through datetime_extra6.zspec.zsdl."
+    - "Prior specs cover: date/datetime/time/timedelta/timezone/tzinfo class names, modules, qualnames, bases; MINYEAR/MAXYEAR; fromisoformat round-trips; attribute access (year/month/day/hour/minute/second/weekday/timetuple); timedelta normalization and total_seconds; timezone.utc; method names; date.min/max/today, datetime.min/now."
+    - "NEW in this spec: datetime.microsecond attribute access; datetime.date() method (extract date from datetime instance); datetime.time() method (extract time from datetime instance); time.fromisoformat() parsing; datetime.max class attribute isoformat; time.min and time.max class attributes; timedelta(-7).days; date.fromordinal() for a large ordinal; datetime.replace() method."
+    - "datetime(2024,3,15,12,30,45,999999).microsecond == 999999 — microsecond component."
+    - "datetime(2024,3,15,12,30,45).date().isoformat() == '2024-03-15' — extract date component."
+    - "datetime(2024,3,15,12,30,45).time().isoformat() == '12:30:45' — extract time component."
+    - "time.fromisoformat('23:59:59').hour == 23 — time parsing."
+    - "datetime.max.isoformat() == '9999-12-31T23:59:59.999999' — latest representable datetime."
+    - "time.min.isoformat() == '00:00:00' — earliest representable time."
+    - "date.fromordinal(738000).isoformat() == '2021-07-29' — ordinal to date for a known large ordinal."
+    - "datetime(2024,3,15,12,30,45).replace(hour=8).isoformat() == '2024-03-15T08:30:45' — replace one field."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# datetime.microsecond attribute
+#
+# The base datetime.zspec.zsdl and extras cover hour, minute, and second
+# attributes but not microsecond. This invariant uses a datetime with a
+# non-zero microsecond component to confirm the attribute is accessible.
+# ---------------------------------------------------------------------------
+
+invariant datetime_extra7.datetime.microsecond_attr:
+  description: "datetime(2024, 3, 15, 12, 30, 45, 999999).microsecond == 999999"
+  category: datetime_attributes
+  kind: python_call_eq
+  function: datetime
+  args: [2024, 3, 15, 12, 30, 45, 999999]
+  method: microsecond
+  expected: 999999
+
+# ---------------------------------------------------------------------------
+# datetime.date() — extract the date component
+#
+# datetime instances expose a .date() method that returns the date portion as
+# a date object. Prior specs do not call this method; they test the date class
+# separately. The isoformat of the returned date is stable and serialisable.
+# ---------------------------------------------------------------------------
+
+invariant datetime_extra7.datetime.date_method:
+  description: "datetime(2024, 3, 15, 12, 30, 45).date().isoformat() == '2024-03-15'"
+  category: datetime_methods
+  kind: python_call_eq
+  function: datetime
+  args: [2024, 3, 15, 12, 30, 45]
+  method: date
+  method_chain: isoformat
+  expected: "2024-03-15"
+
+# ---------------------------------------------------------------------------
+# datetime.time() — extract the time component
+#
+# datetime.time() returns the time portion of a datetime as a time object.
+# Not tested in any prior spec; this confirms the method works correctly.
+# The result has no microsecond component when none was provided.
+# ---------------------------------------------------------------------------
+
+invariant datetime_extra7.datetime.time_method:
+  description: "datetime(2024, 3, 15, 12, 30, 45).time().isoformat() == '12:30:45'"
+  category: datetime_methods
+  kind: python_call_eq
+  function: datetime
+  args: [2024, 3, 15, 12, 30, 45]
+  method: time
+  method_chain: isoformat
+  expected: "12:30:45"
+
+# ---------------------------------------------------------------------------
+# time.fromisoformat() — parse ISO 8601 time strings
+#
+# The base spec covers date.fromisoformat and datetime.fromisoformat but not
+# time.fromisoformat (added in Python 3.7). This section verifies parsing of
+# hour, minute, and second components.
+# ---------------------------------------------------------------------------
+
+invariant datetime_extra7.time.fromisoformat_hour:
+  description: "time.fromisoformat('23:59:59').hour == 23"
+  category: fromisoformat
+  kind: python_call_eq
+  function: time.fromisoformat
+  args: ["23:59:59"]
+  method: hour
+  expected: 23
+
+invariant datetime_extra7.time.fromisoformat_minute:
+  description: "time.fromisoformat('23:59:59').minute == 59"
+  category: fromisoformat
+  kind: python_call_eq
+  function: time.fromisoformat
+  args: ["23:59:59"]
+  method: minute
+  expected: 59
+
+invariant datetime_extra7.time.fromisoformat_second:
+  description: "time.fromisoformat('23:59:59').second == 59"
+  category: fromisoformat
+  kind: python_call_eq
+  function: time.fromisoformat
+  args: ["23:59:59"]
+  method: second
+  expected: 59
+
+# ---------------------------------------------------------------------------
+# datetime.max — latest representable datetime
+#
+# datetime.max is a class-level attribute representing the latest datetime
+# (9999-12-31T23:59:59.999999). Prior specs cover date.max but not datetime.max.
+# ---------------------------------------------------------------------------
+
+invariant datetime_extra7.datetime.max_isoformat:
+  description: "datetime.max.isoformat() == '9999-12-31T23:59:59.999999' — latest representable datetime"
+  category: datetime_bounds
+  kind: python_call_eq
+  function: datetime.max.isoformat
+  args: []
+  expected: "9999-12-31T23:59:59.999999"
+
+# ---------------------------------------------------------------------------
+# time.min and time.max — class bound attributes
+#
+# time.min is 00:00:00 and time.max is 23:59:59.999999. No prior spec
+# exercises these class-level sentinels on the time class.
+# ---------------------------------------------------------------------------
+
+invariant datetime_extra7.time.min_isoformat:
+  description: "time.min.isoformat() == '00:00:00' — earliest representable time"
+  category: time_bounds
+  kind: python_call_eq
+  function: time.min.isoformat
+  args: []
+  expected: "00:00:00"
+
+invariant datetime_extra7.time.max_isoformat:
+  description: "time.max.isoformat() == '23:59:59.999999' — latest representable time"
+  category: time_bounds
+  kind: python_call_eq
+  function: time.max.isoformat
+  args: []
+  expected: "23:59:59.999999"
+
+# ---------------------------------------------------------------------------
+# date.fromordinal() — a large proleptic Gregorian ordinal
+#
+# datetime.zspec.zsdl tests fromordinal(1) (epoch == 0001-01-01). This spec
+# adds a large ordinal corresponding to a known modern date (2021-07-29).
+# ---------------------------------------------------------------------------
+
+invariant datetime_extra7.date.fromordinal_large:
+  description: "date.fromordinal(738000).isoformat() == '2021-07-29' — large ordinal to date"
+  category: date_construction
+  kind: python_call_eq
+  function: date.fromordinal
+  args: [738000]
+  method: isoformat
+  expected: "2021-07-29"
+
+# ---------------------------------------------------------------------------
+# datetime.replace() — replace a single field
+#
+# datetime.replace() returns a new datetime with the specified field(s)
+# replaced. No prior spec exercises this method. We replace the hour field.
+# ---------------------------------------------------------------------------
+
+invariant datetime_extra7.datetime.replace_hour:
+  description: "datetime(2024, 3, 15, 12, 30, 45).replace(hour=8).isoformat() == '2024-03-15T08:30:45'"
+  category: datetime_methods
+  kind: python_call_eq
+  function: datetime
+  args: [2024, 3, 15, 12, 30, 45]
+  method: replace
+  kwargs: {hour: 8}
+  method_chain: isoformat
+  expected: "2024-03-15T08:30:45"
