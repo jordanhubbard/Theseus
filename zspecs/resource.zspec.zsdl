@@ -1,0 +1,96 @@
+spec: resource
+version: ">=3.x"
+backend: python_module(resource)
+
+docs: https://docs.python.org/3/library/resource.html
+
+provenance:
+  derived_from:
+    - "Python resource documentation — https://docs.python.org/3/library/resource.html"
+    - "POSIX.1-2017 — IEEE Std 1003.1, setrlimit/getrlimit and getrusage"
+    - "Test vectors verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/resource.c"
+  notes:
+    - "resource is a POSIX-only module; it is available on macOS and Linux but NOT on Windows."
+    - "RLIMIT_CPU, RLIMIT_FSIZE, RLIMIT_NOFILE, and RLIMIT_AS are standardized across POSIX platforms."
+    - "RLIM_INFINITY is the sentinel value meaning 'no limit' for a resource limit."
+    - "RUSAGE_SELF (0) requests resource usage for the calling process."
+    - "RUSAGE_CHILDREN (-1) requests resource usage for all terminated child processes."
+    - "getpagesize() returns the system memory page size in bytes; always >= 4096 on any supported platform."
+    - "All constants are plain Python ints or IntEnum members that compare equal to int."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table resource.func_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: func_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getrlimit,   "getrlimit.__name__.__eq__",   ["getrlimit"],   true]
+    - [setrlimit,   "setrlimit.__name__.__eq__",   ["setrlimit"],   true]
+    - [getrusage,   "getrusage.__name__.__eq__",   ["getrusage"],   true]
+    - [getpagesize, "getpagesize.__name__.__eq__", ["getpagesize"], true]
+
+# ---------------------------------------------------------------------------
+# RLIMIT_* and RLIM_INFINITY constants — all must be int
+# ---------------------------------------------------------------------------
+
+table resource.constants.rlimit_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: rlimit_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [rlimit_cpu,    "RLIMIT_CPU.__class__.__name__.__eq__",    ["int"], true]
+    - [rlimit_fsize,  "RLIMIT_FSIZE.__class__.__name__.__eq__",  ["int"], true]
+    - [rlimit_nofile, "RLIMIT_NOFILE.__class__.__name__.__eq__", ["int"], true]
+    - [rlimit_as,     "RLIMIT_AS.__class__.__name__.__eq__",     ["int"], true]
+    - [rlim_infinity, "RLIM_INFINITY.__class__.__name__.__eq__", ["int"], true]
+
+# ---------------------------------------------------------------------------
+# RUSAGE_* constants — int class
+# ---------------------------------------------------------------------------
+
+table resource.constants.rusage_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: rusage_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [rusage_self,     "RUSAGE_SELF.__class__.__name__.__eq__",     ["int"], true]
+    - [rusage_children, "RUSAGE_CHILDREN.__class__.__name__.__eq__", ["int"], true]
+
+# ---------------------------------------------------------------------------
+# getpagesize() behavioral checks
+# ---------------------------------------------------------------------------
+
+invariant resource.getpagesize.returns_int:
+  description: "resource.getpagesize().__class__.__name__ == 'int' — page size is always an int"
+  category: behavior
+  kind: python_call_eq
+  function: getpagesize
+  args: []
+  method: __class__
+  method_chain: __name__
+  expected: "int"
+
+invariant resource.getpagesize.minimum_4096:
+  description: "resource.getpagesize() >= 4096 — minimum page size on any supported platform"
+  category: behavior
+  kind: python_call_eq
+  function: getpagesize
+  args: []
+  method: __ge__
+  method_args: [4096]
+  expected: true

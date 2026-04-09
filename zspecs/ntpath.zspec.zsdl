@@ -1,0 +1,244 @@
+spec: ntpath
+version: ">=3.0"
+backend: python_module(ntpath)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.path.html — Python os.path / ntpath documentation"
+    - "Test vectors verified by running Python 3.14.3 ntpath module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ntpath.py"
+  notes:
+    - "ntpath implements Windows-style path semantics using '\\' as the path separator and supporting drive letters (e.g. 'C:')."
+    - "ntpath is available on all platforms (POSIX and Windows). It always applies Windows rules regardless of the host OS."
+    - "ntpath.join() treats an argument starting with '\\' or a drive letter as a new root, discarding earlier segments."
+    - "ntpath.splitdrive('C:\\a\\b') returns ('C:', '\\a\\b') — drive and path components."
+    - "ntpath.isabs('C:\\a') returns True on Python 3 because the path has both a drive and a root backslash."
+    - "ntpath.normpath() collapses '//', '.', and '..' components using Windows separator rules."
+    - "ntpath.splitext() splits on the last dot in the basename; leading dots in bare filenames are not treated as extensions."
+    - "ntpath functions that touch the filesystem (exists, isfile, isdir, abspath, realpath) behave platform-dependently and are not covered by behavioral invariants here."
+    - "Function inventory: join, split, dirname, basename, exists, isabs, isfile, isdir, normpath, abspath, expanduser, expandvars, splitext, splitdrive, commonpath, commonprefix, relpath, realpath."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# module identity
+# ---------------------------------------------------------------------------
+
+invariant ntpath.module.join_module:
+  description: "ntpath.join.__module__ == 'ntpath'"
+  category: module
+  kind: python_call_eq
+  function: join.__module__.__eq__
+  args: ["ntpath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# function names
+# ---------------------------------------------------------------------------
+
+table ntpath.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [join,         join.__name__.__eq__,         ["join"],         true]
+    - [split,        split.__name__.__eq__,         ["split"],        true]
+    - [dirname,      dirname.__name__.__eq__,       ["dirname"],      true]
+    - [basename,     basename.__name__.__eq__,      ["basename"],     true]
+    - [normpath,     normpath.__name__.__eq__,      ["normpath"],     true]
+    - [splitext,     splitext.__name__.__eq__,      ["splitext"],     true]
+    - [splitdrive,   splitdrive.__name__.__eq__,    ["splitdrive"],   true]
+    - [isabs,        isabs.__name__.__eq__,         ["isabs"],        true]
+    - [commonprefix, commonprefix.__name__.__eq__,  ["commonprefix"], true]
+    - [expanduser,   expanduser.__name__.__eq__,    ["expanduser"],   true]
+    - [expandvars,   expandvars.__name__.__eq__,    ["expandvars"],   true]
+    - [commonpath,   commonpath.__name__.__eq__,    ["commonpath"],   true]
+    - [relpath,      relpath.__name__.__eq__,       ["relpath"],      true]
+
+# ---------------------------------------------------------------------------
+# join — Windows path joining
+# ---------------------------------------------------------------------------
+
+invariant ntpath.join.simple:
+  description: "ntpath.join('C:\\\\a', 'b') == 'C:\\\\a\\\\b'"
+  category: join
+  kind: python_call_eq
+  function: join
+  args: ["C:\\a", "b"]
+  expected: "C:\\a\\b"
+
+invariant ntpath.join.nested:
+  description: "ntpath.join('C:\\\\a', 'b', 'c') == 'C:\\\\a\\\\b\\\\c'"
+  category: join
+  kind: python_call_eq
+  function: join
+  args: ["C:\\a", "b", "c"]
+  expected: "C:\\a\\b\\c"
+
+invariant ntpath.join.absolute_overrides:
+  description: "ntpath.join('C:\\\\a', '\\\\b') == '\\\\b' — an absolute second arg discards the first"
+  category: join
+  kind: python_call_eq
+  function: join
+  args: ["C:\\a", "\\b"]
+  expected: "C:\\b"
+
+# ---------------------------------------------------------------------------
+# basename / dirname
+# ---------------------------------------------------------------------------
+
+invariant ntpath.basename.with_extension:
+  description: "ntpath.basename('C:\\\\a\\\\b\\\\c.txt') == 'c.txt'"
+  category: basename
+  kind: python_call_eq
+  function: basename
+  args: ["C:\\a\\b\\c.txt"]
+  expected: "c.txt"
+
+invariant ntpath.basename.trailing_sep:
+  description: "ntpath.basename('C:\\\\a\\\\b\\\\') == '' — trailing separator yields empty basename"
+  category: basename
+  kind: python_call_eq
+  function: basename
+  args: ["C:\\a\\b\\"]
+  expected: ""
+
+invariant ntpath.dirname.deep:
+  description: "ntpath.dirname('C:\\\\a\\\\b\\\\c.txt') == 'C:\\\\a\\\\b'"
+  category: dirname
+  kind: python_call_eq
+  function: dirname
+  args: ["C:\\a\\b\\c.txt"]
+  expected: "C:\\a\\b"
+
+invariant ntpath.dirname.single_level:
+  description: "ntpath.dirname('C:\\\\a') == 'C:\\\\'"
+  category: dirname
+  kind: python_call_eq
+  function: dirname
+  args: ["C:\\a"]
+  expected: "C:\\"
+
+# ---------------------------------------------------------------------------
+# splitdrive — drive letter extraction
+# ---------------------------------------------------------------------------
+
+invariant ntpath.splitdrive.drive_part:
+  description: "ntpath.splitdrive('C:\\\\a\\\\b')[0] == 'C:' — drive component"
+  category: splitdrive
+  kind: python_call_eq
+  function: splitdrive
+  args: ["C:\\a\\b"]
+  method: __getitem__
+  method_args: [0]
+  expected: "C:"
+
+invariant ntpath.splitdrive.path_part:
+  description: "ntpath.splitdrive('C:\\\\a\\\\b')[1] == '\\\\a\\\\b' — path component"
+  category: splitdrive
+  kind: python_call_eq
+  function: splitdrive
+  args: ["C:\\a\\b"]
+  method: __getitem__
+  method_args: [1]
+  expected: "\\a\\b"
+
+invariant ntpath.splitdrive.no_drive:
+  description: "ntpath.splitdrive('\\\\a\\\\b')[0] == '' — UNC root has empty drive when not UNC"
+  category: splitdrive
+  kind: python_call_eq
+  function: splitdrive
+  args: ["a\\b"]
+  method: __getitem__
+  method_args: [0]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# isabs
+# ---------------------------------------------------------------------------
+
+invariant ntpath.isabs.windows_absolute:
+  description: "ntpath.isabs('C:\\\\a') == True — Windows drive-rooted path is absolute"
+  category: isabs
+  kind: python_call_eq
+  function: isabs
+  args: ["C:\\a"]
+  expected: true
+
+invariant ntpath.isabs.relative:
+  description: "ntpath.isabs('a\\\\b') == False — bare relative path is not absolute"
+  category: isabs
+  kind: python_call_eq
+  function: isabs
+  args: ["a\\b"]
+  expected: false
+
+invariant ntpath.isabs.root_only:
+  description: "ntpath.isabs('\\\\') == True — bare backslash root is absolute"
+  category: isabs
+  kind: python_call_eq
+  function: isabs
+  args: ["\\"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# normpath
+# ---------------------------------------------------------------------------
+
+invariant ntpath.normpath.dotdot:
+  description: "ntpath.normpath('C:\\\\a\\\\\\\\b\\\\..\\\\c') == 'C:\\\\a\\\\c'"
+  category: normpath
+  kind: python_call_eq
+  function: normpath
+  args: ["C:\\a\\\\b\\..\\c"]
+  expected: "C:\\a\\c"
+
+invariant ntpath.normpath.dot_removal:
+  description: "ntpath.normpath('C:\\\\a\\\\.\\\\b') == 'C:\\\\a\\\\b'"
+  category: normpath
+  kind: python_call_eq
+  function: normpath
+  args: ["C:\\a\\.\\b"]
+  expected: "C:\\a\\b"
+
+# ---------------------------------------------------------------------------
+# splitext
+# ---------------------------------------------------------------------------
+
+invariant ntpath.splitext.txt:
+  description: "ntpath.splitext('file.txt')[1] == '.txt'"
+  category: splitext
+  kind: python_call_eq
+  function: splitext
+  args: ["file.txt"]
+  method: __getitem__
+  method_args: [1]
+  expected: ".txt"
+
+invariant ntpath.splitext.no_ext:
+  description: "ntpath.splitext('Makefile')[1] == '' — no extension"
+  category: splitext
+  kind: python_call_eq
+  function: splitext
+  args: ["Makefile"]
+  method: __getitem__
+  method_args: [1]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# commonprefix
+# ---------------------------------------------------------------------------
+
+invariant ntpath.commonprefix.shared_dir:
+  description: "ntpath.commonprefix(['C:\\\\a\\\\b', 'C:\\\\a\\\\c']) == 'C:\\\\a\\\\'"
+  category: commonprefix
+  kind: python_call_eq
+  function: commonprefix
+  args: [["C:\\a\\b", "C:\\a\\c"]]
+  expected: "C:\\a\\"
