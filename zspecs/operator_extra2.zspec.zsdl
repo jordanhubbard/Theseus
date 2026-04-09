@@ -1,5 +1,5 @@
 spec: operator_extra2
-version: ">=3.0"
+version: ">=3.9"
 backend: python_module(operator)
 
 docs: https://docs.python.org/3/library/operator.html
@@ -11,66 +11,186 @@ provenance:
   not_derived_from:
     - "CPython source: Modules/_operator.c"
   notes:
-    - "This spec extends operator.zspec.zsdl and operator_extra.zspec.zsdl; it does NOT duplicate invariants already present there."
-    - "operator.zspec.zsdl covers call results: add(3,4)==7, sub(10,3)==7, mul(3,4)==12, truediv(7,2)==3.5, floordiv(7,2)==3, mod(10,3)==1, and comparison/bitwise/logical/sequence operators."
-    - "operator_extra.zspec.zsdl covers itemgetter, attrgetter, methodcaller, and in-place operators (iadd, isub, imul, itruediv)."
-    - "This spec adds: __name__ attribute checks for add, sub, mul, truediv, floordiv, mod (not covered anywhere else)."
-    - "operator.add.__name__ == 'add'; the function names match their module-level names without the operator. prefix."
+    - "This spec extends operator.zspec.zsdl and operator_extra.zspec.zsdl."
+    - "operator.zspec.zsdl covers: __name__ checks and call results for add/sub/mul/truediv/floordiv/mod/pow/neg/pos/abs/eq/ne/lt/le/gt/ge/and_/or_/xor/not_/lshift/rshift/contains/getitem/setitem/delitem/concat/repeat; attrgetter/itemgetter/methodcaller __name__; __module__ for add; iadd/isub/imul names."
+    - "operator_extra.zspec.zsdl covers: itemgetter class name/is_type/list_first/list_last/string_key; attrgetter class name/int_name; methodcaller class name/is_type/upper/strip; iadd/isub/imul/itruediv call results."
+    - "This spec adds: attrgetter.__name__, itemgetter.__name__, methodcaller.__name__ (as invariants), attrgetter(x).__class__.__name__=='attrgetter', itemgetter(0).__class__.__name__=='itemgetter', methodcaller('upper').__class__.__name__=='methodcaller', length_hint([1,2,3])==3, index(42)==42, concat([1],[2])==[1,2], abs(-5)==5, pos(-3).__class__.__name__=='int', iadd([1],[2])==[1,2], truth(1)==True, truth([])==False, is_(None,None)==True."
+    - "operator.attrgetter is a class; attrgetter('x').__class__.__name__ == 'attrgetter'."
+    - "operator.itemgetter is a class; itemgetter(0).__class__.__name__ == 'itemgetter'."
+    - "operator.methodcaller is a class; methodcaller('upper').__class__.__name__ == 'methodcaller'."
+    - "operator.length_hint(obj) returns the estimated length; for a list it equals len(obj)."
+    - "operator.index(x) returns x.__index__(); for int it is the identity."
+    - "operator.concat([1],[2]) == [1,2] — concatenates two sequences."
+    - "operator.abs(-5) == 5 — calls __abs__ on the operand."
+    - "operator.pos(-3).__class__.__name__ == 'int' — unary plus on int returns int."
+    - "operator.iadd([1],[2]) == [1,2] — in-place add for lists produces concatenation."
+    - "operator.truth(1) == True; operator.truth([]) == False — equivalent to bool()."
+    - "operator.is_(None, None) == True — identity comparison."
     - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# Function name identity — __name__ checks for arithmetic operator functions
-#
-# operator.zspec.zsdl tests what these functions return when called;
-# this spec tests that the functions themselves carry the correct __name__.
+# Class identity invariants — attrgetter, itemgetter, methodcaller
 # ---------------------------------------------------------------------------
 
-table operator_extra2.functions.names:
-  description: "Arithmetic operator functions have __name__ equal to their string identifier"
+invariant operator_extra2.attrgetter.class_name:
+  description: "operator.attrgetter.__name__ == 'attrgetter'"
+  category: class_identity
   kind: python_call_eq
-  category: function_identity
-  id_prefix: fname
+  function: attrgetter.__name__.__eq__
+  args: ["attrgetter"]
+  expected: true
 
-  columns: [id, function, args, expected]
-  rows:
-    - [add_name,      add.__name__.__eq__,      ["add"],      true]
-    - [sub_name,      sub.__name__.__eq__,      ["sub"],      true]
-    - [mul_name,      mul.__name__.__eq__,      ["mul"],      true]
-    - [truediv_name,  truediv.__name__.__eq__,  ["truediv"],  true]
-    - [floordiv_name, floordiv.__name__.__eq__,  ["floordiv"], true]
-    - [mod_name,      mod.__name__.__eq__,      ["mod"],      true]
+invariant operator_extra2.itemgetter.class_name:
+  description: "operator.itemgetter.__name__ == 'itemgetter'"
+  category: class_identity
+  kind: python_call_eq
+  function: itemgetter.__name__.__eq__
+  args: ["itemgetter"]
+  expected: true
+
+invariant operator_extra2.methodcaller.class_name:
+  description: "operator.methodcaller.__name__ == 'methodcaller'"
+  category: class_identity
+  kind: python_call_eq
+  function: methodcaller.__name__.__eq__
+  args: ["methodcaller"]
+  expected: true
 
 # ---------------------------------------------------------------------------
-# Arithmetic call results — additional vectors distinct from operator.zspec.zsdl
-#
-# operator.zspec.zsdl rows: add(3,4)=7, sub(10,3)=7, mul(3,4)=12,
-#   truediv(7,2)=3.5, floordiv(7,2)=3, mod(10,3)=1.
-# This spec uses distinct argument pairs.
+# Instance class names — attrgetter(x).__class__.__name__
 # ---------------------------------------------------------------------------
 
-invariant operator_extra2.add.five_six:
-  description: "operator.add(5, 6) == 11"
+invariant operator_extra2.attrgetter.instance_class_name:
+  description: "operator.attrgetter('__class__').__class__.__name__ == 'attrgetter'"
+  category: class_identity
+  kind: python_call_eq
+  function: attrgetter
+  args: ["__class__"]
+  method: __class__.__name__
+  expected: "attrgetter"
+
+invariant operator_extra2.itemgetter.instance_class_name:
+  description: "operator.itemgetter(0).__class__.__name__ == 'itemgetter'"
+  category: class_identity
+  kind: python_call_eq
+  function: itemgetter
+  args: [0]
+  method: __class__.__name__
+  expected: "itemgetter"
+
+invariant operator_extra2.methodcaller.instance_class_name:
+  description: "operator.methodcaller('upper').__class__.__name__ == 'methodcaller'"
+  category: class_identity
+  kind: python_call_eq
+  function: methodcaller
+  args: ["upper"]
+  method: __class__.__name__
+  expected: "methodcaller"
+
+# ---------------------------------------------------------------------------
+# length_hint — estimated length of a sequence
+# ---------------------------------------------------------------------------
+
+invariant operator_extra2.length_hint.list_three:
+  description: "operator.length_hint([1,2,3]) == 3"
+  category: sequence
+  kind: python_call_eq
+  function: length_hint
+  args: [[1, 2, 3]]
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# index — calls __index__ on the operand
+# ---------------------------------------------------------------------------
+
+invariant operator_extra2.index.forty_two:
+  description: "operator.index(42) == 42 — int.__index__ returns the int unchanged"
   category: arithmetic
   kind: python_call_eq
-  function: add
-  args: [5, 6]
-  expected: 11
-
-invariant operator_extra2.mul.six_seven:
-  description: "operator.mul(6, 7) == 42"
-  category: arithmetic
-  kind: python_call_eq
-  function: mul
-  args: [6, 7]
+  function: index
+  args: [42]
   expected: 42
 
-invariant operator_extra2.mod.seven_three:
-  description: "operator.mod(7, 3) == 1"
+# ---------------------------------------------------------------------------
+# concat — concatenate two sequences
+# ---------------------------------------------------------------------------
+
+invariant operator_extra2.concat.two_lists:
+  description: "operator.concat([1],[2]) == [1,2]"
+  category: sequence
+  kind: python_call_eq
+  function: concat
+  args: [[1], [2]]
+  expected: [1, 2]
+
+# ---------------------------------------------------------------------------
+# abs — absolute value via __abs__
+# ---------------------------------------------------------------------------
+
+invariant operator_extra2.abs.negative_five:
+  description: "operator.abs(-5) == 5"
   category: arithmetic
   kind: python_call_eq
-  function: mod
-  args: [7, 3]
-  expected: 1
+  function: abs
+  args: [-5]
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# pos — unary plus; returns int for int operand
+# ---------------------------------------------------------------------------
+
+invariant operator_extra2.pos.class_name:
+  description: "operator.pos(-3).__class__.__name__ == 'int' — unary plus on int returns int"
+  category: arithmetic
+  kind: python_call_eq
+  function: pos
+  args: [-3]
+  method: __class__.__name__
+  expected: "int"
+
+# ---------------------------------------------------------------------------
+# iadd — in-place add; for lists produces concatenation
+# ---------------------------------------------------------------------------
+
+invariant operator_extra2.iadd.two_lists:
+  description: "operator.iadd([1],[2]) == [1,2]"
+  category: inplace
+  kind: python_call_eq
+  function: iadd
+  args: [[1], [2]]
+  expected: [1, 2]
+
+# ---------------------------------------------------------------------------
+# truth — equivalent to bool(); non-zero/non-empty is True
+# ---------------------------------------------------------------------------
+
+invariant operator_extra2.truth.one_true:
+  description: "operator.truth(1) == True"
+  category: logical
+  kind: python_call_eq
+  function: truth
+  args: [1]
+  expected: true
+
+invariant operator_extra2.truth.empty_list_false:
+  description: "operator.truth([]) == False"
+  category: logical
+  kind: python_call_eq
+  function: truth
+  args: [[]]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# is_ — identity comparison
+# ---------------------------------------------------------------------------
+
+invariant operator_extra2.is_.none_none:
+  description: "operator.is_(None, None) == True — None is identical to None"
+  category: logical
+  kind: python_call_eq
+  function: is_
+  args: [null, null]
+  expected: true

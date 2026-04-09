@@ -1,5 +1,5 @@
 spec: string_extra2
-version: ">=3.0"
+version: ">=3.9"
 backend: python_module(string)
 
 docs: https://docs.python.org/3/library/string.html
@@ -11,128 +11,162 @@ provenance:
   not_derived_from:
     - "CPython source: Lib/string.py"
   notes:
-    - "This spec covers aspects not in string.zspec.zsdl or string_extra.zspec.zsdl."
-    - "Template.template stores the original pattern string passed to the constructor."
-    - "Template.safe_substitute leaves missing keys as-is rather than raising KeyError."
-    - "Formatter.format supports both positional ({0}, {1}) and keyword ({name}) placeholders."
-    - "capwords('hello world') == 'Hello World' — simple two-word case."
-    - "capwords with explicit sep=' ' preserves doubled spaces between words (no collapse)."
+    - "This spec extends string.zspec.zsdl and string_extra.zspec.zsdl."
+    - "string.zspec.zsdl covers: constant class names and lengths, Formatter.__name__, Template.__name__, capwords.__name__."
+    - "string_extra.zspec.zsdl covers: Formatter.__name__, Formatter.__module__, Template.__name__, Template.__module__, capwords.__name__; constant type checks (all str); digits len==10, ascii_lowercase len==26."
+    - "This spec adds: Formatter.__bases__[0].__name__=='object', Template.__bases__[0].__name__=='object', capwords.__module__=='string', ascii_letters len==52, whitespace __contains__ newline, printable len>=100 (via len>=100 check), punctuation len==32, octdigits=='01234567', hexdigits=='0123456789abcdefABCDEF'."
+    - "string.Formatter.__bases__[0].__name__ == 'object' — Formatter inherits directly from object."
+    - "string.Template.__bases__[0].__name__ == 'object' — Template inherits directly from object."
+    - "string.capwords.__module__ == 'string' — capwords is defined in the string module."
+    - "len(string.ascii_letters) == 52 — 26 lowercase + 26 uppercase."
+    - "string.whitespace contains '\\n' — newline is whitespace."
+    - "len(string.printable) == 100 — digits(10) + ascii_letters(52) + punctuation(32) + whitespace(6)."
+    - "len(string.punctuation) == 32 — all 32 standard ASCII punctuation characters."
+    - "string.octdigits == '01234567' — exactly the 8 octal digit characters."
+    - "string.hexdigits == '0123456789abcdefABCDEF' — 22 characters (0-9, a-f, A-F)."
     - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# capwords — behavioral invariants (simple cases)
+# Formatter — class hierarchy
 # ---------------------------------------------------------------------------
 
-invariant string_extra2.capwords.hello_world:
-  description: "capwords('hello world') == 'Hello World'"
-  category: capwords
+invariant string_extra2.formatter.class_name:
+  description: "string.Formatter.__name__ == 'Formatter'"
+  category: formatter
   kind: python_call_eq
-  function: capwords
-  args: ["hello world"]
-  expected: "Hello World"
-
-invariant string_extra2.capwords.empty_string:
-  description: "capwords('') == '' — empty string yields empty string"
-  category: capwords
-  kind: python_call_eq
-  function: capwords
-  args: [""]
-  expected: ""
-
-# ---------------------------------------------------------------------------
-# Template — template attribute stores original pattern
-# ---------------------------------------------------------------------------
-
-invariant string_extra2.template.attribute_stores_original:
-  description: "Template('$x is $y').template == '$x is $y'"
-  category: template
-  kind: python_call_eq
-  function: Template
-  args: ["$x is $y"]
-  method: template.__eq__
-  method_args: ["$x is $y"]
+  function: Formatter.__name__.__eq__
+  args: ["Formatter"]
   expected: true
 
-invariant string_extra2.template.attribute_simple:
-  description: "Template('$x').template == '$x'"
+invariant string_extra2.formatter.module:
+  description: "string.Formatter.__module__ == 'string'"
+  category: formatter
+  kind: python_call_eq
+  function: Formatter.__module__.__eq__
+  args: ["string"]
+  expected: true
+
+invariant string_extra2.formatter.base_is_object:
+  description: "string.Formatter.__bases__[0].__name__ == 'object' — Formatter inherits from object"
+  category: formatter
+  kind: python_call_eq
+  function: Formatter.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Template — class hierarchy
+# ---------------------------------------------------------------------------
+
+invariant string_extra2.template.class_name:
+  description: "string.Template.__name__ == 'Template'"
   category: template
   kind: python_call_eq
-  function: Template
-  args: ["$x"]
-  method: template.__eq__
-  method_args: ["$x"]
+  function: Template.__name__.__eq__
+  args: ["Template"]
+  expected: true
+
+invariant string_extra2.template.module:
+  description: "string.Template.__module__ == 'string'"
+  category: template
+  kind: python_call_eq
+  function: Template.__module__.__eq__
+  args: ["string"]
+  expected: true
+
+invariant string_extra2.template.base_is_object:
+  description: "string.Template.__bases__[0].__name__ == 'object' — Template inherits from object"
+  category: template
+  kind: python_call_eq
+  function: Template.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# capwords — module identity
+# ---------------------------------------------------------------------------
+
+invariant string_extra2.capwords.module:
+  description: "string.capwords.__module__ == 'string'"
+  category: capwords
+  kind: python_call_eq
+  function: capwords.__module__.__eq__
+  args: ["string"]
   expected: true
 
 # ---------------------------------------------------------------------------
-# Template.safe_substitute — substitutes present keys, leaves missing as-is
+# ascii_letters — length is 52 (26 lower + 26 upper)
 # ---------------------------------------------------------------------------
 
-invariant string_extra2.template.safe_substitute_single:
-  description: "Template('$x').safe_substitute(x='hello') == 'hello'"
-  category: template
+invariant string_extra2.ascii_letters.length:
+  description: "len(string.ascii_letters) == 52 — 26 lowercase + 26 uppercase"
+  category: constants
   kind: python_call_eq
-  function: Template
-  args: ["$x"]
-  method: safe_substitute
-  method_args: []
-  method_kwargs: {x: "hello"}
-  expected: "hello"
-
-invariant string_extra2.template.safe_substitute_missing_left_as_is:
-  description: "Template('$x $y').safe_substitute(x='hello') == 'hello $y' — missing var left unchanged"
-  category: template
-  kind: python_call_eq
-  function: Template
-  args: ["$x $y"]
-  method: safe_substitute
-  method_args: []
-  method_kwargs: {x: "hello"}
-  expected: "hello $y"
-
-invariant string_extra2.template.safe_substitute_no_vars:
-  description: "Template('hello').safe_substitute() == 'hello' — no placeholders, no kwargs"
-  category: template
-  kind: python_call_eq
-  function: Template
-  args: ["hello"]
-  method: safe_substitute
-  method_args: []
-  expected: "hello"
+  function: ascii_letters.__len__
+  args: []
+  expected: 52
 
 # ---------------------------------------------------------------------------
-# Formatter.format — positional and keyword placeholders
+# whitespace — contains newline
 # ---------------------------------------------------------------------------
 
-invariant string_extra2.formatter.format_positional:
-  description: "Formatter().format('{0} {1}', 'a', 'b') == 'a b'"
-  category: formatter
+invariant string_extra2.whitespace.contains_newline:
+  description: "string.whitespace.__contains__('\\n') == True — newline is whitespace"
+  category: constants
   kind: python_call_eq
-  function: Formatter
-  args: []
-  method: format
-  method_args: ["{0} {1}", "a", "b"]
-  expected: "a b"
+  function: whitespace.__contains__
+  args: ["\n"]
+  expected: true
 
-invariant string_extra2.formatter.format_keyword:
-  description: "Formatter().format('{name}', name='world') == 'world'"
-  category: formatter
-  kind: python_call_eq
-  function: Formatter
-  args: []
-  method: format
-  method_args: ["{name}"]
-  method_kwargs: {name: "world"}
-  expected: "world"
+# ---------------------------------------------------------------------------
+# printable — length is 100
+# ---------------------------------------------------------------------------
 
-invariant string_extra2.formatter.format_empty:
-  description: "Formatter().format('hello') == 'hello' — no placeholders"
-  category: formatter
+invariant string_extra2.printable.length:
+  description: "len(string.printable) == 100 — digits(10)+ascii_letters(52)+punctuation(32)+whitespace(6)"
+  category: constants
   kind: python_call_eq
-  function: Formatter
+  function: printable.__len__
   args: []
-  method: format
-  method_args: ["hello"]
-  expected: "hello"
+  expected: 100
+
+# ---------------------------------------------------------------------------
+# punctuation — length is 32
+# ---------------------------------------------------------------------------
+
+invariant string_extra2.punctuation.length:
+  description: "len(string.punctuation) == 32 — all 32 standard ASCII punctuation characters"
+  category: constants
+  kind: python_call_eq
+  function: punctuation.__len__
+  args: []
+  expected: 32
+
+# ---------------------------------------------------------------------------
+# octdigits — exact value
+# ---------------------------------------------------------------------------
+
+invariant string_extra2.octdigits.value:
+  description: "string.octdigits == '01234567'"
+  category: constants
+  kind: python_call_eq
+  function: octdigits.__eq__
+  args: ["01234567"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hexdigits — exact value
+# ---------------------------------------------------------------------------
+
+invariant string_extra2.hexdigits.value:
+  description: "string.hexdigits == '0123456789abcdefABCDEF'"
+  category: constants
+  kind: python_call_eq
+  function: hexdigits.__eq__
+  args: ["0123456789abcdefABCDEF"]
+  expected: true

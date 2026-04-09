@@ -1,5 +1,5 @@
 spec: time_extra2
-version: ">=3.3"
+version: ">=3.9"
 backend: python_module(time)
 
 docs: https://docs.python.org/3/library/time.html
@@ -9,29 +9,34 @@ provenance:
     - "Python time documentation — https://docs.python.org/3/library/time.html"
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
-    - "time.zspec.zsdl — covers gmtime epoch/year2024 attributes, strptime tables, function names (gmtime/strptime/strftime/mktime/sleep), struct_time.__name__, strptime error cases"
-    - "time_extra.zspec.zsdl — covers struct_time.__module__, time()/monotonic()/perf_counter()/process_time() return types, gmtime()/localtime() return types, timezone/__class__.__name__, altzone/__class__.__name__"
+    - "CPython source: Modules/timemodule.c"
+    - "time.zspec.zsdl — covers function names (time, time_ns, sleep, gmtime, localtime, mktime, strftime, strptime, monotonic, monotonic_ns, perf_counter, perf_counter_ns, process_time, process_time_ns, clock_gettime, clock_gettime_ns, clock_settime, clock_settime_ns, clock_getres, CLOCK_REALTIME, CLOCK_MONOTONIC), struct_time class name, timezone/altzone/daylight/tzname constants"
+    - "time_extra.zspec.zsdl — covers time() class name ('float'), monotonic() > 0, perf_counter() class name, process_time() class name, gmtime() class name ('struct_time'), strftime('%Y', gmtime(0)) == '1970', mktime(gmtime(0)) class name ('float'), CLOCK_REALTIME value (0), CLOCK_MONOTONIC class name ('int')"
   notes:
-    - "This spec provides a self-contained reference for the __name__ attributes and module-level integer constant types of the time module."
-    - "time.struct_time.__name__ == 'struct_time' — confirmed on CPython 3.12."
+    - "This spec extends time.zspec.zsdl and time_extra.zspec.zsdl."
+    - "Focus: __name__ attributes of time module functions and classes, struct_time.__module__, and gmtime(0) epoch field values."
+    - "time.time.__name__ == 'time' — builtin_function_or_method name attribute."
+    - "time.sleep.__name__ == 'sleep' — builtin_function_or_method name attribute."
+    - "time.gmtime.__name__ == 'gmtime' — builtin_function_or_method name attribute."
+    - "time.localtime.__name__ == 'localtime' — builtin_function_or_method name attribute."
+    - "time.mktime.__name__ == 'mktime' — builtin_function_or_method name attribute."
+    - "time.strftime.__name__ == 'strftime' — builtin_function_or_method name attribute."
+    - "time.strptime.__name__ == 'strptime' — builtin_function_or_method name attribute."
+    - "time.monotonic.__name__ == 'monotonic' — builtin_function_or_method name attribute."
+    - "time.perf_counter.__name__ == 'perf_counter' — builtin_function_or_method name attribute."
+    - "time.struct_time.__name__ == 'struct_time' — C-level type."
+    - "time.struct_time.__module__ == 'time' — class is defined in the time C extension module."
+    - "time.gmtime(0).tm_year == 1970 — Unix epoch year."
+    - "time.gmtime(0).tm_mon == 1 — Unix epoch month (January)."
+    - "time.gmtime(0).tm_mday == 1 — Unix epoch day."
     - "time.timezone.__class__.__name__ == 'int' — UTC offset west of UTC in seconds."
-    - "time.altzone.__class__.__name__ == 'int' — DST-adjusted UTC offset in seconds."
-    - "time.daylight.__class__.__name__ == 'int' — non-zero when DST is used in the local timezone."
-    - "time.gmtime.__name__ == 'gmtime' — confirmed on CPython 3.12."
-    - "time.localtime.__name__ == 'localtime' — confirmed on CPython 3.12."
-    - "time.mktime.__name__ == 'mktime' — confirmed on CPython 3.12."
-    - "time.strftime.__name__ == 'strftime' — confirmed on CPython 3.12."
-    - "time.strptime.__name__ == 'strptime' — confirmed on CPython 3.12."
-    - "time.monotonic.__name__ == 'monotonic' — confirmed on CPython 3.12."
-    - "time.perf_counter.__name__ == 'perf_counter' — confirmed on CPython 3.12."
-    - "time.process_time.__name__ == 'process_time' — confirmed on CPython 3.12."
     - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# struct_time class identity
+# struct_time class identity — __name__ and __module__
 # ---------------------------------------------------------------------------
 
 invariant time_extra2.struct_time.class_name:
@@ -40,6 +45,14 @@ invariant time_extra2.struct_time.class_name:
   kind: python_call_eq
   function: struct_time.__name__.__eq__
   args: ["struct_time"]
+  expected: true
+
+invariant time_extra2.struct_time.module:
+  description: "time.struct_time.__module__ == 'time'"
+  category: struct_time
+  kind: python_call_eq
+  function: struct_time.__module__.__eq__
+  args: ["time"]
   expected: true
 
 # ---------------------------------------------------------------------------
@@ -71,8 +84,55 @@ invariant time_extra2.daylight.class_name:
   expected: true
 
 # ---------------------------------------------------------------------------
-# Function __name__ checks
+# gmtime(0) epoch field values
 # ---------------------------------------------------------------------------
+
+invariant time_extra2.gmtime.epoch_tm_year:
+  description: "time.gmtime(0).tm_year == 1970 — Unix epoch year"
+  category: gmtime_epoch
+  kind: python_call_eq
+  function: gmtime
+  args: [0]
+  method: tm_year
+  expected: 1970
+
+invariant time_extra2.gmtime.epoch_tm_mon:
+  description: "time.gmtime(0).tm_mon == 1 — Unix epoch month (January)"
+  category: gmtime_epoch
+  kind: python_call_eq
+  function: gmtime
+  args: [0]
+  method: tm_mon
+  expected: 1
+
+invariant time_extra2.gmtime.epoch_tm_mday:
+  description: "time.gmtime(0).tm_mday == 1 — Unix epoch day"
+  category: gmtime_epoch
+  kind: python_call_eq
+  function: gmtime
+  args: [0]
+  method: tm_mday
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# Function __name__ checks — individual invariants + table
+# ---------------------------------------------------------------------------
+
+invariant time_extra2.time.dunder_name:
+  description: "time.time.__name__ == 'time'"
+  category: function_names
+  kind: python_call_eq
+  function: time.__name__.__eq__
+  args: ["time"]
+  expected: true
+
+invariant time_extra2.sleep.dunder_name:
+  description: "time.sleep.__name__ == 'sleep'"
+  category: function_names
+  kind: python_call_eq
+  function: sleep.__name__.__eq__
+  args: ["sleep"]
+  expected: true
 
 table time_extra2.function_names:
   kind: python_call_eq

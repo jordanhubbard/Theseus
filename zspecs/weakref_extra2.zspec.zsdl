@@ -1,5 +1,5 @@
 spec: weakref_extra2
-version: ">=3.4"
+version: ">=3.9"
 backend: python_module(weakref)
 
 docs: https://docs.python.org/3/library/weakref.html
@@ -10,93 +10,166 @@ provenance:
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
     - "CPython source: Lib/weakref.py"
-    - "weakref.zspec.zsdl — covers class names, function names, empty containers, getweakrefs"
-    - "weakref_extra.zspec.zsdl — covers module checks for WeakValueDictionary/WeakKeyDictionary/finalize, proxy.__name__, ReferenceType.__name__, base class chains"
-    - "_weakref.zspec.zsdl — covers the C-level _weakref extension type names and modules"
+    - "weakref.zspec.zsdl — covers class names (ref, WeakValueDictionary, WeakKeyDictionary, WeakSet, WeakMethod, finalize, proxy), function names (ref, getweakrefcount, getweakrefs)"
+    - "weakref_extra.zspec.zsdl — covers ref/__module__, WeakValueDictionary/__module__, WeakKeyDictionary/__module__, WeakSet/__module__, WeakMethod/__module__, finalize/__module__, proxy/__name__, ref/__name__, getweakrefcount/__name__, getweakrefs/__name__"
   notes:
-    - "weakref.ref.__module__ == 'weakref' — the Python-level alias is considered part of the weakref module."
-    - "weakref.ReferenceType.__module__ == 'weakref' — same object as ref, same module."
-    - "weakref.ProxyType.__module__ == 'weakref' — the proxy type is registered to the weakref module."
-    - "weakref.CallableProxyType.__module__ == 'weakref' — callable proxy also maps to weakref module."
-    - "weakref.proxy.__module__ == '_weakref' — proxy() is a C builtin from the _weakref extension."
-    - "weakref.WeakSet.__module__ == '_weakrefset' — WeakSet is defined in _weakrefset, not weakref."
-    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "This spec extends weakref.zspec.zsdl and weakref_extra.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "weakref.ref.__name__ == 'weakref' — the C-level type name (accessed via the Python-level alias ref)."
+    - "weakref.WeakValueDictionary.__name__ == 'WeakValueDictionary' — pure-Python class."
+    - "weakref.WeakKeyDictionary.__name__ == 'WeakKeyDictionary' — pure-Python class."
+    - "weakref.WeakSet.__name__ == 'WeakSet' — defined in _weakrefset helper module."
+    - "weakref.WeakMethod.__name__ == 'WeakMethod' — pure-Python class."
+    - "weakref.finalize.__name__ == 'finalize' — pure-Python class."
+    - "weakref.WeakValueDictionary.__bases__[0].__name__ == 'MutableMapping' — MutableMapping from collections.abc."
+    - "weakref.WeakKeyDictionary.__bases__[0].__name__ == 'MutableMapping'."
+    - "weakref.WeakSet.__bases__[0].__name__ == 'MutableSet' — inherits from collections.abc.MutableSet."
+    - "weakref.finalize.__bases__[0].__name__ == 'object' — finalize directly subclasses object."
+    - "WeakValueDictionary() instantiation yields class name 'WeakValueDictionary'."
+    - "WeakKeyDictionary() instantiation yields class name 'WeakKeyDictionary'."
+    - "WeakSet() instantiation yields class name 'WeakSet'."
+    - "weakref.getweakrefcount.__module__ == '_weakref' — C extension re-exported in weakref."
+    - "weakref.getweakrefs.__module__ == '_weakref' — C extension re-exported in weakref."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# __module__ checks for reference types
+# Class __name__ checks — new coverage not in weakref_extra.zspec.zsdl
 # ---------------------------------------------------------------------------
 
-invariant weakref_extra2.ref.module:
-  description: "weakref.ref.__module__ == 'weakref'"
-  category: modules
-  kind: python_call_eq
-  function: ref.__module__.__eq__
-  args: ["weakref"]
-  expected: true
-
-invariant weakref_extra2.ReferenceType.module:
-  description: "weakref.ReferenceType.__module__ == 'weakref'"
-  category: modules
-  kind: python_call_eq
-  function: ReferenceType.__module__.__eq__
-  args: ["weakref"]
-  expected: true
-
-invariant weakref_extra2.ProxyType.module:
-  description: "weakref.ProxyType.__module__ == 'weakref'"
-  category: modules
-  kind: python_call_eq
-  function: ProxyType.__module__.__eq__
-  args: ["weakref"]
-  expected: true
-
-invariant weakref_extra2.CallableProxyType.module:
-  description: "weakref.CallableProxyType.__module__ == 'weakref'"
-  category: modules
-  kind: python_call_eq
-  function: CallableProxyType.__module__.__eq__
-  args: ["weakref"]
-  expected: true
-
-invariant weakref_extra2.proxy.module:
-  description: "weakref.proxy.__module__ == '_weakref' — proxy() is a C builtin from the _weakref extension"
-  category: modules
-  kind: python_call_eq
-  function: proxy.__module__.__eq__
-  args: ["_weakref"]
-  expected: true
-
-invariant weakref_extra2.WeakSet.module:
-  description: "weakref.WeakSet.__module__ == '_weakrefset' — WeakSet is defined in the _weakrefset helper module"
-  category: modules
-  kind: python_call_eq
-  function: WeakSet.__module__.__eq__
-  args: ["_weakrefset"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# CallableProxyType class name check
-# ---------------------------------------------------------------------------
-
-invariant weakref_extra2.CallableProxyType.name:
-  description: "weakref.CallableProxyType.__name__ == 'CallableProxyType'"
-  category: class_names
-  kind: python_call_eq
-  function: CallableProxyType.__name__.__eq__
-  args: ["CallableProxyType"]
-  expected: true
-
-# ---------------------------------------------------------------------------
-# ReferenceType is ref — identity via __name__ cross-check
-# ---------------------------------------------------------------------------
-
-invariant weakref_extra2.ref.name_is_ReferenceType:
-  description: "weakref.ref.__name__ == 'ReferenceType' — ref is an alias for the C ReferenceType"
+invariant weakref_extra2.ref.name:
+  description: "weakref.ref.__name__ == 'weakref' — the underlying C type name"
   category: class_names
   kind: python_call_eq
   function: ref.__name__.__eq__
-  args: ["ReferenceType"]
+  args: ["weakref"]
+  expected: true
+
+invariant weakref_extra2.WeakValueDictionary.name:
+  description: "weakref.WeakValueDictionary.__name__ == 'WeakValueDictionary'"
+  category: class_names
+  kind: python_call_eq
+  function: WeakValueDictionary.__name__.__eq__
+  args: ["WeakValueDictionary"]
+  expected: true
+
+invariant weakref_extra2.WeakKeyDictionary.name:
+  description: "weakref.WeakKeyDictionary.__name__ == 'WeakKeyDictionary'"
+  category: class_names
+  kind: python_call_eq
+  function: WeakKeyDictionary.__name__.__eq__
+  args: ["WeakKeyDictionary"]
+  expected: true
+
+invariant weakref_extra2.WeakSet.name:
+  description: "weakref.WeakSet.__name__ == 'WeakSet'"
+  category: class_names
+  kind: python_call_eq
+  function: WeakSet.__name__.__eq__
+  args: ["WeakSet"]
+  expected: true
+
+invariant weakref_extra2.WeakMethod.name:
+  description: "weakref.WeakMethod.__name__ == 'WeakMethod'"
+  category: class_names
+  kind: python_call_eq
+  function: WeakMethod.__name__.__eq__
+  args: ["WeakMethod"]
+  expected: true
+
+invariant weakref_extra2.finalize.name:
+  description: "weakref.finalize.__name__ == 'finalize'"
+  category: class_names
+  kind: python_call_eq
+  function: finalize.__name__.__eq__
+  args: ["finalize"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Base class checks
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra2.WeakValueDictionary.base_name:
+  description: "weakref.WeakValueDictionary.__bases__[0].__name__ == 'MutableMapping'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: WeakValueDictionary.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "MutableMapping"
+
+invariant weakref_extra2.WeakKeyDictionary.base_name:
+  description: "weakref.WeakKeyDictionary.__bases__[0].__name__ == 'MutableMapping'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: WeakKeyDictionary.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "MutableMapping"
+
+invariant weakref_extra2.WeakSet.base_name:
+  description: "weakref.WeakSet.__bases__[0].__name__ == 'MutableSet'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: WeakSet.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "MutableSet"
+
+invariant weakref_extra2.finalize.base_name:
+  description: "weakref.finalize.__bases__[0].__name__ == 'object'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: finalize.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Instantiation class name checks
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra2.WeakValueDictionary.instance_classname:
+  description: "weakref.WeakValueDictionary().__class__.__name__ == 'WeakValueDictionary'"
+  category: instantiation
+  kind: python_call_eq
+  function: WeakValueDictionary().__class__.__name__.__eq__
+  args: ["WeakValueDictionary"]
+  expected: true
+
+invariant weakref_extra2.WeakKeyDictionary.instance_classname:
+  description: "weakref.WeakKeyDictionary().__class__.__name__ == 'WeakKeyDictionary'"
+  category: instantiation
+  kind: python_call_eq
+  function: WeakKeyDictionary().__class__.__name__.__eq__
+  args: ["WeakKeyDictionary"]
+  expected: true
+
+invariant weakref_extra2.WeakSet.instance_classname:
+  description: "weakref.WeakSet().__class__.__name__ == 'WeakSet'"
+  category: instantiation
+  kind: python_call_eq
+  function: WeakSet().__class__.__name__.__eq__
+  args: ["WeakSet"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __module__ checks — getweakrefcount and getweakrefs come from _weakref
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra2.getweakrefcount.module:
+  description: "weakref.getweakrefcount.__module__ == '_weakref' — C extension re-exported in weakref"
+  category: function_modules
+  kind: python_call_eq
+  function: getweakrefcount.__module__.__eq__
+  args: ["_weakref"]
+  expected: true
+
+invariant weakref_extra2.getweakrefs.module:
+  description: "weakref.getweakrefs.__module__ == '_weakref' — C extension re-exported in weakref"
+  category: function_modules
+  kind: python_call_eq
+  function: getweakrefs.__module__.__eq__
+  args: ["_weakref"]
   expected: true

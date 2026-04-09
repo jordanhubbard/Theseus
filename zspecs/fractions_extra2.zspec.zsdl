@@ -1,5 +1,5 @@
 spec: fractions_extra2
-version: ">=3.2"
+version: ">=3.9"
 backend: python_module(fractions)
 
 docs: https://docs.python.org/3/library/fractions.html
@@ -10,31 +10,30 @@ provenance:
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
     - "CPython source: Lib/fractions.py"
-    - "fractions.zspec.zsdl — covers constructor, arithmetic, comparison, and limit_denominator"
-    - "fractions_extra.zspec.zsdl — covers Fraction.__name__, __module__, __bases__, (3,6) reduction, from_string/float class, addition"
+    - "fractions.zspec.zsdl — covers Fraction class name, Fraction.__module__ == 'fractions', Fraction(1,2) + Fraction(1,3) == Fraction(5,6), Fraction(1,2).numerator == 1, Fraction(1,2).denominator == 2, Fraction(0.5) == Fraction(1,2), Fraction('3/4') == Fraction(3,4)"
+    - "fractions_extra.zspec.zsdl — covers Fraction.__name__, Fraction.__bases__[0].__name__ == 'Rational', Fraction(1,2).__class__.__name__ == 'Fraction', Fraction(2,4).numerator == 1 (auto-reduced), Fraction(2,4).denominator == 2, Fraction(1,3).__class__.__name__ == 'Fraction', Fraction(1,2) * Fraction(2,3) == Fraction(1,3)"
   notes:
-    - "This spec extends fractions_extra.zspec.zsdl with coverage not already present there."
-    - "Fraction(1, 3).__class__.__name__ == 'Fraction' — verifies instance class identity."
-    - "Fraction(0).numerator == 0 — zero is a valid Fraction; numerator is 0."
-    - "Fraction(0).denominator == 1 — the denominator of zero is always 1 (canonical form)."
-    - "Fraction(3, 6) auto-reduces to 1/2; __str__ returns '1/2' — complements numerator/denominator checks."
-    - "Fraction.__name__ and __module__ verified again here for completeness as additional coverage."
+    - "This spec extends fractions.zspec.zsdl and fractions_extra.zspec.zsdl."
+    - "Focus: __module__, repr, limit_denominator, subtraction, MRO, integer equality, and auto-reduction from Fraction(6,4)."
+    - "fractions.Fraction.__module__ == 'fractions' — class-level module attribute."
+    - "fractions.Fraction(3,4).__repr__() == 'Fraction(3, 4)' — repr includes a space after the comma."
+    - "fractions.Fraction(1,2).limit_denominator(10) == Fraction(1,2) — already simplest form."
+    - "fractions.Fraction(1,3).limit_denominator(3) == Fraction(1,3) — exact fit within bound."
+    - "fractions.Fraction(6,4).numerator == 3 — 6/4 auto-reduces to 3/2."
+    - "fractions.Fraction(6,4).denominator == 2 — 6/4 auto-reduces to 3/2."
+    - "fractions.Fraction(1,2) - fractions.Fraction(1,4) == Fraction(1,4)."
+    - "fractions.Fraction(0).__class__.__name__ == 'Fraction' — zero is a valid Fraction instance."
+    - "fractions.Fraction.__mro__[1].__name__ == 'Rational' — second entry in MRO is Rational."
+    - "fractions.Fraction(1).__class__.__name__ == 'Fraction' — integer-argument constructor."
+    - "fractions.Fraction(2,1) == 2 — Fraction equal to integer 2."
     - "All expected values verified by running Python 3.12 fractions module on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# Class identity — __name__ and __module__
+# Class identity — __module__
 # ---------------------------------------------------------------------------
-
-invariant fractions_extra2.Fraction.class_name:
-  description: "Fraction.__name__ == 'Fraction'"
-  category: class_metadata
-  kind: python_call_eq
-  function: Fraction.__name__.__eq__
-  args: ["Fraction"]
-  expected: true
 
 invariant fractions_extra2.Fraction.module:
   description: "Fraction.__module__ == 'fractions'"
@@ -45,74 +44,140 @@ invariant fractions_extra2.Fraction.module:
   expected: true
 
 # ---------------------------------------------------------------------------
-# Class hierarchy — Fraction.__bases__[0].__name__ == 'Rational'
+# MRO — Fraction.__mro__[1].__name__ == 'Rational'
 # ---------------------------------------------------------------------------
 
-invariant fractions_extra2.Fraction.base_is_Rational:
-  description: "Fraction.__bases__[0].__name__ == 'Rational' — inherits from numbers.Rational"
+invariant fractions_extra2.Fraction.mro_rational:
+  description: "Fraction.__mro__[1].__name__ == 'Rational' — second MRO entry is Rational"
   category: class_hierarchy
   kind: python_call_eq
-  function: Fraction.__bases__.__getitem__
-  args: [0]
+  function: Fraction.__mro__.__getitem__
+  args: [1]
   method: __name__
   expected: "Rational"
 
 # ---------------------------------------------------------------------------
-# Instance class identity — Fraction(1, 3).__class__.__name__ == 'Fraction'
+# repr — Fraction(3, 4).__repr__() == 'Fraction(3, 4)'
 # ---------------------------------------------------------------------------
 
-invariant fractions_extra2.Fraction.instance_class_name:
-  description: "Fraction(1, 3).__class__.__name__ == 'Fraction'"
-  category: class_metadata
+invariant fractions_extra2.Fraction.repr:
+  description: "Fraction(3, 4).__repr__() == 'Fraction(3, 4)'"
+  category: representation
+  kind: python_call_eq
+  function: Fraction
+  args: [3, 4]
+  method: __repr__
+  method_args: []
+  expected: "Fraction(3, 4)"
+
+# ---------------------------------------------------------------------------
+# limit_denominator — result correctness
+# ---------------------------------------------------------------------------
+
+invariant fractions_extra2.Fraction.limit_denominator_half:
+  description: "Fraction(1,2).limit_denominator(10) == Fraction(1,2)"
+  category: limit_denominator
+  kind: python_call_eq
+  function: Fraction
+  args: [1, 2]
+  method: limit_denominator
+  method_args: [10]
+  expected: {type: Fraction, args: [1, 2]}
+
+invariant fractions_extra2.Fraction.limit_denominator_third:
+  description: "Fraction(1,3).limit_denominator(3) == Fraction(1,3)"
+  category: limit_denominator
   kind: python_call_eq
   function: Fraction
   args: [1, 3]
+  method: limit_denominator
+  method_args: [3]
+  expected: {type: Fraction, args: [1, 3]}
+
+# ---------------------------------------------------------------------------
+# Auto-reduction: Fraction(6, 4) reduces to 3/2
+# ---------------------------------------------------------------------------
+
+invariant fractions_extra2.Fraction.six_four_numerator:
+  description: "Fraction(6, 4).numerator == 3 — 6/4 auto-reduces to 3/2"
+  category: auto_reduction
+  kind: python_call_eq
+  function: Fraction
+  args: [6, 4]
+  method: numerator
+  expected: 3
+
+invariant fractions_extra2.Fraction.six_four_denominator:
+  description: "Fraction(6, 4).denominator == 2 — 6/4 auto-reduces to 3/2"
+  category: auto_reduction
+  kind: python_call_eq
+  function: Fraction
+  args: [6, 4]
+  method: denominator
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# Subtraction: Fraction(1,2) - Fraction(1,4) == Fraction(1,4)
+# ---------------------------------------------------------------------------
+
+invariant fractions_extra2.Fraction.subtraction:
+  description: "Fraction(1,2).__sub__(Fraction(1,4)) == Fraction(1,4)"
+  category: arithmetic
+  kind: python_call_eq
+  function: Fraction
+  args: [1, 2]
+  method: __sub__
+  method_args: [{type: Fraction, args: [1, 4]}]
+  expected: {type: Fraction, args: [1, 4]}
+
+# ---------------------------------------------------------------------------
+# Instance class names — various constructors
+# ---------------------------------------------------------------------------
+
+invariant fractions_extra2.Fraction.zero_class_name:
+  description: "Fraction(0).__class__.__name__ == 'Fraction'"
+  category: class_metadata
+  kind: python_call_eq
+  function: Fraction
+  args: [0]
+  method: __class__
+  method_chain: __name__
+  method_chain_args: []
+  expected: "Fraction"
+
+invariant fractions_extra2.Fraction.int_one_class_name:
+  description: "Fraction(1).__class__.__name__ == 'Fraction'"
+  category: class_metadata
+  kind: python_call_eq
+  function: Fraction
+  args: [1]
   method: __class__
   method_chain: __name__
   method_chain_args: []
   expected: "Fraction"
 
 # ---------------------------------------------------------------------------
-# Auto-reduction: Fraction(3, 6) reduces to 1/2
-# Numerator and denominator checks plus __str__ verification
+# Equality with integer: Fraction(2,1) == 2
 # ---------------------------------------------------------------------------
 
-invariant fractions_extra2.Fraction.reduced_numerator:
-  description: "Fraction(3, 6).numerator == 1 — 3/6 auto-reduces to 1/2"
-  category: auto_reduction
+invariant fractions_extra2.Fraction.equals_integer:
+  description: "Fraction(2,1) == 2"
+  category: arithmetic
   kind: python_call_eq
   function: Fraction
-  args: [3, 6]
-  method: numerator
-  expected: 1
-
-invariant fractions_extra2.Fraction.reduced_denominator:
-  description: "Fraction(3, 6).denominator == 2 — 3/6 auto-reduces to 1/2"
-  category: auto_reduction
-  kind: python_call_eq
-  function: Fraction
-  args: [3, 6]
-  method: denominator
-  expected: 2
+  args: [2, 1]
+  method: __eq__
+  method_args: [2]
+  expected: true
 
 # ---------------------------------------------------------------------------
-# Zero: Fraction(0).numerator and denominator
+# __add__ method name identity
 # ---------------------------------------------------------------------------
 
-invariant fractions_extra2.Fraction.zero_numerator:
-  description: "Fraction(0).numerator == 0"
-  category: zero
+invariant fractions_extra2.Fraction.add_method_name:
+  description: "Fraction.__add__.__name__ == '__add__'"
+  category: class_metadata
   kind: python_call_eq
-  function: Fraction
-  args: [0]
-  method: numerator
-  expected: 0
-
-invariant fractions_extra2.Fraction.zero_denominator:
-  description: "Fraction(0).denominator == 1 — canonical form for zero"
-  category: zero
-  kind: python_call_eq
-  function: Fraction
-  args: [0]
-  method: denominator
-  expected: 1
+  function: Fraction.__add__.__name__.__eq__
+  args: ["__add__"]
+  expected: true

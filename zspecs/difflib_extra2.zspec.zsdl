@@ -1,5 +1,5 @@
 spec: difflib_extra2
-version: ">=3.2"
+version: ">=3.9"
 backend: python_module(difflib)
 
 docs: https://docs.python.org/3/library/difflib.html
@@ -10,61 +10,157 @@ provenance:
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
     - "CPython source: Lib/difflib.py"
+    - "difflib.zspec.zsdl — covers function names (unified_diff, context_diff, ndiff, differ, Differ, SequenceMatcher, HtmlDiff class names, get_close_matches, restore, IS_LINE_JUNK, IS_CHARACTER_JUNK)"
+    - "difflib_extra.zspec.zsdl — covers SequenceMatcher.__module__, get_close_matches behavioral tests, SequenceMatcher.ratio(), HtmlDiff.__name__, Differ.__name__, unified_diff.__name__, ndiff.__name__, restore.__name__"
   notes:
-    - "Complements difflib.zspec.zsdl and difflib_extra.zspec.zsdl."
-    - "difflib_extra.zspec.zsdl covers: SequenceMatcher, Differ, HtmlDiff class names; unified_diff, context_diff, ndiff, get_close_matches function names; get_close_matches behavioral tests."
-    - "This spec consolidates class and function __name__ checks in table form and adds the 'helllo' close-match test."
-    - "get_close_matches('helllo', ['hello','help','world']) == ['hello','help'] with default n=3, cutoff=0.6."
-    - "The typo 'helllo' is close to both 'hello' (ratio ~0.91) and 'help' (ratio ~0.73) but not 'world'."
+    - "difflib.SequenceMatcher.__name__ == 'SequenceMatcher' — class name attribute."
+    - "difflib.Differ.__name__ == 'Differ' — Differ class name."
+    - "difflib.HtmlDiff.__name__ == 'HtmlDiff' — HtmlDiff class name."
+    - "difflib.SequenceMatcher.__bases__[0].__name__ == 'object' — SequenceMatcher directly subclasses object."
+    - "difflib.Differ.__bases__[0].__name__ == 'object' — Differ directly subclasses object."
+    - "difflib.HtmlDiff.__bases__[0].__name__ == 'object' — HtmlDiff directly subclasses object."
+    - "difflib.unified_diff.__module__ == 'difflib' — unified_diff belongs to difflib."
+    - "difflib.ndiff.__module__ == 'difflib' — ndiff belongs to difflib."
+    - "difflib.context_diff.__module__ == 'difflib' — context_diff belongs to difflib."
+    - "difflib.get_close_matches.__module__ == 'difflib' — get_close_matches belongs to difflib."
+    - "list(difflib.unified_diff(['a\\n'], ['b\\n'], lineterm=''))[0] == '--- ' — first line of unified diff is '--- '."
+    - "list(difflib.ndiff(['hello\\n'], ['hello\\n']))[0] == '  hello\\n' — identical lines get a '  ' prefix in ndiff."
+    - "difflib.IS_LINE_JUNK.__name__ == 'IS_LINE_JUNK' — function name attribute."
+    - "difflib.IS_CHARACTER_JUNK.__name__ == 'IS_CHARACTER_JUNK' — function name attribute."
+    - "difflib.SequenceMatcher(None, 'hello', 'hello').ratio() == 1.0 — identical strings have ratio 1.0."
     - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# Class name checks
+# Class __name__ checks
 # ---------------------------------------------------------------------------
 
 table difflib_extra2.class_names:
-  description: "difflib classes have correct __name__ attributes"
+  description: "difflib classes have the expected __name__ attributes"
   kind: python_call_eq
   category: class_names
   id_prefix: cname
 
   columns: [id, function, args, expected]
   rows:
-    - [Differ,          Differ.__name__.__eq__,          ["Differ"],          true]
-    - [HtmlDiff,        HtmlDiff.__name__.__eq__,        ["HtmlDiff"],        true]
     - [SequenceMatcher, SequenceMatcher.__name__.__eq__,  ["SequenceMatcher"], true]
+    - [Differ,          Differ.__name__.__eq__,           ["Differ"],          true]
+    - [HtmlDiff,        HtmlDiff.__name__.__eq__,         ["HtmlDiff"],        true]
 
 # ---------------------------------------------------------------------------
-# Function name checks
+# Class base class checks — each directly subclasses object
 # ---------------------------------------------------------------------------
 
-table difflib_extra2.function_names:
-  description: "difflib functions have correct __name__ attributes"
+invariant difflib_extra2.SequenceMatcher.base_is_object:
+  description: "difflib.SequenceMatcher.__bases__[0].__name__ == 'object'"
+  category: class_hierarchy
   kind: python_call_eq
-  category: function_names
-  id_prefix: fname
+  function: SequenceMatcher.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "object"
+
+invariant difflib_extra2.Differ.base_is_object:
+  description: "difflib.Differ.__bases__[0].__name__ == 'object'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Differ.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "object"
+
+invariant difflib_extra2.HtmlDiff.base_is_object:
+  description: "difflib.HtmlDiff.__bases__[0].__name__ == 'object'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: HtmlDiff.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# Function module affiliation
+# ---------------------------------------------------------------------------
+
+table difflib_extra2.function_modules:
+  description: "difflib functions belong to module 'difflib'"
+  kind: python_call_eq
+  category: module
+  id_prefix: fmod
 
   columns: [id, function, args, expected]
   rows:
-    - [unified_diff,      unified_diff.__name__.__eq__,      ["unified_diff"],      true]
-    - [context_diff,      context_diff.__name__.__eq__,      ["context_diff"],      true]
-    - [ndiff,             ndiff.__name__.__eq__,             ["ndiff"],             true]
-    - [get_close_matches, get_close_matches.__name__.__eq__,  ["get_close_matches"], true]
+    - [unified_diff,     unified_diff.__module__.__eq__,      ["difflib"], true]
+    - [ndiff,            ndiff.__module__.__eq__,             ["difflib"], true]
+    - [context_diff,     context_diff.__module__.__eq__,      ["difflib"], true]
+    - [get_close_matches, get_close_matches.__module__.__eq__, ["difflib"], true]
 
 # ---------------------------------------------------------------------------
-# get_close_matches — behavioral test
-#
-# 'helllo' (typo with doubled 'l') is close to 'hello' and 'help' with
-# the default cutoff of 0.6 and n=3. 'world' is not close enough.
+# unified_diff output — first line is '--- '
 # ---------------------------------------------------------------------------
 
-invariant difflib_extra2.get_close_matches.helllo:
-  description: "get_close_matches('helllo', ['hello','help','world']) == ['hello','help']"
-  category: close_matches
+invariant difflib_extra2.unified_diff.first_line:
+  description: "list(unified_diff(['a\\n'], ['b\\n'], lineterm=''))[0] == '--- '"
+  category: unified_diff
   kind: python_call_eq
-  function: get_close_matches
-  args: ["helllo", ["hello", "help", "world"]]
-  expected: ["hello", "help"]
+  function: unified_diff
+  args: [["a\n"], ["b\n"]]
+  kwargs: {lineterm: ""}
+  method: __iter__
+  method_chain: __next__
+  method_chain_args: []
+  expected: "--- "
+
+# ---------------------------------------------------------------------------
+# ndiff output — identical lines get two-space prefix
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra2.ndiff.identical_line_prefix:
+  description: "list(ndiff(['hello\\n'], ['hello\\n']))[0] == '  hello\\n' — identical lines have '  ' prefix"
+  category: ndiff
+  kind: python_call_eq
+  function: ndiff
+  args: [["hello\n"], ["hello\n"]]
+  method: __iter__
+  method_chain: __next__
+  method_chain_args: []
+  expected: "  hello\n"
+
+# ---------------------------------------------------------------------------
+# IS_LINE_JUNK and IS_CHARACTER_JUNK — function name attributes
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra2.IS_LINE_JUNK.name:
+  description: "difflib.IS_LINE_JUNK.__name__ == 'IS_LINE_JUNK'"
+  category: junk_predicates
+  kind: python_call_eq
+  function: IS_LINE_JUNK.__name__.__eq__
+  args: ["IS_LINE_JUNK"]
+  expected: true
+
+invariant difflib_extra2.IS_CHARACTER_JUNK.name:
+  description: "difflib.IS_CHARACTER_JUNK.__name__ == 'IS_CHARACTER_JUNK'"
+  category: junk_predicates
+  kind: python_call_eq
+  function: IS_CHARACTER_JUNK.__name__.__eq__
+  args: ["IS_CHARACTER_JUNK"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SequenceMatcher.ratio() — identical strings
+# ---------------------------------------------------------------------------
+
+invariant difflib_extra2.SequenceMatcher.ratio_identical:
+  description: "SequenceMatcher(None, 'hello', 'hello').ratio() == 1.0"
+  category: ratio
+  kind: python_call_eq
+  function: SequenceMatcher
+  args: [null, "hello", "hello"]
+  method: ratio
+  method_args: []
+  expected: 1.0

@@ -1,0 +1,227 @@
+spec: math_extra3
+version: ">=3.9"
+backend: python_module(math)
+
+docs: https://docs.python.org/3/library/math.html
+
+provenance:
+  derived_from:
+    - "Python 3 math module documentation — https://docs.python.org/3/library/math.html"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mathmodule.c"
+    - "CPython source: Lib/math.py"
+  notes:
+    - "This spec extends math.zspec.zsdl, math_extra.zspec.zsdl, and math_extra2.zspec.zsdl."
+    - "math.zspec.zsdl covers: pi/e/tau bounds, inf/nan checks, floor/ceil/trunc tables, factorial, gcd, sqrt, log/log2/log10, pow, isfinite, degrees/radians, sin/cos, fabs, copysign, hypot, exp, comb, perm, lcm, isqrt, dist, isclose, error cases."
+    - "math_extra.zspec.zsdl covers: class name checks for e/pi/tau/inf/nan; isinf/isnan; gcd/lcm/comb/perm; log2/log10 value checks; floor/ceil/trunc spot-checks."
+    - "math_extra2.zspec.zsdl covers: tau==2*pi, inf>1e300, isfinite(42.0), isfinite(inf)==False, isnan(nan)==True, isnan(0.0)==False, gcd(18,12)==6, lcm(3,5)==15."
+    - "This spec adds: fabs(-3.0)==3.0, copysign(1.0,-2.0)==-1.0, fmod(10.0,3.0)==1.0, modf(3.7) first element class, frexp(8.0)==(0.5,4), ldexp(0.5,4)==8.0, trunc(3.7)==3, remainder(10.0,3.0)==-2.0, dist([0,0],[3,4])==5.0, atan2 class name, erf(0.0)==0.0, gamma(1.0)==1.0, lgamma(1.0)==0.0, expm1(0.0)==0.0, log1p(0.0)==0.0."
+    - "math.fabs always returns a float; fabs(-3.0) == 3.0."
+    - "math.copysign(1.0, -2.0) == -1.0 — returns magnitude of first arg with sign of second."
+    - "math.fmod(10.0, 3.0) == 1.0 — C-library fmod, remainder has same sign as dividend."
+    - "math.modf(3.7) returns (fractional_part, integral_part) as a tuple of two floats."
+    - "math.frexp(8.0) == (0.5, 4) — 8.0 == 0.5 * 2^4."
+    - "math.ldexp(0.5, 4) == 8.0 — inverse of frexp: 0.5 * 2^4 == 8.0."
+    - "math.trunc(3.7) == 3 — truncates toward zero."
+    - "math.remainder(10.0, 3.0) == -2.0 — IEEE 754 remainder; result is in [-y/2, y/2]."
+    - "math.dist([0,0],[3,4]) == 5.0 — Euclidean distance of 3-4-5 right triangle."
+    - "math.atan2(1.0, 1.0) returns a float (pi/4)."
+    - "math.erf(0.0) == 0.0 — error function at zero is zero."
+    - "math.gamma(1.0) == 1.0 — gamma(1) == 0! == 1."
+    - "math.lgamma(1.0) == 0.0 — log(gamma(1)) == log(1) == 0."
+    - "math.expm1(0.0) == 0.0 — e^0 - 1 == 0."
+    - "math.log1p(0.0) == 0.0 — log(1 + 0) == 0."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# fabs — absolute value (always returns float)
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.fabs.negative:
+  description: "math.fabs(-3.0) == 3.0 — absolute value of a negative float"
+  category: arithmetic
+  kind: python_call_eq
+  function: fabs
+  args: [-3.0]
+  expected: 3.0
+
+# ---------------------------------------------------------------------------
+# copysign — copy sign from second argument to magnitude of first
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.copysign.positive_magnitude_negative_sign:
+  description: "math.copysign(1.0, -2.0) == -1.0 — magnitude 1.0 gets the sign of -2.0"
+  category: arithmetic
+  kind: python_call_eq
+  function: copysign
+  args: [1.0, -2.0]
+  expected: -1.0
+
+# ---------------------------------------------------------------------------
+# fmod — floating-point remainder (C-library semantics, sign follows dividend)
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.fmod.ten_three:
+  description: "math.fmod(10.0, 3.0) == 1.0 — C fmod; remainder has same sign as dividend"
+  category: arithmetic
+  kind: python_call_eq
+  function: fmod
+  args: [10.0, 3.0]
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# remainder — IEEE 754 remainder (result in [-y/2, y/2])
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.remainder.ten_three:
+  description: "math.remainder(10.0, 3.0) == -2.0 — IEEE 754 remainder; 10 = 3*4 + (-2)"
+  category: arithmetic
+  kind: python_call_eq
+  function: remainder
+  args: [10.0, 3.0]
+  expected: -2.0
+
+# ---------------------------------------------------------------------------
+# modf — split into fractional and integer parts (both floats)
+#
+# math.modf(3.7) returns (0.7000000000000002, 3.0) in CPython.
+# Rather than testing the exact float, we test that the first element
+# is an instance of float via __class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.modf.fractional_part_is_float:
+  description: "math.modf(3.7)[0].__class__.__name__ == 'float' — modf returns a tuple of floats"
+  category: arithmetic
+  kind: python_call_eq
+  function: modf
+  args: [3.7]
+  method: __getitem__
+  method_args: [0]
+  method_chain: __class__.__name__
+  expected: "float"
+
+# ---------------------------------------------------------------------------
+# frexp — decompose into mantissa and exponent
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.frexp.eight:
+  description: "math.frexp(8.0) == (0.5, 4) — 8.0 == 0.5 * 2^4"
+  category: arithmetic
+  kind: python_call_eq
+  function: frexp
+  args: [8.0]
+  expected: [0.5, 4]
+
+# ---------------------------------------------------------------------------
+# ldexp — reconstruct float from mantissa and exponent
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.ldexp.half_four:
+  description: "math.ldexp(0.5, 4) == 8.0 — 0.5 * 2^4 == 8.0"
+  category: arithmetic
+  kind: python_call_eq
+  function: ldexp
+  args: [0.5, 4]
+  expected: 8.0
+
+# ---------------------------------------------------------------------------
+# trunc — truncate toward zero (returns int)
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.trunc.three_seven:
+  description: "math.trunc(3.7) == 3 — truncates toward zero"
+  category: arithmetic
+  kind: python_call_eq
+  function: trunc
+  args: [3.7]
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# dist — Euclidean distance between two points
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.dist.three_four_five:
+  description: "math.dist([0,0],[3,4]) == 5.0 — Euclidean distance of classic 3-4-5 triangle"
+  category: geometry
+  kind: python_call_eq
+  function: dist
+  args: [[0, 0], [3, 4]]
+  expected: 5.0
+
+# ---------------------------------------------------------------------------
+# atan2 — two-argument arctangent (returns float)
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.atan2.class_name:
+  description: "math.atan2(1.0, 1.0).__class__.__name__ == 'float' — atan2 always returns float"
+  category: trigonometry
+  kind: python_call_eq
+  function: atan2
+  args: [1.0, 1.0]
+  method: __class__.__name__
+  expected: "float"
+
+# ---------------------------------------------------------------------------
+# erf — error function
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.erf.zero:
+  description: "math.erf(0.0) == 0.0 — error function at zero is zero"
+  category: special_functions
+  kind: python_call_eq
+  function: erf
+  args: [0.0]
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# gamma — gamma function
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.gamma.one:
+  description: "math.gamma(1.0) == 1.0 — gamma(1) == 0! == 1"
+  category: special_functions
+  kind: python_call_eq
+  function: gamma
+  args: [1.0]
+  expected: 1.0
+
+# ---------------------------------------------------------------------------
+# lgamma — natural log of the absolute value of the gamma function
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.lgamma.one:
+  description: "math.lgamma(1.0) == 0.0 — log(gamma(1)) == log(1) == 0"
+  category: special_functions
+  kind: python_call_eq
+  function: lgamma
+  args: [1.0]
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# expm1 — exp(x) - 1, numerically stable for small x
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.expm1.zero:
+  description: "math.expm1(0.0) == 0.0 — e^0 - 1 == 0"
+  category: special_functions
+  kind: python_call_eq
+  function: expm1
+  args: [0.0]
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# log1p — log(1 + x), numerically stable for small x
+# ---------------------------------------------------------------------------
+
+invariant math_extra3.log1p.zero:
+  description: "math.log1p(0.0) == 0.0 — log(1 + 0) == 0"
+  category: special_functions
+  kind: python_call_eq
+  function: log1p
+  args: [0.0]
+  expected: 0.0
