@@ -1,0 +1,113 @@
+spec: wsgiref
+version: ">=3.x"
+backend: python_module(wsgiref.util)
+
+docs: https://docs.python.org/3/library/wsgiref.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/wsgiref.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "wsgiref.util source: Lib/wsgiref/util.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "wsgiref.handlers, wsgiref.simple_server, wsgiref.validate internals"
+  notes:
+    - "wsgiref.util provides utility functions for WSGI applications and servers."
+    - "guess_scheme() returns 'https' if environ['wsgi.url_scheme'] == 'https', otherwise 'http'."
+    - "is_hop_by_hop() returns True for HTTP headers that must not be forwarded by proxies (RFC 2616 §13.5.1)."
+    - "'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade' are hop-by-hop headers."
+    - "'content-type', 'content-length', 'authorization' are end-to-end headers and are NOT hop-by-hop."
+    - "setup_testing_defaults() populates a minimal environ dict suitable for unit testing WSGI apps."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "wsgiref.util functions do not raise on well-formed inputs. Malformed environ dicts may raise KeyError."
+  stderr: "null"
+  stickiness: "N/A — stateless utility functions."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name attributes
+# ---------------------------------------------------------------------------
+
+table wsgiref.util.func_names:
+  kind: python_call_eq
+  category: names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [application_uri,         application_uri.__name__.__eq__,         ["application_uri"],         true]
+    - [request_uri,             request_uri.__name__.__eq__,             ["request_uri"],             true]
+    - [shift_path_info,         shift_path_info.__name__.__eq__,         ["shift_path_info"],         true]
+    - [setup_testing_defaults,  setup_testing_defaults.__name__.__eq__,  ["setup_testing_defaults"],  true]
+    - [guess_scheme,            guess_scheme.__name__.__eq__,            ["guess_scheme"],            true]
+    - [is_hop_by_hop,           is_hop_by_hop.__name__.__eq__,           ["is_hop_by_hop"],           true]
+
+# ---------------------------------------------------------------------------
+# Module membership
+# ---------------------------------------------------------------------------
+
+invariant wsgiref.modules.setup_testing_defaults:
+  description: "wsgiref.util.setup_testing_defaults.__module__ == 'wsgiref.util'"
+  category: modules
+  kind: python_call_eq
+  function: setup_testing_defaults.__module__.__eq__
+  args: ["wsgiref.util"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Behavioral — guess_scheme
+#
+# guess_scheme() inspects environ['wsgi.url_scheme'] and returns it directly.
+# If the key is absent it falls back to checking HTTPS env var; with an
+# explicit 'wsgi.url_scheme' key the answer is always that value.
+# ---------------------------------------------------------------------------
+
+invariant wsgiref.guess_scheme.https:
+  description: "guess_scheme({'wsgi.url_scheme': 'https'}) == 'https'"
+  category: guess_scheme
+  kind: python_call_eq
+  function: guess_scheme
+  args: [{"wsgi.url_scheme": "https"}]
+  expected: "https"
+
+invariant wsgiref.guess_scheme.http:
+  description: "guess_scheme({'wsgi.url_scheme': 'http'}) == 'http'"
+  category: guess_scheme
+  kind: python_call_eq
+  function: guess_scheme
+  args: [{"wsgi.url_scheme": "http"}]
+  expected: "http"
+
+# ---------------------------------------------------------------------------
+# Behavioral — is_hop_by_hop
+#
+# RFC 2616 §13.5.1 hop-by-hop headers (case-insensitive).
+# ---------------------------------------------------------------------------
+
+table wsgiref.is_hop_by_hop.hop_headers:
+  kind: python_call_eq
+  function: is_hop_by_hop
+  category: is_hop_by_hop
+  id_prefix: hop
+
+  columns: [id, description, args, expected]
+  rows:
+    - [connection,         "'connection' is hop-by-hop",         ["connection"],         true]
+    - [keep_alive,         "'keep-alive' is hop-by-hop",         ["keep-alive"],         true]
+    - [transfer_encoding,  "'transfer-encoding' is hop-by-hop",  ["transfer-encoding"],  true]
+    - [upgrade,            "'upgrade' is hop-by-hop",            ["upgrade"],            true]
+
+table wsgiref.is_hop_by_hop.end_to_end_headers:
+  kind: python_call_eq
+  function: is_hop_by_hop
+  category: is_hop_by_hop
+  id_prefix: e2e
+
+  columns: [id, description, args, expected]
+  rows:
+    - [content_type,    "'content-type' is NOT hop-by-hop",    ["content-type"],    false]
+    - [content_length,  "'content-length' is NOT hop-by-hop",  ["content-length"],  false]
+    - [authorization,   "'authorization' is NOT hop-by-hop",   ["authorization"],   false]

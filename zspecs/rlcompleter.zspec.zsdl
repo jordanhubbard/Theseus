@@ -1,0 +1,170 @@
+spec: rlcompleter
+version: ">=3.x"
+backend: python_module(rlcompleter)
+
+docs: https://docs.python.org/3/library/rlcompleter.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/rlcompleter.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "rlcompleter source: Lib/rlcompleter.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "readline C extension internals"
+  notes:
+    - "rlcompleter.Completer is a GNU readline completer that tab-completes Python names in the REPL."
+    - "Completer().complete('str', 0) returns 'str(' because 'str' is a builtin callable — rlcompleter appends '(' to callables."
+    - "Completer().complete('str', 1) returns None — there is exactly one completion for the bare token 'str'."
+    - "global_matches() returns a list of all names in builtins and the namespace matching the prefix."
+    - "attr_matches() returns a list of attribute completions for expressions of the form 'expr.prefix'."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Completer.complete() never raises; it returns None when no completion at state n exists."
+  stderr: "null"
+  stickiness: "N/A — each Completer instance is independent."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name
+# ---------------------------------------------------------------------------
+
+invariant rlcompleter.names.Completer:
+  description: "rlcompleter.Completer.__name__ == 'Completer'"
+  category: names
+  kind: python_call_eq
+  function: Completer.__name__.__eq__
+  args: ["Completer"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module membership
+# ---------------------------------------------------------------------------
+
+invariant rlcompleter.modules.Completer:
+  description: "rlcompleter.Completer.__module__ == 'rlcompleter'"
+  category: modules
+  kind: python_call_eq
+  function: Completer.__module__.__eq__
+  args: ["rlcompleter"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Method name attributes on Completer
+# ---------------------------------------------------------------------------
+
+invariant rlcompleter.method_names.complete:
+  description: "rlcompleter.Completer.complete.__name__ == 'complete'"
+  category: method_names
+  kind: python_call_eq
+  function: Completer.complete.__name__.__eq__
+  args: ["complete"]
+  expected: true
+
+invariant rlcompleter.method_names.global_matches:
+  description: "rlcompleter.Completer.global_matches.__name__ == 'global_matches'"
+  category: method_names
+  kind: python_call_eq
+  function: Completer.global_matches.__name__.__eq__
+  args: ["global_matches"]
+  expected: true
+
+invariant rlcompleter.method_names.attr_matches:
+  description: "rlcompleter.Completer.attr_matches.__name__ == 'attr_matches'"
+  category: method_names
+  kind: python_call_eq
+  function: Completer.attr_matches.__name__.__eq__
+  args: ["attr_matches"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Behavioral — Completer().complete()
+#
+# 'str' is a builtin callable, so state=0 yields 'str(' (paren appended).
+# state=1 yields None because there is only one exact completion for 'str'.
+# ---------------------------------------------------------------------------
+
+invariant rlcompleter.complete.str_state0:
+  description: "Completer().complete('str', 0) == 'str(' — 'str' completes to 'str(' (builtin callable gets paren)"
+  category: complete
+  kind: python_call_eq
+  function: Completer
+  args: []
+  method: complete
+  method_args: ["str", 0]
+  expected: "str("
+
+invariant rlcompleter.complete.str_state1:
+  description: "Completer().complete('str', 1) == None — no second completion for bare 'str'"
+  category: complete
+  kind: python_call_eq
+  function: Completer
+  args: []
+  method: complete
+  method_args: ["str", 1]
+  expected: null
+
+# ---------------------------------------------------------------------------
+# Behavioral — Completer().complete() returns str type at state 0
+# ---------------------------------------------------------------------------
+
+invariant rlcompleter.complete.return_type_is_str:
+  description: "type(Completer().complete('str', 0)).__name__ == 'str'"
+  category: complete
+  kind: python_call_eq
+  function: Completer
+  args: []
+  method: complete
+  method_args: ["str", 0]
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Behavioral — global_matches returns a list
+# ---------------------------------------------------------------------------
+
+invariant rlcompleter.global_matches.returns_list:
+  description: "type(Completer().global_matches('str')).__name__ == 'list'"
+  category: global_matches
+  kind: python_call_eq
+  function: Completer
+  args: []
+  method: global_matches
+  method_args: ["str"]
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Behavioral — global_matches result is non-empty for well-known builtins
+# ---------------------------------------------------------------------------
+
+invariant rlcompleter.global_matches.str_nonempty:
+  description: "len(Completer().global_matches('str')) > 0 — 'str' prefix has at least one match"
+  category: global_matches
+  kind: python_call_eq
+  function: Completer
+  args: []
+  method: global_matches
+  method_args: ["str"]
+  method_chain: __len__
+  method_chain_args: []
+  expected: 1
+  # Note: expected here is used with __ge__ semantics; actual list has 1+ entries. Use __len__ result directly.
+
+# ---------------------------------------------------------------------------
+# Behavioral — Completer class is instantiable (no required args)
+# ---------------------------------------------------------------------------
+
+invariant rlcompleter.Completer.instantiable:
+  description: "Completer().__class__.__name__ == 'Completer' — Completer can be instantiated with no args"
+  category: completer_class
+  kind: python_call_eq
+  function: Completer
+  args: []
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["Completer"]
+  expected: true

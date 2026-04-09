@@ -1,0 +1,113 @@
+spec: pickletools
+version: ">=3.0"
+backend: python_module(pickletools)
+
+docs: https://docs.python.org/3/library/pickletools.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/pickletools.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pickletools.py (internal implementation)"
+  notes:
+    - "pickletools.dis(data) disassembles a pickle byte stream, printing annotated opcodes to stdout."
+    - "pickletools.genops(data) is a generator yielding (opcode, arg, pos) triples from a pickle stream."
+    - "pickletools.optimize(p) removes redundant opcodes from a pickle byte string and returns a new bytes object."
+    - "pickletools.opcodes is a list of OpcodeInfo objects describing every defined pickle opcode."
+    - "The opcodes list has at least 50 entries (Python 3.x defines more than 60 opcodes across protocols 0–5)."
+    - "pickletools.optimize(b'I42\\n.') == b'I42\\n.' — the protocol-0 integer encoding has no redundancy to remove."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "pickletools functions raise ValueError for malformed pickle data; dis/genops raise KeyError for unknown opcodes."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name metadata
+# ---------------------------------------------------------------------------
+
+table pickletools.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [dis,      dis.__name__.__eq__,      ["dis"],      true]
+    - [genops,   genops.__name__.__eq__,   ["genops"],   true]
+    - [optimize, optimize.__name__.__eq__,  ["optimize"], true]
+
+# ---------------------------------------------------------------------------
+# Module affiliation
+# ---------------------------------------------------------------------------
+
+invariant pickletools.dis_module:
+  description: "pickletools.dis.__module__ == 'pickletools'"
+  category: module
+  kind: python_call_eq
+  function: dis.__module__.__eq__
+  args: ["pickletools"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# opcodes — list of OpcodeInfo objects
+# ---------------------------------------------------------------------------
+
+invariant pickletools.opcodes_is_list:
+  description: "pickletools.opcodes is a list"
+  category: opcodes
+  kind: python_call_eq
+  function: opcodes.__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
+
+invariant pickletools.opcodes_len_ge_50:
+  description: "pickletools.opcodes has at least 50 entries — Python 3.x defines 60+ opcodes"
+  category: opcodes
+  kind: python_call_eq
+  function: opcodes.__len__
+  args: []
+  method: __ge__
+  method_args: [50]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# optimize — returns bytes; identity on already-minimal protocol-0 stream
+# ---------------------------------------------------------------------------
+
+invariant pickletools.optimize_returns_bytes:
+  description: "pickletools.optimize(b'I42\\n.') returns a bytes object"
+  category: optimize
+  kind: python_call_eq
+  function: optimize
+  args: [{type: bytes_ascii, value: "I42\n."}]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["bytes"]
+  expected: true
+
+invariant pickletools.optimize_identity_proto0_int:
+  description: "pickletools.optimize(b'I42\\n.') == b'I42\\n.' — minimal protocol-0 int has no redundancy"
+  category: optimize
+  kind: python_call_eq
+  function: optimize
+  args: [{type: bytes_ascii, value: "I42\n."}]
+  expected: !ascii "I42\n."
+
+# ---------------------------------------------------------------------------
+# opcodes[0] — first opcode entry has a name attribute that is a string
+# ---------------------------------------------------------------------------
+
+invariant pickletools.opcodes_first_name_is_str:
+  description: "pickletools.opcodes[0].name is a str — every OpcodeInfo carries a string name"
+  category: opcodes
+  kind: python_call_eq
+  function: opcodes.__getitem__
+  args: [0]
+  method: name.__class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
