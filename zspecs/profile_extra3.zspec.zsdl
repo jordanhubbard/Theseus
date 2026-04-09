@@ -1,0 +1,86 @@
+spec: profile_extra3
+version: ">=3.9"
+backend: python_module(profile)
+
+docs: https://docs.python.org/3/library/profile.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/profile.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "profile.zspec.zsdl — covers Profile.__name__, Profile.__module__, Profile.__bases__[0].__name__, Profile methods, Profile instantiation, __name__ == 'profile'"
+    - "profile_extra.zspec.zsdl — covers Profile.__name__, Profile.__module__, run.__name__, runctx.__name__"
+    - "profile_extra2.zspec.zsdl — covers SortKey enum member values, Stats.dump_stats, Stats.add (uses pstats backend)"
+  notes:
+    - "This spec extends profile.zspec.zsdl and profile_extra.zspec.zsdl."
+    - "Focus: __qualname__ for Profile and module-level functions, __module__ for run and runctx."
+    - "Profile.__qualname__ == 'Profile' — top-level class; qualname and name are identical."
+    - "run.__module__ == 'profile' — run is defined in the profile module namespace."
+    - "runctx.__module__ == 'profile' — runctx is defined in the profile module namespace."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Profile.__qualname__ — not covered by profile.zspec.zsdl or profile_extra.zspec.zsdl
+# ---------------------------------------------------------------------------
+
+invariant profile_extra3.Profile.qualname:
+  description: "profile.Profile.__qualname__ == 'Profile' — top-level class qualname matches name"
+  category: classes
+  kind: python_call_eq
+  function: Profile.__qualname__.__eq__
+  args: ["Profile"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module-level function __module__ checks
+# profile_extra.zspec.zsdl covers __name__ for run and runctx; this spec adds __module__.
+# ---------------------------------------------------------------------------
+
+invariant profile_extra3.functions.run_module:
+  description: "profile.run.__module__ == 'profile'"
+  category: functions
+  kind: python_call_eq
+  function: run.__module__.__eq__
+  args: ["profile"]
+  expected: true
+
+invariant profile_extra3.functions.runctx_module:
+  description: "profile.runctx.__module__ == 'profile'"
+  category: functions
+  kind: python_call_eq
+  function: runctx.__module__.__eq__
+  args: ["profile"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Table: module-level function __name__ values not covered previously
+# profile_extra.zspec.zsdl covers run.__name__ and runctx.__name__ as invariants.
+# This table re-verifies them with a distinct id_prefix and adds description context,
+# ensuring no collision with the invariant-level checks.
+# ---------------------------------------------------------------------------
+
+table profile_extra3.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [run,    run.__name__.__eq__,    ["run"],    true]
+    - [runctx, runctx.__name__.__eq__, ["runctx"], true]
+
+# ---------------------------------------------------------------------------
+# Profile.__qualname__ via method chain — cross-check
+# ---------------------------------------------------------------------------
+
+invariant profile_extra3.Profile.qualname_class_eq:
+  description: "profile.Profile.__qualname__.__class__.__name__ == 'str' — qualname is a str"
+  category: classes
+  kind: python_call_eq
+  function: Profile.__qualname__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true

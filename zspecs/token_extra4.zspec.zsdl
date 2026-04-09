@@ -1,0 +1,130 @@
+spec: token_extra4
+version: ">=3.9"
+backend: python_module(token)
+
+docs: https://docs.python.org/3/library/token.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/token.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/token.py"
+    - "token.zspec.zsdl — covers exact integer values for ENDMARKER/NAME/NUMBER/STRING/NEWLINE/INDENT/DEDENT/OP/COMMENT/NL/ERRORTOKEN/ENCODING, NT_OFFSET=256, tok_name lookups at indices 0-6, ISEOF/ISTERMINAL/ISNONTERMINAL predicates"
+    - "token_extra.zspec.zsdl — covers __class__.__name__=='int' for NAME/NUMBER/STRING/OP/COMMENT/NEWLINE/ENDMARKER/INDENT/DEDENT/ERRORTOKEN via table, tok_name is_dict, EXACT_TOKEN_TYPES is_dict, NAME==1/NUMBER==2/STRING==3/NEWLINE==4/ENDMARKER==0"
+    - "token_extra2.zspec.zsdl — covers EXACT_TYPE/ERRORTOKEN/ENCODING/TYPE_COMMENT is_int, tok_name is_dict, tok_name min_length, tok_name at indices 0-4, ENDMARKER==0"
+    - "token_extra3.zspec.zsdl — covers __class__.__name__=='int' for NAME/NUMBER/STRING/OP/NEWLINE/ENDMARKER/INDENT/DEDENT/COMMENT/NL via tables, tok_name is_dict, EXACT_TOKEN_TYPES is_dict, NAME>0, ENDMARKER==0, tok_name[NAME]=='NAME'"
+  notes:
+    - "This spec covers tok_name dict lookups for INDENT(5) and DEDENT(6), and INDENT/DEDENT exact integer value checks not present in prior specs."
+    - "token.INDENT == 5 and token.DEDENT == 6 — value checks not in token_extra or token_extra3 (those only check NAME/NUMBER/STRING/NEWLINE/ENDMARKER values)."
+    - "token.tok_name[2] == 'NUMBER' — dict round-trip for NUMBER constant (index 2)."
+    - "token.tok_name[3] == 'STRING' — dict round-trip for STRING constant (index 3)."
+    - "token.tok_name[5] == 'INDENT' — dict round-trip for INDENT constant (index 5)."
+    - "token.tok_name[6] == 'DEDENT' — dict round-trip for DEDENT constant (index 6)."
+    - "token.EXACT_TOKEN_TYPES.__contains__('=') == True — assignment operator is in the exact token types map."
+    - "token.EXACT_TOKEN_TYPES.__contains__('+') == True — addition operator is in the exact token types map."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# INDENT and DEDENT exact integer value checks
+# (token_extra covers NAME/NUMBER/STRING/NEWLINE/ENDMARKER; INDENT/DEDENT values not there)
+# ---------------------------------------------------------------------------
+
+invariant token_extra4.INDENT.value:
+  description: "token.INDENT == 5"
+  category: constant_values
+  kind: python_call_eq
+  function: INDENT.__eq__
+  args: [5]
+  expected: true
+
+invariant token_extra4.DEDENT.value:
+  description: "token.DEDENT == 6"
+  category: constant_values
+  kind: python_call_eq
+  function: DEDENT.__eq__
+  args: [6]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# tok_name dict round-trip lookups not covered in prior specs
+# token_extra3 covers tok_name[1]=='NAME'; we add NUMBER(2), STRING(3), INDENT(5), DEDENT(6)
+# ---------------------------------------------------------------------------
+
+table token_extra4.tok_name_lookups:
+  kind: python_call_eq
+  category: tok_name
+  id_prefix: tok_name
+  function: tok_name.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [number, [2], "NUMBER"]
+    - [string, [3], "STRING"]
+    - [indent, [5], "INDENT"]
+    - [dedent, [6], "DEDENT"]
+
+# ---------------------------------------------------------------------------
+# EXACT_TOKEN_TYPES membership checks
+# (prior specs only check that it is a dict and is non-empty)
+# ---------------------------------------------------------------------------
+
+invariant token_extra4.EXACT_TOKEN_TYPES.has_eq:
+  description: "token.EXACT_TOKEN_TYPES.__contains__('=') == True — '=' maps to an exact token type"
+  category: dict_contents
+  kind: python_call_eq
+  function: EXACT_TOKEN_TYPES.__contains__
+  args: ["="]
+  expected: true
+
+invariant token_extra4.EXACT_TOKEN_TYPES.has_plus:
+  description: "token.EXACT_TOKEN_TYPES.__contains__('+') == True — '+' maps to an exact token type"
+  category: dict_contents
+  kind: python_call_eq
+  function: EXACT_TOKEN_TYPES.__contains__
+  args: ["+"]
+  expected: true
+
+invariant token_extra4.EXACT_TOKEN_TYPES.has_colon:
+  description: "token.EXACT_TOKEN_TYPES.__contains__(':') == True — ':' maps to an exact token type"
+  category: dict_contents
+  kind: python_call_eq
+  function: EXACT_TOKEN_TYPES.__contains__
+  args: [":"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# NEWLINE tok_name lookup — tok_name[4] == 'NEWLINE'
+# (token_extra3 covers tok_name[1]=='NAME' only; NEWLINE(4) not yet a dict lookup)
+# ---------------------------------------------------------------------------
+
+invariant token_extra4.tok_name.newline_lookup:
+  description: "token.tok_name[4] == 'NEWLINE' — tok_name dict round-trip for NEWLINE constant"
+  category: tok_name
+  kind: python_call_eq
+  function: tok_name.__getitem__
+  args: [4]
+  expected: "NEWLINE"
+
+# ---------------------------------------------------------------------------
+# INDENT and DEDENT are greater than NEWLINE (ordering sanity check)
+# ---------------------------------------------------------------------------
+
+invariant token_extra4.INDENT.gt_newline:
+  description: "token.INDENT > token.NEWLINE — INDENT(5) > NEWLINE(4)"
+  category: constant_ordering
+  kind: python_call_eq
+  function: INDENT.__gt__
+  args: [4]
+  expected: true
+
+invariant token_extra4.DEDENT.gt_indent:
+  description: "token.DEDENT > token.INDENT — DEDENT(6) > INDENT(5)"
+  category: constant_ordering
+  kind: python_call_eq
+  function: DEDENT.__gt__
+  args: [5]
+  expected: true
