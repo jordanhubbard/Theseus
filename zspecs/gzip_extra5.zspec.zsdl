@@ -1,0 +1,88 @@
+spec: gzip_extra5
+version: ">=3.8"
+backend: python_module(gzip)
+
+docs: https://docs.python.org/3/library/gzip.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gzip.html — Python gzip documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/gzip.py"
+  notes:
+    - "This spec extends gzip.zspec.zsdl and prior extras."
+    - "gzip (base) covers: compress/decompress roundtrips via pre-computed hex, compress output length, BadGzipFile error cases, BadGzipFile.__name__."
+    - "gzip_extra covers: GzipFile/__name__/__module__, BadGzipFile/__module__/base, compress/decompress/open __name__, compress/__module__, compress returns bytes, roundtrip."
+    - "gzip_extra2 covers: compress(b'') behavior, decompress empty roundtrip, GzipFile base class (BaseStream), open/__module__, decompress/__module__, BadGzipFile MRO, GzipFile method names."
+    - "gzip_extra3 covers: GzipFile/__name__, BadGzipFile/__name__, compress/decompress/open __name__ table, GzipFile/__module__, BadGzipFile base, compress returns bytes (method_chain), compress header magic byte[0], compress/__module__, decompress/__module__, open/__module__."
+    - "gzip_extra4 covers: GzipFile/__qualname__, BadGzipFile/__qualname__, open/compress/decompress __qualname__ table, compress(b'') class name (method_chain), GzipFile.__qualname__ is str, decompress.__qualname__."
+    - "gzip.GzipFile.__bases__[0].__name__ == 'BaseStream' — GzipFile inherits from io.BaseStream (internal CPython class), NOT io.BufferedIOBase as older docs suggested. Verified on Python 3.12."
+    - "gzip.BadGzipFile was added in Python 3.8. Its __bases__[0] is OSError (covered in extra3)."
+    - "This spec adds: gzip.__name__ == 'gzip' (module-level __name__, not in any prior spec), open/__code__.co_name == 'open', compress/__code__.co_name == 'compress', decompress/__code__.co_name == 'decompress' (all new — co_name for gzip functions not in any prior spec), and GzipFile.__bases__[0].__qualname__ == 'BaseStream' (qualname of the base class, new — extra2 checks __name__ only)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# gzip.__name__ == 'gzip' — the module object's own __name__ attribute.
+# Not the same as GzipFile.__name__ or any function __name__.
+# Not covered in any prior gzip spec.
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra5.module.name:
+  description: "gzip.__name__ == 'gzip' — the module object's __name__ attribute"
+  category: module_metadata
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["gzip"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __code__.co_name for open, compress, decompress
+# co_name is the function name as recorded in the bytecode code object.
+# Not covered in any prior gzip spec (extra4 covers co_name for compileall, not gzip).
+# ---------------------------------------------------------------------------
+
+table gzip_extra5.function_co_names:
+  kind: python_call_eq
+  category: code_objects
+  id_prefix: co_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [open,       open.__code__.co_name.__eq__,       ["open"],       true]
+    - [compress,   compress.__code__.co_name.__eq__,   ["compress"],   true]
+    - [decompress, decompress.__code__.co_name.__eq__, ["decompress"], true]
+
+# ---------------------------------------------------------------------------
+# GzipFile.__bases__[0].__qualname__ == 'BaseStream'
+# extra2 covers GzipFile.__bases__[0].__name__ == 'BaseStream'.
+# This is the first spec to check __qualname__ of the base class (new vector).
+# BaseStream is a top-level class in the io module so qualname == name.
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra5.GzipFile.base_qualname:
+  description: "gzip.GzipFile.__bases__[0].__qualname__ == 'BaseStream' — base class qualname"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: GzipFile.__bases__.__getitem__
+  args: [0]
+  method: __qualname__
+  expected: "BaseStream"
+
+# ---------------------------------------------------------------------------
+# BadGzipFile.__bases__[0].__qualname__ == 'OSError'
+# extra3 covers BadGzipFile.__bases__[0].__name__ == 'OSError'.
+# This checks __qualname__ of the base (new — OSError is top-level, qualname == name).
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra5.BadGzipFile.base_qualname:
+  description: "gzip.BadGzipFile.__bases__[0].__qualname__ == 'OSError' — base class qualname"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BadGzipFile.__bases__.__getitem__
+  args: [0]
+  method: __qualname__
+  expected: "OSError"

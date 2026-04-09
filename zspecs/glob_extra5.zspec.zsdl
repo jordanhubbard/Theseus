@@ -1,0 +1,109 @@
+spec: glob_extra5
+version: ">=3.9"
+backend: python_module(glob)
+
+docs: https://docs.python.org/3/library/glob.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/glob.html — Python glob module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/glob.py"
+  notes:
+    - "This spec extends glob.zspec.zsdl and prior extras."
+    - "glob.zspec.zsdl covers: glob/iglob/escape __name__ (table); glob no-match/exact-match; escape special-char table; iglob generator type check."
+    - "glob_extra.zspec.zsdl covers: glob.__module__; glob/iglob/escape __name__ standalone; escape '[abc]'/'a?b'/'a*b'."
+    - "glob_extra2.zspec.zsdl covers: glob/iglob/escape/has_magic __name__ standalone; module checks table (all four); has_magic vectors; escape 'normal.txt' and '' vectors."
+    - "glob_extra3.zspec.zsdl covers: function_names table; glob.__module__ standalone; escape.__class__.__name__; iglob.__class__.__name__; escape '/path/with[brackets]'; escape 'normal/path'."
+    - "glob_extra4.zspec.zsdl covers: function_qualnames table (glob/iglob/escape); glob.__class__.__name__=='function'; escape '/path/to/[file].txt'."
+    - "This spec adds: has_magic.__qualname__; has_magic.__module__; has_magic.__class__.__name__=='function'; escape('*') == '[*]'; escape('?') == '[?]'; escape('[') == '[[]'; escape('') == '' (empty string, distinct from glob_extra2 which covers it — wait: glob_extra2 covers escape('') so that is excluded); escape('a*b?c') == 'a[*]b[?]c'."
+    - "glob_extra2.zspec.zsdl covers escape('') — excluded here to avoid duplication."
+    - "glob.has_magic.__qualname__ == 'has_magic' — module-level function, qualname equals name."
+    - "glob.has_magic.__module__ == 'glob' — function is defined in the glob module."
+    - "glob.has_magic.__class__.__name__ == 'function' — has_magic is a plain Python function."
+    - "glob.escape('*') == '[*]' — single star is bracket-escaped."
+    - "glob.escape('?') == '[?]' — single question mark is bracket-escaped."
+    - "glob.escape('[') == '[[]' — single open bracket is bracket-escaped."
+    - "glob.escape('a*b?c') == 'a[*]b[?]c' — mixed string with star and question mark."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# has_magic — __qualname__, __module__, __class__.__name__
+# glob_extra2 covers has_magic.__name__ (standalone) and __module__ (table).
+# glob_extra4 does NOT cover has_magic.__qualname__ or has_magic.__class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra5.has_magic.qualname:
+  description: "glob.has_magic.__qualname__ == 'has_magic' — module-level function, qualname equals name"
+  category: function_qualnames
+  kind: python_call_eq
+  function: has_magic.__qualname__.__eq__
+  args: ["has_magic"]
+  expected: true
+
+invariant glob_extra5.has_magic.module:
+  description: "glob.has_magic.__module__ == 'glob'"
+  category: module_attrs
+  kind: python_call_eq
+  function: has_magic.__module__.__eq__
+  args: ["glob"]
+  expected: true
+
+invariant glob_extra5.has_magic.class_is_function:
+  description: "glob.has_magic.__class__.__name__ == 'function' — has_magic is a plain Python function"
+  category: function_identity
+  kind: python_call_eq
+  function: has_magic.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# escape — single special-character vectors
+# glob_extra covers '[abc]', 'a?b', 'a*b' (multi-char strings).
+# glob_extra2 covers 'normal.txt' and '' (empty).
+# glob_extra3 covers '/path/with[brackets]' and 'normal/path'.
+# glob_extra4 covers '/path/to/[file].txt'.
+# New: single-character inputs '*', '?', '[' — minimal vectors not in prior specs.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra5.escape.single_star:
+  description: "glob.escape('*') == '[*]' — single star is bracket-escaped"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["*"]
+  expected: "[*]"
+
+invariant glob_extra5.escape.single_question:
+  description: "glob.escape('?') == '[?]' — single question mark is bracket-escaped"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["?"]
+  expected: "[?]"
+
+invariant glob_extra5.escape.single_open_bracket:
+  description: "glob.escape('[') == '[[]' — single open bracket is bracket-escaped"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["["]
+  expected: "[[]"
+
+# ---------------------------------------------------------------------------
+# escape('a*b?c') — mixed string with star and question mark
+# No prior spec uses a multi-special string without brackets.
+# Each special char is independently escaped; non-specials are preserved.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra5.escape.mixed_star_and_question:
+  description: "glob.escape('a*b?c') == 'a[*]b[?]c' — each special char is independently escaped"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["a*b?c"]
+  expected: "a[*]b[?]c"

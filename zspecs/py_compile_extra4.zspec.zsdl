@@ -1,0 +1,104 @@
+spec: py_compile_extra4
+version: ">=3.9"
+backend: python_module(py_compile)
+
+docs: https://docs.python.org/3/library/py_compile.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/py_compile.html — Python py_compile module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/py_compile.py"
+    - "py_compile.zspec.zsdl — covers compile/__name__/__module__, PyCompileError/__name__/base, PyCompileError/__str__/__name__, PycInvalidationMode/__name__ and TIMESTAMP/CHECKED_HASH/UNCHECKED_HASH class names and values"
+    - "py_compile_extra.zspec.zsdl — covers compile/__name__/__module__, PycInvalidationMode/__name__, PyCompileError/__name__/__module__/base, enum member class names and values, value ordering"
+    - "py_compile_extra2.zspec.zsdl — covers PycInvalidationMode/__module__/__bases__[0]/__name__, class_names table for compile/PycInvalidationMode/PyCompileError"
+    - "py_compile_extra3.zspec.zsdl — covers compile/__qualname__, PycInvalidationMode/__qualname__, PyCompileError/__qualname__ via table"
+  notes:
+    - "This spec adds invariants not covered in any prior py_compile spec."
+    - "compile.__class__.__name__ == 'function' — confirms compile is a plain Python function object."
+    - "PyCompileError.__bases__.__len__() == 1 — PyCompileError has exactly one base class (Exception)."
+    - "PyCompileError.__str__.__module__ == 'py_compile' — the __str__ method is defined in py_compile."
+    - "PycInvalidationMode._member_names_ is a list of enum member name strings."
+    - "PycInvalidationMode._member_names_.__len__() == 3 — exactly 3 members: TIMESTAMP, CHECKED_HASH, UNCHECKED_HASH."
+    - "PycInvalidationMode._member_names_.__contains__('TIMESTAMP') == True — membership in the names list."
+    - "PycInvalidationMode.TIMESTAMP.name == 'TIMESTAMP' — the .name attribute of an Enum member equals its identifier."
+    - "PycInvalidationMode.CHECKED_HASH.name == 'CHECKED_HASH' and UNCHECKED_HASH.name == 'UNCHECKED_HASH'."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# compile — class identity (it is a plain Python function)
+# No prior spec checks compile.__class__.__name__; extra2 notes it as 'function' only in notes.
+# ---------------------------------------------------------------------------
+
+invariant py_compile_extra4.compile.class_is_function:
+  description: "py_compile.compile.__class__.__name__ == 'function' — compile is a plain function"
+  category: compile
+  kind: python_call_eq
+  function: compile.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PyCompileError — base class count and __str__ module
+# py_compile_extra checks the name of base [0]; this adds the count and __str__.__module__.
+# ---------------------------------------------------------------------------
+
+invariant py_compile_extra4.PyCompileError.bases_len:
+  description: "len(py_compile.PyCompileError.__bases__) == 1 — exactly one base class"
+  category: PyCompileError
+  kind: python_call_eq
+  function: PyCompileError.__bases__.__len__
+  args: []
+  expected: 1
+
+invariant py_compile_extra4.PyCompileError.str_module:
+  description: "py_compile.PyCompileError.__str__.__module__ == 'py_compile'"
+  category: PyCompileError
+  kind: python_call_eq
+  function: PyCompileError.__str__.__module__.__eq__
+  args: ["py_compile"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PycInvalidationMode._member_names_ — the list of enum member name strings
+# No prior py_compile spec checks _member_names_ at all.
+# ---------------------------------------------------------------------------
+
+invariant py_compile_extra4.PycInvalidationMode.member_names_len:
+  description: "len(py_compile.PycInvalidationMode._member_names_) == 3"
+  category: PycInvalidationMode
+  kind: python_call_eq
+  function: PycInvalidationMode._member_names_.__len__
+  args: []
+  expected: 3
+
+table py_compile_extra4.PycInvalidationMode.member_names_contains:
+  kind: python_call_eq
+  category: PycInvalidationMode
+  id_prefix: member_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [timestamp,      PycInvalidationMode._member_names_.__contains__, ["TIMESTAMP"],      true]
+    - [checked_hash,   PycInvalidationMode._member_names_.__contains__, ["CHECKED_HASH"],   true]
+    - [unchecked_hash, PycInvalidationMode._member_names_.__contains__, ["UNCHECKED_HASH"], true]
+
+# ---------------------------------------------------------------------------
+# PycInvalidationMode enum member .name attribute
+# Prior specs check .value and .__class__.__name__; no prior spec checks .name.
+# ---------------------------------------------------------------------------
+
+table py_compile_extra4.PycInvalidationMode.member_names:
+  kind: python_call_eq
+  category: PycInvalidationMode
+  id_prefix: enum_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [timestamp,      PycInvalidationMode.TIMESTAMP.name.__eq__,      ["TIMESTAMP"],      true]
+    - [checked_hash,   PycInvalidationMode.CHECKED_HASH.name.__eq__,   ["CHECKED_HASH"],   true]
+    - [unchecked_hash, PycInvalidationMode.UNCHECKED_HASH.name.__eq__, ["UNCHECKED_HASH"], true]

@@ -1,0 +1,83 @@
+spec: compileall_extra5
+version: ">=3.9"
+backend: python_module(compileall)
+
+docs: https://docs.python.org/3/library/compileall.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/compileall.html — Python compileall documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/compileall.py"
+  notes:
+    - "This spec extends compileall.zspec.zsdl and prior extras."
+    - "compileall (base) covers: function __name__, __module__, type, docstring, __qualname__ for compile_file/compile_dir."
+    - "compileall_extra covers: __name__ and __module__ for compile_file, compile_dir, compile_path (as invariants)."
+    - "compileall_extra2 covers: __name__, __module__, __qualname__, type, and docstring for all three functions (as tables)."
+    - "compileall_extra3 covers: __name__, __module__, and __qualname__ for all three functions (as invariants and tables)."
+    - "compileall_extra4 covers: __code__.__class__.__name__ == 'code' and __code__.co_name for all three functions."
+    - "This spec adds: compileall.__name__ == 'compileall' (the module's own __name__ attribute, not covered in any prior spec), compileall.__spec__.name == 'compileall' (module spec name, new), compileall.__loader__.__class__.__name__ == 'SourceFileLoader' (loader type, new), and __code__.co_firstlineno.__class__.__name__ == 'int' for all three functions (type check on line number, new)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# compileall.__name__ == 'compileall' — the module's own __name__ attribute.
+# This is distinct from function.__name__ or function.__module__.
+# Not covered in any prior compileall spec.
+# ---------------------------------------------------------------------------
+
+invariant compileall_extra5.module.name:
+  description: "compileall.__name__ == 'compileall' — the module's own __name__ attribute"
+  category: module_metadata
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["compileall"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# compileall.__spec__.name == 'compileall' — the importlib ModuleSpec name.
+# __spec__ is set by the import system and records the fully-qualified name.
+# Not covered in any prior compileall spec.
+# ---------------------------------------------------------------------------
+
+invariant compileall_extra5.module.spec_name:
+  description: "compileall.__spec__.name == 'compileall' — the ModuleSpec records the module name"
+  category: module_metadata
+  kind: python_call_eq
+  function: __spec__.name.__eq__
+  args: ["compileall"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# compileall.__loader__.__class__.__name__ == 'SourceFileLoader'
+# compileall is a pure-Python source file, so importlib uses SourceFileLoader.
+# Not covered in any prior compileall spec.
+# ---------------------------------------------------------------------------
+
+invariant compileall_extra5.module.loader_class:
+  description: "compileall.__loader__.__class__.__name__ == 'SourceFileLoader' — loaded from .py source"
+  category: module_metadata
+  kind: python_call_eq
+  function: __loader__.__class__.__name__.__eq__
+  args: ["SourceFileLoader"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __code__.co_firstlineno type — each function's code object line number is an int.
+# The values (first line numbers) differ across Python versions; the type does not.
+# Not covered in any prior compileall spec.
+# ---------------------------------------------------------------------------
+
+table compileall_extra5.co_firstlineno_types:
+  kind: python_call_eq
+  category: code_objects
+  id_prefix: lineno_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [compile_file, compile_file.__code__.co_firstlineno.__class__.__name__.__eq__, ["int"], true]
+    - [compile_dir,  compile_dir.__code__.co_firstlineno.__class__.__name__.__eq__,  ["int"], true]
+    - [compile_path, compile_path.__code__.co_firstlineno.__class__.__name__.__eq__, ["int"], true]
