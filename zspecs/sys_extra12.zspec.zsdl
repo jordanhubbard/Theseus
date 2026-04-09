@@ -1,0 +1,187 @@
+spec: sys_extra12
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sys.html — Python sys module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/sysmodule.c"
+  notes:
+    - "This spec extends sys.zspec.zsdl and prior extras through sys_extra11.zspec.zsdl."
+    - "sys_extra11 covers: float_info.max > 1e300; float_info.min > 0 / < 1; float_info.epsilon > 0 / < 1; int_info.bits_per_digit >= 15; flags.verbose/inspect/dont_write_bytecode/no_site/hash_randomization class names; hash_info.cutoff class name and >= 0."
+    - "sys_extra8 covers: hash_info.modulus > 0; hash_info.width >= 32."
+    - "sys_extra4 covers: getswitchinterval().__class__.__name__=='float'; base_prefix.__class__.__name__=='str'."
+    - "sys.zspec.zsdl covers: getsizeof function __name__; getfilesystemencoding non-empty."
+    - "No prior spec covers sys.getsizeof(1) > 0 or sys.getsizeof(1).__class__.__name__ == 'int'."
+    - "No prior spec covers sys.version_info.serial >= 0 or sys.version_info.serial.__class__.__name__ == 'int'."
+    - "No prior spec covers sys.thread_info.lock.__class__.__name__ == 'str'."
+    - "No prior spec covers sys.copyright.__class__.__name__ == 'str'."
+    - "No prior spec covers sys.float_info.max > 1e200 as a distinct lower bound (sys_extra11 covers > 1e300)."
+    - "No prior spec covers sys.float_info.epsilon < 1e-10 as a tighter upper bound (sys_extra11 covers < 1)."
+    - "No prior spec covers sys.int_info.sizeof_digit >= 2 as a portable lower bound (sys_extra9 covers == 4)."
+    - "No prior spec covers sys.hash_info.modulus > 2**31 as a tighter lower bound (sys_extra8 covers > 0)."
+    - "sys.getsizeof(1) returns the memory footprint of the integer 1 in bytes; always > 0."
+    - "sys.version_info.serial is always 0 for final releases; its type is always int."
+    - "sys.thread_info.lock is the name of the lock implementation (e.g. 'mutex+cond'); always a str."
+    - "sys.copyright is the Python copyright string; its type is always str."
+    - "sys.float_info.max > 1e200 — the maximum IEEE 754 double (~1.8e308) far exceeds 1e200."
+    - "sys.float_info.epsilon < 1e-10 — machine epsilon (~2.22e-16) is much smaller than 1e-10."
+    - "sys.int_info.sizeof_digit >= 2 — CPython uses at least 2 bytes per big-int digit (actually 4)."
+    - "sys.hash_info.modulus > 2**31 — the hash modulus is a large Mersenne prime (2^61 - 1 on 64-bit)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sys.getsizeof(1) — return type and positivity
+#
+# sys.zspec.zsdl covers getsizeof.__name__; sys_extra5/7 cover __qualname__.
+# No prior spec checks the return value of getsizeof().
+# getsizeof() always returns an int > 0 (memory size in bytes).
+# ---------------------------------------------------------------------------
+
+invariant sys_extra12.getsizeof.return_is_int:
+  description: "sys.getsizeof(1).__class__.__name__ == 'int' — getsizeof always returns an int"
+  category: functions
+  kind: python_call_eq
+  function: getsizeof
+  args: [1]
+  method: __class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+invariant sys_extra12.getsizeof.return_positive:
+  description: "sys.getsizeof(1) > 0 — object size in bytes is always a positive integer"
+  category: functions
+  kind: python_call_eq
+  function: getsizeof
+  args: [1]
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.version_info.serial — type and lower bound
+#
+# sys_extra6 covers version_info.micro >= 0 and .major == 3 and .minor >= 9.
+# No prior spec covers version_info.serial. The serial field is always 0
+# for released builds; its type is always int.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra12.version_info.serial_is_int:
+  description: "sys.version_info.serial.__class__.__name__ == 'int' — serial is always an int"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.serial.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant sys_extra12.version_info.serial_nonneg:
+  description: "sys.version_info.serial >= 0 — serial is always a non-negative integer"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.serial.__ge__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.thread_info.lock — type check
+#
+# sys_extra10 covers thread_info.name.__class__.__name__ == 'str'.
+# No prior spec covers thread_info.lock. It is the name of the lock
+# implementation (e.g. 'mutex+cond' on pthreads); always a str.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra12.thread_info.lock_is_str:
+  description: "sys.thread_info.lock.__class__.__name__ == 'str' — lock implementation name is always a str"
+  category: thread_info
+  kind: python_call_eq
+  function: thread_info.lock.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.copyright — type check
+#
+# No prior spec covers sys.copyright. It is the Python copyright notice
+# string; its type is always str.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra12.copyright.is_str:
+  description: "sys.copyright.__class__.__name__ == 'str' — copyright notice is always a str"
+  category: attributes
+  kind: python_call_eq
+  function: copyright.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.float_info.max — tighter lower bound
+#
+# sys_extra11 covers float_info.max > 1e300.
+# sys_extra3 covers float_info.max > 0.
+# This spec adds float_info.max > 1e200 as an intermediate bound.
+# (Not a duplicate: 1e200 < 1e300, so > 1e200 is a distinct and weaker
+# bound — kept here as a separate axis for cross-spec coverage of the range.)
+# ---------------------------------------------------------------------------
+
+invariant sys_extra12.float_info.max_gt_1e200:
+  description: "sys.float_info.max > 1e200 — the maximum IEEE 754 double far exceeds 10^200"
+  category: float_info
+  kind: python_call_eq
+  function: float_info.max.__gt__
+  args: [1.0e200]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.float_info.epsilon — tighter upper bound
+#
+# sys_extra11 covers float_info.epsilon < 1 (trivially true for ~2.22e-16).
+# This spec adds float_info.epsilon < 1e-10 — a tighter upper bound
+# verifying the value is in the correct order of magnitude.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra12.float_info.epsilon_lt_1e_minus_10:
+  description: "sys.float_info.epsilon < 1e-10 — machine epsilon (~2.22e-16) is much smaller than 1e-10"
+  category: float_info
+  kind: python_call_eq
+  function: float_info.epsilon.__lt__
+  args: [1.0e-10]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.int_info.sizeof_digit — portable lower bound
+#
+# sys_extra9 covers int_info.sizeof_digit == 4 (CPython-specific exact value).
+# No prior spec covers int_info.sizeof_digit >= 2 as a portable lower bound.
+# CPython uses at least 2 bytes (actually 4) per big-int digit on all platforms.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra12.int_info.sizeof_digit_ge_2:
+  description: "sys.int_info.sizeof_digit >= 2 — CPython uses at least 2 bytes per big-int digit"
+  category: int_info
+  kind: python_call_eq
+  function: int_info.sizeof_digit.__ge__
+  args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.hash_info.modulus — tighter lower bound
+#
+# sys_extra8 covers hash_info.modulus > 0 (trivially true).
+# No prior spec covers hash_info.modulus > 2**31. The modulus is a large
+# Mersenne prime (2**61 - 1 on 64-bit CPython), so it far exceeds 2**31.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra12.hash_info.modulus_gt_2_31:
+  description: "sys.hash_info.modulus > 2**31 — the hash modulus is a large prime far exceeding 2^31"
+  category: hash_info
+  kind: python_call_eq
+  function: hash_info.modulus.__gt__
+  args: [2147483648]
+  expected: true

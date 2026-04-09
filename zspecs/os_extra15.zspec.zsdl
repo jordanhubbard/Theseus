@@ -1,0 +1,155 @@
+spec: os_extra15
+version: ">=3.9"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.html — Python os module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c"
+    - "CPython source: Lib/os.py"
+  notes:
+    - "This spec extends os.zspec.zsdl and prior extras through os_extra14.zspec.zsdl."
+    - "os_extra4 covers os.uname().__class__.__name__ == 'uname_result' (via a call result)."
+    - "No prior spec checks os.uname_result.__name__ as a direct class attribute."
+    - "No prior spec checks os.uname_result.__module__ == 'posix'."
+    - "No prior spec checks os.uname_result.__bases__[0].__name__ == 'tuple'."
+    - "os.zspec.zsdl covers os.getpid() > 0 (positivity); os_extra covers getpid().__class__.__name__ == 'int'."
+    - "No prior spec covers os.getuid(), os.getgid(), or os.getppid() return type or positivity."
+    - "No prior spec covers os.getuid.__module__, os.getgid.__module__, or os.getppid.__module__."
+    - "os.uname_result is the C-extension struct_sequence type returned by os.uname(); __module__ == 'posix'."
+    - "os.uname_result.__bases__[0].__name__ == 'tuple' — uname_result is a tuple subclass (struct_sequence)."
+    - "os.getuid() returns the real user ID as a non-negative int; the root user has UID 0."
+    - "os.getgid() returns the real group ID as a non-negative int."
+    - "os.getppid() returns the parent process ID; the init/launchd process has PID 1, so always > 0."
+    - "os.getuid, os.getgid, os.getppid are implemented in the posix C extension; __module__ == 'posix'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# os.uname_result — __name__, __module__, and base class
+#
+# os_extra4 checks os.uname().__class__.__name__ == 'uname_result' via a call.
+# No prior spec checks the uname_result class attributes directly:
+#   - __name__ == 'uname_result'
+#   - __module__ == 'posix'  (defined in the posix C extension)
+#   - __bases__[0].__name__ == 'tuple'  (struct_sequence subclasses tuple)
+# ---------------------------------------------------------------------------
+
+invariant os_extra15.uname_result.name:
+  description: "os.uname_result.__name__ == 'uname_result' — class name of the uname() result"
+  category: class_names
+  kind: python_call_eq
+  function: uname_result.__name__.__eq__
+  args: ["uname_result"]
+  expected: true
+
+invariant os_extra15.uname_result.module:
+  description: "os.uname_result.__module__ == 'posix' — uname_result is defined in the posix C extension"
+  category: class_modules
+  kind: python_call_eq
+  function: uname_result.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+invariant os_extra15.uname_result.base_is_tuple:
+  description: "os.uname_result.__bases__[0].__name__ == 'tuple' — uname_result is a tuple subclass (struct_sequence)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: uname_result.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "tuple"
+
+# ---------------------------------------------------------------------------
+# os.getuid, os.getgid, os.getppid — return type and bounds
+#
+# os.zspec.zsdl covers getpid() > 0. os_extra covers getpid().__class__.__name__.
+# No prior spec covers getuid(), getgid(), or getppid() return type or values.
+# All three return non-negative ints; getppid() is strictly positive (parent
+# of a running process is always PID >= 1).
+# ---------------------------------------------------------------------------
+
+invariant os_extra15.getuid.return_type:
+  description: "os.getuid().__class__.__name__ == 'int' — real user ID is always an int"
+  category: functions
+  kind: python_call_eq
+  function: getuid
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+invariant os_extra15.getuid.nonneg:
+  description: "os.getuid() >= 0 — real user ID is always non-negative (0 for root)"
+  category: functions
+  kind: python_call_eq
+  function: getuid
+  args: []
+  method: __ge__
+  method_args: [0]
+  expected: true
+
+invariant os_extra15.getgid.return_type:
+  description: "os.getgid().__class__.__name__ == 'int' — real group ID is always an int"
+  category: functions
+  kind: python_call_eq
+  function: getgid
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+invariant os_extra15.getgid.nonneg:
+  description: "os.getgid() >= 0 — real group ID is always non-negative"
+  category: functions
+  kind: python_call_eq
+  function: getgid
+  args: []
+  method: __ge__
+  method_args: [0]
+  expected: true
+
+invariant os_extra15.getppid.return_type:
+  description: "os.getppid().__class__.__name__ == 'int' — parent process ID is always an int"
+  category: functions
+  kind: python_call_eq
+  function: getppid
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+invariant os_extra15.getppid.positive:
+  description: "os.getppid() > 0 — parent process ID is always a positive integer"
+  category: functions
+  kind: python_call_eq
+  function: getppid
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.getuid, os.getgid, os.getppid — __module__ checks
+#
+# No prior spec covers __module__ for getuid, getgid, or getppid.
+# All three are implemented in the posix C extension.
+# ---------------------------------------------------------------------------
+
+table os_extra15.uid_gid_ppid_modules:
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getuid,  getuid.__module__.__eq__,  ["posix"], true]
+    - [getgid,  getgid.__module__.__eq__,  ["posix"], true]
+    - [getppid, getppid.__module__.__eq__, ["posix"], true]
