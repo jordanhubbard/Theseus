@@ -1,0 +1,112 @@
+spec: subprocess_extra2
+version: ">=3.5"
+backend: python_module(subprocess)
+
+docs: https://docs.python.org/3/library/subprocess.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/subprocess.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "subprocess source: internal platform-specific Popen implementation details"
+    - "subprocess.zspec.zsdl — covers class names, function names, PIPE/STDOUT/DEVNULL int values, run(), check_output(), exception MRO."
+    - "subprocess_extra.zspec.zsdl — covers CompletedProcess/SubprocessError/CalledProcessError/TimeoutExpired modules; SubprocessError/CalledProcessError/TimeoutExpired __bases__[0]; PIPE/STDOUT/DEVNULL class name 'int'; run/call/check_call/check_output/getoutput/getstatusoutput class name 'function'."
+    - "subprocess_popen.zspec.zsdl — covers CompletedProcess constructor (args/returncode/stdout/stderr); TimeoutExpired constructor (cmd/timeout/output); Popen pid/returncode/wait."
+  notes:
+    - "This spec extends subprocess.zspec.zsdl, subprocess_extra.zspec.zsdl, and subprocess_popen.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "This spec focuses on: Popen.__module__; run.__module__; CalledProcessError.output default None; CalledProcessError.stderr default None; TimeoutExpired with float timeout; run(check=True) return type."
+    - "Popen.__module__ == 'subprocess' — Popen is a pure-Python class defined in subprocess.py."
+    - "subprocess.run.__module__ == 'subprocess' — the run function is defined in subprocess.py."
+    - "CalledProcessError(1, 'cmd').output is None — output defaults to None when not supplied."
+    - "CalledProcessError(1, 'cmd').stderr is None — stderr defaults to None when not supplied."
+    - "TimeoutExpired('cmd', 2.5).timeout == 2.5 — timeout can be a float; tested with a different value from subprocess_popen (which uses 5)."
+    - "subprocess.run(['true'], check=True).__class__.__name__ == 'CompletedProcess' — run with check=True returns a CompletedProcess on success."
+    - "The 'true' command is present on macOS, Linux, and FreeBSD and always exits 0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "subprocess.run raises CalledProcessError when check=True and the process exits non-zero. Class attribute reads are stateless and do not raise."
+  stderr: "null"
+  stickiness: "N/A — class and module checks are stateless; each run() call spawns an independent child."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Module checks — Popen and run are both defined in subprocess.py
+# subprocess_extra covers CompletedProcess/SubprocessError/CalledProcessError/TimeoutExpired;
+# this spec adds Popen and run module checks (not yet covered).
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra2.Popen.module:
+  description: "subprocess.Popen.__module__ == 'subprocess'"
+  category: modules
+  kind: python_call_eq
+  function: Popen.__module__.__eq__
+  args: ["subprocess"]
+  expected: true
+
+invariant subprocess_extra2.run.module:
+  description: "subprocess.run.__module__ == 'subprocess'"
+  category: modules
+  kind: python_call_eq
+  function: run.__module__.__eq__
+  args: ["subprocess"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# CalledProcessError — output and stderr default to None
+# subprocess.zspec.zsdl tests returncode and cmd; subprocess_popen tests
+# CompletedProcess defaults. This spec adds CalledProcessError optional attrs.
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra2.CalledProcessError.output_default_none:
+  description: "CalledProcessError(1, 'cmd').output is None — output keyword defaults to None"
+  category: exceptions
+  kind: python_call_eq
+  function: CalledProcessError
+  args: [1, "cmd"]
+  method: output
+  expected: null
+
+invariant subprocess_extra2.CalledProcessError.stderr_default_none:
+  description: "CalledProcessError(1, 'cmd').stderr is None — stderr keyword defaults to None"
+  category: exceptions
+  kind: python_call_eq
+  function: CalledProcessError
+  args: [1, "cmd"]
+  method: stderr
+  expected: null
+
+# ---------------------------------------------------------------------------
+# TimeoutExpired — float timeout value
+# subprocess_popen uses timeout=5 (int); this spec uses timeout=2.5 (float)
+# to verify that the .timeout attribute preserves float values faithfully.
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra2.TimeoutExpired.float_timeout:
+  description: "TimeoutExpired('cmd', 2.5).timeout == 2.5 — float timeout is stored as-is"
+  category: exceptions
+  kind: python_call_eq
+  function: TimeoutExpired
+  args: ["cmd", 2.5]
+  method: timeout
+  expected: 2.5
+
+# ---------------------------------------------------------------------------
+# run(check=True) — returns CompletedProcess on success
+# subprocess.zspec.zsdl tests run() without check=True; this spec tests
+# that run with check=True still returns CompletedProcess (not raising).
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra2.run.check_true_returns_completedprocess:
+  description: "subprocess.run(['true'], check=True).__class__.__name__ == 'CompletedProcess'"
+  category: run
+  kind: python_call_eq
+  function: run
+  args: [["true"]]
+  kwargs: {check: true, capture_output: true}
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["CompletedProcess"]
+  expected: true

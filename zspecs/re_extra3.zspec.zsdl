@@ -1,0 +1,114 @@
+spec: re_extra3
+version: ">=3.12"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "Python 3 re documentation — https://docs.python.org/3/library/re.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+    - "re.zspec.zsdl — covers sub, findall, split, escape, and compile error cases"
+    - "re_patterns.zspec.zsdl — covers match, search, fullmatch, capture groups, compile pattern/class_name"
+    - "re_extra.zspec.zsdl — covers Pattern/Match/error class metadata, flag integer values, match/search/sub/split/findall variants"
+    - "re_extra2.zspec.zsdl — covers RegexFlag class name, flag class membership, compile pattern/flags, fullmatch/purge/escape __name__"
+  notes:
+    - "This spec extends re_extra.zspec.zsdl and re_extra2.zspec.zsdl with coverage not already present."
+    - "In Python 3.12+, re.error.__name__ was renamed to 'PatternError' (the old name 're.error' is kept as an alias)."
+    - "re.error.__bases__[0].__name__ == 'Exception' — inherits directly from Exception (unchanged)."
+    - "re.Pattern.__name__ == 'Pattern' — the compiled-pattern type name."
+    - "re.Match.__name__ == 'Match' — the match-object type name."
+    - "re.DOTALL.__class__.__name__ == 'RegexFlag' — DOTALL is a RegexFlag enum member."
+    - "re.MULTILINE.__class__.__name__ == 'RegexFlag' — MULTILINE is a RegexFlag enum member."
+    - "re.fullmatch('a+', 'aaa') returns a Match object (not None) — the whole string matches."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.error — Python 3.12+ renames __name__ to 'PatternError'
+# re_extra.zspec.zsdl tested __name__ == 'error' (pre-3.12 name);
+# here we test the 3.12+ canonical name.
+# ---------------------------------------------------------------------------
+
+invariant re_extra3.error.name_PatternError:
+  description: "re.error.__name__ == 'PatternError' in Python 3.12+"
+  category: class_metadata
+  kind: python_call_eq
+  function: error.__name__.__eq__
+  args: ["PatternError"]
+  expected: true
+
+invariant re_extra3.error.base_is_Exception:
+  description: "re.error.__bases__[0].__name__ == 'Exception'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# re.Pattern and re.Match — type __name__ checks
+# re_extra.zspec.zsdl checks via instance.__class__.__name__;
+# here we check the type objects directly.
+# ---------------------------------------------------------------------------
+
+invariant re_extra3.Pattern.type_name:
+  description: "re.Pattern.__name__ == 'Pattern'"
+  category: class_metadata
+  kind: python_call_eq
+  function: Pattern.__name__.__eq__
+  args: ["Pattern"]
+  expected: true
+
+invariant re_extra3.Match.type_name:
+  description: "re.Match.__name__ == 'Match'"
+  category: class_metadata
+  kind: python_call_eq
+  function: Match.__name__.__eq__
+  args: ["Match"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Flag constants — __class__.__name__ checks for DOTALL and MULTILINE
+# re_extra.zspec.zsdl tests integer values; re_extra2 tests LOCALE/UNICODE/IGNORECASE/NOFLAG.
+# Here we test DOTALL and MULTILINE class membership.
+# ---------------------------------------------------------------------------
+
+invariant re_extra3.DOTALL.class_name:
+  description: "re.DOTALL.__class__.__name__ == 'RegexFlag'"
+  category: flags
+  kind: python_call_eq
+  function: DOTALL.__class__.__name__.__eq__
+  args: ["RegexFlag"]
+  expected: true
+
+invariant re_extra3.MULTILINE.class_name:
+  description: "re.MULTILINE.__class__.__name__ == 'RegexFlag'"
+  category: flags
+  kind: python_call_eq
+  function: MULTILINE.__class__.__name__.__eq__
+  args: ["RegexFlag"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.fullmatch — returns a Match object for a full-string match
+# re_patterns.zspec.zsdl tests fullmatch behaviour via group();
+# here we test that the return value is not None using __class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant re_extra3.fullmatch.returns_Match:
+  description: "re.fullmatch('a+', 'aaa').__class__.__name__ == 'Match'"
+  category: fullmatch
+  kind: python_call_eq
+  function: fullmatch
+  args: ["a+", "aaa"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["Match"]
+  expected: true

@@ -1,0 +1,105 @@
+spec: statistics_extra3
+version: ">=3.8"
+backend: python_module(statistics)
+
+docs: https://docs.python.org/3/library/statistics.html
+
+provenance:
+  derived_from:
+    - "Python 3 statistics documentation — https://docs.python.org/3/library/statistics.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/statistics.py"
+  notes:
+    - "This spec extends statistics.zspec.zsdl, statistics_extra.zspec.zsdl, and statistics_extra2.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "statistics.zspec.zsdl covers: mean/fmean/geometric_mean/median/mode/variance/stdev/pvariance/pstdev computation vectors; NormalDist mean/stdev attrs; StatisticsError raises."
+    - "statistics_extra.zspec.zsdl covers: StatisticsError name+module+base; median/stdev empty/single raises; NormalDist variance/cdf/class_name; multimode two_modes/single_mode; harmonic_mean value; stdev two_elements."
+    - "statistics_extra2.zspec.zsdl covers: NormalDist name+module; NormalDist mean/stdev/variance on (0,1); StatisticsError name+base; fmean returns_float; geometric_mean([1,4])==2.0; harmonic_mean returns_float; quantiles returns_list+length."
+    - "This spec focuses on: __name__ function attribute checks for fmean/geometric_mean/multimode/quantiles; additional computation vectors for fmean/geometric_mean/quantiles not yet covered."
+    - "fmean.__name__ == 'fmean' — function identity for the fast mean function (Python 3.8+)."
+    - "geometric_mean.__name__ == 'geometric_mean' — function identity (Python 3.8+)."
+    - "multimode.__name__ == 'multimode' — function identity (Python 3.8+)."
+    - "quantiles.__name__ == 'quantiles' — function identity (Python 3.8+)."
+    - "fmean([2.0, 4.0]) == 3.0 — mean of two floats; orthogonal to fmean([1,2,3]) in statistics.zspec.zsdl."
+    - "geometric_mean([4.0, 9.0]) == 6.0 — (4*9)^(1/2) = 36^(1/2) = 6.0; orthogonal to existing vectors."
+    - "quantiles([1,2,3,4], n=2) == [2.5] — median as a one-element list; orthogonal to quantiles length check in statistics_extra2."
+    - "multimode([]) == [] — empty list returns empty list (no modes); verified Python 3.12."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __name__ checks — fmean, geometric_mean, multimode, quantiles
+# statistics.zspec.zsdl checks computation; this spec checks function identity
+# via __name__. These are orthogonal checks.
+# ---------------------------------------------------------------------------
+
+table statistics_extra3.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [fmean,         fmean.__name__.__eq__,         ["fmean"],         true]
+    - [geometric_mean, geometric_mean.__name__.__eq__, ["geometric_mean"], true]
+    - [multimode,     multimode.__name__.__eq__,     ["multimode"],     true]
+    - [quantiles,     quantiles.__name__.__eq__,     ["quantiles"],     true]
+
+# ---------------------------------------------------------------------------
+# fmean — additional computation vector
+# fmean([2.0, 4.0]) == 3.0: different input from statistics.zspec.zsdl's [1,2,3]
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra3.fmean.two_floats:
+  description: "statistics.fmean([2.0, 4.0]) == 3.0 — fast mean of two floats"
+  category: fmean
+  kind: python_call_eq
+  function: fmean
+  args: [[2.0, 4.0]]
+  expected: 3.0
+
+# ---------------------------------------------------------------------------
+# geometric_mean — additional computation vector
+# geometric_mean([4.0, 9.0]) == 6.0: (4*9)^(1/2) = 6.0
+# Different from statistics.zspec.zsdl's [1,2,4]==2.0 and statistics_extra2's [1,4]==2.0
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra3.geometric_mean.four_nine:
+  description: "statistics.geometric_mean([4.0, 9.0]) == 6.0 — (4*9)^(1/2) = 6.0"
+  category: geometric_mean
+  kind: python_call_eq
+  function: geometric_mean
+  args: [[4.0, 9.0]]
+  expected: 6.0
+
+# ---------------------------------------------------------------------------
+# quantiles — median as a one-element list
+# quantiles([1,2,3,4], n=2) returns [2.5] — the single cut point at n=2 is the median.
+# Orthogonal to the length check (n=4, 3 elements) in statistics_extra2.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra3.quantiles.n2_median:
+  description: "statistics.quantiles([1,2,3,4], n=2) == [2.5] — median as sole cut point"
+  category: quantiles
+  kind: python_call_eq
+  function: quantiles
+  args: [[1, 2, 3, 4]]
+  kwargs:
+    n: 2
+  expected: [2.5]
+
+# ---------------------------------------------------------------------------
+# multimode — empty list input
+# multimode([]) == [] — no data, no modes; returns an empty list.
+# Orthogonal to the two_modes and single_mode vectors in statistics_extra.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra3.multimode.empty:
+  description: "statistics.multimode([]) == [] — empty input returns empty list"
+  category: multimode
+  kind: python_call_eq
+  function: multimode
+  args: [[]]
+  expected: []
