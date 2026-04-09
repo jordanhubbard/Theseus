@@ -1,0 +1,121 @@
+spec: types_extra14
+version: ">=3.9"
+backend: python_module(types)
+
+docs: https://docs.python.org/3/library/types.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/types.html — Python types module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/types.py"
+    - "types_extra13.zspec.zsdl — covers __mro__.__len__/__bases__.__len__/__name__.__len__ for GeneratorType/CoroutineType/NoneType/UnionType"
+    - "types_extra12.zspec.zsdl — covers MRO[0] self-identity for MethodType/GeneratorType/CoroutineType/AsyncGeneratorType/CodeType/TracebackType/FrameType/NoneType; __name__.__len__ for AsyncGeneratorType/TracebackType/FrameType/BuiltinFunctionType"
+    - "types_extra5.zspec.zsdl — covers __qualname__.__eq__ for FunctionType/MethodType/GeneratorType/CoroutineType/ModuleType (table); BuiltinFunctionType/AsyncGeneratorType/LambdaType/SimpleNamespace/MappingProxyType/DynamicClassAttribute __qualname__"
+    - "types_extra6.zspec.zsdl — covers __qualname__.__eq__ for CellType/CodeType/FrameType/TracebackType/NoneType/EllipsisType/NotImplementedType"
+  notes:
+    - "This spec extends types.zspec.zsdl through types_extra13.zspec.zsdl."
+    - "Focus of this spec: __qualname__.__len__() for major types — no prior spec measures qualname string lengths for any types module type."
+    - "Covered: FunctionType/LambdaType/MethodType/BuiltinFunctionType/ModuleType __qualname__.__len__ (table 1); TracebackType/FrameType/CodeType/CellType/AsyncGeneratorType __qualname__.__len__ (table 2); standalone len checks."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__.__len__() for core types — FunctionType through ModuleType
+#
+# types_extra5 covers __qualname__.__eq__ for FunctionType/LambdaType/MethodType/
+# ModuleType (table) and standalone invariants for BuiltinFunctionType and others.
+# No prior spec checks __qualname__.__len__() for any of these types.
+# Lengths: FunctionType='function'=8, LambdaType='function'=8,
+#          MethodType='method'=6, BuiltinFunctionType='builtin_function_or_method'=26,
+#          ModuleType='module'=6.
+# ---------------------------------------------------------------------------
+
+table types_extra14.core_qualname_lengths:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualnamelen
+
+  columns: [id, function, args, expected]
+  rows:
+    - [FunctionType,        FunctionType.__qualname__.__len__,        [], 8]
+    - [LambdaType,          LambdaType.__qualname__.__len__,          [], 8]
+    - [MethodType,          MethodType.__qualname__.__len__,          [], 6]
+    - [BuiltinFunctionType, BuiltinFunctionType.__qualname__.__len__, [], 26]
+    - [ModuleType,          ModuleType.__qualname__.__len__,          [], 6]
+
+# ---------------------------------------------------------------------------
+# __qualname__.__len__() for C-level types — TracebackType through AsyncGeneratorType
+#
+# types_extra6 covers __qualname__.__eq__ for TracebackType/FrameType/CodeType/CellType.
+# types_extra5 covers AsyncGeneratorType.__qualname__.__eq__.
+# No prior spec checks __qualname__.__len__() for any of these types.
+# Lengths: TracebackType='traceback'=9, FrameType='frame'=5, CodeType='code'=4,
+#          CellType='cell'=4, AsyncGeneratorType='async_generator'=15.
+# ---------------------------------------------------------------------------
+
+table types_extra14.clevel_qualname_lengths:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualnamelen2
+
+  columns: [id, function, args, expected]
+  rows:
+    - [TracebackType,       TracebackType.__qualname__.__len__,       [], 9]
+    - [FrameType,           FrameType.__qualname__.__len__,           [], 5]
+    - [CodeType,            CodeType.__qualname__.__len__,            [], 4]
+    - [CellType,            CellType.__qualname__.__len__,            [], 4]
+    - [AsyncGeneratorType,  AsyncGeneratorType.__qualname__.__len__,  [], 15]
+
+# ---------------------------------------------------------------------------
+# LambdaType.__qualname__ == FunctionType.__qualname__
+#
+# types_extra5 covers LambdaType.__qualname__.__eq__('function') as a standalone.
+# This invariant confirms the deeper identity: LambdaType is truly an alias for
+# FunctionType, so their __qualname__ strings are identical. We verify by
+# checking that LambdaType.__qualname__.__len__() == 8 and that the string
+# equals 'function' via a length invariant (additional to the table above).
+# ---------------------------------------------------------------------------
+
+invariant types_extra14.LambdaType.qualname_eq:
+  description: "types.LambdaType.__qualname__ == 'function' — LambdaType is an alias for FunctionType, same qualname"
+  category: qualnames
+  kind: python_call_eq
+  function: LambdaType.__qualname__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BuiltinFunctionType.__qualname__ string identity
+#
+# types_extra5 covers BuiltinFunctionType.__qualname__.__eq__ as a standalone.
+# The qualname 'builtin_function_or_method' at 26 characters is the longest
+# qualname in the module. Verify the string identity as a boolean.
+# ---------------------------------------------------------------------------
+
+invariant types_extra14.BuiltinFunctionType.qualname_eq:
+  description: "types.BuiltinFunctionType.__qualname__ == 'builtin_function_or_method'"
+  category: qualnames
+  kind: python_call_eq
+  function: BuiltinFunctionType.__qualname__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# AsyncGeneratorType.__qualname__ string length
+#
+# types_extra5 covers AsyncGeneratorType.__qualname__.__eq__ == 'async_generator'.
+# The table above covers AsyncGeneratorType.__qualname__.__len__() == 15.
+# Verify the exact string value as a standalone boolean invariant.
+# ---------------------------------------------------------------------------
+
+invariant types_extra14.AsyncGeneratorType.qualname_eq:
+  description: "types.AsyncGeneratorType.__qualname__ == 'async_generator'"
+  category: qualnames
+  kind: python_call_eq
+  function: AsyncGeneratorType.__qualname__.__eq__
+  args: ["async_generator"]
+  expected: true

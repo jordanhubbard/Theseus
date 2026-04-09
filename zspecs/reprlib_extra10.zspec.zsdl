@@ -1,0 +1,157 @@
+spec: reprlib_extra10
+version: ">=3.9"
+backend: python_module(reprlib)
+
+docs: https://docs.python.org/3/library/reprlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/reprlib.html — Python reprlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/reprlib.py"
+  notes:
+    - "This spec extends reprlib.zspec.zsdl and prior extras through reprlib_extra9.zspec.zsdl."
+    - "reprlib_extra9: repr('hello')/repr(42)/repr((1,2,3)); Repr() class name; Repr base is object; recursive_repr.qualname; aRepr.maxarray; Repr().maxlist type."
+    - "reprlib_extra8: identity_names table (rname8 prefix); Repr().maxstring type; repr(-3.14); repr([]); repr(99)."
+    - "reprlib_extra7: class_function_names table (rname prefix); Repr().maxlevel/maxlong; aRepr.maxother; repr(3.14)/repr(True)/repr(False)/repr({})/repr([1,2,3])."
+    - "reprlib_extra6: Repr().maxset/maxtuple/maxfrozenset; aRepr.maxstring/maxlist/maxdict/maxlevel; repr([1,2]); repr([10,20,30,40]); repr(1); Repr().maxother."
+    - "reprlib_extra5: Repr.__name__/recursive_repr.__name__/repr.__name__ standalone; Repr().maxlist/maxstring/maxdict; aRepr.maxset/maxtuple/maxfrozenset/maxlong values."
+    - "reprlib_extra4: Repr.__qualname__/recursive_repr.__qualname__/repr.__qualname__; repr([1..11]); repr(0)/repr(-100); aRepr.maxarray/Repr().maxarray; Repr().maxlong."
+    - "reprlib_extra3: aRepr.__class__.__name__; recursive_repr.__module__; Repr.__module__; Repr() defaults; Repr().repr_list.__func__.__name__."
+    - "reprlib_extra2: Repr.__name__/__module__; Repr.__bases__[0].__name__=='object'; repr/__name__; recursive_repr.__name__."
+    - "NOT yet covered: reprlib.repr(-1) == '-1' — small negative integer (prior: -3.14 float, -100)."
+    - "NOT yet covered: reprlib.repr(1.0) == '1.0' — float 1.0 (prior: 3.14, -3.14)."
+    - "NOT yet covered: reprlib.repr(list(range(100))).__len__() == 23 — length of truncated repr."
+    - "NOT yet covered: reprlib.Repr.__mro__.__len__() == 2 — MRO is [Repr, object]."
+    - "NOT yet covered: reprlib.Repr.__mro__[0].__name__ == 'Repr' — first MRO entry is the class itself."
+    - "NOT yet covered: reprlib.Repr.__mro__[-1].__name__ == 'object' — last MRO entry is object."
+    - "NOT yet covered: reprlib.Repr.__bases__.__len__() == 1 — Repr has exactly one direct base class."
+    - "NOT yet covered: reprlib.recursive_repr.__name__.__len__() == 14 — len('recursive_repr') == 14."
+    - "NOT yet covered: reprlib.repr.__name__.__len__() == 4 — len('repr') == 4."
+    - "NOT yet covered: reprlib.Repr.__name__.__len__() == 4 — len('Repr') == 4."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# repr() — new scalar values not covered in prior specs
+#
+# reprlib_extra8 covers repr(-3.14) and repr(99). reprlib_extra4 covers repr(-100).
+# No prior spec covers repr(-1) (small negative int) or repr(1.0) (float 1.0).
+# Both are within bounds and produce their natural string representations.
+# ---------------------------------------------------------------------------
+
+invariant reprlib_extra10.repr.negative_one:
+  description: "reprlib.repr(-1) == '-1' — small negative integer within truncation bounds"
+  category: primitives
+  kind: python_call_eq
+  function: repr
+  args: [-1]
+  expected: "-1"
+
+invariant reprlib_extra10.repr.float_one:
+  description: "reprlib.repr(1.0) == '1.0' — float 1.0 produces its natural string representation"
+  category: primitives
+  kind: python_call_eq
+  function: repr
+  args: [1.0]
+  expected: "1.0"
+
+# ---------------------------------------------------------------------------
+# repr(list(range(100))) — truncated representation length
+#
+# reprlib_extra4 checks that repr([0..10]) has 7 elements before truncation.
+# No prior spec checks the length of the truncated repr string itself.
+# reprlib.repr(list(range(100))) produces '[0, 1, 2, 3, 4, 5, ...]' (23 chars).
+# ---------------------------------------------------------------------------
+
+invariant reprlib_extra10.repr.large_list_len:
+  description: "reprlib.repr(list(range(100))).__len__() == 23 — truncated list repr has 23 chars"
+  category: truncation
+  kind: python_call_eq
+  function: repr
+  args: [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]]
+  method: __len__
+  method_args: []
+  expected: 23
+
+# ---------------------------------------------------------------------------
+# Repr — MRO structure
+#
+# reprlib_extra2 checks Repr.__bases__[0].__name__ == 'object'. No prior spec
+# checks Repr.__mro__.__len__(), Repr.__mro__[0].__name__, or
+# Repr.__mro__[-1].__name__. Repr inherits from object only, giving a MRO
+# of [Repr, object] (length 2). No prior spec checks Repr.__bases__.__len__().
+# ---------------------------------------------------------------------------
+
+invariant reprlib_extra10.Repr.mro_len:
+  description: "reprlib.Repr.__mro__.__len__() == 2 — MRO is [Repr, object]"
+  category: hierarchy
+  kind: python_call_eq
+  function: Repr.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant reprlib_extra10.Repr.mro_first:
+  description: "reprlib.Repr.__mro__[0].__name__ == 'Repr' — first MRO entry is the class itself"
+  category: hierarchy
+  kind: python_call_eq
+  function: Repr.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Repr"
+
+invariant reprlib_extra10.Repr.mro_last:
+  description: "reprlib.Repr.__mro__[-1].__name__ == 'object' — last MRO entry is object"
+  category: hierarchy
+  kind: python_call_eq
+  function: Repr.__mro__.__getitem__
+  args: [-1]
+  method: __name__
+  expected: "object"
+
+invariant reprlib_extra10.Repr.bases_len:
+  description: "reprlib.Repr.__bases__.__len__() == 1 — Repr has exactly one direct base class"
+  category: hierarchy
+  kind: python_call_eq
+  function: Repr.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# Name length attributes — new axes not covered in prior specs
+#
+# No prior spec checks __name__.__len__() for recursive_repr, repr (function),
+# or Repr (class). These are distinct from the __name__ value checks in
+# extra/extra2/extra5/extra7/extra8, and from the __qualname__.__len__ checks
+# not present in any prior reprlib spec.
+# recursive_repr: len('recursive_repr') == 14
+# repr: len('repr') == 4
+# Repr: len('Repr') == 4
+# ---------------------------------------------------------------------------
+
+invariant reprlib_extra10.recursive_repr.name_len:
+  description: "reprlib.recursive_repr.__name__.__len__() == 14 — len('recursive_repr') == 14"
+  category: function_attrs
+  kind: python_call_eq
+  function: recursive_repr.__name__.__len__
+  args: []
+  expected: 14
+
+invariant reprlib_extra10.repr.name_len:
+  description: "reprlib.repr.__name__.__len__() == 4 — len('repr') == 4"
+  category: function_attrs
+  kind: python_call_eq
+  function: repr.__name__.__len__
+  args: []
+  expected: 4
+
+invariant reprlib_extra10.Repr.name_len:
+  description: "reprlib.Repr.__name__.__len__() == 4 — len('Repr') == 4"
+  category: class_attrs
+  kind: python_call_eq
+  function: Repr.__name__.__len__
+  args: []
+  expected: 4
