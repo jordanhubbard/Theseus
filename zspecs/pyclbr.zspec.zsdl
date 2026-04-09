@@ -1,0 +1,130 @@
+spec: pyclbr
+version: ">=3.0"
+backend: python_module(pyclbr)
+
+docs: https://docs.python.org/3/library/pyclbr.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/pyclbr.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "pyclbr source: Lib/pyclbr.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "pyclbr source: internal tokenize/ast parsing implementation details"
+  notes:
+    - "pyclbr.readmodule(module) returns a dict mapping class names to Class objects (top-level classes only)."
+    - "pyclbr.readmodule_ex(module) returns a dict mapping names to Class or Function objects."
+    - "Both functions accept an optional 'path' argument for extra search paths."
+    - "pyclbr.Class has attributes: module, name, super, methods, file, lineno."
+    - "pyclbr.Function has attributes: module, name, file, lineno."
+    - "pyclbr.Class and pyclbr.Function both live in the 'pyclbr' module."
+    - "readmodule('math') returns a dict (math has no user-defined classes, so the dict is empty)."
+    - "readmodule_ex('math') returns a dict (math exposes no Python-level functions via pyclbr)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "pyclbr.readmodule and readmodule_ex raise ImportError if the module cannot be found. They do not raise on parse errors — malformed source is silently skipped."
+  stderr: "null"
+  stickiness: "N/A"
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name checks — readmodule and readmodule_ex
+# ---------------------------------------------------------------------------
+
+table pyclbr.function_names:
+  kind: python_call_eq
+  category: names
+  id_prefix: funcname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [readmodule,    readmodule.__name__.__eq__,    ["readmodule"],    true]
+    - [readmodule_ex, readmodule_ex.__name__.__eq__, ["readmodule_ex"], true]
+
+# ---------------------------------------------------------------------------
+# Class name checks — Class and Function descriptor types
+# ---------------------------------------------------------------------------
+
+table pyclbr.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Class,    Class.__name__.__eq__,    ["Class"],    true]
+    - [Function, Function.__name__.__eq__, ["Function"], true]
+
+# ---------------------------------------------------------------------------
+# Module checks — Class and Function live in pyclbr
+# ---------------------------------------------------------------------------
+
+table pyclbr.module_checks:
+  kind: python_call_eq
+  category: modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Class_module,    Class.__module__.__eq__,    ["pyclbr"], true]
+    - [Function_module, Function.__module__.__eq__, ["pyclbr"], true]
+
+# ---------------------------------------------------------------------------
+# Type checks — readmodule and readmodule_ex are Python functions
+# ---------------------------------------------------------------------------
+
+table pyclbr.type_checks:
+  kind: python_call_eq
+  category: types
+  id_prefix: typecheck
+
+  columns: [id, function, args, expected]
+  rows:
+    - [readmodule_is_function,    readmodule.__class__.__name__.__eq__,    ["function"], true]
+    - [readmodule_ex_is_function, readmodule_ex.__class__.__name__.__eq__, ["function"], true]
+
+# ---------------------------------------------------------------------------
+# Runtime behavior — readmodule and readmodule_ex both return dict
+# ---------------------------------------------------------------------------
+
+invariant pyclbr.readmodule.returns_dict_for_math:
+  description: "pyclbr.readmodule('math').__class__.__name__ == 'dict' — readmodule always returns a dict"
+  category: runtime
+  kind: python_call_eq
+  function: readmodule
+  args: ["math"]
+  method: __class__
+  method_chain: __name__
+  expected: "dict"
+
+invariant pyclbr.readmodule_ex.returns_dict_for_math:
+  description: "pyclbr.readmodule_ex('math').__class__.__name__ == 'dict' — readmodule_ex always returns a dict"
+  category: runtime
+  kind: python_call_eq
+  function: readmodule_ex
+  args: ["math"]
+  method: __class__
+  method_chain: __name__
+  expected: "dict"
+
+# ---------------------------------------------------------------------------
+# Qualified name checks — module-level functions
+# ---------------------------------------------------------------------------
+
+invariant pyclbr.readmodule.qualname:
+  description: "pyclbr.readmodule.__qualname__ == 'readmodule'"
+  category: names
+  kind: python_call_eq
+  function: readmodule.__qualname__.__eq__
+  args: ["readmodule"]
+  expected: true
+
+invariant pyclbr.readmodule_ex.qualname:
+  description: "pyclbr.readmodule_ex.__qualname__ == 'readmodule_ex'"
+  category: names
+  kind: python_call_eq
+  function: readmodule_ex.__qualname__.__eq__
+  args: ["readmodule_ex"]
+  expected: true
