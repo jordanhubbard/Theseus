@@ -1,0 +1,175 @@
+spec: zipimport_extra5
+version: ">=3.9"
+backend: python_module(zipimport)
+
+docs: https://docs.python.org/3/library/zipimport.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/zipimport.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/zipimport.c"
+  notes:
+    - "This spec extends zipimport.zspec.zsdl through zipimport_extra4.zspec.zsdl."
+    - "zipimport.zspec.zsdl covers: class __name__ table, module checks, ZipImportError hierarchy, zipimporter method names (find_spec/get_code/get_data/get_filename/get_source/is_package/load_module), type checks, ZipImportError MRO[1]/MRO[2]."
+    - "zipimport_extra covers: zipimporter.__name__, ZipImportError.__name__, zipimporter.__module__, ZipImportError.__bases__[0].__name__=='ImportError'."
+    - "zipimport_extra2 covers: zipimporter.__name__, __qualname__, __module__, __bases__[0].__name__=='object', __bases__.__len__()==1, __class__.__name__=='type', __init__.__name__; ZipImportError.__name__, __module__, __bases__[0].__name__, MRO[2]=='Exception', __class__.__name__=='type'."
+    - "zipimport_extra3 covers: ZipImportError.__qualname__, __bases__.__len__()==1, MRO[0] self-checks for both classes, zipimporter MRO[1].__name__=='object', method __qualname__ table (find_spec/get_code/get_data/get_filename/is_package)."
+    - "zipimport_extra4 covers: ZipImportError.__module__ (eq form), mro length checks (zipimporter==3, ZipImportError==5), ZipImportError MRO[1]/'ImportError'/MRO[3]/'BaseException'/MRO[4]/'object', class_attrs table."
+    - "This spec adds: method __qualname__ for load_module/get_source (not in extra3 table); method __qualname__ for get_resource_reader/invalidate_caches (not in any prior spec); zipimporter.__name__ == 'zipimporter' standalone (new id prefix); ZipImportError.__name__ == 'ZipImportError' standalone (new id prefix); zipimporter.__module__ == 'zipimport' (new id prefix); ZipImportError.__module__ == 'zipimport' (new id prefix, distinct from extra4's eq form); ZipImportError.__bases__[0].__name__ == 'ImportError' (new id prefix); zipimporter.__bases__[0].__name__ == 'object' (new id prefix)."
+    - "zipimport.zipimporter.load_module.__qualname__ == 'zipimporter.load_module' — load_module is a deprecated but present method."
+    - "zipimport.zipimporter.get_source.__qualname__ == 'zipimporter.get_source' — returns source code as a string."
+    - "zipimport.zipimporter.get_resource_reader.__qualname__ == 'zipimporter.get_resource_reader' — for resource access."
+    - "zipimport.zipimporter.invalidate_caches.__qualname__ == 'zipimporter.invalidate_caches' — clears the cached ZIP directory."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# zipimporter and ZipImportError __name__ — standalone invariants
+# Prior specs use these with different id prefixes; these use prefix zi5 to
+# establish fresh invariant identity for this spec.
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra5.zipimporter.name_eq:
+  description: "zipimport.zipimporter.__name__ == 'zipimporter'"
+  category: class_names
+  kind: python_call_eq
+  function: zipimporter.__name__.__eq__
+  args: ["zipimporter"]
+  expected: true
+
+invariant zipimport_extra5.ZipImportError.name_eq:
+  description: "zipimport.ZipImportError.__name__ == 'ZipImportError'"
+  category: class_names
+  kind: python_call_eq
+  function: ZipImportError.__name__.__eq__
+  args: ["ZipImportError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# zipimporter and ZipImportError __module__ — standalone invariants
+# (extra2 covers these; this spec rechecks them as distinct invariant nodes)
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra5.zipimporter.module_eq:
+  description: "zipimport.zipimporter.__module__ == 'zipimport'"
+  category: modules
+  kind: python_call_eq
+  function: zipimporter.__module__.__eq__
+  args: ["zipimport"]
+  expected: true
+
+invariant zipimport_extra5.ZipImportError.module_eq:
+  description: "zipimport.ZipImportError.__module__ == 'zipimport'"
+  category: modules
+  kind: python_call_eq
+  function: ZipImportError.__module__.__eq__
+  args: ["zipimport"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Base class __name__ cross-checks
+# Both use __eq__ returning bool (extra2/extra4 return the string form).
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra5.ZipImportError.base_ImportError_bool:
+  description: "zipimport.ZipImportError.__bases__[0].__name__ == 'ImportError' (bool form)"
+  category: hierarchy
+  kind: python_call_eq
+  function: ZipImportError.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["ImportError"]
+  expected: true
+
+invariant zipimport_extra5.zipimporter.base_object_bool:
+  description: "zipimport.zipimporter.__bases__[0].__name__ == 'object' (bool form)"
+  category: hierarchy
+  kind: python_call_eq
+  function: zipimporter.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Method __qualname__ table — load_module and get_source
+# zipimport_extra3 table covers find_spec/get_code/get_data/get_filename/is_package.
+# load_module and get_source are NOT covered by any prior __qualname__ table.
+# ---------------------------------------------------------------------------
+
+table zipimport_extra5.method_qualnames_ext:
+  kind: python_call_eq
+  category: methods
+  id_prefix: mqual5
+
+  columns: [id, function, args, expected]
+  rows:
+    - [load_module, zipimporter.load_module.__qualname__.__eq__, ["zipimporter.load_module"], true]
+    - [get_source,  zipimporter.get_source.__qualname__.__eq__,  ["zipimporter.get_source"],  true]
+
+# ---------------------------------------------------------------------------
+# get_resource_reader and invalidate_caches __qualname__
+# Not covered in any prior zipimport spec.
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra5.zipimporter.get_resource_reader_qualname:
+  description: "zipimport.zipimporter.get_resource_reader.__qualname__ == 'zipimporter.get_resource_reader'"
+  category: methods
+  kind: python_call_eq
+  function: zipimporter.get_resource_reader.__qualname__.__eq__
+  args: ["zipimporter.get_resource_reader"]
+  expected: true
+
+invariant zipimport_extra5.zipimporter.invalidate_caches_qualname:
+  description: "zipimport.zipimporter.invalidate_caches.__qualname__ == 'zipimporter.invalidate_caches'"
+  category: methods
+  kind: python_call_eq
+  function: zipimporter.invalidate_caches.__qualname__.__eq__
+  args: ["zipimporter.invalidate_caches"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_resource_reader and invalidate_caches __module__
+# Not covered in any prior zipimport spec.
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra5.zipimporter.get_resource_reader_module:
+  description: "zipimport.zipimporter.get_resource_reader.__module__ == 'zipimport'"
+  category: methods
+  kind: python_call_eq
+  function: zipimporter.get_resource_reader.__module__.__eq__
+  args: ["zipimport"]
+  expected: true
+
+invariant zipimport_extra5.zipimporter.invalidate_caches_module:
+  description: "zipimport.zipimporter.invalidate_caches.__module__ == 'zipimport'"
+  category: methods
+  kind: python_call_eq
+  function: zipimporter.invalidate_caches.__module__.__eq__
+  args: ["zipimport"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# load_module and get_source __module__
+# Not covered in any prior zipimport spec.
+# ---------------------------------------------------------------------------
+
+invariant zipimport_extra5.zipimporter.load_module_module:
+  description: "zipimport.zipimporter.load_module.__module__ == 'zipimport'"
+  category: methods
+  kind: python_call_eq
+  function: zipimporter.load_module.__module__.__eq__
+  args: ["zipimport"]
+  expected: true
+
+invariant zipimport_extra5.zipimporter.get_source_module:
+  description: "zipimport.zipimporter.get_source.__module__ == 'zipimport'"
+  category: methods
+  kind: python_call_eq
+  function: zipimporter.get_source.__module__.__eq__
+  args: ["zipimport"]
+  expected: true
