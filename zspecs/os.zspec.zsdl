@@ -1,0 +1,249 @@
+spec: os
+version: ">=3.2"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/os.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "os source: posixmodule.c (PSF; source inspection permitted)"
+  not_derived_from:
+    - "os source: internal platform-specific system call wrappers"
+    - "os.path — covered separately in os_path.zspec.zsdl"
+  notes:
+    - "os.path is covered in os_path.zspec.zsdl; this spec covers the broader os module."
+    - "os.extsep == '.' and os.curdir == '.' and os.pardir == '..' on all platforms."
+    - "os.sep is '/' on POSIX, '\\\\' on Windows — always a single character."
+    - "os.pathsep is ':' on POSIX, ';' on Windows — always a single character."
+    - "os.name == 'posix' on Linux/macOS/FreeBSD; 'nt' on Windows. CI targets are POSIX-only."
+    - "os.linesep is '\\n' on POSIX, '\\r\\n' on Windows."
+    - "os.getpid() always returns a positive integer (current process ID)."
+    - "os.urandom(n) returns exactly n bytes of cryptographically random data."
+    - "os.strerror(2) returns the ENOENT message; content is locale-dependent but always non-empty."
+    - "os.getenv(key) returns None for missing keys; os.getenv(key, default) returns default."
+    - "os.O_RDONLY == 0, os.O_WRONLY == 1, os.O_RDWR == 2 on all POSIX platforms."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "os functions raise OSError (and subclasses) for filesystem/system call errors; TypeError/ValueError for bad arguments."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Cross-platform path separator constants
+# extsep, curdir, and pardir are identical on all platforms.
+# sep and pathsep are platform-specific but always single characters.
+# ---------------------------------------------------------------------------
+
+invariant os.extsep_value:
+  description: "os.extsep == '.' — extension separator is always a dot on all platforms"
+  category: constants
+  kind: python_call_eq
+  function: extsep.__eq__
+  args: ["."]
+  expected: true
+
+invariant os.curdir_value:
+  description: "os.curdir == '.' — current directory symbol is always a dot on all platforms"
+  category: constants
+  kind: python_call_eq
+  function: curdir.__eq__
+  args: ["."]
+  expected: true
+
+invariant os.pardir_value:
+  description: "os.pardir == '..' — parent directory symbol is always '..' on all platforms"
+  category: constants
+  kind: python_call_eq
+  function: pardir.__eq__
+  args: [".."]
+  expected: true
+
+invariant os.sep_len:
+  description: "len(os.sep) == 1 — path separator is always a single character"
+  category: constants
+  kind: python_call_eq
+  function: sep.__len__
+  args: []
+  expected: 1
+
+invariant os.pathsep_len:
+  description: "len(os.pathsep) == 1 — path list separator is always a single character"
+  category: constants
+  kind: python_call_eq
+  function: pathsep.__len__
+  args: []
+  expected: 1
+
+invariant os.name_posix:
+  description: "os.name == 'posix' — POSIX platform (Linux/macOS/FreeBSD; not Windows)"
+  category: constants
+  kind: python_call_eq
+  function: name.__eq__
+  args: ["posix"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Open flags — POSIX standard values
+# O_RDONLY == 0, O_WRONLY == 1, O_RDWR == 2 are universal POSIX constants.
+# ---------------------------------------------------------------------------
+
+invariant os.O_RDONLY_value:
+  description: "os.O_RDONLY == 0 — open for reading only"
+  category: open_flags
+  kind: python_call_eq
+  function: O_RDONLY.__eq__
+  args: [0]
+  expected: true
+
+invariant os.O_WRONLY_value:
+  description: "os.O_WRONLY == 1 — open for writing only"
+  category: open_flags
+  kind: python_call_eq
+  function: O_WRONLY.__eq__
+  args: [1]
+  expected: true
+
+invariant os.O_RDWR_value:
+  description: "os.O_RDWR == 2 — open for reading and writing"
+  category: open_flags
+  kind: python_call_eq
+  function: O_RDWR.__eq__
+  args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function name checks
+# ---------------------------------------------------------------------------
+
+table os.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getcwd,    getcwd.__name__.__eq__,    ["getcwd"],    true]
+    - [getenv,    getenv.__name__.__eq__,    ["getenv"],    true]
+    - [getpid,    getpid.__name__.__eq__,    ["getpid"],    true]
+    - [getppid,   getppid.__name__.__eq__,   ["getppid"],   true]
+    - [listdir,   listdir.__name__.__eq__,   ["listdir"],   true]
+    - [makedirs,  makedirs.__name__.__eq__,  ["makedirs"],  true]
+    - [remove,    remove.__name__.__eq__,    ["remove"],    true]
+    - [rename,    rename.__name__.__eq__,    ["rename"],    true]
+    - [stat,      stat.__name__.__eq__,      ["stat"],      true]
+    - [walk,      walk.__name__.__eq__,      ["walk"],      true]
+    - [urandom,   urandom.__name__.__eq__,   ["urandom"],   true]
+    - [cpu_count, cpu_count.__name__.__eq__, ["cpu_count"], true]
+    - [strerror,  strerror.__name__.__eq__,  ["strerror"],  true]
+    - [getuid,    getuid.__name__.__eq__,    ["getuid"],    true]
+    - [getgid,    getgid.__name__.__eq__,    ["getgid"],    true]
+
+# ---------------------------------------------------------------------------
+# getenv — environment variable lookup
+# ---------------------------------------------------------------------------
+
+invariant os.getenv_missing_none:
+  description: "os.getenv('NONEXISTENT_VAR_XYZ') == None — missing var returns None"
+  category: getenv
+  kind: python_call_eq
+  function: getenv
+  args: ["NONEXISTENT_VAR_XYZ"]
+  expected: null
+
+invariant os.getenv_missing_default:
+  description: "os.getenv('NONEXISTENT_VAR_XYZ', 'fallback') == 'fallback'"
+  category: getenv
+  kind: python_call_eq
+  function: getenv
+  args: ["NONEXISTENT_VAR_XYZ", "fallback"]
+  expected: "fallback"
+
+# ---------------------------------------------------------------------------
+# getpid — process ID
+# ---------------------------------------------------------------------------
+
+invariant os.getpid_positive:
+  description: "os.getpid() > 0 — process ID is always a positive integer"
+  category: process
+  kind: python_call_eq
+  function: getpid()
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# urandom — cryptographic random bytes
+# ---------------------------------------------------------------------------
+
+invariant os.urandom_8bytes:
+  description: "len(os.urandom(8)) == 8 — returns exactly 8 bytes"
+  category: urandom
+  kind: python_call_eq
+  function: urandom
+  args: [8]
+  method: __len__
+  expected: 8
+
+invariant os.urandom_0bytes:
+  description: "len(os.urandom(0)) == 0 — zero-length request returns empty bytes"
+  category: urandom
+  kind: python_call_eq
+  function: urandom
+  args: [0]
+  method: __len__
+  expected: 0
+
+invariant os.urandom_type:
+  description: "os.urandom(4).__class__.__name__ == 'bytes'"
+  category: urandom
+  kind: python_call_eq
+  function: urandom
+  args: [4]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# strerror — system error message lookup
+# ---------------------------------------------------------------------------
+
+invariant os.strerror_enoent_contains:
+  description: "os.strerror(2) contains 'No such' — ENOENT message"
+  category: strerror
+  kind: python_call_eq
+  function: strerror
+  args: [2]
+  method: __contains__
+  method_args: ["No such"]
+  expected: true
+
+invariant os.strerror_nonempty:
+  description: "len(os.strerror(1)) > 0 — EPERM message is always non-empty"
+  category: strerror
+  kind: python_call_eq
+  function: strerror
+  args: [1]
+  method: __len__
+  method_chain: __gt__
+  method_chain_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getcwd — current working directory
+# ---------------------------------------------------------------------------
+
+invariant os.getcwd_is_str:
+  description: "os.getcwd().__class__.__name__ == 'str'"
+  category: getcwd
+  kind: python_call_eq
+  function: getcwd()
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true

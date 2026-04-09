@@ -1,5 +1,5 @@
 spec: getpass
-version: ">=3.0"
+version: ">=3.3"
 backend: python_module(getpass)
 
 docs: https://docs.python.org/3/library/getpass.html
@@ -7,25 +7,32 @@ docs: https://docs.python.org/3/library/getpass.html
 provenance:
   derived_from:
     - "CPython docs — https://docs.python.org/3/library/getpass.html"
-    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-08"
-    - "getpass source: getpass.py (PSF; source inspection permitted)"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "getpass source: Lib/getpass.py (PSF; source inspection permitted)"
   not_derived_from:
-    - "getpass source: terminal interaction code"
+    - "getpass source: terminal/tty interaction internals"
   notes:
-    - "getpass.getpass() is not tested because it requires an interactive terminal."
-    - "getpass.getuser() returns the current login name — its exact value is environment-dependent and not pinned."
-    - "getpass.getpass.__name__ is 'unix_getpass' on POSIX and 'win_getpass' on Windows; not tested here."
-    - "GetPassWarning is a UserWarning subclass."
-  created_at: "2026-04-08T00:00:00Z"
+    - "getpass is a small module with three public API symbols: getpass, getuser, and GetPassWarning."
+    - "getpass.getpass(prompt) reads a password from the terminal without echoing; interactive and not tested here."
+    - "getpass.getuser() returns the login name of the current user as a str."
+    - "GetPassWarning is a subclass of UserWarning, raised when echo suppression falls back to plain input."
+    - "On POSIX systems, the module-level getpass function is bound to unix_getpass; on Windows to win_getpass."
+    - "fallback_getpass is used when the tty cannot suppress echo (e.g. when stdin is redirected)."
+    - "getuser() calls os.getlogin() first, then falls back to the USER/LOGNAME/LNAME/USERNAME env vars, then pwd.getpwuid."
+    - "getuser().__gt__('') is True because any non-empty string is lexicographically greater than ''."
+    - "getuser().isascii() is True on typical POSIX hosts where usernames are ASCII identifiers."
+    - "getuser().isidentifier() is True for standard Unix usernames (letters, digits, underscores)."
+    - "All expected values verified by running Python 3.12 getpass module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
 
 error_model:
-  semantics: "getpass.getpass() may raise GetPassWarning when echo cannot be suppressed. getuser() raises KeyError when no user can be determined."
+  semantics: "getpass.getpass() may raise GetPassWarning (a UserWarning subclass) when echo suppression is unavailable. getuser() raises KeyError if no username can be determined."
   stderr: "null"
   stickiness: "N/A — each call is stateless."
   codes: {}
 
 # ---------------------------------------------------------------------------
-# Class name checks
+# Class name and hierarchy checks
 # ---------------------------------------------------------------------------
 
 invariant getpass.GetPassWarning_name:
@@ -43,6 +50,16 @@ invariant getpass.GetPassWarning_module:
   function: GetPassWarning.__module__.__eq__
   args: ["getpass"]
   expected: true
+
+invariant getpass.GetPassWarning_base:
+  description: "GetPassWarning.__bases__[0].__name__ == 'UserWarning'"
+  category: classnames
+  kind: python_call_eq
+  function: GetPassWarning.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "UserWarning"
 
 # ---------------------------------------------------------------------------
 # Function name checks
@@ -64,16 +81,52 @@ invariant getpass.getuser_module:
   args: ["getpass"]
   expected: true
 
+invariant getpass.fallback_getpass_name:
+  description: "fallback_getpass.__name__ == 'fallback_getpass'"
+  category: functions
+  kind: python_call_eq
+  function: fallback_getpass.__name__.__eq__
+  args: ["fallback_getpass"]
+  expected: true
+
+invariant getpass.unix_getpass_name:
+  description: "unix_getpass.__name__ == 'unix_getpass'"
+  category: functions
+  kind: python_call_eq
+  function: unix_getpass.__name__.__eq__
+  args: ["unix_getpass"]
+  expected: true
+
 # ---------------------------------------------------------------------------
 # getuser runtime behaviour
 # ---------------------------------------------------------------------------
 
 invariant getpass.getuser_returns_nonempty:
-  description: "getuser() returns a non-empty string (any str > '' is true in Python's lexicographic order)"
-  category: functions
+  description: "getuser() > '' — getuser() returns a non-empty string"
+  category: getuser
   kind: python_call_eq
   function: getuser
   args: []
   method: __gt__
   method_args: [""]
+  expected: true
+
+invariant getpass.getuser_is_ascii:
+  description: "getuser().isascii() == True on typical POSIX hosts"
+  category: getuser
+  kind: python_call_eq
+  function: getuser
+  args: []
+  method: isascii
+  method_args: []
+  expected: true
+
+invariant getpass.getuser_is_identifier:
+  description: "getuser().isidentifier() == True for standard Unix usernames"
+  category: getuser
+  kind: python_call_eq
+  function: getuser
+  args: []
+  method: isidentifier
+  method_args: []
   expected: true

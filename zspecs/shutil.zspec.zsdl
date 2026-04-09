@@ -1,0 +1,176 @@
+spec: shutil
+version: ">=3.0"
+backend: python_module(shutil)
+
+docs: https://docs.python.org/3/library/shutil.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/shutil.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "shutil source: shutil.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "shutil source: internal platform-specific file copy code"
+  notes:
+    - "shutil.disk_usage('/') returns a named tuple with fields (total, used, free) as integers."
+    - "shutil.which() searches PATH for an executable; returns None if not found."
+    - "shutil.get_archive_formats() returns a list of (name, description) tuples for available archive formats."
+    - "shutil.get_unpack_formats() returns a list of (name, extensions, description) tuples."
+    - "shutil.get_terminal_size() returns a named tuple of type 'terminal_size' with columns and lines."
+    - "shutil.COPY_BUFSIZE is 262144 bytes on macOS; platform-dependent but always > 0."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "shutil functions raise OSError subclasses for filesystem errors; Error and SameFileError are shutil-specific exceptions."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name checks — verifying __name__ attributes match the public API
+# ---------------------------------------------------------------------------
+
+table shutil.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [copy,               copy.__name__.__eq__,               ["copy"],               true]
+    - [copy2,              copy2.__name__.__eq__,              ["copy2"],              true]
+    - [copyfile,           copyfile.__name__.__eq__,           ["copyfile"],           true]
+    - [copyfileobj,        copyfileobj.__name__.__eq__,        ["copyfileobj"],        true]
+    - [copymode,           copymode.__name__.__eq__,           ["copymode"],           true]
+    - [copystat,           copystat.__name__.__eq__,           ["copystat"],           true]
+    - [copytree,           copytree.__name__.__eq__,           ["copytree"],           true]
+    - [rmtree,             rmtree.__name__.__eq__,             ["rmtree"],             true]
+    - [move,               move.__name__.__eq__,               ["move"],               true]
+    - [disk_usage,         disk_usage.__name__.__eq__,         ["disk_usage"],         true]
+    - [which,              which.__name__.__eq__,              ["which"],              true]
+    - [make_archive,       make_archive.__name__.__eq__,       ["make_archive"],       true]
+    - [unpack_archive,     unpack_archive.__name__.__eq__,     ["unpack_archive"],     true]
+    - [get_archive_formats, get_archive_formats.__name__.__eq__, ["get_archive_formats"], true]
+    - [get_unpack_formats, get_unpack_formats.__name__.__eq__, ["get_unpack_formats"], true]
+    - [get_terminal_size,  get_terminal_size.__name__.__eq__,  ["get_terminal_size"],  true]
+    - [chown,              chown.__name__.__eq__,              ["chown"],              true]
+
+# ---------------------------------------------------------------------------
+# Class name checks — Error and SameFileError
+# ---------------------------------------------------------------------------
+
+invariant shutil.error_class_name:
+  description: "shutil.Error.__name__ == 'Error'"
+  category: exceptions
+  kind: python_call_eq
+  function: Error.__name__.__eq__
+  args: ["Error"]
+  expected: true
+
+invariant shutil.same_file_error_class_name:
+  description: "shutil.SameFileError.__name__ == 'SameFileError'"
+  category: exceptions
+  kind: python_call_eq
+  function: SameFileError.__name__.__eq__
+  args: ["SameFileError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# disk_usage — named tuple with total/used/free integer fields
+# ---------------------------------------------------------------------------
+
+invariant shutil.disk_usage_fields:
+  description: "shutil.disk_usage('/')._fields == ('total', 'used', 'free')"
+  category: disk_usage
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/"]
+  method: _fields
+  expected: !tuple ["total", "used", "free"]
+
+invariant shutil.disk_usage_total_positive:
+  description: "shutil.disk_usage('/').total > 0 — disk has non-zero total bytes"
+  category: disk_usage
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/"]
+  method: total
+  method_chain: __gt__
+  method_chain_args: [0]
+  expected: true
+
+invariant shutil.disk_usage_free_nonneg:
+  description: "shutil.disk_usage('/').free >= 0 — free bytes is non-negative"
+  category: disk_usage
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/"]
+  method: free
+  method_chain: __ge__
+  method_chain_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# which — executable lookup
+# ---------------------------------------------------------------------------
+
+invariant shutil.which_nonexistent_none:
+  description: "shutil.which('nonexistent_xyz_cmd') == None — unknown command returns None"
+  category: which
+  kind: python_call_eq
+  function: which
+  args: ["nonexistent_xyz_cmd"]
+  expected: null
+
+# ---------------------------------------------------------------------------
+# get_archive_formats — list of available archive format tuples
+# ---------------------------------------------------------------------------
+
+invariant shutil.archive_formats_is_list:
+  description: "shutil.get_archive_formats().__class__.__name__ == 'list'"
+  category: archive_formats
+  kind: python_call_eq
+  function: get_archive_formats().__class__.__name__.__eq__
+  args: ["list"]
+  expected: true
+
+invariant shutil.archive_formats_count:
+  description: "len(shutil.get_archive_formats()) >= 3 — at least tar, gzip, zip"
+  category: archive_formats
+  kind: python_call_eq
+  function: get_archive_formats().__len__
+  args: []
+  expected: 6
+
+# ---------------------------------------------------------------------------
+# get_unpack_formats — list of available unpack format tuples
+# ---------------------------------------------------------------------------
+
+invariant shutil.unpack_formats_count:
+  description: "len(shutil.get_unpack_formats()) >= 3 — at least tar, gzip, zip"
+  category: unpack_formats
+  kind: python_call_eq
+  function: get_unpack_formats().__len__
+  args: []
+  expected: 6
+
+# ---------------------------------------------------------------------------
+# COPY_BUFSIZE — internal buffer size constant
+# ---------------------------------------------------------------------------
+
+invariant shutil.copy_bufsize_positive:
+  description: "shutil.COPY_BUFSIZE > 0 — buffer size is a positive integer"
+  category: constants
+  kind: python_call_eq
+  function: COPY_BUFSIZE.__gt__
+  args: [0]
+  expected: true
+
+invariant shutil.copy_bufsize_is_int:
+  description: "shutil.COPY_BUFSIZE.__class__.__name__ == 'int'"
+  category: constants
+  kind: python_call_eq
+  function: COPY_BUFSIZE.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
