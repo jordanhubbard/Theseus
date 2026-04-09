@@ -1,0 +1,103 @@
+spec: linecache_extra9
+version: ">=3.9"
+backend: python_module(linecache)
+
+docs: https://docs.python.org/3/library/linecache.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/linecache.html — Python linecache module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/linecache.py"
+  notes:
+    - "This spec extends linecache.zspec.zsdl and all prior linecache_extra specs."
+    - "linecache_extra8 covers: __name__ length checks; __name__ is-str checks; __name__ first-character checks for all six functions."
+    - "This spec adds genuinely new axes: __name__ last-character checks for all six public linecache functions; linecache module-level __name__ attribute (linecache.__name__ == 'linecache'); __qualname__ length checks (since __qualname__ == __name__ for module-level functions, lengths match)."
+    - "linecache.getline.__name__ last char == 'e' ('getline'[-1])."
+    - "linecache.getlines.__name__ last char == 's' ('getlines'[-1])."
+    - "linecache.clearcache.__name__ last char == 'e' ('clearcache'[-1])."
+    - "linecache.checkcache.__name__ last char == 'e' ('checkcache'[-1])."
+    - "linecache.updatecache.__name__ last char == 'e' ('updatecache'[-1])."
+    - "linecache.lazycache.__name__ last char == 'e' ('lazycache'[-1])."
+    - "linecache.__name__ == 'linecache' — the module's own __name__ attribute; not covered in any prior linecache spec."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# linecache.__name__ — module-level attribute
+# No prior linecache spec verifies the module's own __name__ attribute.
+# Compare: tracemalloc_extra5 adds tracemalloc.__name__ for tracemalloc.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra9.module_name:
+  description: "linecache.__name__ == 'linecache' — module's own __name__ attribute"
+  category: module
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["linecache"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __name__ last-character checks — all six public linecache functions
+# extra8 covers first-character checks. Last-character is a distinct axis.
+# All six function names end in 'e' except getlines (ends in 's').
+# ---------------------------------------------------------------------------
+
+table linecache_extra9.name_last_char:
+  description: "Last character of __name__ for all six public linecache functions"
+  kind: python_call_eq
+  category: name_suffix
+  id_prefix: namelast
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getline,    getline.__name__.__getitem__(-1),    [], "e"]
+    - [getlines,   getlines.__name__.__getitem__(-1),   [], "s"]
+    - [clearcache, clearcache.__name__.__getitem__(-1), [], "e"]
+    - [checkcache, checkcache.__name__.__getitem__(-1), [], "e"]
+    - [updatecache, updatecache.__name__.__getitem__(-1), [], "e"]
+    - [lazycache,  lazycache.__name__.__getitem__(-1),  [], "e"]
+
+# ---------------------------------------------------------------------------
+# __qualname__ length checks — all six public linecache functions
+# For module-level functions __qualname__ == __name__, so their lengths
+# match the __name__ lengths in extra8. However, the __qualname__ attribute
+# itself has never been measured by length — this is a new axis.
+# extra4 and extra5 verify __qualname__ values via equality; no spec checks length.
+# ---------------------------------------------------------------------------
+
+table linecache_extra9.qualname_lengths:
+  description: "__qualname__ attribute lengths for all six public linecache functions"
+  kind: python_call_eq
+  category: qualname_lengths
+  id_prefix: qnamelen
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getline,    getline.__qualname__.__len__,    [], 7]
+    - [getlines,   getlines.__qualname__.__len__,   [], 8]
+    - [clearcache, clearcache.__qualname__.__len__, [], 10]
+    - [checkcache, checkcache.__qualname__.__len__, [], 10]
+    - [updatecache, updatecache.__qualname__.__len__, [], 11]
+    - [lazycache,  lazycache.__qualname__.__len__,  [], 9]
+
+# ---------------------------------------------------------------------------
+# cache.__len__() return type — int
+# Prior specs verify cache.__class__.__name__ == 'dict'.
+# This invariant verifies that calling __len__ on the cache dict returns an int.
+# No prior linecache spec checks the type of cache.__len__().
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra9.cache.len_return_type:
+  description: "linecache.cache.__len__().__class__.__name__ == 'int' — dict length is an int"
+  category: module_attributes
+  kind: python_call_eq
+  function: cache.__len__
+  args: []
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true

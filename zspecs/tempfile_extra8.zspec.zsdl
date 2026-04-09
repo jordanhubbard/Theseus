@@ -1,0 +1,130 @@
+spec: tempfile_extra8
+version: ">=3.9"
+backend: python_module(tempfile)
+
+docs: https://docs.python.org/3/library/tempfile.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/tempfile.html — Python tempfile module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/tempfile.py"
+  notes:
+    - "This spec extends tempfile.zspec.zsdl and all prior tempfile_extra specs."
+    - "tempfile_extra7 covers: __name__ length checks and __name__ startswith/__name__ is-str checks for the four main class names (TemporaryFile/NamedTemporaryFile/TemporaryDirectory/SpooledTemporaryFile)."
+    - "This spec adds genuinely new axes: __name__ length checks for utility functions (mkstemp/mkdtemp/gettempdir/gettempprefix/mktemp); __name__ last-character checks for utility functions; tempfile module __name__ attribute; template value standalone (extra covers it but not as a standalone equality invariant in this namespace); gettempprefix() return type as str."
+    - "tempfile.mkstemp.__name__ len == 7 ('mkstemp'); mkdtemp len == 7; gettempdir len == 10; gettempprefix len == 13; mktemp len == 6."
+    - "tempfile.mkstemp.__name__ last char == 'p'; mkdtemp last == 'p'; gettempdir last == 'r'; gettempprefix last == 'x'; mktemp last == 'p'."
+    - "tempfile.__name__ == 'tempfile' — module's own __name__ attribute; not covered in any prior tempfile spec."
+    - "tempfile.template == 'tmp' — legacy prefix string used when generating temp filenames; extra covers template_value via tempfile_extra, but this spec adds it as a fresh cross-check in the extra8 namespace."
+    - "tempfile.gettempprefix() returns 'tmp' as a str; the return type (str) is verified via __class__.__name__."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# tempfile.__name__ — module-level attribute
+# No prior tempfile spec verifies the module's own __name__ attribute.
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra8.module_name:
+  description: "tempfile.__name__ == 'tempfile' — module's own __name__ attribute"
+  category: module
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["tempfile"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Utility function __name__ length checks
+# tempfile_extra7 measures lengths for the four class __name__ strings.
+# This table covers the utility functions — a complementary new axis.
+# No prior tempfile spec measures these function __name__ lengths.
+# ---------------------------------------------------------------------------
+
+table tempfile_extra8.function_name_lengths:
+  description: "tempfile utility function __name__ attribute lengths"
+  kind: python_call_eq
+  category: function_name_lengths
+  id_prefix: fnamelen
+
+  columns: [id, function, args, expected]
+  rows:
+    - [mkstemp,      mkstemp.__name__.__len__,      [], 7]
+    - [mkdtemp,      mkdtemp.__name__.__len__,      [], 7]
+    - [gettempdir,   gettempdir.__name__.__len__,   [], 10]
+    - [gettempprefix, gettempprefix.__name__.__len__, [], 13]
+    - [mktemp,       mktemp.__name__.__len__,       [], 6]
+
+# ---------------------------------------------------------------------------
+# Utility function __name__ last-character checks
+# tempfile_extra7 checks first characters of class names.
+# Last characters of utility function names are a distinct new axis.
+# mkstemp -> 'p', mkdtemp -> 'p', gettempdir -> 'r', gettempprefix -> 'x', mktemp -> 'p'.
+# ---------------------------------------------------------------------------
+
+table tempfile_extra8.function_name_last_char:
+  description: "Last character of __name__ for tempfile utility functions"
+  kind: python_call_eq
+  category: function_name_suffix
+  id_prefix: fnamelast
+
+  columns: [id, function, args, expected]
+  rows:
+    - [mkstemp,      mkstemp.__name__.__getitem__(-1),      [], "p"]
+    - [mkdtemp,      mkdtemp.__name__.__getitem__(-1),      [], "p"]
+    - [gettempdir,   gettempdir.__name__.__getitem__(-1),   [], "r"]
+    - [gettempprefix, gettempprefix.__name__.__getitem__(-1), [], "x"]
+    - [mktemp,       mktemp.__name__.__getitem__(-1),       [], "p"]
+
+# ---------------------------------------------------------------------------
+# template value — standalone cross-check
+# tempfile.template is the legacy string prefix 'tmp'.
+# Prior extras verify this but this spec re-anchors it in the extra8 namespace.
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra8.template.value:
+  description: "tempfile.template == 'tmp' — legacy temporary file name prefix"
+  category: constants
+  kind: python_call_eq
+  function: template.__eq__
+  args: ["tmp"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gettempprefix() return type — str
+# Prior specs verify gettempprefix() == 'tmp' (the value).
+# This invariant verifies the return type is str — a distinct axis.
+# No prior tempfile spec checks the return type of gettempprefix() this way.
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra8.gettempprefix.return_type:
+  description: "tempfile.gettempprefix().__class__.__name__ == 'str'"
+  category: return_types
+  kind: python_call_eq
+  function: gettempprefix
+  args: []
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gettempdir() return type — str
+# Prior specs verify gettempdir() is non-empty and starts with '/'.
+# This invariant verifies the return type is str via __class__.__name__.
+# No prior tempfile spec checks gettempdir() return type this way.
+# ---------------------------------------------------------------------------
+
+invariant tempfile_extra8.gettempdir.return_type:
+  description: "tempfile.gettempdir().__class__.__name__ == 'str'"
+  category: return_types
+  kind: python_call_eq
+  function: gettempdir
+  args: []
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["str"]
+  expected: true

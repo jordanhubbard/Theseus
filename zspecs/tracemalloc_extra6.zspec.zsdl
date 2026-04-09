@@ -1,0 +1,141 @@
+spec: tracemalloc_extra6
+version: ">=3.4"
+backend: python_module(tracemalloc)
+
+docs: https://docs.python.org/3/library/tracemalloc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/tracemalloc.html — Python tracemalloc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/tracemalloc.py"
+    - "CPython source: Modules/_tracemalloc.c"
+    - "tracemalloc.zspec.zsdl — covers function __name__ table, class __name__ table, Snapshot.__module__, is_tracing, get_traceback_limit"
+    - "tracemalloc_extra.zspec.zsdl — covers class __name__ table, Snapshot.__module__, function __name__ table"
+    - "tracemalloc_extra2.zspec.zsdl — covers class __name__ and class __module__ for all classes including DomainFilter"
+    - "tracemalloc_extra3.zspec.zsdl — covers class __bases__ and class __qualname__ for all seven classes"
+    - "tracemalloc_extra4.zspec.zsdl — covers function __qualname__ and __module__ tables, DomainFilter.__qualname__, get_traceback_limit return type"
+    - "tracemalloc_extra5.zspec.zsdl — covers tracemalloc.__name__; Traceback/DomainFilter __bases__; Snapshot method __name__/__class__.__name__; DomainFilter.__module__ standalone"
+  notes:
+    - "This spec extends tracemalloc_extra5.zspec.zsdl."
+    - "Focus: class __name__ length checks (new axis — length of the __name__ string for each class); class __name__ last-character checks; get_object_traceback/__class__.__name__ == 'function' (take_snapshot is also 'function'; extra4 covers __class__.__name__ for some via __qualname__ table, but never by __class__.__name__ directly); Traceback.format.__name__ check."
+    - "tracemalloc class __name__ lengths: Snapshot=8, Filter=6, DomainFilter=12, Statistic=9, StatisticDiff=13, Traceback=9, Frame=5."
+    - "take_snapshot.__class__.__name__ == 'function'; get_object_traceback.__class__.__name__ == 'function'."
+    - "Traceback.format is a method whose __name__ == 'format' — no prior spec checks this."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class __name__ length checks — all seven tracemalloc classes
+# All prior specs verify __name__ via equality; none verify the length of
+# the __name__ string. This is a genuinely new axis.
+# ---------------------------------------------------------------------------
+
+table tracemalloc_extra6.class_name_lengths:
+  description: "__name__ attribute lengths for all seven tracemalloc classes"
+  kind: python_call_eq
+  category: class_name_lengths
+  id_prefix: cnamelen
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Snapshot,       Snapshot.__name__.__len__,       [], 8]
+    - [Filter,         Filter.__name__.__len__,         [], 6]
+    - [DomainFilter,   DomainFilter.__name__.__len__,   [], 12]
+    - [Statistic,      Statistic.__name__.__len__,      [], 9]
+    - [StatisticDiff,  StatisticDiff.__name__.__len__,  [], 13]
+    - [Traceback,      Traceback.__name__.__len__,      [], 9]
+    - [Frame,          Frame.__name__.__len__,          [], 5]
+
+# ---------------------------------------------------------------------------
+# Class __name__ last-character checks
+# Distinct axis: verifies the last character of each class __name__ string.
+# Snapshot -> 't', Filter -> 'r', DomainFilter -> 'r', Statistic -> 'c',
+# StatisticDiff -> 'f', Traceback -> 'k', Frame -> 'e'.
+# Not covered in any prior tracemalloc spec.
+# ---------------------------------------------------------------------------
+
+table tracemalloc_extra6.class_name_last_char:
+  description: "Last character of each tracemalloc class __name__"
+  kind: python_call_eq
+  category: class_name_suffix
+  id_prefix: cnamelast
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Snapshot,       Snapshot.__name__.__getitem__(-1),       [], "t"]
+    - [Filter,         Filter.__name__.__getitem__(-1),         [], "r"]
+    - [DomainFilter,   DomainFilter.__name__.__getitem__(-1),   [], "r"]
+    - [Statistic,      Statistic.__name__.__getitem__(-1),      [], "c"]
+    - [StatisticDiff,  StatisticDiff.__name__.__getitem__(-1),  [], "f"]
+    - [Traceback,      Traceback.__name__.__getitem__(-1),      [], "k"]
+    - [Frame,          Frame.__name__.__getitem__(-1),          [], "e"]
+
+# ---------------------------------------------------------------------------
+# take_snapshot and get_object_traceback — __class__.__name__ == 'function'
+# Both are pure-Python module-level functions (not built-ins).
+# extra4 function_modules table shows __module__ but never checks __class__.__name__.
+# No prior tracemalloc spec verifies these as 'function' vs 'builtin_function_or_method'.
+# ---------------------------------------------------------------------------
+
+invariant tracemalloc_extra6.take_snapshot.class_is_function:
+  description: "tracemalloc.take_snapshot.__class__.__name__ == 'function' — pure-Python function"
+  category: function_identity
+  kind: python_call_eq
+  function: take_snapshot.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant tracemalloc_extra6.get_object_traceback.class_is_function:
+  description: "tracemalloc.get_object_traceback.__class__.__name__ == 'function' — pure-Python function"
+  category: function_identity
+  kind: python_call_eq
+  function: get_object_traceback.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_object_traceback.__name__ length check
+# tracemalloc.zspec.zsdl verifies get_object_traceback.__name__ via equality.
+# This checks the length of the string (20) — a new axis.
+# ---------------------------------------------------------------------------
+
+invariant tracemalloc_extra6.get_object_traceback.name_length:
+  description: "tracemalloc.get_object_traceback.__name__.__len__() == 20"
+  category: function_name_length
+  kind: python_call_eq
+  function: get_object_traceback.__name__.__len__
+  args: []
+  expected: 20
+
+# ---------------------------------------------------------------------------
+# Traceback.format.__name__ == 'format'
+# Traceback is a Sequence subclass with a public 'format' method.
+# No prior tracemalloc spec checks any Traceback method __name__.
+# tracemalloc_extra5 checks Snapshot method names (compare_to, filter_traces).
+# ---------------------------------------------------------------------------
+
+invariant tracemalloc_extra6.Traceback.format.name:
+  description: "tracemalloc.Traceback.format.__name__ == 'format'"
+  category: method_names
+  kind: python_call_eq
+  function: Traceback.format.__name__.__eq__
+  args: ["format"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Traceback.format.__qualname__ == 'Traceback.format'
+# Methods defined inside a class have __qualname__ == 'ClassName.method'.
+# Not covered in any prior tracemalloc spec.
+# ---------------------------------------------------------------------------
+
+invariant tracemalloc_extra6.Traceback.format.qualname:
+  description: "tracemalloc.Traceback.format.__qualname__ == 'Traceback.format'"
+  category: method_qualnames
+  kind: python_call_eq
+  function: Traceback.format.__qualname__.__eq__
+  args: ["Traceback.format"]
+  expected: true

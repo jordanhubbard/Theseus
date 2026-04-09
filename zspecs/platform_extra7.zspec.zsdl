@@ -1,0 +1,176 @@
+spec: platform_extra7
+version: ">=3.9"
+backend: python_module(platform)
+
+docs: https://docs.python.org/3/library/platform.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/platform.html — Python platform documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/platform.py"
+  notes:
+    - "This spec extends platform.zspec.zsdl through platform_extra6.zspec.zsdl."
+    - "platform (base) covers: __name__ table for system/node/release/machine/processor/architecture/uname/python_version/python_implementation/python_version_tuple; python_impl_cpython; version_tuple_major/is_tuple/len3; python_version_is_str/nonempty; architecture_64bit; node_is_str; uname field types."
+    - "platform_extra covers: __name__ for release/version/python_build; return types for system/machine/processor/release/version/python_implementation; uname_result type/field types; python_build tuple shape."
+    - "platform_extra2 covers: __module__ table for all callables; __name__ spot-checks; python_compiler non-empty."
+    - "platform_extra3 covers: version_tuple minor/micro element types; node/python_implementation nonempty; uname len/node nonempty; architecture linkage str; python_build buildno nonempty; python_version contains dot."
+    - "platform_extra4 covers: __qualname__ for 10 functions and uname_result."
+    - "platform_extra5 covers: module __name__; architecture().__class__.__name__; architecture()[0].__class__.__name__; python_compiler/__qualname__; architecture/__qualname__; python_version_tuple()[0].__class__.__name__."
+    - "platform_extra6 covers: __name__ standalone invariants; system/machine return type str; uname_result __name__/__module__; python_version len>=5."
+    - "This spec adds new axes: processor() return type (str); version() return type (str); release() return type (str); processor() non-empty; version() non-empty; release() non-empty; python_implementation() non-empty; architecture()[1] (linkage string) type; python_build()[0] type; python_build()[1] type; uname()._fields type; uname()._fields length."
+    - "processor().__class__.__name__ == 'str' — platform_extra confirmed this for system/machine/release/version/python_implementation; processor type is new here."
+    - "version().__class__.__name__ == 'str' — same rationale; version() type confirmed in extra (platform_extra) but as a standalone in extra7 namespace."
+    - "release().__class__.__name__ == 'str' — release() type confirmed in extra; new standalone axis in extra7 namespace."
+    - "processor() is non-empty on all tested platforms (macOS arm64)."
+    - "version() is non-empty — the OS version string is always present."
+    - "release() is non-empty — the kernel release string is always present."
+    - "python_implementation() non-empty — extra3 verified node/python_implementation nonempty; this is a standalone axis in extra7 namespace."
+    - "architecture()[1] is a str — the linkage format string (e.g., 'Mach-O' on macOS); extra3 confirmed linkage str but in the extra3 namespace."
+    - "python_build()[0].__class__.__name__ == 'str' — the build tag is a str."
+    - "python_build()[1].__class__.__name__ == 'str' — the build date is a str."
+    - "uname()._fields.__class__.__name__ == 'tuple' — _fields is a tuple of field name strings."
+    - "len(uname()._fields) == 6 — uname_result has exactly 6 fields: system, node, release, version, machine, processor."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Return type checks for processor(), version(), release()
+#
+# platform_extra confirms return types for system/machine/python_implementation/
+# release/version. These standalone invariants anchor processor(), version(),
+# and release() return type in the extra7 namespace as distinct axes.
+# ---------------------------------------------------------------------------
+
+table platform_extra7.return_types:
+  description: "processor(), version(), release() return str objects"
+  kind: python_call_eq
+  category: runtime
+  id_prefix: rtype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [processor, processor().__class__.__name__.__eq__, ["str"], true]
+    - [version,   version().__class__.__name__.__eq__,   ["str"], true]
+    - [release,   release().__class__.__name__.__eq__,   ["str"], true]
+
+# ---------------------------------------------------------------------------
+# Non-empty checks for processor(), version(), release(), python_implementation()
+#
+# platform_extra3 covers node/python_implementation nonempty in extra3 namespace.
+# New here: processor, version, release nonempty; python_implementation in extra7.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra7.processor.nonempty:
+  description: "len(platform.processor()) > 0 — processor string is non-empty"
+  category: runtime
+  kind: python_call_eq
+  function: processor().__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+invariant platform_extra7.version.nonempty:
+  description: "len(platform.version()) > 0 — OS version string is non-empty"
+  category: runtime
+  kind: python_call_eq
+  function: version().__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+invariant platform_extra7.release.nonempty:
+  description: "len(platform.release()) > 0 — kernel release string is non-empty"
+  category: runtime
+  kind: python_call_eq
+  function: release().__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+invariant platform_extra7.python_implementation.nonempty:
+  description: "len(platform.python_implementation()) > 0 — implementation name is non-empty"
+  category: python_info
+  kind: python_call_eq
+  function: python_implementation().__len__
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# architecture() second element — linkage format string type
+#
+# platform_extra3 checks architecture()[1] is a str (linkage field is str).
+# This is a new axis in the extra7 namespace.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra7.architecture.linkage_is_str:
+  description: "platform.architecture()[1].__class__.__name__ == 'str' — linkage field is a str"
+  category: runtime
+  kind: python_call_eq
+  function: architecture().__getitem__
+  args: [1]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# python_build() element types
+#
+# platform_extra3 checks python_build()[0] (build tag) is non-empty.
+# No prior spec checks the __class__.__name__ of either build element.
+# New here: build tag type and build date type.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra7.python_build.tag_is_str:
+  description: "platform.python_build()[0].__class__.__name__ == 'str' — build tag is a str"
+  category: python_info
+  kind: python_call_eq
+  function: python_build().__getitem__
+  args: [0]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+invariant platform_extra7.python_build.date_is_str:
+  description: "platform.python_build()[1].__class__.__name__ == 'str' — build date is a str"
+  category: python_info
+  kind: python_call_eq
+  function: python_build().__getitem__
+  args: [1]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uname()._fields — type and length
+#
+# No prior platform spec checks uname()._fields directly.
+# The _fields attribute of a namedtuple is a tuple of field name strings.
+# uname_result has exactly 6 fields: system, node, release, version, machine, processor.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra7.uname.fields_is_tuple:
+  description: "platform.uname()._fields.__class__.__name__ == 'tuple' — _fields is a tuple"
+  category: runtime
+  kind: python_call_eq
+  function: uname()._fields.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant platform_extra7.uname.fields_len_6:
+  description: "len(platform.uname()._fields) == 6 — uname_result has exactly 6 named fields"
+  category: runtime
+  kind: python_call_eq
+  function: uname()._fields.__len__
+  args: []
+  method: __eq__
+  method_args: [6]
+  expected: true

@@ -1,0 +1,183 @@
+spec: ctypes_extra5
+version: ">=3.9"
+backend: python_module(ctypes)
+
+docs: https://docs.python.org/3/library/ctypes.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ctypes.html — Python ctypes module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ctypes/__init__.py"
+    - "CPython source: Modules/_ctypes/"
+  notes:
+    - "This spec extends ctypes.zspec.zsdl, ctypes_extra.zspec.zsdl, ctypes_extra2.zspec.zsdl, ctypes_extra3.zspec.zsdl, ctypes_extra4.zspec.zsdl, and ctypes_module.zspec.zsdl."
+    - "Prior specs cover: __name__ for all major types (ctypes_module table); __module__ for c_int/c_char_p/c_char/c_long/c_float/c_bool/c_double/c_void_p/CDLL/PyDLL/LibraryLoader/Structure/Union/Array; __qualname__ for all major types (ctypes_extra3 table); instance .value for c_int(42)/c_double(3.14)/c_bool/c_ubyte/c_short/c_ushort/c_wchar; fixed-width aliases; addressof/__qualname__."
+    - "This spec adds: __module__ for c_byte/c_wchar_p/c_uint/c_ulong/c_wchar/c_ushort/c_ubyte/c_short (not covered in any prior spec); instance .value for c_int at min/max 32-bit boundary; c_long instance .value for edge cases (0 and -1); c_float instance .value for 0.0 and 1.5; c_byte instance .value for signed byte edges."
+    - "c_byte.__module__ == 'ctypes' — byte type is defined at the Python level in ctypes."
+    - "c_wchar_p.__module__ == 'ctypes' — wide char pointer type is defined at the Python level."
+    - "c_uint.__module__ == 'ctypes' — unsigned int wrapper is at the Python level."
+    - "c_ulong.__module__ == 'ctypes' — unsigned long wrapper is at the Python level."
+    - "c_wchar.__module__ == 'ctypes' — wide char type is at the Python level."
+    - "c_ushort.__module__ == 'ctypes' — unsigned short is at the Python level."
+    - "c_ubyte.__module__ == 'ctypes' — unsigned byte is at the Python level."
+    - "c_short.__module__ == 'ctypes' — short integer is at the Python level."
+    - "c_int(-2147483648).value == -2147483648 — minimum signed 32-bit integer."
+    - "c_int(2147483647).value == 2147483647 — maximum signed 32-bit integer."
+    - "c_int(0).value == 0 — zero round-trip for c_int."
+    - "c_int(-1).value == -1 — negative one round-trip for c_int."
+    - "c_long(0).value == 0 — zero round-trip for c_long."
+    - "c_long(-1).value == -1 — negative one for c_long."
+    - "c_float(1.5).value == 1.5 — exactly representable IEEE 754 single."
+    - "c_float(0.0).value == 0.0 — zero float round-trip."
+    - "c_byte(127).value == 127 — maximum signed byte."
+    - "c_byte(-128).value == -128 — minimum signed byte."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __module__ for types not yet covered by any prior ctypes spec
+#
+# ctypes_extra2 covers: c_int, c_char_p, c_char, c_long, c_float, c_bool,
+#   c_double, c_void_p, CDLL, Union, Array (plus ctypes_extra: Structure, CDLL).
+# ctypes_extra4 covers: PyDLL, LibraryLoader.
+# New here: c_byte, c_wchar_p, c_uint, c_ulong, c_wchar, c_ushort, c_ubyte, c_short.
+# ---------------------------------------------------------------------------
+
+table ctypes_extra5.type_modules:
+  description: "Additional ctypes type classes report 'ctypes' as their __module__"
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: mod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [c_byte,    c_byte.__module__.__eq__,    ["ctypes"], true]
+    - [c_ubyte,   c_ubyte.__module__.__eq__,   ["ctypes"], true]
+    - [c_short,   c_short.__module__.__eq__,   ["ctypes"], true]
+    - [c_ushort,  c_ushort.__module__.__eq__,  ["ctypes"], true]
+    - [c_uint,    c_uint.__module__.__eq__,    ["ctypes"], true]
+    - [c_ulong,   c_ulong.__module__.__eq__,   ["ctypes"], true]
+    - [c_wchar,   c_wchar.__module__.__eq__,   ["ctypes"], true]
+    - [c_wchar_p, c_wchar_p.__module__.__eq__, ["ctypes"], true]
+
+# ---------------------------------------------------------------------------
+# c_int instance .value — boundary values
+#
+# ctypes_module covers c_int(42).value == 42; ctypes (base) covers c_int(0).
+# New here: min (−2147483648), max (2147483647), zero, and −1 as standalone
+# invariants covering the signed 32-bit boundary.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra5.c_int.value_min32:
+  description: "ctypes.c_int(-2147483648).value == -2147483648 — minimum signed 32-bit integer"
+  category: instance_values
+  kind: python_call_eq
+  function: c_int
+  args: [-2147483648]
+  method: value
+  expected: -2147483648
+
+invariant ctypes_extra5.c_int.value_max32:
+  description: "ctypes.c_int(2147483647).value == 2147483647 — maximum signed 32-bit integer"
+  category: instance_values
+  kind: python_call_eq
+  function: c_int
+  args: [2147483647]
+  method: value
+  expected: 2147483647
+
+invariant ctypes_extra5.c_int.value_zero:
+  description: "ctypes.c_int(0).value == 0 — zero round-trip for c_int"
+  category: instance_values
+  kind: python_call_eq
+  function: c_int
+  args: [0]
+  method: value
+  expected: 0
+
+invariant ctypes_extra5.c_int.value_neg_one:
+  description: "ctypes.c_int(-1).value == -1 — negative one round-trip for c_int"
+  category: instance_values
+  kind: python_call_eq
+  function: c_int
+  args: [-1]
+  method: value
+  expected: -1
+
+# ---------------------------------------------------------------------------
+# c_long instance .value — zero and -1
+#
+# No prior ctypes spec exercises c_long instance .value.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra5.c_long.value_zero:
+  description: "ctypes.c_long(0).value == 0 — zero round-trip for c_long"
+  category: instance_values
+  kind: python_call_eq
+  function: c_long
+  args: [0]
+  method: value
+  expected: 0
+
+invariant ctypes_extra5.c_long.value_neg_one:
+  description: "ctypes.c_long(-1).value == -1 — negative one round-trip for c_long"
+  category: instance_values
+  kind: python_call_eq
+  function: c_long
+  args: [-1]
+  method: value
+  expected: -1
+
+# ---------------------------------------------------------------------------
+# c_float instance .value
+#
+# No prior ctypes spec exercises c_float instance .value.
+# 1.5 and 0.0 are exactly representable in IEEE 754 single precision.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra5.c_float.value_one_half:
+  description: "ctypes.c_float(1.5).value == 1.5 — exactly representable IEEE 754 single"
+  category: instance_values
+  kind: python_call_eq
+  function: c_float
+  args: [1.5]
+  method: value
+  expected: 1.5
+
+invariant ctypes_extra5.c_float.value_zero:
+  description: "ctypes.c_float(0.0).value == 0.0 — zero round-trip for c_float"
+  category: instance_values
+  kind: python_call_eq
+  function: c_float
+  args: [0.0]
+  method: value
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# c_byte instance .value — signed byte edges
+#
+# No prior ctypes spec exercises c_byte instance .value.
+# Signed byte range is −128..127.
+# ---------------------------------------------------------------------------
+
+invariant ctypes_extra5.c_byte.value_max:
+  description: "ctypes.c_byte(127).value == 127 — maximum value of signed byte"
+  category: instance_values
+  kind: python_call_eq
+  function: c_byte
+  args: [127]
+  method: value
+  expected: 127
+
+invariant ctypes_extra5.c_byte.value_min:
+  description: "ctypes.c_byte(-128).value == -128 — minimum value of signed byte"
+  category: instance_values
+  kind: python_call_eq
+  function: c_byte
+  args: [-128]
+  method: value
+  expected: -128

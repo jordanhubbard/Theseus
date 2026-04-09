@@ -1,0 +1,174 @@
+spec: weakref_extra12
+version: ">=3.9"
+backend: python_module(weakref)
+
+docs: https://docs.python.org/3/library/weakref.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/weakref.html — Python weakref module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_weakref.c"
+    - "CPython source: Lib/weakref.py"
+  notes:
+    - "This spec extends weakref.zspec.zsdl through weakref_extra11.zspec.zsdl."
+    - "weakref_extra11 covers: ref.__bases__.__len__()==1; ref.__bases__[0].__name__=='object'; ref.__mro__.__len__()==2; ref.__mro__[-1].__name__=='object'; ProxyType.__bases__.__len__()==1; ProxyType.__bases__[0].__name__=='object'; CallableProxyType.__bases__.__len__()==1; CallableProxyType.__bases__[0].__name__=='object'; WeakMethod.__module__; getweakrefcount/getweakrefs __module__."
+    - "weakref_extra10 covers __qualname__ for WeakValueDictionary/WeakSet/WeakKeyDictionary/finalize."
+    - "weakref_extra8 covers WeakSet/finalize mro_len; WeakMethod mro_len/mro[1]; WeakValueDictionary/WeakKeyDictionary mro[1]; mro[-1] table."
+    - "NOT yet covered: WeakMethod.__bases__[0].__name__ == 'ReferenceType' — WeakMethod subclasses ref (ReferenceType)."
+    - "NOT yet covered: WeakMethod.__mro__[0].__name__ == 'WeakMethod' — first MRO entry."
+    - "NOT yet covered: WeakValueDictionary.__mro__.__len__() == 8 — long MRO via MutableMapping ABC chain."
+    - "NOT yet covered: WeakKeyDictionary.__mro__.__len__() == 8 — same MRO length as WeakValueDictionary."
+    - "NOT yet covered: ProxyType.__mro__.__len__() == 2 — ProxyType MRO is [ProxyType, object]."
+    - "NOT yet covered: CallableProxyType.__mro__.__len__() == 2 — MRO is [CallableProxyType, object]."
+    - "NOT yet covered: WeakValueDictionary.__mro__[-1].__name__ == 'object' — object is last in the long MRO."
+    - "NOT yet covered: WeakKeyDictionary.__mro__[-1].__name__ == 'object' — object is last in the long MRO."
+    - "weakref.WeakMethod.__bases__[0].__name__ == 'ReferenceType' — WeakMethod subclasses the ref alias."
+    - "weakref.WeakValueDictionary.__mro__.__len__() == 8 — [WeakValueDictionary, MutableMapping, Mapping, Collection, Sized, Iterable, Container, object]."
+    - "weakref.WeakKeyDictionary.__mro__.__len__() == 8 — same MRO structure as WeakValueDictionary."
+    - "weakref.ProxyType.__mro__.__len__() == 2 — C-level type inherits only from object."
+    - "weakref.CallableProxyType.__mro__.__len__() == 2 — C-level type inherits only from object."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# WeakMethod.__bases__ and __mro__ — inheritance from ReferenceType
+#
+# weakref_extra8 confirms WeakMethod.__mro__.__len__() == 3.
+# weakref_extra8 confirms WeakMethod.__mro__[1].__name__ == 'ReferenceType'.
+# weakref_extra11 covers ref.__bases__[0].__name__ == 'object'.
+# No prior spec checks WeakMethod.__bases__[0].__name__ or WeakMethod.__mro__[0].
+# WeakMethod subclasses ref (exposed as ReferenceType in weakref namespace),
+# giving it MRO: [WeakMethod, ReferenceType, object].
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra12.WeakMethod.base_is_ReferenceType:
+  description: "weakref.WeakMethod.__bases__[0].__name__ == 'ReferenceType' — WeakMethod subclasses ref via ReferenceType alias"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: WeakMethod.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ReferenceType"
+
+invariant weakref_extra12.WeakMethod.mro_first_is_self:
+  description: "weakref.WeakMethod.__mro__[0].__name__ == 'WeakMethod' — first MRO entry is the class itself"
+  category: mro
+  kind: python_call_eq
+  function: WeakMethod.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "WeakMethod"
+
+# ---------------------------------------------------------------------------
+# WeakValueDictionary and WeakKeyDictionary MRO lengths
+#
+# weakref_extra2 covers __bases__[0].__name__ for these classes.
+# weakref_extra8 covers mro[1] for WeakValueDictionary/WeakKeyDictionary.
+# No prior spec checks the total MRO length for either class. Both inherit
+# from MutableMapping which pulls in the full ABC hierarchy:
+# [cls, MutableMapping, Mapping, Collection, Sized, Iterable, Container, object]
+# giving a length of 8.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra12.WeakValueDictionary.mro_len:
+  description: "weakref.WeakValueDictionary.__mro__.__len__() == 8 — long MRO via MutableMapping ABC chain"
+  category: mro
+  kind: python_call_eq
+  function: WeakValueDictionary.__mro__.__len__
+  args: []
+  expected: 8
+
+invariant weakref_extra12.WeakKeyDictionary.mro_len:
+  description: "weakref.WeakKeyDictionary.__mro__.__len__() == 8 — same MRO length as WeakValueDictionary"
+  category: mro
+  kind: python_call_eq
+  function: WeakKeyDictionary.__mro__.__len__
+  args: []
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# WeakValueDictionary and WeakKeyDictionary MRO last entry is object
+#
+# weakref_extra8 confirms mro[-1] for WeakKeyDictionary is 'object' via a table.
+# No prior spec checks mro[-1] for WeakValueDictionary as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra12.WeakValueDictionary.mro_last:
+  description: "weakref.WeakValueDictionary.__mro__[-1].__name__ == 'object' — object is last in the MRO chain"
+  category: mro
+  kind: python_call_eq
+  function: WeakValueDictionary.__mro__.__getitem__
+  args: [-1]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# ProxyType and CallableProxyType MRO lengths
+#
+# weakref_extra11 confirms ProxyType.__bases__.__len__() == 1 and
+# CallableProxyType.__bases__.__len__() == 1 (both have only object as base).
+# No prior spec checks the full MRO length for these C types. Since they
+# inherit only from object, their MRO has exactly 2 entries: [type, object].
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra12.ProxyType.mro_len:
+  description: "weakref.ProxyType.__mro__.__len__() == 2 — C-level type; MRO is [ProxyType, object]"
+  category: mro
+  kind: python_call_eq
+  function: ProxyType.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant weakref_extra12.CallableProxyType.mro_len:
+  description: "weakref.CallableProxyType.__mro__.__len__() == 2 — C-level type; MRO is [CallableProxyType, object]"
+  category: mro
+  kind: python_call_eq
+  function: CallableProxyType.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# ProxyType and CallableProxyType MRO[0] — first entry is the class itself
+#
+# No prior spec checks ProxyType.__mro__[0] or CallableProxyType.__mro__[0].
+# For any class, the first MRO entry must be the class itself (C3 rule).
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra12.ProxyType.mro_first:
+  description: "weakref.ProxyType.__mro__[0].__name__ == 'ProxyType' — first MRO entry is the class itself"
+  category: mro
+  kind: python_call_eq
+  function: ProxyType.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ProxyType"
+
+invariant weakref_extra12.CallableProxyType.mro_first:
+  description: "weakref.CallableProxyType.__mro__[0].__name__ == 'CallableProxyType' — first MRO entry is the class itself"
+  category: mro
+  kind: python_call_eq
+  function: CallableProxyType.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "CallableProxyType"
+
+# ---------------------------------------------------------------------------
+# WeakValueDictionary.__mro__[1].__name__ — already covered by extra8 table
+# Adding WeakKeyDictionary.__mro__[0] — first entry is the class itself
+#
+# weakref_extra8 confirms WeakKeyDictionary.__mro__[1].__name__ == 'MutableMapping'.
+# No prior spec checks WeakKeyDictionary.__mro__[0] — the class itself.
+# ---------------------------------------------------------------------------
+
+invariant weakref_extra12.WeakKeyDictionary.mro_first:
+  description: "weakref.WeakKeyDictionary.__mro__[0].__name__ == 'WeakKeyDictionary' — first MRO entry is the class itself"
+  category: mro
+  kind: python_call_eq
+  function: WeakKeyDictionary.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "WeakKeyDictionary"

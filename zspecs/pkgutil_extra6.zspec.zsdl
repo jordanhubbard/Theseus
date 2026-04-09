@@ -1,0 +1,185 @@
+spec: pkgutil_extra6
+version: ">=3.9"
+backend: python_module(pkgutil)
+
+docs: https://docs.python.org/3/library/pkgutil.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pkgutil.html — Python pkgutil documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pkgutil.py"
+  notes:
+    - "This spec extends pkgutil.zspec.zsdl through pkgutil_extra5.zspec.zsdl."
+    - "pkgutil (base) covers: walk/iter/get/extend/resolve_name __name__ and type; ModuleInfo _fields len/items; resolve_name('builtins.len'); extend_path returns list."
+    - "pkgutil_extra covers: __qualname__ for walk/iter/get/extend/resolve_name; read_code __name__/__qualname__/type; ModuleInfo __module__/__qualname__/_fields[0]; function __doc__ class; resolve_name('builtins.int'); bad resolve raises."
+    - "pkgutil_extra2 covers: get_importer __name__/__qualname__/type/__module__; function __module__ table; ModuleInfo._fields class (tuple) and is_type; get_importer __doc__; _fields.__contains__ checks."
+    - "pkgutil_extra3 covers: module __name__; read_code.__module__; ModuleInfo._fields[0] via __eq__ chain; function_names_direct table; resolve_name/__doc__ len>0; get_importer/__doc__ len>0."
+    - "pkgutil_extra4 covers: module __spec__.name; ModuleInfo._make/__name__; ModuleInfo._asdict/__name__; iter_modules/__doc__ len>0; walk_packages/__doc__ len>0; extend_path/__doc__ len>0; resolve_name('builtins.str'); read_code/__doc__/__class__.__name__=='str'."
+    - "pkgutil_extra5 covers: ModuleInfo._fields[1]/__eq__ chain; ModuleInfo._fields[2]/__eq__ chain; _fields.__len__()==3; ModuleInfo.__name__/__eq__; ModuleInfo.__module__/__eq__; ModuleInfo._replace/__name__; get_data/__name__; get_data/__module__; resolve_name('builtins.list'); get_importer/__name__/__eq__ chain; __spec__.__class__.__name__=='ModuleSpec'; read_code/__name__/__eq__ chain."
+    - "This spec adds new axes not covered in any prior pkgutil spec."
+    - "iter_importers.__name__ == 'iter_importers' — a generator function yielding importers for the given path; not covered in any prior pkgutil spec."
+    - "iter_importers.__module__ == 'pkgutil'."
+    - "iter_importers.__qualname__ == 'iter_importers'."
+    - "iter_importer_modules.__name__ == 'iter_importer_modules' — yields (module_finder, name, ispkg) tuples; not covered in any prior pkgutil spec."
+    - "iter_importer_modules.__module__ == 'pkgutil'."
+    - "iter_importer_modules.__qualname__ == 'iter_importer_modules'."
+    - "iter_zipimport_modules.__name__ == 'iter_zipimport_modules' — a variant of iter_importer_modules for zip importers; not covered in any prior pkgutil spec."
+    - "iter_zipimport_modules.__module__ == 'pkgutil'."
+    - "pkgutil.__package__ == '' — pkgutil is a top-level module, not inside any package."
+    - "pkgutil.__spec__.origin.endswith('pkgutil.py') == True — pkgutil is loaded from its source file."
+    - "ModuleInfo._replace.__qualname__ == 'ModuleInfo._replace' — namedtuple method qualname includes class prefix."
+    - "ModuleInfo._make.__qualname__ == 'ModuleInfo._make' — namedtuple classmethod qualname."
+    - "ModuleInfo._asdict.__qualname__ == 'ModuleInfo._asdict' — namedtuple method qualname."
+    - "resolve_name('builtins.dict').__name__ == 'dict' — complements prior specs' 'len','int','str','list'."
+    - "pkgutil.get_data.__qualname__ == 'get_data' — qualname not yet covered for get_data in any prior spec."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# iter_importers — __name__, __module__, __qualname__
+#
+# No prior pkgutil spec covers iter_importers. It is a public generator
+# function that yields importers for path entries.
+# ---------------------------------------------------------------------------
+
+table pkgutil_extra6.iter_importers_attrs:
+  kind: python_call_eq
+  category: function_attrs
+  id_prefix: iter_imp
+
+  columns: [id, function, args, expected]
+  rows:
+    - [name,     iter_importers.__name__.__eq__,     ["iter_importers"], true]
+    - [module,   iter_importers.__module__.__eq__,   ["pkgutil"],        true]
+    - [qualname, iter_importers.__qualname__.__eq__, ["iter_importers"], true]
+
+# ---------------------------------------------------------------------------
+# iter_importer_modules — __name__, __module__, __qualname__
+#
+# No prior pkgutil spec covers iter_importer_modules. It yields
+# (module_finder, name, ispkg) tuples from a given importer.
+# ---------------------------------------------------------------------------
+
+table pkgutil_extra6.iter_importer_modules_attrs:
+  kind: python_call_eq
+  category: function_attrs
+  id_prefix: iter_imp_mods
+
+  columns: [id, function, args, expected]
+  rows:
+    - [name,     iter_importer_modules.__name__.__eq__,     ["iter_importer_modules"], true]
+    - [module,   iter_importer_modules.__module__.__eq__,   ["pkgutil"],               true]
+    - [qualname, iter_importer_modules.__qualname__.__eq__, ["iter_importer_modules"], true]
+
+# ---------------------------------------------------------------------------
+# iter_zipimport_modules — __name__ and __module__
+#
+# No prior pkgutil spec covers iter_zipimport_modules.
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra6.iter_zipimport_modules_name:
+  description: "pkgutil.iter_zipimport_modules.__name__ == 'iter_zipimport_modules'"
+  category: function_attrs
+  kind: python_call_eq
+  function: iter_zipimport_modules.__name__.__eq__
+  args: ["iter_zipimport_modules"]
+  expected: true
+
+invariant pkgutil_extra6.iter_zipimport_modules_module:
+  description: "pkgutil.iter_zipimport_modules.__module__ == 'pkgutil'"
+  category: function_attrs
+  kind: python_call_eq
+  function: iter_zipimport_modules.__module__.__eq__
+  args: ["pkgutil"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module __package__ and __spec__.origin
+#
+# pkgutil_extra3 covers __name__ == 'pkgutil'; pkgutil_extra4 covers
+# __spec__.name == 'pkgutil'. No prior spec checks __package__ or
+# __spec__.origin for the pkgutil module.
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra6.module_package:
+  description: "pkgutil.__package__ == '' — pkgutil is a top-level module with empty package"
+  category: module
+  kind: python_call_eq
+  function: __package__.__eq__
+  args: [""]
+  expected: true
+
+invariant pkgutil_extra6.module_spec_origin_endswith:
+  description: "pkgutil.__spec__.origin.endswith('pkgutil.py') == True"
+  category: module
+  kind: python_call_eq
+  function: __spec__.origin.endswith
+  args: ["pkgutil.py"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ModuleInfo namedtuple method __qualname__ values
+#
+# pkgutil_extra5 covers ModuleInfo._replace.__name__ == '_replace'.
+# pkgutil_extra4 covers _make.__name__ and _asdict.__name__.
+# No prior spec checks the __qualname__ of these methods, which includes
+# the class name prefix: 'ModuleInfo._replace', 'ModuleInfo._make', etc.
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra6.ModuleInfo._replace_qualname:
+  description: "pkgutil.ModuleInfo._replace.__qualname__ == 'ModuleInfo._replace'"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._replace.__qualname__.__eq__
+  args: ["ModuleInfo._replace"]
+  expected: true
+
+invariant pkgutil_extra6.ModuleInfo._make_qualname:
+  description: "pkgutil.ModuleInfo._make.__qualname__ == 'ModuleInfo._make'"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._make.__qualname__.__eq__
+  args: ["ModuleInfo._make"]
+  expected: true
+
+invariant pkgutil_extra6.ModuleInfo._asdict_qualname:
+  description: "pkgutil.ModuleInfo._asdict.__qualname__ == 'ModuleInfo._asdict'"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._asdict.__qualname__.__eq__
+  args: ["ModuleInfo._asdict"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# resolve_name('builtins.dict') — resolves to the built-in dict type.
+# Prior specs resolve 'builtins.len' (base), 'builtins.int' (extra),
+# 'builtins.str' (extra4), 'builtins.list' (extra5). 'builtins.dict' is new.
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra6.resolve_name_builtins_dict:
+  description: "pkgutil.resolve_name('builtins.dict').__name__ == 'dict'"
+  category: resolve_name
+  kind: python_call_eq
+  function: resolve_name
+  args: ["builtins.dict"]
+  method: __name__
+  expected: "dict"
+
+# ---------------------------------------------------------------------------
+# get_data.__qualname__
+#
+# pkgutil_extra5 covers get_data.__name__ and get_data.__module__.
+# No prior spec covers get_data.__qualname__.
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra6.get_data_qualname:
+  description: "pkgutil.get_data.__qualname__ == 'get_data'"
+  category: function_attrs
+  kind: python_call_eq
+  function: get_data.__qualname__.__eq__
+  args: ["get_data"]
+  expected: true
