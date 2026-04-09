@@ -1,0 +1,165 @@
+spec: pickle
+version: ">=3.0"
+backend: python_module(pickle)
+
+docs: https://docs.python.org/3/library/pickle.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/pickle.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "pickle source: Lib/pickle.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "pickle source: internal binary serialization format details"
+  notes:
+    - "pickle.HIGHEST_PROTOCOL == 5 and pickle.DEFAULT_PROTOCOL == 5 as of Python 3.12."
+    - "pickle.dumps(42) with default protocol produces b'\\x80\\x05K*.' (hex: 80054b2a2e)."
+    - "pickle.dumps(None) produces b'\\x80\\x05N.' (hex: 80054e2e)."
+    - "pickle.dumps(True) produces b'\\x80\\x05\\x88.' (hex: 8005882e)."
+    - "pickle.dumps('hello') produces b'\\x80\\x05\\x95\\t...\\x8c\\x05hello\\x94.' (hex: 80059509000000000000008c0568656c6c6f942e)."
+    - "HIGHEST_PROTOCOL >= 2 — protocol 2 introduced new-style class pickling; all modern Pythons support at least protocol 5."
+    - "PickleBuffer is available in Python 3.8+ for out-of-band buffer serialization."
+    - "All expected values verified by running Python 3.12 pickle module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name metadata
+# ---------------------------------------------------------------------------
+
+table pickle.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [dumps, dumps.__name__.__eq__, ["dumps"], true]
+    - [loads, loads.__name__.__eq__, ["loads"], true]
+    - [dump,  dump.__name__.__eq__,  ["dump"],  true]
+    - [load,  load.__name__.__eq__,  ["load"],  true]
+
+# ---------------------------------------------------------------------------
+# Class name metadata
+# ---------------------------------------------------------------------------
+
+table pickle.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pickler,         Pickler.__name__.__eq__,         ["Pickler"],         true]
+    - [unpickler,       Unpickler.__name__.__eq__,        ["Unpickler"],       true]
+    - [pickleerror,     PickleError.__name__.__eq__,      ["PickleError"],     true]
+    - [picklingerror,   PicklingError.__name__.__eq__,    ["PicklingError"],   true]
+    - [unpicklingerror, UnpicklingError.__name__.__eq__,  ["UnpicklingError"], true]
+
+# ---------------------------------------------------------------------------
+# Protocol constants
+# ---------------------------------------------------------------------------
+
+invariant pickle.highest_protocol_ge_2:
+  description: "pickle.HIGHEST_PROTOCOL >= 2 — protocol 2+ supports new-style classes"
+  category: constants
+  kind: python_call_eq
+  function: HIGHEST_PROTOCOL.__ge__
+  args: [2]
+  expected: true
+
+invariant pickle.default_protocol_ge_2:
+  description: "pickle.DEFAULT_PROTOCOL >= 2 — default protocol is at least 2"
+  category: constants
+  kind: python_call_eq
+  function: DEFAULT_PROTOCOL.__ge__
+  args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# dumps — returns bytes
+# ---------------------------------------------------------------------------
+
+invariant pickle.dumps_returns_bytes:
+  description: "pickle.dumps(42) returns a bytes object"
+  category: dumps_type
+  kind: python_call_eq
+  function: dumps
+  args: [42]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# loads — deserialise pre-computed wire bytes to Python objects
+#
+# All hex strings produced by pickle.dumps(<value>) with default protocol
+# (protocol 5) in Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09.
+# ---------------------------------------------------------------------------
+
+invariant pickle.loads_42:
+  description: "pickle.loads(pickle.dumps(42)) == 42 — integer round-trip"
+  category: loads_scalar
+  kind: python_call_eq
+  function: loads
+  args: [{type: bytes_hex, value: "80054b2a2e"}]
+  expected: 42
+
+invariant pickle.loads_none:
+  description: "pickle.loads(pickle.dumps(None)) == None — None round-trip"
+  category: loads_scalar
+  kind: python_call_eq
+  function: loads
+  args: [{type: bytes_hex, value: "80054e2e"}]
+  expected: ~
+
+invariant pickle.loads_true:
+  description: "pickle.loads(pickle.dumps(True)) == True — boolean round-trip"
+  category: loads_scalar
+  kind: python_call_eq
+  function: loads
+  args: [{type: bytes_hex, value: "8005882e"}]
+  expected: true
+
+invariant pickle.loads_hello:
+  description: "pickle.loads(pickle.dumps('hello')) == 'hello' — string round-trip"
+  category: loads_string
+  kind: python_call_eq
+  function: loads
+  args: [{type: bytes_hex, value: "80059509000000000000008c0568656c6c6f942e"}]
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# dumps — serialise Python objects to bytes (protocol 0 — ASCII-safe)
+#
+# Protocol 0 bytes for 42: b'I42\n.' (hex: 4934320a2e)
+# ---------------------------------------------------------------------------
+
+invariant pickle.dumps_42_proto0:
+  description: "pickle.dumps(42, protocol=0) produces ASCII I42\\n. encoding"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [42, 0]
+  expected: !hex 4934320a2e
+
+# ---------------------------------------------------------------------------
+# Error cases
+# ---------------------------------------------------------------------------
+
+invariant pickle.loads_bad_data_raises:
+  description: "pickle.loads(b'bad') raises UnpicklingError — invalid pickle data"
+  category: error
+  kind: python_call_raises
+  function: loads
+  args: [{type: bytes_ascii, value: "bad"}]
+  expected_exception: pickle.UnpicklingError
+
+invariant pickle.loads_empty_raises:
+  description: "pickle.loads(b'') raises EOFError — empty input has no pickle opcode"
+  category: error
+  kind: python_call_raises
+  function: loads
+  args: [{type: bytes_hex, value: ""}]
+  expected_exception: EOFError

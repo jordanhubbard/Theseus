@@ -1,0 +1,232 @@
+spec: getopt
+version: ">=3.0"
+backend: python_module(getopt)
+
+docs: https://docs.python.org/3/library/getopt.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/getopt.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/getopt.py (internal option parsing implementation)"
+  notes:
+    - "getopt.getopt() parses command-line options in the style of Unix getopt(3)."
+    - "getopt.gnu_getopt() is like getopt() but allows options to appear after non-option arguments."
+    - "getopt.getopt() stops parsing at the first non-option argument; remaining args go to the args list."
+    - "gnu_getopt() continues parsing past non-option arguments; non-options accumulate in args."
+    - "Short options string: 'a' means flag, 'a:' means requires argument."
+    - "Long options list: 'foo' means flag, 'foo=' means requires argument."
+    - "getopt.GetoptError (alias: getopt.error) is raised for unrecognized or malformed options."
+    - "Each parsed option is a (option_string, value) tuple; value is '' for flags."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function name metadata
+# ---------------------------------------------------------------------------
+
+table getopt.function_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getopt,     getopt.__name__.__eq__,     ["getopt"],     true]
+    - [gnu_getopt, gnu_getopt.__name__.__eq__,  ["gnu_getopt"], true]
+
+# ---------------------------------------------------------------------------
+# Class name metadata
+# ---------------------------------------------------------------------------
+
+table getopt.class_names:
+  kind: python_call_eq
+  category: classes
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [GetoptError, GetoptError.__name__.__eq__, ["GetoptError"], true]
+
+invariant getopt.error_alias:
+  description: "getopt.error is the same class as getopt.GetoptError"
+  category: classes
+  kind: python_call_eq
+  function: error.__name__.__eq__
+  args: ["GetoptError"]
+  expected: true
+
+invariant getopt.GetoptError_module:
+  description: "getopt.GetoptError.__module__ == 'getopt'"
+  category: classes
+  kind: python_call_eq
+  function: GetoptError.__module__.__eq__
+  args: ["getopt"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getopt() — basic short option parsing
+# Result is a (opts_list, args_list) tuple.
+# We verify opts via [0] and args via [1].
+# ---------------------------------------------------------------------------
+
+invariant getopt.simple_short_opts:
+  description: "getopt(['-a'], 'a') returns ([('-a', '')], [])"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-a"], "a"]
+  method: __getitem__
+  method_args: [0]
+  expected: [["-a", ""]]
+
+invariant getopt.simple_short_args:
+  description: "getopt(['-a'], 'a') leaves no remaining args"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-a"], "a"]
+  method: __getitem__
+  method_args: [1]
+  expected: []
+
+invariant getopt.multiple_short_opts:
+  description: "getopt(['-a', '-b', 'foo'], 'ab') parses flags before non-option stops"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-a", "-b", "foo"], "ab"]
+  method: __getitem__
+  method_args: [0]
+  expected: [["-a", ""], ["-b", ""]]
+
+invariant getopt.multiple_short_remaining_args:
+  description: "getopt stops at non-option 'foo', which goes to remaining args"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-a", "-b", "foo"], "ab"]
+  method: __getitem__
+  method_args: [1]
+  expected: ["foo"]
+
+# ---------------------------------------------------------------------------
+# getopt() — long options
+# ---------------------------------------------------------------------------
+
+invariant getopt.long_with_value_opts:
+  description: "getopt(['--foo', 'bar'], '', ['foo=']) parses --foo with value"
+  category: long_options
+  kind: python_call_eq
+  function: getopt
+  args: [["--foo", "bar"], "", ["foo="]]
+  method: __getitem__
+  method_args: [0]
+  expected: [["--foo", "bar"]]
+
+invariant getopt.long_with_value_args:
+  description: "getopt(['--foo', 'bar'], '', ['foo=']) leaves no remaining args"
+  category: long_options
+  kind: python_call_eq
+  function: getopt
+  args: [["--foo", "bar"], "", ["foo="]]
+  method: __getitem__
+  method_args: [1]
+  expected: []
+
+invariant getopt.long_flag_opts:
+  description: "getopt(['--verbose'], '', ['verbose']) parses --verbose as flag with empty value"
+  category: long_options
+  kind: python_call_eq
+  function: getopt
+  args: [["--verbose"], "", ["verbose"]]
+  method: __getitem__
+  method_args: [0]
+  expected: [["--verbose", ""]]
+
+# ---------------------------------------------------------------------------
+# getopt() — empty argument list
+# ---------------------------------------------------------------------------
+
+invariant getopt.empty_args_opts:
+  description: "getopt([], 'ab') returns empty opts"
+  category: edge_cases
+  kind: python_call_eq
+  function: getopt
+  args: [[], "ab"]
+  method: __getitem__
+  method_args: [0]
+  expected: []
+
+invariant getopt.empty_args_remaining:
+  description: "getopt([], 'ab') returns empty remaining args"
+  category: edge_cases
+  kind: python_call_eq
+  function: getopt
+  args: [[], "ab"]
+  method: __getitem__
+  method_args: [1]
+  expected: []
+
+# ---------------------------------------------------------------------------
+# getopt() — error case: unrecognized option raises GetoptError
+# ---------------------------------------------------------------------------
+
+invariant getopt.unrecognized_short_raises:
+  description: "getopt(['-z'], 'ab') raises GetoptError for unrecognized option"
+  category: errors
+  kind: python_call_raises
+  function: getopt
+  args: [["-z"], "ab"]
+  expected_exception: GetoptError
+
+# ---------------------------------------------------------------------------
+# gnu_getopt() — permissive parsing (options after non-options allowed)
+# ---------------------------------------------------------------------------
+
+invariant getopt.gnu_getopt_permissive_opts:
+  description: "gnu_getopt(['-a', 'foo', '-b'], 'ab') parses both flags despite non-option between"
+  category: gnu_getopt
+  kind: python_call_eq
+  function: gnu_getopt
+  args: [["-a", "foo", "-b"], "ab"]
+  method: __getitem__
+  method_args: [0]
+  expected: [["-a", ""], ["-b", ""]]
+
+invariant getopt.gnu_getopt_permissive_args:
+  description: "gnu_getopt(['-a', 'foo', '-b'], 'ab') collects non-option 'foo' in args"
+  category: gnu_getopt
+  kind: python_call_eq
+  function: gnu_getopt
+  args: [["-a", "foo", "-b"], "ab"]
+  method: __getitem__
+  method_args: [1]
+  expected: ["foo"]
+
+invariant getopt.gnu_getopt_empty:
+  description: "gnu_getopt([], 'ab') returns ([], [])"
+  category: gnu_getopt
+  kind: python_call_eq
+  function: gnu_getopt
+  args: [[], "ab"]
+  method: __getitem__
+  method_args: [0]
+  expected: []
+
+# ---------------------------------------------------------------------------
+# Mixed short + long options
+# ---------------------------------------------------------------------------
+
+invariant getopt.mixed_short_long_opts:
+  description: "getopt(['-h', '-v', '--output', 'file.txt'], 'hvo:', ['output=']) parses mixed"
+  category: mixed
+  kind: python_call_eq
+  function: getopt
+  args: [["-h", "-v", "--output", "file.txt"], "hvo:", ["output="]]
+  method: __getitem__
+  method_args: [0]
+  expected: [["-h", ""], ["-v", ""], ["--output", "file.txt"]]
