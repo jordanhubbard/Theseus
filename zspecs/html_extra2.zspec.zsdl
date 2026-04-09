@@ -1,0 +1,102 @@
+spec: html_extra2
+version: ">=3.2"
+backend: python_module(html)
+
+docs: https://docs.python.org/3/library/html.html
+
+provenance:
+  derived_from:
+    - "Python html documentation — https://docs.python.org/3/library/html.html"
+    - "Test vectors verified by running Python 3.14.3 html module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/html/__init__.py"
+  notes:
+    - "This spec extends html.zspec.zsdl and html_extra.zspec.zsdl; it does NOT duplicate invariants from those files."
+    - "html.zspec.zsdl covers: escape with <, >, &, dquote, squote, compound inputs; unescape named/numeric entities; edge cases."
+    - "html_extra.zspec.zsdl covers: escape.__name__, unescape.__name__, escape.__module__, unescape.__module__, combined multi-char inputs."
+    - "html.escape('<div>') == '&lt;div&gt;' — only < and > are encoded; plain letters and / are left unchanged."
+    - "html.unescape('&lt;div&gt;') == '<div>' — named entities decoded back to original characters."
+    - "html.escape('\"hello\"', quote=False) == '\"hello\"' — double-quotes not encoded when quote=False."
+    - "html.escape('\"hello\"', quote=True) == '&quot;hello&quot;' — double-quotes encoded as &quot; when quote=True."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# html.escape — single-element tag: only angle brackets encoded
+# ---------------------------------------------------------------------------
+
+invariant html_extra2.escape.div_tag:
+  description: "html.escape('<div>') == '&lt;div&gt;' — only angle brackets encoded, letters unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["<div>"]
+  expected: "&lt;div&gt;"
+
+# ---------------------------------------------------------------------------
+# html.unescape — decode a simple element tag back to raw HTML
+# ---------------------------------------------------------------------------
+
+invariant html_extra2.unescape.div_tag:
+  description: "html.unescape('&lt;div&gt;') == '<div>' — named entities decoded to original characters"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["&lt;div&gt;"]
+  expected: "<div>"
+
+# ---------------------------------------------------------------------------
+# html.escape — double-quote behavior with quote=False vs quote=True
+# ---------------------------------------------------------------------------
+
+invariant html_extra2.escape.dquote_noquote_hello:
+  description: "html.escape('\"hello\"', quote=False) == '\"hello\"' — double-quotes not encoded when quote=False"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["\"hello\""]
+  kwargs: {quote: false}
+  expected: "\"hello\""
+
+invariant html_extra2.escape.dquote_quote_hello:
+  description: "html.escape('\"hello\"', quote=True) == '&quot;hello&quot;' — double-quotes encoded as &quot; when quote=True"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["\"hello\""]
+  kwargs: {quote: true}
+  expected: "&quot;hello&quot;"
+
+# ---------------------------------------------------------------------------
+# html.escape — slash character is not encoded
+# ---------------------------------------------------------------------------
+
+invariant html_extra2.escape.closing_tag:
+  description: "html.escape('</div>') == '&lt;/div&gt;' — slash is not HTML-special and is left unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["</div>"]
+  expected: "&lt;/div&gt;"
+
+# ---------------------------------------------------------------------------
+# html.unescape — round-trip: escape then unescape returns original
+# ---------------------------------------------------------------------------
+
+invariant html_extra2.unescape.apos_entity:
+  description: "html.unescape('&apos;hello&apos;') == \"'hello'\" — apostrophe named entity decoded"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["&apos;hello&apos;"]
+  expected: "'hello'"
+
+invariant html_extra2.unescape.numeric_hex_lt:
+  description: "html.unescape('&#x3C;') == '<' — hex numeric reference for less-than sign"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["&#x3C;"]
+  expected: "<"

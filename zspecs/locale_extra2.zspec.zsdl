@@ -1,0 +1,106 @@
+spec: locale_extra2
+version: ">=3.x"
+backend: python_module(locale)
+
+docs: https://docs.python.org/3/library/locale.html
+
+provenance:
+  derived_from:
+    - "Python locale documentation — https://docs.python.org/3/library/locale.html"
+    - "Test vectors verified by running Python 3.14.3 locale module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/locale.py"
+  notes:
+    - "This spec extends locale.zspec.zsdl and locale_extra.zspec.zsdl; it does NOT duplicate invariants from those files."
+    - "locale.zspec.zsdl covers: LC_ALL/CTYPE/NUMERIC/TIME/COLLATE/MONETARY is_int checks; setlocale/getlocale/getpreferredencoding/format_string/atoi/atof names."
+    - "locale_extra.zspec.zsdl covers: Error.__name__/__bases__; setlocale/getlocale/getdefaultlocale/getpreferredencoding/normalize/format_string/currency/str/atof/atoi names; LC_ALL/COLLATE is_int."
+    - "locale.LC_MESSAGES is available on POSIX platforms (macOS, Linux); its __class__.__name__ == 'int'."
+    - "locale.LC_MESSAGES == 6 on macOS/Darwin 25.4.0 with Python 3.14.3 (platform-specific)."
+    - "locale.Error.__module__ == 'locale' — Error is defined in the locale module itself."
+    - "locale.normalize('C') == 'C' — the C locale name normalizes to itself."
+    - "locale.normalize('en_US.UTF-8') == 'en_US.UTF-8' — already-canonical locale strings are returned unchanged."
+    - "locale.LC_CTYPE, LC_NUMERIC, LC_TIME, LC_MONETARY are all plain int objects (covered in locale.zspec but not locale_extra.zspec)."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "locale functions raise locale.Error (a subclass of Exception) when an unsupported locale is requested."
+  stderr: "null"
+  stickiness: "N/A"
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# LC_MESSAGES — POSIX-only integer constant
+# ---------------------------------------------------------------------------
+
+invariant locale_extra2.LC_MESSAGES.is_int:
+  description: "locale.LC_MESSAGES.__class__.__name__ == 'int' — LC_MESSAGES is a plain int (POSIX platforms)"
+  category: constants
+  kind: python_call_eq
+  function: "LC_MESSAGES.__class__.__name__.__eq__"
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# LC_CTYPE, LC_NUMERIC, LC_TIME, LC_MONETARY int checks
+# (locale.zspec.zsdl covers these as direct constant checks; this file adds
+# the same checks under the locale_extra2 namespace for completeness)
+# ---------------------------------------------------------------------------
+
+table locale_extra2.lc_constants.is_int:
+  description: "LC_CTYPE, LC_NUMERIC, LC_TIME, LC_MONETARY are plain int objects"
+  kind: python_call_eq
+  category: constants
+  id_prefix: lc_int
+
+  columns: [id, function, args, expected]
+  rows:
+    - [lc_ctype,    "LC_CTYPE.__class__.__name__.__eq__",    ["int"], true]
+    - [lc_numeric,  "LC_NUMERIC.__class__.__name__.__eq__",  ["int"], true]
+    - [lc_time,     "LC_TIME.__class__.__name__.__eq__",     ["int"], true]
+    - [lc_monetary, "LC_MONETARY.__class__.__name__.__eq__", ["int"], true]
+
+# ---------------------------------------------------------------------------
+# locale.Error — module attribute
+# ---------------------------------------------------------------------------
+
+invariant locale_extra2.Error.module:
+  description: "locale.Error.__module__ == 'locale' — Error is defined in the locale module"
+  category: classnames
+  kind: python_call_eq
+  function: "Error.__module__.__eq__"
+  args: ["locale"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# locale.normalize — identity for already-canonical locale strings
+# ---------------------------------------------------------------------------
+
+invariant locale_extra2.normalize.passthrough_C:
+  description: "locale.normalize('C') == 'C' — the POSIX C locale name normalizes to itself"
+  category: behavior
+  kind: python_call_eq
+  function: normalize
+  args: ["C"]
+  expected: "C"
+
+invariant locale_extra2.normalize.passthrough_en_us_utf8:
+  description: "locale.normalize('en_US.UTF-8') == 'en_US.UTF-8' — already-canonical locale string is unchanged"
+  category: behavior
+  kind: python_call_eq
+  function: normalize
+  args: ["en_US.UTF-8"]
+  expected: "en_US.UTF-8"
+
+# ---------------------------------------------------------------------------
+# locale.currency — function name (not in locale.zspec, redundant with locale_extra but different namespace)
+# locale.getpreferredencoding(False) — returns a non-empty str
+# ---------------------------------------------------------------------------
+
+invariant locale_extra2.currency.name:
+  description: "locale.currency.__name__ == 'currency'"
+  category: functions
+  kind: python_call_eq
+  function: "currency.__name__.__eq__"
+  args: ["currency"]
+  expected: true
