@@ -1,0 +1,166 @@
+spec: json_extra2
+version: ">=3.9"
+backend: python_module(json)
+
+docs: https://docs.python.org/3/library/json.html
+rfcs:
+  - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format"
+
+provenance:
+  derived_from:
+    - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format, December 2017"
+    - "https://docs.python.org/3/library/json.html — Python json module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/json/__init__.py"
+    - "CPython source: Lib/json/encoder.py"
+    - "CPython source: Lib/json/decoder.py"
+    - "CPython source: Modules/_json.c"
+  notes:
+    - "This spec extends json.zspec.zsdl, json_extra.zspec.zsdl, json_encoder.zspec.zsdl, and json_decoder.zspec.zsdl."
+    - "Focus: return-type class names of loads() and dumps() results, and value correctness for common primitives."
+    - "json.loads('null') returns None; None.__class__.__name__ == 'NoneType'."
+    - "json.loads('true') returns True (bool); bool.__class__.__name__ == 'bool'."
+    - "json.loads('false') returns False (bool); bool.__class__.__name__ == 'bool'."
+    - "json.loads('42') returns an int; int.__class__.__name__ == 'int'."
+    - "json.dumps(None) == 'null' — RFC 8259 §3."
+    - "json.dumps(True) == 'true' — RFC 8259 §3."
+    - "json.dumps(False) == 'false' — RFC 8259 §3."
+    - "json.dumps(42) == '42' — RFC 8259 §6."
+    - "json.dumps([1, 2, 3]) == '[1, 2, 3]' — RFC 8259 §5 (default separators include spaces)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# loads() — return type class names (via method chain)
+# ---------------------------------------------------------------------------
+
+invariant json_extra2.loads.null_class:
+  description: "loads('null').__class__.__name__ == 'NoneType'"
+  category: loads_types
+  kind: python_call_eq
+  function: loads
+  args: ["null"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["NoneType"]
+  expected: true
+
+invariant json_extra2.loads.true_class:
+  description: "loads('true').__class__.__name__ == 'bool'"
+  category: loads_types
+  kind: python_call_eq
+  function: loads
+  args: ["true"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["bool"]
+  expected: true
+
+invariant json_extra2.loads.false_class:
+  description: "loads('false').__class__.__name__ == 'bool'"
+  category: loads_types
+  kind: python_call_eq
+  function: loads
+  args: ["false"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["bool"]
+  expected: true
+
+invariant json_extra2.loads.integer_class:
+  description: "loads('42').__class__.__name__ == 'int'"
+  category: loads_types
+  kind: python_call_eq
+  function: loads
+  args: ["42"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true
+
+invariant json_extra2.loads.float_class:
+  description: "loads('3.14').__class__.__name__ == 'float'"
+  category: loads_types
+  kind: python_call_eq
+  function: loads
+  args: ["3.14"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["float"]
+  expected: true
+
+invariant json_extra2.loads.array_class:
+  description: "loads('[1, 2, 3]').__class__.__name__ == 'list'"
+  category: loads_types
+  kind: python_call_eq
+  function: loads
+  args: ["[1, 2, 3]"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# loads() — value correctness for common primitives
+# ---------------------------------------------------------------------------
+
+invariant json_extra2.loads.true_value:
+  description: "loads('true') == True"
+  category: loads_values
+  kind: python_call_eq
+  function: loads
+  args: ["true"]
+  expected: true
+
+invariant json_extra2.loads.false_value:
+  description: "loads('false') == False"
+  category: loads_values
+  kind: python_call_eq
+  function: loads
+  args: ["false"]
+  expected: false
+
+invariant json_extra2.loads.integer_value:
+  description: "loads('42') == 42"
+  category: loads_values
+  kind: python_call_eq
+  function: loads
+  args: ["42"]
+  expected: 42
+
+invariant json_extra2.loads.string_value:
+  description: 'loads(''\"hello\"'') == ''hello'''
+  category: loads_values
+  kind: python_call_eq
+  function: loads
+  args: ["\"hello\""]
+  expected: "hello"
+
+invariant json_extra2.loads.array_value:
+  description: "loads('[1, 2, 3]') == [1, 2, 3]"
+  category: loads_values
+  kind: python_call_eq
+  function: loads
+  args: ["[1, 2, 3]"]
+  expected: [1, 2, 3]
+
+# ---------------------------------------------------------------------------
+# dumps() — output string correctness for primitives
+# ---------------------------------------------------------------------------
+
+table json_extra2.dumps.primitives:
+  kind: python_call_eq
+  category: dumps_values
+  id_prefix: dumps
+  function: dumps
+
+  columns: [id, args, expected]
+  rows:
+    - [none_null,   [~],        "null"]
+    - [true_true,   [true],     "true"]
+    - [false_false, [false],    "false"]
+    - [int_42,      [42],       "42"]
+    - [list_123,    [[1, 2, 3]], "[1, 2, 3]"]

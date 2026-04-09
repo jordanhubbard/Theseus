@@ -1,0 +1,144 @@
+spec: contextlib_extra
+version: ">=3.10"
+backend: python_module(contextlib)
+
+docs: https://docs.python.org/3/library/contextlib.html
+
+provenance:
+  derived_from:
+    - "Python contextlib documentation — https://docs.python.org/3/library/contextlib.html"
+    - "PEP 343 — The 'with' Statement"
+    - "Test vectors verified by running Python 3.14.3 contextlib module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/contextlib.py"
+  notes:
+    - "Complements contextlib.zspec.zsdl and contextlib_suppress.zspec.zsdl."
+    - "contextlib.zspec.zsdl covers: contextmanager, suppress, ExitStack, closing, redirect_stdout, redirect_stderr, nullcontext, AsyncExitStack, AbstractContextManager, asynccontextmanager names; nullcontext __enter__/__exit__ behavior."
+    - "contextlib_suppress.zspec.zsdl covers: module checks for suppress/ExitStack/AsyncExitStack/redirect_*/AbstractContextManager/AbstractAsyncContextManager; AbstractAsyncContextManager name; base class checks (ABC); ExitStack __enter__ returns self; suppress/redirect_stdout/redirect_stderr is type."
+    - "This spec adds: __module__ for contextmanager/asynccontextmanager/closing/nullcontext/ExitStack; aclosing name/module (3.10+); chained __enter__ on ExitStack; closing __module__."
+    - "contextlib.contextmanager.__module__ is 'contextlib'."
+    - "contextlib.asynccontextmanager.__module__ is 'contextlib'."
+    - "contextlib.closing.__module__ is 'contextlib'."
+    - "contextlib.nullcontext.__module__ is 'contextlib'."
+    - "contextlib.aclosing.__name__ is 'aclosing' and __module__ is 'contextlib' (Python 3.10+)."
+    - "AbstractContextManager.__module__ is 'contextlib' (covered in contextlib_suppress but verified again here for completeness in a different category)."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module checks for names covered in contextlib.zspec.zsdl
+#
+# contextlib.zspec.zsdl verified __name__ for these symbols but not __module__.
+# contextlib_suppress.zspec.zsdl covers suppress/ExitStack/AsyncExitStack/
+# redirect_stdout/redirect_stderr/AbstractContextManager/AbstractAsyncContextManager.
+# This table adds the remainder: contextmanager, asynccontextmanager, closing,
+# nullcontext.
+# ---------------------------------------------------------------------------
+
+table contextlib_extra.function_modules:
+  description: "contextlib callables have __module__ == 'contextlib'"
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [contextmanager,      contextmanager.__module__.__eq__,      ["contextlib"], true]
+    - [asynccontextmanager, asynccontextmanager.__module__.__eq__, ["contextlib"], true]
+    - [closing,             closing.__module__.__eq__,             ["contextlib"], true]
+    - [nullcontext,         nullcontext.__module__.__eq__,         ["contextlib"], true]
+
+# ---------------------------------------------------------------------------
+# aclosing — async variant of closing (Python 3.10+)
+#
+# contextlib.aclosing(thing) is an async context manager that calls
+# thing.aclose() on exit. Available since Python 3.10.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra.aclosing.name:
+  description: "contextlib.aclosing.__name__ == 'aclosing'"
+  category: aclosing
+  kind: python_call_eq
+  function: aclosing.__name__.__eq__
+  args: ["aclosing"]
+  expected: true
+
+invariant contextlib_extra.aclosing.module:
+  description: "contextlib.aclosing.__module__ == 'contextlib'"
+  category: aclosing
+  kind: python_call_eq
+  function: aclosing.__module__.__eq__
+  args: ["contextlib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# contextmanager — is a plain function (not a class)
+#
+# contextlib.contextmanager is a decorator implemented as a plain function,
+# unlike suppress/closing which are classes.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra.contextmanager.is_function:
+  description: "contextlib.contextmanager.__class__.__name__ == 'function'"
+  category: contextmanager
+  kind: python_call_eq
+  function: contextmanager.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant contextlib_extra.asynccontextmanager.is_function:
+  description: "contextlib.asynccontextmanager.__class__.__name__ == 'function'"
+  category: asynccontextmanager
+  kind: python_call_eq
+  function: asynccontextmanager.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# closing — is a class (not a plain function)
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra.closing.is_type:
+  description: "contextlib.closing.__class__.__name__ == 'type' — closing is a class"
+  category: closing
+  kind: python_call_eq
+  function: closing.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# nullcontext — is a class (not a plain function)
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra.nullcontext.is_type:
+  description: "contextlib.nullcontext.__class__.__name__ == 'type' — nullcontext is a class"
+  category: nullcontext
+  kind: python_call_eq
+  function: nullcontext.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# AbstractContextManager — module check
+#
+# contextlib_suppress.zspec.zsdl covers module in the class_modules table;
+# this adds a category-specific recheck under a dedicated 'abc' category.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra.abc.AbstractContextManager_module:
+  description: "contextlib.AbstractContextManager.__module__ == 'contextlib'"
+  category: abc
+  kind: python_call_eq
+  function: AbstractContextManager.__module__.__eq__
+  args: ["contextlib"]
+  expected: true
+
+invariant contextlib_extra.abc.AbstractAsyncContextManager_module:
+  description: "contextlib.AbstractAsyncContextManager.__module__ == 'contextlib'"
+  category: abc
+  kind: python_call_eq
+  function: AbstractAsyncContextManager.__module__.__eq__
+  args: ["contextlib"]
+  expected: true
