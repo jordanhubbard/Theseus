@@ -1,0 +1,195 @@
+spec: re_extra11
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec extends re.zspec.zsdl and prior extras through re_extra10.zspec.zsdl."
+    - "re_extra10 covers: RegexFlag.LOCALE.value/UNICODE.value; LOCALE/UNICODE class names; purge/escape/subn qualnames; escape('a.b'); compile default flags (32); findall digit length; subn count 3."
+    - "re_extra9 covers: Pattern/Match/error __name__/__module__ table; error __qualname__; error/Match MRO; Pattern/Match qualname standalone."
+    - "re_extra7 covers: compile dot pattern; RegexFlag member values IGNORECASE/MULTILINE/DOTALL/VERBOSE/ASCII/NOFLAG; Pattern/Match/RegexFlag qualnames; RegexFlag base IntFlag; compile groups 0/1; match span start/end."
+    - "No prior spec covers re.compile(pattern).groupindex attribute (empty dict for pattern with no named groups)."
+    - "No prior spec covers re.compile(pattern).groupindex.__len__ for a named-group pattern."
+    - "No prior spec covers re.match(...).string attribute (the original string passed to match)."
+    - "No prior spec covers re.match(...).re attribute class name (the compiled pattern used for matching)."
+    - "No prior spec covers re.match(...).pos and .endpos attributes."
+    - "No prior spec covers re.search(...).lastindex attribute being None when there are no capture groups."
+    - "No prior spec covers re.compile(pattern).groups for a two-group pattern."
+    - "No prior spec covers re.sub with count=1 limiting replacements."
+    - "No prior spec covers re.split with maxsplit argument."
+    - "re.compile('a').groupindex == {} — no named groups means empty groupindex dict."
+    - "re.compile('(?P<x>.)').groupindex.__len__() == 1 — one named group."
+    - "re.match(r'\\w+', 'hello').string == 'hello' — Match.string is the original subject."
+    - "re.match(r'\\w+', 'hello').pos == 0 — default start position is 0."
+    - "re.match(r'\\w+', 'hello').endpos == 5 — default endpos is len(string)."
+    - "re.search(r'(\\d+)', 'abc').lastindex is None — no capture groups yields None."
+    - "re.compile('(.)(.)').groups == 2 — two capture groups."
+    - "re.sub(r'a', 'b', 'aaa', count=1) == 'baa' — count limits replacements."
+    - "re.split(r',', 'a,b,c,d', maxsplit=2) == ['a', 'b', 'c,d'] — maxsplit stops after 2 splits."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.compile — groupindex attribute
+#
+# .groupindex is a dict mapping named-group names to group numbers.
+# For a pattern with no named groups it is an empty dict.
+# No prior spec checks this attribute.
+# ---------------------------------------------------------------------------
+
+invariant re_extra11.compile.groupindex_empty_len:
+  description: "re.compile('a').groupindex has length 0 — no named groups"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["a"]
+  method: groupindex.__len__
+  expected: 0
+
+invariant re_extra11.compile.groupindex_named_len:
+  description: "re.compile('(?P<x>.)').groupindex has length 1 — one named group"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["(?P<x>.)"]
+  method: groupindex.__len__
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# re.compile — groups count for two-group pattern
+#
+# re_extra7 covers groups==0 and groups==1.
+# No prior spec covers groups==2.
+# ---------------------------------------------------------------------------
+
+invariant re_extra11.compile.groups_two:
+  description: "re.compile('(.)(.)').groups == 2 — two capture groups"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["(.)(.)"]
+  method: groups.__eq__
+  method_args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.Match — .string attribute
+#
+# Match.string stores the original string that was passed to match/search.
+# No prior spec checks this attribute.
+# ---------------------------------------------------------------------------
+
+invariant re_extra11.match.string_attr:
+  description: "re.match(r'\\w+', 'hello').string == 'hello' — Match.string is the subject string"
+  category: match_attrs
+  kind: python_call_eq
+  function: match
+  args: ["\\w+", "hello"]
+  method: string.__eq__
+  method_args: ["hello"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.Match — .pos and .endpos attributes
+#
+# Match.pos is the start index searched from; Match.endpos is the end.
+# For match() called without pos/endpos these are 0 and len(string).
+# No prior spec checks these attributes.
+# ---------------------------------------------------------------------------
+
+invariant re_extra11.match.pos_default:
+  description: "re.match(r'\\w+', 'hello').pos == 0 — default search start is 0"
+  category: match_attrs
+  kind: python_call_eq
+  function: match
+  args: ["\\w+", "hello"]
+  method: pos.__eq__
+  method_args: [0]
+  expected: true
+
+invariant re_extra11.match.endpos_default:
+  description: "re.match(r'\\w+', 'hello').endpos == 5 — default search end is len(string)"
+  category: match_attrs
+  kind: python_call_eq
+  function: match
+  args: ["\\w+", "hello"]
+  method: endpos.__eq__
+  method_args: [5]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.Match — .re attribute class name
+#
+# Match.re is the compiled Pattern used to produce the match.
+# Its __class__.__name__ should be 'Pattern'.
+# No prior spec checks Match.re.
+# ---------------------------------------------------------------------------
+
+invariant re_extra11.match.re_attr_class_name:
+  description: "re.match(r'\\w+', 'hello').re.__class__.__name__ == 'Pattern'"
+  category: match_attrs
+  kind: python_call_eq
+  function: match
+  args: ["\\w+", "hello"]
+  method: re.__class__.__name__.__eq__
+  method_args: ["Pattern"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.search — .lastindex when there are no capture groups
+#
+# When the pattern has no capture groups, lastindex is None after a match.
+# No prior spec checks lastindex.
+# ---------------------------------------------------------------------------
+
+invariant re_extra11.search.lastindex_none:
+  description: "re.search(r'\\d+', 'abc123').lastindex is None — no capture groups"
+  category: search
+  kind: python_call_eq
+  function: search
+  args: ["\\d+", "abc123"]
+  method: lastindex.__eq__
+  method_args: [null]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.sub — count argument limits replacements
+#
+# re.zspec.zsdl and re_extra5 cover sub() without count.
+# No prior spec covers sub() with a count keyword argument.
+# re.sub(r'a', 'b', 'aaa', 1) == 'baa' — only the first replacement is made.
+# ---------------------------------------------------------------------------
+
+invariant re_extra11.sub.count_one:
+  description: "re.sub(r'a', 'b', 'aaa', 1) == 'baa' — count=1 limits to one replacement"
+  category: sub
+  kind: python_call_eq
+  function: sub
+  args: ["a", "b", "aaa", 1]
+  expected: "baa"
+
+# ---------------------------------------------------------------------------
+# re.split — maxsplit argument
+#
+# re.zspec.zsdl and re_extra5 cover split() without maxsplit.
+# No prior spec covers split() with a maxsplit argument.
+# re.split(r',', 'a,b,c,d', 2) == ['a', 'b', 'c,d']
+# ---------------------------------------------------------------------------
+
+invariant re_extra11.split.maxsplit_two:
+  description: "re.split(r',', 'a,b,c,d', 2) == ['a', 'b', 'c,d'] — maxsplit stops after 2 splits"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: [",", "a,b,c,d", 2]
+  expected: ["a", "b", "c,d"]

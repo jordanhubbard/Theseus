@@ -1,0 +1,194 @@
+spec: decimal_extra8
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+rfcs:
+  - "IBM General Decimal Arithmetic specification"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "This spec extends decimal.zspec.zsdl and prior extras (decimal_extra through decimal_extra7)."
+    - "decimal_extra7 covers: __sub__, __mul__, __truediv__, __abs__, __neg__, comparison operators, copy_abs, copy_negate, __int__."
+    - "No prior spec covers Decimal.__float__ conversion."
+    - "No prior spec covers Decimal.__pow__ exponentiation."
+    - "No prior spec covers Decimal.is_zero() with False case."
+    - "No prior spec covers Decimal.is_signed()."
+    - "No prior spec covers Decimal.adjusted()."
+    - "No prior spec covers Decimal.normalize()."
+    - "No prior spec covers Decimal.__round__(ndigits) (rounding to a given number of decimal places)."
+    - "Decimal('1.5').__float__() == 1.5 — exact conversion for a simple half-integer."
+    - "Decimal('0.5').__float__() == 0.5 — exact conversion for one-half."
+    - "Decimal('3.5').__pow__(2).__str__() == '12.25' — (3.5)^2 == 12.25."
+    - "Decimal('2').__pow__(10).__str__() == '1024' — 2^10 == 1024."
+    - "Decimal('0').is_zero() == True; Decimal('1').is_zero() == False."
+    - "Decimal('-1').is_signed() == True; Decimal('1').is_signed() == False."
+    - "Decimal('100').adjusted() == 2 — adjusted exponent of 1.00e+2 is 2."
+    - "Decimal('1.5').adjusted() == 0 — adjusted exponent of 1.5e+0 is 0."
+    - "Decimal('3.10').normalize().__str__() == '3.1' — normalize strips trailing zero."
+    - "Decimal('3.14').__round__(1).__str__() == '3.1' — round to one decimal place."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __float__ conversion
+# No prior decimal spec covers __float__. Decimal.__float__() produces the
+# nearest IEEE 754 double to the stored decimal value.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra8.Decimal.float_one_five:
+  description: "Decimal('1.5').__float__() == 1.5 — exact binary float conversion for 1.5"
+  category: conversion
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: __float__
+  expected: 1.5
+
+invariant decimal_extra8.Decimal.float_half:
+  description: "Decimal('0.5').__float__() == 0.5 — exact binary float conversion for one-half"
+  category: conversion
+  kind: python_call_eq
+  function: Decimal
+  args: ["0.5"]
+  method: __float__
+  expected: 0.5
+
+# ---------------------------------------------------------------------------
+# __pow__ — exponentiation
+# No prior decimal spec covers __pow__. Decimal supports integer powers.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra8.Decimal.pow_two:
+  description: "Decimal('3.5').__pow__(2).__str__() == '12.25' — (3.5)^2 == 12.25"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["3.5"]
+  method: __pow__
+  method_args: [2]
+  method_chain: __str__
+  expected: "12.25"
+
+invariant decimal_extra8.Decimal.pow_ten:
+  description: "Decimal('2').__pow__(10).__str__() == '1024' — 2^10 == 1024"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["2"]
+  method: __pow__
+  method_args: [10]
+  method_chain: __str__
+  expected: "1024"
+
+# ---------------------------------------------------------------------------
+# is_zero — predicate for zero
+# decimal.zspec covers is_finite, is_infinite, is_nan, is_normal.
+# No prior spec covers is_zero with a True result and a False result together.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra8.Decimal.is_zero_true:
+  description: "Decimal('0').is_zero() == True — zero Decimal is zero"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["0"]
+  method: is_zero
+  expected: true
+
+invariant decimal_extra8.Decimal.is_zero_false:
+  description: "Decimal('1').is_zero() == False — nonzero Decimal is not zero"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: is_zero
+  expected: false
+
+# ---------------------------------------------------------------------------
+# is_signed — predicate for sign bit
+# No prior decimal spec covers is_signed.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra8.Decimal.is_signed_negative:
+  description: "Decimal('-1').is_signed() == True — negative Decimal has sign bit set"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["-1"]
+  method: is_signed
+  expected: true
+
+invariant decimal_extra8.Decimal.is_signed_positive:
+  description: "Decimal('1').is_signed() == False — positive Decimal has sign bit clear"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: is_signed
+  expected: false
+
+# ---------------------------------------------------------------------------
+# adjusted — returns the adjusted exponent (position of leading digit)
+# No prior decimal spec covers adjusted().
+# For Decimal('100') = 1.00e+2: adjusted() == 2.
+# For Decimal('1.5') = 1.5e+0: adjusted() == 0.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra8.Decimal.adjusted_hundred:
+  description: "Decimal('100').adjusted() == 2 — leading digit is at position 10^2"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["100"]
+  method: adjusted
+  expected: 2
+
+invariant decimal_extra8.Decimal.adjusted_one_five:
+  description: "Decimal('1.5').adjusted() == 0 — leading digit is at position 10^0"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: adjusted
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# normalize — remove trailing zeros from coefficient
+# No prior decimal spec covers normalize().
+# Decimal('3.10').normalize() strips the trailing zero -> '3.1'.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra8.Decimal.normalize_trailing_zero:
+  description: "Decimal('3.10').normalize().__str__() == '3.1' — normalize strips trailing zeros"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["3.10"]
+  method: normalize
+  method_chain: __str__
+  expected: "3.1"
+
+# ---------------------------------------------------------------------------
+# __round__ — round to a given number of decimal places (integer ndigits)
+# No prior decimal spec covers __round__ with an ndigits argument.
+# Decimal('3.14').__round__(1) == Decimal('3.1') — round to 1 decimal place.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra8.Decimal.round_one_place:
+  description: "Decimal('3.14').__round__(1).__str__() == '3.1' — round to 1 decimal place"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["3.14"]
+  method: __round__
+  method_args: [1]
+  method_chain: __str__
+  expected: "3.1"

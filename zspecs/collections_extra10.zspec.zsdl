@@ -1,0 +1,157 @@
+spec: collections_extra10
+version: ">=3.9"
+backend: python_module(collections)
+
+docs: https://docs.python.org/3/library/collections.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html — Python collections documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+    - "CPython source: Modules/_collectionsmodule.c"
+  notes:
+    - "This spec extends collections.zspec.zsdl and prior extras through collections_extra9.zspec.zsdl."
+    - "collections_extra9 covers __bases__.__len__() for deque/defaultdict/ChainMap/UserDict/UserList/UserString; deque.__bases__[0].__name__=='object'; UserString/UserList/UserDict .data type checks; UserString/UserList __len__."
+    - "NOT yet covered: MRO lengths for Counter/OrderedDict/defaultdict/deque (simple dict-subclass chain = 3, 2 for deque); Counter/OrderedDict/defaultdict MRO[1].__name__; ChainMap/UserDict/UserList/UserString MRO lengths; deque MRO len; deque(maxlen=N).maxlen == N; Counter missing-key returns 0; defaultdict(int) missing-key returns 0."
+    - "collections.Counter.__mro__.__len__() == 3 — [Counter, dict, object]."
+    - "collections.OrderedDict.__mro__.__len__() == 3 — [OrderedDict, dict, object]."
+    - "collections.defaultdict.__mro__.__len__() == 3 — [defaultdict, dict, object]."
+    - "collections.deque.__mro__.__len__() == 2 — [deque, object] (C-extension type)."
+    - "Counter.__mro__[1].__name__ == 'dict' — Counter inherits from dict."
+    - "OrderedDict.__mro__[1].__name__ == 'dict' — OrderedDict inherits from dict."
+    - "defaultdict.__mro__[1].__name__ == 'dict' — defaultdict inherits from dict."
+    - "deque(maxlen=5).maxlen == 5 — maxlen attribute reflects the constructor argument."
+    - "deque([]).maxlen is None — unbounded deque has maxlen == None."
+    - "Counter()['missing'] == 0 — Counter returns 0 for missing keys, not KeyError."
+    - "UserDict({'x': 10}).__contains__('x') == True — key present in UserDict."
+    - "UserDict({'x': 10}).__contains__('y') == False — key absent from UserDict."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __mro__.__len__() for dict-subclasses: Counter, OrderedDict, defaultdict
+#
+# collections_extra8/9 verified __bases__ for these classes. Not yet verified:
+# the full MRO length. Counter/OrderedDict/defaultdict all have MRO of length 3:
+# [Cls, dict, object].
+# ---------------------------------------------------------------------------
+
+table collections_extra10.dict_subclass_mro_len:
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: mro_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Counter,      Counter.__mro__.__len__,      [], 3]
+    - [OrderedDict,  OrderedDict.__mro__.__len__,  [], 3]
+    - [defaultdict,  defaultdict.__mro__.__len__,  [], 3]
+
+# ---------------------------------------------------------------------------
+# deque.__mro__.__len__() == 2
+#
+# collections_extra9 verified deque.__bases__.__len__() == 1 and
+# deque.__bases__[0].__name__ == 'object'. Not yet verified: the MRO tuple.
+# deque is a C-extension type; its MRO is [deque, object] — length 2.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra10.deque.mro_len:
+  description: "collections.deque.__mro__.__len__() == 2 — C-extension type: [deque, object]"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: deque.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# __mro__[1].__name__ for dict-subclasses
+#
+# Second MRO entry for Counter, OrderedDict, and defaultdict is always 'dict'.
+# This is not tested in any prior spec as an explicit MRO entry.
+# ---------------------------------------------------------------------------
+
+table collections_extra10.dict_subclass_mro_second:
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: mro_second
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Counter,     Counter.__mro__.__getitem__,     [1], "dict"]
+    - [OrderedDict, OrderedDict.__mro__.__getitem__,  [1], "dict"]
+    - [defaultdict, defaultdict.__mro__.__getitem__,  [1], "dict"]
+
+# ---------------------------------------------------------------------------
+# deque(maxlen=N).maxlen attribute
+#
+# deque supports an optional maxlen argument that caps the size of the queue.
+# No prior spec tests the .maxlen attribute on deque instances. A deque
+# constructed without maxlen has maxlen == None; with maxlen=5 it returns 5.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra10.deque.maxlen_bounded:
+  description: "collections.deque([], maxlen=5).maxlen == 5 — bounded deque reflects maxlen"
+  category: deque_ops
+  kind: python_call_eq
+  function: deque
+  args: [[], 5]
+  method: maxlen
+  expected: 5
+
+invariant collections_extra10.deque.maxlen_none:
+  description: "collections.deque([]).maxlen is None — unbounded deque has maxlen == None"
+  category: deque_ops
+  kind: python_call_eq
+  function: deque
+  args: [[]]
+  method: maxlen
+  expected: ~
+
+# ---------------------------------------------------------------------------
+# Counter missing-key returns 0
+#
+# Unlike a plain dict, a Counter returns 0 for keys that were never counted.
+# No prior spec tests this zero-default behaviour on a Counter instance.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra10.Counter.missing_key_zero:
+  description: "Counter()['missing'] == 0 — Counter returns 0 for absent keys"
+  category: counter_ops
+  kind: python_call_eq
+  function: Counter
+  args: []
+  method: __getitem__
+  method_args: ["missing"]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# UserDict.__contains__ — membership test on a wrapped dict
+#
+# collections.UserDict proxies all dict operations including __contains__.
+# No prior spec tests membership checks on a UserDict instance. A key that
+# was supplied at construction is found; an absent key is not.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra10.UserDict.contains_present:
+  description: "UserDict({'x': 10}).__contains__('x') == True — present key found"
+  category: user_types
+  kind: python_call_eq
+  function: UserDict
+  args: [{"x": 10}]
+  method: __contains__
+  method_args: ["x"]
+  expected: true
+
+invariant collections_extra10.UserDict.contains_absent:
+  description: "UserDict({'x': 10}).__contains__('y') == False — absent key not found"
+  category: user_types
+  kind: python_call_eq
+  function: UserDict
+  args: [{"x": 10}]
+  method: __contains__
+  method_args: ["y"]
+  expected: false

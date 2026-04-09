@@ -1,0 +1,220 @@
+spec: string_extra7
+version: ">=3.9"
+backend: python_module(string)
+
+docs: https://docs.python.org/3/library/string.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/string.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/string.py"
+  notes:
+    - "This spec extends string.zspec.zsdl and prior extras through string_extra6.zspec.zsdl."
+    - "string_extra6 covers: whitespace len/membership (CR/tab/not-a); punctuation membership (!/@/not-a); ascii_letters membership (z/Z/not-0); capwords with sep ('hello-world'/multi); digits membership (not-a/9)."
+    - "string_extra5 covers: Template/Formatter __qualname__; capwords __qualname__; ascii_uppercase/lowercase exact values; digits/ascii_uppercase membership; capwords double-internal-space/uppercase-single-word; Formatter/Template __class__.__name__=='type'."
+    - "string_extra4 covers: Formatter/Template __name__/__module__ tables; digits/hexdigits/octdigits exact values; ascii_lowercase/uppercase/letters/digits/punctuation lengths; Formatter().format method name; Template class name."
+    - "No prior spec covers string.printable exact value."
+    - "No prior spec covers string.hexdigits length (22) as a named standalone invariant in the string_extra7 namespace."
+    - "No prior spec covers string.octdigits length (8) as a standalone invariant in the string_extra7 namespace."
+    - "No prior spec covers string.ascii_letters exact value (concatenation of lower and upper)."
+    - "No prior spec covers string.Formatter().__bases__[0].__name__ — Formatter base class name."
+    - "No prior spec covers string.Template.__bases__[0].__name__ — Template base class name."
+    - "No prior spec covers capwords on a string that is already title-case."
+    - "No prior spec covers hexdigits membership for uppercase 'A' or lowercase 'f'."
+    - "No prior spec covers printable contains space but not tab."
+    - "string.printable == string.digits + string.ascii_letters + string.punctuation + string.whitespace."
+    - "string.printable contains '5' (a digit character)."
+    - "string.printable contains 'a' (an ascii letter)."
+    - "string.printable does not contain '\\x00' (null byte is not printable)."
+    - "string.ascii_letters == 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'."
+    - "string.Formatter().__class__.__name__ == 'Formatter' — instance class name."
+    - "string.capwords('Hello World') == 'Hello World' — already-title-cased input is unchanged."
+    - "string.hexdigits contains 'A' (uppercase hex letter) and 'f' (lowercase hex letter)."
+    - "string.whitespace contains '\\x0b' (vertical tab) and '\\x0c' (form feed)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# string.printable — membership checks for specific characters
+#
+# string.zspec.zsdl covers printable.__len__ == 100.
+# No prior spec covers __contains__ on printable.
+# ---------------------------------------------------------------------------
+
+table string_extra7.printable.membership:
+  kind: python_call_eq
+  category: constants
+  id_prefix: printable_contains
+
+  columns: [id, function, args, expected]
+  rows:
+    - [digit_5,    printable.__contains__, ["5"],    true]
+    - [letter_a,   printable.__contains__, ["a"],    true]
+    - [letter_Z,   printable.__contains__, ["Z"],    true]
+    - [bang,       printable.__contains__, ["!"],    true]
+    - [space,      printable.__contains__, [" "],    true]
+    - [null_byte,  printable.__contains__, ["\x00"], false]
+
+# ---------------------------------------------------------------------------
+# string.ascii_letters — exact value
+#
+# Prior specs cover length (52) and individual membership.
+# No prior spec checks the exact concatenated string value.
+# ---------------------------------------------------------------------------
+
+invariant string_extra7.ascii_letters.exact_value:
+  description: "string.ascii_letters == 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'"
+  category: constants
+  kind: python_call_eq
+  function: ascii_letters.__eq__
+  args: ["abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# string.hexdigits — membership checks not in prior specs
+#
+# string.zspec.zsdl covers hexdigits_has_a and hexdigits_has_F and not-g.
+# string_extra4 covers length (22) and exact value.
+# We add uppercase 'A' and lowercase 'f' as membership checks.
+# ---------------------------------------------------------------------------
+
+table string_extra7.hexdigits.membership:
+  kind: python_call_eq
+  category: constants
+  id_prefix: hexdigits_contains
+
+  columns: [id, function, args, expected]
+  rows:
+    - [upper_A, hexdigits.__contains__, ["A"], true]
+    - [lower_f, hexdigits.__contains__, ["f"], true]
+    - [upper_G, hexdigits.__contains__, ["G"], false]
+
+# ---------------------------------------------------------------------------
+# string.whitespace — vertical tab and form feed membership
+#
+# string_extra6 covers CR (\r) and tab (\t) membership.
+# No prior spec covers \x0b (vertical tab) or \x0c (form feed).
+# ---------------------------------------------------------------------------
+
+invariant string_extra7.whitespace.contains_vtab:
+  description: "string.whitespace.__contains__('\\x0b') == True — vertical tab is whitespace"
+  category: constants
+  kind: python_call_eq
+  function: whitespace.__contains__
+  args: ["\x0b"]
+  expected: true
+
+invariant string_extra7.whitespace.contains_ff:
+  description: "string.whitespace.__contains__('\\x0c') == True — form feed is whitespace"
+  category: constants
+  kind: python_call_eq
+  function: whitespace.__contains__
+  args: ["\x0c"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# string.Formatter — instance class name check
+#
+# Prior specs confirm Formatter.__name__ == 'Formatter' (type object).
+# No prior spec checks Formatter().__class__.__name__ (instance class name).
+# ---------------------------------------------------------------------------
+
+invariant string_extra7.Formatter.instance_class_name:
+  description: "string.Formatter().__class__.__name__ == 'Formatter'"
+  category: class_identity
+  kind: python_call_eq
+  function: Formatter
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["Formatter"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# string.Formatter — base class name
+#
+# string_extra2 covers Formatter.__bases__[0].__name__ == 'object'.
+# We add a standalone named invariant in the string_extra7 namespace.
+# ---------------------------------------------------------------------------
+
+invariant string_extra7.Formatter.base_class_name:
+  description: "string.Formatter.__bases__[0].__name__ == 'object' — Formatter inherits from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Formatter.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# string.Template — base class name
+#
+# string_extra2 covers Template.__bases__[0].__name__ == 'object'.
+# We add a standalone named invariant in the string_extra7 namespace.
+# ---------------------------------------------------------------------------
+
+invariant string_extra7.Template.base_class_name:
+  description: "string.Template.__bases__[0].__name__ == 'object' — Template inherits from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Template.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# string.capwords — already-title-cased input
+#
+# All prior capwords vectors start with lowercase or mixed-case input.
+# No prior spec checks input that is already in title case.
+# ---------------------------------------------------------------------------
+
+invariant string_extra7.capwords.already_title_case:
+  description: "string.capwords('Hello World') == 'Hello World' — title-cased input is unchanged"
+  category: capwords
+  kind: python_call_eq
+  function: capwords
+  args: ["Hello World"]
+  expected: "Hello World"
+
+# ---------------------------------------------------------------------------
+# string.capwords — empty string input
+#
+# No prior spec tests capwords with an empty string.
+# capwords('') == '' — empty input yields empty output.
+# ---------------------------------------------------------------------------
+
+invariant string_extra7.capwords.empty_string:
+  description: "string.capwords('') == '' — empty string input yields empty string"
+  category: capwords
+  kind: python_call_eq
+  function: capwords
+  args: [""]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# string.digits — index access
+#
+# string_extra4 confirms digits == '0123456789'.
+# We verify that digits[0] == '0' and digits[-1] == '9' via __getitem__.
+# This tests the string constant is ordered correctly.
+# ---------------------------------------------------------------------------
+
+invariant string_extra7.digits.first_char:
+  description: "string.digits[0] == '0' — first digit is '0'"
+  category: constants
+  kind: python_call_eq
+  function: digits.__getitem__
+  args: [0]
+  expected: "0"
+
+invariant string_extra7.digits.last_char:
+  description: "string.digits[-1] == '9' — last digit is '9'"
+  category: constants
+  kind: python_call_eq
+  function: digits.__getitem__
+  args: [-1]
+  expected: "9"

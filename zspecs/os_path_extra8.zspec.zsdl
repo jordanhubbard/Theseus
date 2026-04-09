@@ -1,0 +1,167 @@
+spec: os_path_extra8
+version: ">=3.9"
+backend: python_module(os.path)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.path.html — Python os.path documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py"
+  notes:
+    - "This spec extends os_path.zspec.zsdl and prior extras through os_path_extra7.zspec.zsdl."
+    - "os_path_extra7 covers __name__/__qualname__ for islink/getsize/realpath and splitext behavioral vectors."
+    - "os_path_extra6 covers __qualname__ for join/split/basename/dirname/normpath/abspath and three-component join/normpath vectors."
+    - "os_path.zspec.zsdl covers commonprefix, splitext base/ext tables, splitdrive POSIX, split table."
+    - "NOT yet covered: os.path.expanduser.__name__, expanduser.__qualname__."
+    - "NOT yet covered: os.path.expandvars.__name__, expandvars.__qualname__."
+    - "NOT yet covered: os.path.commonpath.__name__, commonpath.__qualname__ (Python 3.5+)."
+    - "NOT yet covered: os.path.basename on a path with no directory (bare filename)."
+    - "NOT yet covered: os.path.dirname on a path with no trailing slash and no directory component."
+    - "NOT yet covered: os.path.isabs on a relative path starting with a dot."
+    - "NOT yet covered: os.path.normpath on trailing slash path."
+    - "NOT yet covered: os.path.split on empty string."
+    - "os.path.expanduser.__name__ == 'expanduser'."
+    - "os.path.expanduser.__qualname__ == 'expanduser'."
+    - "os.path.expandvars.__name__ == 'expandvars'."
+    - "os.path.expandvars.__qualname__ == 'expandvars'."
+    - "os.path.commonpath.__name__ == 'commonpath' (Python 3.5+)."
+    - "os.path.commonpath.__qualname__ == 'commonpath'."
+    - "os.path.basename('hello.py') == 'hello.py' — bare filename, no directory."
+    - "os.path.dirname('/a/b') == '/a' — simple two-component absolute path."
+    - "os.path.isabs('./relative') == False — dot-relative is not absolute."
+    - "os.path.normpath('/a/b/') == '/a/b' — trailing slash is stripped."
+    - "os.path.split('') == ('', '') — empty string splits to two empty strings."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# expanduser and expandvars — __name__ and __qualname__
+#
+# No prior os_path spec covers expanduser or expandvars identity attributes.
+# Both are module-level functions, so __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+table os_path_extra8.expanduser_expandvars_names:
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [expanduser_name,     expanduser.__name__.__eq__,     ["expanduser"],  true]
+    - [expanduser_qualname, expanduser.__qualname__.__eq__,  ["expanduser"],  true]
+    - [expandvars_name,     expandvars.__name__.__eq__,     ["expandvars"],  true]
+    - [expandvars_qualname, expandvars.__qualname__.__eq__,  ["expandvars"],  true]
+
+# ---------------------------------------------------------------------------
+# commonpath — __name__ and __qualname__ (Python 3.5+)
+#
+# os.path.commonpath returns the longest common sub-path of a sequence of
+# paths. No prior os_path spec checks commonpath identity attributes.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra8.commonpath.name:
+  description: "os.path.commonpath.__name__ == 'commonpath' (Python 3.5+)"
+  category: function_identity
+  kind: python_call_eq
+  function: commonpath.__name__.__eq__
+  args: ["commonpath"]
+  expected: true
+
+invariant os_path_extra8.commonpath.qualname:
+  description: "os.path.commonpath.__qualname__ == 'commonpath' (Python 3.5+)"
+  category: function_identity
+  kind: python_call_eq
+  function: commonpath.__qualname__.__eq__
+  args: ["commonpath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# basename — bare filename (no directory prefix)
+#
+# os_path.zspec.zsdl covers basename('/foo/bar.py'), basename('/foo/'),
+# basename('bar.py'), basename('').
+# This adds a minimal standalone invariant confirming a bare filename is
+# returned unchanged when there is no directory component.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra8.basename.bare_filename:
+  description: "os.path.basename('hello.py') == 'hello.py' — bare filename with no directory"
+  category: basename_values
+  kind: python_call_eq
+  function: basename
+  args: ["hello.py"]
+  expected: "hello.py"
+
+# ---------------------------------------------------------------------------
+# dirname — two-component absolute path
+#
+# os_path.zspec.zsdl covers dirname('/foo/bar.py') == '/foo', dirname('bar.py') == '',
+# dirname('/foo/') == '/foo', dirname('') == ''.
+# This adds a two-component path '/a/b' where dirname == '/a'.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra8.dirname.two_component:
+  description: "os.path.dirname('/a/b') == '/a' — simple two-component absolute path"
+  category: dirname_values
+  kind: python_call_eq
+  function: dirname
+  args: ["/a/b"]
+  expected: "/a"
+
+# ---------------------------------------------------------------------------
+# isabs — dot-relative path is not absolute
+#
+# os_path.zspec.zsdl covers isabs('/foo') == True, isabs('foo') == False,
+# isabs('') == False. A path starting with './' is unambiguously relative
+# even though it begins with a visible character.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra8.isabs.dot_relative:
+  description: "os.path.isabs('./relative') == False — dot-relative path is not absolute"
+  category: isabs_values
+  kind: python_call_eq
+  function: isabs
+  args: ["./relative"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# normpath — trailing slash is stripped
+#
+# os_path.zspec.zsdl covers normpath('/foo/../bar'), normpath('a/./b'),
+# normpath('a//b'), normpath(''), normpath('.'), normpath('..').
+# os_path_extra6 adds normpath('a/./b/../c').
+# This adds normpath('/a/b/') == '/a/b' — trailing slash normalisation.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra8.normpath.trailing_slash:
+  description: "os.path.normpath('/a/b/') == '/a/b' — trailing slash is stripped"
+  category: normpath_values
+  kind: python_call_eq
+  function: normpath
+  args: ["/a/b/"]
+  expected: "/a/b"
+
+# ---------------------------------------------------------------------------
+# split — empty string returns two empty strings
+#
+# os_path.zspec.zsdl covers split for '/foo/bar.py', '/foo/', and 'bar.py'.
+# split('') returns ('', '') — not yet tested as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+table os_path_extra8.split_empty:
+  kind: python_call_eq
+  category: split_values
+  id_prefix: split_empty
+  function: split
+  args: [""]
+
+  columns: [id, method, method_args, expected]
+  rows:
+    - [head, __getitem__, [0], ""]
+    - [tail, __getitem__, [1], ""]
