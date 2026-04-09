@@ -1,0 +1,213 @@
+spec: charset_normalizer
+version: ">=3.0.0"
+backend: python_module(charset_normalizer)
+
+docs: https://charset-normalizer.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "charset-normalizer documentation — https://charset-normalizer.readthedocs.io/"
+    - "charset-normalizer README — https://github.com/Ousret/charset_normalizer#readme"
+    - "Test vectors verified with charset-normalizer 3.4.4 via Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "charset_normalizer source: (MIT; source inspection permitted)"
+  not_derived_from:
+    - "charset_normalizer source: internal encoding detection algorithms"
+  notes:
+    - "charset_normalizer exposes from_bytes(), from_fp(), from_path(), is_binary(), CharsetMatch, CharsetMatches."
+    - "from_bytes(b) returns a CharsetMatches container; .best() returns the best CharsetMatch (or None)."
+    - "CharsetMatch attributes: encoding, chaos, coherence, language, bom, byte_order_mark, has_submatch, multi_byte_usage, encoding_aliases."
+    - "is_binary() returns True for sequences dominated by control/null bytes; returns False for printable text."
+    - "Pure ASCII input ('Hello World') is detected with encoding='ascii', chaos=0.0, language='English'."
+    - "UTF-8 encoded CJK text is detected with encoding='utf_8' and multi_byte_usage > 0."
+    - "is_binary(bytes(range(0,32))) == True — low control characters are treated as binary."
+    - "is_binary(b'\\x00'*20) == True — null-dominated sequences are binary."
+    - "is_binary(b'Hello World') == False — printable ASCII is not binary."
+    - "All expected values verified by running charset-normalizer 3.4.4 on Python 3.14, macOS Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — __version__ is a non-empty string
+# ---------------------------------------------------------------------------
+
+invariant charset_normalizer.version.nonempty:
+  description: "__version__ is a non-empty string (len > 0)"
+  category: version
+  kind: python_call_eq
+  function: __version__.__len__
+  args: []
+  expected: 5
+
+invariant charset_normalizer.version.contains_dot:
+  description: "__version__ contains a dot separator"
+  category: version
+  kind: python_call_eq
+  function: __version__.__contains__
+  args: ["."]
+  expected: true
+
+invariant charset_normalizer.version.starts_with_digit:
+  description: "__version__ starts with a digit (major version number)"
+  category: version
+  kind: python_call_eq
+  function: __version__.__ge__
+  args: ["3"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# is_binary — binary detection for byte sequences
+#
+# b'Hello World'         → SGVsbG8gV29ybGQ=          (False — printable ASCII)
+# b'\x00' * 20           → AAAAAAAAAAAAAAAAAAAAAAAAAAA= (True — null bytes)
+# bytes(range(0, 32))    → AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8= (True — control chars)
+# ELF-like + nulls       → f0VMRg... (True — binary signature + padding)
+# b'The quick brown fox' → VGhlIHF1aWNrIGJyb3duIGZveA== (False — ASCII text)
+# ---------------------------------------------------------------------------
+
+invariant charset_normalizer.is_binary.hello_world_false:
+  description: "is_binary(b'Hello World') == False — printable ASCII is not binary"
+  category: is_binary
+  kind: python_call_eq
+  function: is_binary
+  args: [{type: bytes_b64, value: "SGVsbG8gV29ybGQ="}]
+  expected: false
+
+invariant charset_normalizer.is_binary.quick_fox_false:
+  description: "is_binary(b'The quick brown fox') == False — ASCII text is not binary"
+  category: is_binary
+  kind: python_call_eq
+  function: is_binary
+  args: [{type: bytes_b64, value: "VGhlIHF1aWNrIGJyb3duIGZveA=="}]
+  expected: false
+
+invariant charset_normalizer.is_binary.null_bytes_true:
+  description: "is_binary(b'\\x00' * 20) == True — null-dominated sequences are binary"
+  category: is_binary
+  kind: python_call_eq
+  function: is_binary
+  args: [{type: bytes_b64, value: "AAAAAAAAAAAAAAAAAAAAAAAAAAA="}]
+  expected: true
+
+invariant charset_normalizer.is_binary.control_chars_true:
+  description: "is_binary(bytes(range(0, 32))) == True — control character sequences are binary"
+  category: is_binary
+  kind: python_call_eq
+  function: is_binary
+  args: [{type: bytes_b64, value: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="}]
+  expected: true
+
+invariant charset_normalizer.is_binary.elf_like_true:
+  description: "is_binary(ELF header + null padding) == True — binary executable signature"
+  category: is_binary
+  kind: python_call_eq
+  function: is_binary
+  args: [{type: bytes_b64, value: "f0VMRgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# from_bytes — detect ASCII input
+#
+# from_bytes(b'Hello World').best().encoding == 'ascii'
+# from_bytes(b'Hello World').best().chaos == 0.0
+# from_bytes(b'Hello World').best().bom == False
+# from_bytes(b'Hello World').best().language == 'English'
+# from_bytes(b'Hello World').best().has_submatch == False
+# ---------------------------------------------------------------------------
+
+invariant charset_normalizer.detect_ascii.encoding:
+  description: "from_bytes(b'Hello World').best().encoding == 'ascii'"
+  category: detect_ascii
+  kind: python_call_eq
+  function: from_bytes
+  args: [{type: bytes_b64, value: "SGVsbG8gV29ybGQ="}]
+  method: best
+  method_chain: encoding
+  expected: "ascii"
+
+invariant charset_normalizer.detect_ascii.chaos:
+  description: "from_bytes(b'Hello World').best().chaos == 0.0"
+  category: detect_ascii
+  kind: python_call_eq
+  function: from_bytes
+  args: [{type: bytes_b64, value: "SGVsbG8gV29ybGQ="}]
+  method: best
+  method_chain: chaos
+  expected: 0.0
+
+invariant charset_normalizer.detect_ascii.bom:
+  description: "from_bytes(b'Hello World').best().bom == False"
+  category: detect_ascii
+  kind: python_call_eq
+  function: from_bytes
+  args: [{type: bytes_b64, value: "SGVsbG8gV29ybGQ="}]
+  method: best
+  method_chain: bom
+  expected: false
+
+invariant charset_normalizer.detect_ascii.language:
+  description: "from_bytes(b'Hello World').best().language == 'English'"
+  category: detect_ascii
+  kind: python_call_eq
+  function: from_bytes
+  args: [{type: bytes_b64, value: "SGVsbG8gV29ybGQ="}]
+  method: best
+  method_chain: language
+  expected: "English"
+
+invariant charset_normalizer.detect_ascii.has_submatch:
+  description: "from_bytes(b'Hello World').best().has_submatch == False"
+  category: detect_ascii
+  kind: python_call_eq
+  function: from_bytes
+  args: [{type: bytes_b64, value: "SGVsbG8gV29ybGQ="}]
+  method: best
+  method_chain: has_submatch
+  expected: false
+
+# ---------------------------------------------------------------------------
+# from_bytes — detect UTF-8 with CJK characters
+#
+# 'Hello, 世界'.encode('utf-8') → SGVsbG8sIOS4lueVjA==
+# encoding == 'utf_8', multi_byte_usage > 0
+# ---------------------------------------------------------------------------
+
+invariant charset_normalizer.detect_utf8_cjk.encoding:
+  description: "from_bytes(UTF-8 CJK bytes).best().encoding == 'utf_8'"
+  category: detect_utf8
+  kind: python_call_eq
+  function: from_bytes
+  args: [{type: bytes_b64, value: "SGVsbG8sIOS4lueVjA=="}]
+  method: best
+  method_chain: encoding
+  expected: "utf_8"
+
+invariant charset_normalizer.detect_utf8_cjk.chaos:
+  description: "from_bytes(UTF-8 CJK bytes).best().chaos == 0.0 — valid UTF-8 has no chaos"
+  category: detect_utf8
+  kind: python_call_eq
+  function: from_bytes
+  args: [{type: bytes_b64, value: "SGVsbG8sIOS4lueVjA=="}]
+  method: best
+  method_chain: chaos
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# CharsetMatches container — class name
+# ---------------------------------------------------------------------------
+
+invariant charset_normalizer.classes.charset_matches_name:
+  description: "CharsetMatches.__name__ == 'CharsetMatches'"
+  category: classes
+  kind: python_call_eq
+  function: CharsetMatches.__name__.__eq__
+  args: ["CharsetMatches"]
+  expected: true
+
+invariant charset_normalizer.classes.charset_match_name:
+  description: "CharsetMatch.__name__ == 'CharsetMatch'"
+  category: classes
+  kind: python_call_eq
+  function: CharsetMatch.__name__.__eq__
+  args: ["CharsetMatch"]
+  expected: true

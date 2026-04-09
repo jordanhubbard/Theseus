@@ -1,0 +1,63 @@
+spec: cookie
+version: ">=0.4.0"
+backend: node(cookie)
+
+docs: https://github.com/jshttp/cookie#readme
+
+provenance:
+  derived_from:
+    - "cookie README — https://github.com/jshttp/cookie#readme"
+    - "Test vectors verified with cookie@0.7.2 via Node.js 25.6.0 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "cookie source: index.js (MIT; source inspection permitted)"
+  not_derived_from: []
+  notes:
+    - "cookie exports parse(str, [options]) and serialize(name, value, [options])."
+    - "parse(str) returns a plain object mapping cookie names to values."
+    - "serialize(name, value, opts) returns a Set-Cookie header string."
+    - "Options for serialize: httpOnly, secure, path, domain, maxAge, expires, sameSite."
+    - "parse('') returns an empty object {}."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "parse returns empty object for empty/malformed input. serialize throws for invalid names. node exits 0 for all invariants in this spec."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# cookie.parse(str) — Cookie header → name/value object
+# ---------------------------------------------------------------------------
+
+table cookie.parse:
+  kind: node_module_call_eq
+  function: parse
+  category: parse
+  id_prefix: parse
+
+  columns: [id, args, expected]
+  rows:
+    - [single,      ["foo=bar"],        {foo: "bar"}]
+    - [two_pairs,   ["foo=bar; baz=qux"], {foo: "bar", baz: "qux"}]
+    - [empty,       [""],               {}]
+    - [three_pairs, ["a=1; b=2; c=3"], {a: "1", b: "2", c: "3"}]
+
+# ---------------------------------------------------------------------------
+# cookie.serialize(name, value, [options]) — name/value → Set-Cookie string
+# ---------------------------------------------------------------------------
+
+table cookie.serialize:
+  kind: node_module_call_eq
+  function: serialize
+  category: serialize
+  id_prefix: serialize
+
+  columns: [id, args, expected]
+  rows:
+    - [simple,       ["foo", "bar"],                      "foo=bar"]
+    - [named_value,  ["name", "value"],                   "name=value"]
+    - [http_only,    ["foo", "bar", {"httpOnly": true}],  "foo=bar; HttpOnly"]
+    - [secure,       ["foo", "bar", {"secure": true}],    "foo=bar; Secure"]
+    - [path_root,    ["foo", "bar", {"path": "/"}],       "foo=bar; Path=/"]
+    - [max_age_zero, ["sid", "", {"maxAge": 0}],          "sid=; Max-Age=0"]
+    - [same_site_strict, ["sid", "abc", {"sameSite": "Strict"}], "sid=abc; SameSite=Strict"]
+    - [same_site_lax,    ["sid", "abc", {"sameSite": "Lax"}],    "sid=abc; SameSite=Lax"]
