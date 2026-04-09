@@ -1,0 +1,193 @@
+spec: ipaddress_extra10
+version: ">=3.9"
+backend: python_module(ipaddress)
+
+docs: https://docs.python.org/3/library/ipaddress.html
+rfcs:
+  - "RFC 791 — Internet Protocol (IPv4)"
+  - "RFC 2460 — Internet Protocol, Version 6 (IPv6)"
+  - "RFC 4291 — IP Version 6 Addressing Architecture"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ipaddress.html — Python ipaddress module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ipaddress.py"
+    - "ipaddress.zspec.zsdl — covers IPv4/IPv6 address/network attributes and error cases"
+    - "ipaddress_extra.zspec.zsdl — covers __name__ and __module__ for all 6 public classes (tables), packed_is_bytes, is_private, factory return types"
+    - "ipaddress_extra2.zspec.zsdl — covers IPv4/IPv6/Network __name__ (table), ip_address/ip_network/ip_interface __name__ (table), loopback class name, packed_is_bytes"
+    - "ipaddress_extra3.zspec.zsdl — covers factory __module__; __bases__[0].__name__ for IPv4/IPv6Address and IPv4/IPv6Network; AddressValueError/NetmaskValueError full coverage"
+    - "ipaddress_extra4.zspec.zsdl — covers IPv4Address is_private/is_loopback/is_unspecified/packed type/packed len; IPv6Address is_loopback/packed len; IPv4Network num_addresses/prefixlen/network_address class"
+    - "ipaddress_extra5.zspec.zsdl — covers __qualname__ for all 6 classes, 3 factory functions, and 2 exception classes"
+    - "ipaddress_extra6.zspec.zsdl — covers .version and .max_prefixlen for IPv4Address/IPv6Address/IPv4Network/IPv6Network; IPv6Address.compressed class name and loopback value"
+    - "ipaddress_extra7.zspec.zsdl — covers class __name__ for all 8 symbols (table); exception __bases__ parent; IPv4Address/IPv6Address/IPv4Network __module__ (standalone)"
+    - "ipaddress_extra8.zspec.zsdl — covers class_names table (4 classes); bases_count table; IPv4Address.is_global; IPv6Address.is_unspecified; IPv4Address.is_multicast; IPv6Address.is_link_local"
+    - "ipaddress_extra9.zspec.zsdl — covers IPv4Address.compressed type and value; IPv4Network/IPv6Network.max_prefixlen; IPv6Network.prefixlen and num_addresses for /128; IPv4Network('192.168.0.0/16').num_addresses==65536; IPv6Address.is_multicast"
+  notes:
+    - "This spec extends the ipaddress chain; it does NOT duplicate invariants already present in any prior spec."
+    - "Focus: ip_address factory returning IPv4Address or IPv6Address (class name check via method_chain); IPv6Network.__module__ (extra7 covers IPv4Address/IPv6Address/IPv4Network but not IPv6Network); IPv4Address.is_loopback True/False pair (extra4 covers is_loopback True for IPv4; False case is new); IPv6Address.is_loopback True (covered by extra4) vs False for non-loopback (new); IPv4Address.is_reserved for reserved range (not in any prior spec); IPv6Address.is_private for documentation prefix (not in any prior spec); IPv4Network('172.16.0.0/12').num_addresses==1048576 (new prefix/count pair)."
+    - "ipaddress.ip_address('127.0.0.1').__class__.__name__ == 'IPv4Address' — factory returns IPv4Address for dotted-decimal input. Prior specs check ip_address return type but not via method_chain on __class__.__name__."
+    - "ipaddress.ip_address('::1').__class__.__name__ == 'IPv6Address' — factory returns IPv6Address for IPv6 input."
+    - "ipaddress.IPv6Network.__module__ == 'ipaddress' — extra7 covers IPv4Address/IPv6Address/IPv4Network __module__ standalone; IPv6Network.__module__ is uncovered."
+    - "ipaddress.IPv4Address('8.8.8.8').is_loopback == False — extra4 checks is_loopback True for 127.0.0.1; the False case for a public address is a new vector."
+    - "ipaddress.IPv6Address('::1').is_loopback == True — extra4 covers IPv4Address(127.0.0.1).is_loopback; IPv6 loopback check is new (::1 is the IPv6 loopback)."
+    - "ipaddress.IPv4Address('240.0.0.1').is_reserved == True — 240.0.0.0/4 is IETF reserved; no prior spec checks is_reserved."
+    - "ipaddress.IPv6Address('2001:db8::1').is_private == True — 2001:db8::/32 is documentation prefix, classified as private; no prior spec checks IPv6Address.is_private."
+    - "ipaddress.IPv4Network('172.16.0.0/12').num_addresses == 1048576 — extra4 covers /8 (16777216) and extra9 covers /16 (65536); /12 with 2^20=1048576 is a new vector."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ip_address factory return type via method_chain.
+#
+# Prior specs verify ip_address returns an IPv4Address or IPv6Address via
+# table rows using the __class__.__name__ attribute chain on the factory.
+# Here we use invariant method_chain to check both IPv4 and IPv6 cases.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra10.ip_address_ipv4.class_name:
+  description: "ipaddress.ip_address('127.0.0.1').__class__.__name__ == 'IPv4Address'"
+  category: factory_return_type
+  kind: python_call_eq
+  function: ip_address
+  args: ["127.0.0.1"]
+  method: __class__.__name__.__eq__
+  method_args: ["IPv4Address"]
+  expected: true
+
+invariant ipaddress_extra10.ip_address_ipv6.class_name:
+  description: "ipaddress.ip_address('::1').__class__.__name__ == 'IPv6Address'"
+  category: factory_return_type
+  kind: python_call_eq
+  function: ip_address
+  args: ["::1"]
+  method: __class__.__name__.__eq__
+  method_args: ["IPv6Address"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv6Network.__module__ == 'ipaddress'
+#
+# ipaddress_extra7 covers IPv4Address/__module__, IPv6Address/__module__,
+# and IPv4Network/__module__ as standalone invariants.
+# IPv6Network.__module__ has not been checked in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra10.IPv6Network.module:
+  description: "ipaddress.IPv6Network.__module__ == 'ipaddress'"
+  category: class_metadata
+  kind: python_call_eq
+  function: IPv6Network.__module__.__eq__
+  args: ["ipaddress"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv4Address.is_loopback False case and IPv6Address.is_loopback True case.
+#
+# ipaddress_extra4 covers IPv4Address('127.0.0.1').is_loopback == True.
+# The False case (public address) and IPv6 loopback (::1) are new vectors.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra10.IPv4Address.is_loopback_false:
+  description: "ipaddress.IPv4Address('8.8.8.8').is_loopback == False — public DNS address is not loopback"
+  category: IPv4Address_predicates
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["8.8.8.8"]
+  method: is_loopback.__eq__
+  method_args: [false]
+  expected: true
+
+invariant ipaddress_extra10.IPv6Address.is_loopback_true:
+  description: "ipaddress.IPv6Address('::1').is_loopback == True — ::1 is the IPv6 loopback address"
+  category: IPv6Address_predicates
+  kind: python_call_eq
+  function: IPv6Address
+  args: ["::1"]
+  method: is_loopback.__eq__
+  method_args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv4Address.is_reserved — 240.0.0.0/4 IETF reserved range.
+#
+# No prior ipaddress spec checks the is_reserved predicate.
+# 240.0.0.0/4 is reserved by IANA for future use (RFC 1112).
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra10.IPv4Address.is_reserved_true:
+  description: "ipaddress.IPv4Address('240.0.0.1').is_reserved == True — 240.0.0.0/4 is IETF reserved"
+  category: IPv4Address_predicates
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["240.0.0.1"]
+  method: is_reserved.__eq__
+  method_args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv6Address.is_private — documentation prefix 2001:db8::/32.
+#
+# ipaddress_extra8 covers IPv4Address.is_global. No prior spec checks
+# IPv6Address.is_private. The documentation prefix 2001:db8::/32 is
+# classified as private (not globally routable).
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra10.IPv6Address.is_private_true:
+  description: "ipaddress.IPv6Address('2001:db8::1').is_private == True — documentation prefix is classified private"
+  category: IPv6Address_predicates
+  kind: python_call_eq
+  function: IPv6Address
+  args: ["2001:db8::1"]
+  method: is_private.__eq__
+  method_args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv4Network('172.16.0.0/12').num_addresses == 1048576
+#
+# ipaddress_extra4 covers 10.0.0.0/8 (16777216 addresses).
+# ipaddress_extra9 covers 192.168.0.0/16 (65536 addresses).
+# 172.16.0.0/12 (private RFC 1918 range) has 2^20 = 1048576 addresses.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra10.IPv4Network.num_addresses_slash12:
+  description: "ipaddress.IPv4Network('172.16.0.0/12').num_addresses == 1048576 — /12 has 2^20 addresses"
+  category: network_attributes
+  kind: python_call_eq
+  function: IPv4Network
+  args: ["172.16.0.0/12"]
+  method: num_addresses.__eq__
+  method_args: [1048576]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv4Network.prefixlen for a /24 and IPv6Network.prefixlen for a /32.
+#
+# ipaddress_extra4 covers IPv4Network('10.0.0.0/8').prefixlen == 8.
+# ipaddress_extra9 covers IPv6Network('::1/128').prefixlen == 128.
+# A /24 IPv4 and /32 IPv6 prefix length are new vectors.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra10.IPv4Network.prefixlen_slash24:
+  description: "ipaddress.IPv4Network('192.168.1.0/24').prefixlen == 24"
+  category: network_attributes
+  kind: python_call_eq
+  function: IPv4Network
+  args: ["192.168.1.0/24"]
+  method: prefixlen.__eq__
+  method_args: [24]
+  expected: true
+
+invariant ipaddress_extra10.IPv6Network.prefixlen_slash32:
+  description: "ipaddress.IPv6Network('2001:db8::/32').prefixlen == 32"
+  category: network_attributes
+  kind: python_call_eq
+  function: IPv6Network
+  args: ["2001:db8::/32"]
+  method: prefixlen.__eq__
+  method_args: [32]
+  expected: true

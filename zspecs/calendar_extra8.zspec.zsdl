@@ -1,0 +1,183 @@
+spec: calendar_extra8
+version: ">=3.9"
+backend: python_module(calendar)
+
+docs: https://docs.python.org/3/library/calendar.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/calendar.html — Python calendar module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/calendar.py"
+  notes:
+    - "This spec extends calendar.zspec.zsdl and calendar_extra through calendar_extra7.zspec.zsdl."
+    - "calendar_extra7 covers: month_name[1/6/12]; month_abbr[1/6/12]; day_name[0/4/6]; day_abbr[0/4/6]; isleap(2000/1900/2024/2023); leapdays(2000,2024); monthrange(2024,2)[1]/monthrange(2023,2)[1]/monthrange(2024,1)[0]; firstweekday(); isleap/__module__; timegm/__module__."
+    - "NOT yet covered: day_name[1/2/3/5] (Tue/Wed/Thu/Sat); day_abbr[1/2/3/5] (Tue/Wed/Thu/Sat); monthrange(2026,1) start weekday; monthrange(2026,2) start weekday + ndays; monthrange(2026,12) start weekday; weekday(2026,1,1); weekday(2026,12,31); leapdays(2025,2030); monthcalendar.__name__ (is 'monthdayscalendar', not 'monthcalendar')."
+    - "calendar.monthrange(2026,1) — Jan 2026 starts on Thursday (THURSDAY==3), 31 days."
+    - "calendar.monthrange(2026,2) — Feb 2026 starts on Sunday (SUNDAY==6), 28 days (non-leap)."
+    - "calendar.monthrange(2026,12) — Dec 2026 starts on Tuesday (TUESDAY==1), 31 days."
+    - "calendar.weekday(2026,1,1) == 3 — Jan 1 2026 is Thursday."
+    - "calendar.weekday(2026,12,31) == 3 — Dec 31 2026 is Thursday."
+    - "calendar.leapdays(2025,2030) == 1 — only 2028 is a leap year in [2025,2030)."
+    - "calendar.monthcalendar.__name__ == 'monthdayscalendar' — bound method name differs from attr name."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# day_name and day_abbr — Tuesday, Wednesday, Thursday, Saturday (indices 1,2,3,5)
+#
+# calendar.zspec and calendar_extra7 cover indices 0 (Monday), 4 (Friday), 6 (Sunday).
+# No prior spec covers the remaining weekday names/abbreviations: Tuesday (1),
+# Wednesday (2), Thursday (3), Saturday (5).
+# ---------------------------------------------------------------------------
+
+table calendar_extra8.day_names_mid:
+  kind: python_call_eq
+  category: day_names
+  id_prefix: dname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [tuesday,   day_name.__getitem__, [1], "Tuesday"]
+    - [wednesday, day_name.__getitem__, [2], "Wednesday"]
+    - [thursday,  day_name.__getitem__, [3], "Thursday"]
+    - [saturday,  day_name.__getitem__, [5], "Saturday"]
+
+table calendar_extra8.day_abbrs_mid:
+  kind: python_call_eq
+  category: day_abbrs
+  id_prefix: dabbr
+
+  columns: [id, function, args, expected]
+  rows:
+    - [tuesday,   day_abbr.__getitem__, [1], "Tue"]
+    - [wednesday, day_abbr.__getitem__, [2], "Wed"]
+    - [thursday,  day_abbr.__getitem__, [3], "Thu"]
+    - [saturday,  day_abbr.__getitem__, [5], "Sat"]
+
+# ---------------------------------------------------------------------------
+# monthrange(2026, *) — year 2026 start weekday and day count
+#
+# No prior spec tests monthrange for any month in 2026. The year 2026 is not
+# a leap year. January starts Thursday (3), February starts Sunday (6),
+# December starts Tuesday (1). All have standard day counts.
+# ---------------------------------------------------------------------------
+
+invariant calendar_extra8.monthrange.jan2026_start:
+  description: "calendar.monthrange(2026, 1)[0] == 3 — January 2026 starts on Thursday (THURSDAY==3)"
+  category: monthrange
+  kind: python_call_eq
+  function: monthrange
+  args: [2026, 1]
+  method: __getitem__
+  method_args: [0]
+  expected: 3
+
+invariant calendar_extra8.monthrange.jan2026_ndays:
+  description: "calendar.monthrange(2026, 1)[1] == 31 — January has 31 days"
+  category: monthrange
+  kind: python_call_eq
+  function: monthrange
+  args: [2026, 1]
+  method: __getitem__
+  method_args: [1]
+  expected: 31
+
+invariant calendar_extra8.monthrange.feb2026_start:
+  description: "calendar.monthrange(2026, 2)[0] == 6 — February 2026 starts on Sunday (SUNDAY==6)"
+  category: monthrange
+  kind: python_call_eq
+  function: monthrange
+  args: [2026, 2]
+  method: __getitem__
+  method_args: [0]
+  expected: 6
+
+invariant calendar_extra8.monthrange.feb2026_ndays:
+  description: "calendar.monthrange(2026, 2)[1] == 28 — February 2026 has 28 days (non-leap year)"
+  category: monthrange
+  kind: python_call_eq
+  function: monthrange
+  args: [2026, 2]
+  method: __getitem__
+  method_args: [1]
+  expected: 28
+
+invariant calendar_extra8.monthrange.dec2026_start:
+  description: "calendar.monthrange(2026, 12)[0] == 1 — December 2026 starts on Tuesday (TUESDAY==1)"
+  category: monthrange
+  kind: python_call_eq
+  function: monthrange
+  args: [2026, 12]
+  method: __getitem__
+  method_args: [0]
+  expected: 1
+
+invariant calendar_extra8.monthrange.dec2026_ndays:
+  description: "calendar.monthrange(2026, 12)[1] == 31 — December has 31 days"
+  category: monthrange
+  kind: python_call_eq
+  function: monthrange
+  args: [2026, 12]
+  method: __getitem__
+  method_args: [1]
+  expected: 31
+
+# ---------------------------------------------------------------------------
+# weekday() — two dates in 2026 not previously tested
+#
+# calendar_extra5 covers weekday(2000,1,1) and weekday(2026,4,9); another spec
+# covers weekday(2026,4,8), weekday(2024,1,1), weekday(2024,2,29).
+# No prior spec tests weekday(2026,1,1) or weekday(2026,12,31).
+# ---------------------------------------------------------------------------
+
+invariant calendar_extra8.weekday.jan1_2026:
+  description: "calendar.weekday(2026, 1, 1) == 3 — January 1, 2026 is Thursday"
+  category: weekday
+  kind: python_call_eq
+  function: weekday
+  args: [2026, 1, 1]
+  expected: 3
+
+invariant calendar_extra8.weekday.dec31_2026:
+  description: "calendar.weekday(2026, 12, 31) == 3 — December 31, 2026 is Thursday"
+  category: weekday
+  kind: python_call_eq
+  function: weekday
+  args: [2026, 12, 31]
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# leapdays(2025, 2030) — range with a single leap year (2028)
+#
+# Prior specs cover leapdays(2020,2025)==2, leapdays(2000,2024)==6,
+# leapdays(2000,2025)==6, leapdays(2000,2001)==0, leapdays(1900,1901)==0.
+# The range [2025, 2030) is new: only 2028 qualifies, yielding 1.
+# ---------------------------------------------------------------------------
+
+invariant calendar_extra8.leapdays.range_2025_2030:
+  description: "calendar.leapdays(2025, 2030) == 1 — only 2028 is a leap year in [2025, 2030)"
+  category: leapdays
+  kind: python_call_eq
+  function: leapdays
+  args: [2025, 2030]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# monthcalendar.__name__ — attribute name differs from the exposed name
+#
+# calendar.monthcalendar is a bound method on the module-level TextCalendar
+# instance. Its __name__ is 'monthdayscalendar' (the underlying method name),
+# not 'monthcalendar'. No prior spec documents this discrepancy.
+# ---------------------------------------------------------------------------
+
+invariant calendar_extra8.monthcalendar.method_name:
+  description: "calendar.monthcalendar.__name__ == 'monthdayscalendar' — underlying method name"
+  category: function_names
+  kind: python_call_eq
+  function: monthcalendar.__name__.__eq__
+  args: ["monthdayscalendar"]
+  expected: true
