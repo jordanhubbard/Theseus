@@ -1,0 +1,193 @@
+spec: collections_extra15
+version: ">=3.9"
+backend: python_module(collections)
+
+docs: https://docs.python.org/3/library/collections.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html — Python collections documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+    - "CPython source: Modules/_collectionsmodule.c"
+  notes:
+    - "This spec extends collections.zspec.zsdl and prior extras through collections_extra14.zspec.zsdl."
+    - "collections_extra14 covers: namedtuple._fields[0]=='x'; namedtuple._fields[1]=='y'; namedtuple._fields.__len__()==2; namedtuple._make([10,20])._asdict().__class__.__name__=='dict'; namedtuple._make([10,20])._asdict().__len__()==2; ChainMap priority (first-map wins); ChainMap unique len; Counter.__add__ element-wise addition."
+    - "NOT yet covered: UserDict instance class name; deque.maxlen for unbounded (None) and bounded (int); Counter.most_common(n) first result key and count; namedtuple._replace() yielding updated instance; ChainMap maps attribute length; Counter.subtract in-place result."
+    - "UserDict().__class__.__name__ == 'UserDict' — instance class identity."
+    - "deque([1,2,3]).maxlen is None — unbounded deque has no maxlen."
+    - "deque([1,2,3], maxlen=5).maxlen == 5 — bounded deque stores maxlen."
+    - "Counter({'a':5,'b':3,'c':1}).most_common(1)[0][0] == 'a' — most common key."
+    - "Counter({'a':5,'b':3,'c':1}).most_common(1)[0][1] == 5 — count of most common key."
+    - "Counter({'a':5,'b':3}).most_common(2).__len__() == 2 — most_common(2) returns 2 pairs."
+    - "namedtuple('Point',['x','y'])._make([10,20])._asdict()['x'] == 10 — _asdict field value by key."
+    - "namedtuple('Point',['x','y'])._make([10,20])._asdict()['y'] == 20 — _asdict second field value."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# UserDict — instance class identity
+#
+# collections_extra12 covers UserDict.__getitem__ call behavior.
+# No prior spec tests the __class__.__name__ of a UserDict instance directly
+# (as opposed to the class object itself). UserDict().__class__.__name__ == 'UserDict'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra15.UserDict.instance_class_name:
+  description: "UserDict().__class__.__name__ == 'UserDict' — instance class identity"
+  category: userdict
+  kind: python_call_eq
+  function: UserDict
+  args: [{}]
+  method: __class__.__name__.__eq__
+  method_args: ["UserDict"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# deque.maxlen — None for unbounded, integer for bounded
+#
+# No prior spec tests the deque.maxlen attribute. An unbounded deque (no maxlen
+# argument) has maxlen == None. A deque constructed with maxlen=5 exposes
+# maxlen == 5. maxlen is a read-only attribute accessed as a property.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra15.deque.maxlen_unbounded:
+  description: "deque([1,2,3]).maxlen is None — unbounded deque has maxlen None"
+  category: deque_maxlen
+  kind: python_call_eq
+  function: deque
+  args: [[1, 2, 3]]
+  method: maxlen
+  expected: ~
+
+invariant collections_extra15.deque.maxlen_bounded:
+  description: "deque([1,2,3], maxlen=5).maxlen == 5 — bounded deque stores its maxlen"
+  category: deque_maxlen
+  kind: python_call_eq
+  function: deque
+  args: [[1, 2, 3], 5]
+  method: maxlen
+  expected: 5
+
+invariant collections_extra15.deque.maxlen_zero:
+  description: "deque([], maxlen=0).maxlen == 0 — zero-capacity deque has maxlen 0"
+  category: deque_maxlen
+  kind: python_call_eq
+  function: deque
+  args: [[], 0]
+  method: maxlen
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# Counter.most_common — key and count of top result
+#
+# collections_extra13 covers Counter.most_common(1)[0] returning the top pair,
+# but tests the pair itself as a tuple, not individual key and count.
+# No prior spec extracts the key ([0][0]) or count ([0][1]) from most_common.
+# Counter({'a':5,'b':3,'c':1}).most_common(1) == [('a', 5)].
+# ---------------------------------------------------------------------------
+
+invariant collections_extra15.Counter.most_common_top_key:
+  description: "Counter({'a':5,'b':3,'c':1}).most_common(1)[0][0] == 'a' — top key"
+  category: counter_most_common
+  kind: python_call_eq
+  function: Counter
+  args: [{"a": 5, "b": 3, "c": 1}]
+  method: most_common
+  method_args: [1]
+  method_chain: __getitem__
+  method_chain_args: [0]
+  expected: ["a", 5]
+
+invariant collections_extra15.Counter.most_common_len:
+  description: "Counter({'a':5,'b':3}).most_common(2).__len__() == 2 — most_common(2) returns 2 pairs"
+  category: counter_most_common
+  kind: python_call_eq
+  function: Counter
+  args: [{"a": 5, "b": 3}]
+  method: most_common
+  method_args: [2]
+  method_chain: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# namedtuple._asdict — field values by key
+#
+# collections_extra14 covers namedtuple._make([10,20])._asdict().__class__.__name__
+# == 'dict' (class identity) and .__len__() == 2 (field count).
+# No prior spec reads individual field values from _asdict() by key.
+# namedtuple('Point',['x','y'])._make([10,20])._asdict()['x'] == 10.
+# namedtuple('Point',['x','y'])._make([10,20])._asdict()['y'] == 20.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra15.namedtuple.asdict_x_value:
+  description: "namedtuple._make([10,20])._asdict()['x'] == 10 — first field value by key"
+  category: namedtuple_asdict
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: _make
+  method_args: [[10, 20]]
+  method_chain: _asdict.__getitem__
+  method_chain_args: ["x"]
+  expected: 10
+
+invariant collections_extra15.namedtuple.asdict_y_value:
+  description: "namedtuple._make([10,20])._asdict()['y'] == 20 — second field value by key"
+  category: namedtuple_asdict
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: _make
+  method_args: [[10, 20]]
+  method_chain: _asdict.__getitem__
+  method_chain_args: ["y"]
+  expected: 20
+
+# ---------------------------------------------------------------------------
+# ChainMap.maps — list of underlying mapping objects
+#
+# collections_extra14 covers ChainMap priority lookup and unique key length.
+# No prior spec tests ChainMap.maps, which exposes the list of underlying
+# dicts in priority order. ChainMap({'a':1},{'b':2}).maps.__len__() == 2.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra15.ChainMap.maps_len:
+  description: "ChainMap({'a':1},{'b':2}).maps.__len__() == 2 — two underlying maps"
+  category: chainmap_maps
+  kind: python_call_eq
+  function: ChainMap
+  args: [{"a": 1}, {"b": 2}]
+  method: maps.__len__
+  expected: 2
+
+invariant collections_extra15.ChainMap.maps_three_len:
+  description: "ChainMap({'a':1},{'b':2},{'c':3}).maps.__len__() == 3 — three underlying maps"
+  category: chainmap_maps
+  kind: python_call_eq
+  function: ChainMap
+  args: [{"a": 1}, {"b": 2}, {"c": 3}]
+  method: maps.__len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# Counter.subtract — in-place subtraction of counts
+#
+# No prior spec tests Counter.subtract(), which subtracts element counts
+# in-place (unlike Counter.__sub__ which produces a new Counter with only
+# positive counts). Counter(a=5,b=3).subtract({'a':2}) leaves a=3, b=3.
+# subtract() returns None (in-place).
+# ---------------------------------------------------------------------------
+
+invariant collections_extra15.Counter.subtract_returns_none:
+  description: "Counter(a=5).subtract({'a':2}) returns None — in-place operation"
+  category: counter_subtract
+  kind: python_call_eq
+  function: Counter
+  args: [{"a": 5}]
+  method: subtract
+  method_args: [{"a": 2}]
+  expected: ~

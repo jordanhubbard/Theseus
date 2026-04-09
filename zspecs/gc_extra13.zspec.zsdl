@@ -1,0 +1,130 @@
+spec: gc_extra13
+version: ">=3.9"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gc.html — Python gc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/gcmodule.c"
+  notes:
+    - "This spec extends gc.zspec.zsdl through gc_extra12.zspec.zsdl."
+    - "gc_extra12 covers __qualname__ for is_finalized/freeze/unfreeze/get_freeze_count/get_referrers/get_referents/set_threshold/is_tracked; __name__ for is_finalized/freeze/unfreeze/get_freeze_count; get_threshold()[0]==700 (CPython default gen-0 threshold); get_freeze_count returns int."
+    - "gc_extra11 covers __qualname__ for collect/get_count/get_threshold/get_objects."
+    - "gc_extra4 covers __name__ for enable/disable/isenabled/collect/get_count/get_threshold/set_threshold/get_objects/get_referrers/get_referents; debug constants; isenabled/get_threshold/get_count/collect return types via method_chain block syntax."
+    - "NOT yet covered: gc.enable.__qualname__, gc.disable.__qualname__, gc.isenabled.__qualname__ — these three were omitted from gc_extra11 and gc_extra12."
+    - "NOT yet covered: gc.is_tracked.__name__ as a standalone named invariant (gc_extra4 table does not include is_tracked)."
+    - "NOT yet covered: gc.get_count().__class__.__name__ via dotted-chain function syntax (gc_extra4 uses method_chain block syntax)."
+    - "NOT yet covered: gc.get_threshold().__class__.__name__ via dotted-chain function syntax (gc_extra4 uses method_chain block syntax)."
+    - "NOT yet covered: gc.isenabled().__class__.__name__ via dotted-chain function syntax (gc_extra4 uses method_chain block syntax)."
+    - "NOT yet covered: gc.get_count() per-element type checks (each element is an int)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ — enable, disable, isenabled
+#
+# gc_extra11 covers __qualname__ for collect/get_count/get_threshold/get_objects.
+# gc_extra12 covers __qualname__ for is_finalized/freeze/unfreeze/get_freeze_count/
+# get_referrers/get_referents/set_threshold/is_tracked.
+# No prior gc spec covers __qualname__ for enable, disable, or isenabled.
+# For C builtin functions, __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra13.enable.qualname:
+  description: "gc.enable.__qualname__ == 'enable' — C builtin; qualname equals name"
+  category: function_qualnames
+  kind: python_call_eq
+  function: enable.__qualname__.__eq__
+  args: ["enable"]
+  expected: true
+
+invariant gc_extra13.disable.qualname:
+  description: "gc.disable.__qualname__ == 'disable' — C builtin; qualname equals name"
+  category: function_qualnames
+  kind: python_call_eq
+  function: disable.__qualname__.__eq__
+  args: ["disable"]
+  expected: true
+
+invariant gc_extra13.isenabled.qualname:
+  description: "gc.isenabled.__qualname__ == 'isenabled' — C builtin; qualname equals name"
+  category: function_qualnames
+  kind: python_call_eq
+  function: isenabled.__qualname__.__eq__
+  args: ["isenabled"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# is_tracked.__name__ — standalone named invariant
+#
+# gc_extra4 covers __name__ for 10 gc functions in a table, but is_tracked
+# is not among them. gc_extra5 covers is_tracked.__module__. gc_extra12
+# covers is_tracked.__qualname__. No prior gc spec covers is_tracked.__name__
+# as a standalone named invariant.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra13.is_tracked.name:
+  description: "gc.is_tracked.__name__ == 'is_tracked' — C builtin function name"
+  category: function_names
+  kind: python_call_eq
+  function: is_tracked.__name__.__eq__
+  args: ["is_tracked"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Return type checks via dotted-chain syntax
+#
+# gc_extra4 uses the invariant method_chain block syntax for these type checks.
+# The dotted-chain approach (function: foo().__class__.__name__.__eq__) is a
+# distinct syntactic form tested here for the first time in gc specs.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra13.get_count.returns_tuple_chain:
+  description: "gc.get_count().__class__.__name__ == 'tuple' — dotted-chain form"
+  category: get_count
+  kind: python_call_eq
+  function: get_count().__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant gc_extra13.get_threshold.returns_tuple_chain:
+  description: "gc.get_threshold().__class__.__name__ == 'tuple' — dotted-chain form"
+  category: get_threshold
+  kind: python_call_eq
+  function: get_threshold().__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant gc_extra13.isenabled.returns_bool_chain:
+  description: "gc.isenabled().__class__.__name__ == 'bool' — dotted-chain form"
+  category: isenabled
+  kind: python_call_eq
+  function: isenabled().__class__.__name__.__eq__
+  args: ["bool"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_count per-element type checks
+#
+# Each element of gc.get_count() is an int (generation-N object count).
+# No prior gc spec verifies the type of individual elements of get_count().
+# gc_extra8 covers get_threshold()[1] and get_threshold()[2] values but not
+# get_count element types.
+# ---------------------------------------------------------------------------
+
+table gc_extra13.get_count_element_types:
+  kind: python_call_eq
+  category: get_count
+  id_prefix: elem_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gen0, get_count().__getitem__(0).__class__.__name__.__eq__, ["int"], true]
+    - [gen1, get_count().__getitem__(1).__class__.__name__.__eq__, ["int"], true]
+    - [gen2, get_count().__getitem__(2).__class__.__name__.__eq__, ["int"], true]

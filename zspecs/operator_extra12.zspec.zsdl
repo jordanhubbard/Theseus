@@ -1,0 +1,189 @@
+spec: operator_extra12
+version: ">=3.9"
+backend: python_module(operator)
+
+docs: https://docs.python.org/3/library/operator.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/operator.html — Python operator module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_operator.c"
+  notes:
+    - "This spec extends operator.zspec.zsdl through operator_extra11.zspec.zsdl."
+    - "operator_extra covers: itemgetter(0)([1,2,3])==1; attrgetter('__name__')(int)=='int'; methodcaller('upper')('hello')=='HELLO'; methodcaller('strip')('  hi  ')=='hi'."
+    - "operator_extra2 covers: attrgetter/__name__; itemgetter/__name__; methodcaller/__name__; instance class names for all three."
+    - "operator_extra9 covers: gt/__name__; le/__name__; ge/__name__; and_/__name__; or_/__name__ (as standalone __eq__ invariants)."
+    - "NOT yet covered as __name__ invariants: xor/__name__; floordiv/__name__; mod/__name__; setitem/__name__; delitem/__name__."
+    - "NOT yet covered as call results: methodcaller with extra positional arg (count, replace, startswith); itemgetter with multiple keys returning a tuple; attrgetter with dotted attribute path on a string."
+    - "operator.methodcaller('count', 'l')('hello') == 2 — methodcaller forwards extra args to the called method."
+    - "operator.methodcaller('replace', 'o', '0')('foo') == 'f00' — two extra args to replace()."
+    - "operator.methodcaller('startswith', 'he')('hello') == True — predicate method via methodcaller."
+    - "operator.itemgetter(0, 2)([10,20,30]) == (10, 30) — multiple indices produce a tuple."
+    - "operator.attrgetter('__class__.__name__')('hello') == 'str' — dotted attribute path on a string."
+    - "operator.xor.__name__ == 'xor' — function name not yet asserted."
+    - "operator.floordiv.__name__ == 'floordiv' — function name not yet asserted."
+    - "operator.mod.__name__ == 'mod' — function name not yet asserted."
+    - "operator.setitem.__name__ == 'setitem' — function name not yet asserted."
+    - "operator.delitem.__name__ == 'delitem' — function name not yet asserted."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# methodcaller with extra positional arguments
+#
+# operator_extra covers methodcaller('upper')('hello')=='HELLO' and
+# methodcaller('strip')('  hi  ')=='hi' (zero extra args to the method).
+# No prior spec tests methodcaller with extra positional args forwarded to
+# the called method. methodcaller(name, *args) stores extra args and passes
+# them on every call: methodcaller('count', 'l')('hello') == 'hello'.count('l').
+# ---------------------------------------------------------------------------
+
+invariant operator_extra12.methodcaller.count_arg:
+  description: "methodcaller('count', 'l')('hello') == 2 — extra arg forwarded to str.count"
+  category: methodcaller_call
+  kind: python_call_eq
+  function: methodcaller
+  args: ["count", "l"]
+  method: __call__
+  method_args: ["hello"]
+  expected: 2
+
+invariant operator_extra12.methodcaller.replace_two_args:
+  description: "methodcaller('replace', 'o', '0')('foo') == 'f00' — two extra args forwarded to str.replace"
+  category: methodcaller_call
+  kind: python_call_eq
+  function: methodcaller
+  args: ["replace", "o", "0"]
+  method: __call__
+  method_args: ["foo"]
+  expected: "f00"
+
+invariant operator_extra12.methodcaller.startswith_arg:
+  description: "methodcaller('startswith', 'he')('hello') == True — predicate method with extra arg"
+  category: methodcaller_call
+  kind: python_call_eq
+  function: methodcaller
+  args: ["startswith", "he"]
+  method: __call__
+  method_args: ["hello"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# itemgetter with multiple indices — returns a tuple
+#
+# operator_extra covers itemgetter(0)([1,2,3])==1 and itemgetter(2)([1,2,3])==3
+# (single-index, returns the item directly). No prior spec tests itemgetter with
+# multiple index arguments, which returns a tuple. itemgetter(i, j)(seq) is
+# equivalent to (seq[i], seq[j]) — the result is always a tuple.
+# ---------------------------------------------------------------------------
+
+invariant operator_extra12.itemgetter.multi_index_list:
+  description: "itemgetter(0, 2)([10,20,30]) == (10, 30) — multiple indices return a tuple"
+  category: itemgetter_call
+  kind: python_call_eq
+  function: itemgetter
+  args: [0, 2]
+  method: __call__
+  method_args: [[10, 20, 30]]
+  expected: [10, 30]
+
+invariant operator_extra12.itemgetter.multi_key_dict:
+  description: "itemgetter('a','b')({'a':10,'b':20,'c':30}) == (10, 20) — multiple dict keys"
+  category: itemgetter_call
+  kind: python_call_eq
+  function: itemgetter
+  args: ["a", "b"]
+  method: __call__
+  method_args: [{"a": 10, "b": 20, "c": 30}]
+  expected: [10, 20]
+
+# ---------------------------------------------------------------------------
+# attrgetter with dotted attribute path
+#
+# operator_extra covers attrgetter('__name__')(int)=='int' using {type: builtin_type}.
+# No prior spec tests attrgetter with a dotted attribute chain, which traverses
+# nested attributes. attrgetter('__class__.__name__') on a plain string
+# resolves 'hello'.__class__.__name__ == 'str'. The argument is a simple YAML
+# string so no special type syntax is needed.
+# ---------------------------------------------------------------------------
+
+invariant operator_extra12.attrgetter.dotted_path_str:
+  description: "attrgetter('__class__.__name__')('hello') == 'str' — dotted path on a string"
+  category: attrgetter_call
+  kind: python_call_eq
+  function: attrgetter
+  args: ["__class__.__name__"]
+  method: __call__
+  method_args: ["hello"]
+  expected: "str"
+
+invariant operator_extra12.attrgetter.dotted_path_float:
+  description: "attrgetter('__class__.__name__')(3.14) == 'float' — dotted path on a float"
+  category: attrgetter_call
+  kind: python_call_eq
+  function: attrgetter
+  args: ["__class__.__name__"]
+  method: __call__
+  method_args: [3.14]
+  expected: "float"
+
+# ---------------------------------------------------------------------------
+# __name__ for xor, floordiv, mod — not yet asserted as standalone invariants
+#
+# operator_extra9 covers gt/__name__, le/__name__, ge/__name__, and_/__name__,
+# or_/__name__ as standalone __eq__ invariants. The following operators have not
+# yet had their __name__ asserted: xor, floordiv, mod.
+# ---------------------------------------------------------------------------
+
+invariant operator_extra12.xor.name:
+  description: "operator.xor.__name__ == 'xor'"
+  category: function_names
+  kind: python_call_eq
+  function: xor.__name__.__eq__
+  args: ["xor"]
+  expected: true
+
+invariant operator_extra12.floordiv.name:
+  description: "operator.floordiv.__name__ == 'floordiv'"
+  category: function_names
+  kind: python_call_eq
+  function: floordiv.__name__.__eq__
+  args: ["floordiv"]
+  expected: true
+
+invariant operator_extra12.mod.name:
+  description: "operator.mod.__name__ == 'mod'"
+  category: function_names
+  kind: python_call_eq
+  function: mod.__name__.__eq__
+  args: ["mod"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __name__ for setitem and delitem — not yet asserted as standalone invariants
+#
+# operator_extra5 covers setitem/__qualname__ and delitem/__qualname__ via table.
+# operator_extra3 covers setitem/__module__ and delitem/__module__.
+# No prior spec asserts setitem.__name__ or delitem.__name__ as standalone
+# __eq__ invariants.
+# ---------------------------------------------------------------------------
+
+invariant operator_extra12.setitem.name:
+  description: "operator.setitem.__name__ == 'setitem'"
+  category: function_names
+  kind: python_call_eq
+  function: setitem.__name__.__eq__
+  args: ["setitem"]
+  expected: true
+
+invariant operator_extra12.delitem.name:
+  description: "operator.delitem.__name__ == 'delitem'"
+  category: function_names
+  kind: python_call_eq
+  function: delitem.__name__.__eq__
+  args: ["delitem"]
+  expected: true
