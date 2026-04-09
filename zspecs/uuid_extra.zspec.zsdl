@@ -1,0 +1,130 @@
+spec: uuid_extra
+version: ">=3.2"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+
+provenance:
+  derived_from:
+    - "Python uuid documentation — https://docs.python.org/3/library/uuid.html"
+    - "RFC 9562 — Universally Unique IDentifiers (UUID) — https://www.rfc-editor.org/rfc/rfc9562"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+    - "CPython source: internal PRNG or MAC address resolution"
+  notes:
+    - "This spec extends uuid.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "UUID.__name__ == 'UUID' — the class is named 'UUID' and lives in the 'uuid' module."
+    - "uuid1, uuid3, uuid4, uuid5 are module-level functions; their __name__ equals the function name string."
+    - "uuid4() is non-deterministic; only its return type and .version attribute are tested."
+    - "uuid4().version == 4 — the version nibble in bits 12–15 of the time_hi_and_version field is always 4."
+    - "NAMESPACE_DNS, NAMESPACE_URL, NAMESPACE_OID, NAMESPACE_X500 are pre-defined UUID constants."
+    - "All NAMESPACE_* constants are instances of UUID; their __class__.__name__ == 'UUID'."
+    - "UUID('12345678-1234-5678-1234-567812345678').int is a plain Python int (128-bit)."
+    - "UUID('12345678-1234-5678-1234-567812345678').hex is a str of 32 lowercase hex digits."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# UUID class identity
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra.UUID.class_name:
+  description: "uuid.UUID.__name__ == 'UUID'"
+  category: class_metadata
+  kind: python_call_eq
+  function: UUID.__name__.__eq__
+  args: ["UUID"]
+  expected: true
+
+invariant uuid_extra.UUID.module:
+  description: "uuid.UUID.__module__ == 'uuid'"
+  category: class_metadata
+  kind: python_call_eq
+  function: UUID.__module__.__eq__
+  args: ["uuid"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function name identity — uuid1, uuid3, uuid4, uuid5
+# ---------------------------------------------------------------------------
+
+table uuid_extra.functions.names:
+  description: "uuid generator functions have __name__ equal to their string name"
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [uuid1_name, uuid1.__name__.__eq__, ["uuid1"], true]
+    - [uuid3_name, uuid3.__name__.__eq__, ["uuid3"], true]
+    - [uuid4_name, uuid4.__name__.__eq__, ["uuid4"], true]
+    - [uuid5_name, uuid5.__name__.__eq__, ["uuid5"], true]
+
+# ---------------------------------------------------------------------------
+# uuid4() — return type and version
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra.uuid4.return_class_name:
+  description: "uuid4().__class__.__name__ == 'UUID' — uuid4 returns a UUID instance"
+  category: uuid4
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["UUID"]
+  expected: true
+
+invariant uuid_extra.uuid4.version:
+  description: "uuid4().version == 4 — version nibble is always 4 for v4 UUIDs"
+  category: uuid4
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: version.__eq__
+  method_args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# NAMESPACE_* constants — class membership
+# ---------------------------------------------------------------------------
+
+table uuid_extra.namespaces.class_name:
+  description: "NAMESPACE_DNS, NAMESPACE_URL, NAMESPACE_OID, NAMESPACE_X500 are UUID instances"
+  kind: python_call_eq
+  category: namespaces
+  id_prefix: ns_class
+
+  columns: [id, function, args, expected]
+  rows:
+    - [dns,   NAMESPACE_DNS.__class__.__name__.__eq__,   ["UUID"], true]
+    - [url,   NAMESPACE_URL.__class__.__name__.__eq__,   ["UUID"], true]
+    - [oid,   NAMESPACE_OID.__class__.__name__.__eq__,   ["UUID"], true]
+    - [x500,  NAMESPACE_X500.__class__.__name__.__eq__,  ["UUID"], true]
+
+# ---------------------------------------------------------------------------
+# UUID instance attribute types — .int and .hex
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra.UUID.int_class_name:
+  description: "UUID('12345678-1234-5678-1234-567812345678').int.__class__.__name__ == 'int'"
+  category: instance_attributes
+  kind: python_call_eq
+  function: UUID
+  args: ["12345678-1234-5678-1234-567812345678"]
+  method: int.__class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+invariant uuid_extra.UUID.hex_class_name:
+  description: "UUID('12345678-1234-5678-1234-567812345678').hex.__class__.__name__ == 'str'"
+  category: instance_attributes
+  kind: python_call_eq
+  function: UUID
+  args: ["12345678-1234-5678-1234-567812345678"]
+  method: hex.__class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true

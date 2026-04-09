@@ -1,0 +1,148 @@
+spec: ssl_extra2
+version: ">=3.7"
+backend: python_module(ssl)
+
+docs: https://docs.python.org/3/library/ssl.html
+rfcs:
+  - "RFC 8446 — The Transport Layer Security (TLS) Protocol Version 1.3"
+  - "RFC 5246 — The Transport Layer Security (TLS) Protocol Version 1.2"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ssl.html — Python ssl module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "ssl source: internal CPython _ssl C extension"
+    - "OpenSSL source: ssl/ directory"
+    - "CPython source: Lib/ssl.py"
+  notes:
+    - "This spec extends ssl.zspec.zsdl and ssl_extra.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "ssl.zspec.zsdl covers: SSLError/SSLContext/SSLSocket/SSLCertVerificationError __name__; SSLError.__bases__[0] == OSError; SSLError.__module__; CERT_NONE/CERT_OPTIONAL/CERT_REQUIRED integer values; HAS_SNI/HAS_ALPN type."
+    - "ssl_extra.zspec.zsdl covers: SSLContext.__module__; SSLCertVerificationError.__module__ and base; create_default_context; OP_NO_SSLv2/OP_NO_SSLv3 Options type; Purpose enum; PROTOCOL_TLS_CLIENT/SERVER Protocol type."
+    - "SSLZeroReturnError, SSLWantReadError, SSLWantWriteError are ssl.SSLError subclasses representing specific TLS alert conditions."
+    - "SSLZeroReturnError is raised when the TLS peer closes the connection cleanly (SSL_ERROR_ZERO_RETURN)."
+    - "SSLWantReadError and SSLWantWriteError are raised on non-blocking I/O when the operation would block."
+    - "SSLCertVerificationError was added in Python 3.7 as a subclass of SSLError with verify_code and verify_message attributes."
+    - "CERT_NONE, CERT_REQUIRED are members of ssl.VerifyMode (an IntEnum subclass of int); __class__.__name__ == 'VerifyMode'."
+    - "OP_NO_SSLv2 is a member of ssl.Options (an IntFlag subclass of int); int(OP_NO_SSLv2) works; its class name is 'Options'."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "ssl.SSLError (subclass of OSError) is raised for TLS-level failures. Class and constant checks are pure attribute reads and do not raise."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are stateless class attribute reads."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Additional exception class name checks not in ssl.zspec.zsdl
+# SSLZeroReturnError, SSLWantReadError, SSLWantWriteError
+# ---------------------------------------------------------------------------
+
+table ssl_extra2.exception_class_names:
+  kind: python_call_eq
+  category: classnames
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ssl_zero_return_error,  SSLZeroReturnError.__name__.__eq__,  ["SSLZeroReturnError"],  true]
+    - [ssl_want_read_error,    SSLWantReadError.__name__.__eq__,    ["SSLWantReadError"],    true]
+    - [ssl_want_write_error,   SSLWantWriteError.__name__.__eq__,   ["SSLWantWriteError"],   true]
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy — SSLZeroReturnError, SSLWantReadError, SSLWantWriteError
+# all inherit from SSLError
+# ---------------------------------------------------------------------------
+
+table ssl_extra2.exception_bases:
+  kind: python_call_eq
+  category: hierarchy
+  id_prefix: base
+
+  columns: [id, function, args, method, expected]
+  rows:
+    - [ssl_zero_return_error, SSLZeroReturnError.__bases__.__getitem__, [0], __name__, "SSLError"]
+    - [ssl_want_read_error,   SSLWantReadError.__bases__.__getitem__,   [0], __name__, "SSLError"]
+    - [ssl_want_write_error,  SSLWantWriteError.__bases__.__getitem__,  [0], __name__, "SSLError"]
+
+# ---------------------------------------------------------------------------
+# SSLZeroReturnError, SSLWantReadError, SSLWantWriteError module checks
+# These are defined in the ssl Python wrapper (Lib/ssl.py)
+# ---------------------------------------------------------------------------
+
+table ssl_extra2.exception_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ssl_zero_return_error, SSLZeroReturnError.__module__.__eq__, ["ssl"], true]
+    - [ssl_want_read_error,   SSLWantReadError.__module__.__eq__,   ["ssl"], true]
+    - [ssl_want_write_error,  SSLWantWriteError.__module__.__eq__,  ["ssl"], true]
+
+# ---------------------------------------------------------------------------
+# CERT_NONE and CERT_REQUIRED class name check
+# In Python 3.6+ these are ssl.VerifyMode IntEnum members; __class__.__name__ == 'VerifyMode'
+# (ssl.zspec.zsdl tests their integer values; ssl_extra2 tests their type name)
+# ---------------------------------------------------------------------------
+
+table ssl_extra2.verify_mode_class_names:
+  kind: python_call_eq
+  category: constants
+  id_prefix: verifymode_class
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cert_none_class,     CERT_NONE.__class__.__name__.__eq__,     ["VerifyMode"], true]
+    - [cert_required_class, CERT_REQUIRED.__class__.__name__.__eq__, ["VerifyMode"], true]
+
+# ---------------------------------------------------------------------------
+# PROTOCOL_TLS_CLIENT and PROTOCOL_TLS_SERVER — int-compatible type check
+# These are ssl.Protocol IntEnum members; they compare equal to ints.
+# ssl_extra.zspec.zsdl tests __class__.__name__ == 'Protocol'; this spec checks
+# that they are truthy (non-zero) as integers, confirming int-like semantics.
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra2.PROTOCOL_TLS_CLIENT.nonzero:
+  description: "bool(PROTOCOL_TLS_CLIENT) == True — PROTOCOL_TLS_CLIENT is a non-zero int-like constant"
+  category: constants
+  kind: python_call_eq
+  function: PROTOCOL_TLS_CLIENT.__bool__
+  args: []
+  expected: true
+
+invariant ssl_extra2.PROTOCOL_TLS_SERVER.nonzero:
+  description: "bool(PROTOCOL_TLS_SERVER) == True — PROTOCOL_TLS_SERVER is a non-zero int-like constant"
+  category: constants
+  kind: python_call_eq
+  function: PROTOCOL_TLS_SERVER.__bool__
+  args: []
+  expected: true
+
+# ---------------------------------------------------------------------------
+# OP_NO_SSLv2 — int-compatible; confirms the constant exists and is truthy
+# ssl_extra.zspec.zsdl already verifies __class__.__name__ == 'Options';
+# this check confirms integer truthiness (non-zero bitmask value).
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra2.OP_NO_SSLv2.nonzero:
+  description: "bool(OP_NO_SSLv2) == True — OP_NO_SSLv2 is a non-zero Options bitmask"
+  category: constants
+  kind: python_call_eq
+  function: OP_NO_SSLv2.__bool__
+  args: []
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SSLSocket.__module__ check — SSLSocket is defined in Lib/ssl.py
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra2.SSLSocket.module:
+  description: "ssl.SSLSocket.__module__ == 'ssl'"
+  category: modules
+  kind: python_call_eq
+  function: SSLSocket.__module__.__eq__
+  args: ["ssl"]
+  expected: true

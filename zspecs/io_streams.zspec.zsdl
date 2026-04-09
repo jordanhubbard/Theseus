@@ -1,0 +1,156 @@
+spec: io_streams
+version: ">=3.2"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "Python io documentation — https://docs.python.org/3/library/io.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+  notes:
+    - "This spec extends io.zspec.zsdl and io_extra.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "io.zspec.zsdl covers: StringIO.__name__, BytesIO.__name__, SEEK_SET/CUR/END values, DEFAULT_BUFFER_SIZE bounds, StringIO read/getvalue/readline/tell/readable/writable/seekable/closed, BytesIO tell/readable/writable/seekable/getvalue_length/closed."
+    - "io_extra.zspec.zsdl covers: TextIOWrapper, BufferedRandom, UnsupportedOperation class metadata; SEEK_*/DEFAULT_BUFFER_SIZE type checks."
+    - "StringIO.__module__ == '_io' — CPython implements StringIO in the _io C extension module."
+    - "BytesIO.__module__ == '_io' — CPython implements BytesIO in the _io C extension module."
+    - "BytesIO(b'hello').read() == b'hello' — read() returns the full bytes content from position 0."
+    - "BytesIO(b'hello').getvalue() == b'hello' — getvalue() returns the full bytes buffer."
+    - "b'hello' == hex 68656c6c6f."
+    - "StringIO('hello').read() == 'hello' — read() returns the full text content from position 0."
+    - "StringIO('hello').getvalue() == 'hello' — getvalue() returns the full text buffer."
+    - "Empty StringIO() is both readable and writable; same for empty BytesIO()."
+    - "StringIO('hello').tell() == 0 — stream position starts at 0 before any read."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module identity — StringIO and BytesIO live in the _io C extension
+# ---------------------------------------------------------------------------
+
+invariant io_streams.StringIO.module:
+  description: "io.StringIO.__module__ == '_io' — CPython implements StringIO in _io"
+  category: class_metadata
+  kind: python_call_eq
+  function: StringIO.__module__.__eq__
+  args: ["_io"]
+  expected: true
+
+invariant io_streams.BytesIO.module:
+  description: "io.BytesIO.__module__ == '_io' — CPython implements BytesIO in _io"
+  category: class_metadata
+  kind: python_call_eq
+  function: BytesIO.__module__.__eq__
+  args: ["_io"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# StringIO — read() and getvalue() with short content
+# ---------------------------------------------------------------------------
+
+invariant io_streams.stringio.read_hello:
+  description: "io.StringIO('hello').read() == 'hello'"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello"]
+  method: read
+  method_args: []
+  expected: "hello"
+
+invariant io_streams.stringio.getvalue_hello:
+  description: "io.StringIO('hello').getvalue() == 'hello'"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello"]
+  method: getvalue
+  method_args: []
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# BytesIO — read() and getvalue() return bytes
+# ---------------------------------------------------------------------------
+
+invariant io_streams.bytesio.read_hello:
+  description: "io.BytesIO(b'hello').read() == b'hello' (0x68656c6c6f)"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: [!hex 68656c6c6f]
+  method: read
+  method_args: []
+  expected: !hex 68656c6c6f
+
+invariant io_streams.bytesio.getvalue_hello:
+  description: "io.BytesIO(b'hello').getvalue() == b'hello' (0x68656c6c6f)"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: [!hex 68656c6c6f]
+  method: getvalue
+  method_args: []
+  expected: !hex 68656c6c6f
+
+# ---------------------------------------------------------------------------
+# Empty stream capability — readable and writable on default-constructed streams
+# ---------------------------------------------------------------------------
+
+invariant io_streams.stringio_empty.writable:
+  description: "io.StringIO().writable() == True — empty StringIO is writable"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: []
+  method: writable
+  method_args: []
+  expected: true
+
+invariant io_streams.stringio_empty.readable:
+  description: "io.StringIO().readable() == True — empty StringIO is readable"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: []
+  method: readable
+  method_args: []
+  expected: true
+
+invariant io_streams.bytesio_empty.writable:
+  description: "io.BytesIO().writable() == True — empty BytesIO is writable"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: []
+  method: writable
+  method_args: []
+  expected: true
+
+invariant io_streams.bytesio_empty.readable:
+  description: "io.BytesIO().readable() == True — empty BytesIO is readable"
+  category: bytesio
+  kind: python_call_eq
+  function: BytesIO
+  args: []
+  method: readable
+  method_args: []
+  expected: true
+
+# ---------------------------------------------------------------------------
+# StringIO — tell() returns 0 at start (short content variant)
+# ---------------------------------------------------------------------------
+
+invariant io_streams.stringio.tell_initial_hello:
+  description: "io.StringIO('hello').tell() == 0 — initial stream position is 0"
+  category: stringio
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello"]
+  method: tell
+  method_args: []
+  expected: 0

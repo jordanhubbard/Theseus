@@ -1,0 +1,114 @@
+spec: base64_extra
+version: ">=3.9"
+backend: python_module(base64)
+
+docs: https://docs.python.org/3/library/base64.html
+rfcs:
+  - "RFC 4648 — The Base16, Base32, and Base64 Data Encodings"
+
+provenance:
+  derived_from:
+    - "RFC 4648 — The Base16, Base32, and Base64 Data Encodings, October 2006"
+    - "https://docs.python.org/3/library/base64.html — Python base64 documentation"
+    - "Test vectors verified by running Python 3.14.3 base64 module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/base64.py"
+    - "CPython source: Modules/binascii.c"
+  notes:
+    - "This spec covers aspects of base64 not in base64.zspec.zsdl."
+    - "b16encode(b'\\xff\\x00') == b'FF00' — uppercase hex digits, RFC 4648 §8."
+    - "b16decode('FF00') == b'\\xff\\x00' — accepts uppercase hex string input."
+    - "b32encode(b'hello') == b'NBSWY3DP' — verified against Python 3.14.3."
+    - "b64encode then b64decode is lossless (roundtrip) for b'hello'."
+    - "urlsafe_b64encode, urlsafe_b64decode, b16encode, b16decode, b32encode, b85encode, a85encode are all module-level functions."
+    - "b85encode and a85encode were added in Python 3.4."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# function __name__ checks
+# ---------------------------------------------------------------------------
+
+table base64_extra.function_names:
+  kind: python_call_eq
+  category: identity
+  id_prefix: name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [urlsafe_b64encode, urlsafe_b64encode.__name__.__eq__, ["urlsafe_b64encode"], true]
+    - [urlsafe_b64decode, urlsafe_b64decode.__name__.__eq__, ["urlsafe_b64decode"], true]
+    - [b16encode,         b16encode.__name__.__eq__,         ["b16encode"],         true]
+    - [b16decode,         b16decode.__name__.__eq__,         ["b16decode"],         true]
+    - [b32encode,         b32encode.__name__.__eq__,         ["b32encode"],         true]
+    - [b85encode,         b85encode.__name__.__eq__,         ["b85encode"],         true]
+    - [a85encode,         a85encode.__name__.__eq__,         ["a85encode"],         true]
+
+# ---------------------------------------------------------------------------
+# b16encode — binary input with high bytes (not in base64.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+invariant base64_extra.b16encode.ff00:
+  description: "base64.b16encode(b'\\xff\\x00') == b'FF00' — RFC 4648 §8 uppercase hex"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16encode
+  args: [!hex ff00]
+  expected: !ascii "FF00"
+
+# ---------------------------------------------------------------------------
+# b16decode — decode uppercase hex string back to bytes
+# ---------------------------------------------------------------------------
+
+invariant base64_extra.b16decode.ff00:
+  description: "base64.b16decode('FF00') == b'\\xff\\x00'"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16decode
+  args: ["FF00"]
+  expected: !hex ff00
+
+invariant base64_extra.b16decode.deadbeef:
+  description: "base64.b16decode('DEADBEEF') == b'\\xde\\xad\\xbe\\xef'"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16decode
+  args: ["DEADBEEF"]
+  expected: !hex deadbeef
+
+# ---------------------------------------------------------------------------
+# b32encode — 'hello' (not in base64.zspec.zsdl which only has foo/foobar)
+# ---------------------------------------------------------------------------
+
+invariant base64_extra.b32encode.hello:
+  description: "base64.b32encode(b'hello') == b'NBSWY3DP'"
+  category: b32
+  kind: python_call_eq
+  function: b32encode
+  args: [!ascii hello]
+  expected: !ascii "NBSWY3DP"
+
+# ---------------------------------------------------------------------------
+# b64 roundtrip — b64decode(b64encode(b'hello')) == b'hello'
+# expressed as two separate invariants
+# ---------------------------------------------------------------------------
+
+invariant base64_extra.b64encode.hello:
+  description: "base64.b64encode(b'hello') == b'aGVsbG8='"
+  category: roundtrip
+  kind: python_call_eq
+  function: b64encode
+  args: [!ascii hello]
+  expected: !ascii "aGVsbG8="
+
+invariant base64_extra.b64decode.hello:
+  description: "base64.b64decode(b'aGVsbG8=') == b'hello' — completing the roundtrip"
+  category: roundtrip
+  kind: python_call_eq
+  function: b64decode
+  args: [!ascii "aGVsbG8="]
+  expected: !ascii "hello"
