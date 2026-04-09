@@ -1,0 +1,175 @@
+spec: re_patterns
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "Python re documentation — https://docs.python.org/3/library/re.html"
+    - "Test vectors verified with Python 3.14 on macOS Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_sre.c"
+    - "CPython source: Lib/re/__init__.py"
+  notes:
+    - "re.match() anchors at the start of the string; re.search() scans the whole string."
+    - "re.fullmatch() requires the pattern to match the entire string."
+    - "Match objects: .group(0) returns the full match; .group(1) returns the first capture group."
+    - "Match objects: .start() and .end() return the integer span positions."
+    - "Match objects: .span() returns a (start, end) tuple."
+    - "re.match() returns None when there is no match at the start; testing truthiness via __bool__ is idiomatic."
+    - "Named groups: (?P<name>...) captured via .group('name')."
+    - "re.compile() returns a compiled pattern object whose .pattern attribute is the original pattern string."
+    - "Pattern objects: .flags is an integer; default flags include re.UNICODE (32)."
+    - "All expected values verified by running Python 3.14 on macOS Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.match — anchored matching, group extraction
+#
+# re.match(pattern, string) returns a Match object or None.
+# We call match(pattern, string) then chain a method on the result.
+# ---------------------------------------------------------------------------
+
+invariant re_patterns.match.simple_group0:
+  description: "re.match(r'\\d+', '123abc').group(0) == '123'"
+  category: match
+  kind: python_call_eq
+  function: match
+  args: ["\\d+", "123abc"]
+  method: group
+  method_args: [0]
+  expected: "123"
+
+invariant re_patterns.match.no_anchor_fails:
+  description: "re.match(r'\\d+', 'abc123') returns None (no match at start)"
+  category: match
+  kind: python_call_eq
+  function: match
+  args: ["\\d+", "abc123"]
+  method: __eq__
+  method_args: [null]
+  expected: true
+
+invariant re_patterns.match.start_position:
+  description: "re.match(r'\\w+', 'hello world').start() == 0 — match begins at position 0"
+  category: match
+  kind: python_call_eq
+  function: match
+  args: ["\\w+", "hello world"]
+  method: start
+  expected: 0
+
+invariant re_patterns.match.end_position:
+  description: "re.match(r'\\w+', 'hello world').end() == 5 — match ends at position 5"
+  category: match
+  kind: python_call_eq
+  function: match
+  args: ["\\w+", "hello world"]
+  method: end
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# re.search — scans whole string for first match
+# ---------------------------------------------------------------------------
+
+invariant re_patterns.search.finds_interior_digits:
+  description: "re.search(r'\\d+', 'abc123def').group(0) == '123'"
+  category: search
+  kind: python_call_eq
+  function: search
+  args: ["\\d+", "abc123def"]
+  method: group
+  method_args: [0]
+  expected: "123"
+
+invariant re_patterns.search.start_of_interior_match:
+  description: "re.search(r'\\d+', 'abc123def').start() == 3 — digits begin at index 3"
+  category: search
+  kind: python_call_eq
+  function: search
+  args: ["\\d+", "abc123def"]
+  method: start
+  expected: 3
+
+invariant re_patterns.search.end_of_interior_match:
+  description: "re.search(r'\\d+', 'abc123def').end() == 6 — digits end at index 6"
+  category: search
+  kind: python_call_eq
+  function: search
+  args: ["\\d+", "abc123def"]
+  method: end
+  expected: 6
+
+# ---------------------------------------------------------------------------
+# Capture groups — group(1), group(2)
+# ---------------------------------------------------------------------------
+
+invariant re_patterns.groups.first_capture:
+  description: "re.match(r'(\\w+)\\s(\\w+)', 'foo bar').group(1) == 'foo'"
+  category: groups
+  kind: python_call_eq
+  function: match
+  args: ["(\\w+)\\s(\\w+)", "foo bar"]
+  method: group
+  method_args: [1]
+  expected: "foo"
+
+invariant re_patterns.groups.second_capture:
+  description: "re.match(r'(\\w+)\\s(\\w+)', 'foo bar').group(2) == 'bar'"
+  category: groups
+  kind: python_call_eq
+  function: match
+  args: ["(\\w+)\\s(\\w+)", "foo bar"]
+  method: group
+  method_args: [2]
+  expected: "bar"
+
+# ---------------------------------------------------------------------------
+# compile — compiled pattern object
+# ---------------------------------------------------------------------------
+
+invariant re_patterns.compile.pattern_attribute:
+  description: "re.compile(r'\\d+').pattern == '\\d+'"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["\\d+"]
+  method: pattern
+  expected: "\\d+"
+
+invariant re_patterns.compile.class_name:
+  description: "type(re.compile(r'\\w+')).__name__ == 'Pattern'"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["\\w+"]
+  method: __class__
+  method_chain: __name__
+  expected: "Pattern"
+
+# ---------------------------------------------------------------------------
+# re.fullmatch — must match entire string
+# ---------------------------------------------------------------------------
+
+invariant re_patterns.fullmatch.exact_match_group0:
+  description: "re.fullmatch(r'\\d{3}', '123').group(0) == '123'"
+  category: fullmatch
+  kind: python_call_eq
+  function: fullmatch
+  args: ["\\d{3}", "123"]
+  method: group
+  method_args: [0]
+  expected: "123"
+
+invariant re_patterns.fullmatch.partial_match_is_none:
+  description: "re.fullmatch(r'\\d{3}', '1234') returns None — extra character prevents full match"
+  category: fullmatch
+  kind: python_call_eq
+  function: fullmatch
+  args: ["\\d{3}", "1234"]
+  method: __eq__
+  method_args: [null]
+  expected: true

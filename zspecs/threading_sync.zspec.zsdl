@@ -1,0 +1,155 @@
+spec: threading_sync
+version: ">=3.2"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/threading.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "threading source: internal lock implementation (C extension)"
+    - "threading.zspec.zsdl — covers class names, function names, TIMEOUT_MAX, active_count, Lock, Event, Semaphore._value, current_thread"
+  notes:
+    - "This spec covers Barrier, Condition, BoundedSemaphore, and RLock runtime behaviors not in threading.zspec.zsdl."
+    - "Barrier(n).parties == n — the 'parties' attribute records the required count at construction."
+    - "Barrier(n).n_waiting == 0 on a fresh Barrier — no threads are blocked yet."
+    - "Barrier(n).broken == False on a fresh Barrier — not yet aborted."
+    - "Condition() wraps an RLock by default; Condition._lock.__class__.__name__ == 'RLock'."
+    - "BoundedSemaphore(n)._value == n — same as Semaphore, but release() raises ValueError if exceeded."
+    - "BoundedSemaphore(n)._initial_value == n — records the initial bound for overflow checks."
+    - "RLock().acquire(blocking=False) succeeds on a fresh RLock (returns True)."
+    - "RLock()._is_owned() == False — a new RLock is not owned by any thread."
+    - "A Condition object is not entered (not held) on construction."
+    - "All expected values verified by running Python 3.12 threading module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Barrier — construction-time attributes
+# Barrier(parties) records parties, starts with n_waiting=0, broken=False
+# ---------------------------------------------------------------------------
+
+invariant threading_sync.barrier_parties:
+  description: "threading.Barrier(3).parties == 3 — records the required count"
+  category: barrier
+  kind: python_call_eq
+  function: Barrier
+  args: [3]
+  method: parties
+  expected: 3
+
+invariant threading_sync.barrier_n_waiting:
+  description: "threading.Barrier(3).n_waiting == 0 — no threads are waiting yet"
+  category: barrier
+  kind: python_call_eq
+  function: Barrier
+  args: [3]
+  method: n_waiting
+  expected: 0
+
+invariant threading_sync.barrier_not_broken:
+  description: "threading.Barrier(3).broken == False — a new Barrier is not broken"
+  category: barrier
+  kind: python_call_eq
+  function: Barrier
+  args: [3]
+  method: broken
+  expected: false
+
+# ---------------------------------------------------------------------------
+# BoundedSemaphore — initial value and upper-bound tracking
+# BoundedSemaphore differs from Semaphore in that it records _initial_value
+# ---------------------------------------------------------------------------
+
+invariant threading_sync.boundedsemaphore_value:
+  description: "threading.BoundedSemaphore(4)._value == 4"
+  category: boundedsemaphore
+  kind: python_call_eq
+  function: BoundedSemaphore
+  args: [4]
+  method: _value
+  expected: 4
+
+invariant threading_sync.boundedsemaphore_initial_value:
+  description: "threading.BoundedSemaphore(4)._initial_value == 4 — records the upper bound"
+  category: boundedsemaphore
+  kind: python_call_eq
+  function: BoundedSemaphore
+  args: [4]
+  method: _initial_value
+  expected: 4
+
+invariant threading_sync.boundedsemaphore_default_value:
+  description: "threading.BoundedSemaphore()._value == 1 — default count is 1"
+  category: boundedsemaphore
+  kind: python_call_eq
+  function: BoundedSemaphore
+  args: []
+  method: _value
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# RLock — acquisition and ownership on a fresh lock
+# ---------------------------------------------------------------------------
+
+invariant threading_sync.rlock_acquire_succeeds:
+  description: "threading.RLock().acquire(blocking=False) == True — can acquire a free RLock"
+  category: rlock
+  kind: python_call_eq
+  function: RLock
+  args: []
+  method: acquire
+  method_args: [false]
+  expected: true
+
+invariant threading_sync.rlock_not_owned:
+  description: "threading.RLock()._is_owned() == False — new RLock is not owned by any thread"
+  category: rlock
+  kind: python_call_eq
+  function: RLock
+  args: []
+  method: _is_owned
+  method_args: []
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Condition — default lock type is RLock
+# Condition() wraps an RLock by default; internal _lock attribute reflects this.
+# ---------------------------------------------------------------------------
+
+invariant threading_sync.condition_lock_type:
+  description: "threading.Condition()._lock.__class__.__name__ == 'RLock'"
+  category: condition
+  kind: python_call_eq
+  function: Condition
+  args: []
+  method: _lock.__class__.__name__.__eq__
+  method_args: ["RLock"]
+  expected: true
+
+invariant threading_sync.condition_waiters_empty:
+  description: "len(threading.Condition()._waiters) == 0 — no waiters on a new Condition"
+  category: condition
+  kind: python_call_eq
+  function: Condition
+  args: []
+  method: _waiters.__len__
+  method_args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# Semaphore — default count is 1
+# Matches threading.zspec.zsdl Semaphore(3)._value test but covers default.
+# ---------------------------------------------------------------------------
+
+invariant threading_sync.semaphore_default_value:
+  description: "threading.Semaphore()._value == 1 — Semaphore default count is 1"
+  category: semaphore
+  kind: python_call_eq
+  function: Semaphore
+  args: []
+  method: _value
+  expected: 1

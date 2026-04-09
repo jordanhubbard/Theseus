@@ -1,0 +1,163 @@
+spec: os_environ
+version: ">=3.2"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html#os.environ
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/os.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "os source: posixmodule.c (PSF; source inspection permitted)"
+  not_derived_from:
+    - "os.zspec.zsdl — covers os constants, open flags, function names, getenv, getpid, urandom, strerror, getcwd"
+    - "os_path.zspec.zsdl — covers os.path functions"
+  notes:
+    - "os.environ is a Mapping[str, str] backed by the process environment; its type is 'os._Environ'."
+    - "os.environb is the bytes-keyed counterpart of os.environ on POSIX systems."
+    - "os.environ.__class__.__name__ == '_Environ' on CPython."
+    - "'PATH' is present in os.environ on all POSIX systems and is always a non-empty string."
+    - "'HOME' is set on all standard POSIX environments (macOS, Linux, FreeBSD)."
+    - "os.environ.get('NONEXISTENT_VAR_XYZ') returns None — same semantic as dict.get."
+    - "os.environ.get('NONEXISTENT_VAR_XYZ', 'default') returns 'default'."
+    - "os.confstr_names is a dict mapping POSIX confstr name strings to integer constants."
+    - "os.sysconf_names is a dict mapping POSIX sysconf name strings to integer constants."
+    - "'SC_CLK_TCK' is in os.sysconf_names on all POSIX platforms (macOS, Linux, FreeBSD)."
+    - "'CS_PATH' is in os.confstr_names on all POSIX platforms."
+    - "os.environ.keys() returns a KeysView; __len__ >= 1 because PATH is always set."
+    - "All expected values verified by running Python 3.12 os module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "os.environ raises KeyError for missing keys when accessed via []. os.environb raises AttributeError on Windows."
+  stderr: "null"
+  stickiness: "N/A — each attribute access is stateless within a process."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# os.environ — type identity
+# ---------------------------------------------------------------------------
+
+invariant os_environ.type_name:
+  description: "os.environ.__class__.__name__ == '_Environ'"
+  category: environ_type
+  kind: python_call_eq
+  function: environ.__class__.__name__.__eq__
+  args: ["_Environ"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.environ — standard POSIX keys are present and non-empty
+# PATH and HOME are universally available on macOS, Linux, and FreeBSD.
+# ---------------------------------------------------------------------------
+
+invariant os_environ.path_present:
+  description: "os.environ.__contains__('PATH') == True — PATH is always set on POSIX"
+  category: environ_keys
+  kind: python_call_eq
+  function: environ.__contains__
+  args: ["PATH"]
+  expected: true
+
+invariant os_environ.home_present:
+  description: "os.environ.__contains__('HOME') == True — HOME is always set on POSIX"
+  category: environ_keys
+  kind: python_call_eq
+  function: environ.__contains__
+  args: ["HOME"]
+  expected: true
+
+invariant os_environ.path_nonempty:
+  description: "len(os.environ['PATH']) > 0 — PATH value is a non-empty string"
+  category: environ_keys
+  kind: python_call_eq
+  function: environ.__getitem__
+  args: ["PATH"]
+  method: __len__
+  method_chain: __gt__
+  method_chain_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.environ.get — missing-key fallback semantics
+# ---------------------------------------------------------------------------
+
+invariant os_environ.get_missing_none:
+  description: "os.environ.get('NONEXISTENT_VAR_XYZ') == None"
+  category: environ_get
+  kind: python_call_eq
+  function: environ.get
+  args: ["NONEXISTENT_VAR_XYZ"]
+  expected: null
+
+invariant os_environ.get_missing_default:
+  description: "os.environ.get('NONEXISTENT_VAR_XYZ', 'sentinel') == 'sentinel'"
+  category: environ_get
+  kind: python_call_eq
+  function: environ.get
+  args: ["NONEXISTENT_VAR_XYZ", "sentinel"]
+  expected: "sentinel"
+
+# ---------------------------------------------------------------------------
+# os.environ — Mapping protocol: __len__ >= 1
+# ---------------------------------------------------------------------------
+
+invariant os_environ.len_ge_1:
+  description: "len(os.environ) >= 1 — at least PATH is always present"
+  category: environ_mapping
+  kind: python_call_eq
+  function: environ.__len__
+  args: []
+  method_chain: __ge__
+  method_chain_args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.confstr_names — POSIX confstr constant registry
+# CS_PATH is mandated by POSIX and present on macOS, Linux, and FreeBSD.
+# ---------------------------------------------------------------------------
+
+invariant os_environ.confstr_names_type:
+  description: "os.confstr_names.__class__.__name__ == 'dict'"
+  category: confstr_names
+  kind: python_call_eq
+  function: confstr_names.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+invariant os_environ.confstr_names_cs_path:
+  description: "os.confstr_names.__contains__('CS_PATH') == True — CS_PATH is a standard POSIX confstr"
+  category: confstr_names
+  kind: python_call_eq
+  function: confstr_names.__contains__
+  args: ["CS_PATH"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.sysconf_names — POSIX sysconf constant registry
+# SC_CLK_TCK is defined by POSIX and present on all supported platforms.
+# ---------------------------------------------------------------------------
+
+invariant os_environ.sysconf_names_type:
+  description: "os.sysconf_names.__class__.__name__ == 'dict'"
+  category: sysconf_names
+  kind: python_call_eq
+  function: sysconf_names.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+invariant os_environ.sysconf_names_sc_clk_tck:
+  description: "os.sysconf_names.__contains__('SC_CLK_TCK') == True — clock ticks per second"
+  category: sysconf_names
+  kind: python_call_eq
+  function: sysconf_names.__contains__
+  args: ["SC_CLK_TCK"]
+  expected: true
+
+invariant os_environ.sysconf_names_sc_nprocessors_onln:
+  description: "os.sysconf_names.__contains__('SC_NPROCESSORS_ONLN') == True — online processor count"
+  category: sysconf_names
+  kind: python_call_eq
+  function: sysconf_names.__contains__
+  args: ["SC_NPROCESSORS_ONLN"]
+  expected: true

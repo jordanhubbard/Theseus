@@ -1,0 +1,154 @@
+spec: subprocess_popen
+version: ">=3.5"
+backend: python_module(subprocess)
+
+docs: https://docs.python.org/3/library/subprocess.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/subprocess.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "subprocess source: subprocess.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "subprocess source: internal platform-specific Popen implementation details"
+    - "subprocess.zspec.zsdl — covers class names, function names, sentinel constants, run(), check_output(), and exception hierarchy"
+  notes:
+    - "This spec covers Popen runtime attributes and CompletedProcess/TimeoutExpired constructor semantics."
+    - "subprocess.Popen(['true']) launches a real subprocess; .pid is a positive int; .wait() returns 0."
+    - "subprocess.Popen.pid is set immediately after the child is forked, before wait()."
+    - "subprocess.Popen.returncode is None before wait() and 0 after 'true' exits successfully."
+    - "subprocess.CompletedProcess(args, returncode) stores .args and .returncode as given."
+    - "subprocess.TimeoutExpired('cmd', 5).cmd == 'cmd' and .timeout == 5."
+    - "subprocess.TimeoutExpired.timeout is a float or int as passed."
+    - "CompletedProcess.stdout and CompletedProcess.stderr default to None when not supplied."
+    - "All expected values verified by running Python 3.12 subprocess module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "Popen raises FileNotFoundError if the executable is not found. wait() may raise subprocess.TimeoutExpired."
+  stderr: "null"
+  stickiness: "N/A — each Popen call spawns an independent child process."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# CompletedProcess — constructor attribute storage
+# CompletedProcess(args, returncode) records args, returncode, and leaves
+# stdout/stderr as None when not supplied.
+# ---------------------------------------------------------------------------
+
+invariant subprocess_popen.completedprocess_args:
+  description: "CompletedProcess(['echo'], 0).args == ['echo'] — stores the args"
+  category: completedprocess
+  kind: python_call_eq
+  function: CompletedProcess
+  args: [["echo"], 0]
+  method: args
+  expected: ["echo"]
+
+invariant subprocess_popen.completedprocess_returncode:
+  description: "CompletedProcess(['echo'], 0).returncode == 0 — stores the exit code"
+  category: completedprocess
+  kind: python_call_eq
+  function: CompletedProcess
+  args: [["echo"], 0]
+  method: returncode
+  expected: 0
+
+invariant subprocess_popen.completedprocess_stdout_none:
+  description: "CompletedProcess(['echo'], 0).stdout is None — stdout defaults to None"
+  category: completedprocess
+  kind: python_call_eq
+  function: CompletedProcess
+  args: [["echo"], 0]
+  method: stdout
+  expected: null
+
+invariant subprocess_popen.completedprocess_stderr_none:
+  description: "CompletedProcess(['echo'], 0).stderr is None — stderr defaults to None"
+  category: completedprocess
+  kind: python_call_eq
+  function: CompletedProcess
+  args: [["echo"], 0]
+  method: stderr
+  expected: null
+
+# ---------------------------------------------------------------------------
+# TimeoutExpired — constructor attribute storage
+# TimeoutExpired(cmd, timeout) records .cmd, .timeout, and leaves output/stderr None
+# ---------------------------------------------------------------------------
+
+invariant subprocess_popen.timeoutexpired_cmd:
+  description: "TimeoutExpired('myprogram', 5).cmd == 'myprogram'"
+  category: timeoutexpired
+  kind: python_call_eq
+  function: TimeoutExpired
+  args: ["myprogram", 5]
+  method: cmd
+  expected: "myprogram"
+
+invariant subprocess_popen.timeoutexpired_timeout:
+  description: "TimeoutExpired('myprogram', 5).timeout == 5"
+  category: timeoutexpired
+  kind: python_call_eq
+  function: TimeoutExpired
+  args: ["myprogram", 5]
+  method: timeout
+  expected: 5
+
+invariant subprocess_popen.timeoutexpired_output_none:
+  description: "TimeoutExpired('myprogram', 5).output is None — output defaults to None"
+  category: timeoutexpired
+  kind: python_call_eq
+  function: TimeoutExpired
+  args: ["myprogram", 5]
+  method: output
+  expected: null
+
+# ---------------------------------------------------------------------------
+# Popen — live process attributes
+# pid is a positive integer; returncode is None before wait()
+# ---------------------------------------------------------------------------
+
+invariant subprocess_popen.popen_pid_positive:
+  description: "Popen(['true']).pid > 0 — child PID is always a positive int"
+  category: popen
+  kind: python_call_eq
+  function: Popen
+  args: [["true"]]
+  method: pid
+  method_chain: __gt__
+  method_chain_args: [0]
+  expected: true
+
+invariant subprocess_popen.popen_returncode_before_wait:
+  description: "Popen(['true']).returncode is None before wait() is called"
+  category: popen
+  kind: python_call_eq
+  function: Popen
+  args: [["true"]]
+  method: returncode
+  expected: null
+
+# ---------------------------------------------------------------------------
+# Popen — wait() returns the exit code after the child exits
+# ---------------------------------------------------------------------------
+
+invariant subprocess_popen.popen_wait_true:
+  description: "Popen(['true']).wait() == 0 — 'true' always exits successfully"
+  category: popen
+  kind: python_call_eq
+  function: Popen
+  args: [["true"]]
+  method: wait
+  method_args: []
+  expected: 0
+
+invariant subprocess_popen.popen_wait_false:
+  description: "Popen(['false']).wait() == 1 — 'false' always exits with code 1"
+  category: popen
+  kind: python_call_eq
+  function: Popen
+  args: [["false"]]
+  method: wait
+  method_args: []
+  expected: 1

@@ -1,0 +1,175 @@
+spec: pathlib_pure
+version: ">=3.4"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/pathlib.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython pathlib source: Lib/pathlib/"
+    - "pathlib.zspec.zsdl — covers PurePosixPath runtime behaviors (name, suffix, parts, etc.)"
+  notes:
+    - "This spec covers class identity metadata and Windows-style path semantics not in pathlib.zspec.zsdl."
+    - "PureWindowsPath can be constructed on any platform — it never touches the filesystem."
+    - "PurePosixPath.__name__ == 'PurePosixPath'; PureWindowsPath.__name__ == 'PureWindowsPath'."
+    - "PurePosixPath and PureWindowsPath both inherit from PurePath."
+    - "PureWindowsPath('C:/Windows/System32').drive == 'C:' — Windows drive letter with colon."
+    - "PureWindowsPath('C:/Windows/System32').root == '\\\\' — backslash root on Windows paths."
+    - "PureWindowsPath('C:/Windows/System32').anchor == 'C:\\\\' — drive + root combined."
+    - "PurePosixPath('/usr/bin/python').drive == '' — POSIX paths have no drive component."
+    - "PurePosixPath('/usr/bin/python').anchor == '/' — anchor is the root separator."
+    - "PurePosixPath.match() does glob-style matching against the path string."
+    - "PurePosixPath.__module__ == 'pathlib' and PureWindowsPath.__module__ == 'pathlib'."
+    - "All expected values verified by running Python 3.12 pathlib module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class identity — name and module checks
+# ---------------------------------------------------------------------------
+
+table pathlib_pure.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [posixpath_name,   PurePosixPath.__name__.__eq__,    ["PurePosixPath"],    true]
+    - [windowspath_name, PureWindowsPath.__name__.__eq__,  ["PureWindowsPath"],  true]
+    - [purepath_name,    PurePath.__name__.__eq__,          ["PurePath"],         true]
+    - [posixpath_module, PurePosixPath.__module__.__eq__,  ["pathlib"],          true]
+    - [windowspath_module, PureWindowsPath.__module__.__eq__, ["pathlib"],        true]
+
+# ---------------------------------------------------------------------------
+# Class hierarchy — PurePosixPath and PureWindowsPath inherit from PurePath
+# ---------------------------------------------------------------------------
+
+invariant pathlib_pure.PurePosixPath_base:
+  description: "PurePosixPath.__bases__[0].__name__ == 'PurePath'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: PurePosixPath.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "PurePath"
+
+invariant pathlib_pure.PureWindowsPath_base:
+  description: "PureWindowsPath.__bases__[0].__name__ == 'PurePath'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: PureWindowsPath.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "PurePath"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath — drive and anchor on POSIX paths
+# POSIX paths have no drive; anchor is the root separator '/'
+# ---------------------------------------------------------------------------
+
+invariant pathlib_pure.posix_drive_empty:
+  description: "PurePosixPath('/usr/bin/python').drive == '' — POSIX paths have no drive"
+  category: posix_components
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/usr/bin/python"]
+  method: drive
+  expected: ""
+
+invariant pathlib_pure.posix_anchor:
+  description: "PurePosixPath('/usr/bin/python').anchor == '/' — anchor is the root slash"
+  category: posix_components
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/usr/bin/python"]
+  method: anchor
+  expected: "/"
+
+invariant pathlib_pure.posix_anchor_relative_empty:
+  description: "PurePosixPath('relative/path').anchor == '' — relative paths have no anchor"
+  category: posix_components
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["relative/path"]
+  method: anchor
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# PureWindowsPath — drive, root, anchor on Windows-style paths
+# These are platform-independent: PureWindowsPath works on any OS
+# ---------------------------------------------------------------------------
+
+invariant pathlib_pure.windows_drive:
+  description: "PureWindowsPath('C:/Windows/System32').drive == 'C:'"
+  category: windows_components
+  kind: python_call_eq
+  function: PureWindowsPath
+  args: ["C:/Windows/System32"]
+  method: drive
+  expected: "C:"
+
+invariant pathlib_pure.windows_root:
+  description: "PureWindowsPath('C:/Windows/System32').root == '\\\\' — backslash root"
+  category: windows_components
+  kind: python_call_eq
+  function: PureWindowsPath
+  args: ["C:/Windows/System32"]
+  method: root
+  expected: "\\"
+
+invariant pathlib_pure.windows_anchor:
+  description: "PureWindowsPath('C:/Windows/System32').anchor == 'C:\\\\' — drive + root"
+  category: windows_components
+  kind: python_call_eq
+  function: PureWindowsPath
+  args: ["C:/Windows/System32"]
+  method: anchor
+  expected: "C:\\"
+
+invariant pathlib_pure.windows_name:
+  description: "PureWindowsPath('C:/Windows/System32').name == 'System32'"
+  category: windows_components
+  kind: python_call_eq
+  function: PureWindowsPath
+  args: ["C:/Windows/System32"]
+  method: name
+  expected: "System32"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.match — glob-style path matching
+# ---------------------------------------------------------------------------
+
+invariant pathlib_pure.match_extension:
+  description: "PurePosixPath('/usr/bin/python.exe').match('*.exe') == True"
+  category: match
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/usr/bin/python.exe"]
+  method: match
+  method_args: ["*.exe"]
+  expected: true
+
+invariant pathlib_pure.match_dir_pattern:
+  description: "PurePosixPath('/usr/bin/python').match('/usr/*') == True"
+  category: match
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/usr/bin/python"]
+  method: match
+  method_args: ["/usr/*"]
+  expected: false
+
+invariant pathlib_pure.match_no_match:
+  description: "PurePosixPath('/usr/bin/python').match('*.exe') == False"
+  category: match
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/usr/bin/python"]
+  method: match
+  method_args: ["*.exe"]
+  expected: false
