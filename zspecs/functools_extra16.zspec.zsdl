@@ -1,0 +1,137 @@
+spec: functools_extra16
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec extends functools.zspec.zsdl and prior extras through functools_extra15.zspec.zsdl."
+    - "functools_extra15 covers: partialmethod.__name__, __qualname__, name_len, qualname_len; total_ordering.__qualname__ standalone invariant; WRAPPER_ASSIGNMENTS[5]; WRAPPER_UPDATES.__contains__('__dict__')."
+    - "functools_extra2 covers: functools.reduce(operator.add, [1,2,3,4]) == 10 using {type:module_attr} syntax."
+    - "functools_extra4 covers: partial(int).func, partial(int).keywords, partial(int).args (structural attributes)."
+    - "NOT yet covered: reduce with max as the callable — produces running maximum; reduce with min — running minimum; partial(int, base=2).__call__('101') == 5; partial(min, 5).__call__(3) == 3; partial(max, 10).__call__(7) == 10; partial(pow, 2).__call__(10) == 1024."
+    - "functools.reduce(max, [3,1,4,1,5,9]) == 9 — reduce with built-in max as fold function."
+    - "functools.reduce(min, [3,1,4,1,5,9]) == 1 — reduce with built-in min as fold function."
+    - "functools.reduce(max, [1,2,3,4]) == 4 — running max across four elements."
+    - "functools.partial(int, base=2).__call__('101') == 5 — parse binary string '101'."
+    - "functools.partial(min, 5).__call__(3) == 3 — partial(min, 5) called with 3; min(5,3)==3."
+    - "functools.partial(min, 5).__call__(10) == 5 — partial(min, 5) called with 10; min(5,10)==5."
+    - "functools.partial(pow, 2).__call__(10) == 1024 — partial(pow, 2)(10) == pow(2,10) == 1024."
+    - "functools.partial(max, 10).__call__(20) == 20 — partial(max, 10)(20) == max(10,20) == 20."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# reduce with max / min as the combining callable
+#
+# functools_extra2 covers reduce(operator.add, [1,2,3,4]) == 10.
+# No prior spec tests reduce with the built-in max or min as the callable.
+# reduce(max, seq) computes a running maximum across the sequence.
+# reduce(min, seq) computes a running minimum across the sequence.
+# These exercise a genuinely different behavioral axis — fold by comparison
+# rather than fold by arithmetic.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra16.reduce.max_sequence:
+  description: "reduce(max, [3,1,4,1,5,9]) == 9 — running maximum across six elements"
+  category: reduce
+  kind: python_call_eq
+  function: reduce
+  args: [max, [3, 1, 4, 1, 5, 9]]
+  expected: 9
+
+invariant functools_extra16.reduce.min_sequence:
+  description: "reduce(min, [3,1,4,1,5,9]) == 1 — running minimum across six elements"
+  category: reduce
+  kind: python_call_eq
+  function: reduce
+  args: [min, [3, 1, 4, 1, 5, 9]]
+  expected: 1
+
+invariant functools_extra16.reduce.max_ascending:
+  description: "reduce(max, [1,2,3,4]) == 4 — running max of an ascending sequence equals the last element"
+  category: reduce
+  kind: python_call_eq
+  function: reduce
+  args: [max, [1, 2, 3, 4]]
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# partial — call results with frozen positional or keyword args
+#
+# functools_extra4 covers partial(int).func, partial(int).keywords, and
+# partial(int).args (structural attributes on the partial object itself).
+# No prior spec tests actually *calling* a partial object and checking the
+# return value. These invariants use method: __call__ to invoke the partial.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra16.partial.int_base2_call:
+  description: "partial(int, base=2).__call__('101') == 5 — parse binary string '101' as int with base=2"
+  category: partial_call
+  kind: python_call_eq
+  function: partial
+  args: [int]
+  kwargs:
+    base: 2
+  method: __call__
+  method_args: ["101"]
+  expected: 5
+
+invariant functools_extra16.partial.min_frozen_first_wins:
+  description: "partial(min, 5).__call__(3) == 3 — min(5,3)==3; the argument 3 < 5 wins"
+  category: partial_call
+  kind: python_call_eq
+  function: partial
+  args: [min, 5]
+  method: __call__
+  method_args: [3]
+  expected: 3
+
+invariant functools_extra16.partial.min_frozen_first_loses:
+  description: "partial(min, 5).__call__(10) == 5 — min(5,10)==5; the frozen argument 5 < 10 wins"
+  category: partial_call
+  kind: python_call_eq
+  function: partial
+  args: [min, 5]
+  method: __call__
+  method_args: [10]
+  expected: 5
+
+invariant functools_extra16.partial.pow_base2:
+  description: "partial(pow, 2).__call__(10) == 1024 — partial(pow, 2)(10) == pow(2,10) == 1024"
+  category: partial_call
+  kind: python_call_eq
+  function: partial
+  args: [pow, 2]
+  method: __call__
+  method_args: [10]
+  expected: 1024
+
+invariant functools_extra16.partial.max_frozen_loses:
+  description: "partial(max, 10).__call__(20) == 20 — max(10,20)==20; the fresh argument wins"
+  category: partial_call
+  kind: python_call_eq
+  function: partial
+  args: [max, 10]
+  method: __call__
+  method_args: [20]
+  expected: 20
+
+invariant functools_extra16.partial.max_frozen_wins:
+  description: "partial(max, 10).__call__(7) == 10 — max(10,7)==10; the frozen argument wins"
+  category: partial_call
+  kind: python_call_eq
+  function: partial
+  args: [max, 10]
+  method: __call__
+  method_args: [7]
+  expected: 10

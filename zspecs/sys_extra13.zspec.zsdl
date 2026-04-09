@@ -1,0 +1,156 @@
+spec: sys_extra13
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sys.html — Python sys module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/sysmodule.c"
+  notes:
+    - "This spec extends sys.zspec.zsdl and prior extras through sys_extra12.zspec.zsdl."
+    - "sys_extra5 covers intern.__name__; sys_extra7 covers intern.__qualname__."
+    - "No prior spec covers sys.intern.__module__ == 'sys'."
+    - "sys_extra.zspec.zsdl covers flags.__class__.__name__ == 'flags'."
+    - "No prior spec covers sys.flags.__class__.__module__ == 'sys'."
+    - "No prior spec covers sys.implementation.version.major >= 3 or its type (int)."
+    - "No prior spec covers sys.implementation.version.minor >= 0 or sys.implementation.version.micro >= 0."
+    - "sys_extra10 covers builtin_module_names.__contains__('sys') and ('builtins')."
+    - "No prior spec covers builtin_module_names.__contains__('_thread') == True."
+    - "sys.intern is implemented in CPython's sysmodule.c; its __module__ == 'sys'."
+    - "sys.flags.__class__.__module__ == 'sys' — the flags struct_sequence is defined in sysmodule.c."
+    - "sys.implementation.version is a version_info-like namedtuple; .major is always an int >= 3."
+    - "sys.implementation.version.minor and .micro are always non-negative ints."
+    - "_thread is a built-in module on CPython (the low-level threading C extension)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sys.intern — __module__ check
+#
+# sys_extra5 covers intern.__name__ == 'intern'.
+# sys_extra7 covers intern.__qualname__ == 'intern'.
+# No prior spec checks intern.__module__. The function is implemented in
+# CPython's Python/sysmodule.c and exported as part of the sys module.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra13.intern.module:
+  description: "sys.intern.__module__ == 'sys' — intern is implemented in CPython's sysmodule.c"
+  category: function_modules
+  kind: python_call_eq
+  function: intern.__module__.__eq__
+  args: ["sys"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.flags.__class__.__module__ — module of the flags struct_sequence type
+#
+# sys_extra.zspec.zsdl covers flags.__class__.__name__ == 'flags'.
+# sys_extra3 and sys_extra11 cover various flags field types.
+# No prior spec checks flags.__class__.__module__. The flags type is defined
+# in Python/sysmodule.c and belongs to the 'sys' module.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra13.flags.class_module:
+  description: "sys.flags.__class__.__module__ == 'sys' — the flags type is defined in sysmodule.c"
+  category: attributes
+  kind: python_call_eq
+  function: flags.__class__.__module__.__eq__
+  args: ["sys"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.implementation.version — major, minor, micro type and lower bounds
+#
+# sys_extra.zspec.zsdl covers implementation.name == 'cpython'.
+# sys_extra6 covers version_info.major == 3 and version_info.minor >= 9.
+# No prior spec covers implementation.version.major, minor, or micro.
+# implementation.version is a version_info-like namedtuple with the same
+# fields as sys.version_info; all fields are non-negative ints.
+# On Python >= 3.9, major is at least 3, minor and micro are >= 0.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra13.implementation.version.major_is_int:
+  description: "sys.implementation.version.major.__class__.__name__ == 'int' — major version is always an int"
+  category: implementation
+  kind: python_call_eq
+  function: implementation.version.major.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant sys_extra13.implementation.version.major_ge_3:
+  description: "sys.implementation.version.major >= 3 — CPython version is at least 3 (Python 3.x)"
+  category: implementation
+  kind: python_call_eq
+  function: implementation.version.major.__ge__
+  args: [3]
+  expected: true
+
+invariant sys_extra13.implementation.version.minor_nonneg:
+  description: "sys.implementation.version.minor >= 0 — minor version is always a non-negative int"
+  category: implementation
+  kind: python_call_eq
+  function: implementation.version.minor.__ge__
+  args: [0]
+  expected: true
+
+invariant sys_extra13.implementation.version.micro_nonneg:
+  description: "sys.implementation.version.micro >= 0 — micro version is always a non-negative int"
+  category: implementation
+  kind: python_call_eq
+  function: implementation.version.micro.__ge__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.builtin_module_names — contains '_thread'
+#
+# sys_extra10 covers builtin_module_names.__contains__('sys') and ('builtins').
+# No prior spec covers builtin_module_names.__contains__('_thread').
+# '_thread' is the low-level C threading extension; it is always built-in on
+# CPython (required for threading.py). It is guaranteed to be in
+# builtin_module_names on all CPython builds.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra13.builtin_module_names.contains_thread:
+  description: "sys.builtin_module_names.__contains__('_thread') == True — '_thread' is always a built-in C module on CPython"
+  category: builtin_module_names
+  kind: python_call_eq
+  function: builtin_module_names.__contains__
+  args: ["_thread"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.implementation.version — class name of the version tuple
+#
+# No prior spec checks implementation.version.__class__.__name__.
+# It is 'version_info' — the same struct_sequence type used by sys.version_info.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra13.implementation.version.class_name:
+  description: "sys.implementation.version.__class__.__name__ == 'version_info' — same type as sys.version_info"
+  category: implementation
+  kind: python_call_eq
+  function: implementation.version.__class__.__name__.__eq__
+  args: ["version_info"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.implementation.name — type check (complement to value check in sys_extra)
+#
+# sys_extra.zspec.zsdl covers implementation.name == 'cpython' (value).
+# No prior spec checks implementation.name.__class__.__name__ == 'str'.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra13.implementation.name.is_str:
+  description: "sys.implementation.name.__class__.__name__ == 'str' — implementation name is always a str"
+  category: implementation
+  kind: python_call_eq
+  function: implementation.name.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
