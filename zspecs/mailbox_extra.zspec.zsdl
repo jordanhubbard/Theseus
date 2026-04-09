@@ -1,0 +1,228 @@
+spec: mailbox_extra
+version: ">=3.9"
+backend: python_module(mailbox)
+
+docs: https://docs.python.org/3/library/mailbox.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/mailbox.html — Python mailbox module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/mailbox.py"
+  notes:
+    - "This spec extends mailbox.zspec.zsdl — it does NOT duplicate invariants already present there."
+    - "mailbox.zspec.zsdl covers: class names for Mailbox/Maildir/mbox/MH/Babyl/MMDF/Message and format-specific message subclasses; exception class names; Mailbox.__module__; hierarchy checks for Maildir base, NoSuchMailboxError/NotEmptyError/ExternalClashError bases."
+    - "This spec adds: __module__ affiliation for concrete subclasses (Maildir, mbox, MH, Babyl, MMDF); __module__ for the Message class and format-specific message subclasses; hierarchy checks for mbox/MH/Babyl/MMDF base classes; Error.__bases__ check; Mailbox.__doc__ presence."
+    - "All concrete mailbox classes (Maildir, mbox, MH, Babyl, MMDF) have __module__ == 'mailbox'."
+    - "All message classes (Message and subclasses) have __module__ == 'mailbox'."
+    - "mailbox.Error inherits from Exception — it is the root mailbox exception class."
+    - "mbox, MH, Babyl, and MMDF all directly inherit from Mailbox (single-level hierarchy)."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module affiliation — concrete mailbox container classes
+# (mailbox.zspec.zsdl covers Mailbox.__module__; this spec adds the rest)
+# ---------------------------------------------------------------------------
+
+table mailbox_extra.module.containers:
+  kind: python_call_eq
+  category: module
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Maildir, Maildir.__module__.__eq__, ["mailbox"], true]
+    - [mbox,    mbox.__module__.__eq__,    ["mailbox"], true]
+    - [MH,      MH.__module__.__eq__,      ["mailbox"], true]
+    - [Babyl,   Babyl.__module__.__eq__,   ["mailbox"], true]
+    - [MMDF,    MMDF.__module__.__eq__,    ["mailbox"], true]
+
+# ---------------------------------------------------------------------------
+# Module affiliation — message classes
+# ---------------------------------------------------------------------------
+
+table mailbox_extra.module.messages:
+  kind: python_call_eq
+  category: module
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Message,        Message.__module__.__eq__,        ["mailbox"], true]
+    - [MaildirMessage, MaildirMessage.__module__.__eq__,  ["mailbox"], true]
+    - [mboxMessage,    mboxMessage.__module__.__eq__,     ["mailbox"], true]
+    - [MHMessage,      MHMessage.__module__.__eq__,       ["mailbox"], true]
+    - [BabylMessage,   BabylMessage.__module__.__eq__,    ["mailbox"], true]
+    - [MMDFMessage,    MMDFMessage.__module__.__eq__,     ["mailbox"], true]
+
+# ---------------------------------------------------------------------------
+# Module affiliation — exception classes
+# ---------------------------------------------------------------------------
+
+table mailbox_extra.module.exceptions:
+  kind: python_call_eq
+  category: module
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Error,               Error.__module__.__eq__,               ["mailbox"], true]
+    - [NoSuchMailboxError,  NoSuchMailboxError.__module__.__eq__,   ["mailbox"], true]
+    - [NotEmptyError,       NotEmptyError.__module__.__eq__,        ["mailbox"], true]
+    - [ExternalClashError,  ExternalClashError.__module__.__eq__,   ["mailbox"], true]
+    - [FormatError,         FormatError.__module__.__eq__,          ["mailbox"], true]
+
+# ---------------------------------------------------------------------------
+# Error class name and hierarchy
+# Error is the mailbox-specific exception base; it inherits from Exception
+# ---------------------------------------------------------------------------
+
+invariant mailbox_extra.Error.name:
+  description: "mailbox.Error.__name__ == 'Error'"
+  category: exceptions
+  kind: python_call_eq
+  function: Error.__name__.__eq__
+  args: ["Error"]
+  expected: true
+
+invariant mailbox_extra.Error.base:
+  description: "mailbox.Error.__bases__[0].__name__ == 'Exception'"
+  category: hierarchy
+  kind: python_call_eq
+  function: Error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# Hierarchy — mbox, MH, Babyl, MMDF inherit directly from Mailbox
+# (mailbox.zspec.zsdl covers Maildir base; this spec adds the remaining four)
+# ---------------------------------------------------------------------------
+
+invariant mailbox_extra.hierarchy.mbox_base:
+  description: "mbox.__bases__[0].__name__ == 'Mailbox' — mbox inherits directly from Mailbox"
+  category: hierarchy
+  kind: python_call_eq
+  function: mbox.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Mailbox"
+
+invariant mailbox_extra.hierarchy.MH_base:
+  description: "MH.__bases__[0].__name__ == 'Mailbox' — MH inherits directly from Mailbox"
+  category: hierarchy
+  kind: python_call_eq
+  function: MH.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Mailbox"
+
+invariant mailbox_extra.hierarchy.Babyl_base:
+  description: "Babyl.__bases__[0].__name__ == 'Mailbox' — Babyl inherits directly from Mailbox"
+  category: hierarchy
+  kind: python_call_eq
+  function: Babyl.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Mailbox"
+
+invariant mailbox_extra.hierarchy.MMDF_base:
+  description: "MMDF.__bases__[0].__name__ == 'Mailbox' — MMDF inherits directly from Mailbox"
+  category: hierarchy
+  kind: python_call_eq
+  function: MMDF.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Mailbox"
+
+# ---------------------------------------------------------------------------
+# Message class — base class is email.message.Message
+# mailbox.Message wraps email.message.Message to provide format-specific metadata
+# ---------------------------------------------------------------------------
+
+invariant mailbox_extra.Message.base:
+  description: "mailbox.Message.__bases__[0].__name__ == 'Message' — inherits from email.message.Message"
+  category: hierarchy
+  kind: python_call_eq
+  function: Message.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Message"
+
+# ---------------------------------------------------------------------------
+# Mailbox.__doc__ — abstract base class must have a docstring
+# ---------------------------------------------------------------------------
+
+invariant mailbox_extra.Mailbox.doc_is_str:
+  description: "mailbox.Mailbox.__doc__ is a str (the class has a docstring)"
+  category: classes
+  kind: python_call_eq
+  function: Mailbox.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# FormatError hierarchy — inherits from Error
+# (mailbox.zspec.zsdl omits FormatError base; this spec adds it)
+# ---------------------------------------------------------------------------
+
+invariant mailbox_extra.hierarchy.FormatError_base:
+  description: "FormatError.__bases__[0].__name__ == 'Error' — FormatError inherits from mailbox.Error"
+  category: hierarchy
+  kind: python_call_eq
+  function: FormatError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Error"
+
+# ---------------------------------------------------------------------------
+# Message subclass hierarchy — each format-specific message class inherits from Message
+# ---------------------------------------------------------------------------
+
+invariant mailbox_extra.hierarchy.MaildirMessage_base:
+  description: "MaildirMessage.__bases__[0].__name__ == 'Message' — MaildirMessage inherits from mailbox.Message"
+  category: hierarchy
+  kind: python_call_eq
+  function: MaildirMessage.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Message"
+
+invariant mailbox_extra.hierarchy.mboxMessage_base:
+  description: "mboxMessage.__bases__[0].__name__ == 'Message' — mboxMessage inherits from mailbox.Message"
+  category: hierarchy
+  kind: python_call_eq
+  function: mboxMessage.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Message"
+
+invariant mailbox_extra.hierarchy.MHMessage_base:
+  description: "MHMessage.__bases__[0].__name__ == 'Message' — MHMessage inherits from mailbox.Message"
+  category: hierarchy
+  kind: python_call_eq
+  function: MHMessage.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Message"
+
+invariant mailbox_extra.hierarchy.BabylMessage_base:
+  description: "BabylMessage.__bases__[0].__name__ == 'Message' — BabylMessage inherits from mailbox.Message"
+  category: hierarchy
+  kind: python_call_eq
+  function: BabylMessage.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Message"
+
+invariant mailbox_extra.hierarchy.MMDFMessage_base:
+  description: "MMDFMessage.__bases__[0].__name__ == 'Message' — MMDFMessage inherits from mailbox.Message"
+  category: hierarchy
+  kind: python_call_eq
+  function: MMDFMessage.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Message"

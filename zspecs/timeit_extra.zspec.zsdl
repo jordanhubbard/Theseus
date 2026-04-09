@@ -1,0 +1,135 @@
+spec: timeit_extra
+version: ">=3.9"
+backend: python_module(timeit)
+
+docs: https://docs.python.org/3/library/timeit.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/timeit.html — Python timeit module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/timeit.py"
+  notes:
+    - "This spec extends timeit.zspec.zsdl — it does NOT duplicate invariants already present there."
+    - "timeit.zspec.zsdl covers: Timer.__name__, Timer.__module__, Timer method names (timeit, repeat, print_exc, autorange), timeit/__name__, repeat/__name__, default_timer type, and timeit('1+1') return type."
+    - "This spec adds: Timer.__qualname__, default_timer __name__ check, module-level __name__ affiliation, Timer.__doc__ is non-None, repeat() returns a list."
+    - "timeit.default_timer is time.perf_counter on Python >=3.3; its __name__ is 'perf_counter'."
+    - "timeit module __name__ attribute is 'timeit' — verified via the module's own __name__ field."
+    - "Timer.__qualname__ == 'Timer' — qualname matches name for a top-level class."
+    - "Timer.autorange.__qualname__ == 'Timer.autorange' — method qualname includes the class."
+    - "repeat() called with stmt='1+1', repeat=3 returns a list of 3 floats."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Timer class — qualname (not in timeit.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+invariant timeit_extra.Timer.qualname:
+  description: "timeit.Timer.__qualname__ == 'Timer' — top-level class qualname matches name"
+  category: classes
+  kind: python_call_eq
+  function: Timer.__qualname__.__eq__
+  args: ["Timer"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Timer.__doc__ — documented class must have a non-None docstring
+# ---------------------------------------------------------------------------
+
+invariant timeit_extra.Timer.doc_is_not_none:
+  description: "timeit.Timer.__doc__ is not None — Timer has a docstring"
+  category: classes
+  kind: python_call_eq
+  function: Timer.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Timer method __qualname__ checks — method identity inside the class
+# ---------------------------------------------------------------------------
+
+table timeit_extra.Timer.method_qualnames:
+  kind: python_call_eq
+  category: methods
+  id_prefix: method_qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [timeit_qualname,   Timer.timeit.__qualname__.__eq__,   ["Timer.timeit"],   true]
+    - [repeat_qualname,   Timer.repeat.__qualname__.__eq__,   ["Timer.repeat"],   true]
+    - [autorange_qualname, Timer.autorange.__qualname__.__eq__, ["Timer.autorange"], true]
+    - [print_exc_qualname, Timer.print_exc.__qualname__.__eq__, ["Timer.print_exc"], true]
+
+# ---------------------------------------------------------------------------
+# default_timer — function __name__ is 'perf_counter' (time.perf_counter alias)
+# ---------------------------------------------------------------------------
+
+invariant timeit_extra.default_timer.func_name:
+  description: "timeit.default_timer.__name__ == 'perf_counter' — default_timer is time.perf_counter"
+  category: functions
+  kind: python_call_eq
+  function: default_timer.__name__.__eq__
+  args: ["perf_counter"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module-level name affiliation
+# Confirm that the module attribute __name__ is 'timeit'.
+# (Accessed as the module's __name__ string — checked via __eq__ on the str)
+# ---------------------------------------------------------------------------
+
+invariant timeit_extra.module.name:
+  description: "timeit.__name__ == 'timeit' — module name is 'timeit'"
+  category: module
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["timeit"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# repeat() return type — repeat(stmt, number, repeat) returns a list
+# ---------------------------------------------------------------------------
+
+invariant timeit_extra.repeat.returns_list:
+  description: "type(timeit.repeat('1+1', number=1, repeat=3)).__name__ == 'list'"
+  category: functions
+  kind: python_call_eq
+  function: repeat
+  args: ["1+1"]
+  kwargs: {number: 1, repeat: 3}
+  method: __class__.__name__.__eq__
+  method_args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# repeat() return value length — repeat(stmt, number=1, repeat=3) yields 3 items
+# ---------------------------------------------------------------------------
+
+invariant timeit_extra.repeat.result_length:
+  description: "len(timeit.repeat('1+1', number=1, repeat=3)) == 3"
+  category: functions
+  kind: python_call_eq
+  function: repeat
+  args: ["1+1"]
+  kwargs: {number: 1, repeat: 3}
+  method: __len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# Timer method type checks — all Timer methods are plain Python functions
+# ---------------------------------------------------------------------------
+
+table timeit_extra.Timer.method_types:
+  kind: python_call_eq
+  category: methods
+  id_prefix: method_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [timeit_is_function,   Timer.timeit.__class__.__name__.__eq__,   ["function"], true]
+    - [repeat_is_function,   Timer.repeat.__class__.__name__.__eq__,   ["function"], true]
+    - [autorange_is_function, Timer.autorange.__class__.__name__.__eq__, ["function"], true]
+    - [print_exc_is_function, Timer.print_exc.__class__.__name__.__eq__, ["function"], true]

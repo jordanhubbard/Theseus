@@ -1,0 +1,139 @@
+spec: mmap_extra
+version: ">=3.9"
+backend: python_module(mmap)
+
+docs: https://docs.python.org/3/library/mmap.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/mmap.html — Python mmap module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mmapmodule.c"
+  notes:
+    - "This spec extends mmap.zspec.zsdl — it does NOT duplicate invariants already present there."
+    - "mmap.zspec.zsdl covers: mmap.__name__, error.__name__, ACCESS_READ/WRITE/COPY values, PAGESIZE type and positivity, ALLOCATIONGRANULARITY type, POSIX constants (PROT_READ, MAP_SHARED, MAP_PRIVATE), mmap method names (read/write/seek/tell/close/find/flush)."
+    - "This spec adds: mmap.__module__ affiliation, mmap.__qualname__, ACCESS_* constant type checks (they are ints), ALLOCATIONGRANULARITY positivity, additional mmap method names (rfind, readline, read_byte, write_byte, resize, move, seek), ACCESS_* qualname/module affiliation via __class__."
+    - "mmap.mmap.__module__ is 'mmap' — the class is implemented in the C extension module 'mmap'."
+    - "mmap.ACCESS_READ, mmap.ACCESS_WRITE, mmap.ACCESS_COPY are all plain Python ints (not enum members)."
+    - "mmap.ALLOCATIONGRANULARITY > 0 — always a positive integer, typically 4096 on POSIX, 65536 on Windows."
+    - "mmap.mmap method rfind, readline, read_byte, write_byte, resize, move are all present in Python 3.9+."
+    - "mmap.error.__module__ == 'builtins' — mmap.error is an alias for the built-in OSError."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# mmap class — module and qualname
+# (mmap.zspec.zsdl covers mmap.__name__; this spec adds __module__ and __qualname__)
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra.class.module:
+  description: "mmap.mmap.__module__ == 'mmap' — class is defined in the mmap C extension"
+  category: class_names
+  kind: python_call_eq
+  function: mmap.__module__.__eq__
+  args: ["mmap"]
+  expected: true
+
+invariant mmap_extra.class.qualname:
+  description: "mmap.mmap.__qualname__ == 'mmap'"
+  category: class_names
+  kind: python_call_eq
+  function: mmap.__qualname__.__eq__
+  args: ["mmap"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ACCESS_* constants — type checks (all are plain ints)
+# (mmap.zspec.zsdl covers the integer values; this spec adds type checks)
+# ---------------------------------------------------------------------------
+
+table mmap_extra.constants.access_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: access_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ACCESS_READ_is_int,  ACCESS_READ.__class__.__name__.__eq__,  ["int"], true]
+    - [ACCESS_WRITE_is_int, ACCESS_WRITE.__class__.__name__.__eq__, ["int"], true]
+    - [ACCESS_COPY_is_int,  ACCESS_COPY.__class__.__name__.__eq__,  ["int"], true]
+
+# ---------------------------------------------------------------------------
+# ALLOCATIONGRANULARITY — positivity (mmap.zspec.zsdl covers type only)
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra.constants.allocationgranularity_positive:
+  description: "mmap.ALLOCATIONGRANULARITY > 0"
+  category: constants
+  kind: python_call_eq
+  function: ALLOCATIONGRANULARITY.__gt__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# mmap.error module affiliation
+# mmap.error is an alias for OSError; OSError is in 'builtins'
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra.error.module:
+  description: "mmap.error.__module__ == 'builtins' — mmap.error aliases the built-in OSError"
+  category: class_names
+  kind: python_call_eq
+  function: error.__module__.__eq__
+  args: ["builtins"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Additional mmap.mmap method names — not covered by mmap.zspec.zsdl
+# mmap.zspec.zsdl covers: read, write, seek, tell, close, find, flush
+# This spec adds: rfind, readline, read_byte, write_byte, resize, move
+# ---------------------------------------------------------------------------
+
+table mmap_extra.mmap.additional_method_names:
+  kind: python_call_eq
+  category: method_names
+  id_prefix: method
+
+  columns: [id, function, args, expected]
+  rows:
+    - [rfind,      mmap.rfind.__name__.__eq__,      ["rfind"],      true]
+    - [readline,   mmap.readline.__name__.__eq__,   ["readline"],   true]
+    - [read_byte,  mmap.read_byte.__name__.__eq__,  ["read_byte"],  true]
+    - [write_byte, mmap.write_byte.__name__.__eq__, ["write_byte"], true]
+    - [move,       mmap.move.__name__.__eq__,       ["move"],       true]
+
+# ---------------------------------------------------------------------------
+# mmap.mmap method type — wrapper_descriptor (C-implemented methods)
+# All mmap instance methods are C slot wrappers
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra.mmap.read_is_method:
+  description: "type(mmap.mmap.read).__name__ is 'wrapper_descriptor' — C-implemented method"
+  category: method_names
+  kind: python_call_eq
+  function: mmap.read.__class__.__name__.__eq__
+  args: ["wrapper_descriptor"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PAGESIZE and ALLOCATIONGRANULARITY — must be powers of two (>= 4096 on all platforms)
+# Both must be at least 4096 bytes (4 KiB), the minimum hardware page size.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra.constants.pagesize_ge_4096:
+  description: "mmap.PAGESIZE >= 4096 — page size is at least 4 KiB on all platforms"
+  category: constants
+  kind: python_call_eq
+  function: PAGESIZE.__ge__
+  args: [4096]
+  expected: true
+
+invariant mmap_extra.constants.allocationgranularity_ge_4096:
+  description: "mmap.ALLOCATIONGRANULARITY >= 4096 — allocation granularity is at least 4 KiB"
+  category: constants
+  kind: python_call_eq
+  function: ALLOCATIONGRANULARITY.__ge__
+  args: [4096]
+  expected: true

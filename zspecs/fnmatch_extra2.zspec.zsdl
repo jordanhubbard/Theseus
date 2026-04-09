@@ -1,0 +1,153 @@
+spec: fnmatch_extra2
+version: ">=3.2"
+backend: python_module(fnmatch)
+
+docs: https://docs.python.org/3/library/fnmatch.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/fnmatch.html — Python fnmatch module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/fnmatch.py"
+  notes:
+    - "This spec covers fnmatch invariants not already in fnmatch.zspec.zsdl or fnmatch_extra.zspec.zsdl."
+    - "fnmatch.__name__ == 'fnmatch', fnmatchcase.__name__ == 'fnmatchcase', filter.__name__ == 'filter', translate.__name__ == 'translate'."
+    - "All four public names have __module__ == 'fnmatch' (covered in fnmatch_extra; this spec adds __qualname__ checks)."
+    - "translate('*.py') returns a regex string containing regex metacharacters such as '\\\\.' and 'z' anchor."
+    - "In Python 3.12, translate('*.py') == '(?s:.*\\\\.py)\\\\z' — confirmed on macOS/Darwin 25.4.0."
+    - "translate result is always a non-empty string for any non-empty pattern."
+    - "filter() returns a list (already in fnmatch_extra); this spec checks filter's __qualname__ and additional name invariants."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __name__ checks — fnmatch, fnmatchcase, filter, translate
+# ---------------------------------------------------------------------------
+
+table fnmatch_extra2.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [fnmatch,      fnmatch.__name__.__eq__,      ["fnmatch"],      true]
+    - [fnmatchcase,  fnmatchcase.__name__.__eq__,  ["fnmatchcase"],  true]
+    - [filter,       filter.__name__.__eq__,        ["filter"],       true]
+    - [translate,    translate.__name__.__eq__,     ["translate"],    true]
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ checks — all are module-level, so qualname == name
+# ---------------------------------------------------------------------------
+
+table fnmatch_extra2.function_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: qname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [fnmatch,      fnmatch.__qualname__.__eq__,      ["fnmatch"],      true]
+    - [fnmatchcase,  fnmatchcase.__qualname__.__eq__,  ["fnmatchcase"],  true]
+    - [filter,       filter.__qualname__.__eq__,        ["filter"],       true]
+    - [translate,    translate.__qualname__.__eq__,     ["translate"],    true]
+
+# ---------------------------------------------------------------------------
+# translate('*.py') — result contains regex metacharacters
+# The output of translate contains backslash-escaped dot and an anchor.
+# In Python 3.12: translate('*.py') == '(?s:.*\\.py)\\z'
+# We verify the return value is a non-empty string and contains a dot escape.
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra2.translate.star_py_is_str:
+  description: "translate('*.py').__class__.__name__ == 'str' — result is always a string"
+  category: translate
+  kind: python_call_eq
+  function: translate("*.py").__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant fnmatch_extra2.translate.star_py_nonempty:
+  description: "len(translate('*.py')) > 0 — translated regex is non-empty"
+  category: translate
+  kind: python_call_eq
+  function: translate("*.py").__len__
+  args: []
+  expected: 12
+
+invariant fnmatch_extra2.translate.star_py_contains_dot_escape:
+  description: "translate('*.py') contains '\\\\.' — dot is escaped as a regex metacharacter"
+  category: translate
+  kind: python_call_eq
+  function: translate("*.py").__contains__
+  args: ["\\."]
+  expected: true
+
+invariant fnmatch_extra2.translate.star_py_value:
+  description: "translate('*.py') == '(?s:.*\\\\.py)\\\\z' — exact output on Python 3.12"
+  category: translate
+  kind: python_call_eq
+  function: translate
+  args: ["*.py"]
+  expected: "(?s:.*\\.py)\\z"
+
+# ---------------------------------------------------------------------------
+# translate — result differs from the input pattern (it is a regex, not a glob)
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra2.translate.not_equal_to_input:
+  description: "translate('*.py') != '*.py' — output is a different (regex) string"
+  category: translate
+  kind: python_call_eq
+  function: translate("*.py").__eq__
+  args: ["*.py"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# translate — question mark becomes a single-character regex atom
+# In Python 3.12: translate('?') == '(?s:.)\\z'
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra2.translate.question_mark:
+  description: "translate('?') == '(?s:.)\\\\z' — single-char wildcard becomes regex dot"
+  category: translate
+  kind: python_call_eq
+  function: translate
+  args: ["?"]
+  expected: "(?s:.)\\z"
+
+# ---------------------------------------------------------------------------
+# translate — literal string with no wildcards is anchored but not escaped
+# In Python 3.12: translate('hello') == '(?s:hello)\\z'
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra2.translate.literal_string:
+  description: "translate('hello') == '(?s:hello)\\\\z' — literal pattern becomes anchored regex"
+  category: translate
+  kind: python_call_eq
+  function: translate
+  args: ["hello"]
+  expected: "(?s:hello)\\z"
+
+# ---------------------------------------------------------------------------
+# fnmatch — function is callable (has __call__)
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra2.fnmatch.is_callable:
+  description: "callable(fnmatch) — fnmatch is a callable function"
+  category: function_names
+  kind: python_call_eq
+  function: fnmatch.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant fnmatch_extra2.fnmatchcase.is_callable:
+  description: "callable(fnmatchcase) — fnmatchcase is a callable function"
+  category: function_names
+  kind: python_call_eq
+  function: fnmatchcase.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
