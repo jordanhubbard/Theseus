@@ -1,0 +1,178 @@
+spec: array_extra10
+version: ">=3.9"
+backend: python_module(array)
+
+docs: https://docs.python.org/3/library/array.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/array.html — Python array module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/arraymodule.c"
+  notes:
+    - "This spec extends array.zspec.zsdl through array_extra9.zspec.zsdl."
+    - "array_extra covers: array.__name__/__module__, ArrayType.__name__, typecodes is str, itemsize b/h, typecode b, length/getitem/tolist for 'b'."
+    - "array_extra2 covers: typecodes min_length, typecodes contains b/B/h/i/l/q/f/d, itemsize table b/B/h/f/d, typecode_attr b/B/h/i/f/d."
+    - "array_extra3 covers: ArrayType.__module__, itemsize H/I, typecode H/d, buffer_info, tolist/count/index on 'i', unsigned short tolist."
+    - "array_extra4 covers: typecodes contains H/L/Q, itemsize l/L/Q, typecode_attr l/L/Q, array.__qualname__, bases_object, getitem B[1]."
+    - "array_extra5 covers: ArrayType.__qualname__, typecodes contains 'I', tobytes class/length for 'b', itemsize lower-bound guard."
+    - "array_extra6 covers: array metaclass (type), MRO length 2, typecodes contains 'u'/'w', class identity table, arraytype_alias table, float array tolist/length/typecode for 'f'."
+    - "array_extra7 covers: double array tolist/typecode/itemsize; count/index on 'b' with [-128,0,127]; 'B' tolist; 'h' tolist; tobytes length for 'd'; typecodes len upper-bound guard."
+    - "array_extra8 covers: typecodes.__class__.__name__ standalone; array.__name__/__module__ via __eq__ chain; 'b'/'B' typecode attr; 'i'/'h'/'d' itemsize standalone; buffer_info class/length; count/index on 'b' with [1,2,3]."
+    - "array_extra9 covers: class_names table (aname9 prefix); typecodes via class path; 'i'/'l'/'q' tolist; 'f' itemsize; 'b' length [5,10,15]; 'i' index(1)==0."
+    - "This spec adds genuinely new vectors not present in any prior array spec."
+    - "array.array('B', [0, 128, 255]).tolist() == [0, 128, 255] — uint8 boundary values: min, mid, max; no prior spec uses all three boundary values for 'B' tolist."
+    - "array.array('h', [-32768, 32767]).tolist() == [-32768, 32767] — int16 min/max boundary values; 'h' tolist in extra7 used [1, -1]; [-32768, 32767] is new."
+    - "array.array('H', [0, 65535]).tolist() == [0, 65535] — uint16 boundary values; 'H' in extra3 used [1,2]; [0, 65535] is new."
+    - "array.array('L', [0]).itemsize >= 4 — unsigned long is at least 4 bytes on all platforms; extra4 checked itemsize via table but not with a boundary-value fixture."
+    - "array.array('B', [0, 128, 255]).count(128) == 1 — count on 'B' with mid-range value; prior specs use count only on 'b' and 'i'."
+    - "array.array('B', [0, 128, 255]).index(255) == 2 — index on 'B' for the max value; no prior spec uses index() on 'B'."
+    - "array.array('i', []).tolist() == [] — empty signed int array tolist; prior tolist specs use non-empty fixtures."
+    - "array.array('b', [127]).tolist() == [127] — single-element tolist for signed byte max; prior 'b' tolist uses multi-element lists."
+    - "array.array('q', [-1]).count(-1) == 1 — count on 'q' (signed long long); no prior spec uses count() on 'q'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Behavioral vectors — uint8 boundary values for typecode 'B'
+#
+# array_extra7 checks 'B' tolist with [0, 255] (2 elements).
+# This spec uses [0, 128, 255] (three elements including the midpoint)
+# and adds count(128) and index(255) which are new axes for 'B'.
+# ---------------------------------------------------------------------------
+
+invariant array_extra10.uint8_boundary.tolist:
+  description: "array.array('B', [0, 128, 255]).tolist() == [0, 128, 255] — uint8 min/mid/max boundary values"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["B", [0, 128, 255]]
+  method: tolist
+  method_args: []
+  expected: [0, 128, 255]
+
+invariant array_extra10.uint8_boundary.count_mid:
+  description: "array.array('B', [0, 128, 255]).count(128) == 1 — count of midpoint value in 'B' array"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["B", [0, 128, 255]]
+  method: count
+  method_args: [128]
+  expected: 1
+
+invariant array_extra10.uint8_boundary.index_max:
+  description: "array.array('B', [0, 128, 255]).index(255) == 2 — index of max uint8 in 'B' array"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["B", [0, 128, 255]]
+  method: index
+  method_args: [255]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# Behavioral vectors — int16 min/max boundary values for typecode 'h'
+#
+# array_extra7 uses 'h' tolist with [1, -1].
+# The int16 boundary values -32768 (INT16_MIN) and 32767 (INT16_MAX) are new.
+# ---------------------------------------------------------------------------
+
+invariant array_extra10.int16_boundary.tolist:
+  description: "array.array('h', [-32768, 32767]).tolist() == [-32768, 32767] — int16 min/max boundary values"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["h", [-32768, 32767]]
+  method: tolist
+  method_args: []
+  expected: [-32768, 32767]
+
+# ---------------------------------------------------------------------------
+# Behavioral vectors — uint16 boundary values for typecode 'H'
+#
+# array_extra3 uses 'H' tolist with [1, 2] (non-boundary values).
+# [0, 65535] tests the min and max uint16 boundary values — new axis.
+# ---------------------------------------------------------------------------
+
+invariant array_extra10.uint16_boundary.tolist:
+  description: "array.array('H', [0, 65535]).tolist() == [0, 65535] — uint16 min/max boundary values"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["H", [0, 65535]]
+  method: tolist
+  method_args: []
+  expected: [0, 65535]
+
+# ---------------------------------------------------------------------------
+# Empty array tolist — typecode 'i'
+#
+# All prior 'i' tolist tests use non-empty fixtures.
+# An empty array('i', []).tolist() == [] confirms the empty-list edge case.
+# ---------------------------------------------------------------------------
+
+invariant array_extra10.empty_int_array.tolist:
+  description: "array.array('i', []).tolist() == [] — empty signed int array produces empty list"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["i", []]
+  method: tolist
+  method_args: []
+  expected: []
+
+# ---------------------------------------------------------------------------
+# Single-element tolist — typecode 'b' with value 127
+#
+# Prior 'b' tolist tests use multi-element lists.
+# A single-element array with the maximum signed byte value is new.
+# ---------------------------------------------------------------------------
+
+invariant array_extra10.single_byte_max.tolist:
+  description: "array.array('b', [127]).tolist() == [127] — single-element signed byte max"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["b", [127]]
+  method: tolist
+  method_args: []
+  expected: [127]
+
+# ---------------------------------------------------------------------------
+# count() — typecode 'q' (signed long long) with value -1
+#
+# array_extra9 uses 'q' for tolist with [0, -1].
+# No prior spec uses count() on 'q'. count(-1) == 1 is a new axis.
+# ---------------------------------------------------------------------------
+
+invariant array_extra10.longlong_count.minus_one:
+  description: "array.array('q', [-1]).count(-1) == 1 — count of -1 in signed long long array"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["q", [-1]]
+  method: count
+  method_args: [-1]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# itemsize — typecode 'L' (unsigned long) lower bound guard
+#
+# array_extra4 checked itemsize for 'L' in a table. No prior spec asserts the
+# lower bound (>= 4) for 'L' itemsize as a named invariant with the guard form.
+# 'L' is at least 4 bytes on all supported Python platforms.
+# ---------------------------------------------------------------------------
+
+invariant array_extra10.unsigned_long.itemsize_ge4:
+  description: "array.array('L', [0]).itemsize >= 4 — unsigned long is at least 4 bytes"
+  category: itemsize
+  kind: python_call_eq
+  function: array
+  args: ["L", [0]]
+  method: itemsize.__ge__
+  method_args: [4]
+  expected: true

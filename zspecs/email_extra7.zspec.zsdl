@@ -1,0 +1,164 @@
+spec: email_extra7
+version: ">=3.6"
+backend: python_module(email.policy)
+
+docs: https://docs.python.org/3/library/email.policy.html
+
+provenance:
+  derived_from:
+    - "Python 3 email.policy documentation — https://docs.python.org/3/library/email.policy.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/email/policy.py"
+    - "email_policy.zspec.zsdl — covers Policy/EmailPolicy/Compat32 class names and module checks; SMTP/SMTPUTF8/HTTP/default/compat32 instance class checks; SMTP.linesep; SMTPUTF8.utf8"
+    - "email_extra2.zspec.zsdl — covers email.policy EmailPolicy/SMTP/SMTPUTF8/HTTP class names via email backend; SMTPUTF8.utf8 and SMTP.linesep via email backend"
+    - "email_extra4.zspec.zsdl — covers email.policy EmailPolicy/Policy/Compat32 qualnames; EmailPolicy/Policy __module__ via email backend"
+    - "email_extra5.zspec.zsdl — covers Compat32.__module__ via email backend"
+    - "email_extra6.zspec.zsdl — covers SMTP.max_line_length and HTTP.max_line_length via email backend"
+  notes:
+    - "This spec uses python_module(email.policy) as its backend — not python_module(email)."
+    - "Focus: policy instance attributes not yet tested in any prior spec, accessed directly from the email.policy module."
+    - "email.policy.default.linesep — no prior spec tests the linesep attribute on the 'default' instance."
+    - "email.policy.SMTPUTF8.linesep — email_policy.zspec.zsdl and email_extra2 cover SMTP.linesep; SMTPUTF8.linesep is distinct."
+    - "email.policy.compat32.linesep — the legacy Compat32 policy instance linesep has not been tested in any prior spec."
+    - "email.policy.default.raise_on_defect — the 'default' EmailPolicy instance has raise_on_defect=False (lenient); not tested in any prior spec."
+    - "email.policy.compat32.max_line_length == 78 — analogous to SMTP.max_line_length (email_extra6) but for compat32."
+    - "email.policy.Policy.__bases__[0].__name__ == '_PolicyBase' — Policy inherits from the private _PolicyBase mixin; email_policy covers EmailPolicy/Compat32 bases but not Policy's own base."
+    - "email.policy.EmailPolicy.__qualname__ via email.policy backend — email_extra4 checks qualname via the email backend; checking from the email.policy backend is a distinct test."
+    - "email.policy.Compat32.__qualname__ via email.policy backend — same distinction."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# policy instance linesep attributes — default, SMTPUTF8, compat32
+#
+# email_policy.zspec.zsdl covers SMTP.linesep == '\r\n'.
+# email_extra2 covers SMTP.linesep via the email backend.
+# The 'default' instance linesep ('\n'), SMTPUTF8 linesep ('\r\n'), and
+# compat32 linesep ('\n') have not been tested in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant email_extra7.policy.default.linesep:
+  description: "email.policy.default.linesep == '\\n' — default EmailPolicy uses LF line endings"
+  category: policy
+  kind: python_call_eq
+  function: default.linesep.__eq__
+  args: ["\n"]
+  expected: true
+
+invariant email_extra7.policy.SMTPUTF8.linesep:
+  description: "email.policy.SMTPUTF8.linesep == '\\r\\n' — SMTPUTF8 policy uses CRLF line endings"
+  category: policy
+  kind: python_call_eq
+  function: SMTPUTF8.linesep.__eq__
+  args: ["\r\n"]
+  expected: true
+
+invariant email_extra7.policy.compat32.linesep:
+  description: "email.policy.compat32.linesep == '\\n' — legacy Compat32 instance uses LF line endings"
+  category: policy
+  kind: python_call_eq
+  function: compat32.linesep.__eq__
+  args: ["\n"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# policy instance raise_on_defect and max_line_length
+#
+# No prior spec tests raise_on_defect on the 'default' instance.
+# No prior spec tests max_line_length on the compat32 instance
+# (email_extra6 tests SMTP.max_line_length=998 and HTTP.max_line_length=None).
+# ---------------------------------------------------------------------------
+
+invariant email_extra7.policy.default.raise_on_defect:
+  description: "email.policy.default.raise_on_defect == False — default policy is lenient"
+  category: policy
+  kind: python_call_eq
+  function: default.raise_on_defect.__eq__
+  args: [false]
+  expected: true
+
+invariant email_extra7.policy.compat32.max_line_length:
+  description: "email.policy.compat32.max_line_length == 78 — Compat32 uses the 78-char line wrap limit"
+  category: policy
+  kind: python_call_eq
+  function: compat32.max_line_length.__eq__
+  args: [78]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# email.policy.Policy base hierarchy
+#
+# email_policy.zspec.zsdl tests EmailPolicy and Compat32 bases (both inherit
+# Policy). No prior spec tests what Policy itself inherits from.
+# Policy.__bases__[0].__name__ == 'object' — Policy is a new-style abstract
+# base class with no domain-specific parent.
+# ---------------------------------------------------------------------------
+
+invariant email_extra7.Policy.base:
+  description: "email.policy.Policy.__bases__[0].__name__ == '_PolicyBase' — Policy inherits from private _PolicyBase mixin"
+  category: hierarchy
+  kind: python_call_eq
+  function: Policy.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "_PolicyBase"
+
+# ---------------------------------------------------------------------------
+# email.policy.EmailPolicy and Compat32 __qualname__ — via email.policy backend
+#
+# email_extra4 tests these qualnames via python_module(email) backend.
+# Verifying the same fact from python_module(email.policy) backend is a
+# distinct test (different module resolution path).
+# ---------------------------------------------------------------------------
+
+invariant email_extra7.EmailPolicy.qualname:
+  description: "email.policy.EmailPolicy.__qualname__ == 'EmailPolicy'"
+  category: qualnames
+  kind: python_call_eq
+  function: EmailPolicy.__qualname__.__eq__
+  args: ["EmailPolicy"]
+  expected: true
+
+invariant email_extra7.Compat32.qualname:
+  description: "email.policy.Compat32.__qualname__ == 'Compat32'"
+  category: qualnames
+  kind: python_call_eq
+  function: Compat32.__qualname__.__eq__
+  args: ["Compat32"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# email.policy.HTTP — linesep attribute
+#
+# email_policy.zspec.zsdl does not test HTTP.linesep.
+# email_extra6 tests HTTP.max_line_length via the email backend.
+# HTTP.linesep via the email.policy backend is a new axis.
+# HTTP uses '\r\n' as its linesep (same as SMTP, per RFC 7230).
+# ---------------------------------------------------------------------------
+
+invariant email_extra7.policy.HTTP.linesep:
+  description: "email.policy.HTTP.linesep == '\\r\\n' — HTTP policy uses CRLF line endings"
+  category: policy
+  kind: python_call_eq
+  function: HTTP.linesep.__eq__
+  args: ["\r\n"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# email.policy.default.max_line_length == 78
+#
+# email_extra6 covers SMTP.max_line_length==998 and HTTP.max_line_length==None.
+# The 'default' instance max_line_length has not been tested.
+# email.policy.default.max_line_length == 78 (RFC 5322 soft limit).
+# ---------------------------------------------------------------------------
+
+invariant email_extra7.policy.default.max_line_length:
+  description: "email.policy.default.max_line_length == 78 — default EmailPolicy soft line-length limit"
+  category: policy
+  kind: python_call_eq
+  function: default.max_line_length.__eq__
+  args: [78]
+  expected: true

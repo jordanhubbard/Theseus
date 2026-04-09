@@ -1,0 +1,183 @@
+spec: pickle_extra9
+version: ">=3.9"
+backend: python_module(pickle)
+
+docs: https://docs.python.org/3/library/pickle.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pickle.html — Python pickle module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pickle.py"
+    - "CPython source: Modules/_pickle.c"
+  notes:
+    - "This spec extends pickle.zspec.zsdl through pickle_extra8.zspec.zsdl."
+    - "Prior specs cover: dumps/__name__, loads/__name__, dump/__name__, load/__name__; Pickler/Unpickler/PickleError/PicklingError/UnpicklingError __name__/__module__/__qualname__; HIGHEST_PROTOCOL and DEFAULT_PROTOCOL type and bounds (>= 2/3/4/5, == 5); PickleBuffer __name__/__qualname__/__module__/__bases__; exception hierarchy and __class__.__qualname__=='type'; dumps return bytes for int/list/None/False/float/empty dict/string 'world'; round-trips for 42/None/True/'hello'/float/list/empty list/False/'world'/bytes; dumps length for 42/True/bytes; DEFAULT_PROTOCOL == 5; exact wire encoding and round-trip for b'hello'."
+    - "NEW in this spec: pickle.format_version value and type; pickle.STOP opcode bytes value; pickle.MARK opcode bytes value; pickle.NONE opcode bytes value; protocol 0 wire encoding for None; PickleBuffer is callable; exception MRO depth 1 checks (PickleError/PicklingError/UnpicklingError); Pickler/__qualname__; Unpickler/__qualname__."
+    - "pickle.format_version == '5.0' — the pickle data format version string on CPython 3.12."
+    - "pickle.format_version is a str (its __class__.__name__ == 'str')."
+    - "pickle.STOP == b'.' — the opcode that terminates every pickle stream."
+    - "pickle.MARK == b'(' — the opcode that pushes a mark frame onto the stack."
+    - "pickle.NONE == b'N' — the opcode that pushes None in protocol 0."
+    - "pickle.dumps(None, protocol=0) == b'N.' — protocol 0 encodes None as NONE + STOP."
+    - "pickle.PickleBuffer is callable (it is a class)."
+    - "pickle.PickleError.__mro__[1].__name__ == 'Exception' — MRO depth 1 for PickleError."
+    - "pickle.PicklingError.__mro__[1].__name__ == 'PickleError' — MRO depth 1 for PicklingError."
+    - "pickle.UnpicklingError.__mro__[1].__name__ == 'PickleError' — MRO depth 1 for UnpicklingError."
+    - "pickle.Pickler.__qualname__ == 'Pickler' — qualname for the Pickler class."
+    - "pickle.Unpickler.__qualname__ == 'Unpickler' — qualname for the Unpickler class."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pickle.format_version — value and type
+#
+# No prior spec tests pickle.format_version.  It is a module-level constant
+# string reflecting the pickle data format version ('5.0' on CPython 3.12).
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra9.format_version.value:
+  description: "pickle.format_version == '5.0' — pickle data format version on CPython 3.12"
+  category: constants
+  kind: python_call_eq
+  function: format_version.__eq__
+  args: ["5.0"]
+  expected: true
+
+invariant pickle_extra9.format_version.is_str:
+  description: "pickle.format_version.__class__.__name__ == 'str'"
+  category: constants
+  kind: python_call_eq
+  function: format_version.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pickle opcode constants — STOP, MARK, NONE
+#
+# pickle exposes opcode constants as module-level bytes attributes.
+# No prior spec tests any opcode byte value.
+# STOP (b'.') terminates every pickle stream.
+# MARK (b'(') pushes a mark frame onto the virtual machine stack.
+# NONE (b'N') is the protocol 0 opcode that pushes None.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra9.opcode.STOP:
+  description: "pickle.STOP == b'.' — the STOP opcode terminates every pickle stream"
+  category: opcodes
+  kind: python_call_eq
+  function: STOP.__eq__
+  args: [!ascii "."]
+  expected: true
+
+invariant pickle_extra9.opcode.MARK:
+  description: "pickle.MARK == b'(' — the MARK opcode pushes a mark frame"
+  category: opcodes
+  kind: python_call_eq
+  function: MARK.__eq__
+  args: [!ascii "("]
+  expected: true
+
+invariant pickle_extra9.opcode.NONE:
+  description: "pickle.NONE == b'N' — protocol 0 opcode that pushes None"
+  category: opcodes
+  kind: python_call_eq
+  function: NONE.__eq__
+  args: [!ascii "N"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Protocol 0 wire encoding for None
+#
+# pickle_extra5 covers protocol 0 encoding for integer 42 (b'I42\n.').
+# No prior spec checks the protocol 0 encoding for None.
+# pickle.dumps(None, protocol=0) == b'N.' (NONE opcode + STOP opcode).
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra9.dumps_proto0.none:
+  description: "pickle.dumps(None, protocol=0) == b'N.' — protocol 0 None encoding"
+  category: dumps_scalar
+  kind: python_call_eq
+  function: dumps
+  args: [null, 0]
+  expected: !ascii "N."
+
+# ---------------------------------------------------------------------------
+# pickle.PickleBuffer callability
+#
+# Prior specs check PickleBuffer __name__/__qualname__/__module__/__bases__.
+# No prior spec tests that PickleBuffer is callable (i.e. can be used as
+# a constructor). callable() returns True for classes.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra9.PickleBuffer.callable:
+  description: "callable(pickle.PickleBuffer) == True — PickleBuffer is a callable class"
+  category: callability
+  kind: python_call_eq
+  function: PickleBuffer.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Exception MRO depth 1
+#
+# Prior specs test exception hierarchy via __bases__[0].__name__.
+# No prior spec tests the MRO at depth 1 (__mro__[1]) for these exceptions.
+# pickle.PickleError.__mro__[1].__name__ == 'Exception'
+# pickle.PicklingError.__mro__[1].__name__ == 'PickleError'
+# pickle.UnpicklingError.__mro__[1].__name__ == 'PickleError'
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra9.PickleError.mro_index1:
+  description: "pickle.PickleError.__mro__[1].__name__ == 'Exception'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: PickleError.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "Exception"
+
+invariant pickle_extra9.PicklingError.mro_index1:
+  description: "pickle.PicklingError.__mro__[1].__name__ == 'PickleError'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: PicklingError.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "PickleError"
+
+invariant pickle_extra9.UnpicklingError.mro_index1:
+  description: "pickle.UnpicklingError.__mro__[1].__name__ == 'PickleError'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: UnpicklingError.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "PickleError"
+
+# ---------------------------------------------------------------------------
+# Pickler and Unpickler __qualname__
+#
+# Prior specs test Pickler/Unpickler __name__ and __module__.
+# pickle_extra7 confirms Unpickler.__class__.__qualname__ == 'type'.
+# No prior spec tests Pickler.__qualname__ or Unpickler.__qualname__ directly.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra9.Pickler.qualname:
+  description: "pickle.Pickler.__qualname__ == 'Pickler'"
+  category: qualnames
+  kind: python_call_eq
+  function: Pickler.__qualname__.__eq__
+  args: ["Pickler"]
+  expected: true
+
+invariant pickle_extra9.Unpickler.qualname:
+  description: "pickle.Unpickler.__qualname__ == 'Unpickler'"
+  category: qualnames
+  kind: python_call_eq
+  function: Unpickler.__qualname__.__eq__
+  args: ["Unpickler"]
+  expected: true

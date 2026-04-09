@@ -1,0 +1,168 @@
+spec: struct_extra10
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+    - "struct.zspec.zsdl — pack/unpack for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize; roundtrip; error cases."
+    - "struct_extra.zspec.zsdl — Struct format/size, calcsize extras, pack_into, unpack_from, iter_unpack, error name/bases."
+    - "struct_extra2.zspec.zsdl — function __name__/__module__; pack(>H,256); unpack(>H); calcsize(>HHH); Struct base."
+    - "struct_extra3.zspec.zsdl — pack/unpack/calcsize for !f/!d/!?; calcsize for !5s/!3p/!x/!5x."
+    - "struct_extra4.zspec.zsdl — Struct.__name__; pack_into.__name__; function __qualname__ table; error.__qualname__; pack(>I,65536)/(<I,65536)/(>i,-256); calcsize(>i/<i/>I)."
+    - "struct_extra5.zspec.zsdl — Struct.__qualname__; Struct('>I'/'>H') format/size; pack('>B',255); unpack('>B',xff); calcsize('>B'/'<B'/'>5s'); Struct('>I').pack(256)."
+    - "struct_extra6.zspec.zsdl — pack/unpack('>b',127/-128); Struct('>b'/'>Q') format/size; pack/calcsize('<h'); unpack('<h')."
+    - "struct_extra7.zspec.zsdl — pack/unpack/calcsize for '>l'/'>L'/'=H'/'>2B'; Struct('>l') format/size."
+    - "struct_extra8.zspec.zsdl — function __module__ (all '_struct' except error 'struct'); pack return type/length for '>I'/'>H'; calcsize('>IHB'); unpack('>H',0100); Struct('>IHB') format/size; calcsize('>Q')."
+    - "struct_extra9.zspec.zsdl — calcsize('c'/'P'); Struct method descriptor __qualname__ table; Struct method descriptor __name__ table."
+  notes:
+    - "This spec adds genuinely new test vectors not present in any prior struct spec."
+    - "struct.pack('>BB', 0, 255) — min/max uint8 boundary values packed together; no prior spec packs two B values simultaneously with boundary values."
+    - "struct.unpack('>BB', b'\\x00\\xff') == (0, 255) — round-trip for two-byte uint8 boundary pack."
+    - "struct.calcsize('>BB') == 2 — two unsigned bytes in big-endian format."
+    - "struct.pack('<I', 1) — little-endian uint32 value 1; produces b'\\x01\\x00\\x00\\x00'; no prior spec packs '<I' with value 1."
+    - "struct.unpack('<I', b'\\x01\\x00\\x00\\x00') == (1,) — little-endian uint32 decode."
+    - "struct.calcsize('<f') == 4 — little-endian float is 4 bytes; prior specs use '!f' network order or '>f' but not '<f' standalone."
+    - "struct.calcsize('<d') == 8 — little-endian double is 8 bytes; prior specs use '!d' or '>d' but not '<d' standalone."
+    - "struct.Struct('>BB').format == '>BB' — multi-character same-type format string preserved."
+    - "struct.Struct('>BB').size == 2 — two unsigned bytes = 2 bytes."
+    - "struct.pack('>i', 0) == b'\\x00\\x00\\x00\\x00' — signed int zero produces all-zero bytes."
+    - "struct.pack('>i', -1) == b'\\xff\\xff\\xff\\xff' — signed int -1 is all 0xff bytes in two's complement."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pack/unpack — uint8 boundary values: 0 and 255 packed together as '>BB'
+#
+# Prior specs pack single B values (struct_extra5 packs '>B' with 255 alone).
+# No prior spec packs two B format characters simultaneously with min/max values.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra10.pack.two_uint8_boundary:
+  description: "struct.pack('>BB', 0, 255) produces 2-byte sequence with min and max uint8"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">BB", 0, 255]
+  expected: !hex 00FF
+
+invariant struct_extra10.unpack.two_uint8_boundary:
+  description: "struct.unpack('>BB', b'\\x00\\xff') == (0, 255) — round-trip for min/max uint8 pair"
+  category: unpack_values
+  kind: python_call_eq
+  function: unpack
+  args: [">BB", !hex 00FF]
+  expected: [0, 255]
+
+invariant struct_extra10.calcsize.two_uint8:
+  description: "struct.calcsize('>BB') == 2 — two unsigned bytes in big-endian format"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: [">BB"]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# pack/unpack — little-endian unsigned int with value 1
+#
+# struct_extra4 covers '<I' with 65536; no prior spec uses '<I' with value 1.
+# The little-endian byte order for value 1 produces \x01\x00\x00\x00.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra10.pack.little_endian_uint32_one:
+  description: "struct.pack('<I', 1) == b'\\x01\\x00\\x00\\x00' — little-endian uint32 value 1"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: ["<I", 1]
+  expected: !hex 01000000
+
+invariant struct_extra10.unpack.little_endian_uint32_one:
+  description: "struct.unpack('<I', b'\\x01\\x00\\x00\\x00') == (1,) — little-endian uint32 decode"
+  category: unpack_values
+  kind: python_call_eq
+  function: unpack
+  args: ["<I", !hex 01000000]
+  expected: [1]
+
+# ---------------------------------------------------------------------------
+# calcsize — '<f' and '<d' (little-endian float and double)
+#
+# struct_extra3 checks '!f' and '!d' (network byte order).
+# No prior spec checks '<f' or '<d' (little-endian) as standalone calcsize calls.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra10.calcsize.little_endian_float:
+  description: "struct.calcsize('<f') == 4 — little-endian IEEE 754 float is 4 bytes"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["<f"]
+  expected: 4
+
+invariant struct_extra10.calcsize.little_endian_double:
+  description: "struct.calcsize('<d') == 8 — little-endian IEEE 754 double is 8 bytes"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["<d"]
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# Struct instance — '>BB' format and size
+#
+# No prior spec constructs Struct('>BB'). Confirms two-element same-type format
+# is preserved and size == 2.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra10.Struct_BB.format:
+  description: "struct.Struct('>BB').format == '>BB' — two-element uint8 format preserved"
+  category: struct_attrs
+  kind: python_call_eq
+  function: Struct
+  args: [">BB"]
+  method: format.__eq__
+  method_args: [">BB"]
+  expected: true
+
+invariant struct_extra10.Struct_BB.size:
+  description: "struct.Struct('>BB').size == 2 — two unsigned bytes = 2 bytes"
+  category: struct_attrs
+  kind: python_call_eq
+  function: Struct
+  args: [">BB"]
+  method: size.__eq__
+  method_args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pack — signed int zero and -1 boundary cases with '>i'
+#
+# struct_extra4 covers pack('>i', -256); struct_extra6 covers pack('>b', -128/127).
+# Two's complement boundary vectors: 0 (all zero bytes) and -1 (all 0xff bytes)
+# for '>i' (signed 32-bit) are new test vectors not in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra10.pack.signed_int32_zero:
+  description: "struct.pack('>i', 0) == b'\\x00\\x00\\x00\\x00' — signed int zero is all-zero bytes"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">i", 0]
+  expected: !hex 00000000
+
+invariant struct_extra10.pack.signed_int32_minus_one:
+  description: "struct.pack('>i', -1) == b'\\xff\\xff\\xff\\xff' — signed int -1 is all-0xff in two's complement"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">i", -1]
+  expected: !hex FFFFFFFF

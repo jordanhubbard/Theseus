@@ -1,0 +1,138 @@
+spec: gettext_extra6
+version: ">=3.9"
+backend: python_module(gettext)
+
+docs: https://docs.python.org/3/library/gettext.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gettext.html — Python gettext documentation"
+    - "GNU gettext manual — https://www.gnu.org/software/gettext/manual/gettext.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/gettext.py"
+  notes:
+    - "This spec extends gettext.zspec.zsdl and gettext_extra through gettext_extra5.zspec.zsdl."
+    - "gettext.zspec.zsdl covers: func_names table (gettext/ngettext/dgettext/dngettext/bindtextdomain/textdomain/find/translation/install __name__); NullTranslations/__name__; GNUTranslations/__name__/__bases__; Catalog/__name__; gettext/ngettext passthroughs ('apple'/'apples')."
+    - "gettext_extra covers: NullTranslations/__name__/__module__; GNUTranslations/__name__/__bases__; pgettext/npgettext names."
+    - "gettext_extra2 covers: NullTranslations base is object; GNUTranslations single_base len; dgettext/dngettext/pgettext/npgettext passthroughs."
+    - "gettext_extra3 covers: GNUTranslations/__module__; Catalog/__module__; dpgettext __name__/__module__; func_modules table; pgettext/__module__; GNUTranslations/NullTranslations __mro__ len; dpgettext passthrough."
+    - "gettext_extra4 covers: __qualname__ for gettext/ngettext/bindtextdomain/textdomain/dgettext; __qualname__ for GNUTranslations/NullTranslations/Catalog; ngettext 'item'/'items' behavioral."
+    - "gettext_extra5 covers: __qualname__ for find/translation/install/pgettext/npgettext/dpgettext; __class__.__name__ == 'function' for gettext/ngettext/bindtextdomain/textdomain/find; gettext('world') passthrough; ngettext('file','files',0/1)."
+    - "This spec adds: __class__.__name__ == 'function' for translation/install/pgettext/npgettext/dpgettext (not in extra5 class table); NullTranslations.__class__.__name__ == 'type' (class is a type object); GNUTranslations.__class__.__name__ == 'type'; NullTranslations.__mro__[0].__name__ == 'NullTranslations' (first entry in MRO is the class itself); gettext('test') passthrough (new string); ngettext('cat','cats',3) plural (new strings and new n value)."
+    - "gettext.translation.__class__.__name__ == 'function' — extra5 covers gettext/ngettext/bindtextdomain/textdomain/find but NOT translation or install."
+    - "gettext.install.__class__.__name__ == 'function' — same rationale."
+    - "gettext.pgettext.__class__.__name__ == 'function' — same rationale; extra5 does not include pgettext in the class table."
+    - "gettext.npgettext.__class__.__name__ == 'function' — same rationale."
+    - "gettext.dpgettext.__class__.__name__ == 'function' — same rationale."
+    - "gettext.NullTranslations.__class__.__name__ == 'type' — NullTranslations is a class (type object). No prior spec checks the class of the NullTranslations class itself."
+    - "gettext.GNUTranslations.__class__.__name__ == 'type' — same rationale."
+    - "gettext.NullTranslations.__mro__[0].__name__ == 'NullTranslations' — the first entry in any class's MRO is the class itself. extra3 covers __mro__ length for both classes but not actual MRO content."
+    - "gettext.gettext('test') == 'test' — passthrough with a new string ('hello' in base, 'world' in extra5, 'test' is new)."
+    - "gettext.ngettext('cat', 'cats', 3) == 'cats' — plural form for n==3 (not 1). Prior ngettext vectors: apple/apples n=1/2, item/items n=1/2, file/files n=0/1."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __class__.__name__ == 'function' for remaining module-level functions
+#
+# gettext_extra5 covers gettext/ngettext/bindtextdomain/textdomain/find.
+# Not covered in any prior spec: translation, install, pgettext, npgettext, dpgettext.
+# ---------------------------------------------------------------------------
+
+table gettext_extra6.func_class_names_ext:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fclass
+
+  columns: [id, function, args, expected]
+  rows:
+    - [translation, "translation.__class__.__name__.__eq__", ["function"], true]
+    - [install,     "install.__class__.__name__.__eq__",     ["function"], true]
+    - [pgettext,    "pgettext.__class__.__name__.__eq__",    ["function"], true]
+    - [npgettext,   "npgettext.__class__.__name__.__eq__",   ["function"], true]
+    - [dpgettext,   "dpgettext.__class__.__name__.__eq__",   ["function"], true]
+
+# ---------------------------------------------------------------------------
+# NullTranslations and GNUTranslations — __class__.__name__ == 'type'
+#
+# These are class objects (not instances), so their __class__ is 'type'.
+# No prior spec checks the __class__ of these class objects themselves.
+# Prior specs check instance attributes of NullTranslations objects created
+# by calling it — this checks the class object directly.
+# ---------------------------------------------------------------------------
+
+invariant gettext_extra6.NullTranslations.class_is_type:
+  description: "gettext.NullTranslations.__class__.__name__ == 'type' — NullTranslations is a class object"
+  category: classnames
+  kind: python_call_eq
+  function: "NullTranslations.__class__.__name__.__eq__"
+  args: ["type"]
+  expected: true
+
+invariant gettext_extra6.GNUTranslations.class_is_type:
+  description: "gettext.GNUTranslations.__class__.__name__ == 'type' — GNUTranslations is a class object"
+  category: classnames
+  kind: python_call_eq
+  function: "GNUTranslations.__class__.__name__.__eq__"
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# NullTranslations.__mro__[0].__name__ — first MRO entry is the class itself
+#
+# gettext_extra3 covers NullTranslations.__mro__.__len__() and
+# GNUTranslations.__mro__.__len__(). No prior spec inspects the actual
+# content of the MRO. The first entry is always the class itself.
+# ---------------------------------------------------------------------------
+
+invariant gettext_extra6.NullTranslations.mro_first:
+  description: "gettext.NullTranslations.__mro__[0].__name__ == 'NullTranslations' — first MRO entry is the class itself"
+  category: classnames
+  kind: python_call_eq
+  function: NullTranslations.__mro__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["NullTranslations"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gettext() passthrough — new string vector
+#
+# Base spec covers gettext('hello'); extra5 covers gettext('world').
+# New: gettext('test') — a distinct string not used in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant gettext_extra6.gettext.test_passthrough:
+  description: "gettext.gettext('test') == 'test' — untranslated string returned unchanged"
+  category: behavior
+  kind: python_call_eq
+  function: gettext
+  args: ["test"]
+  expected: "test"
+
+# ---------------------------------------------------------------------------
+# ngettext() — new strings and n value
+#
+# Prior vectors: apple/apples n=1/2 (base); item/items n=1/2 (extra4);
+# file/files n=0/1 (extra5).
+# New: cat/cats n=3 (plural), n=1 (singular). New strings and n=3 is new.
+# ---------------------------------------------------------------------------
+
+invariant gettext_extra6.ngettext.cat_plural:
+  description: "gettext.ngettext('cat', 'cats', 3) == 'cats' — plural form when n == 3"
+  category: behavior
+  kind: python_call_eq
+  function: ngettext
+  args: ["cat", "cats", 3]
+  expected: "cats"
+
+invariant gettext_extra6.ngettext.cat_singular:
+  description: "gettext.ngettext('cat', 'cats', 1) == 'cat' — singular form when n == 1"
+  category: behavior
+  kind: python_call_eq
+  function: ngettext
+  args: ["cat", "cats", 1]
+  expected: "cat"

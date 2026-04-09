@@ -1,0 +1,160 @@
+spec: mmap_extra8
+version: ">=3.9"
+backend: python_module(mmap)
+
+docs: https://docs.python.org/3/library/mmap.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/mmap.html — Python mmap module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mmapmodule.c"
+  notes:
+    - "This spec extends mmap.zspec.zsdl and prior extras through mmap_extra7.zspec.zsdl."
+    - "mmap.zspec.zsdl covers: mmap.__name__, error.__name__, ACCESS_READ/WRITE/COPY values, PAGESIZE/ALLOCATIONGRANULARITY type and positivity, PROT_READ/MAP_SHARED/MAP_PRIVATE is_int, method names (read/write/seek/tell/close/find/flush)."
+    - "mmap_extra covers: mmap.__module__/__qualname__, ACCESS_* class type, ALLOCATIONGRANULARITY positivity/ge_4096, error.__module__, extra method names (rfind/readline/read_byte/write_byte/move), read class type, PAGESIZE ge_4096."
+    - "mmap_extra2 covers: ACCESS_NONE value/type, ACCESS_* ordering, mmap.__class__.__name__=='type', error base is Exception, PAGESIZE % 4096 == 0, read.__doc__ is str."
+    - "mmap_extra3 covers: ACCESS_DEFAULT value/type, PROT_READ/PROT_WRITE values, MAP_SHARED/MAP_PRIVATE values, PAGESIZE==16384, method __qualname__ for seek/tell/close/find/flush."
+    - "mmap_extra4 covers: method __qualname__ for read/write/rfind/readline/read_byte/write_byte/move; ALLOCATIONGRANULARITY % 4096 == 0; PROT_EXEC is_int; error.__qualname__; mmap class identity table."
+    - "mmap_extra5 covers: MAP_ANON/MAP_ANONYMOUS values and types; PROT_EXEC value; MADV_* values and types; resize.__qualname__; ALLOCATIONGRANULARITY >= PAGESIZE."
+    - "mmap_extra6 covers: ACCESS_READ/WRITE/COPY __class__.__name__ standalone; PROT_READ/PROT_WRITE/MAP_SHARED __class__.__name__ standalone; ALLOCATIONGRANULARITY/__class__.__name__ and __gt__(0) standalone; PAGESIZE/__class__.__name__ and __gt__(0) standalone; mmap class name/module via __eq__ chain."
+    - "mmap_extra7 covers: module __name__; mmap.__bases__[0].__name__=='object'; error.__bases__.__len__()==1; ACCESS_WRITE-ACCESS_READ==1; ACCESS_COPY-ACCESS_WRITE==1; ALLOCATIONGRANULARITY//PAGESIZE==1; ALLOCATIONGRANULARITY%PAGESIZE==0."
+    - "This spec adds: error.__mro__[0]/__name__=='OSError'; error.__mro__[1]/__name__=='Exception'; error.__mro__[2]/__name__=='BaseException'; error.__mro__[3]/__name__=='object'; error.__mro__.__len__()==4; MAP_SHARED.__and__(MAP_PRIVATE)==0 (disjoint bits); MAP_SHARED.__or__(MAP_PRIVATE)==3; PROT_READ.__or__(PROT_WRITE)==3; PAGESIZE.__lshift__(1)==32768; PAGESIZE.__rshift__(1)==8192; mmap.madvise.__name__=='madvise'; mmap.resize.__name__=='resize'."
+    - "mmap.error is an alias for OSError — its full MRO is [OSError, Exception, BaseException, object]."
+    - "error.__mro__.__len__() == 4 — four entries in the OSError MRO chain."
+    - "MAP_SHARED==1, MAP_PRIVATE==2 on macOS; they are disjoint (bitwise AND == 0) and their OR is 3."
+    - "PROT_READ==1, PROT_WRITE==2 on macOS; OR == 3 (read+write combined protection)."
+    - "PAGESIZE.__lshift__(1) == 32768 (16384 * 2); __rshift__(1) == 8192 (16384 / 2)."
+    - "mmap.mmap.madvise.__name__ == 'madvise'; mmap.mmap.resize.__name__ == 'resize' — method __name__ checks not yet covered."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# mmap.error MRO — full chain via __mro__.__getitem__
+#
+# mmap_extra2 checks error.__bases__[0].__name__ == 'Exception'.
+# mmap_extra7 checks error.__bases__.__len__() == 1.
+# No prior spec checks the full error.__mro__ chain via index access.
+# mmap.error is an alias for OSError: MRO = [OSError, Exception, BaseException, object].
+# ---------------------------------------------------------------------------
+
+table mmap_extra8.error_mro:
+  description: "mmap.error MRO chain: OSError → Exception → BaseException → object"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: mro
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [index0, error.__mro__.__getitem__, [0], __name__, [], "OSError"      ]
+    - [index1, error.__mro__.__getitem__, [1], __name__, [], "Exception"    ]
+    - [index2, error.__mro__.__getitem__, [2], __name__, [], "BaseException" ]
+    - [index3, error.__mro__.__getitem__, [3], __name__, [], "object"       ]
+
+invariant mmap_extra8.error.mro_len:
+  description: "mmap.error.__mro__.__len__() == 4 — OSError MRO has exactly four entries"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: error.__mro__.__len__
+  args: []
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# MAP_SHARED and MAP_PRIVATE — bitwise arithmetic
+#
+# mmap.zspec.zsdl checks MAP_SHARED/MAP_PRIVATE is_int.
+# mmap_extra3 checks MAP_SHARED==1 and MAP_PRIVATE==2 as standalone values.
+# No prior spec checks bitwise combinations of these two flags.
+# MAP_SHARED==1, MAP_PRIVATE==2: they are disjoint (AND==0) and OR==3.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra8.map_flags.shared_and_private_zero:
+  description: "mmap.MAP_SHARED & mmap.MAP_PRIVATE == 0 — the two flags share no bits"
+  category: constants
+  kind: python_call_eq
+  function: MAP_SHARED.__and__
+  args: [2]
+  expected: 0
+
+invariant mmap_extra8.map_flags.shared_or_private:
+  description: "mmap.MAP_SHARED | mmap.MAP_PRIVATE == 3 — combined mapping flag mask"
+  category: constants
+  kind: python_call_eq
+  function: MAP_SHARED.__or__
+  args: [2]
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# PROT_READ and PROT_WRITE — bitwise OR
+#
+# mmap_extra3 checks PROT_READ==1 and PROT_WRITE==2 as standalone values.
+# No prior spec checks bitwise combinations of protection flags.
+# PROT_READ==1, PROT_WRITE==2 on macOS: they are disjoint (AND==0) and OR==3.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra8.prot_flags.read_or_write:
+  description: "mmap.PROT_READ | mmap.PROT_WRITE == 3 — combined read+write protection mask"
+  category: constants
+  platform: posix
+  kind: python_call_eq
+  function: PROT_READ.__or__
+  args: [2]
+  expected: 3
+
+invariant mmap_extra8.prot_flags.read_and_write_zero:
+  description: "mmap.PROT_READ & mmap.PROT_WRITE == 0 — PROT_READ and PROT_WRITE share no bits"
+  category: constants
+  platform: posix
+  kind: python_call_eq
+  function: PROT_READ.__and__
+  args: [2]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# PAGESIZE bit-shift arithmetic
+#
+# mmap_extra3 covers PAGESIZE == 16384 (exact value on macOS).
+# mmap_extra6 covers PAGESIZE.__gt__(0) (positivity standalone).
+# No prior spec covers PAGESIZE bit-shift operations.
+# PAGESIZE.__lshift__(1) == 32768 (16384 * 2).
+# PAGESIZE.__rshift__(1) == 8192 (16384 / 2).
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra8.PAGESIZE.lshift1:
+  description: "mmap.PAGESIZE << 1 == 32768 — left-shift by 1 doubles the page size"
+  category: constants
+  kind: python_call_eq
+  function: PAGESIZE.__lshift__
+  args: [1]
+  expected: 32768
+
+invariant mmap_extra8.PAGESIZE.rshift1:
+  description: "mmap.PAGESIZE >> 1 == 8192 — right-shift by 1 halves the page size"
+  category: constants
+  kind: python_call_eq
+  function: PAGESIZE.__rshift__
+  args: [1]
+  expected: 8192
+
+# ---------------------------------------------------------------------------
+# mmap.mmap method __name__ attributes — madvise and resize
+#
+# mmap_extra4 covers method __qualname__ for read/write/rfind/readline/read_byte/write_byte/move.
+# mmap_extra5 covers resize.__qualname__ and MADV_* values.
+# No prior spec checks madvise.__name__ or resize.__name__ as standalone invariants.
+# mmap.mmap.madvise.__name__ == 'madvise'; mmap.mmap.resize.__name__ == 'resize'.
+# ---------------------------------------------------------------------------
+
+table mmap_extra8.method_names:
+  description: "mmap.mmap.madvise and mmap.resize __name__ attributes"
+  kind: python_call_eq
+  category: method_names
+  id_prefix: mname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [madvise, mmap.madvise.__name__.__eq__, ["madvise"], true]
+    - [resize,  mmap.resize.__name__.__eq__,  ["resize"],  true]
