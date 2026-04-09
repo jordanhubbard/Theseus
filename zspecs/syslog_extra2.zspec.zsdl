@@ -1,0 +1,168 @@
+spec: syslog_extra2
+version: ">=3.2"
+backend: python_module(syslog)
+
+docs: https://docs.python.org/3/library/syslog.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/syslog.html — Python syslog module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/syslogmodule.c"
+  notes:
+    - "This spec extends syslog.zspec.zsdl."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "syslog.zspec.zsdl covers: all function __name__ checks; all priority constant values (LOG_EMERG through LOG_DEBUG); LOG_KERN, LOG_USER, LOG_DAEMON facility values."
+    - "This spec adds: module-level __name__; function __qualname__ and __module__ checks; function class type checks; additional facility constants LOG_MAIL, LOG_AUTH, LOG_LPR, LOG_LOCAL0; priority constant is_int class checks; priority ordering relationships."
+    - "openlog, closelog, syslog, setlogmask are all C-level builtins in the syslog extension module."
+    - "LOG_MAIL==16, LOG_AUTH==32, LOG_LPR==48, LOG_LOCAL0==128 on macOS/Darwin — POSIX facility values."
+    - "LOG_ERR < LOG_WARNING < LOG_INFO < LOG_DEBUG is the numeric ordering (lower number = higher severity)."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module-level identity — syslog.__name__ == 'syslog'
+# Not covered in syslog.zspec.zsdl.
+# ---------------------------------------------------------------------------
+
+invariant syslog_extra2.module.name:
+  description: "syslog module's __name__ attribute == 'syslog'"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["syslog"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ attributes
+# syslog.zspec.zsdl covers __name__; __qualname__ is new here.
+# ---------------------------------------------------------------------------
+
+table syslog_extra2.function_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [syslog,     syslog.__qualname__.__eq__,     ["syslog"],     true]
+    - [openlog,    openlog.__qualname__.__eq__,    ["openlog"],    true]
+    - [closelog,   closelog.__qualname__.__eq__,   ["closelog"],   true]
+    - [setlogmask, setlogmask.__qualname__.__eq__, ["setlogmask"], true]
+
+# ---------------------------------------------------------------------------
+# Function __module__ attributes
+# Not covered in syslog.zspec.zsdl.
+# openlog, closelog, syslog, setlogmask are all implemented in the C syslog module.
+# ---------------------------------------------------------------------------
+
+table syslog_extra2.function_modules:
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [syslog,     syslog.__module__.__eq__,     ["syslog"], true]
+    - [openlog,    openlog.__module__.__eq__,    ["syslog"], true]
+    - [closelog,   closelog.__module__.__eq__,   ["syslog"], true]
+    - [setlogmask, setlogmask.__module__.__eq__, ["syslog"], true]
+
+# ---------------------------------------------------------------------------
+# Function class type — all syslog functions are C-level builtins
+# Not covered in syslog.zspec.zsdl.
+# ---------------------------------------------------------------------------
+
+table syslog_extra2.function_types:
+  kind: python_call_eq
+  category: function_types
+  id_prefix: ftype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [syslog,     syslog.__class__.__name__.__eq__,     ["builtin_function_or_method"], true]
+    - [openlog,    openlog.__class__.__name__.__eq__,    ["builtin_function_or_method"], true]
+    - [closelog,   closelog.__class__.__name__.__eq__,   ["builtin_function_or_method"], true]
+    - [setlogmask, setlogmask.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+
+# ---------------------------------------------------------------------------
+# Priority constant class checks — all must be plain int
+# syslog.zspec.zsdl pins the values; class type checks are new here.
+# ---------------------------------------------------------------------------
+
+table syslog_extra2.priority_constant_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: prio_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [emerg,   LOG_EMERG.__class__.__name__.__eq__,   ["int"], true]
+    - [alert,   LOG_ALERT.__class__.__name__.__eq__,   ["int"], true]
+    - [crit,    LOG_CRIT.__class__.__name__.__eq__,    ["int"], true]
+    - [err,     LOG_ERR.__class__.__name__.__eq__,     ["int"], true]
+    - [warning, LOG_WARNING.__class__.__name__.__eq__, ["int"], true]
+    - [notice,  LOG_NOTICE.__class__.__name__.__eq__,  ["int"], true]
+    - [info,    LOG_INFO.__class__.__name__.__eq__,    ["int"], true]
+    - [debug,   LOG_DEBUG.__class__.__name__.__eq__,   ["int"], true]
+
+# ---------------------------------------------------------------------------
+# Priority ordering — LOG_ERR < LOG_WARNING < LOG_INFO < LOG_DEBUG
+# Lower numeric value == higher severity (POSIX convention).
+# syslog.zspec.zsdl pins the exact values; these ordering checks are new.
+# ---------------------------------------------------------------------------
+
+invariant syslog_extra2.priority_ordering.err_lt_warning:
+  description: "syslog.LOG_ERR < syslog.LOG_WARNING — ERR(3) has higher severity than WARNING(4)"
+  category: constants
+  kind: python_call_eq
+  function: LOG_ERR.__lt__
+  args: [4]
+  expected: true
+
+invariant syslog_extra2.priority_ordering.warning_lt_info:
+  description: "syslog.LOG_WARNING < syslog.LOG_INFO — WARNING(4) has higher severity than INFO(6)"
+  category: constants
+  kind: python_call_eq
+  function: LOG_WARNING.__lt__
+  args: [6]
+  expected: true
+
+invariant syslog_extra2.priority_ordering.info_lt_debug:
+  description: "syslog.LOG_INFO < syslog.LOG_DEBUG — INFO(6) has higher severity than DEBUG(7)"
+  category: constants
+  kind: python_call_eq
+  function: LOG_INFO.__lt__
+  args: [7]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Additional facility constants — not covered in syslog.zspec.zsdl
+# LOG_MAIL==16, LOG_AUTH==32, LOG_LPR==48, LOG_LOCAL0==128 on macOS/Darwin.
+# ---------------------------------------------------------------------------
+
+table syslog_extra2.facility_extra_values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: fac
+
+  columns: [id, function, args, expected]
+  rows:
+    - [mail,   LOG_MAIL.__eq__,   [16],  true]
+    - [auth,   LOG_AUTH.__eq__,   [32],  true]
+    - [lpr,    LOG_LPR.__eq__,    [48],  true]
+    - [local0, LOG_LOCAL0.__eq__, [128], true]
+
+table syslog_extra2.facility_extra_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: fac_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [mail,   LOG_MAIL.__class__.__name__.__eq__,   ["int"], true]
+    - [auth,   LOG_AUTH.__class__.__name__.__eq__,   ["int"], true]
+    - [lpr,    LOG_LPR.__class__.__name__.__eq__,    ["int"], true]
+    - [local0, LOG_LOCAL0.__class__.__name__.__eq__, ["int"], true]

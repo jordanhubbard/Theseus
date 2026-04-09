@@ -1,0 +1,152 @@
+spec: resource_extra3
+version: ">=3.9"
+backend: python_module(resource)
+
+docs: https://docs.python.org/3/library/resource.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/resource.html — Python resource module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/resource.c"
+  notes:
+    - "This spec extends resource.zspec.zsdl and resource_extra2.zspec.zsdl."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "resource.zspec.zsdl covers: getrlimit/setrlimit/getrusage/getpagesize __name__; RLIMIT_CPU/FSIZE/NOFILE/AS/RLIM_INFINITY class; RUSAGE_SELF/CHILDREN class; getpagesize() behavior."
+    - "resource_extra2 covers: struct_rusage identity; RLIMIT_STACK/DATA class; rlimit type table; RUSAGE_SELF==0; RUSAGE_CHILDREN==-1; function __qualname__; function class type."
+    - "This spec adds: RLIMIT_CPU/FSIZE/DATA/STACK exact values; RLIMIT_CORE/MEMLOCK/NPROC type checks (macOS); function __module__ checks; RLIM_INFINITY exact value; RLIMIT ordering relationships; module-level __name__."
+    - "RLIMIT_CPU=0, RLIMIT_FSIZE=1, RLIMIT_DATA=2, RLIMIT_STACK=3 are POSIX-standard values."
+    - "RLIMIT_CORE=4, RLIMIT_MEMLOCK=6, RLIMIT_NPROC=7 are macOS/BSD-specific positions."
+    - "RLIMIT_NOFILE=8 on macOS; exact value not guaranteed on all POSIX platforms."
+    - "RLIM_INFINITY == 9223372036854775807 (INT64_MAX) on macOS/Darwin with Python 3.12."
+    - "All functions are C-level builtins; their __module__ is 'resource'."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module-level identity — resource.__name__ == 'resource'
+# Not covered in resource.zspec.zsdl or resource_extra2.zspec.zsdl.
+# ---------------------------------------------------------------------------
+
+invariant resource_extra3.module.name:
+  description: "resource module's __name__ attribute == 'resource'"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["resource"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __module__ attributes
+# resource.zspec.zsdl and resource_extra2 cover __name__ and __qualname__.
+# __module__ checks are new here.
+# ---------------------------------------------------------------------------
+
+table resource_extra3.function_modules:
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getrlimit,   getrlimit.__module__.__eq__,   ["resource"], true]
+    - [setrlimit,   setrlimit.__module__.__eq__,   ["resource"], true]
+    - [getrusage,   getrusage.__module__.__eq__,   ["resource"], true]
+    - [getpagesize, getpagesize.__module__.__eq__, ["resource"], true]
+
+# ---------------------------------------------------------------------------
+# RLIMIT_CPU, RLIMIT_FSIZE, RLIMIT_DATA, RLIMIT_STACK — exact POSIX values
+# resource_extra2 covers class type (is_int) for RLIMIT_STACK and RLIMIT_DATA.
+# Exact value pinning for these four POSIX-standard constants is new here.
+# ---------------------------------------------------------------------------
+
+table resource_extra3.rlimit_posix_values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: rlimit_val
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cpu,   RLIMIT_CPU.__eq__,   [0], true]
+    - [fsize, RLIMIT_FSIZE.__eq__, [1], true]
+    - [data,  RLIMIT_DATA.__eq__,  [2], true]
+    - [stack, RLIMIT_STACK.__eq__, [3], true]
+
+# ---------------------------------------------------------------------------
+# RLIMIT_NOFILE — value on macOS
+# resource.zspec.zsdl covers class type; exact value is new here.
+# RLIMIT_NOFILE == 8 on macOS/Darwin.
+# ---------------------------------------------------------------------------
+
+invariant resource_extra3.RLIMIT_NOFILE.value:
+  description: "resource.RLIMIT_NOFILE == 8 on macOS/Darwin"
+  category: constants
+  kind: python_call_eq
+  function: RLIMIT_NOFILE.__eq__
+  args: [8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# RLIMIT_CORE, RLIMIT_MEMLOCK, RLIMIT_NPROC — macOS-specific constants
+# resource_extra2 does not cover these. Class type checks are new here.
+# RLIMIT_CORE=4, RLIMIT_MEMLOCK=6, RLIMIT_NPROC=7 on macOS/Darwin.
+# ---------------------------------------------------------------------------
+
+table resource_extra3.rlimit_macos_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: rlimit_macos_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [core,    RLIMIT_CORE.__class__.__name__.__eq__,    ["int"], true]
+    - [memlock, RLIMIT_MEMLOCK.__class__.__name__.__eq__, ["int"], true]
+    - [nproc,   RLIMIT_NPROC.__class__.__name__.__eq__,   ["int"], true]
+
+table resource_extra3.rlimit_macos_values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: rlimit_macos_val
+
+  columns: [id, function, args, expected]
+  rows:
+    - [core,    RLIMIT_CORE.__eq__,    [4], true]
+    - [memlock, RLIMIT_MEMLOCK.__eq__, [6], true]
+    - [nproc,   RLIMIT_NPROC.__eq__,   [7], true]
+
+# ---------------------------------------------------------------------------
+# RLIM_INFINITY exact value — macOS/Darwin
+# resource.zspec.zsdl covers class type (is_int) for RLIM_INFINITY.
+# Exact value is new here: 9223372036854775807 (INT64_MAX) on macOS with Python 3.12.
+# ---------------------------------------------------------------------------
+
+invariant resource_extra3.RLIM_INFINITY.value:
+  description: "resource.RLIM_INFINITY == 9223372036854775807 (INT64_MAX) on macOS/Darwin with Python 3.12"
+  category: constants
+  kind: python_call_eq
+  function: RLIM_INFINITY.__eq__
+  args: [9223372036854775807]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# RLIMIT constant ordering — strictly increasing from CPU(0) to NOFILE(8)
+# These cross-constant ordering checks are new here.
+# ---------------------------------------------------------------------------
+
+invariant resource_extra3.RLIMIT_CPU.lt_FSIZE:
+  description: "resource.RLIMIT_CPU < resource.RLIMIT_FSIZE — CPU(0) precedes FSIZE(1)"
+  category: constants
+  kind: python_call_eq
+  function: RLIMIT_CPU.__lt__
+  args: [1]
+  expected: true
+
+invariant resource_extra3.RLIMIT_STACK.lt_NOFILE:
+  description: "resource.RLIMIT_STACK < resource.RLIMIT_NOFILE — STACK(3) precedes NOFILE(8)"
+  category: constants
+  kind: python_call_eq
+  function: RLIMIT_STACK.__lt__
+  args: [8]
+  expected: true
