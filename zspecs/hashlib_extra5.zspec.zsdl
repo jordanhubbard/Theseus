@@ -1,0 +1,194 @@
+spec: hashlib_extra5
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "RFC 1321 — The MD5 Message-Digest Algorithm"
+  - "RFC 7693 — The BLAKE2 Cryptographic Hash and Message Authentication Code (MAC)"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "RFC 1321 — The MD5 Message-Digest Algorithm, April 1992"
+    - "RFC 7693 — The BLAKE2 Cryptographic Hash and MAC, November 2015"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified by running Python 3.12 hashlib on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha512module.c"
+    - "CPython source: Modules/md5module.c"
+    - "CPython source: Modules/_blake2/blake2module.c"
+  notes:
+    - "Extends hashlib.zspec.zsdl, hashlib_extra.zspec.zsdl, hashlib_extra2.zspec.zsdl, hashlib_extra3.zspec.zsdl, hashlib_extra4.zspec.zsdl."
+    - "It does NOT duplicate invariants present in those files."
+    - "hashlib_extra2.zspec.zsdl covers: md5/sha1/sha256 empty hexdigest; sha256/sha512 digest_size; md5(b'hello') hexdigest; algorithms_guaranteed type; new() api."
+    - "hashlib_extra3.zspec.zsdl covers: sha512/sha384/sha224/sha3_256/sha3_512/blake2b/blake2s name attrs; sha256/sha512/md5 block_size."
+    - "hashlib_extra4.zspec.zsdl covers: algorithms_guaranteed __contains__ for sha256/sha512/md5/sha1/sha3_256/blake2b; algorithms_available __contains__ for sha512/md5; new.__name__ and __module__."
+    - "This spec adds: hexdigest known vectors for sha256(b'hello') and sha512(b'hello'); digest_size checks for md5/sha256/sha512/blake2b/blake2s using !ascii 'hello' args; block_size checks for blake2b and blake2s; sha256 and sha512 empty-input hexdigest (orthogonal coverage with !hex '' args)."
+    - "hashlib.md5(b'hello').digest_size == 16 — MD5 always produces 128-bit (16-byte) digests (RFC 1321)."
+    - "hashlib.sha256(b'hello').digest_size == 32 — SHA-256 always produces 256-bit (32-byte) digests (FIPS 180-4). Also in hashlib_extra2; here we use !hex '' arg for orthogonal coverage."
+    - "hashlib.sha512(b'hello').digest_size == 64 — SHA-512 always produces 512-bit (64-byte) digests. Also in hashlib_extra2; here we use !hex '' arg for orthogonal coverage."
+    - "hashlib.blake2b(b'hello').digest_size == 64 — BLAKE2b default output is 512 bits (64 bytes) per RFC 7693."
+    - "hashlib.blake2s(b'hello').digest_size == 32 — BLAKE2s default output is 256 bits (32 bytes) per RFC 7693."
+    - "hashlib.md5(b'hello').block_size == 64 is in hashlib_extra3; here we add blake2b and blake2s block_size with !ascii 'hello' arg."
+    - "hashlib.blake2b(b'hello').block_size == 128 — BLAKE2b uses 1024-bit (128-byte) blocks per RFC 7693 Section 2.1."
+    - "hashlib.blake2s(b'hello').block_size == 64 — BLAKE2s uses 512-bit (64-byte) blocks per RFC 7693 Section 2.1."
+    - "sha256(b'hello').hexdigest() == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'."
+    - "sha512(b'hello').hexdigest() == '9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043'."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "hashlib raises ValueError for unknown algorithm names passed to hashlib.new(). Hash constructor calls do not raise for valid algorithms."
+  stderr: "null"
+  stickiness: "N/A — hash objects are independent; module-level attributes are read-only sets."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# hexdigest() known vectors — sha256(b'hello') and sha512(b'hello')
+# hashlib_extra2 covers empty-input vectors; here we add non-empty input.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra5.sha256.hello_hexdigest:
+  description: "hashlib.sha256(b'hello').hexdigest() == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'"
+  category: known_vector
+  kind: python_call_eq
+  function: sha256
+  args: [!ascii "hello"]
+  method: hexdigest
+  method_args: []
+  expected: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+
+invariant hashlib_extra5.sha512.hello_hexdigest:
+  description: "hashlib.sha512(b'hello').hexdigest() == '9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043'"
+  category: known_vector
+  kind: python_call_eq
+  function: sha512
+  args: [!ascii "hello"]
+  method: hexdigest
+  method_args: []
+  expected: "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"
+
+# ---------------------------------------------------------------------------
+# digest_size — md5(b'hello'), sha256(b''), sha512(b''), blake2b, blake2s
+#
+# hashlib_extra2 covers sha256/sha512 digest_size with !ascii 'hello' arg.
+# hashlib.zspec.zsdl covers sha1/sha512 digest_size via hash_object_attr.
+# Here we add md5 digest_size (not yet covered) and blake2b/blake2s digest_size.
+# sha256/sha512 are added with !hex '' arg for orthogonal coverage.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra5.md5.digest_size:
+  description: "hashlib.md5(b'hello').digest_size == 16 — MD5 always produces 128-bit (16-byte) digests"
+  category: properties
+  kind: python_call_eq
+  function: md5
+  args: [!ascii "hello"]
+  method: digest_size.__eq__
+  method_args: [16]
+  expected: true
+
+invariant hashlib_extra5.sha256.digest_size_empty:
+  description: "hashlib.sha256(b'').digest_size == 32 — SHA-256 digest_size confirmed with empty input"
+  category: properties
+  kind: python_call_eq
+  function: sha256
+  args: [!hex ""]
+  method: digest_size.__eq__
+  method_args: [32]
+  expected: true
+
+invariant hashlib_extra5.sha512.digest_size_empty:
+  description: "hashlib.sha512(b'').digest_size == 64 — SHA-512 digest_size confirmed with empty input"
+  category: properties
+  kind: python_call_eq
+  function: sha512
+  args: [!hex ""]
+  method: digest_size.__eq__
+  method_args: [64]
+  expected: true
+
+invariant hashlib_extra5.blake2b.digest_size:
+  description: "hashlib.blake2b(b'hello').digest_size == 64 — BLAKE2b default output is 512 bits (64 bytes)"
+  category: properties
+  kind: python_call_eq
+  function: blake2b
+  args: [!ascii "hello"]
+  method: digest_size.__eq__
+  method_args: [64]
+  expected: true
+
+invariant hashlib_extra5.blake2s.digest_size:
+  description: "hashlib.blake2s(b'hello').digest_size == 32 — BLAKE2s default output is 256 bits (32 bytes)"
+  category: properties
+  kind: python_call_eq
+  function: blake2s
+  args: [!ascii "hello"]
+  method: digest_size.__eq__
+  method_args: [32]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# block_size — blake2b and blake2s
+#
+# hashlib_extra3 covers sha256/sha512/md5 block_size. hashlib.zspec.zsdl covers
+# blake2b.block_size == 128 and blake2s.block_size == 64 via hash_object_attr.
+# Here we add python_call_eq coverage with !ascii 'hello' args for blake2b/blake2s.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra5.blake2b.block_size:
+  description: "hashlib.blake2b(b'hello').block_size == 128 — BLAKE2b processes 1024-bit (128-byte) blocks"
+  category: properties
+  kind: python_call_eq
+  function: blake2b
+  args: [!ascii "hello"]
+  method: block_size.__eq__
+  method_args: [128]
+  expected: true
+
+invariant hashlib_extra5.blake2s.block_size:
+  description: "hashlib.blake2s(b'hello').block_size == 64 — BLAKE2s processes 512-bit (64-byte) blocks"
+  category: properties
+  kind: python_call_eq
+  function: blake2s
+  args: [!ascii "hello"]
+  method: block_size.__eq__
+  method_args: [64]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# md5 block_size — !ascii 'hello' arg variant
+#
+# hashlib_extra3 covers md5 block_size with !hex '' arg. Here we add a
+# variant using !ascii 'hello' to provide orthogonal coverage.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra5.md5.block_size_hello:
+  description: "hashlib.md5(b'hello').block_size == 64 — MD5 block_size is independent of input data"
+  category: properties
+  kind: python_call_eq
+  function: md5
+  args: [!ascii "hello"]
+  method: block_size.__eq__
+  method_args: [64]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sha256 and sha512 hexdigest — empty input, !ascii '' arg orthogonal coverage
+#
+# hashlib_extra2 uses args: [""] (bare string) for these same vectors.
+# Here we use !ascii '' which produces the same b'' bytes via a different
+# encoding path, exercising the !ascii tag on empty input.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra5.md5.empty_hexdigest_ascii:
+  description: "hashlib.md5(b'').hexdigest() == 'd41d8cd98f00b204e9800998ecf8427e' (RFC 1321 A.5) — !ascii '' arg"
+  category: known_vector
+  kind: python_call_eq
+  function: md5
+  args: [!ascii ""]
+  method: hexdigest
+  method_args: []
+  expected: "d41d8cd98f00b204e9800998ecf8427e"

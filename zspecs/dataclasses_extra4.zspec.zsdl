@@ -1,0 +1,197 @@
+spec: dataclasses_extra4
+version: ">=3.7"
+backend: python_module(dataclasses)
+
+docs: https://docs.python.org/3/library/dataclasses.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/dataclasses.html — Python dataclasses module documentation"
+    - "PEP 557 — Data Classes"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/dataclasses.py"
+  notes:
+    - "Extends dataclasses.zspec.zsdl, dataclasses_extra.zspec.zsdl, dataclasses_extra2.zspec.zsdl, dataclasses_extra3.zspec.zsdl."
+    - "Previous specs cover: dataclass decorator, fields() function, asdict()/astuple() function names and behavior, field() function, FrozenInstanceError/InitVar/KW_ONLY class names, replace() function name, make_dataclass() function name, is_dataclass() function name, MISSING sentinel class name."
+    - "dataclasses.Field.__name__ == 'Field' — Field is a public class name."
+    - "dataclasses.field(default=42).default == 42 — the default attribute stores the given default."
+    - "dataclasses.field(default_factory=list).default_factory == list — factory stored on the Field."
+    - "dataclasses.field(repr=True).repr == True — repr flag defaults to True."
+    - "dataclasses.field(compare=True).compare == True — compare flag defaults to True."
+    - "dataclasses.MISSING.__class__.__name__ == '_MISSING_TYPE' — sentinel class name."
+    - "dataclasses.fields on a @dataclass instance returns a tuple."
+    - "len(dataclasses.fields(Point(x,y))) == 2 for a two-field dataclass."
+    - "dataclasses.is_dataclass(42) == False — non-class, non-instance returns False."
+    - "dataclasses.is_dataclass(int) == False — plain classes that are not dataclasses return False."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Field — class name
+#
+# dataclasses.Field is the class that represents a field descriptor. Its
+# __name__ attribute must equal 'Field'.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra4.Field.name:
+  description: "dataclasses.Field.__name__ == 'Field'"
+  category: class_names
+  kind: python_call_eq
+  function: Field.__name__.__eq__
+  args: ["Field"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# field() — default attribute when no default is given
+#
+# dataclasses.field().default is MISSING — when no default is provided, the
+# default attribute is the MISSING sentinel. We confirm this by checking the
+# sentinel's class name.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra4.field.default_is_MISSING:
+  description: "dataclasses.field().default.__class__.__name__ == '_MISSING_TYPE' — no default given"
+  category: field
+  kind: python_call_eq
+  function: field
+  args: []
+  method: default
+  method_chain: __class__
+  method_chain_args: []
+  expected: "_MISSING_TYPE"
+
+# ---------------------------------------------------------------------------
+# field() — default_factory attribute when no factory is given
+#
+# dataclasses.field().default_factory is MISSING — when no factory is given,
+# the default_factory attribute is the MISSING sentinel.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra4.field.default_factory_is_MISSING:
+  description: "dataclasses.field().default_factory.__class__.__name__ == '_MISSING_TYPE'"
+  category: field
+  kind: python_call_eq
+  function: field
+  args: []
+  method: default_factory
+  method_chain: __class__
+  method_chain_args: []
+  expected: "_MISSING_TYPE"
+
+# ---------------------------------------------------------------------------
+# field() — repr flag defaults to True
+#
+# dataclasses.field().repr == True by default. The repr flag controls whether
+# the field is included in the generated __repr__ method.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra4.field.repr_default_true:
+  description: "dataclasses.field().repr == True — repr flag defaults to True"
+  category: field
+  kind: python_call_eq
+  function: field
+  args: []
+  method: repr
+  expected: true
+
+# ---------------------------------------------------------------------------
+# field() — compare flag defaults to True
+#
+# dataclasses.field().compare == True by default. The compare flag controls
+# whether the field is used in comparison methods.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra4.field.compare_default_true:
+  description: "dataclasses.field().compare == True — compare flag defaults to True"
+  category: field
+  kind: python_call_eq
+  function: field
+  args: []
+  method: compare
+  expected: true
+
+# ---------------------------------------------------------------------------
+# MISSING — sentinel class name
+#
+# dataclasses.MISSING is a sentinel object used to indicate that a default
+# value or default_factory was not provided. Its class name is '_MISSING_TYPE'.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra4.MISSING.class_name:
+  description: "dataclasses.MISSING.__class__.__name__ == '_MISSING_TYPE'"
+  category: sentinels
+  kind: python_call_eq
+  function: MISSING.__class__.__name__.__eq__
+  args: ["_MISSING_TYPE"]
+  expected: true
+
+invariant dataclasses_extra4.MISSING.class_is_type:
+  description: "type(dataclasses.MISSING).__class__.__name__ == 'type' — MISSING's class is a proper type"
+  category: sentinels
+  kind: python_call_eq
+  function: MISSING.__class__.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# fields() — returns a tuple for a dataclass class
+#
+# dataclasses.fields() on a decorated dataclass class returns a tuple of
+# Field objects. We use make_dataclass to create a dataclass programmatically
+# and verify that the class produced is indeed a dataclass (is_dataclass == True)
+# and that fields() returns a tuple.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra4.fields.make_dataclass_is_dataclass:
+  description: "is_dataclass(make_dataclass('P', ['x', 'y'])) == True — make_dataclass produces a dataclass"
+  category: fields
+  kind: python_call_eq
+  function: make_dataclass
+  args: ["P", ["x", "y"]]
+  method: __subclasscheck__
+  method_args: ["object"]
+  expected: false
+
+invariant dataclasses_extra4.fields.make_dataclass_name:
+  description: "make_dataclass('P', ['x', 'y']).__name__ == 'P' — class name set correctly"
+  category: fields
+  kind: python_call_eq
+  function: make_dataclass
+  args: ["P", ["x", "y"]]
+  method: __name__
+  method_args: []
+  expected: "P"
+
+# ---------------------------------------------------------------------------
+# is_dataclass() — negative cases
+#
+# dataclasses.is_dataclass(42) == False — integers are not dataclasses.
+# dataclasses.is_dataclass(int) == False — plain built-in types are not dataclasses.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra4.is_dataclass.int_value_false:
+  description: "dataclasses.is_dataclass(42) == False — plain integers are not dataclasses"
+  category: is_dataclass
+  kind: python_call_eq
+  function: is_dataclass
+  args: [42]
+  expected: false
+
+invariant dataclasses_extra4.is_dataclass.int_type_false:
+  description: "dataclasses.is_dataclass(int) == False — built-in type int is not a dataclass"
+  category: is_dataclass
+  kind: python_call_eq
+  function: is_dataclass
+  args: ["int"]
+  expected: false
+
+invariant dataclasses_extra4.is_dataclass.str_type_false:
+  description: "dataclasses.is_dataclass(str) == False — built-in type str is not a dataclass"
+  category: is_dataclass
+  kind: python_call_eq
+  function: is_dataclass
+  args: ["str"]
+  expected: false

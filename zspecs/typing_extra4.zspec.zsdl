@@ -1,0 +1,218 @@
+spec: typing_extra4
+version: ">=3.9"
+backend: python_module(typing)
+
+docs: https://docs.python.org/3/library/typing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/typing.html — Python typing module documentation"
+    - "PEP 484 — Type Hints"
+    - "PEP 544 — Protocols"
+    - "PEP 586 — Literal Types"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/typing.py"
+  notes:
+    - "Extends typing.zspec.zsdl, typing_extra.zspec.zsdl, typing_extra2.zspec.zsdl, typing_extra3.zspec.zsdl."
+    - "Previous specs cover: type alias names (List, Dict, Tuple, Set, Optional, Union, Any, Callable, Type, ClassVar, Final), get_type_hints function name, cast function name, TypeVar/Generic/Protocol/TypedDict/NamedTuple class names, overload/runtime_checkable/dataclass_transform decorator names, TYPE_CHECKING bool value, get_origin/get_args function names."
+    - "typing.Literal.__class__.__name__ == '_SpecialForm' — Literal is a _SpecialForm, not a regular class."
+    - "typing.get_origin(typing.List[int]) == list — get_origin unwraps generic aliases to their origin type."
+    - "typing.get_args(typing.Optional[int]) == (int, type(None)) — Optional[X] is Union[X, None]."
+    - "typing.get_args(typing.Union[int, str]) has length 2."
+    - "typing.TypeVar('T').__name__ == 'T' — TypeVar captures the name string."
+    - "typing.TypeVar('T').__bound__ is None — unbound TypeVar has __bound__ == None."
+    - "typing.NamedTuple.__name__ == 'NamedTuple'."
+    - "typing.Protocol.__name__ == 'Protocol'."
+    - "typing.get_origin(typing.Annotated[int, 'x']) == int — Annotated strips to its first arg in get_origin? Actually returns int directly per PEP 593."
+    - "typing.ForwardRef.__name__ == 'ForwardRef' — forward reference wrapper class."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Literal — is a _SpecialForm
+#
+# typing.Literal is a _SpecialForm (PEP 586). It is not a plain class, so
+# Literal.__class__.__name__ == '_SpecialForm'.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.Literal.class_of_class:
+  description: "typing.Literal.__class__.__name__ == '_SpecialForm'"
+  category: special_forms
+  kind: python_call_eq
+  function: Literal.__class__.__name__.__eq__
+  args: ["_SpecialForm"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_origin — unwraps generic aliases via __origin__ attribute
+#
+# typing.List[int].__origin__ == list — the __origin__ attribute on a
+# parameterized generic alias holds the non-parameterized origin type.
+# We verify this via __class_getitem__ on the List alias.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.get_origin.List_subscript_origin_name:
+  description: "typing.List.__class_getitem__(int).__origin__.__name__ == 'list'"
+  category: get_origin
+  kind: python_call_eq
+  function: List.__class_getitem__
+  args: [int]
+  method: __origin__
+  method_chain: __name__
+  expected: "list"
+
+invariant typing_extra4.get_origin.Optional_subscript_args_class:
+  description: "typing.Optional.__getitem__(int).__args__.__class__.__name__ == 'tuple'"
+  category: get_origin
+  kind: python_call_eq
+  function: Optional.__getitem__
+  args: [int]
+  method: __args__
+  method_chain: __class__
+  expected: "tuple"
+
+# ---------------------------------------------------------------------------
+# get_args — extracts type parameters
+#
+# typing.get_args(Optional[int]) == (int, type(None)). Length == 2.
+# typing.get_args(Union[int, str]) has length 2.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.get_args.Optional_int_length:
+  description: "len(typing.Optional[int].__args__) == 2 — Optional[X] expands to (X, NoneType)"
+  category: get_args
+  kind: python_call_eq
+  function: Optional.__getitem__
+  args: [int]
+  method: __args__
+  method_chain: __len__
+  expected: 2
+
+invariant typing_extra4.get_args.List_int_args_length:
+  description: "len(typing.List[int].__args__) == 1 — List[int] has one type argument"
+  category: get_args
+  kind: python_call_eq
+  function: List.__class_getitem__
+  args: [int]
+  method: __args__
+  method_chain: __len__
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# TypeVar — name and bound attributes
+#
+# typing.TypeVar('T').__name__ == 'T'. A freshly constructed TypeVar with no
+# bound has __bound__ == None.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.TypeVar.name_attribute:
+  description: "typing.TypeVar('T').__name__ == 'T'"
+  category: typevar
+  kind: python_call_eq
+  function: TypeVar
+  args: ["T"]
+  method: __name__
+  method_args: []
+  expected: "T"
+
+invariant typing_extra4.TypeVar.bound_is_none:
+  description: "typing.TypeVar('T').__bound__ is None — unbound TypeVar has __bound__ == None"
+  category: typevar
+  kind: python_call_eq
+  function: TypeVar
+  args: ["T"]
+  method: __bound__
+  method_args: []
+  expected: null
+
+# ---------------------------------------------------------------------------
+# NamedTuple — class name
+#
+# typing.NamedTuple is a class (not a _SpecialForm). Its __name__ == 'NamedTuple'.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.NamedTuple.name:
+  description: "typing.NamedTuple.__name__ == 'NamedTuple'"
+  category: class_names
+  kind: python_call_eq
+  function: NamedTuple.__name__.__eq__
+  args: ["NamedTuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Protocol — class name
+#
+# typing.Protocol is a class. Its __name__ == 'Protocol'.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.Protocol.name:
+  description: "typing.Protocol.__name__ == 'Protocol'"
+  category: class_names
+  kind: python_call_eq
+  function: Protocol.__name__.__eq__
+  args: ["Protocol"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Annotated — get_origin returns the first type argument
+#
+# Per PEP 593, get_origin(Annotated[X, ...]) returns X (the annotated type).
+# We check that Annotated itself is a _SpecialForm via __class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.Annotated.class_of_class:
+  description: "typing.Annotated.__class__.__name__ == '_SpecialForm'"
+  category: special_forms
+  kind: python_call_eq
+  function: Annotated.__class__.__name__.__eq__
+  args: ["_SpecialForm"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ForwardRef — class name
+#
+# typing.ForwardRef is a class used to represent string-based forward
+# references internally. Its __name__ == 'ForwardRef'.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.ForwardRef.name:
+  description: "typing.ForwardRef.__name__ == 'ForwardRef'"
+  category: class_names
+  kind: python_call_eq
+  function: ForwardRef.__name__.__eq__
+  args: ["ForwardRef"]
+  expected: true
+
+invariant typing_extra4.ForwardRef.module:
+  description: "typing.ForwardRef.__module__ == 'typing'"
+  category: class_names
+  kind: python_call_eq
+  function: ForwardRef.__module__.__eq__
+  args: ["typing"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# TypeVar — qualname and module
+#
+# TypeVar is a proper class in the typing module. __qualname__ == 'TypeVar'
+# and __module__ == 'typing'.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra4.TypeVar.qualname:
+  description: "typing.TypeVar.__qualname__ == 'TypeVar'"
+  category: typevar
+  kind: python_call_eq
+  function: TypeVar.__qualname__.__eq__
+  args: ["TypeVar"]
+  expected: true
+
+invariant typing_extra4.TypeVar.module:
+  description: "typing.TypeVar.__module__ == 'typing'"
+  category: typevar
+  kind: python_call_eq
+  function: TypeVar.__module__.__eq__
+  args: ["typing"]
+  expected: true

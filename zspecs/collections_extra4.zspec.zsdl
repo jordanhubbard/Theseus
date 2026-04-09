@@ -1,0 +1,237 @@
+spec: collections_extra4
+version: ">=3.3"
+backend: python_module(collections)
+
+docs: https://docs.python.org/3/library/collections.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html — Python collections module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+    - "CPython source: Modules/_collectionsmodule.c"
+  notes:
+    - "Extends collections.zspec.zsdl, collections_extra.zspec.zsdl, collections_extra2.zspec.zsdl, collections_extra3.zspec.zsdl."
+    - "Previous specs cover: deque/OrderedDict/defaultdict/Counter/ChainMap/UserDict/UserList/UserString class names and basic operations, namedtuple factory, deque methods, Counter.most_common, ChainMap.maps, OrderedDict.move_to_end, defaultdict.default_factory, UserDict.data class, UserString.data."
+    - "deque([], 3).maxlen == 3 — maxlen is set at construction when maxlen arg is given."
+    - "deque.rotate is a method: deque([], 3).rotate.__class__.__name__ == 'builtin_function_or_method'."
+    - "Counter({'a':2}) + Counter({'a':1}) == Counter({'a':3}) — additive merging of counts."
+    - "Counter.elements() returns an iterator; its __class__.__name__ == 'chain'."
+    - "ChainMap().new_child().__class__.__name__ == 'ChainMap'."
+    - "OrderedDict.popitem(last=True) returns a 2-tuple; __class__.__name__ == 'tuple'."
+    - "namedtuple('P', ['x','y'])._fields.__class__.__name__ == 'tuple'."
+    - "namedtuple('P', ['x','y'])(1, 2)._asdict().__class__.__name__ == 'dict'."
+    - "collections.abc.Sequence.__name__ == 'Sequence'."
+    - "collections.abc.Mapping.__name__ == 'Mapping'."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# deque.maxlen — instance attribute when maxlen specified at construction
+#
+# When a deque is constructed with a maxlen argument, the .maxlen property on
+# the instance returns that integer. deque([], 3).maxlen == 3.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.deque.maxlen_value:
+  description: "deque([], 3).maxlen == 3 — maxlen attribute equals the bound specified at construction"
+  category: deque
+  kind: python_call_eq
+  function: deque
+  args: [[], 3]
+  method: maxlen
+  method_args: []
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# deque.rotate — method exists and is a builtin method
+#
+# deque.rotate is a C-level method. On an instance, its __class__.__name__
+# is 'builtin_function_or_method'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.deque.rotate_method_type:
+  description: "deque([], 3).rotate.__class__.__name__ == 'builtin_function_or_method'"
+  category: deque
+  kind: python_call_eq
+  function: deque
+  args: [[], 3]
+  method: rotate
+  method_chain: __class__
+  method_chain_args: []
+  expected: "builtin_function_or_method"
+
+# ---------------------------------------------------------------------------
+# Counter arithmetic — addition merges counts
+#
+# Counter({'a': 2}) + Counter({'a': 1}) produces Counter({'a': 3}).
+# We verify the result class name and then check the count for key 'a'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.Counter.add_class_name:
+  description: "Counter({'a':2}).__add__(Counter({'a':1})).__class__.__name__ == 'Counter'"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: [{"a": 2}]
+  method: __add__
+  method_args: [{"a": 1}]
+  method_chain: __class__
+  expected: "Counter"
+
+invariant collections_extra4.Counter.add_result_value:
+  description: "Counter({'a':2}) + Counter({'a':1}) gives count 3 for key 'a'"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: [{"a": 2}]
+  method: __add__
+  method_args: [{"a": 1}]
+  method_chain: __getitem__
+  method_chain_args: ["a"]
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# Counter.elements — iterator class name
+#
+# Counter({'a': 2}).elements() returns an itertools.chain object.
+# Its __class__.__name__ == 'chain'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.Counter.elements_class_name:
+  description: "Counter({'a': 2}).elements().__class__.__name__ == 'chain'"
+  category: counter
+  kind: python_call_eq
+  function: Counter
+  args: [{"a": 2}]
+  method: elements
+  method_args: []
+  method_chain: __class__
+  expected: "chain"
+
+# ---------------------------------------------------------------------------
+# ChainMap.new_child — returns a ChainMap instance
+#
+# ChainMap().new_child() produces a new ChainMap with an empty dict prepended.
+# The return type class name must be 'ChainMap'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.ChainMap.new_child_class_name:
+  description: "ChainMap().new_child().__class__.__name__ == 'ChainMap'"
+  category: chainmap
+  kind: python_call_eq
+  function: ChainMap
+  args: []
+  method: new_child
+  method_args: []
+  method_chain: __class__
+  expected: "ChainMap"
+
+# ---------------------------------------------------------------------------
+# OrderedDict.popitem — returns a tuple
+#
+# OrderedDict({'a': 1}).popitem(last=True) returns a (key, value) tuple.
+# The return type class name must be 'tuple'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.OrderedDict.popitem_returns_tuple:
+  description: "OrderedDict({'a': 1}).popitem(last=True).__class__.__name__ == 'tuple'"
+  category: ordereddict
+  kind: python_call_eq
+  function: OrderedDict
+  args: [{"a": 1}]
+  method: popitem
+  method_args: []
+  method_chain: __class__
+  expected: "tuple"
+
+invariant collections_extra4.OrderedDict.popitem_length:
+  description: "OrderedDict({'a': 1}).popitem(last=True) has length 2 — (key, value) pair"
+  category: ordereddict
+  kind: python_call_eq
+  function: OrderedDict
+  args: [{"a": 1}]
+  method: popitem
+  method_args: []
+  method_chain: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# namedtuple._fields — is a tuple
+#
+# The _fields attribute on a namedtuple class is a plain tuple of field name
+# strings. Its __class__.__name__ == 'tuple'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.namedtuple.fields_class_name:
+  description: "namedtuple('P', ['x', 'y'])._fields.__class__.__name__ == 'tuple'"
+  category: namedtuple
+  kind: python_call_eq
+  function: namedtuple
+  args: ["P", ["x", "y"]]
+  method: _fields
+  method_chain: __class__
+  method_chain_args: []
+  expected: "tuple"
+
+invariant collections_extra4.namedtuple.fields_length:
+  description: "len(namedtuple('P', ['x', 'y'])._fields) == 2"
+  category: namedtuple
+  kind: python_call_eq
+  function: namedtuple
+  args: ["P", ["x", "y"]]
+  method: _fields
+  method_chain: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# namedtuple._asdict — returns a dict
+#
+# Calling _asdict() on a namedtuple instance returns a regular dict
+# (since Python 3.8; previously OrderedDict). Its __class__.__name__ == 'dict'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.namedtuple.asdict_class_name:
+  description: "namedtuple('P', ['x', 'y'])(1, 2)._asdict().__class__.__name__ == 'dict'"
+  category: namedtuple
+  kind: python_call_eq
+  function: namedtuple
+  args: ["P", ["x", "y"]]
+  method: __call__
+  method_args: [1, 2]
+  method_chain: _asdict
+  method_chain_args: []
+  expected: "dict"
+
+# ---------------------------------------------------------------------------
+# collections.abc.Sequence — __name__
+#
+# collections.abc.Sequence is an abstract base class for sequences.
+# Its __name__ attribute must equal 'Sequence'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.abc.Sequence.name:
+  description: "collections.abc.Sequence.__name__ == 'Sequence'"
+  category: abc
+  kind: python_call_eq
+  function: abc.Sequence.__name__.__eq__
+  args: ["Sequence"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# collections.abc.Mapping — __name__
+#
+# collections.abc.Mapping is an abstract base class for mappings.
+# Its __name__ attribute must equal 'Mapping'.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra4.abc.Mapping.name:
+  description: "collections.abc.Mapping.__name__ == 'Mapping'"
+  category: abc
+  kind: python_call_eq
+  function: abc.Mapping.__name__.__eq__
+  args: ["Mapping"]
+  expected: true

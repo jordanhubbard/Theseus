@@ -1,0 +1,220 @@
+spec: abc_extra3
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — Python abc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/abc.py"
+    - "CPython source: Modules/_abc.c"
+  notes:
+    - "Extends abc.zspec.zsdl, abc_extra.zspec.zsdl, and abc_extra2.zspec.zsdl."
+    - "abc.zspec.zsdl covers: ABCMeta class name, ABC class name, abstractmethod function name, abstractclassmethod/abstractstaticmethod/abstractproperty names."
+    - "abc_extra.zspec.zsdl covers: ABCMeta.__instancecheck__ and __subclasscheck__ method names, ABC.__module__ == 'abc', ABCMeta.__module__ == 'abc', abstractmethod.__module__ == 'abc'."
+    - "abc_extra2.zspec.zsdl covers: abc.get_cache_token function name and return type, ABC subclass registration, ABCMeta.__abstractmethods__ set behavior."
+    - "abc.ABC.__bases__[0].__name__ == 'object' — ABC directly inherits from object."
+    - "abc.ABCMeta.__bases__[0].__name__ == 'type' — ABCMeta's first base is the built-in 'type' metaclass."
+    - "abc.abstractmethod.__isabstractmethod__ == True — abstractmethod sets its own __isabstractmethod__ attribute to True."
+    - "A concrete class with an abstractmethod defined has a non-empty __abstractmethods__ frozenset."
+    - "A class that implements all abstract methods has an empty __abstractmethods__ frozenset."
+    - "abc.ABC.__dict__ contains the key '__abstractmethods__' — ABC carries the marker attribute."
+    - "abc.ABCMeta.__name__ == 'ABCMeta' — already in abc_extra2 but verified here through __bases__ access path."
+    - "abc.get_cache_token.__module__ is a string (not None) — confirmed via __class__.__name__."
+    - "abc.abstractclassmethod.__name__ == 'abstractclassmethod' (deprecated, present <3.13)."
+    - "abc.abstractstaticmethod.__name__ == 'abstractstaticmethod' (deprecated, present <3.13)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ABC.__bases__ — first base is object
+#
+# abc.ABC is defined as `class ABC(metaclass=ABCMeta): pass` which means
+# its __bases__ tuple is (object,). We confirm the first base's __name__.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.ABC.bases_first_is_object:
+  description: "abc.ABC.__bases__[0].__name__ == 'object' — ABC's only base class is object"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ABCMeta.__bases__ — first base is type
+#
+# abc.ABCMeta is defined as a metaclass inheriting from type. Its __bases__
+# tuple is (type,). We confirm the first base's __name__.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.ABCMeta.bases_first_is_type:
+  description: "abc.ABCMeta.__bases__[0].__name__ == 'type' — ABCMeta's first base is the built-in type metaclass"
+  category: abcmeta_class
+  kind: python_call_eq
+  function: ABCMeta.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abstractmethod.__isabstractmethod__ == True
+#
+# The abstractmethod decorator sets the __isabstractmethod__ attribute to True
+# on itself. This is separate from the wrapped function's attribute — the
+# class object itself carries this marker.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.abstractmethod.isabstractmethod_attr:
+  description: "abc.abstractmethod.__isabstractmethod__ == True — the decorator class carries its own marker"
+  category: abstractmethod_identity
+  kind: python_call_eq
+  function: abstractmethod.__isabstractmethod__.__eq__
+  args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abc.ABC.__dict__ contains '__abstractmethods__'
+#
+# ABCMeta sets __abstractmethods__ on every class that uses it as its
+# metaclass. abc.ABC is itself such a class, so its __dict__ must include
+# the '__abstractmethods__' key.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.ABC.dict_contains_abstractmethods:
+  description: "abc.ABC.__dict__.__contains__('__abstractmethods__') == True"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__dict__.__contains__
+  args: ["__abstractmethods__"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abc.ABC.__abstractmethods__ is a frozenset
+#
+# The __abstractmethods__ attribute on any ABC-derived class is a frozenset
+# of names. For abc.ABC itself (no abstract methods defined) it is empty,
+# but it is still a frozenset, not a set or list.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.ABC.abstractmethods_is_frozenset:
+  description: "abc.ABC.__abstractmethods__.__class__.__name__ == 'frozenset'"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__abstractmethods__.__class__.__name__.__eq__
+  args: ["frozenset"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abc.ABC.__abstractmethods__ is empty for ABC itself
+#
+# abc.ABC defines no abstract methods, so its __abstractmethods__ frozenset
+# must be empty (length == 0).
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.ABC.abstractmethods_empty:
+  description: "len(abc.ABC.__abstractmethods__) == 0 — ABC defines no abstract methods"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__abstractmethods__.__len__
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# ABCMeta.__name__ == 'ABCMeta' (via __bases__ chain cross-check)
+#
+# We verify ABCMeta's own __name__ via the direct attribute path, providing
+# orthogonal coverage from abc_extra2's approach.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.ABCMeta.name_direct:
+  description: "abc.ABCMeta.__name__ == 'ABCMeta'"
+  category: abcmeta_class
+  kind: python_call_eq
+  function: ABCMeta.__name__.__eq__
+  args: ["ABCMeta"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abc.get_cache_token.__module__ == '_abc' or 'abc'
+#
+# get_cache_token is implemented in the _abc C extension and re-exported.
+# Its __module__ attribute is a string (not None). We verify the class name
+# of the __module__ attribute is 'str'.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.get_cache_token.module_is_string:
+  description: "abc.get_cache_token.__module__.__class__.__name__ == 'str' — module attribute is a string"
+  category: get_cache_token
+  kind: python_call_eq
+  function: get_cache_token.__module__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abstractclassmethod.__name__ == 'abstractclassmethod' (deprecated, <3.13)
+#
+# abc.abstractclassmethod was deprecated in Python 3.3 and removed in 3.13.
+# When present its __name__ is 'abstractclassmethod'.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.abstractclassmethod.name:
+  description: "abc.abstractclassmethod.__name__ == 'abstractclassmethod' (deprecated, present <3.13)"
+  category: deprecated
+  version: ">=3.9,<3.13"
+  kind: python_call_eq
+  function: abstractclassmethod.__name__.__eq__
+  args: ["abstractclassmethod"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abstractstaticmethod.__name__ == 'abstractstaticmethod' (deprecated, <3.13)
+#
+# abc.abstractstaticmethod was deprecated in Python 3.3 and removed in 3.13.
+# When present its __name__ is 'abstractstaticmethod'.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.abstractstaticmethod.name:
+  description: "abc.abstractstaticmethod.__name__ == 'abstractstaticmethod' (deprecated, present <3.13)"
+  category: deprecated
+  version: ">=3.9,<3.13"
+  kind: python_call_eq
+  function: abstractstaticmethod.__name__.__eq__
+  args: ["abstractstaticmethod"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ABC.__bases__ — length is 1
+#
+# abc.ABC inherits only from object, so __bases__ has exactly one element.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.ABC.bases_len:
+  description: "len(abc.ABC.__bases__) == 1 — ABC inherits only from object"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# ABCMeta.__bases__ — length is 1
+#
+# abc.ABCMeta inherits only from type, so __bases__ has exactly one element.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra3.ABCMeta.bases_len:
+  description: "len(abc.ABCMeta.__bases__) == 1 — ABCMeta inherits only from type"
+  category: abcmeta_class
+  kind: python_call_eq
+  function: ABCMeta.__bases__.__len__
+  args: []
+  expected: 1

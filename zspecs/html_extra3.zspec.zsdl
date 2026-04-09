@@ -1,0 +1,172 @@
+spec: html_extra3
+version: ">=3.2"
+backend: python_module(html)
+
+docs: https://docs.python.org/3/library/html.html
+
+provenance:
+  derived_from:
+    - "Python html documentation — https://docs.python.org/3/library/html.html"
+    - "Python html.entities documentation — https://docs.python.org/3/library/html.entities.html"
+    - "Python html.parser documentation — https://docs.python.org/3/library/html.parser.html"
+    - "Test vectors verified by running Python 3.14.3 html module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/html/__init__.py"
+    - "CPython source: Lib/html/entities.py"
+    - "CPython source: Lib/html/parser.py"
+    - "html.zspec.zsdl — covers html.escape and html.unescape function names and basic behavior"
+    - "html_extra.zspec.zsdl — covers html.parser.HTMLParser class name and __module__"
+    - "html_extra2.zspec.zsdl — covers HTMLParser methods (handle_starttag, handle_endtag etc.) and html.entities module (html5, name2codepoint, codepoint2name dict class names)"
+    - "html_parser.zspec.zsdl — covers HTMLParser class name, __module__, convert_charrefs default, getpos(), method names, reset/close return None"
+    - "html_entities.zspec.zsdl — covers name2codepoint/codepoint2name/entitydefs/html5 dict lookups for amp/lt/gt/quot/nbsp"
+  notes:
+    - "This spec focuses on specific entity values reachable via html module attribute chains, CDATA_CONTENT_ELEMENTS type, and html.escape/unescape correctness not yet in prior html specs."
+    - "html.entities.name2codepoint['amp'] == 38 — AMPERSAND."
+    - "html.entities.name2codepoint['lt'] == 60 — LESS-THAN SIGN."
+    - "html.entities.name2codepoint['gt'] == 62 — GREATER-THAN SIGN."
+    - "html.entities.name2codepoint['quot'] == 34 — QUOTATION MARK."
+    - "html.entities.codepoint2name[38] == 'amp' — inverse mapping for ampersand."
+    - "html.parser.HTMLParser.CDATA_CONTENT_ELEMENTS is a frozenset or set of element names treated as raw text; its type is a set-like class."
+    - "html.unescape('&amp;') == '&' — decodes named ampersand entity."
+    - "html.unescape('&lt;') == '<' — decodes named less-than entity."
+    - "html.unescape('&gt;') == '>' — decodes named greater-than entity."
+    - "html.escape('<>&') == '&lt;&gt;&amp;' — encodes all three HTML-special chars."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# html.entities.name2codepoint — specific entity-to-codepoint values
+#
+# These are accessed via the html package attribute chain (html.entities.name2codepoint)
+# rather than directly from the html.entities backend used in html_entities.zspec.zsdl.
+# ---------------------------------------------------------------------------
+
+table html_extra3.name2codepoint.values:
+  description: "html.entities.name2codepoint lookup for core HTML entities"
+  kind: python_call_eq
+  category: name2codepoint
+  id_prefix: n2cp
+  function: entities.name2codepoint.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [amp,  ["amp"],  38]
+    - [lt,   ["lt"],   60]
+    - [gt,   ["gt"],   62]
+    - [quot, ["quot"], 34]
+
+# ---------------------------------------------------------------------------
+# html.entities.codepoint2name — specific codepoint-to-entity-name values
+# ---------------------------------------------------------------------------
+
+invariant html_extra3.codepoint2name.amp:
+  description: "html.entities.codepoint2name[38] == 'amp'"
+  category: codepoint2name
+  kind: python_call_eq
+  function: entities.codepoint2name.__getitem__
+  args: [38]
+  expected: "amp"
+
+# ---------------------------------------------------------------------------
+# html.parser.HTMLParser.CDATA_CONTENT_ELEMENTS — type is a frozenset
+#
+# CDATA_CONTENT_ELEMENTS lists element names whose content is not parsed as
+# HTML markup. On CPython this is a frozenset (Python 3.x).
+# ---------------------------------------------------------------------------
+
+invariant html_extra3.parser.CDATA_CONTENT_ELEMENTS.type:
+  description: "html.parser.HTMLParser.CDATA_CONTENT_ELEMENTS.__class__.__name__ == 'frozenset'"
+  category: parser
+  kind: python_call_eq
+  function: parser.HTMLParser.CDATA_CONTENT_ELEMENTS.__class__.__name__.__eq__
+  args: ["frozenset"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# html.unescape — named entity decoding
+# ---------------------------------------------------------------------------
+
+invariant html_extra3.unescape.amp:
+  description: "html.unescape('&amp;') == '&'"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["&amp;"]
+  expected: "&"
+
+invariant html_extra3.unescape.lt:
+  description: "html.unescape('&lt;') == '<'"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["&lt;"]
+  expected: "<"
+
+invariant html_extra3.unescape.gt:
+  description: "html.unescape('&gt;') == '>'"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["&gt;"]
+  expected: ">"
+
+# ---------------------------------------------------------------------------
+# html.escape — combined input with <, >, &
+# ---------------------------------------------------------------------------
+
+invariant html_extra3.escape.lt_gt_amp:
+  description: "html.escape('<>&') == '&lt;&gt;&amp;'"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["<>&"]
+  expected: "&lt;&gt;&amp;"
+
+# ---------------------------------------------------------------------------
+# html.parser.HTMLParser — module reachability via html backend
+#
+# These verify that HTMLParser is accessible as html.parser.HTMLParser
+# and that basic identity invariants hold when accessed this way.
+# ---------------------------------------------------------------------------
+
+invariant html_extra3.parser.HTMLParser.class_name:
+  description: "html.parser.HTMLParser.__name__ == 'HTMLParser'"
+  category: parser
+  kind: python_call_eq
+  function: parser.HTMLParser.__name__.__eq__
+  args: ["HTMLParser"]
+  expected: true
+
+invariant html_extra3.parser.HTMLParser.module:
+  description: "html.parser.HTMLParser.__module__ == 'html.parser'"
+  category: parser
+  kind: python_call_eq
+  function: parser.HTMLParser.__module__.__eq__
+  args: ["html.parser"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# html.entities — codepoint2name class name is 'dict'
+# ---------------------------------------------------------------------------
+
+invariant html_extra3.codepoint2name.is_dict:
+  description: "html.entities.codepoint2name.__class__.__name__ == 'dict'"
+  category: types
+  kind: python_call_eq
+  function: entities.codepoint2name.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# html.entities.name2codepoint class name is 'dict'
+# ---------------------------------------------------------------------------
+
+invariant html_extra3.name2codepoint.is_dict:
+  description: "html.entities.name2codepoint.__class__.__name__ == 'dict'"
+  category: types
+  kind: python_call_eq
+  function: entities.name2codepoint.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true

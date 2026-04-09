@@ -1,107 +1,252 @@
 spec: itertools_extra2
-version: ">=3.0"
+version: ">=3.9"
 backend: python_module(itertools)
 
 docs: https://docs.python.org/3/library/itertools.html
 
 provenance:
   derived_from:
-    - "Python itertools documentation — https://docs.python.org/3/library/itertools.html"
+    - "https://docs.python.org/3/library/itertools.html — Python itertools module documentation"
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
     - "CPython source: Modules/itertoolsmodule.c"
   notes:
-    - "This spec covers aspects not in itertools.zspec.zsdl, itertools_extra.zspec.zsdl, or itertools_product.zspec.zsdl."
-    - "chain.__name__ == 'chain'; islice.__name__ == 'islice'; etc."
-    - "dropwhile, takewhile, groupby, compress class name checks are new here."
-    - "list(islice(count(0), 5)) == [0,1,2,3,4] — islice on an infinite count iterator."
-    - "list(chain([1,2],[3,4])) == [1,2,3,4] — chain materialises to list via list()."
-    - "itertools_extra.zspec.zsdl covers chain.__length_hint__, repeat, and islice via method calls."
-    - "This spec uses the __name__ class-name pattern and list-materialisation via method chains."
+    - "Extends itertools.zspec.zsdl, itertools_extra.zspec.zsdl."
+    - "itertools.zspec.zsdl covers: function names (count, cycle, repeat, chain, compress, dropwhile, filterfalse, groupby, islice, starmap, takewhile, zip_longest, accumulate, combinations, combinations_with_replacement, permutations, product), basic iterator class names."
+    - "itertools_extra.zspec.zsdl covers: filterfalse.__name__, chain([1,2],[3,4]) length_hint==4, repeat(7,3) length_hint/first_element, islice([0..4],3) length_hint/first_element."
+    - "This spec adds: takewhile class name check, dropwhile class name check, groupby class name and first-group key, starmap result class name and first element, zip_longest class name and first pair, permutations length and class name, combinations_with_replacement length and first element, count class name, cycle class name, repeat (infinite) class name."
+    - "itertools.takewhile(pred, iterable).__class__.__name__ == 'takewhile' — it is a C iterator class."
+    - "itertools.dropwhile(pred, iterable).__class__.__name__ == 'dropwhile' — it is a C iterator class."
+    - "itertools.groupby([1,1,2]).__class__.__name__ == 'groupby' — it is a C iterator class."
+    - "itertools.starmap(pow, [(2,3)]).__class__.__name__ == 'starmap' — it is a C iterator class."
+    - "itertools.zip_longest([1],[2]).__class__.__name__ == 'zip_longest' — C iterator class."
+    - "itertools.permutations([1,2,3],2) produces 6 elements: P(3,2) = 3!/(3-2)! = 6."
+    - "itertools.combinations_with_replacement([1,2],2) produces [(1,1),(1,2),(2,2)] — 3 elements."
+    - "itertools.count(10).__class__.__name__ == 'count' — infinite arithmetic counter starting at 10."
+    - "itertools.cycle([1]).__class__.__name__ == 'cycle' — infinite cycling iterator."
+    - "itertools.repeat(1).__class__.__name__ == 'repeat' — infinite repeat iterator (no count argument)."
+    - "ZSDL limitation: lambda-based predicates cannot be serialized; takewhile/dropwhile predicates are expressed using builtin functions (int, bool) as surrogates for class name checks."
     - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# Class name identity checks
-# ---------------------------------------------------------------------------
-
-table itertools_extra2.classnames.names:
-  description: "itertools iterator classes expose __name__ equal to their string identifier"
-  kind: python_call_eq
-  category: classnames
-  id_prefix: cname
-
-  columns: [id, function, args, expected]
-  rows:
-    - [chain_name,     chain.__name__.__eq__,     ["chain"],     true]
-    - [islice_name,    islice.__name__.__eq__,    ["islice"],    true]
-    - [dropwhile_name, dropwhile.__name__.__eq__, ["dropwhile"], true]
-    - [takewhile_name, takewhile.__name__.__eq__, ["takewhile"], true]
-    - [groupby_name,   groupby.__name__.__eq__,   ["groupby"],   true]
-    - [compress_name,  compress.__name__.__eq__,  ["compress"],  true]
-
-# ---------------------------------------------------------------------------
-# islice(count(0), 5) — materialise to list
+# takewhile — class identity
 #
-# count(0) produces 0, 1, 2, ... without bound.
-# islice(..., 5) takes the first 5 elements: [0, 1, 2, 3, 4].
-# We verify via __eq__ on the list produced by list().
+# takewhile(pred, iterable) returns a 'takewhile' C iterator object.
+# We use the builtin 'int' as predicate (truthy for non-zero) to create a valid
+# takewhile instance without needing an unserializable lambda.
 # ---------------------------------------------------------------------------
 
-invariant itertools_extra2.islice.count_five_elements:
-  description: "list(islice(count(0), 5)) == [0,1,2,3,4] — first five non-negative integers"
-  category: islice
+invariant itertools_extra2.takewhile.class_name:
+  description: "itertools.takewhile(int, [1,2,3]).__class__.__name__ == 'takewhile'"
+  category: takewhile
   kind: python_call_eq
-  function: islice
-  args: [{iter: count, iter_args: [0]}, 5]
-  method: __iter__
-  method_chain: __class__.__name__.__eq__
-  method_chain_args: ["islice"]
+  function: takewhile
+  args: [int, [1, 2, 3]]
+  method: __class__.__name__.__eq__
+  method_args: ["takewhile"]
   expected: true
 
 # ---------------------------------------------------------------------------
-# chain([1,2],[3,4]) — first element via __next__
+# dropwhile — class identity
 #
-# itertools_extra.zspec.zsdl checks __length_hint__ for chain([1,2],[3,4]).
-# Here we check __next__() == 1 (first element) with a different pair of lists.
+# dropwhile(pred, iterable) returns a 'dropwhile' C iterator object.
 # ---------------------------------------------------------------------------
 
-invariant itertools_extra2.chain.first_element:
-  description: "chain([1,2],[3,4]).__next__() == 1 — first element of the chained sequence"
-  category: chain
+invariant itertools_extra2.dropwhile.class_name:
+  description: "itertools.dropwhile(int, []).__class__.__name__ == 'dropwhile'"
+  category: dropwhile
   kind: python_call_eq
-  function: chain
-  args: [[1, 2], [3, 4]]
-  method: __next__
-  expected: 1
+  function: dropwhile
+  args: [int, []]
+  method: __class__.__name__.__eq__
+  method_args: ["dropwhile"]
+  expected: true
 
 # ---------------------------------------------------------------------------
-# compress — class name and basic structural check
+# groupby — class identity and first group key
 #
-# compress(data, selectors) filters data where the corresponding selector is true.
-# compress([1,2,3],[1,0,1]).__next__() == 1 — first passing element.
+# groupby([1,1,2,2,3]) groups consecutive equal elements.
+# The class name of the iterator object is 'groupby'.
+# The first pair yielded by __next__() is (key, sub_iterator); key == 1.
 # ---------------------------------------------------------------------------
 
-invariant itertools_extra2.compress.first_element:
-  description: "compress([1,2,3],[1,0,1]).__next__() == 1 — first element where selector is truthy"
-  category: compress
-  kind: python_call_eq
-  function: compress
-  args: [[1, 2, 3], [1, 0, 1]]
-  method: __next__
-  expected: 1
-
-# ---------------------------------------------------------------------------
-# groupby — class name (structural; groupby requires iteration to be useful)
-# groupby([1,1,2]).__next__() returns (key, group_iter); key == 1.
-# ---------------------------------------------------------------------------
-
-invariant itertools_extra2.groupby.first_key_class:
-  description: "groupby([1,1,2]).__class__.__name__ == 'groupby'"
+invariant itertools_extra2.groupby.class_name:
+  description: "itertools.groupby([1,1,2]).__class__.__name__ == 'groupby'"
   category: groupby
   kind: python_call_eq
-  function: groupby.__name__.__eq__
-  args: ["groupby"]
+  function: groupby
+  args: [[1, 1, 2]]
+  method: __class__.__name__.__eq__
+  method_args: ["groupby"]
+  expected: true
+
+invariant itertools_extra2.groupby.first_key:
+  description: "next(itertools.groupby([1,1,2]))[0] == 1 — first group key is 1"
+  category: groupby
+  kind: python_call_eq
+  function: groupby
+  args: [[1, 1, 2]]
+  method: __next__
+  method_chain: __getitem__
+  method_chain_args: [0]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# starmap — class identity and first element
+#
+# starmap(func, iterable_of_args) applies func to each tuple of arguments.
+# starmap(pow, [(2,3),(3,2)]) yields pow(2,3)=8, pow(3,2)=9.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra2.starmap.class_name:
+  description: "itertools.starmap(pow, [(2,3)]).__class__.__name__ == 'starmap'"
+  category: starmap
+  kind: python_call_eq
+  function: starmap
+  args: [pow, [[2, 3]]]
+  method: __class__.__name__.__eq__
+  method_args: ["starmap"]
+  expected: true
+
+invariant itertools_extra2.starmap.first_element:
+  description: "next(itertools.starmap(pow, [(2,3),(3,2)])) == 8 — pow(2,3) == 8"
+  category: starmap
+  kind: python_call_eq
+  function: starmap
+  args: [pow, [[2, 3], [3, 2]]]
+  method: __next__
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# zip_longest — class identity and first pair
+#
+# zip_longest([1,2],[3],fillvalue=0) produces (1,3) then (2,0).
+# First pair (1,3) is verified via __next__.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra2.zip_longest.class_name:
+  description: "itertools.zip_longest([1],[2]).__class__.__name__ == 'zip_longest'"
+  category: zip_longest
+  kind: python_call_eq
+  function: zip_longest
+  args: [[1], [2]]
+  method: __class__.__name__.__eq__
+  method_args: ["zip_longest"]
+  expected: true
+
+invariant itertools_extra2.zip_longest.first_pair:
+  description: "next(itertools.zip_longest([1,2],[3],fillvalue=0)) == (1,3) — first pair before fillvalue needed"
+  category: zip_longest
+  kind: python_call_eq
+  function: zip_longest
+  args: [[1, 2], [3]]
+  method: __next__
+  expected: [1, 3]
+
+# ---------------------------------------------------------------------------
+# permutations — length hint and class identity
+#
+# permutations([1,2,3], 2) yields P(3,2) = 6 ordered pairs.
+# __length_hint__() reports the remaining count before any consumption.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra2.permutations.length:
+  description: "itertools.permutations([1,2,3],2).__length_hint__() == 6 — P(3,2) = 6 ordered pairs"
+  category: permutations
+  kind: python_call_eq
+  function: permutations
+  args: [[1, 2, 3], 2]
+  method: __length_hint__
+  expected: 6
+
+invariant itertools_extra2.permutations.class_name:
+  description: "itertools.permutations([1,2,3],2).__class__.__name__ == 'permutations'"
+  category: permutations
+  kind: python_call_eq
+  function: permutations
+  args: [[1, 2, 3], 2]
+  method: __class__.__name__.__eq__
+  method_args: ["permutations"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# combinations_with_replacement — length hint and first element
+#
+# combinations_with_replacement([1,2], 2) yields 3 elements:
+#   (1,1), (1,2), (2,2)
+# C(n+r-1, r) = C(3,2) = 3.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra2.combinations_with_replacement.length:
+  description: "itertools.combinations_with_replacement([1,2],2).__length_hint__() == 3"
+  category: combinations_with_replacement
+  kind: python_call_eq
+  function: combinations_with_replacement
+  args: [[1, 2], 2]
+  method: __length_hint__
+  expected: 3
+
+invariant itertools_extra2.combinations_with_replacement.first_element:
+  description: "next(itertools.combinations_with_replacement([1,2],2)) == (1,1) — first element includes repetition"
+  category: combinations_with_replacement
+  kind: python_call_eq
+  function: combinations_with_replacement
+  args: [[1, 2], 2]
+  method: __next__
+  expected: [1, 1]
+
+# ---------------------------------------------------------------------------
+# count — class identity
+#
+# itertools.count(10) is an infinite counter starting at 10.
+# Its class name is 'count'.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra2.count.class_name:
+  description: "itertools.count(10).__class__.__name__ == 'count'"
+  category: count
+  kind: python_call_eq
+  function: count
+  args: [10]
+  method: __class__.__name__.__eq__
+  method_args: ["count"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# cycle — class identity
+#
+# itertools.cycle([1]) is an infinite cycling iterator.
+# Its class name is 'cycle'.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra2.cycle.class_name:
+  description: "itertools.cycle([1]).__class__.__name__ == 'cycle'"
+  category: cycle
+  kind: python_call_eq
+  function: cycle
+  args: [[1]]
+  method: __class__.__name__.__eq__
+  method_args: ["cycle"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# repeat — class identity (infinite variant)
+#
+# itertools.repeat(1) without a count argument is an infinite repeat iterator.
+# Its class name is 'repeat'.
+# itertools_extra.zspec.zsdl covers repeat(7,3) with a count; here we verify
+# the unbounded form.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra2.repeat.class_name:
+  description: "itertools.repeat(1).__class__.__name__ == 'repeat'"
+  category: repeat
+  kind: python_call_eq
+  function: repeat
+  args: [1]
+  method: __class__.__name__.__eq__
+  method_args: ["repeat"]
   expected: true

@@ -1,0 +1,199 @@
+spec: xml_extra2
+version: ">=3.9"
+backend: python_module(xml.etree.ElementTree)
+
+docs: https://docs.python.org/3/library/xml.etree.elementtree.html
+
+provenance:
+  derived_from:
+    - "Python xml.etree.ElementTree documentation — https://docs.python.org/3/library/xml.etree.elementtree.html"
+    - "Python xml.dom.minidom documentation — https://docs.python.org/3/library/xml.dom.minidom.html"
+    - "Python xml.sax documentation — https://docs.python.org/3/library/xml.sax.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/xml/etree/ElementTree.py"
+    - "xml.zspec.zsdl — covers xml.etree.ElementTree function names (parse, fromstring, tostring, Element), xml.etree.ElementTree.Element class name"
+    - "xml_extra.zspec.zsdl — covers xml.dom.minidom.parseString, xml.sax.make_parser, xml.parsers.expat.ParserCreate function names and class names"
+    - "xml_etree_extra.zspec.zsdl — covers Element.__name__, SubElement.__name__, parse/fromstring/tostring/indent/iterparse/register_namespace __name__ checks, ParseError name and SyntaxError base, fromstring result class, Element.__module__ is str"
+    - "xml_parse.zspec.zsdl — covers ElementTree/XMLParser/ParseError class names and module checks, ParseError base hierarchy, XMLParser feed+close, XMLParser.version, ElementTree.__bases__, ParseError.args"
+    - "xml_dom.zspec.zsdl — covers Document/Element/Text/Attr/Node class names, parseString DOM traversal, node-type constants, getDOMImplementation"
+    - "xml_sax.zspec.zsdl — covers SAXException/SAXParseException class names, getMessage/str behavior, module origin, make_parser returns ExpatParser"
+  notes:
+    - "This spec focuses on behavioral and type invariants not covered by prior xml specs."
+    - "fromstring('<root/>').tag == 'root' — fromstring parses self-closing element and returns Element with correct tag."
+    - "Element('root').tag == 'root' — Element constructor stores the tag string verbatim."
+    - "Element('root').attrib == {} — attrib is an empty dict on a freshly constructed Element."
+    - "tostring(Element('root')).__class__.__name__ == 'bytes' — tostring returns bytes by default."
+    - "ParseError.__name__ == 'ParseError' — exception class for malformed XML."
+    - "VERSION.__class__.__name__ == 'str' — the module-level VERSION constant is a str."
+    - "XML_VERSION.__class__.__name__ == 'str' — the module-level XML_VERSION constant is a str."
+    - "xml.dom.minidom.Document.__name__ == 'Document' — DOM document class, accessed via xml.dom.minidom backend."
+    - "xml.sax.SAXException.__name__ == 'SAXException' — root SAX exception class."
+    - "SubElement.__name__ == 'SubElement' — SubElement factory function name."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# fromstring — tag of parsed element
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.fromstring.root_tag:
+  description: "fromstring('<root/>').tag == 'root'"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<root/>"]
+  method: tag
+  expected: "root"
+
+# ---------------------------------------------------------------------------
+# Element constructor — tag and attrib
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.Element.tag:
+  description: "Element('root').tag == 'root'"
+  category: Element
+  kind: python_call_eq
+  function: Element
+  args: ["root"]
+  method: tag
+  expected: "root"
+
+invariant xml_extra2.Element.attrib_empty:
+  description: "Element('root').attrib == {} — attrib defaults to empty dict"
+  category: Element
+  kind: python_call_eq
+  function: Element
+  args: ["root"]
+  method: attrib
+  expected: {}
+
+# ---------------------------------------------------------------------------
+# tostring — return type is bytes
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.tostring.result_class:
+  description: "tostring(Element('root')).__class__.__name__ == 'bytes'"
+  category: tostring
+  kind: python_call_eq
+  function: tostring
+  args: [{type: python_call, function: Element, args: ["root"]}]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ParseError — class name
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.ParseError.class_name:
+  description: "ParseError.__name__ == 'ParseError'"
+  category: ParseError
+  kind: python_call_eq
+  function: ParseError.__name__.__eq__
+  args: ["ParseError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# VERSION — module-level string constant
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.VERSION.class_name:
+  description: "VERSION.__class__.__name__ == 'str' — VERSION constant is a str"
+  category: constants
+  kind: python_call_eq
+  function: VERSION.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# XML_VERSION — module-level string constant
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.XML_VERSION.class_name:
+  description: "XML_VERSION.__class__.__name__ == 'str' — XML_VERSION constant is a str"
+  category: constants
+  kind: python_call_eq
+  function: XML_VERSION.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SubElement.__name__ — factory function name
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.SubElement.class_name:
+  description: "SubElement.__name__ == 'SubElement'"
+  category: function_names
+  kind: python_call_eq
+  function: SubElement.__name__.__eq__
+  args: ["SubElement"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Element — attrib with keyword arg
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.Element.attrib_with_kwarg:
+  description: "Element('item', attrib={'id': '1'}).attrib == {'id': '1'}"
+  category: Element
+  kind: python_call_eq
+  function: Element
+  args: ["item"]
+  kwargs: {attrib: {id: "1"}}
+  method: attrib
+  expected: {id: "1"}
+
+# ---------------------------------------------------------------------------
+# fromstring — tag of element with attributes
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.fromstring.element_with_attrs_tag:
+  description: "fromstring('<item id=\"1\"/>').tag == 'item'"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ['<item id="1"/>']
+  method: tag
+  expected: "item"
+
+# ---------------------------------------------------------------------------
+# fromstring — attrib dict on parsed element
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.fromstring.element_attrib:
+  description: "fromstring('<item id=\"1\"/>').attrib == {'id': '1'}"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ['<item id="1"/>']
+  method: attrib
+  expected: {id: "1"}
+
+# ---------------------------------------------------------------------------
+# ParseError — is a subclass of SyntaxError
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.ParseError.base_is_SyntaxError:
+  description: "ParseError.__bases__[0].__name__ == 'SyntaxError'"
+  category: ParseError
+  kind: python_call_eq
+  function: ParseError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "SyntaxError"
+
+# ---------------------------------------------------------------------------
+# VERSION — non-empty string
+# ---------------------------------------------------------------------------
+
+invariant xml_extra2.VERSION.is_truthy:
+  description: "bool(VERSION) == True — VERSION is a non-empty string"
+  category: constants
+  kind: python_call_eq
+  function: bool
+  args: [{type: python_attr, name: VERSION}]
+  expected: true

@@ -1,0 +1,196 @@
+spec: re_extra5
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "Extends re.zspec.zsdl, re_extra.zspec.zsdl, re_extra2.zspec.zsdl, re_extra3.zspec.zsdl, re_extra4.zspec.zsdl."
+    - "re.zspec.zsdl covers: function names (compile, match, search, fullmatch, findall, finditer, sub, subn, split, escape, purge), flag names/values (IGNORECASE, MULTILINE, DOTALL, VERBOSE, ASCII, UNICODE, LOCALE), Pattern class name, Match class name, error class name."
+    - "re_extra.zspec.zsdl covers: Pattern/Match class name via instance.__class__.__name__, compile().pattern attribute."
+    - "re_extra2.zspec.zsdl covers: fullmatch/__name__, purge/__name__, escape/__name__."
+    - "re_extra3.zspec.zsdl covers: Pattern.__name__, Match.__name__ (type objects), error base class."
+    - "re_extra4.zspec.zsdl covers: Match/Pattern type_name anchors, compile.__module__, all function __name__ checks (sub/subn/split/findall/finditer/match/search/fullmatch), function __module__ table, subn count/result_string/no_match_count, finditer returns_iterator."
+    - "This spec adds: re.compile(r'\\d+').flags class name check, re.match groups() result, re.match groupdict() result, re.search start/end positions, re.findall with multiple digits, re.split whitespace, re.subn with 2 substitutions, re.escape result, re.fullmatch non-None result."
+    - "re.compile(r'\\d+').flags is an int on all Python versions; its __class__.__name__ == 'int'."
+    - "re.match(r'(\\w+)', 'hello').groups() == ('hello',) — one capturing group returns a 1-tuple."
+    - "re.match(r'(?P<word>\\w+)', 'hello').groupdict() == {'word': 'hello'} — named groups are accessible as dict."
+    - "re.search(r'\\d+', 'abc123').start() == 3, .end() == 6 — match spans characters 3..5 inclusive."
+    - "re.findall(r'\\d+', 'a1b2c3') == ['1', '2', '3'] — each single-digit run is a separate match."
+    - "re.split(r'\\s+', 'a b  c') == ['a', 'b', 'c'] — consecutive spaces treated as one delimiter."
+    - "re.subn(r'\\d', 'X', 'a1b2') == ('aXbX', 2) — 2 replacements in a 4-character string."
+    - "re.escape('a.b') == 'a\\.b' — the dot is escaped with a backslash."
+    - "re.fullmatch(r'\\d+', '123') is not None — the entire string matches."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.compile().flags — type check
+#
+# The flags attribute on a compiled Pattern is always an int.
+# ---------------------------------------------------------------------------
+
+invariant re_extra5.compile.flags_type:
+  description: "re.compile(r'\\d+').flags.__class__.__name__ == 'int' — Pattern.flags is always an int"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["\\d+"]
+  method: flags.__class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# re.match — groups() and groupdict() on capture groups
+#
+# re.match(r'(\w+)', 'hello').groups() == ('hello',)
+# re.match(r'(?P<word>\w+)', 'hello').groupdict() == {'word': 'hello'}
+# ---------------------------------------------------------------------------
+
+invariant re_extra5.match.groups:
+  description: "re.match(r'(\\w+)', 'hello').groups() == ('hello',) — single unnamed capturing group"
+  category: match_groups
+  kind: python_call_eq
+  function: match
+  args: ["(\\w+)", "hello"]
+  method: groups
+  expected: ["hello"]
+
+invariant re_extra5.match.groupdict:
+  description: "re.match(r'(?P<word>\\w+)', 'hello').groupdict() == {'word': 'hello'} — named group"
+  category: match_groups
+  kind: python_call_eq
+  function: match
+  args: ["(?P<word>\\w+)", "hello"]
+  method: groupdict
+  expected: {word: "hello"}
+
+# ---------------------------------------------------------------------------
+# re.search — start() and end() position methods
+#
+# re.search(r'\d+', 'abc123').start() == 3
+# re.search(r'\d+', 'abc123').end() == 6
+# ---------------------------------------------------------------------------
+
+invariant re_extra5.search.start:
+  description: "re.search(r'\\d+', 'abc123').start() == 3 — digit run begins at index 3"
+  category: search_position
+  kind: python_call_eq
+  function: search
+  args: ["\\d+", "abc123"]
+  method: start
+  expected: 3
+
+invariant re_extra5.search.end:
+  description: "re.search(r'\\d+', 'abc123').end() == 6 — digit run ends at index 6 (exclusive)"
+  category: search_position
+  kind: python_call_eq
+  function: search
+  args: ["\\d+", "abc123"]
+  method: end
+  expected: 6
+
+# ---------------------------------------------------------------------------
+# re.findall — list of all non-overlapping matches
+#
+# re.findall(r'\d+', 'a1b2c3') == ['1', '2', '3']
+# ---------------------------------------------------------------------------
+
+invariant re_extra5.findall.three_singles:
+  description: "re.findall(r'\\d+', 'a1b2c3') == ['1', '2', '3'] — three single-digit matches"
+  category: findall
+  kind: python_call_eq
+  function: findall
+  args: ["\\d+", "a1b2c3"]
+  expected: ["1", "2", "3"]
+
+invariant re_extra5.findall.count:
+  description: "len(re.findall(r'\\d+', 'a1b2c3')) == 3 — exactly three matches found"
+  category: findall
+  kind: python_call_eq
+  function: findall
+  args: ["\\d+", "a1b2c3"]
+  method: __len__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# re.split — split on whitespace pattern
+#
+# re.split(r'\s+', 'a b  c') == ['a', 'b', 'c']
+# Multiple consecutive spaces are consumed as a single delimiter.
+# ---------------------------------------------------------------------------
+
+invariant re_extra5.split.whitespace:
+  description: "re.split(r'\\s+', 'a b  c') == ['a', 'b', 'c'] — consecutive spaces as one delimiter"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["\\s+", "a b  c"]
+  expected: ["a", "b", "c"]
+
+# ---------------------------------------------------------------------------
+# re.subn — substitution with count
+#
+# re.subn(r'\d', 'X', 'a1b2') == ('aXbX', 2)
+# Two digit characters are replaced; the tuple contains (result_string, count).
+# ---------------------------------------------------------------------------
+
+invariant re_extra5.subn.result_string:
+  description: "re.subn(r'\\d', 'X', 'a1b2')[0] == 'aXbX' — two single-digit replacements"
+  category: subn
+  kind: python_call_eq
+  function: subn
+  args: ["\\d", "X", "a1b2"]
+  method: __getitem__
+  method_args: [0]
+  expected: "aXbX"
+
+invariant re_extra5.subn.count:
+  description: "re.subn(r'\\d', 'X', 'a1b2')[1] == 2 — exactly two substitutions made"
+  category: subn
+  kind: python_call_eq
+  function: subn
+  args: ["\\d", "X", "a1b2"]
+  method: __getitem__
+  method_args: [1]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# re.escape — special character escaping
+#
+# re.escape('a.b') == 'a\\.b' — the literal dot is escaped with a backslash.
+# ---------------------------------------------------------------------------
+
+invariant re_extra5.escape.dot:
+  description: "re.escape('a.b') == 'a\\\\.b' — dot is escaped to prevent wildcard matching"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["a.b"]
+  expected: "a\\.b"
+
+# ---------------------------------------------------------------------------
+# re.fullmatch — non-None result for a matching string
+#
+# re.fullmatch(r'\d+', '123') is not None — the entire string matches the pattern.
+# Verified by checking that the result's __class__.__name__ == 'Match'.
+# ---------------------------------------------------------------------------
+
+invariant re_extra5.fullmatch.match_class:
+  description: "re.fullmatch(r'\\d+', '123').__class__.__name__ == 'Match' — fullmatch returns a Match object"
+  category: fullmatch
+  kind: python_call_eq
+  function: fullmatch
+  args: ["\\d+", "123"]
+  method: __class__.__name__.__eq__
+  method_args: ["Match"]
+  expected: true
