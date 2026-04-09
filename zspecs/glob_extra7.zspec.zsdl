@@ -1,0 +1,95 @@
+spec: glob_extra7
+version: ">=3.9"
+backend: python_module(glob)
+
+docs: https://docs.python.org/3/library/glob.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/glob.html — Python glob module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/glob.py"
+  notes:
+    - "This spec extends glob.zspec.zsdl and glob_extra through glob_extra6.zspec.zsdl."
+    - "glob.zspec.zsdl covers: glob/iglob/escape __name__ (table); glob no-match/exact-match; escape special-char table; iglob generator type check."
+    - "glob_extra covers: glob.__module__; glob/iglob/escape __name__ standalone; escape '[abc]'/'a?b'/'a*b'."
+    - "glob_extra2 covers: glob/iglob/escape/has_magic __name__ standalone; module_checks table; has_magic vectors ('*.py', '?.py', '[abc]', 'foo.py', '')."
+    - "glob_extra3 covers: function_names table; glob.__module__ standalone; escape.__class__.__name__; iglob.__class__.__name__; escape '/path/with[brackets]'/'normal/path'."
+    - "glob_extra4 covers: function_qualnames table (glob/iglob/escape); glob.__class__.__name__=='function'; escape '/path/to/[file].txt'."
+    - "glob_extra5 covers: has_magic.__qualname__; has_magic.__module__; has_magic.__class__.__name__=='function'; escape '*'/'?'/'['/'a*b?c'."
+    - "glob_extra6 covers: has_magic vectors ('**','[',']','a?','/path/to/*.py'); escape '/tmp/*.txt'/'file?.log'; escape.__qualname__ standalone."
+    - "This spec adds: glob.__name__ module attribute (the module's own __name__, not the function's); glob/iglob/escape/has_magic __class__.__name__ == 'function' table (new namespace, not previously combined in one table); escape 'dir/[file]' vector; has_magic('') == False (empty string has no magic)."
+    - "The glob module's __name__ attribute == 'glob' — this is the module-level __name__, distinct from glob.glob.__name__."
+    - "glob.glob, glob.iglob, glob.escape, glob.has_magic are all pure-Python functions; each reports __class__.__name__ == 'function'."
+    - "glob.escape('dir/[file]') == 'dir/[[]file]' — the '[' before 'file' is bracket-escaped; ']' is not a magic char so it stays."
+    - "glob.has_magic('') == False — empty string contains no wildcard characters."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# glob module __name__ attribute
+# glob_extra2/extra3 check function __name__ attributes; no prior spec checks
+# the module-level __name__ attribute (i.e., glob.__name__ == 'glob').
+# ---------------------------------------------------------------------------
+
+invariant glob_extra7.module.name:
+  description: "glob.__name__ == 'glob' — the module's own __name__ attribute equals the module name"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["glob"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __class__.__name__ == 'function' for all four public glob callables
+# glob_extra3 checks escape.__class__.__name__ and iglob.__class__.__name__ as
+# standalone invariants. glob_extra4 checks glob.__class__.__name__ standalone.
+# glob_extra5 checks has_magic.__class__.__name__ standalone.
+# This table provides a combined extra7-namespace view for all four in one place.
+# ---------------------------------------------------------------------------
+
+table glob_extra7.func_class_names:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fclass
+
+  columns: [id, function, args, expected]
+  rows:
+    - [glob,      "glob.__class__.__name__.__eq__",      ["function"], true]
+    - [iglob,     "iglob.__class__.__name__.__eq__",     ["function"], true]
+    - [escape,    "escape.__class__.__name__.__eq__",    ["function"], true]
+    - [has_magic, "has_magic.__class__.__name__.__eq__", ["function"], true]
+
+# ---------------------------------------------------------------------------
+# escape — new vector: 'dir/[file]'
+# glob_extra3 covers '/path/with[brackets]' and 'normal/path'.
+# glob_extra4 covers '/path/to/[file].txt'.
+# glob_extra5 covers '*', '?', '[', 'a*b?c'.
+# glob_extra6 covers '/tmp/*.txt', 'file?.log'.
+# New: 'dir/[file]' — bracket at start of filename component, no closing bracket magic.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra7.escape.dir_bracket_filename:
+  description: "glob.escape('dir/[file]') == 'dir/[[]file]' — '[' in filename is bracket-escaped; ']' is literal"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["dir/[file]"]
+  expected: "dir/[[]file]"
+
+# ---------------------------------------------------------------------------
+# has_magic('') == False — empty string
+# glob_extra2 covers has_magic('') == False in the module_checks table.
+# This is a standalone cross-check invariant under the extra7 namespace.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra7.has_magic.empty_string:
+  description: "glob.has_magic('') == False — empty string contains no wildcard characters"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: [""]
+  expected: false

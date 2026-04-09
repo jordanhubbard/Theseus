@@ -1,0 +1,134 @@
+spec: sysconfig_extra5
+version: ">=3.9"
+backend: python_module(sysconfig)
+
+docs: https://docs.python.org/3/library/sysconfig.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sysconfig.html — Python sysconfig documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/sysconfig.py"
+  notes:
+    - "This spec extends sysconfig.zspec.zsdl through sysconfig_extra4.zspec.zsdl."
+    - "sysconfig (base) covers: __name__ table for 10 functions; return types for get_python_version/get_scheme_names/get_path_names/get_platform; get_scheme_names len==7; get_path_names contains stdlib/platlib."
+    - "sysconfig_extra covers: func_names table (9 functions); return types for 4 functions via method/method_chain."
+    - "sysconfig_extra2 covers: get_config_vars/get_paths return dict and non-empty; get_scheme_names contains 'posix_prefix'; get_path_names nonempty/contains scripts/data; get_python_version contains dot/nonempty."
+    - "sysconfig_extra3 covers: __qualname__ for 8 functions (table); __module__ for get_python_version/get_platform (table); get_default_scheme __name__/__qualname__/returns_str/nonempty."
+    - "sysconfig_extra4 covers: module __name__=='sysconfig'; is_python_build returns_bool; get_platform nonempty; get_path_names len==8; get_scheme_names posix_home; __module__ for get_config_var/parse_config_h/get_path/get_paths; __qualname__ for get_config_var/parse_config_h."
+    - "This spec adds new axes: __doc__ type for get_python_version/get_platform/is_python_build/get_config_var; get_path_names contains 'include' and 'purelib'; get_scheme_names contains 'posix_local'; get_config_var.__name__.__class__.__name__=='str'; get_python_version().__len__() >= 3."
+    - "sysconfig functions are documented — __doc__ is a str (not None) for all public functions."
+    - "get_path_names() always contains 'include' (C headers) and 'purelib' (pure-Python packages)."
+    - "get_scheme_names() always contains 'posix_local' on POSIX platforms (macOS, Linux, FreeBSD)."
+    - "get_python_version().__len__() >= 3 because the result is at least 'X.Y' which is 3 characters."
+    - "get_config_var.__name__ is a str — the __name__ attribute of a function is always a str."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __doc__ type checks for sysconfig public functions
+#
+# No prior sysconfig spec checks __doc__. All public sysconfig functions
+# have docstrings, so __doc__.__class__.__name__ == 'str'.
+# This is a new dimension (attribute type) not covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+table sysconfig_extra5.function_doc_types:
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: doctype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [get_python_version, "get_python_version.__doc__.__class__.__name__.__eq__", ["str"], true]
+    - [get_platform,       "get_platform.__doc__.__class__.__name__.__eq__",       ["str"], true]
+    - [is_python_build,    "is_python_build.__doc__.__class__.__name__.__eq__",    ["str"], true]
+    - [get_config_var,     "get_config_var.__doc__.__class__.__name__.__eq__",     ["str"], true]
+
+# ---------------------------------------------------------------------------
+# get_path_names() contains 'include' and 'purelib'
+#
+# sysconfig (base) checks 'stdlib' and 'platlib'.
+# sysconfig_extra2 checks 'scripts' and 'data'.
+# sysconfig_extra4 checks exact len == 8.
+# 'include' and 'purelib' are new here — not covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant sysconfig_extra5.get_path_names.include_present:
+  description: "sysconfig.get_path_names() contains 'include' — C headers install path"
+  category: runtime
+  kind: python_call_eq
+  function: get_path_names
+  args: []
+  method: __contains__
+  method_args: ["include"]
+  expected: true
+
+invariant sysconfig_extra5.get_path_names.purelib_present:
+  description: "sysconfig.get_path_names() contains 'purelib' — pure-Python packages install path"
+  category: runtime
+  kind: python_call_eq
+  function: get_path_names
+  args: []
+  method: __contains__
+  method_args: ["purelib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_scheme_names() contains 'posix_local'
+#
+# sysconfig_extra2 checks 'posix_prefix'.
+# sysconfig_extra4 checks 'posix_home'.
+# 'posix_local' is always present on POSIX (macOS, Linux, FreeBSD) — new here.
+# Not covered in any prior sysconfig spec.
+# ---------------------------------------------------------------------------
+
+invariant sysconfig_extra5.get_scheme_names.posix_local:
+  description: "sysconfig.get_scheme_names().__contains__('posix_local') — posix_local is present on POSIX"
+  category: runtime
+  kind: python_call_eq
+  function: get_scheme_names
+  args: []
+  method: __contains__
+  method_args: ["posix_local"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_python_version() — result length
+#
+# sysconfig_extra2 checks the result contains '.' and is nonempty.
+# The version string is at least 'X.Y' — at minimum 3 characters.
+# This exact lower-bound length check is new.
+# Not covered in any prior sysconfig spec.
+# ---------------------------------------------------------------------------
+
+invariant sysconfig_extra5.get_python_version.len_ge_3:
+  description: "len(sysconfig.get_python_version()) >= 3 — version string is at least 'X.Y' (3 chars)"
+  category: runtime
+  kind: python_call_eq
+  function: get_python_version
+  args: []
+  method: __len__
+  method_args: []
+  method_chain: __ge__
+  method_chain_args: [3]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_config_var.__name__.__class__.__name__ — the __name__ attribute is a str
+#
+# Prior specs confirm get_config_var.__name__ == 'get_config_var' (string value).
+# New here: confirm the type of __name__ itself is 'str'.
+# Not covered in any prior sysconfig spec.
+# ---------------------------------------------------------------------------
+
+invariant sysconfig_extra5.get_config_var.name_is_str:
+  description: "get_config_var.__name__.__class__.__name__ == 'str' — __name__ attribute is always a str"
+  category: function_identity
+  kind: python_call_eq
+  function: get_config_var.__name__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true

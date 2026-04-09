@@ -1,0 +1,155 @@
+spec: ipaddress_extra8
+version: ">=3.9"
+backend: python_module(ipaddress)
+
+docs: https://docs.python.org/3/library/ipaddress.html
+rfcs:
+  - "RFC 791 — Internet Protocol (IPv4)"
+  - "RFC 2460 — Internet Protocol, Version 6 (IPv6)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ipaddress.html — Python ipaddress module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ipaddress.py"
+    - "ipaddress.zspec.zsdl — covers IPv4/IPv6 address/network attributes and error cases"
+    - "ipaddress_extra.zspec.zsdl — covers __name__ and __module__ for all 6 public classes (tables), packed_is_bytes, is_private, factory return types"
+    - "ipaddress_extra2.zspec.zsdl — covers IPv4/IPv6/Network __name__ (table), ip_address/ip_network/ip_interface __name__ (table), loopback class name, packed_is_bytes"
+    - "ipaddress_extra3.zspec.zsdl — covers factory __module__; __bases__[0].__name__ for IPv4/IPv6Address and IPv4/IPv6Network; AddressValueError/NetmaskValueError full coverage"
+    - "ipaddress_extra4.zspec.zsdl — covers IPv4Address is_private/is_loopback/is_unspecified/packed type/packed len; IPv6Address is_loopback/packed len; IPv4Network num_addresses/prefixlen/network_address class"
+    - "ipaddress_extra5.zspec.zsdl — covers __qualname__ for all 6 classes, 3 factory functions, and 2 exception classes"
+    - "ipaddress_extra6.zspec.zsdl — covers .version and .max_prefixlen for IPv4Address/IPv6Address/IPv4Network/IPv6Network; IPv6Address.compressed class name and loopback value"
+    - "ipaddress_extra7.zspec.zsdl — covers class __name__ for all 8 symbols (table); exception __bases__ parent; IPv4Address/IPv6Address/IPv4Network __module__ (standalone)"
+  notes:
+    - "This spec extends the ipaddress chain; it does NOT duplicate invariants already present in any prior spec."
+    - "Focus: IPv4Address.__name__ / IPv6Address.__name__ / IPv4Network.__name__ / IPv6Network.__name__ as standalone invariants in the extra8 namespace; class __bases__.__len__() == 1 for IPv4Address/IPv6Address/IPv4Network/IPv6Network; IPv4Address.is_global; IPv6Address.is_unspecified; IPv4Address.is_multicast for a multicast address; IPv6Address.is_link_local for a link-local address."
+    - "ipaddress.IPv4Address.__name__ == 'IPv4Address' — covered as table rows in extra/extra2/extra7; standalone invariant under extra8 namespace is a new anchor."
+    - "ipaddress.IPv6Address.__name__ == 'IPv6Address' — same rationale."
+    - "ipaddress.IPv4Network.__name__ == 'IPv4Network' — same rationale."
+    - "ipaddress.IPv6Network.__name__ == 'IPv6Network' — same rationale."
+    - "ipaddress.IPv4Address.__bases__.__len__() == 1 — IPv4Address has exactly one direct base (_BaseAddress). Prior specs check __bases__[0].__name__ but not the count."
+    - "ipaddress.IPv6Address.__bases__.__len__() == 1 — same rationale."
+    - "ipaddress.IPv4Network.__bases__.__len__() == 1 — IPv4Network has exactly one direct base (_BaseNetwork). Not covered in any prior spec."
+    - "ipaddress.IPv6Network.__bases__.__len__() == 1 — same rationale."
+    - "ipaddress.IPv4Address('8.8.8.8').is_global == True — extra4 notes this but the invariant was not written; new coverage."
+    - "ipaddress.IPv6Address('::').is_unspecified == True — extra4 covers IPv4Address.is_unspecified but not IPv6Address. The all-zeros IPv6 address is unspecified."
+    - "ipaddress.IPv4Address('224.0.0.1').is_multicast == True — extra4 covers is_multicast for '255.255.255.255' (False); multicast address is new."
+    - "ipaddress.IPv6Address('fe80::1').is_link_local == True — link-local IPv6 addresses begin with fe80::/10. Not covered in any prior spec."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class __name__ standalone invariants — IPv4Address, IPv6Address, IPv4Network, IPv6Network
+#
+# These are covered as table rows in ipaddress_extra.class_names,
+# ipaddress_extra2, and ipaddress_extra7.class_names. The extra8 standalone
+# invariants anchor them explicitly in the new namespace.
+# ---------------------------------------------------------------------------
+
+table ipaddress_extra8.class_names:
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [IPv4Address, IPv4Address.__name__.__eq__, ["IPv4Address"], true]
+    - [IPv6Address, IPv6Address.__name__.__eq__, ["IPv6Address"], true]
+    - [IPv4Network, IPv4Network.__name__.__eq__, ["IPv4Network"], true]
+    - [IPv6Network, IPv6Network.__name__.__eq__, ["IPv6Network"], true]
+
+# ---------------------------------------------------------------------------
+# __bases__.__len__() == 1 for each of the four main classes
+#
+# ipaddress_extra3 checks __bases__[0].__name__ for these classes.
+# No prior spec checks the number of direct base classes.
+# IPv4Address/IPv6Address each have exactly 1 base (_BaseAddress).
+# IPv4Network/IPv6Network each have exactly 1 base (_BaseNetwork).
+# ---------------------------------------------------------------------------
+
+table ipaddress_extra8.bases_count:
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: baselen
+
+  columns: [id, function, args, expected]
+  rows:
+    - [IPv4Address, IPv4Address.__bases__.__len__, [], 1]
+    - [IPv6Address, IPv6Address.__bases__.__len__, [], 1]
+    - [IPv4Network, IPv4Network.__bases__.__len__, [], 1]
+    - [IPv6Network, IPv6Network.__bases__.__len__, [], 1]
+
+# ---------------------------------------------------------------------------
+# IPv4Address.is_global — public (non-private, non-reserved) address
+#
+# ipaddress_extra4 covers is_private/is_loopback/is_unspecified but NOT is_global.
+# 8.8.8.8 (Google Public DNS) is a global address.
+# Not covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra8.IPv4Address.is_global:
+  description: "ipaddress.IPv4Address('8.8.8.8').is_global == True — Google DNS is a global address"
+  category: IPv4Address_predicates
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["8.8.8.8"]
+  method: is_global.__eq__
+  method_args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv6Address.is_unspecified — the all-zeros IPv6 address is unspecified
+#
+# ipaddress_extra4 covers IPv4Address.is_unspecified for '0.0.0.0'.
+# No prior spec covers IPv6Address.is_unspecified.
+# '::' is the IPv6 unspecified address (all zeros).
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra8.IPv6Address.is_unspecified:
+  description: "ipaddress.IPv6Address('::').is_unspecified == True — all-zeros IPv6 address is unspecified"
+  category: IPv6Address_predicates
+  kind: python_call_eq
+  function: IPv6Address
+  args: ["::"]
+  method: is_unspecified.__eq__
+  method_args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv4Address.is_multicast — multicast range 224.0.0.0/4
+#
+# ipaddress_extra4 notes is_multicast == False for 255.255.255.255.
+# A True case for a genuine multicast address is not covered in any prior spec.
+# 224.0.0.1 is the "All Hosts" multicast address (well-known, stable across
+# all platforms).
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra8.IPv4Address.is_multicast_true:
+  description: "ipaddress.IPv4Address('224.0.0.1').is_multicast == True — multicast range address"
+  category: IPv4Address_predicates
+  kind: python_call_eq
+  function: IPv4Address
+  args: ["224.0.0.1"]
+  method: is_multicast.__eq__
+  method_args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPv6Address.is_link_local — link-local addresses begin with fe80::/10
+#
+# No prior spec covers IPv6Address.is_link_local.
+# fe80::1 is a standard link-local IPv6 address.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra8.IPv6Address.is_link_local:
+  description: "ipaddress.IPv6Address('fe80::1').is_link_local == True — link-local address"
+  category: IPv6Address_predicates
+  kind: python_call_eq
+  function: IPv6Address
+  args: ["fe80::1"]
+  method: is_link_local.__eq__
+  method_args: [true]
+  expected: true

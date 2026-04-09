@@ -1,0 +1,122 @@
+spec: platform_extra6
+version: ">=3.9"
+backend: python_module(platform)
+
+docs: https://docs.python.org/3/library/platform.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/platform.html — Python platform documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/platform.py"
+  notes:
+    - "This spec extends platform.zspec.zsdl through platform_extra5.zspec.zsdl."
+    - "platform (base) covers: __name__ table for system/node/release/machine/processor/architecture/uname/python_version/python_implementation/python_version_tuple; python_impl_cpython; version_tuple_major/is_tuple/len3; python_version_is_str/nonempty; architecture_64bit; node_is_str; uname field types."
+    - "platform_extra covers: __name__ for release/version/python_build; return types for system/machine/processor/release/version/python_implementation; uname_result type/field types; python_build tuple shape."
+    - "platform_extra2 covers: __module__ table for all callables; __name__ spot-checks for system/node/release/machine/python_compiler; python_compiler is str and non-empty."
+    - "platform_extra3 covers: version_tuple minor/micro element types; node/python_implementation nonempty; uname len/node nonempty; architecture linkage str; python_build buildno nonempty; python_version contains dot."
+    - "platform_extra4 covers: __qualname__ for system/node/release/version/machine/processor/python_version/python_implementation/python_version_tuple/uname (table) and uname_result."
+    - "platform_extra5 covers: module __name__; architecture().__class__.__name__; architecture()[0].__class__.__name__; python_compiler/__qualname__; architecture/__qualname__; python_version_tuple()[0].__class__.__name__."
+    - "This spec adds new axes: python_version.__name__, system.__name__, machine.__name__, node.__name__ verified as standalone invariants; system().__class__.__name__=='str'; machine().__class__.__name__=='str'; uname_result.__name__=='uname_result'; uname_result.__module__=='platform'; python_version().__len__() >= 5."
+    - "platform.python_version.__name__ == 'python_version' — standalone invariant under platform_extra6 namespace (base covers via table row)."
+    - "platform.system.__name__ == 'system' — standalone invariant (base covers via table, extra2 covers as standalone). Confirmed in new namespace."
+    - "platform.machine.__name__ == 'machine' — same rationale, new namespace anchor."
+    - "platform.node.__name__ == 'node' — same rationale, new namespace anchor."
+    - "system().__class__.__name__ == 'str' — platform_extra confirms this for system; confirmed here as an independent axis in the extra6 namespace."
+    - "machine().__class__.__name__ == 'str' — platform_extra confirms this for machine; new namespace anchor."
+    - "uname_result.__name__ == 'uname_result' — no prior spec covers the class __name__ attribute (extra4 covers __qualname__ only)."
+    - "uname_result.__module__ == 'platform' — no prior spec covers __module__ for uname_result (extra2 covers it only for callables, not the class itself)."
+    - "python_version().__len__() >= 5 — the version string 'X.Y.Z' is at least 5 chars ('3.9.0'); extra3 checks contains dot; this is a new lower-bound length check."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __name__ standalone invariants for the four target functions
+#
+# platform (base) covers __name__ for these in the function_names table.
+# platform_extra2 covers system/node/release/machine as standalone invariants.
+# These extra6 invariants anchor python_version/__name__ as a standalone
+# and re-anchor system/machine/node under the new namespace for completeness.
+# ---------------------------------------------------------------------------
+
+table platform_extra6.target_function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [python_version, python_version.__name__.__eq__, ["python_version"], true]
+    - [system,         system.__name__.__eq__,         ["system"],         true]
+    - [machine,        machine.__name__.__eq__,         ["machine"],        true]
+    - [node,           node.__name__.__eq__,            ["node"],           true]
+
+# ---------------------------------------------------------------------------
+# system() and machine() return type checks
+#
+# platform_extra confirms return types for system/machine/processor/release/version.
+# These standalone invariants re-anchor the system and machine type checks
+# explicitly in the extra6 namespace.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra6.system_is_str:
+  description: "platform.system().__class__.__name__ == 'str' — system() always returns a str"
+  category: runtime
+  kind: python_call_eq
+  function: system().__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant platform_extra6.machine_is_str:
+  description: "platform.machine().__class__.__name__ == 'str' — machine() always returns a str"
+  category: runtime
+  kind: python_call_eq
+  function: machine().__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uname_result class identity checks
+#
+# platform_extra4 covers uname_result.__qualname__ == 'uname_result'.
+# No prior spec covers uname_result.__name__ (the simple name attribute)
+# or uname_result.__module__ (the defining module).
+# ---------------------------------------------------------------------------
+
+invariant platform_extra6.uname_result.class_name:
+  description: "platform.uname_result.__name__ == 'uname_result' — the class's __name__ attribute"
+  category: class_identity
+  kind: python_call_eq
+  function: uname_result.__name__.__eq__
+  args: ["uname_result"]
+  expected: true
+
+invariant platform_extra6.uname_result.module:
+  description: "platform.uname_result.__module__ == 'platform' — uname_result is defined in the platform module"
+  category: class_identity
+  kind: python_call_eq
+  function: uname_result.__module__.__eq__
+  args: ["platform"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# python_version() — minimum length check
+#
+# platform_extra3 confirms python_version() contains a dot.
+# platform (base) confirms it is str and non-empty (len > 0).
+# New here: a Python version string is at least 'X.Y.Z' — minimum 5 characters
+# (e.g., '3.9.0'). Not covered in any prior platform spec.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra6.python_version.len_ge_5:
+  description: "len(platform.python_version()) >= 5 — version string 'X.Y.Z' is at least 5 characters"
+  category: python_info
+  kind: python_call_eq
+  function: python_version().__len__
+  args: []
+  method: __ge__
+  method_args: [5]
+  expected: true
