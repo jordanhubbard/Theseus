@@ -1,0 +1,161 @@
+spec: token_extra6
+version: ">=3.9"
+backend: python_module(token)
+
+docs: https://docs.python.org/3/library/token.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/token.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/token.py"
+    - "token.zspec.zsdl — covers ENDMARKER=0, NAME=1, NUMBER=2, STRING=3, NEWLINE=4, INDENT=5, DEDENT=6, OP=55, TYPE_COMMENT=57, SOFT_KEYWORD=58, COMMENT=65, NL=66, ERRORTOKEN=67, ENCODING=68 exact values; NT_OFFSET=256; tok_name lookups [0-6]; ISEOF/ISTERMINAL/ISNONTERMINAL predicates"
+    - "token_extra.zspec.zsdl — covers int type checks for all major constants, tok_name/EXACT_TOKEN_TYPES is_dict, NAME/NUMBER/STRING/NEWLINE/ENDMARKER exact values"
+    - "token_extra2.zspec.zsdl — covers EXACT_TYPE/ERRORTOKEN/ENCODING/TYPE_COMMENT is_int, tok_name is_dict, tok_name min_length>=50, tok_name[0-4], ENDMARKER==0"
+    - "token_extra3.zspec.zsdl — covers int type checks via tables, tok_name/EXACT_TOKEN_TYPES is_dict, NAME>0/NUMBER>0/ENDMARKER==0, tok_name[1]=='NAME'"
+    - "token_extra4.zspec.zsdl — covers INDENT==5, DEDENT==6, tok_name[2-6], EXACT_TOKEN_TYPES membership '='/'+'/':',, tok_name[4]=='NEWLINE', INDENT>NEWLINE/DEDENT>INDENT ordering"
+    - "token_extra5.zspec.zsdl — covers SOFT_KEYWORD==58/is_int, FSTRING_START==59/is_int, FSTRING_END==61/is_int, tok_name[58]=='SOFT_KEYWORD', tok_name[59]=='FSTRING_START', tok_name len>=60, EXACT_TOKEN_TYPES len>=40 and membership for '('/')'/'.'"
+  notes:
+    - "This spec adds boundary-condition and additional axes not present in any prior token spec."
+    - "ISEOF predicate: ISEOF(2) == False — NUMBER is not EOF; ISEOF(255) == False — largest terminal below NT_OFFSET is not EOF."
+    - "ISTERMINAL boundary: ISTERMINAL(0) == True — ENDMARKER (value 0) is a terminal; ISTERMINAL(255) == True — 255 < NT_OFFSET(256) is terminal; ISTERMINAL(256) == False — exactly NT_OFFSET is non-terminal."
+    - "ISNONTERMINAL boundary: ISNONTERMINAL(256) == True — exactly NT_OFFSET is non-terminal; ISNONTERMINAL(255) == False — 255 < NT_OFFSET so is terminal."
+    - "tok_name key membership: tok_name.__contains__(0) == True (ENDMARKER key exists) and tok_name.__contains__(1) == True (NAME key exists)."
+    - "EXACT_TOKEN_TYPES value lookup: EXACT_TOKEN_TYPES.__getitem__('=') is an int — the operator '=' maps to a token type integer."
+    - "EXACT_TOKEN_TYPES.__contains__('-') == True — minus operator is an exact token type."
+    - "EXACT_TOKEN_TYPES.__contains__('*') == True — star operator is an exact token type."
+    - "tok_name.__contains__(65) == True — COMMENT (65) is a key in tok_name on Python 3.12+."
+    - "tok_name.__contains__(66) == True — NL (66) is a key in tok_name on Python 3.12+."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ISEOF boundary cases — only ENDMARKER (0) returns True
+# token.zspec.zsdl covers ISEOF(0)==True and ISEOF(1)==False.
+# This adds ISEOF(2) and the near-NT_OFFSET boundary ISEOF(255).
+# ---------------------------------------------------------------------------
+
+invariant token_extra6.ISEOF.two_is_false:
+  description: "token.ISEOF(2) == False — NUMBER is not the EOF token"
+  category: predicates
+  kind: python_call_eq
+  function: ISEOF
+  args: [2]
+  expected: false
+
+invariant token_extra6.ISEOF.near_boundary_false:
+  description: "token.ISEOF(255) == False — 255 (< NT_OFFSET) is not the EOF token"
+  category: predicates
+  kind: python_call_eq
+  function: ISEOF
+  args: [255]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# ISTERMINAL boundary cases — tokens strictly less than NT_OFFSET(256)
+# token.zspec.zsdl covers ISTERMINAL(1)==True and ISTERMINAL(300)==False.
+# This adds ISTERMINAL(0), ISTERMINAL(255), and ISTERMINAL(256) as boundaries.
+# ---------------------------------------------------------------------------
+
+invariant token_extra6.ISTERMINAL.endmarker_is_terminal:
+  description: "token.ISTERMINAL(0) == True — ENDMARKER (0) is a terminal token"
+  category: predicates
+  kind: python_call_eq
+  function: ISTERMINAL
+  args: [0]
+  expected: true
+
+invariant token_extra6.ISTERMINAL.just_below_boundary:
+  description: "token.ISTERMINAL(255) == True — 255 < NT_OFFSET(256) so it is a terminal"
+  category: predicates
+  kind: python_call_eq
+  function: ISTERMINAL
+  args: [255]
+  expected: true
+
+invariant token_extra6.ISTERMINAL.at_nt_offset:
+  description: "token.ISTERMINAL(256) == False — 256 == NT_OFFSET so it is non-terminal"
+  category: predicates
+  kind: python_call_eq
+  function: ISTERMINAL
+  args: [256]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# ISNONTERMINAL boundary cases — tokens >= NT_OFFSET(256)
+# token.zspec.zsdl covers ISNONTERMINAL(300)==True and ISNONTERMINAL(1)==False.
+# This adds ISNONTERMINAL(256) (exactly at boundary) and ISNONTERMINAL(255).
+# ---------------------------------------------------------------------------
+
+invariant token_extra6.ISNONTERMINAL.at_nt_offset:
+  description: "token.ISNONTERMINAL(256) == True — 256 == NT_OFFSET so it is non-terminal"
+  category: predicates
+  kind: python_call_eq
+  function: ISNONTERMINAL
+  args: [256]
+  expected: true
+
+invariant token_extra6.ISNONTERMINAL.just_below_boundary:
+  description: "token.ISNONTERMINAL(255) == False — 255 < NT_OFFSET(256) so it is a terminal"
+  category: predicates
+  kind: python_call_eq
+  function: ISNONTERMINAL
+  args: [255]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# tok_name key membership — __contains__ for integer keys
+# Prior specs check __getitem__ for specific indices but not __contains__.
+# ---------------------------------------------------------------------------
+
+table token_extra6.tok_name_key_membership:
+  kind: python_call_eq
+  category: tok_name
+  id_prefix: tok_name_has
+
+  columns: [id, function, args, expected]
+  rows:
+    - [endmarker_key, tok_name.__contains__, [0],  true]
+    - [name_key,      tok_name.__contains__, [1],  true]
+    - [comment_key,   tok_name.__contains__, [65], true]
+    - [nl_key,        tok_name.__contains__, [66], true]
+
+# ---------------------------------------------------------------------------
+# EXACT_TOKEN_TYPES additional membership checks
+# token_extra4 covers '=', '+', ':'; token_extra5 covers '(', ')', '.'.
+# This adds '-' and '*' — not covered in any prior token spec.
+# ---------------------------------------------------------------------------
+
+invariant token_extra6.EXACT_TOKEN_TYPES.has_minus:
+  description: "token.EXACT_TOKEN_TYPES.__contains__('-') == True — minus is an exact token type"
+  category: dict_contents
+  kind: python_call_eq
+  function: EXACT_TOKEN_TYPES.__contains__
+  args: ["-"]
+  expected: true
+
+invariant token_extra6.EXACT_TOKEN_TYPES.has_star:
+  description: "token.EXACT_TOKEN_TYPES.__contains__('*') == True — star is an exact token type"
+  category: dict_contents
+  kind: python_call_eq
+  function: EXACT_TOKEN_TYPES.__contains__
+  args: ["*"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# EXACT_TOKEN_TYPES value lookup — '=' maps to an integer token type
+# Prior specs only call __contains__; this verifies the mapped value is an int.
+# ---------------------------------------------------------------------------
+
+invariant token_extra6.EXACT_TOKEN_TYPES.eq_value_is_int:
+  description: "token.EXACT_TOKEN_TYPES['='].__class__.__name__ == 'int' — the value is an integer token type"
+  category: dict_contents
+  kind: python_call_eq
+  function: EXACT_TOKEN_TYPES.__getitem__
+  args: ["="]
+  method: __class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true

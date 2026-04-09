@@ -1,0 +1,115 @@
+spec: keyword_extra5
+version: ">=3.12"
+backend: python_module(keyword)
+
+docs: https://docs.python.org/3/library/keyword.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/keyword.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/keyword.py"
+    - "keyword.zspec.zsdl — covers iskeyword true/false cases (for/while/if/def/class/return/import/lambda/True/False/None/and/or/not/in/is; hello/foo/print/len/match/case), issoftkeyword true/false cases"
+    - "keyword_extra.zspec.zsdl — covers kwlist.__class__.__name__=='list', kwlist.__len__()>=35, iskeyword.__name__, iskeyword(else/elif/try/except/with/yield)==True, iskeyword(hello)==False, issoftkeyword.__name__"
+    - "keyword_extra2.zspec.zsdl — covers iskeyword.__name__/__module__, issoftkeyword.__name__, kwlist is_list/len>=30/__contains__(if/for/while/class/def), softkwlist is_list/len==4/__contains__(_/case/match/type)"
+    - "keyword_extra3.zspec.zsdl — covers iskeyword.__qualname__, issoftkeyword.__qualname__, kwlist.__contains__('hello')==False"
+    - "keyword_extra4.zspec.zsdl — covers kwlist.__contains__(raise/del/pass/break/continue/global/nonlocal/assert), kwlist.__len__()==35, softkwlist.__contains__('hello')==False, softkwlist.__contains__('for')==False, softkwlist.__contains__('if')==False"
+  notes:
+    - "This spec adds invariants not covered in any prior keyword spec."
+    - "iskeyword('raise'/'del'/'pass'/'break'/'continue'/'global'/'nonlocal'/'assert') == True — keyword_extra4 checks kwlist.__contains__ for these, but NOT iskeyword() calls."
+    - "issoftkeyword('_') == True — keyword.zspec.zsdl notes '_' is a soft keyword; issoftkeyword was only called with 'match'/'case'/'type' in the base spec."
+    - "iskeyword.__class__.__name__ == 'function' — no prior spec verifies the class type of iskeyword."
+    - "issoftkeyword.__class__.__name__ == 'function' — no prior spec verifies the class type of issoftkeyword."
+    - "issoftkeyword.__module__ == 'keyword' — keyword_extra2 covers iskeyword.__module__; issoftkeyword.__module__ is new."
+    - "kwlist.__getitem__(0) is a string — the first element of kwlist (sorted alphabetically) is a str."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# iskeyword() — additional true cases not covered via iskeyword() in any prior spec
+# keyword_extra4 checks these via kwlist.__contains__; no spec calls iskeyword() for them.
+# ---------------------------------------------------------------------------
+
+table keyword_extra5.iskeyword.additional_true_cases:
+  kind: python_call_eq
+  category: iskeyword
+  id_prefix: iskeyword_true2
+  function: iskeyword
+
+  columns: [id, args, expected]
+  rows:
+    - [raise,    ["raise"],    true]
+    - [del,      ["del"],      true]
+    - [pass,     ["pass"],     true]
+    - [break,    ["break"],    true]
+    - [continue, ["continue"], true]
+    - [global,   ["global"],   true]
+    - [nonlocal, ["nonlocal"], true]
+    - [assert,   ["assert"],   true]
+
+# ---------------------------------------------------------------------------
+# issoftkeyword('_') == True
+# keyword.zspec.zsdl covers issoftkeyword for 'match', 'case', 'type'.
+# No prior spec calls issoftkeyword('_').
+# ---------------------------------------------------------------------------
+
+invariant keyword_extra5.issoftkeyword.underscore_is_soft:
+  description: "issoftkeyword('_') == True — underscore is a soft keyword in Python 3.12+"
+  category: issoftkeyword
+  kind: python_call_eq
+  function: issoftkeyword
+  args: ["_"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# iskeyword and issoftkeyword class type identity
+# No prior spec checks that these callables are plain Python function objects.
+# ---------------------------------------------------------------------------
+
+invariant keyword_extra5.iskeyword.class_is_function:
+  description: "iskeyword.__class__.__name__ == 'function' — iskeyword is a plain Python function"
+  category: iskeyword
+  kind: python_call_eq
+  function: iskeyword.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant keyword_extra5.issoftkeyword.class_is_function:
+  description: "issoftkeyword.__class__.__name__ == 'function' — issoftkeyword is a plain Python function"
+  category: issoftkeyword
+  kind: python_call_eq
+  function: issoftkeyword.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# issoftkeyword.__module__ — not covered in any prior keyword spec
+# keyword_extra2 covers iskeyword.__module__ == 'keyword'; issoftkeyword.__module__ is new.
+# ---------------------------------------------------------------------------
+
+invariant keyword_extra5.issoftkeyword.module:
+  description: "issoftkeyword.__module__ == 'keyword'"
+  category: issoftkeyword
+  kind: python_call_eq
+  function: issoftkeyword.__module__.__eq__
+  args: ["keyword"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# kwlist first element is a string
+# kwlist is sorted alphabetically; [0] is a str regardless of exact value.
+# No prior spec checks any positional element of kwlist.
+# ---------------------------------------------------------------------------
+
+invariant keyword_extra5.kwlist.first_element_is_str:
+  description: "kwlist[0].__class__.__name__ == 'str' — the first keyword is a string"
+  category: kwlist
+  kind: python_call_eq
+  function: kwlist.__getitem__
+  args: [0]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true

@@ -1,0 +1,141 @@
+spec: getopt_extra4
+version: ">=3.9"
+backend: python_module(getopt)
+
+docs: https://docs.python.org/3/library/getopt.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/getopt.html — Python getopt module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/getopt.py"
+  notes:
+    - "Extends getopt.zspec.zsdl, getopt_extra.zspec.zsdl, getopt_extra2.zspec.zsdl, and getopt_extra3.zspec.zsdl."
+    - "getopt.zspec.zsdl covers: getopt/gnu_getopt __name__ table; GetoptError __name__/__module__; error alias __name__; behavioral vectors: '-a', '-b', '--foo', '--verbose', '--output', empty, unrecognized, gnu_getopt permissive, mixed."
+    - "getopt_extra.zspec.zsdl covers: getopt/gnu_getopt __name__/__module__/__class__.__name__; GetoptError __name__/__module__/__class__.__name__/__bases__/__bases__.__len__; error __name__/__module__; GetoptError.__init__/__str__ names."
+    - "getopt_extra2.zspec.zsdl covers: getopt/__qualname__, gnu_getopt/__qualname__, GetoptError/__qualname__; function_names table; error/__name__; standalone invariants for name/module."
+    - "getopt_extra3.zspec.zsdl covers: error/__qualname__; getopt(['-h'], 'h') opts/args; getopt([], 'h') opts/args."
+    - "This spec adds: GetoptError.__init__.__qualname__; gnu_getopt with long options requiring values; getopt with short option requiring a value; getopt with option requiring value plus remaining args."
+    - "getopt.GetoptError.__init__.__qualname__ == 'GetoptError.__init__' — not covered by getopt_extra which only checks __name__."
+    - "getopt.gnu_getopt(['--name', 'world', 'foo'], '', ['name=']) opts == [('--name', 'world')], args == ['foo'] — gnu_getopt accepts long options with values while collecting non-option args."
+    - "getopt.getopt(['-f', 'file.txt'], 'f:') opts == [('-f', 'file.txt')], args == [] — short option with required argument parsed correctly."
+    - "getopt.getopt(['-f', 'out.txt', 'rest'], 'f:') opts == [('-f', 'out.txt')], args == ['rest'] — non-option after option-with-value goes to remaining args."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# GetoptError.__init__.__qualname__
+#
+# getopt_extra checks GetoptError.__init__.__name__ == '__init__'.
+# No prior spec covers __qualname__, which is 'GetoptError.__init__'.
+# ---------------------------------------------------------------------------
+
+invariant getopt_extra4.GetoptError.init_qualname:
+  description: "getopt.GetoptError.__init__.__qualname__ == 'GetoptError.__init__'"
+  category: attributes
+  kind: python_call_eq
+  function: GetoptError.__init__.__qualname__.__eq__
+  args: ["GetoptError.__init__"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getopt() — short option requiring a value ('-f:')
+#
+# Prior behavioral tests use flags only ('-a', '-b', '-h') or long options.
+# This adds a short option that requires an argument via the ':' suffix.
+# getopt(['-f', 'file.txt'], 'f:') => opts=[('-f', 'file.txt')], args=[]
+# ---------------------------------------------------------------------------
+
+invariant getopt_extra4.getopt.short_with_value_opts:
+  description: "getopt.getopt(['-f', 'file.txt'], 'f:') opts == [('-f', 'file.txt')] — short opt with required value"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-f", "file.txt"], "f:"]
+  method: __getitem__
+  method_args: [0]
+  expected: [["-f", "file.txt"]]
+
+invariant getopt_extra4.getopt.short_with_value_args:
+  description: "getopt.getopt(['-f', 'file.txt'], 'f:') remaining args == [] — option value consumed"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-f", "file.txt"], "f:"]
+  method: __getitem__
+  method_args: [1]
+  expected: []
+
+# ---------------------------------------------------------------------------
+# getopt() — short option with value plus a trailing non-option argument
+#
+# Extends the '-f:' vector above by adding a trailing non-option word.
+# getopt stops at non-option args (unlike gnu_getopt); 'rest' goes to args.
+# ---------------------------------------------------------------------------
+
+invariant getopt_extra4.getopt.short_value_plus_remaining_opts:
+  description: "getopt.getopt(['-f', 'out.txt', 'rest'], 'f:') opts == [('-f', 'out.txt')]"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-f", "out.txt", "rest"], "f:"]
+  method: __getitem__
+  method_args: [0]
+  expected: [["-f", "out.txt"]]
+
+invariant getopt_extra4.getopt.short_value_plus_remaining_args:
+  description: "getopt.getopt(['-f', 'out.txt', 'rest'], 'f:') remaining args == ['rest']"
+  category: short_options
+  kind: python_call_eq
+  function: getopt
+  args: [["-f", "out.txt", "rest"], "f:"]
+  method: __getitem__
+  method_args: [1]
+  expected: ["rest"]
+
+# ---------------------------------------------------------------------------
+# gnu_getopt() — long option requiring a value with a non-option argument
+#
+# Prior gnu_getopt behavioral tests use only short options.
+# This adds gnu_getopt with a long option that requires a value ('name='),
+# plus a non-option argument 'foo' that is collected in args.
+# gnu_getopt(['--name', 'world', 'foo'], '', ['name=']) => opts=[('--name', 'world')], args=['foo']
+# ---------------------------------------------------------------------------
+
+invariant getopt_extra4.gnu_getopt.long_value_opts:
+  description: "gnu_getopt(['--name', 'world', 'foo'], '', ['name=']) opts == [('--name', 'world')]"
+  category: gnu_getopt
+  kind: python_call_eq
+  function: gnu_getopt
+  args: [["--name", "world", "foo"], "", ["name="]]
+  method: __getitem__
+  method_args: [0]
+  expected: [["--name", "world"]]
+
+invariant getopt_extra4.gnu_getopt.long_value_args:
+  description: "gnu_getopt(['--name', 'world', 'foo'], '', ['name=']) remaining args == ['foo']"
+  category: gnu_getopt
+  kind: python_call_eq
+  function: gnu_getopt
+  args: [["--name", "world", "foo"], "", ["name="]]
+  method: __getitem__
+  method_args: [1]
+  expected: ["foo"]
+
+# ---------------------------------------------------------------------------
+# getopt() — unrecognized long option raises GetoptError
+#
+# getopt.zspec.zsdl covers unrecognized short option ('-z' with 'ab').
+# No prior spec covers an unrecognized long option.
+# ---------------------------------------------------------------------------
+
+invariant getopt_extra4.getopt.unrecognized_long_raises:
+  description: "getopt.getopt(['--unknown'], '', []) raises GetoptError for unrecognized long option"
+  category: errors
+  kind: python_call_raises
+  function: getopt
+  args: [["--unknown"], "", []]
+  expected_exception: GetoptError

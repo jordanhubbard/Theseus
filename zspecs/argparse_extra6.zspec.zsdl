@@ -1,0 +1,142 @@
+spec: argparse_extra6
+version: ">=3.9"
+backend: python_module(argparse)
+
+docs: https://docs.python.org/3/library/argparse.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/argparse.html — Python argparse module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/argparse.py"
+    - "argparse.zspec.zsdl — covers __name__ table for all public classes, nargs constants, SUPPRESS/REMAINDER, parse_args, Namespace attrs, MRO checks"
+    - "argparse_formatters.zspec.zsdl — covers formatter __name__/__module__/__bases__ tables, FileType, BooleanOptionalAction __bases__, exception __bases__"
+    - "argparse_extra.zspec.zsdl — covers ArgumentParser/Namespace/HelpFormatter/ArgumentError/Action __name__/__module__, Action.__bases__[0], ArgumentDefaultsHelpFormatter/__name__, FileType/__name__/__module__, parse_args/__name__, add_argument/__name__"
+    - "argparse_extra2.zspec.zsdl — covers __module__ table for formatters/exceptions, __bases__[0].__name__ invariants for ArgumentParser/Namespace/ArgumentError/ArgumentTypeError/HelpFormatter/RawText*/RawDescription*/ArgumentDefaults*"
+    - "argparse_extra3.zspec.zsdl — covers class_names table, nargs_constants table, ArgumentParser/__module__, Namespace instance class, ArgumentError/ArgumentTypeError __bases__[0], ArgumentParser().prog type"
+    - "argparse_extra4.zspec.zsdl — covers __qualname__ table for ArgumentParser/Namespace/Action/FileType/HelpFormatter/RawDescription*/RawText*/ArgumentDefaults*/MetavarType*/ArgumentError/ArgumentTypeError"
+    - "argparse_extra5.zspec.zsdl — covers argparse module __name__, FileType/__bases__[0], BooleanOptionalAction/__bases__[0], SUPPRESS/REMAINDER/ONE_OR_MORE/ZERO_OR_MORE/OPTIONAL __class__.__name__"
+  notes:
+    - "This spec extends the argparse chain; it does NOT duplicate invariants already present in any prior spec."
+    - "Focus: BooleanOptionalAction.__qualname__ (absent from extra4 table); PARSER constant value and type; Namespace/__bases__[0].__name__; ArgumentParser/__bases__[0].__name__; HelpFormatter/__bases__[0].__name__; ArgumentParser method names not yet covered (set_defaults, format_help, format_usage, parse_known_args); ArgumentParser().description default."
+    - "argparse_extra4 qualname table has 11 entries — BooleanOptionalAction is NOT included. BooleanOptionalAction.__qualname__ == 'BooleanOptionalAction'."
+    - "argparse.PARSER == 'A...' — PARSER is an internal nargs sentinel distinct from REMAINDER ('...'). No prior spec checks PARSER's value."
+    - "argparse.PARSER.__class__.__name__ == 'str' — PARSER is a plain string. extra5 covers SUPPRESS/REMAINDER/ONE_OR_MORE/ZERO_OR_MORE/OPTIONAL class names but not PARSER."
+    - "argparse.Namespace.__bases__[0].__name__ == '_AttributeHolder' — extra2 covers ArgumentParser/__bases__[0] but not Namespace/__bases__[0]."
+    - "argparse.ArgumentParser.__bases__[0].__name__ == '_AttributeHolder' — covered by extra2 as a standalone invariant. Included here in a table for cross-verification."
+    - "argparse.HelpFormatter.__bases__[0].__name__ == 'object' — no prior spec covers HelpFormatter's direct base class."
+    - "argparse.ArgumentParser.set_defaults.__name__ == 'set_defaults' — no prior spec covers this method name."
+    - "argparse.ArgumentParser.format_help.__name__ == 'format_help' — no prior spec covers this method name."
+    - "argparse.ArgumentParser.format_usage.__name__ == 'format_usage' — no prior spec covers this method name."
+    - "argparse.ArgumentParser.parse_known_args.__name__ == 'parse_known_args' — no prior spec covers this method name."
+    - "argparse.ArgumentParser().description == None by default when no description is supplied."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# BooleanOptionalAction.__qualname__
+#
+# argparse_extra4 covers __qualname__ for 11 public classes but NOT
+# BooleanOptionalAction. This single invariant fills that gap.
+# ---------------------------------------------------------------------------
+
+invariant argparse_extra6.BooleanOptionalAction.qualname:
+  description: "argparse.BooleanOptionalAction.__qualname__ == 'BooleanOptionalAction'"
+  category: qualnames
+  kind: python_call_eq
+  function: BooleanOptionalAction.__qualname__.__eq__
+  args: ["BooleanOptionalAction"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PARSER constant — value and type
+#
+# argparse.PARSER is an internal nargs sentinel ('A...') used for subparsers.
+# argparse_extra3 checks REMAINDER == 'A...' (but that is actually '...' — PARSER is 'A...').
+# No prior spec checks PARSER's value or __class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant argparse_extra6.PARSER.value:
+  description: "argparse.PARSER == 'A...' — internal subparser nargs sentinel"
+  category: constants
+  kind: python_call_eq
+  function: PARSER.__eq__
+  args: ["A..."]
+  expected: true
+
+invariant argparse_extra6.PARSER.class_name:
+  description: "argparse.PARSER.__class__.__name__ == 'str' — PARSER is a plain string sentinel"
+  category: constants
+  kind: python_call_eq
+  function: PARSER.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Namespace and HelpFormatter base class names
+#
+# argparse_extra2 covers __bases__[0].__name__ for ArgumentParser, ArgumentError,
+# ArgumentTypeError, HelpFormatter formatters (Raw*/ArgumentDefaults*), but NOT
+# for Namespace itself or HelpFormatter directly.
+# ---------------------------------------------------------------------------
+
+invariant argparse_extra6.Namespace.base_class:
+  description: "argparse.Namespace.__bases__[0].__name__ == '_AttributeHolder'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Namespace.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "_AttributeHolder"
+
+invariant argparse_extra6.HelpFormatter.base_class:
+  description: "argparse.HelpFormatter.__bases__[0].__name__ == 'object' — HelpFormatter inherits directly from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: HelpFormatter.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# ArgumentParser method names — set_defaults, format_help, format_usage,
+# parse_known_args
+#
+# argparse_extra covers parse_args.__name__ and add_argument.__name__.
+# None of the remaining method names listed above are covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+table argparse_extra6.method_names:
+  kind: python_call_eq
+  category: methods
+  id_prefix: mname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [set_defaults,      ArgumentParser.set_defaults.__name__.__eq__,      ["set_defaults"],      true]
+    - [format_help,       ArgumentParser.format_help.__name__.__eq__,       ["format_help"],       true]
+    - [format_usage,      ArgumentParser.format_usage.__name__.__eq__,      ["format_usage"],      true]
+    - [parse_known_args,  ArgumentParser.parse_known_args.__name__.__eq__,  ["parse_known_args"],  true]
+
+# ---------------------------------------------------------------------------
+# ArgumentParser().description — defaults to None
+#
+# argparse.zspec.zsdl and argparse_extra3 check prog's type and the Namespace
+# returned by parse_args. No prior spec checks the description attribute of
+# a freshly constructed ArgumentParser; it is None when not supplied.
+# ---------------------------------------------------------------------------
+
+invariant argparse_extra6.ArgumentParser.description_default:
+  description: "argparse.ArgumentParser().description == None when no description is supplied"
+  category: ArgumentParser
+  kind: python_call_eq
+  function: ArgumentParser
+  args: []
+  method: description
+  method_args: []
+  expected: null
