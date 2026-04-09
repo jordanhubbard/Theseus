@@ -1,0 +1,209 @@
+spec: decimal_extra11
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+rfcs:
+  - "IBM General Decimal Arithmetic specification"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "This spec extends decimal.zspec.zsdl and prior extras (decimal_extra through decimal_extra10)."
+    - "decimal_extra covers: is_nan(NaN)==True, is_infinite(Infinity)==True, is_signed values."
+    - "decimal_extra4 covers: is_nan/__func__.__name__, is_infinite/__func__.__name__, is_finite/__func__.__name__ (method name identity, not value vectors)."
+    - "decimal_extra8 covers: is_zero(0)==True, is_zero(1)==False, is_signed(-1)==True, is_signed(1)==False, adjusted, normalize, round."
+    - "No prior spec covers Decimal.is_finite() as a value vector (only its __func__.__name__ was covered)."
+    - "No prior spec covers Decimal.is_normal() value vectors."
+    - "No prior spec covers Decimal.is_qnan() or Decimal.is_snan() value vectors."
+    - "No prior spec covers Decimal.scaleb(int) value vectors."
+    - "No prior spec covers Decimal.shift(int) value vectors."
+    - "No prior spec covers Decimal.same_quantum() value vectors."
+    - "Decimal('1').is_finite() == True — 1 is a finite number."
+    - "Decimal('Infinity').is_finite() == False — infinity is not finite."
+    - "Decimal('1').is_normal() == True — 1 is a normal (non-zero finite) number."
+    - "Decimal('0').is_normal() == False — zero is not normal by GDA definition."
+    - "Decimal('NaN').is_qnan() == True — NaN without payload is a quiet NaN."
+    - "Decimal('sNaN').is_snan() == True — sNaN is a signaling NaN."
+    - "Decimal('1').scaleb(3).__str__() == '1E+3' — scale 1 by 10^3."
+    - "Decimal('5').scaleb(0).__str__() == '5' — scale by 10^0 is identity."
+    - "Decimal('12345').shift(2).__str__() == '1234500' — left shift by 2 digits."
+    - "Decimal('12345').shift(-2).__str__() == '123' — right shift by 2 digits (drops digits)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Decimal.is_finite() — value vectors
+#
+# decimal_extra4 covers is_finite.__func__.__name__ == 'is_finite' (method identity).
+# No prior spec covers is_finite() as an actual value-returning call.
+# is_finite() returns True for finite numbers, False for Infinity and NaN.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra11.Decimal.is_finite_one:
+  description: "Decimal('1').is_finite() == True — finite number"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: is_finite
+  expected: true
+
+invariant decimal_extra11.Decimal.is_finite_infinity:
+  description: "Decimal('Infinity').is_finite() == False — infinity is not finite"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["Infinity"]
+  method: is_finite
+  expected: false
+
+invariant decimal_extra11.Decimal.is_finite_nan:
+  description: "Decimal('NaN').is_finite() == False — NaN is not finite"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["NaN"]
+  method: is_finite
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Decimal.is_normal() — value vectors
+#
+# No prior spec covers is_normal(). Per GDA, a number is normal if it is
+# finite, non-zero, and not subnormal. Zero is explicitly not normal.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra11.Decimal.is_normal_one:
+  description: "Decimal('1').is_normal() == True — 1 is a normal finite nonzero number"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: is_normal
+  expected: true
+
+invariant decimal_extra11.Decimal.is_normal_zero:
+  description: "Decimal('0').is_normal() == False — zero is not normal per GDA definition"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["0"]
+  method: is_normal
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Decimal.is_qnan() — quiet NaN predicate
+#
+# decimal_extra covers is_nan(NaN)==True. No prior spec covers is_qnan().
+# is_qnan() is True only for quiet NaN (plain 'NaN'), False for everything else.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra11.Decimal.is_qnan_true:
+  description: "Decimal('NaN').is_qnan() == True — plain NaN is a quiet NaN"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["NaN"]
+  method: is_qnan
+  expected: true
+
+invariant decimal_extra11.Decimal.is_qnan_false:
+  description: "Decimal('1').is_qnan() == False — finite number is not a quiet NaN"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: is_qnan
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Decimal.is_snan() — signaling NaN predicate
+#
+# No prior spec covers is_snan(). sNaN is a signaling NaN; plain NaN is quiet.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra11.Decimal.is_snan_true:
+  description: "Decimal('sNaN').is_snan() == True — sNaN is a signaling NaN"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["sNaN"]
+  method: is_snan
+  expected: true
+
+invariant decimal_extra11.Decimal.is_snan_false:
+  description: "Decimal('NaN').is_snan() == False — quiet NaN is not a signaling NaN"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["NaN"]
+  method: is_snan
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Decimal.scaleb() — multiply by a power of 10
+#
+# scaleb(n) returns self * 10^n. No prior spec covers scaleb().
+# Decimal('1').scaleb(3) == Decimal('1E+3'); str == '1E+3'.
+# Decimal('5').scaleb(0) == Decimal('5'); identity operation.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra11.Decimal.scaleb_three:
+  description: "Decimal('1').scaleb(3).__str__() == '1E+3' — scale 1 by 10^3"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: scaleb
+  method_args: [3]
+  method_chain: __str__
+  expected: "1E+3"
+
+invariant decimal_extra11.Decimal.scaleb_zero:
+  description: "Decimal('5').scaleb(0).__str__() == '5' — scale by 10^0 is identity"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["5"]
+  method: scaleb
+  method_args: [0]
+  method_chain: __str__
+  expected: "5"
+
+# ---------------------------------------------------------------------------
+# Decimal.shift() — shift digits by n positions
+#
+# shift(n) shifts the coefficient left (positive n) or right (negative n)
+# by n digits. Digits shifted off either end are lost. No prior spec covers shift().
+# Decimal('12345').shift(2) == Decimal('1234500'); right-fill with zeros.
+# Decimal('12345').shift(-2) == Decimal('123'); left digits are dropped.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra11.Decimal.shift_left:
+  description: "Decimal('12345').shift(2).__str__() == '1234500' — shift left by 2 digits"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["12345"]
+  method: shift
+  method_args: [2]
+  method_chain: __str__
+  expected: "1234500"
+
+invariant decimal_extra11.Decimal.shift_right:
+  description: "Decimal('12345').shift(-2).__str__() == '123' — shift right by 2 digits"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["12345"]
+  method: shift
+  method_args: [-2]
+  method_chain: __str__
+  expected: "123"
