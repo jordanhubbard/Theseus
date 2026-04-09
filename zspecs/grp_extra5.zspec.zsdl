@@ -1,0 +1,83 @@
+spec: grp_extra5
+version: ">=3.9"
+backend: python_module(grp)
+
+docs: https://docs.python.org/3/library/grp.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/grp.html — Python grp module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/grpmodule.c"
+  notes:
+    - "This spec extends grp.zspec.zsdl through grp_extra4.zspec.zsdl with new, non-duplicate invariants."
+    - "grp covers: function __name__/is_builtin, struct_group __name__/__module__/is_type/n_sequence_fields/n_fields, getgrall returns list."
+    - "grp_extra covers: function __name__/is_builtin, struct_group name/module/type/n_sequence_fields, __match_args__ is tuple/len/contains, function types."
+    - "grp_extra2 covers: __match_args__ indices [0..3], n_unnamed_fields==0, function __qualname__ table, getgrall()[0] is struct_group, struct_group.__bases__[0] is tuple."
+    - "grp_extra3 covers: module __name__, struct_group __qualname__, function __doc__ types, struct_group bases_len==1, mro_len==3, mro[1]==tuple, mro[2]==object."
+    - "grp_extra4 covers: function __module__ table, struct_group __doc__ type, struct_group mro[0] is self, getgrall() is nonempty, module __doc__ type, n_sequence_fields==4 eq check, getgrgid(99999999) raises KeyError."
+    - "New here: getgrnam raises KeyError for an unknown name; grp module __package__; grp module __loader__ class; struct_group.__dict__ is a mappingproxy."
+    - "grp is a C-extension (POSIX-only) module; __package__ == '' (top-level, no parent package)."
+    - "grp.__loader__.__class__.__name__ == 'ExtensionFileLoader' — C-extension modules are loaded by importlib's ExtensionFileLoader."
+    - "struct_group.__dict__ is a mappingproxy — all Python type objects expose their namespace as a mappingproxy."
+    - "getgrnam raises KeyError for a name that does not exist; '__theseus_nonexistent_group__' is chosen to be safe."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# getgrnam raises KeyError for an unknown group name
+# grp_extra4 tests getgrgid with an invalid GID; the getgrnam error path is new.
+# The name '__theseus_nonexistent_group__' is chosen to be extremely unlikely
+# to exist in any real group database.
+# ---------------------------------------------------------------------------
+
+invariant grp_extra5.getgrnam.unknown_name_raises:
+  description: "grp.getgrnam('__theseus_nonexistent_group__') raises KeyError — name not in group database"
+  category: errors
+  kind: python_call_raises
+  function: getgrnam
+  args: ["__theseus_nonexistent_group__"]
+  expected: KeyError
+
+# ---------------------------------------------------------------------------
+# Module __package__ — not covered in any prior grp spec
+# grp is a C-extension module at the top level; __package__ is empty string.
+# ---------------------------------------------------------------------------
+
+invariant grp_extra5.module.package:
+  description: "grp.__package__ == '' — grp is a top-level module with no parent package"
+  category: module_identity
+  kind: python_call_eq
+  function: __package__.__eq__
+  args: [""]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module __loader__ class — not covered in any prior grp spec
+# C-extension modules are loaded by importlib's ExtensionFileLoader.
+# ---------------------------------------------------------------------------
+
+invariant grp_extra5.module.loader_class:
+  description: "grp.__loader__.__class__.__name__ == 'ExtensionFileLoader' — C-extension module"
+  category: module_identity
+  kind: python_call_eq
+  function: __loader__.__class__.__name__.__eq__
+  args: ["ExtensionFileLoader"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct_group.__dict__ is a mappingproxy — not covered in any prior grp spec
+# All Python type objects expose their class namespace as a mappingproxy.
+# This confirms struct_group behaves as a standard Python type object.
+# ---------------------------------------------------------------------------
+
+invariant grp_extra5.struct_group.dict_class:
+  description: "grp.struct_group.__dict__.__class__.__name__ == 'mappingproxy' — class namespace is a mappingproxy"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_group.__dict__.__class__.__name__.__eq__
+  args: ["mappingproxy"]
+  expected: true

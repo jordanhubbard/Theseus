@@ -1,0 +1,96 @@
+spec: fcntl_extra5
+version: ">=3.9"
+backend: python_module(fcntl)
+
+docs: https://docs.python.org/3/library/fcntl.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/fcntl.html — Python fcntl documentation"
+    - "POSIX.1-2017 — fcntl(2): F_GETOWN=5, F_SETOWN=6 on macOS"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/fcntlmodule.c"
+  notes:
+    - "This spec extends fcntl.zspec.zsdl through fcntl_extra4.zspec.zsdl."
+    - "fcntl covers: all four function __name__ checks, LOCK_SH/EX/NB/UN values, F_GETFL/SETFL/GETFD/SETFD/FD_CLOEXEC type checks, LOCK_SH|LOCK_NB==5."
+    - "fcntl_extra covers: function __name__/is_builtin for all four, LOCK_* types and value pins."
+    - "fcntl_extra2 covers: F_GETLK/F_SETLK/F_SETLKW types, FD_CLOEXEC==1, LOCK_EX|LOCK_NB==6, LOCK_UN|LOCK_NB==12, LOCK_* type table, function __qualname__ table."
+    - "fcntl_extra3 covers: module __name__, function __module__ attributes, LOCK arithmetic (add/sub), F_GETFD/F_SETFD/F_GETFL/F_SETFL value pins."
+    - "fcntl_extra4 covers: F_RDLCK/F_WRLCK/F_UNLCK value pins and type checks, F_DUPFD value pin, F_GETOWN/F_SETOWN type checks, module __package__, module __loader__ class, LOCK_SH|LOCK_EX==3."
+    - "New here: F_GETOWN value pin (==5 on macOS); F_SETOWN value pin (==6 on macOS); LOCK_NB - LOCK_SH arithmetic (4-1==3); LOCK_UN - LOCK_EX arithmetic (8-2==6); LOCK_NB + LOCK_SH arithmetic via __add__ (4+1==5); module __doc__ type check."
+    - "F_GETOWN=5, F_SETOWN=6 on macOS/BSD — fcntl_extra4 verified these as int type but did not pin their values."
+    - "LOCK_NB(4) - LOCK_SH(1) == 3 — arithmetic subtraction, not covered in any prior spec."
+    - "LOCK_UN(8) - LOCK_EX(2) == 6 — arithmetic subtraction, not covered in any prior spec."
+    - "LOCK_NB(4) + LOCK_SH(1) == 5 — arithmetic addition (not bitwise OR), not covered in any prior spec."
+    - "fcntl.__doc__ is a str — the module carries a docstring; not tested in any prior spec."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# F_GETOWN and F_SETOWN value pins on macOS
+# fcntl_extra4 verifies F_GETOWN and F_SETOWN are int (type check only).
+# New here: pin the concrete values 5 and 6 on macOS/BSD.
+# ---------------------------------------------------------------------------
+
+invariant fcntl_extra5.F_GETOWN.value:
+  description: "fcntl.F_GETOWN == 5 — get SIGIO/SIGURG recipient process (macOS/BSD value)"
+  category: constants
+  kind: python_call_eq
+  function: F_GETOWN.__eq__
+  args: [5]
+  expected: true
+
+invariant fcntl_extra5.F_SETOWN.value:
+  description: "fcntl.F_SETOWN == 6 — set SIGIO/SIGURG recipient process (macOS/BSD value)"
+  category: constants
+  kind: python_call_eq
+  function: F_SETOWN.__eq__
+  args: [6]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# LOCK constant arithmetic — new combinations not in any prior spec
+# fcntl_extra3 covers: LOCK_SH + LOCK_EX == 3, LOCK_UN - LOCK_NB == 4.
+# fcntl_extra4 covers: LOCK_SH | LOCK_EX == 3.
+# New here: subtraction/addition combinations using different operand pairs.
+# ---------------------------------------------------------------------------
+
+invariant fcntl_extra5.constants.lock_nb_sub_lock_sh:
+  description: "fcntl.LOCK_NB - fcntl.LOCK_SH == 3 — arithmetic difference of values 4 - 1"
+  category: constants
+  kind: python_call_eq
+  function: LOCK_NB.__sub__
+  args: [1]
+  expected: 3
+
+invariant fcntl_extra5.constants.lock_un_sub_lock_ex:
+  description: "fcntl.LOCK_UN - fcntl.LOCK_EX == 6 — arithmetic difference of values 8 - 2"
+  category: constants
+  kind: python_call_eq
+  function: LOCK_UN.__sub__
+  args: [2]
+  expected: 6
+
+invariant fcntl_extra5.constants.lock_nb_add_lock_sh:
+  description: "fcntl.LOCK_NB + fcntl.LOCK_SH == 5 — arithmetic sum of values 4 + 1 (same value as LOCK_SH|LOCK_NB but via __add__)"
+  category: constants
+  kind: python_call_eq
+  function: LOCK_NB.__add__
+  args: [1]
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# Module __doc__ type — not covered in any prior fcntl spec
+# The fcntl C-extension module exposes a module-level __doc__ string.
+# ---------------------------------------------------------------------------
+
+invariant fcntl_extra5.module.doc_type:
+  description: "fcntl.__doc__.__class__.__name__ == 'str' — the fcntl module has a string docstring"
+  category: module_identity
+  kind: python_call_eq
+  function: __doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true

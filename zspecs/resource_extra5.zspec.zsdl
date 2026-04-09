@@ -1,0 +1,122 @@
+spec: resource_extra5
+version: ">=3.9"
+backend: python_module(resource)
+
+docs: https://docs.python.org/3/library/resource.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/resource.html — Python resource module documentation"
+    - "POSIX.1-2017 — IEEE Std 1003.1, setrlimit/getrlimit and getrusage"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/resource.c"
+  notes:
+    - "This spec extends resource.zspec.zsdl through resource_extra4.zspec.zsdl with new, non-duplicate invariants."
+    - "resource.zspec.zsdl covers: function __name__; RLIMIT_CPU/FSIZE/NOFILE/AS/RLIM_INFINITY type; RUSAGE_SELF/CHILDREN type; getpagesize behavior."
+    - "resource_extra2 covers: struct_rusage __name__/__module__/is_type/bases; RLIMIT_STACK/DATA type; RUSAGE_SELF==0; RUSAGE_CHILDREN==-1; function __qualname__/type."
+    - "resource_extra3 covers: module __name__; function __module__; RLIMIT_CPU/FSIZE/DATA/STACK values; RLIMIT_NOFILE value; RLIMIT_CORE/MEMLOCK/NPROC type+value; RLIM_INFINITY value; ordering."
+    - "resource_extra4 covers: struct_rusage __qualname__/n_sequence_fields/n_fields/n_unnamed_fields/__bases__.__len__/__mro__ len+pos[0,1]/__doc__ type/__match_args__ pos[0,1,2,14,15]; getpagesize %4096==0."
+    - "New here: module __package__; struct_rusage __mro__[2] is object; struct_rusage __match_args__ len==16; struct_rusage __match_args__ pos[3]-[5]; function __doc__ type; RLIMIT_AS exact value."
+    - "resource is a POSIX-only module; not available on Windows."
+    - "resource.__package__ == '' — resource is a top-level C extension module with no parent package."
+    - "struct_rusage.__mro__[2].__name__ == 'object' — the terminal MRO entry is always object."
+    - "struct_rusage.__match_args__.__len__() == 16 — all 16 rusage fields are matchable."
+    - "The 16 rusage __match_args__ fields: ru_utime(0), ru_stime(1), ru_maxrss(2), ru_ixrss(3), ru_idrss(4), ru_isrss(5), ru_minflt(6), ru_majflt(7), ru_nswap(8), ru_inblock(9), ru_oublock(10), ru_msgsnd(11), ru_msgrcv(12), ru_nsignals(13), ru_nvcsw(14), ru_nivcsw(15)."
+    - "RLIMIT_AS == 5 on macOS/Darwin — resource.zspec.zsdl only checks its type, not its value."
+    - "getrlimit/setrlimit/getrusage/getpagesize all have non-empty string __doc__ attributes."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module __package__ — resource is a top-level C extension
+# resource_extra3 covers module __name__; __package__ is new here.
+# ---------------------------------------------------------------------------
+
+invariant resource_extra5.module.package:
+  description: "resource.__package__ == '' — top-level C extension module, no parent package"
+  category: module_identity
+  kind: python_call_eq
+  function: __package__.__eq__
+  args: [""]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct_rusage.__mro__[2] is object
+# resource_extra4 covers __mro__ len(3), pos[0] (struct_rusage), pos[1] (tuple).
+# Position 2 — object — is new here.
+# ---------------------------------------------------------------------------
+
+invariant resource_extra5.struct_rusage.mro_2_is_object:
+  description: "resource.struct_rusage.__mro__[2].__name__ == 'object' — terminal MRO entry is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: struct_rusage.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# struct_rusage.__match_args__ length
+# resource_extra4 checks positions [0,1,2,14,15] but does NOT check the total
+# length of __match_args__. Length == 16 is new here.
+# ---------------------------------------------------------------------------
+
+invariant resource_extra5.struct_rusage.match_args_len:
+  description: "len(resource.struct_rusage.__match_args__) == 16 — all 16 rusage fields are matchable"
+  category: match_args
+  kind: python_call_eq
+  function: struct_rusage.__match_args__.__len__
+  args: []
+  expected: 16
+
+# ---------------------------------------------------------------------------
+# struct_rusage.__match_args__ — field names at positions 3, 4, 5
+# resource_extra4 covers positions 0, 1, 2, 14, 15.
+# New here: positions 3 (ru_ixrss), 4 (ru_idrss), 5 (ru_isrss).
+# ---------------------------------------------------------------------------
+
+table resource_extra5.struct_rusage.match_args_mid:
+  kind: python_call_eq
+  category: match_args
+  id_prefix: rusage_mid
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ru_ixrss, struct_rusage.__match_args__.__getitem__, [3], "ru_ixrss"]
+    - [ru_idrss, struct_rusage.__match_args__.__getitem__, [4], "ru_idrss"]
+    - [ru_isrss, struct_rusage.__match_args__.__getitem__, [5], "ru_isrss"]
+
+# ---------------------------------------------------------------------------
+# RLIMIT_AS exact value — macOS/Darwin
+# resource.zspec.zsdl covers RLIMIT_AS class type (int) but NOT its value.
+# RLIMIT_AS == 5 on macOS/Darwin.
+# ---------------------------------------------------------------------------
+
+invariant resource_extra5.RLIMIT_AS.value:
+  description: "resource.RLIMIT_AS == 5 on macOS/Darwin — address space limit constant"
+  category: constants
+  kind: python_call_eq
+  function: RLIMIT_AS.__eq__
+  args: [5]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __doc__ type checks
+# No prior resource spec covers __doc__ for any function.
+# C-level functions in the resource module all expose string docstrings.
+# ---------------------------------------------------------------------------
+
+table resource_extra5.function_doc_types:
+  kind: python_call_eq
+  category: function_docs
+  id_prefix: doc_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getrlimit,   getrlimit.__doc__.__class__.__name__.__eq__,   ["str"], true]
+    - [setrlimit,   setrlimit.__doc__.__class__.__name__.__eq__,   ["str"], true]
+    - [getrusage,   getrusage.__doc__.__class__.__name__.__eq__,   ["str"], true]
+    - [getpagesize, getpagesize.__doc__.__class__.__name__.__eq__, ["str"], true]

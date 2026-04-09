@@ -1,0 +1,135 @@
+spec: mmap_extra7
+version: ">=3.9"
+backend: python_module(mmap)
+
+docs: https://docs.python.org/3/library/mmap.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/mmap.html — Python mmap module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mmapmodule.c"
+  notes:
+    - "This spec extends mmap.zspec.zsdl and prior extras through mmap_extra6.zspec.zsdl."
+    - "mmap.zspec.zsdl covers: mmap.__name__, error.__name__, ACCESS_READ/WRITE/COPY values, PAGESIZE/ALLOCATIONGRANULARITY type and positivity, PROT_READ/MAP_SHARED/MAP_PRIVATE is_int, method names (read/write/seek/tell/close/find/flush)."
+    - "mmap_extra covers: mmap.__module__/__qualname__, ACCESS_* class type, ALLOCATIONGRANULARITY positivity/ge_4096, error.__module__, extra method names (rfind/readline/read_byte/write_byte/move), read class type, PAGESIZE ge_4096."
+    - "mmap_extra2 covers: ACCESS_NONE value/type, ACCESS_* ordering, mmap.__class__.__name__=='type', error base is Exception, PAGESIZE % 4096 == 0, read.__doc__ is str."
+    - "mmap_extra3 covers: ACCESS_DEFAULT value/type, PROT_READ/PROT_WRITE values, MAP_SHARED/MAP_PRIVATE values, PAGESIZE==16384, method __qualname__ for seek/tell/close/find/flush."
+    - "mmap_extra4 covers: method __qualname__ for read/write/rfind/readline/read_byte/write_byte/move; ALLOCATIONGRANULARITY % 4096 == 0; PROT_EXEC is_int; error.__qualname__; mmap class identity table."
+    - "mmap_extra5 covers: MAP_ANON/MAP_ANONYMOUS values and types; PROT_EXEC value; MADV_* values and types; resize.__qualname__; ALLOCATIONGRANULARITY >= PAGESIZE."
+    - "mmap_extra6 covers: ACCESS_READ/WRITE/COPY __class__.__name__ standalone; PROT_READ/PROT_WRITE/MAP_SHARED __class__.__name__ standalone; ALLOCATIONGRANULARITY/__class__.__name__ and __gt__(0) standalone; PAGESIZE/__class__.__name__ and __gt__(0) standalone; mmap.mmap __name__/__module__ standalone via __eq__ chain."
+    - "This spec adds: mmap module-level __name__ (the module's own __name__, distinct from mmap.mmap.__name__); mmap.mmap.__bases__[0].__name__ == 'object' (mmap.mmap is a direct C extension type with no Python base); mmap.error.__bases__.__len__() == 1 (OSError has a single direct base); ACCESS_WRITE - ACCESS_READ == 1 (consecutive ordering); ACCESS_COPY - ACCESS_WRITE == 1 (consecutive ordering); ALLOCATIONGRANULARITY // PAGESIZE == 1 on macOS (they are equal); ALLOCATIONGRANULARITY % PAGESIZE == 0 (cross-constant divisibility)."
+    - "mmap module __name__ == 'mmap' — the C extension module reports its own identity correctly."
+    - "mmap.mmap.__bases__[0].__name__ == 'object' — mmap is a C extension type that directly subclasses object (no intermediate Python class)."
+    - "mmap.error.__bases__.__len__() == 1 — OSError has exactly one direct base class."
+    - "ACCESS_WRITE - ACCESS_READ == 1 — access mode constants are consecutive: 1, 2, 3."
+    - "ACCESS_COPY - ACCESS_WRITE == 1 — access mode constants are consecutive: 1, 2, 3."
+    - "ALLOCATIONGRANULARITY // PAGESIZE == 1 on macOS — both constants are identical (16384)."
+    - "ALLOCATIONGRANULARITY % PAGESIZE == 0 — granularity is always a multiple of PAGESIZE."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# mmap module-level __name__ attribute
+#
+# mmap.zspec.zsdl and mmap_extra cover mmap.mmap.__name__ (the class name).
+# No prior spec checks the module's own __name__ attribute.
+# In the backend context python_module(mmap), __name__ refers to the module
+# attribute, which evaluates to 'mmap'.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra7.module.name:
+  description: "mmap module __name__ == 'mmap' — the module's own __name__ attribute"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["mmap"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# mmap.mmap.__bases__[0].__name__ — direct base class is 'object'
+#
+# mmap.mmap is a C extension type. Prior specs check mmap.__class__.__name__
+# (the metaclass, 'type') and mmap.error.__bases__ (OSError's hierarchy).
+# No prior spec checks mmap.mmap's own __bases__[0].__name__.
+# mmap.mmap directly subclasses object — there is no intermediate Python class.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra7.mmap_class.base_is_object:
+  description: "mmap.mmap.__bases__[0].__name__ == 'object' — C extension type; direct base is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: mmap.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# mmap.error.__bases__ length
+#
+# mmap_extra2 checks error.__bases__[0].__name__ == 'Exception'.
+# No prior spec checks the length of error.__bases__.
+# OSError has exactly one direct base (Exception), so len == 1.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra7.error.bases_len:
+  description: "mmap.error.__bases__.__len__() == 1 — OSError has exactly one direct base class"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: error.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# ACCESS_* arithmetic — consecutive step invariants
+#
+# mmap_extra2 covers ACCESS_NONE < ACCESS_READ, ACCESS_READ < ACCESS_WRITE,
+# ACCESS_WRITE < ACCESS_COPY (ordering), but not the step sizes.
+# New here: the difference between consecutive access mode constants is 1.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra7.constants.access_write_minus_read:
+  description: "mmap.ACCESS_WRITE - mmap.ACCESS_READ == 1 — access mode constants are consecutive"
+  category: constants
+  kind: python_call_eq
+  function: ACCESS_WRITE.__sub__
+  args: [1]
+  expected: 1
+
+invariant mmap_extra7.constants.access_copy_minus_write:
+  description: "mmap.ACCESS_COPY - mmap.ACCESS_WRITE == 1 — access mode constants are consecutive"
+  category: constants
+  kind: python_call_eq
+  function: ACCESS_COPY.__sub__
+  args: [2]
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# ALLOCATIONGRANULARITY cross-constant arithmetic with PAGESIZE
+#
+# mmap_extra4 covers ALLOCATIONGRANULARITY % 4096 == 0.
+# mmap_extra5 covers ALLOCATIONGRANULARITY >= PAGESIZE.
+# New here: cross-constant division (ALLOCATIONGRANULARITY // PAGESIZE) and
+# modulo (ALLOCATIONGRANULARITY % PAGESIZE). On macOS both constants equal
+# 16384, so floordiv == 1 and mod == 0.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra7.constants.allocationgranularity_floordiv_pagesize:
+  description: "mmap.ALLOCATIONGRANULARITY // mmap.PAGESIZE == 1 on macOS — they are equal (both 16384)"
+  category: constants
+  kind: python_call_eq
+  function: ALLOCATIONGRANULARITY.__floordiv__
+  args: [16384]
+  expected: 1
+
+invariant mmap_extra7.constants.allocationgranularity_mod_pagesize:
+  description: "mmap.ALLOCATIONGRANULARITY % mmap.PAGESIZE == 0 — granularity is always a multiple of PAGESIZE"
+  category: constants
+  kind: python_call_eq
+  function: ALLOCATIONGRANULARITY.__mod__
+  args: [16384]
+  expected: 0
