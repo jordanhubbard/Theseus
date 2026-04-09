@@ -1,0 +1,168 @@
+spec: html_extra6
+version: ">=3.9"
+backend: python_module(html)
+
+docs: https://docs.python.org/3/library/html.html
+
+provenance:
+  derived_from:
+    - "Python html documentation — https://docs.python.org/3/library/html.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/html/__init__.py"
+    - "html.zspec.zsdl — covers escape/unescape with <, >, &, dquote, squote, compound, numeric entities, edge cases"
+    - "html_extra.zspec.zsdl — covers escape.__name__, unescape.__name__, escape.__module__, unescape.__module__, combined multi-char"
+    - "html_extra2.zspec.zsdl — covers escape('<div>'), unescape('&lt;div&gt;'), quote=False/True, apos entity, hex numeric ref"
+    - "html_extra3.zspec.zsdl — covers name2codepoint/codepoint2name entity values, CDATA_CONTENT_ELEMENTS type, unescape(&amp;/&lt;/&gt;), escape('<>&')"
+    - "html_extra4.zspec.zsdl — covers escape.__qualname__, unescape.__qualname__, escape('<script>'), escape positional bool args, unescape('&lt;b&gt;'), unescape('&quot;')"
+    - "html_extra5.zspec.zsdl — covers HTMLParser.__qualname__, method __qualname__ checks, HTMLParser.__class__.__name__, HTMLParser.__bases__[0].__name__"
+  notes:
+    - "This spec adds axes not yet covered in html through html_extra5."
+    - "html.escape and html.unescape are both plain Python functions: __class__.__name__ == 'function'."
+    - "html.escape returns a str: escape('<b>').__class__.__name__ == 'str'."
+    - "html.unescape returns a str: unescape('&lt;').__class__.__name__ == 'str'."
+    - "Non-ASCII characters pass through html.escape unchanged: escape('café') == 'café'."
+    - "html.unescape handles mixed text and entities: unescape('hello &amp; world') == 'hello & world'."
+    - "html.unescape handles decimal numeric references: unescape('&#76;') == 'L'."
+    - "html.unescape handles hex numeric references: unescape('&#x4C;') == 'L'."
+    - "html.entities.name2codepoint['nbsp'] == 160 — non-breaking space."
+    - "html.entities.codepoint2name[60] == 'lt' — inverse of name2codepoint['lt']."
+    - "html.entities.codepoint2name[62] == 'gt' — inverse of name2codepoint['gt']."
+    - "html.entities.codepoint2name[160] == 'nbsp' — non-breaking space inverse."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# escape and unescape __class__.__name__ — both are plain Python functions
+# (not in any prior html spec — prior specs check __name__ and __module__ only)
+# ---------------------------------------------------------------------------
+
+invariant html_extra6.escape.class_name:
+  description: "html.escape.__class__.__name__ == 'function' — escape is a Python function object"
+  category: types
+  kind: python_call_eq
+  function: escape.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant html_extra6.unescape.class_name:
+  description: "html.unescape.__class__.__name__ == 'function' — unescape is a Python function object"
+  category: types
+  kind: python_call_eq
+  function: unescape.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# escape return type is str
+# (prior specs check the returned value but not its type)
+# ---------------------------------------------------------------------------
+
+invariant html_extra6.escape.return_type:
+  description: "html.escape('<b>').__class__.__name__ == 'str' — escape always returns a str"
+  category: types
+  kind: python_call_eq
+  function: escape
+  args: ["<b>"]
+  method: __class__
+  method_args: []
+  expected: "str"
+
+# ---------------------------------------------------------------------------
+# unescape return type is str
+# ---------------------------------------------------------------------------
+
+invariant html_extra6.unescape.return_type:
+  description: "html.unescape('&lt;').__class__.__name__ == 'str' — unescape always returns a str"
+  category: types
+  kind: python_call_eq
+  function: unescape
+  args: ["&lt;"]
+  method: __class__
+  method_args: []
+  expected: "str"
+
+# ---------------------------------------------------------------------------
+# escape — non-ASCII characters pass through unchanged
+# (html specs 1-5 test only ASCII special chars; non-ASCII is a new axis)
+# ---------------------------------------------------------------------------
+
+invariant html_extra6.escape.non_ascii_passthrough:
+  description: "html.escape('café') == 'café' — non-ASCII characters pass through unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["café"]
+  expected: "café"
+
+# ---------------------------------------------------------------------------
+# unescape — mixed literal text and named entity in one string
+# (prior specs unescape purely entity strings; mixed text is a new axis)
+# ---------------------------------------------------------------------------
+
+invariant html_extra6.unescape.mixed_text_and_entity:
+  description: "html.unescape('hello &amp; world') == 'hello & world'"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["hello &amp; world"]
+  expected: "hello & world"
+
+# ---------------------------------------------------------------------------
+# unescape — decimal numeric character reference for ASCII letter
+# (html.zspec.zsdl covers &#65; == 'A'; this covers &#76; == 'L', a new vector)
+# ---------------------------------------------------------------------------
+
+invariant html_extra6.unescape.decimal_numeric_L:
+  description: "html.unescape('&#76;') == 'L' — decimal numeric reference for U+004C"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["&#76;"]
+  expected: "L"
+
+# ---------------------------------------------------------------------------
+# unescape — lowercase hex numeric character reference
+# (html.zspec.zsdl covers &#x41; and &#x26;; &#x4C; == 'L' is a new vector)
+# ---------------------------------------------------------------------------
+
+invariant html_extra6.unescape.hex_numeric_L:
+  description: "html.unescape('&#x4C;') == 'L' — lowercase hex numeric reference for U+004C"
+  category: unescape
+  kind: python_call_eq
+  function: unescape
+  args: ["&#x4C;"]
+  expected: "L"
+
+# ---------------------------------------------------------------------------
+# html.entities.name2codepoint — nbsp entity
+# (html_extra3 covers amp/lt/gt/quot; nbsp is a new entry)
+# ---------------------------------------------------------------------------
+
+invariant html_extra6.name2codepoint.nbsp:
+  description: "html.entities.name2codepoint['nbsp'] == 160 — non-breaking space codepoint"
+  category: name2codepoint
+  kind: python_call_eq
+  function: entities.name2codepoint.__getitem__
+  args: ["nbsp"]
+  expected: 160
+
+# ---------------------------------------------------------------------------
+# html.entities.codepoint2name — reverse mapping for core HTML entities
+# (html_extra3 covers codepoint2name[38] == 'amp' only; lt/gt/nbsp are new)
+# ---------------------------------------------------------------------------
+
+table html_extra6.codepoint2name.values:
+  kind: python_call_eq
+  category: codepoint2name
+  id_prefix: cp2n
+  function: entities.codepoint2name.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [lt,   [60],  "lt"]
+    - [gt,   [62],  "gt"]
+    - [quot, [34],  "quot"]
+    - [nbsp, [160], "nbsp"]
