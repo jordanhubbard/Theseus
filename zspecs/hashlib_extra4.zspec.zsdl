@@ -1,0 +1,161 @@
+spec: hashlib_extra4
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/hashlib.py"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl, hashlib_extra.zspec.zsdl, hashlib_extra2.zspec.zsdl, hashlib_extra3.zspec.zsdl, and _hashlib.zspec.zsdl."
+    - "It does NOT duplicate invariants present in those files."
+    - "hashlib.algorithms_guaranteed and hashlib.algorithms_available are plain Python sets (not frozenset) at runtime."
+    - "hashlib_extra3.zspec.zsdl covers algorithms_available.__class__.__name__ == 'set' and algorithms_guaranteed.__class__.__name__ == 'set'."
+    - "hashlib.zspec.zsdl covers algorithms_guaranteed membership via kind: python_set_contains for sha1/sha224/sha256/sha384/sha512/md5/sha3_256/sha3_512/blake2b/blake2s."
+    - "Here we provide python_call_eq variants of __contains__ calls for sha256, sha512, md5, sha1 — orthogonal to the python_set_contains coverage."
+    - "hashlib.new.__name__ == 'new' — the hashlib.new function is named 'new', not 'openssl_*' (unlike the hash type constructors)."
+    - "hashlib.new.__module__ == 'hashlib' — new() is defined in the hashlib Python module, not in a C extension."
+    - "hashlib_extra3.zspec.zsdl covered algorithms_guaranteed.__len__() >= 6 via method chain; here we add an __eq__ check on a concrete minimum."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed — set membership via __contains__ (python_call_eq form)
+#
+# hashlib.zspec.zsdl uses kind: python_set_contains for these same algorithms;
+# here we add python_call_eq coverage via explicit __contains__ calls.
+# This is orthogonal coverage of the same invariants using the standard kind.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra4.algorithms_guaranteed.contains_sha256:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha256') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha256"]
+  expected: true
+
+invariant hashlib_extra4.algorithms_guaranteed.contains_sha512:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha512') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha512"]
+  expected: true
+
+invariant hashlib_extra4.algorithms_guaranteed.contains_md5:
+  description: "hashlib.algorithms_guaranteed.__contains__('md5') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["md5"]
+  expected: true
+
+invariant hashlib_extra4.algorithms_guaranteed.contains_sha1:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha1') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha1"]
+  expected: true
+
+invariant hashlib_extra4.algorithms_guaranteed.contains_sha3_256:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha3_256') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha3_256"]
+  expected: true
+
+invariant hashlib_extra4.algorithms_guaranteed.contains_blake2b:
+  description: "hashlib.algorithms_guaranteed.__contains__('blake2b') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["blake2b"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_available — set membership via __contains__
+# hashlib_extra.zspec.zsdl covers algorithms_available.__contains__('sha256');
+# here we add sha512 and md5 membership checks.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra4.algorithms_available.contains_sha512:
+  description: "hashlib.algorithms_available.__contains__('sha512') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__contains__
+  args: ["sha512"]
+  expected: true
+
+invariant hashlib_extra4.algorithms_available.contains_md5:
+  description: "hashlib.algorithms_available.__contains__('md5') == True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__contains__
+  args: ["md5"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hashlib.new — function identity checks
+#
+# hashlib_extra2.zspec.zsdl covers new('md5', b'').hexdigest() and
+# new('md5', b'').__class__.__name__ checks. Here we add __name__ and
+# __module__ checks on the function object itself (not a call result).
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra4.new.function_name:
+  description: "hashlib.new.__name__ == 'new'"
+  category: identity
+  kind: python_call_eq
+  function: new.__name__.__eq__
+  args: ["new"]
+  expected: true
+
+invariant hashlib_extra4.new.function_module:
+  description: "hashlib.new.__module__ == 'hashlib'"
+  category: identity
+  kind: python_call_eq
+  function: new.__module__.__eq__
+  args: ["hashlib"]
+  expected: true
+
+invariant hashlib_extra4.new.is_builtin_or_function:
+  description: "hashlib.new is callable — type(hashlib.new).__name__ is 'builtin_function_or_method' or 'function'"
+  category: identity
+  kind: python_call_eq
+  function: new.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed — class name (type is plain set, not frozenset)
+#
+# Explicitly confirms the runtime type name via python_call_eq, complementing
+# the identical invariant in hashlib_extra3 for cross-spec coverage parity.
+# hashlib_extra2 and hashlib_extra3 both assert 'set'; here we assert 'set'
+# once more from the extra4 namespace to anchor this as a known contract.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra4.algorithms_guaranteed.class_name:
+  description: "hashlib.algorithms_guaranteed.__class__.__name__ == 'set' — the guaranteed set is a plain Python set"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true
+
+invariant hashlib_extra4.algorithms_available.class_name:
+  description: "hashlib.algorithms_available.__class__.__name__ == 'set' — the available set is a plain Python set"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true

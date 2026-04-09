@@ -1,0 +1,222 @@
+spec: os_path_extra2
+version: ">=3.9"
+backend: python_module(os.path)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.path.html — Python os.path module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py"
+    - "CPython source: Lib/ntpath.py"
+  notes:
+    - "Extends os_path.zspec.zsdl and os_path_extra.zspec.zsdl."
+    - "os.path on Unix is posixpath; the public module name is os.path and that is what the backend uses."
+    - "os.path.realpath.__name__ == 'realpath' — resolves symlinks to canonical path."
+    - "os.path.relpath.__name__ == 'relpath' — computes path relative to start directory."
+    - "os.path.expandvars.__name__ == 'expandvars' — expands shell variable references."
+    - "os.path.commonpath.__name__ == 'commonpath' — longest common sub-path of a sequence."
+    - "os.path.splitdrive.__name__ == 'splitdrive' — on POSIX always returns ('', path)."
+    - "os.path.isabs.__name__ == 'isabs' — True if path is absolute."
+    - "os.path.commonprefix.__name__ == 'commonprefix' — character-level common prefix."
+    - "These functions are defined in posixpath on Unix; their __module__ is 'posixpath'."
+    - "splitdrive('') returns ('', '') on POSIX — empty drive and empty tail."
+    - "isabs('/foo') returns True; isabs('foo') returns False."
+    - "relpath('/a/b/c', '/a') == 'b/c' — relative path from /a to /a/b/c."
+    - "commonpath(['/a/b', '/a/c']) == '/a' — longest common sub-path."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# realpath — __name__ and __module__
+#
+# os.path.realpath resolves symlinks to return the canonical path. On POSIX
+# it is defined in posixpath, so its __module__ is 'posixpath'.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra2.realpath.name:
+  description: "os.path.realpath.__name__ == 'realpath'"
+  category: function_identity
+  kind: python_call_eq
+  function: realpath.__name__.__eq__
+  args: ["realpath"]
+  expected: true
+
+invariant os_path_extra2.realpath.module:
+  description: "os.path.realpath.__module__ == 'posixpath' on Unix (POSIX systems)"
+  category: function_identity
+  kind: python_call_eq
+  function: realpath.__module__.__eq__
+  args: ["posixpath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# relpath — __name__ and behavior
+#
+# os.path.relpath(path, start) returns a relative filepath to path from start.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra2.relpath.name:
+  description: "os.path.relpath.__name__ == 'relpath'"
+  category: function_identity
+  kind: python_call_eq
+  function: relpath.__name__.__eq__
+  args: ["relpath"]
+  expected: true
+
+invariant os_path_extra2.relpath.basic:
+  description: "relpath('/a/b/c', '/a') == 'b/c' — relative path from /a to /a/b/c"
+  category: relpath
+  kind: python_call_eq
+  function: relpath
+  args: ["/a/b/c", "/a"]
+  expected: "b/c"
+
+invariant os_path_extra2.relpath.same_dir:
+  description: "relpath('/a/b', '/a/b') == '.' — same path yields current directory"
+  category: relpath
+  kind: python_call_eq
+  function: relpath
+  args: ["/a/b", "/a/b"]
+  expected: "."
+
+# ---------------------------------------------------------------------------
+# expandvars — __name__
+#
+# os.path.expandvars(path) replaces $VAR or ${VAR} references with their
+# values from the environment. Behavior is environment-dependent, so we
+# only verify the function identity here.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra2.expandvars.name:
+  description: "os.path.expandvars.__name__ == 'expandvars'"
+  category: function_identity
+  kind: python_call_eq
+  function: expandvars.__name__.__eq__
+  args: ["expandvars"]
+  expected: true
+
+invariant os_path_extra2.expandvars.no_dollar:
+  description: "expandvars('/no/vars') == '/no/vars' — path with no variable references is unchanged"
+  category: expandvars
+  kind: python_call_eq
+  function: expandvars
+  args: ["/no/vars"]
+  expected: "/no/vars"
+
+# ---------------------------------------------------------------------------
+# commonpath — __name__ and behavior
+#
+# os.path.commonpath(paths) returns the longest common sub-path of each
+# pathname in the sequence. Unlike commonprefix it operates on path
+# components, not characters.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra2.commonpath.name:
+  description: "os.path.commonpath.__name__ == 'commonpath'"
+  category: function_identity
+  kind: python_call_eq
+  function: commonpath.__name__.__eq__
+  args: ["commonpath"]
+  expected: true
+
+invariant os_path_extra2.commonpath.basic:
+  description: "commonpath(['/a/b', '/a/c']) == '/a' — longest common sub-path"
+  category: commonpath
+  kind: python_call_eq
+  function: commonpath
+  args: [["/a/b", "/a/c"]]
+  expected: "/a"
+
+invariant os_path_extra2.commonpath.single:
+  description: "commonpath(['/a/b/c']) == '/a/b/c' — single path returns itself"
+  category: commonpath
+  kind: python_call_eq
+  function: commonpath
+  args: [["/a/b/c"]]
+  expected: "/a/b/c"
+
+# ---------------------------------------------------------------------------
+# splitdrive — __name__ and POSIX behavior
+#
+# os.path.splitdrive(path) returns (drive, tail). On POSIX drive is always
+# an empty string because POSIX paths have no drive component.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra2.splitdrive.name:
+  description: "os.path.splitdrive.__name__ == 'splitdrive'"
+  category: function_identity
+  kind: python_call_eq
+  function: splitdrive.__name__.__eq__
+  args: ["splitdrive"]
+  expected: true
+
+invariant os_path_extra2.splitdrive.posix_drive_empty:
+  description: "splitdrive('/foo/bar')[0] == '' — POSIX paths have no drive component"
+  category: splitdrive
+  kind: python_call_eq
+  function: splitdrive
+  args: ["/foo/bar"]
+  method: __getitem__
+  method_args: [0]
+  expected: ""
+
+invariant os_path_extra2.splitdrive.posix_tail:
+  description: "splitdrive('/foo/bar')[1] == '/foo/bar' — full path is the tail on POSIX"
+  category: splitdrive
+  kind: python_call_eq
+  function: splitdrive
+  args: ["/foo/bar"]
+  method: __getitem__
+  method_args: [1]
+  expected: "/foo/bar"
+
+# ---------------------------------------------------------------------------
+# isabs — __name__ and behavior
+#
+# os.path.isabs(path) returns True iff the path is absolute (starts with '/').
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra2.isabs.name:
+  description: "os.path.isabs.__name__ == 'isabs'"
+  category: function_identity
+  kind: python_call_eq
+  function: isabs.__name__.__eq__
+  args: ["isabs"]
+  expected: true
+
+invariant os_path_extra2.isabs.abs_path:
+  description: "isabs('/foo/bar') == True — path starting with / is absolute"
+  category: isabs
+  kind: python_call_eq
+  function: isabs
+  args: ["/foo/bar"]
+  expected: true
+
+invariant os_path_extra2.isabs.rel_path:
+  description: "isabs('foo/bar') == False — relative path is not absolute"
+  category: isabs
+  kind: python_call_eq
+  function: isabs
+  args: ["foo/bar"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# commonprefix — __name__
+#
+# os.path.commonprefix(list) returns the longest common leading substring
+# across all paths in the list (character-level, not component-level).
+# The function identity is confirmed here; behavior is in os_path.zspec.zsdl.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra2.commonprefix.name:
+  description: "os.path.commonprefix.__name__ == 'commonprefix'"
+  category: function_identity
+  kind: python_call_eq
+  function: commonprefix.__name__.__eq__
+  args: ["commonprefix"]
+  expected: true
