@@ -1,0 +1,78 @@
+spec: fresh
+version: ">=0.5.0"
+backend: node(fresh)
+
+docs: https://github.com/jshttp/fresh#readme
+
+provenance:
+  derived_from:
+    - "fresh README — https://github.com/jshttp/fresh#readme"
+    - "RFC 7232 — HTTP/1.1 Conditional Requests — If-None-Match, If-Modified-Since"
+    - "Test vectors verified with fresh@0.5.2 via Node.js 25.6.0 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "fresh source: index.js (MIT; source inspection permitted)"
+  not_derived_from: []
+  notes:
+    - "fresh(reqHeaders, resHeaders) returns true if the response is still fresh (304 Not Modified is appropriate), false if stale."
+    - "If-None-Match is compared against the ETag header. Wildcard '*' matches any ETag."
+    - "If-Modified-Since is compared against the Last-Modified header. Response is fresh if Last-Modified <= If-Modified-Since."
+    - "When both If-None-Match and If-Modified-Since are present, both conditions must be met for the response to be fresh."
+    - "With no cache-related request headers, fresh() returns false (stale)."
+    - "Weak ETags (W/\"...\") match both weak and strong ETags in If-None-Match comparisons."
+    - "The module exports a single function as the CJS default. Invariants use function: ~ to call it directly."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "fresh does not throw for normal header objects. node exits 0 for all invariants."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# fresh(reqHeaders, resHeaders) — If-None-Match / ETag matching
+# ---------------------------------------------------------------------------
+
+table fresh.etag:
+  kind: node_module_call_eq
+  function: ~
+  id_prefix: etag
+
+  columns: [id, category, args, expected]
+  rows:
+    - [match,         match,     [{"if-none-match": "\"abc\""}, {"etag": "\"abc\""}],  true]
+    - [mismatch,      mismatch,  [{"if-none-match": "\"abc\""}, {"etag": "\"xyz\""}],  false]
+    - [wildcard,      wildcard,  [{"if-none-match": "*"},       {"etag": "\"abc\""}],  true]
+    - [no_server_etag, missing,  [{"if-none-match": "\"abc\""}, {}],                   false]
+    - [weak_match,    weak,      [{"if-none-match": "W/\"abc\""}, {"etag": "W/\"abc\""}], true]
+    - [weak_vs_strong, weak,     [{"if-none-match": "W/\"abc\""}, {"etag": "\"abc\""}],   true]
+
+# ---------------------------------------------------------------------------
+# fresh(reqHeaders, resHeaders) — If-Modified-Since / Last-Modified matching
+# ---------------------------------------------------------------------------
+
+table fresh.modified:
+  kind: node_module_call_eq
+  function: ~
+  id_prefix: ims
+
+  columns: [id, category, args, expected]
+  rows:
+    - [same_time,      fresh,  [{"if-modified-since": "Sun, 01 Jan 2023 00:00:00 GMT"}, {"last-modified": "Sun, 01 Jan 2023 00:00:00 GMT"}], true]
+    - [older_response, fresh,  [{"if-modified-since": "Mon, 02 Jan 2023 00:00:00 GMT"}, {"last-modified": "Sun, 01 Jan 2023 00:00:00 GMT"}], true]
+    - [newer_response, stale,  [{"if-modified-since": "Sun, 01 Jan 2023 00:00:00 GMT"}, {"last-modified": "Mon, 02 Jan 2023 00:00:00 GMT"}], false]
+    - [no_server_lm,   missing,[{"if-modified-since": "Sun, 01 Jan 2023 00:00:00 GMT"}, {}],                                                  false]
+
+# ---------------------------------------------------------------------------
+# fresh(reqHeaders, resHeaders) — combined / edge cases
+# ---------------------------------------------------------------------------
+
+table fresh.combined:
+  kind: node_module_call_eq
+  function: ~
+  id_prefix: combo
+
+  columns: [id, category, args, expected]
+  rows:
+    - [empty_headers,    none,     [{}, {}],                                                                                                                        false]
+    - [no_cache_headers, none,     [{"accept": "text/html"}, {"content-type": "text/html"}],                                                                        false]
+    - [both_match,       combined, [{"if-none-match": "\"abc\"", "if-modified-since": "Sun, 01 Jan 2023 00:00:00 GMT"}, {"etag": "\"abc\"", "last-modified": "Sun, 01 Jan 2023 00:00:00 GMT"}], true]
+    - [etag_match_ims_stale, combined, [{"if-none-match": "\"abc\"", "if-modified-since": "Sun, 01 Jan 2023 00:00:00 GMT"}, {"etag": "\"abc\"", "last-modified": "Mon, 02 Jan 2023 00:00:00 GMT"}], false]

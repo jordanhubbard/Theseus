@@ -1,0 +1,319 @@
+spec: cmath
+version: ">=3.2"
+backend: python_module(cmath)
+
+docs: https://docs.python.org/3/library/cmath.html
+
+provenance:
+  derived_from:
+    - "Python cmath documentation — https://docs.python.org/3/library/cmath.html"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "Test vectors verified by running Python 3.14.3 cmath module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/cmathmodule.c"
+  notes:
+    - "cmath functions operate on complex numbers. Arguments can be real (float/int) or complex."
+    - "cmath.pi, cmath.e, cmath.tau, cmath.inf, cmath.nan, cmath.infj, cmath.nanj are module constants."
+    - "cmath.phase(z) returns the phase angle of z in radians, in the range (-pi, pi]."
+    - "cmath.polar(z) returns a (r, phi) tuple — abs(z) and phase(z). Tuples are compared as lists."
+    - "cmath.rect(r, phi) converts polar coordinates to a complex number."
+    - "All cmath functions accept real (float/int) arguments as well as complex."
+    - "Functions returning complex values are tested via .real and .imag attributes via method chaining."
+    - "Constants inf and nan are not JSON-serializable; tested via comparison methods."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# isfinite — True for finite (non-inf, non-nan) values
+# ---------------------------------------------------------------------------
+
+invariant cmath.isfinite.finite_real:
+  description: "cmath.isfinite(1.0) == True — a finite real is finite"
+  category: predicates
+  kind: python_call_eq
+  function: isfinite
+  args: [1.0]
+  expected: true
+
+invariant cmath.isfinite.infinity:
+  description: "cmath.isfinite(inf) == False — infinity is not finite"
+  category: predicates
+  kind: python_call_eq
+  function: isfinite
+  args: [{"type": "float", "value": "inf"}]
+  expected: false
+
+invariant cmath.isfinite.negative_infinity:
+  description: "cmath.isfinite(-inf) == False — negative infinity is not finite"
+  category: predicates
+  kind: python_call_eq
+  function: isfinite
+  args: [{"type": "float", "value": "-inf"}]
+  expected: false
+
+invariant cmath.isfinite.zero:
+  description: "cmath.isfinite(0.0) == True — zero is finite"
+  category: predicates
+  kind: python_call_eq
+  function: isfinite
+  args: [0.0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# isinf — True for infinite values
+# ---------------------------------------------------------------------------
+
+invariant cmath.isinf.infinity:
+  description: "cmath.isinf(inf) == True"
+  category: predicates
+  kind: python_call_eq
+  function: isinf
+  args: [{"type": "float", "value": "inf"}]
+  expected: true
+
+invariant cmath.isinf.finite:
+  description: "cmath.isinf(1.0) == False"
+  category: predicates
+  kind: python_call_eq
+  function: isinf
+  args: [1.0]
+  expected: false
+
+invariant cmath.isinf.zero:
+  description: "cmath.isinf(0.0) == False"
+  category: predicates
+  kind: python_call_eq
+  function: isinf
+  args: [0.0]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# isnan — True for NaN values
+# ---------------------------------------------------------------------------
+
+invariant cmath.isnan.nan:
+  description: "cmath.isnan(nan) == True"
+  category: predicates
+  kind: python_call_eq
+  function: isnan
+  args: [{"type": "float", "value": "nan"}]
+  expected: true
+
+invariant cmath.isnan.finite:
+  description: "cmath.isnan(1.0) == False"
+  category: predicates
+  kind: python_call_eq
+  function: isnan
+  args: [1.0]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# isclose — approximate equality
+# ---------------------------------------------------------------------------
+
+invariant cmath.isclose.equal:
+  description: "cmath.isclose(1.0, 1.0) == True — identical values are close"
+  category: predicates
+  kind: python_call_eq
+  function: isclose
+  args: [1.0, 1.0]
+  expected: true
+
+invariant cmath.isclose.not_close:
+  description: "cmath.isclose(1.0, 1.1) == False — values differing by 0.1 are not close (default rel_tol=1e-9)"
+  category: predicates
+  kind: python_call_eq
+  function: isclose
+  args: [1.0, 1.1]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# phase — phase angle of a complex number (in radians)
+# ---------------------------------------------------------------------------
+
+invariant cmath.phase.positive_real:
+  description: "cmath.phase(1.0) == 0.0 — positive real has phase 0"
+  category: phase
+  kind: python_call_eq
+  function: phase
+  args: [1.0]
+  expected: 0.0
+
+invariant cmath.phase.negative_real:
+  description: "cmath.phase(-1.0) == pi — negative real has phase pi"
+  category: phase
+  kind: python_call_eq
+  function: phase
+  args: [-1.0]
+  expected: 3.141592653589793
+
+invariant cmath.phase.zero:
+  description: "cmath.phase(0.0) == 0.0 — zero has phase 0"
+  category: phase
+  kind: python_call_eq
+  function: phase
+  args: [0.0]
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# polar — convert complex to (r, phi) polar form; tuple compared as list
+# ---------------------------------------------------------------------------
+
+invariant cmath.polar.positive_real_r:
+  description: "cmath.polar(5.0)[0] == 5.0 — magnitude of a positive real equals the value"
+  category: polar
+  kind: python_call_eq
+  function: polar
+  args: [5.0]
+  method: __getitem__
+  method_args: [0]
+  expected: 5.0
+
+invariant cmath.polar.positive_real_phi:
+  description: "cmath.polar(5.0)[1] == 0.0 — phase of a positive real is 0"
+  category: polar
+  kind: python_call_eq
+  function: polar
+  args: [5.0]
+  method: __getitem__
+  method_args: [1]
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# sqrt — square root; result is complex; tested via .real and .imag
+# ---------------------------------------------------------------------------
+
+invariant cmath.sqrt.four_real:
+  description: "cmath.sqrt(4.0).real == 2.0"
+  category: sqrt
+  kind: python_call_eq
+  function: sqrt
+  args: [4.0]
+  method: real
+  expected: 2.0
+
+invariant cmath.sqrt.four_imag:
+  description: "cmath.sqrt(4.0).imag == 0.0 — no imaginary component for positive real input"
+  category: sqrt
+  kind: python_call_eq
+  function: sqrt
+  args: [4.0]
+  method: imag
+  expected: 0.0
+
+invariant cmath.sqrt.nine_real:
+  description: "cmath.sqrt(9.0).real == 3.0"
+  category: sqrt
+  kind: python_call_eq
+  function: sqrt
+  args: [9.0]
+  method: real
+  expected: 3.0
+
+invariant cmath.sqrt.negative_one_imag:
+  description: "cmath.sqrt(-1.0).imag == 1.0 — sqrt of -1 has imaginary part 1"
+  category: sqrt
+  kind: python_call_eq
+  function: sqrt
+  args: [-1.0]
+  method: imag
+  expected: 1.0
+
+invariant cmath.sqrt.negative_one_real:
+  description: "cmath.sqrt(-1.0).real == 0.0 — sqrt of -1 has real part 0"
+  category: sqrt
+  kind: python_call_eq
+  function: sqrt
+  args: [-1.0]
+  method: real
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# exp — exponential function; e^0 == 1+0j
+# ---------------------------------------------------------------------------
+
+invariant cmath.exp.zero_real:
+  description: "cmath.exp(0).real == 1.0 — e^0 = 1"
+  category: exp
+  kind: python_call_eq
+  function: exp
+  args: [0]
+  method: real
+  expected: 1.0
+
+invariant cmath.exp.zero_imag:
+  description: "cmath.exp(0).imag == 0.0 — e^0 has no imaginary component"
+  category: exp
+  kind: python_call_eq
+  function: exp
+  args: [0]
+  method: imag
+  expected: 0.0
+
+invariant cmath.exp.one_real:
+  description: "cmath.exp(1).real == e — e^1 has real part equal to Euler's number"
+  category: exp
+  kind: python_call_eq
+  function: exp
+  args: [1]
+  method: real
+  expected: 2.718281828459045
+
+# ---------------------------------------------------------------------------
+# log — natural logarithm; log(1) == 0+0j
+# ---------------------------------------------------------------------------
+
+invariant cmath.log.one_real:
+  description: "cmath.log(1.0).real == 0.0 — log(1) = 0"
+  category: log
+  kind: python_call_eq
+  function: log
+  args: [1.0]
+  method: real
+  expected: 0.0
+
+invariant cmath.log.one_imag:
+  description: "cmath.log(1.0).imag == 0.0 — log(1) has no imaginary component for positive real"
+  category: log
+  kind: python_call_eq
+  function: log
+  args: [1.0]
+  method: imag
+  expected: 0.0
+
+# ---------------------------------------------------------------------------
+# Constants — pi, e, tau (accessed via dotted attribute path)
+# ---------------------------------------------------------------------------
+
+invariant cmath.constant.pi:
+  description: "cmath.pi == 3.141592653589793"
+  category: constants
+  kind: python_call_eq
+  function: pi.__eq__
+  args: [3.141592653589793]
+  expected: true
+
+invariant cmath.constant.e:
+  description: "cmath.e == 2.718281828459045"
+  category: constants
+  kind: python_call_eq
+  function: e.__eq__
+  args: [2.718281828459045]
+  expected: true
+
+invariant cmath.constant.tau:
+  description: "cmath.tau == 6.283185307179586 — tau is 2*pi"
+  category: constants
+  kind: python_call_eq
+  function: tau.__eq__
+  args: [6.283185307179586]
+  expected: true
+
+invariant cmath.constant.pi_gt_three:
+  description: "cmath.pi > 3.14 — sanity check on pi value"
+  category: constants
+  kind: python_call_eq
+  function: pi.__gt__
+  args: [3.14]
+  expected: true
