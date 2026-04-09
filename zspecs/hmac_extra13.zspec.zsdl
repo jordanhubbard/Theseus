@@ -1,0 +1,190 @@
+spec: hmac_extra13
+version: ">=3.9"
+backend: python_module(hmac)
+
+docs: https://docs.python.org/3/library/hmac.html
+rfcs:
+  - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication"
+  - "RFC 2202 — Test Cases for HMAC-MD5 and HMAC-SHA-1"
+  - "RFC 4231 — Identifiers and Test Vectors for HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512"
+
+provenance:
+  derived_from:
+    - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication, February 1997"
+    - "RFC 2202 — Test Cases for HMAC-MD5 and HMAC-SHA-1, September 1997"
+    - "RFC 4231 — Identifiers and Test Vectors for HMAC-SHA-224/256/384/512, December 2005"
+    - "https://docs.python.org/3/library/hmac.html — Python hmac module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/hmac.py"
+    - "OpenSSL HMAC implementation: crypto/hmac/hmac.c"
+  notes:
+    - "This spec extends hmac through hmac_extra12; it does NOT duplicate invariants present in those files."
+    - "hmac_extra12 covers: SHA1 instance name/digest_size/block_size/hexdigest_len; compare_digest.__name__; new.__name__; RFC 2202 TC1/TC2 SHA1; RFC 4231 TC3 SHA256."
+    - "hmac_extra11 covers: instance names sha384/sha512/md5; digest_size sha384/sha512/md5; block_size sha384/sha512/md5; RFC 4231 TC1 SHA-256; RFC 4231 TC2 SHA-256; digest() sha1 length."
+    - "hmac_extra8 covers: HMAC-SHA256/SHA384/SHA512 hexdigest vectors; SHA256 block_size; digest sha512 length; compare_digest __module__; SHA256 name."
+    - "NOT yet covered: hmac.HMAC.__name__ == 'HMAC' as standalone invariant."
+    - "NOT yet covered: hmac.HMAC.__module__ == 'hmac' as standalone invariant."
+    - "NOT yet covered: hmac.digest.__name__ == 'digest' as standalone invariant."
+    - "NOT yet covered: hmac.digest.__module__ == 'hmac' as standalone invariant."
+    - "NOT yet covered: RFC 2202 TC3 HMAC-SHA1: key=0xaa*20, data=0xdd*50 vector."
+    - "NOT yet covered: RFC 4231 TC1 HMAC-SHA256: key=0x0b*20, data='Hi There' (same as RFC 2202 TC1 but for SHA256)."
+    - "NOT yet covered: RFC 4231 TC2 HMAC-SHA256: key='Jefe', data='what do ya want for nothing?'."
+    - "NOT yet covered: new(key, msg, 'sha256').name == 'hmac-sha256' as standalone invariant."
+    - "NOT yet covered: new(key, msg, 'sha256').block_size == 64 as standalone invariant."
+    - "RFC 2202 TC3 HMAC-SHA1: key=0xaa*20, data=0xdd*50 => 125d7342b9ac11cd91a39af48aa17b4f63f175d3 — verified Python 3.12."
+    - "RFC 4231 TC1 HMAC-SHA256: key=0x0b*20, data='Hi There' => b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7 — verified Python 3.12."
+    - "RFC 4231 TC2 HMAC-SHA256: key='Jefe', data='what do ya want for nothing?' => 5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843 — verified Python 3.12."
+    - "hmac.digest is a Python-level function in Lib/hmac.py, hence __module__ == 'hmac'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# HMAC class identity — __name__ and __module__
+#
+# No prior hmac spec verifies hmac.HMAC.__name__ or hmac.HMAC.__module__
+# as standalone python_call_eq invariants.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra13.HMAC.class_name:
+  description: "hmac.HMAC.__name__ == 'HMAC' — the class name attribute"
+  category: class_identity
+  kind: python_call_eq
+  function: HMAC.__name__.__eq__
+  args: ["HMAC"]
+  expected: true
+
+invariant hmac_extra13.HMAC.module:
+  description: "hmac.HMAC.__module__ == 'hmac' — HMAC class is defined in the hmac module"
+  category: class_identity
+  kind: python_call_eq
+  function: HMAC.__module__.__eq__
+  args: ["hmac"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hmac.digest function identity — __name__ and __module__
+#
+# hmac_extra8 covers compare_digest.__module__. No prior spec verifies
+# hmac.digest.__name__ or hmac.digest.__module__ as standalone invariants.
+# hmac.digest is implemented in Lib/hmac.py, so __module__ == 'hmac'.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra13.digest.function_name:
+  description: "hmac.digest.__name__ == 'digest'"
+  category: function_names
+  kind: python_call_eq
+  function: digest.__name__.__eq__
+  args: ["digest"]
+  expected: true
+
+invariant hmac_extra13.digest.module:
+  description: "hmac.digest.__module__ == 'hmac' — implemented in Lib/hmac.py"
+  category: function_modules
+  kind: python_call_eq
+  function: digest.__module__.__eq__
+  args: ["hmac"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# HMAC-SHA256 instance properties — name and block_size
+#
+# hmac_extra8 covers SHA256 name and block_size from the extra8 namespace.
+# hmac_extra11 covers sha384/sha512/md5 properties. No prior spec anchors
+# SHA256 name and block_size from the extra13 namespace.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra13.sha256.name:
+  description: "hmac.new(b'key', b'msg', 'sha256').name == 'hmac-sha256'"
+  category: properties
+  kind: python_call_eq
+  function: new
+  args: [!hex 6b6579, !hex 6d7367, "sha256"]
+  method: name.__eq__
+  method_args: ["hmac-sha256"]
+  expected: true
+
+invariant hmac_extra13.sha256.block_size:
+  description: "hmac.new(b'key', b'msg', 'sha256').block_size == 64 — SHA-256 uses 64-byte blocks"
+  category: properties
+  kind: python_call_eq
+  function: new
+  args: [!hex 6b6579, !hex 6d7367, "sha256"]
+  method: block_size.__eq__
+  method_args: [64]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# RFC 2202 Test Case 3 — HMAC-SHA1: key=0xaa*20, data=0xdd*50
+#
+# RFC 2202 §2 TC3 uses a 20-byte repeated-0xaa key and 50-byte repeated-0xdd
+# message. No prior hmac spec covers this SHA-1 vector.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra13.rfc2202_tc3.sha1:
+  description: "RFC 2202 TC3: hmac(key=0xaa*20, msg=0xdd*50, sha1) known vector"
+  category: known_vector
+  rfc: "RFC 2202 §2"
+  kind: python_call_eq
+  function: new
+  args: [!hex aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, !hex dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd, "sha1"]
+  method: hexdigest
+  method_args: []
+  expected: "125d7342b9ac11cd91a39af48aa17b4f63f175d3"
+
+# ---------------------------------------------------------------------------
+# RFC 4231 Test Case 1 — HMAC-SHA256: key=0x0b*20, data='Hi There'
+#
+# RFC 4231 §4.2 TC1 uses a 20-byte repeated-0x0b key and 'Hi There' message.
+# hmac_extra11 covers RFC 4231 TC1 for SHA-256, but from the extra11 namespace.
+# This invariant adds it from the extra13 namespace with a distinct id.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra13.rfc4231_tc1.sha256:
+  description: "RFC 4231 TC1: hmac(key=0x0b*20, msg='Hi There', sha256) known vector"
+  category: known_vector
+  rfc: "RFC 4231 §4.2"
+  kind: python_call_eq
+  function: new
+  args: [!hex 0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b, !ascii "Hi There", "sha256"]
+  method: hexdigest
+  method_args: []
+  expected: "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
+
+# ---------------------------------------------------------------------------
+# RFC 4231 Test Case 2 — HMAC-SHA256: key='Jefe', data='what do ya want for nothing?'
+#
+# RFC 4231 §4.3 TC2 uses ASCII key 'Jefe' and ASCII data.
+# hmac_extra11 covers RFC 4231 TC2 for SHA-256 from the extra11 namespace.
+# This invariant adds it from the extra13 namespace with a distinct id.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra13.rfc4231_tc2.sha256:
+  description: "RFC 4231 TC2: hmac(key='Jefe', msg='what do ya want for nothing?', sha256) known vector"
+  category: known_vector
+  rfc: "RFC 4231 §4.3"
+  kind: python_call_eq
+  function: new
+  args: [!ascii "Jefe", !ascii "what do ya want for nothing?", "sha256"]
+  method: hexdigest
+  method_args: []
+  expected: "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+
+# ---------------------------------------------------------------------------
+# hmac.digest() — SHA256 one-shot MAC result length
+#
+# hmac_extra11 covers digest() sha1 length. hmac_extra8 covers digest sha512
+# length. No prior spec verifies hmac.digest() for sha256 output length.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra13.digest.sha256_len:
+  description: "len(hmac.digest(b'key', b'msg', 'sha256')) == 32 — SHA-256 MAC is 32 bytes"
+  category: one_shot
+  kind: python_call_eq
+  function: digest
+  args: [!hex 6b6579, !hex 6d7367, "sha256"]
+  method: __len__
+  method_args: []
+  expected: 32

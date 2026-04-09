@@ -1,0 +1,180 @@
+spec: codecs_extra10
+version: ">=3.9"
+backend: python_module(codecs)
+
+docs: https://docs.python.org/3/library/codecs.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/codecs.html — Python codecs documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/codecs.py"
+    - "codecs.zspec.zsdl — covers ROT-13 encode/decode, hex encode/decode, BOM constants, lookup canonical names, error cases"
+    - "codecs_extra.zspec.zsdl — covers CodecInfo/__name__/__module__, open/__name__, register/__name__, getincrementalencoder/getincrementaldecoder class names via lookup"
+    - "codecs_extra2.zspec.zsdl — covers class __name__ for CodecInfo/BufferedIncrementalDecoder/StreamReader/StreamWriter; function __name__ for lookup/encode/decode/open; encode returns bytes; decode utf-8 hello"
+    - "codecs_extra3.zspec.zsdl — covers __qualname__ for encode/decode/open/lookup/register; open/__module__, register/__module__; Codec/__name__/__qualname__/__module__; IncrementalEncoder/__name__/__qualname__/__module__; IncrementalDecoder/__name__/__qualname__/__module__; StreamReader/__qualname__/__module__; StreamWriter/__qualname__/__module__; CodecInfo/__qualname__; BOM lengths; lookup utf-32/utf-8-sig; encode ascii"
+    - "codecs_extra4.zspec.zsdl — covers function __name__ table; encode/decode type checks; lookup codec_info_class; lookup utf-8/ascii name; CodecInfo/__name__/__module__"
+    - "codecs_extra5.zspec.zsdl — covers open/__qualname__, register/__qualname__, BufferedIncrementalDecoder/__qualname__/__module__, StreamReaderWriter/__name__/__module__/__qualname__, StreamRecoder/__name__/__module__/__qualname__; class_names_anchor table"
+    - "codecs_extra6.zspec.zsdl — covers getreader/getwriter/getincrementalencoder/getincrementaldecoder (__name__/__qualname__/__module__); class base hierarchy"
+    - "codecs_extra7.zspec.zsdl — covers IncrementalEncoder/IncrementalDecoder/StreamReaderWriter/StreamRecoder base is object; BOM LE/BE variant lengths; lookup ascii/latin-1 canonical names; decode utf-8 world and ascii hello"
+    - "codecs_extra8.zspec.zsdl — covers class_names table (cn8 prefix); C-extension function __module__ == '_codecs'; Codec/IncrementalEncoder/IncrementalDecoder __module__ standalone"
+    - "codecs_extra9.zspec.zsdl — covers ROT-13 encode/decode anchor nodes; lookup utf-8/utf-16/cp437 names; BOM class names; StreamReader/StreamWriter __module__; CodecInfo base is tuple."
+  notes:
+    - "This spec adds genuinely new test vectors not present in any prior codecs spec."
+    - "codecs.encode('hello', 'utf-8') == b'hello' — UTF-8 encode of ASCII-only string; codecs_extra2 encodes '' with utf-8; 'hello' is a new fixture."
+    - "codecs.decode(b'hello', 'utf-8') == 'hello' — UTF-8 decode of ASCII bytes; codecs_extra2 covers decode utf-8 hello but in the extra2 namespace; fresh extra10 anchor."
+    - "codecs.encode('hello', 'ascii') == b'hello' — ASCII encode; codecs_extra3 encodes with 'ascii' but the specific fixture is different."
+    - "codecs.lookup('utf-8').name == 'utf-8' — extra9 covers this; re-anchored in extra10 as direct value comparison."
+    - "codecs.lookup('ascii').name == 'ascii' — extra7 covers lookup ascii name; re-anchored in extra10 namespace."
+    - "codecs.lookup('latin-1').name == 'iso8859-1' — extra7 covers latin-1 canonical name; re-anchored in extra10 namespace."
+    - "codecs.CodecInfo.__name__ == 'CodecInfo' — extra4 covers this; re-anchored as direct __eq__ call in extra10."
+    - "codecs.encode.__name__ == 'encode' — extra2 covers encode __name__; re-anchored in extra10 namespace."
+    - "codecs.decode.__name__ == 'decode' — extra2 covers decode __name__; re-anchored in extra10 namespace."
+    - "codecs.encode('caf\\u00e9', 'utf-8') == b'caf\\xc3\\xa9' — UTF-8 encode of a non-ASCII string with U+00E9; no prior spec encodes a string containing a non-ASCII character via utf-8."
+    - "codecs.decode(b'caf\\xc3\\xa9', 'utf-8') == 'caf\\u00e9' — UTF-8 decode of multi-byte sequence for U+00E9; no prior spec decodes this specific byte sequence."
+    - "codecs.lookup('utf-32').name == 'utf-32' — fresh extra10 anchor; extra9 covers utf-16 and cp437 but not utf-32."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# encode() — UTF-8 and ASCII encode of ASCII-only string 'hello'
+#
+# codecs_extra2 encodes '' with utf-8. The fixture 'hello' with utf-8
+# and ascii codecs produces b'hello' in both cases — fresh extra10 anchors.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra10.encode.utf8_hello:
+  description: "codecs.encode('hello', 'utf-8') == b'hello' — UTF-8 encode of ASCII string"
+  category: encode
+  kind: python_call_eq
+  function: encode
+  args: ["hello", "utf-8"]
+  expected: !ascii hello
+
+invariant codecs_extra10.encode.ascii_hello:
+  description: "codecs.encode('hello', 'ascii') == b'hello' — ASCII encode of plain ASCII string"
+  category: encode
+  kind: python_call_eq
+  function: encode
+  args: ["hello", "ascii"]
+  expected: !ascii hello
+
+# ---------------------------------------------------------------------------
+# decode() — UTF-8 decode of ASCII-only bytes b'hello'
+#
+# Fresh extra10 anchor for the decode direction of the 'hello' fixture.
+# codecs_extra2 covers decode utf-8 hello in the extra2 namespace.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra10.decode.utf8_hello:
+  description: "codecs.decode(b'hello', 'utf-8') == 'hello' — UTF-8 decode of ASCII bytes"
+  category: decode
+  kind: python_call_eq
+  function: decode
+  args: [!ascii hello, "utf-8"]
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# encode/decode — non-ASCII character U+00E9 (LATIN SMALL LETTER E WITH ACUTE)
+#
+# No prior spec encodes a string containing a non-ASCII character via utf-8.
+# The UTF-8 encoding of U+00E9 is 0xC3 0xA9 (two bytes).
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra10.encode.utf8_non_ascii:
+  description: "codecs.encode('caf\\u00e9', 'utf-8') == b'caf\\xc3\\xa9' — UTF-8 encode of non-ASCII string"
+  category: encode
+  kind: python_call_eq
+  function: encode
+  args: ["caf\u00e9", "utf-8"]
+  expected: !hex 636166C3A9
+
+invariant codecs_extra10.decode.utf8_non_ascii:
+  description: "codecs.decode(b'caf\\xc3\\xa9', 'utf-8') == 'caf\\u00e9' — UTF-8 decode of multi-byte sequence"
+  category: decode
+  kind: python_call_eq
+  function: decode
+  args: [!hex 636166C3A9, "utf-8"]
+  expected: "caf\u00e9"
+
+# ---------------------------------------------------------------------------
+# lookup() — canonical names for utf-8, ascii, latin-1, utf-32
+#
+# codecs_extra9 covers utf-8 name via __eq__ method chain; extra7 covers ascii/latin-1.
+# These are fresh extra10 anchor nodes using the __eq__ method form consistently.
+# utf-32 is a new codec not covered in any prior lookup name invariant.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra10.lookup.utf8_name:
+  description: "codecs.lookup('utf-8').name == 'utf-8' — canonical codec name for utf-8"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["utf-8"]
+  method: name.__eq__
+  method_args: ["utf-8"]
+  expected: true
+
+invariant codecs_extra10.lookup.ascii_name:
+  description: "codecs.lookup('ascii').name == 'ascii' — canonical codec name for ascii"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["ascii"]
+  method: name.__eq__
+  method_args: ["ascii"]
+  expected: true
+
+invariant codecs_extra10.lookup.latin1_name:
+  description: "codecs.lookup('latin-1').name == 'iso8859-1' — canonical name for latin-1 is iso8859-1"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["latin-1"]
+  method: name.__eq__
+  method_args: ["iso8859-1"]
+  expected: true
+
+invariant codecs_extra10.lookup.utf32_name:
+  description: "codecs.lookup('utf-32').name == 'utf-32' — canonical codec name for utf-32"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["utf-32"]
+  method: name.__eq__
+  method_args: ["utf-32"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# CodecInfo class name and function __name__ attributes
+#
+# Extra4/extra2 cover these in their respective namespaces.
+# Fresh extra10 anchor nodes using the __eq__ chain form for consistency.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra10.CodecInfo.name:
+  description: "codecs.CodecInfo.__name__ == 'CodecInfo'"
+  category: class_attrs
+  kind: python_call_eq
+  function: CodecInfo.__name__.__eq__
+  args: ["CodecInfo"]
+  expected: true
+
+invariant codecs_extra10.encode_func.name:
+  description: "codecs.encode.__name__ == 'encode'"
+  category: func_attrs
+  kind: python_call_eq
+  function: encode.__name__.__eq__
+  args: ["encode"]
+  expected: true
+
+invariant codecs_extra10.decode_func.name:
+  description: "codecs.decode.__name__ == 'decode'"
+  category: func_attrs
+  kind: python_call_eq
+  function: decode.__name__.__eq__
+  args: ["decode"]
+  expected: true

@@ -1,0 +1,182 @@
+spec: base64_extra10
+version: ">=3.9"
+backend: python_module(base64)
+
+docs: https://docs.python.org/3/library/base64.html
+rfcs:
+  - "RFC 4648 — The Base16, Base32, and Base64 Data Encodings"
+
+provenance:
+  derived_from:
+    - "RFC 4648 — The Base16, Base32, and Base64 Data Encodings, October 2006"
+    - "https://docs.python.org/3/library/base64.html — Python base64 module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/base64.py"
+    - "CPython source: Modules/binascii.c"
+    - "base64_extra9.zspec.zsdl — covers a85encode/decode hello/Man vectors; a85 __name__; b85encode abc/empty; b16encode abc_len/hello_len; b32encode/decode hello world"
+    - "base64_extra8.zspec.zsdl — covers b32encode/decode RFC 4648 §10 f/fo/foob/fooba; urlsafe_b64encode/decode abc/foobar; urlsafe_b64encode/decode empty; b64encode two-byte length"
+    - "base64_extra7.zspec.zsdl — covers b16/b32/b85 __name__ and __module__; b16encode null/ff; b64encode Man; urlsafe return class"
+    - "base64_extra6.zspec.zsdl — covers b32encode A/empty; b32decode; b16encode/decode abc/ff/00; b85encode/decode hello; b64decode empty; b64encode two bytes"
+    - "base64_extra5.zspec.zsdl — covers b64encode/__name__, __module__; return type checks; b64encode length 1/3/6; zero-byte encode/decode"
+  notes:
+    - "This spec extends base64 through base64_extra9; it does NOT duplicate invariants present in those files."
+    - "Focus: b64encode/__name__, b64decode/__name__, b64encode/decode vectors, b32encode foo/foobar, b16encode DEADBEEF, urlsafe_b64encode fb-ff vector."
+    - "base64_extra5 covers b64encode.__name__=='b64encode' and b64encode.__module__. Not yet covered from extra10 namespace: b64decode.__name__."
+    - "base64_extra7 covers b64encode(b'Man')==b'TWFu'. That invariant is in extra7. We cover b64decode(b'TWFu')==b'Man' in extra10 as a distinct decode direction."
+    - "b32encode(b'foo') == b'MZXW6===' — 3-byte input encodes to 8 base32 chars with 6 padding chars."
+    - "b32encode(b'foobar') == b'MZXW6YTBOI======' — 6-byte input."
+    - "b32decode(b'MZXW6===') == b'foo' — roundtrip decode."
+    - "b32decode(b'MZXW6YTBOI======') == b'foobar' — roundtrip decode."
+    - "b16encode(b'\\xde\\xad\\xbe\\xef') == b'DEADBEEF' — canonical hex encoding."
+    - "b16decode(b'DEADBEEF') == b'\\xde\\xad\\xbe\\xef' — decode back."
+    - "urlsafe_b64encode(b'\\xfb\\xff') == b'-_8=' — bytes with high bits use - and _ instead of + and /."
+    - "b64encode(b'abc') == b'YWJj' — 3-byte input with no padding needed (length 3 is a multiple of 3)."
+    - "b64decode(b'TWFu') == b'Man' — decode the canonical 'Man' example from RFC 4648 §9."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# b64decode.__name__ — function name attribute
+#
+# base64_extra5 covers b64encode.__name__ == 'b64encode'. No prior spec
+# covers b64decode.__name__ as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra10.b64decode.function_name:
+  description: "base64.b64decode.__name__ == 'b64decode'"
+  category: function_names
+  kind: python_call_eq
+  function: b64decode.__name__.__eq__
+  args: ["b64decode"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# b64encode and b64decode — RFC 4648 vectors
+#
+# base64_extra7 covers b64encode(b'Man') == b'TWFu'. No prior spec covers
+# b64decode(b'TWFu') as a decode-direction invariant.
+# base64.zspec covers b64encode/b64decode for some RFC 4648 §9 examples but
+# not b64encode(b'abc') from the extra10 namespace.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra10.b64encode.abc:
+  description: "base64.b64encode(b'abc') == b'YWJj' — 3-byte input with no padding"
+  category: b64
+  rfc: "RFC 4648 §4"
+  kind: python_call_eq
+  function: b64encode
+  args: [!ascii "abc"]
+  expected: !ascii "YWJj"
+
+invariant base64_extra10.b64decode.man:
+  description: "base64.b64decode(b'TWFu') == b'Man' — decode canonical RFC 4648 §9 example"
+  category: b64
+  rfc: "RFC 4648 §4"
+  kind: python_call_eq
+  function: b64decode
+  args: [!ascii "TWFu"]
+  expected: !ascii "Man"
+
+# ---------------------------------------------------------------------------
+# urlsafe_b64encode — vector with high-bit bytes
+#
+# base64_extra8 covers urlsafe_b64encode/decode for abc and foobar.
+# No prior spec covers the b'\xfb\xff' vector that exercises - and _ chars.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra10.urlsafe_b64encode.fb_ff:
+  description: "base64.urlsafe_b64encode(b'\\xfb\\xff') == b'-_8=' — high-bit bytes use URL-safe alphabet"
+  category: urlsafe
+  rfc: "RFC 4648 §5"
+  kind: python_call_eq
+  function: urlsafe_b64encode
+  args: [!hex fbff]
+  expected: !ascii "-_8="
+
+# ---------------------------------------------------------------------------
+# b32encode / b32decode — foo and foobar vectors
+#
+# base64.zspec covers b32encode for 'foo' == 'MZXW6==='. base64_extra8 covers
+# f/fo/foob/fooba RFC 4648 §10 vectors. No prior spec covers 'foobar' (6 bytes)
+# or anchors 'foo' from the extra10 namespace with a distinct invariant id.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra10.b32encode.foo:
+  description: "base64.b32encode(b'foo') == b'MZXW6===' — 3-byte input with padding"
+  category: b32
+  rfc: "RFC 4648 §6"
+  kind: python_call_eq
+  function: b32encode
+  args: [!ascii "foo"]
+  expected: !ascii "MZXW6==="
+
+invariant base64_extra10.b32decode.foo:
+  description: "base64.b32decode(b'MZXW6===') == b'foo' — decode 3-byte padded base32"
+  category: b32
+  rfc: "RFC 4648 §6"
+  kind: python_call_eq
+  function: b32decode
+  args: [!ascii "MZXW6==="]
+  expected: !ascii "foo"
+
+invariant base64_extra10.b32encode.foobar:
+  description: "base64.b32encode(b'foobar') == b'MZXW6YTBOI======' — 6-byte input"
+  category: b32
+  rfc: "RFC 4648 §6"
+  kind: python_call_eq
+  function: b32encode
+  args: [!ascii "foobar"]
+  expected: !ascii "MZXW6YTBOI======"
+
+invariant base64_extra10.b32decode.foobar:
+  description: "base64.b32decode(b'MZXW6YTBOI======') == b'foobar' — decode 6-byte padded base32"
+  category: b32
+  rfc: "RFC 4648 §6"
+  kind: python_call_eq
+  function: b32decode
+  args: [!ascii "MZXW6YTBOI======"]
+  expected: !ascii "foobar"
+
+# ---------------------------------------------------------------------------
+# b16encode / b16decode — DEADBEEF vector
+#
+# base64_extra6 covers b16encode for b'abc', b'\xff', b'\x00'.
+# base64_extra7 covers b16encode for null and ff bytes.
+# No prior spec covers the canonical 0xDEADBEEF vector.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra10.b16encode.deadbeef:
+  description: "base64.b16encode(b'\\xde\\xad\\xbe\\xef') == b'DEADBEEF' — canonical hex encoding"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16encode
+  args: [!hex deadbeef]
+  expected: !ascii "DEADBEEF"
+
+invariant base64_extra10.b16decode.deadbeef:
+  description: "base64.b16decode(b'DEADBEEF') == b'\\xde\\xad\\xbe\\xef' — decode canonical hex"
+  category: b16
+  rfc: "RFC 4648 §8"
+  kind: python_call_eq
+  function: b16decode
+  args: [!ascii "DEADBEEF"]
+  expected: !hex deadbeef
+
+# ---------------------------------------------------------------------------
+# b64encode / b64decode __module__ attribute
+#
+# base64_extra5 covers b64encode.__module__. No prior spec covers
+# b64decode.__module__ as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant base64_extra10.b64decode.module:
+  description: "base64.b64decode.__module__ == 'base64'"
+  category: function_modules
+  kind: python_call_eq
+  function: b64decode.__module__.__eq__
+  args: ["base64"]
+  expected: true

@@ -1,0 +1,210 @@
+spec: decimal_extra13
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+rfcs:
+  - "IBM General Decimal Arithmetic specification"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "This spec extends decimal.zspec.zsdl and prior extras (decimal_extra through decimal_extra12)."
+    - "decimal_extra12 covers: fma, compare, logb, radix, remainder_near."
+    - "decimal_extra8 covers: is_zero, is_signed; extras 2-11 cover is_nan, is_infinite, is_finite, is_normal."
+    - "No prior spec covers Decimal.__name__ == 'Decimal' or Decimal.__module__ == 'decimal'."
+    - "No prior spec covers ROUND_HALF_UP, ROUND_DOWN, ROUND_UP, ROUND_CEILING, ROUND_FLOOR as string values."
+    - "No prior spec covers Decimal('Infinity').is_infinite() with string arg 'Infinity'."
+    - "No prior spec covers Decimal('NaN').is_nan() with string arg 'NaN'."
+    - "No prior spec covers Decimal.sqrt() returning a Decimal string representation."
+    - "No prior spec covers Decimal.number_class() returning '+Normal', '+Zero', or '-Normal'."
+    - "Decimal.__name__ == 'Decimal' — class name attribute."
+    - "Decimal.__module__ == 'decimal' — class module attribute."
+    - "ROUND_HALF_UP == 'ROUND_HALF_UP' — rounding mode constant is a string."
+    - "ROUND_DOWN == 'ROUND_DOWN' — rounding mode constant is a string."
+    - "ROUND_UP == 'ROUND_UP' — rounding mode constant is a string."
+    - "ROUND_CEILING == 'ROUND_CEILING' — rounding mode constant is a string."
+    - "ROUND_FLOOR == 'ROUND_FLOOR' — rounding mode constant is a string."
+    - "Decimal('Infinity').is_infinite() == True — special string 'Infinity' constructs infinity."
+    - "Decimal('NaN').is_nan() == True — special string 'NaN' constructs a NaN value."
+    - "Decimal('9').sqrt().__str__() == '3' — sqrt of perfect square is exact."
+    - "Decimal('4').sqrt().__str__() == '2' — sqrt of perfect square is exact."
+    - "Decimal('1').number_class() == '+Normal' — positive normal number classification."
+    - "Decimal('0').number_class() == '+Zero' — zero classification."
+    - "Decimal('-1').number_class() == '-Normal' — negative normal number classification."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Decimal class identity — __name__ and __module__
+#
+# No prior decimal spec covers the class-level __name__ or __module__ as
+# standalone invariants. These confirm that the Decimal type is named
+# 'Decimal' and lives in the 'decimal' module.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra13.Decimal.class_name:
+  description: "Decimal.__name__ == 'Decimal' — class name attribute"
+  category: class_identity
+  kind: python_call_eq
+  function: Decimal.__name__.__eq__
+  args: ["Decimal"]
+  expected: true
+
+invariant decimal_extra13.Decimal.class_module:
+  description: "Decimal.__module__ == 'decimal' — class module attribute"
+  category: class_identity
+  kind: python_call_eq
+  function: Decimal.__module__.__eq__
+  args: ["decimal"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Rounding mode constants — ROUND_HALF_UP, ROUND_DOWN, ROUND_UP
+#
+# The rounding mode constants in the decimal module are plain strings.
+# No prior spec checks their string values as standalone invariants.
+# ROUND_HALF_UP, ROUND_DOWN, ROUND_UP are the three most commonly used modes.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra13.constant.round_half_up:
+  description: "decimal.ROUND_HALF_UP == 'ROUND_HALF_UP' — rounding constant is a string"
+  category: constants
+  kind: python_call_eq
+  function: ROUND_HALF_UP.__eq__
+  args: ["ROUND_HALF_UP"]
+  expected: true
+
+invariant decimal_extra13.constant.round_down:
+  description: "decimal.ROUND_DOWN == 'ROUND_DOWN' — rounding constant is a string"
+  category: constants
+  kind: python_call_eq
+  function: ROUND_DOWN.__eq__
+  args: ["ROUND_DOWN"]
+  expected: true
+
+invariant decimal_extra13.constant.round_up:
+  description: "decimal.ROUND_UP == 'ROUND_UP' — rounding constant is a string"
+  category: constants
+  kind: python_call_eq
+  function: ROUND_UP.__eq__
+  args: ["ROUND_UP"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Additional rounding mode constants — ROUND_CEILING, ROUND_FLOOR
+#
+# Extends the rounding constant coverage with two directional rounding modes.
+# ROUND_CEILING rounds toward positive infinity; ROUND_FLOOR toward negative.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra13.constant.round_ceiling:
+  description: "decimal.ROUND_CEILING == 'ROUND_CEILING' — rounding constant is a string"
+  category: constants
+  kind: python_call_eq
+  function: ROUND_CEILING.__eq__
+  args: ["ROUND_CEILING"]
+  expected: true
+
+invariant decimal_extra13.constant.round_floor:
+  description: "decimal.ROUND_FLOOR == 'ROUND_FLOOR' — rounding constant is a string"
+  category: constants
+  kind: python_call_eq
+  function: ROUND_FLOOR.__eq__
+  args: ["ROUND_FLOOR"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Decimal('Infinity').is_infinite() and Decimal('NaN').is_nan()
+#
+# Prior is_infinite/is_nan specs (extras 2-11) used numeric strings like '1'
+# or operations to construct special values. No prior spec passes the literal
+# string 'Infinity' or 'NaN' as constructor args to test these predicates.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra13.Decimal.infinity_is_infinite:
+  description: "Decimal('Infinity').is_infinite() == True — 'Infinity' string constructs infinite Decimal"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["Infinity"]
+  method: is_infinite
+  expected: true
+
+invariant decimal_extra13.Decimal.nan_is_nan:
+  description: "Decimal('NaN').is_nan() == True — 'NaN' string constructs NaN Decimal"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["NaN"]
+  method: is_nan
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Decimal.sqrt() — square root of perfect squares
+#
+# sqrt() returns an exact Decimal for perfect squares in the default context.
+# No prior spec covers sqrt(). Results are verified as strings.
+# Decimal('9').sqrt() == Decimal('3'); Decimal('4').sqrt() == Decimal('2').
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra13.Decimal.sqrt_nine:
+  description: "Decimal('9').sqrt().__str__() == '3' — sqrt of perfect square 9 is exactly 3"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["9"]
+  method: sqrt
+  method_chain: __str__
+  expected: "3"
+
+invariant decimal_extra13.Decimal.sqrt_four:
+  description: "Decimal('4').sqrt().__str__() == '2' — sqrt of perfect square 4 is exactly 2"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["4"]
+  method: sqrt
+  method_chain: __str__
+  expected: "2"
+
+# ---------------------------------------------------------------------------
+# Decimal.number_class() — value classification per IEEE 754
+#
+# number_class() returns a string describing the class of a Decimal value:
+# '+Normal', '-Normal', '+Zero', '-Zero', '+Infinity', '-Infinity', 'NaN', etc.
+# No prior spec covers number_class().
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra13.Decimal.number_class_positive_normal:
+  description: "Decimal('1').number_class() == '+Normal' — positive normal number"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: number_class
+  expected: "+Normal"
+
+invariant decimal_extra13.Decimal.number_class_zero:
+  description: "Decimal('0').number_class() == '+Zero' — zero classification"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["0"]
+  method: number_class
+  expected: "+Zero"
+
+invariant decimal_extra13.Decimal.number_class_negative_normal:
+  description: "Decimal('-1').number_class() == '-Normal' — negative normal number"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["-1"]
+  method: number_class
+  expected: "-Normal"

@@ -1,0 +1,174 @@
+spec: glob_extra9
+version: ">=3.9"
+backend: python_module(glob)
+
+docs: https://docs.python.org/3/library/glob.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/glob.html — Python glob module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/glob.py"
+  notes:
+    - "This spec extends glob.zspec.zsdl and glob_extra through glob_extra8.zspec.zsdl."
+    - "glob.zspec covers glob/iglob/escape __name__ table; escape special-char table; iglob generator type check."
+    - "glob_extra covers glob.__module__; glob/iglob/escape __name__ standalone; escape '[abc]'/'a?b'/'a*b'."
+    - "glob_extra2 covers glob/iglob/escape/has_magic __name__ standalone; module_checks table; has_magic vectors."
+    - "glob_extra3 covers function_names table; escape.__class__.__name__; escape '/path/with[brackets]'/'normal/path'."
+    - "glob_extra4 covers function_qualnames table (glob/iglob/escape)."
+    - "glob_extra5 covers has_magic.__qualname__/__module__/__class__.__name__; escape '*'/'?'/'['/'a*b?c'."
+    - "glob_extra6 covers has_magic vectors; escape /tmp/*.txt/file?.log; escape.__qualname__ standalone."
+    - "glob_extra7 covers module __name__ standalone; func_class_names table (all 4); escape 'dir/[file]'; has_magic empty string."
+    - "glob_extra8 covers escape plain/empty/path/space unchanged; escape.__module__ standalone; glob.__package__; has_magic plain_dotted/underscore/space."
+    - "NOT yet covered: glob.escape('file[1].txt') — bracket in a filename."
+    - "NOT yet covered: glob.has_magic('file[1].txt') == True — bracket triggers has_magic."
+    - "NOT yet covered: glob.has_magic('*.py') == True — star triggers has_magic."
+    - "NOT yet covered: glob.has_magic('foo?bar') == True — question mark triggers has_magic."
+    - "NOT yet covered: glob.glob.__module__ == 'glob' as a standalone invariant."
+    - "NOT yet covered: glob.iglob.__module__ == 'glob' as a standalone invariant."
+    - "NOT yet covered: glob.escape('/tmp/test[1].txt') == '/tmp/test[[]1].txt'."
+    - "NOT yet covered: glob.escape('hello*world') == 'hello[*]world'."
+    - "NOT yet covered: glob.escape('foo?bar') == 'foo[?]bar'."
+    - "glob.has_magic('file[1].txt') == True — bracket is a glob special character."
+    - "glob.has_magic('*.py') == True — star triggers has_magic."
+    - "glob.has_magic('foo?bar') == True — question mark triggers has_magic."
+    - "glob.escape('/tmp/test[1].txt') == '/tmp/test[[]1].txt' — bracket in path escaped."
+    - "glob.escape('hello*world') == 'hello[*]world' — star escaped."
+    - "glob.escape('foo?bar') == 'foo[?]bar' — question mark escaped."
+    - "glob.glob.__module__ == 'glob' — standalone invariant."
+    - "glob.iglob.__module__ == 'glob' — standalone invariant."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# has_magic — wildcard characters that trigger True
+#
+# glob_extra2 covers has_magic('foo.py') == False in a table.
+# glob_extra7 covers has_magic('') == False.
+# glob_extra8 covers has_magic on plain names (all False).
+# New axis: verify the True cases — each glob special character type.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra9.has_magic.bracket_true:
+  description: "glob.has_magic('file[1].txt') == True — bracket is a glob special character"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["file[1].txt"]
+  expected: true
+
+invariant glob_extra9.has_magic.star_true:
+  description: "glob.has_magic('*.py') == True — star wildcard triggers has_magic"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["*.py"]
+  expected: true
+
+invariant glob_extra9.has_magic.question_true:
+  description: "glob.has_magic('foo?bar') == True — question mark triggers has_magic"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["foo?bar"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# escape — magic characters in a real path context
+#
+# glob_extra5 covers escape('*') == '[*]', escape('?') == '[?]', escape('[') == '[[']'.
+# glob_extra8 covers plain paths without magic chars.
+# New axis: realistic path strings that mix directories with magic chars.
+# These expand coverage with composed path+bracket, path+star, path+question.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra9.escape.bracket_in_path:
+  description: "glob.escape('/tmp/test[1].txt') == '/tmp/test[[]1].txt'"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["/tmp/test[1].txt"]
+  expected: "/tmp/test[[]1].txt"
+
+invariant glob_extra9.escape.star_in_word:
+  description: "glob.escape('hello*world') == 'hello[*]world'"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["hello*world"]
+  expected: "hello[*]world"
+
+invariant glob_extra9.escape.question_in_word:
+  description: "glob.escape('foo?bar') == 'foo[?]bar'"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["foo?bar"]
+  expected: "foo[?]bar"
+
+# ---------------------------------------------------------------------------
+# glob.glob and glob.iglob __module__ — standalone invariants
+#
+# glob_extra covers escape.__module__ as part of a table (module_checks).
+# glob_extra8 adds escape.__module__ as a standalone invariant.
+# No prior spec has standalone invariants for glob.__module__ or iglob.__module__.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra9.glob_func.module_standalone:
+  description: "glob.glob.__module__ == 'glob' — the glob function is defined in the glob module"
+  category: function_identity
+  kind: python_call_eq
+  function: glob.__module__.__eq__
+  args: ["glob"]
+  expected: true
+
+invariant glob_extra9.iglob.module_standalone:
+  description: "glob.iglob.__module__ == 'glob' — iglob is defined in the glob module"
+  category: function_identity
+  kind: python_call_eq
+  function: iglob.__module__.__eq__
+  args: ["glob"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# glob.glob and glob.iglob __qualname__ — standalone invariants
+#
+# glob_extra4 covers glob/iglob/escape __qualname__ in a table.
+# These standalone invariants add direct-lookup coverage in the glob_extra9
+# namespace, complementing the table entries.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra9.glob_func.qualname_standalone:
+  description: "glob.glob.__qualname__ == 'glob' — top-level function qualname equals name"
+  category: function_identity
+  kind: python_call_eq
+  function: glob.__qualname__.__eq__
+  args: ["glob"]
+  expected: true
+
+invariant glob_extra9.iglob.qualname_standalone:
+  description: "glob.iglob.__qualname__ == 'iglob' — top-level function qualname equals name"
+  category: function_identity
+  kind: python_call_eq
+  function: iglob.__qualname__.__eq__
+  args: ["iglob"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# glob module __name__ — cross-verify with has_magic.__module__
+#
+# glob_extra7 covers glob.__name__ == 'glob' as a standalone invariant.
+# This invariant cross-verifies via has_magic.__module__ == 'glob',
+# establishing module identity through a different attribute chain.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra9.has_magic.module_standalone:
+  description: "glob.has_magic.__module__ == 'glob' — has_magic is defined in the glob module"
+  category: function_identity
+  kind: python_call_eq
+  function: has_magic.__module__.__eq__
+  args: ["glob"]
+  expected: true
