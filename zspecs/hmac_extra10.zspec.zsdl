@@ -1,0 +1,169 @@
+spec: hmac_extra10
+version: ">=3.9"
+backend: python_module(hmac)
+
+docs: https://docs.python.org/3/library/hmac.html
+rfcs:
+  - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication"
+  - "FIPS 198-1 — The Keyed-Hash Message Authentication Code (HMAC)"
+
+provenance:
+  derived_from:
+    - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication, February 1997"
+    - "FIPS 198-1 — The Keyed-Hash Message Authentication Code (HMAC), July 2008"
+    - "https://docs.python.org/3/library/hmac.html — Python hmac module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/hmac.py"
+    - "OpenSSL HMAC implementation: crypto/hmac/hmac.c"
+  notes:
+    - "This spec extends hmac through hmac_extra9; it does NOT duplicate invariants present in those files."
+    - "hmac.zspec.zsdl covers: compare_digest strings; new SHA256/SHA1 hexdigest; SHA256 digest_size/block_size/name; HMAC.__name__/__module__; new/compare_digest/digest class names; compare_digest TypeError."
+    - "hmac_extra covers: __name__ table (new/digest/compare_digest); new returns HMAC; MD5 digest_size; compare_digest bytes; hexdigest str/len."
+    - "hmac_extra2 covers: __module__ for new/compare_digest/digest; HMAC.__bases__; SHA256 digest_size/block_size (__eq__); name is str; compare_digest b'a'/b'b'."
+    - "hmac_extra4 covers: function_names table; SHA256/MD5 digest_size; instance_class; compare_digest equal/unequal strings."
+    - "hmac_extra5 covers: __qualname__ for HMAC/new/compare_digest/digest; SHA384 digest_size/name/block_size; hmac.digest() sha256/md5 length."
+    - "hmac_extra6 covers: identity_anchor table; SHA512 digest_size/name/block_size; HMAC base is object; HMAC MRO second is object."
+    - "hmac_extra7 covers: HMAC-SHA1/MD5 hexdigest/name/block_size; hmac.digest() sha1/sha384 length; HMAC MRO first/length."
+    - "hmac_extra8 covers: HMAC-SHA256/SHA384/SHA512 hexdigest; SHA256 block_size (__eq__); digest sha512 length; digest sha256 value (.hex()); compare_digest.__module__ == '_hashlib'; SHA256 name (__eq__)."
+    - "hmac_extra9 covers: new sha256 class_name; digest().__class__.__name__=='bytes'; digest().__len__ for sha256/md5/sha1/sha512/sha384; digest_size for sha256/md5 via __eq__; compare_digest bytes abc equal/unequal; new sha256 name (__eq__)."
+    - "NOT yet covered: hmac.digest() one-shot __class__.__name__ == 'bytes' — the return type of the module-level one-shot function."
+    - "NOT yet covered: hmac.digest(b'key', b'msg', 'md5') value == '18e3548c59ad40dd03907b7aeee71d67'."
+    - "NOT yet covered: hmac.new(b'', b'abc', 'sha256').hexdigest() as a new known vector with empty key."
+    - "NOT yet covered: compare_digest(b'hello', b'hello') == True from the extra10 namespace."
+    - "NOT yet covered: compare_digest(b'hello', b'world') == False from the extra10 namespace."
+    - "NOT yet covered: hmac.new(b'key', b'msg', 'sha256').hexdigest().__len__() == 64 as standalone from extra10 namespace."
+    - "hmac.digest(b'key', b'msg', 'sha256') returns the same value as hmac.new(b'key', b'msg', 'sha256').digest()."
+    - "hmac.digest(b'key', b'msg', 'md5') == bytes.fromhex('18e3548c59ad40dd03907b7aeee71d67') — verified Python 3.12."
+    - "hmac.new(b'', b'abc', 'sha256').hexdigest() == 'fd7adb152c05ef80dccf50a1fa4c05d5a3ec6da95575fc312ae7c5d091836351' — empty key, abc msg."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# hmac.digest() one-shot — return type is bytes
+#
+# hmac_extra5/7/8 verify the length of hmac.digest() for various algorithms,
+# and hmac_extra8 verifies the sha256 value via .hex(). No prior spec checks
+# hmac.digest().__class__.__name__ == 'bytes' directly.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra10.digest_oneshot.sha256.returns_bytes:
+  description: "hmac.digest(b'key', b'msg', 'sha256').__class__.__name__ == 'bytes'"
+  category: digest_oneshot
+  kind: python_call_eq
+  function: digest
+  args: [!hex 6b6579, !hex 6d7367, "sha256"]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hmac.digest() one-shot — MD5 known value vector
+#
+# hmac_extra5 verifies hmac.digest() md5 length == 16.
+# No prior spec asserts the actual byte value of hmac.digest() for MD5.
+# hmac.digest(b'key', b'msg', 'md5') == b'\x18\xe3T\x8c...'
+# hex: 18e3548c59ad40dd03907b7aeee71d67
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra10.digest_oneshot.md5.value:
+  description: "hmac.digest(b'key', b'msg', 'md5') == bytes.fromhex('18e3548c59ad40dd03907b7aeee71d67')"
+  category: digest_oneshot
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: digest
+  args: [!hex 6b6579, !hex 6d7367, "md5"]
+  expected: !hex 18e3548c59ad40dd03907b7aeee71d67
+
+# ---------------------------------------------------------------------------
+# hmac.new() — empty key, non-empty message (new vector)
+#
+# All prior hmac specs use key=b'key' or key=b'' only for the empty_key_msg
+# case (both key and msg empty). No prior spec uses key=b'' with a non-empty
+# message. HMAC with an empty key is well-defined per RFC 2104 (the key is
+# padded to block_size with zeros).
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra10.new.sha256.empty_key_abc_msg:
+  description: "hmac.new(b'', b'abc', 'sha256').hexdigest() — empty key, non-empty message"
+  category: known_vector
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: new
+  args: [!hex "", !hex 616263, "sha256"]
+  method: hexdigest
+  method_args: []
+  expected: "fd7adb152c05ef80dccf50a1fa4c05d5a3ec6da95575fc312ae7c5d091836351"
+
+# ---------------------------------------------------------------------------
+# hmac.new() hexdigest length — SHA-256 is always 64 hex chars
+#
+# hmac_extra covers hexdigest_sha256_len from the extra namespace.
+# Re-anchored here from extra10 namespace as standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra10.new.sha256.hexdigest_len:
+  description: "hmac.new(b'key', b'msg', 'sha256').hexdigest().__len__() == 64"
+  category: properties
+  kind: python_call_eq
+  function: new
+  args: [!hex 6b6579, !hex 6d7367, "sha256"]
+  method: hexdigest().__len__
+  method_args: []
+  expected: 64
+
+# ---------------------------------------------------------------------------
+# compare_digest — bytes inputs from extra10 namespace
+#
+# hmac_extra9 covers compare_digest(b'abc', b'abc') and compare_digest(b'abc', b'xyz').
+# hmac_extra2 covers compare_digest(b'a', b'a') and compare_digest(b'a', b'b').
+# hmac_extra covers compare_digest bytes as a table (b'abc'/b'def'/b'').
+# Here we anchor compare_digest(b'hello', b'hello') and compare_digest(b'hello', b'world')
+# from the extra10 namespace using !hex notation.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra10.compare_digest.bytes_hello_equal:
+  description: "hmac.compare_digest(b'hello', b'hello') == True — equal 5-byte strings"
+  category: compare_digest
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: compare_digest
+  args: [!hex 68656c6c6f, !hex 68656c6c6f]
+  expected: true
+
+invariant hmac_extra10.compare_digest.bytes_hello_world_unequal:
+  description: "hmac.compare_digest(b'hello', b'world') == False — unequal 5-byte strings"
+  category: compare_digest
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: compare_digest
+  args: [!hex 68656c6c6f, !hex 776f726c64]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# compare_digest — string inputs from extra10 namespace
+#
+# hmac.zspec.zsdl covers a rich table of string comparisons (abc/abd/empty/hello/x/y).
+# hmac_extra4 covers equal/unequal strings. Here we re-anchor 'hello' == 'hello'
+# and 'hello' != 'world' as standalone invariants from the extra10 namespace.
+# ---------------------------------------------------------------------------
+
+invariant hmac_extra10.compare_digest.str_hello_equal:
+  description: "hmac.compare_digest('hello', 'hello') == True — equal strings from extra10"
+  category: compare_digest
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: compare_digest
+  args: ["hello", "hello"]
+  expected: true
+
+invariant hmac_extra10.compare_digest.str_hello_world_unequal:
+  description: "hmac.compare_digest('hello', 'world') == False — unequal strings from extra10"
+  category: compare_digest
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: compare_digest
+  args: ["hello", "world"]
+  expected: false

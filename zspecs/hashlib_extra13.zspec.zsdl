@@ -1,0 +1,173 @@
+spec: hashlib_extra13
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "FIPS 202 — SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "FIPS 202 — SHA-3 Standard, NIST, August 2015"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha3/sha3module.c"
+  notes:
+    - "This spec extends hashlib through hashlib_extra12; it does NOT duplicate invariants present in those files."
+    - "hashlib_extra9 covers: md5/__name__=='openssl_md5', sha1/__name__=='openssl_sha1', sha256/__name__=='openssl_sha256' as a table."
+    - "NOT yet covered in any prior hashlib spec: sha3_256/__name__, sha3_256/__qualname__, sha3_256/__module__."
+    - "NOT yet covered: shake_256/__name__, shake_256/__qualname__, shake_256/__module__."
+    - "NOT yet covered: sha512/__name__, sha384/__name__, sha224/__name__ as standalone invariants."
+    - "NOT yet covered: new('sha3_256').name == 'sha3_256' as a python_call_eq invariant."
+    - "NOT yet covered: new('sha384').digest_size == 48 and new('sha224').digest_size == 28."
+    - "NOT yet covered: algorithms_guaranteed contains 'sha3_224' as a standalone invariant."
+    - "hashlib.sha3_256.__name__ == 'openssl_sha3_256' on OpenSSL-backed Python 3.12+ builds."
+    - "hashlib.shake_256.__name__ == 'openssl_shake_256' on OpenSSL-backed Python 3.12+ builds."
+    - "hashlib.shake_256.__module__ == '_hashlib' — same C extension backend as sha3_256."
+    - "hashlib.sha3_256.__module__ == '_hashlib' — OpenSSL-backed SHA3 lives in _hashlib, not _sha3."
+    - "shake_256.digest_size == 0 — XOF (eXtendable Output Function) has no fixed output length."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sha3_256 and shake_256 constructor __name__ / __qualname__ / __module__
+#
+# hashlib_extra9 and hashlib_extra3 cover __name__ for md5, sha1, sha256.
+# No prior spec covers sha3_256 or shake_256 __name__ / __qualname__ / __module__.
+# On Python 3.12+ macOS with OpenSSL backend these are 'openssl_sha3_256' and
+# 'openssl_shake_256', both living in the '_hashlib' C extension module.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra13.sha3_shake_names:
+  kind: python_call_eq
+  category: identity
+  id_prefix: name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sha3_256_name,     sha3_256.__name__.__eq__,       ["openssl_sha3_256"],  true]
+    - [sha3_256_qualname, sha3_256.__qualname__.__eq__,    ["openssl_sha3_256"],  true]
+    - [shake_256_name,    shake_256.__name__.__eq__,       ["openssl_shake_256"], true]
+    - [shake_256_qualname, shake_256.__qualname__.__eq__,  ["openssl_shake_256"], true]
+
+# ---------------------------------------------------------------------------
+# sha3_256 and shake_256 __module__ == '_hashlib'
+#
+# On OpenSSL-backed CPython 3.12 both SHA3 and SHAKE constructors are provided
+# by the _hashlib C extension, not by the pure-Python _sha3 fallback module.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra13.sha3_256.module:
+  description: "hashlib.sha3_256.__module__ == '_hashlib' — OpenSSL-backed SHA3 lives in _hashlib"
+  category: identity
+  kind: python_call_eq
+  function: sha3_256.__module__.__eq__
+  args: ["_hashlib"]
+  expected: true
+
+invariant hashlib_extra13.shake_256.module:
+  description: "hashlib.shake_256.__module__ == '_hashlib' — OpenSSL-backed SHAKE lives in _hashlib"
+  category: identity
+  kind: python_call_eq
+  function: shake_256.__module__.__eq__
+  args: ["_hashlib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Additional constructor __name__ checks — sha512, sha384, sha224
+#
+# hashlib_extra9 covers md5/sha1/sha256 in a table. No prior spec covers
+# sha512/__name__, sha384/__name__, or sha224/__name__.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra13.sha_variant_names:
+  kind: python_call_eq
+  category: identity
+  id_prefix: varname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sha512, sha512.__name__.__eq__, ["openssl_sha512"], true]
+    - [sha384, sha384.__name__.__eq__, ["openssl_sha384"], true]
+    - [sha224, sha224.__name__.__eq__, ["openssl_sha224"], true]
+
+# ---------------------------------------------------------------------------
+# shake_256.digest_size == 0 — XOF produces variable-length output
+#
+# All fixed-length hash functions have digest_size > 0. shake_256 (and
+# shake_128) are XOF (eXtendable Output Functions) and report digest_size == 0.
+# No prior hashlib spec verifies this property.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra13.shake_256.digest_size_zero:
+  description: "hashlib.shake_256().digest_size == 0 — SHAKE-256 is an XOF with variable output length"
+  category: properties
+  kind: python_call_eq
+  function: shake_256
+  args: []
+  method: digest_size.__eq__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hashlib.new() factory for sha3_256 name and sha384/sha224 digest_size
+#
+# hashlib_extra7 covers new('sha256').name, new('md5').name.
+# hashlib_extra10 covers new('sha3_224'), new('sha3_384') digest_size and name.
+# hashlib_extra11 covers new('sha3_512').
+# hashlib_extra12 covers new('sha512').digest_size and new('sha1').digest_size.
+# NOT yet covered: new('sha3_256').name, new('sha384').digest_size,
+#                  new('sha224').digest_size.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra13.new.sha3_256.name_attr:
+  description: "hashlib.new('sha3_256').name == 'sha3_256' — canonical name from new() factory"
+  category: new_factory
+  kind: python_call_eq
+  function: new
+  args: ["sha3_256"]
+  method: name.__eq__
+  method_args: ["sha3_256"]
+  expected: true
+
+invariant hashlib_extra13.new.sha384.digest_size:
+  description: "hashlib.new('sha384').digest_size == 48 — SHA-384 via new() factory produces 48 bytes"
+  category: new_factory
+  kind: python_call_eq
+  function: new
+  args: ["sha384"]
+  method: digest_size.__eq__
+  method_args: [48]
+  expected: true
+
+invariant hashlib_extra13.new.sha224.digest_size:
+  description: "hashlib.new('sha224').digest_size == 28 — SHA-224 via new() factory produces 28 bytes"
+  category: new_factory
+  kind: python_call_eq
+  function: new
+  args: ["sha224"]
+  method: digest_size.__eq__
+  method_args: [28]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed — sha3_224 membership
+#
+# hashlib_extra12 covers shake_128 membership. hashlib_extra11 covers sha3_384
+# and shake_256. sha3_224 is guaranteed since Python 3.6+ but no prior spec
+# asserts it as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra13.algorithms_guaranteed.contains_sha3_224:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha3_224') == True — guaranteed since Python 3.6+"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha3_224"]
+  expected: true
