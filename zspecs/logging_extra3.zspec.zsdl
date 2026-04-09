@@ -1,0 +1,162 @@
+spec: logging_extra3
+version: ">=3.9"
+backend: python_module(logging)
+
+docs: https://docs.python.org/3/library/logging.html
+
+provenance:
+  derived_from:
+    - "Python 3 logging documentation — https://docs.python.org/3/library/logging.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/logging/__init__.py"
+    - "logging.zspec.zsdl — covers level constants, getLevelName, level ordering, Logger/Handler/Formatter/Filter/StreamHandler/FileHandler/LogRecord/LoggerAdapter __name__, getLogger/__name__, basicConfig/__name__, getLevelName/__name__, makeLogRecord/__name__, disable/__name__"
+    - "logging_extra.zspec.zsdl — covers level constants (DEBUG/INFO/WARNING/ERROR/CRITICAL/NOTSET), WARN/FATAL aliases, Logger/Handler/Formatter/Filter/LogRecord/Manager __name__, Logger.__module__, getLogger/__name__, getLevelName forward lookups (DEBUG/INFO/WARNING)"
+    - "logging_extra2.zspec.zsdl — covers StreamHandler/__name__, FileHandler/__name__, StreamHandler/__module__, FileHandler/__module__, level constants (DEBUG/INFO/WARNING/ERROR/CRITICAL), basicConfig/__name__, makeLogRecord/__name__, captureWarnings/__name__, disable/__name__, addLevelName/__name__"
+  notes:
+    - "This spec adds: __module__ for Handler, Formatter, Filter, LogRecord, NullHandler; NullHandler/__name__, NullHandler/__module__; Logger method names (debug, info, warning, error, critical, exception, log); getLogger/__module__; basicConfig/__module__; level constants module (__class__.__name__ == 'int') for DEBUG/INFO/WARNING/ERROR/CRITICAL/NOTSET; LogRecord attribute class names."
+    - "logging.NullHandler.__name__ == 'NullHandler' — defined in logging/__init__.py."
+    - "logging.NullHandler.__module__ == 'logging'."
+    - "logging.Handler.__module__ == 'logging'."
+    - "logging.Formatter.__module__ == 'logging'."
+    - "logging.Filter.__module__ == 'logging'."
+    - "logging.LogRecord.__module__ == 'logging'."
+    - "Logger instance methods: debug, info, warning, error, critical, exception, log."
+    - "All level constants (DEBUG, INFO, WARNING, ERROR, CRITICAL, NOTSET) have __class__.__name__ == 'int'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# NullHandler — class name and module
+# (not covered by logging_extra or logging_extra2)
+# ---------------------------------------------------------------------------
+
+invariant logging_extra3.NullHandler.name:
+  description: "logging.NullHandler.__name__ == 'NullHandler'"
+  category: class_names
+  kind: python_call_eq
+  function: NullHandler.__name__.__eq__
+  args: ["NullHandler"]
+  expected: true
+
+invariant logging_extra3.NullHandler.module:
+  description: "logging.NullHandler.__module__ == 'logging'"
+  category: class_modules
+  kind: python_call_eq
+  function: NullHandler.__module__.__eq__
+  args: ["logging"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __module__ checks for Handler, Formatter, Filter, LogRecord
+# (logging_extra2 covers StreamHandler and FileHandler __module__)
+# ---------------------------------------------------------------------------
+
+table logging_extra3.class_modules:
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: cmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [handler,   Handler.__module__.__eq__,   ["logging"], true]
+    - [formatter, Formatter.__module__.__eq__,  ["logging"], true]
+    - [filter,    Filter.__module__.__eq__,    ["logging"], true]
+    - [logrecord, LogRecord.__module__.__eq__,  ["logging"], true]
+
+# ---------------------------------------------------------------------------
+# Logger method names — verify each instance method exists with correct __name__
+# These are accessed via the Logger class, not a live instance, using __func__ names.
+# We verify via Logger.<method>.__name__ == '<method>'.
+# ---------------------------------------------------------------------------
+
+table logging_extra3.Logger.method_names:
+  kind: python_call_eq
+  category: method_names
+  id_prefix: mname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [debug,     Logger.debug.__name__.__eq__,     ["debug"],     true]
+    - [info,      Logger.info.__name__.__eq__,      ["info"],      true]
+    - [warning,   Logger.warning.__name__.__eq__,   ["warning"],   true]
+    - [error,     Logger.error.__name__.__eq__,     ["error"],     true]
+    - [critical,  Logger.critical.__name__.__eq__,  ["critical"],  true]
+    - [exception, Logger.exception.__name__.__eq__,  ["exception"], true]
+    - [log,       Logger.log.__name__.__eq__,       ["log"],       true]
+
+# ---------------------------------------------------------------------------
+# Level constants — __class__.__name__ == 'int' (type identity for each constant)
+# (logging.zspec.zsdl and logging_extra use .__eq__ for value; this checks type)
+# ---------------------------------------------------------------------------
+
+table logging_extra3.level_types:
+  kind: python_call_eq
+  category: level_types
+  id_prefix: ltype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [notset,   NOTSET.__class__.__name__.__eq__,   ["int"], true]
+    - [debug,    DEBUG.__class__.__name__.__eq__,    ["int"], true]
+    - [info,     INFO.__class__.__name__.__eq__,     ["int"], true]
+    - [warning,  WARNING.__class__.__name__.__eq__,  ["int"], true]
+    - [error,    ERROR.__class__.__name__.__eq__,    ["int"], true]
+    - [critical, CRITICAL.__class__.__name__.__eq__, ["int"], true]
+
+# ---------------------------------------------------------------------------
+# Logger and LogRecord class identity — __module__ already checked above;
+# verify __name__ for Logger and LogRecord (not in logging_extra3 table yet,
+# and logging_extra covers Logger but not LogRecord __module__).
+# ---------------------------------------------------------------------------
+
+invariant logging_extra3.Logger.module:
+  description: "logging.Logger.__module__ == 'logging' (Logger.__module__ from logging_extra covers only this class)"
+  category: class_modules
+  kind: python_call_eq
+  function: Logger.__module__.__eq__
+  args: ["logging"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getLogger function __module__
+# (logging_extra and logging_extra2 check __name__; this checks __module__)
+# ---------------------------------------------------------------------------
+
+invariant logging_extra3.getLogger.module:
+  description: "logging.getLogger.__module__ == 'logging'"
+  category: function_modules
+  kind: python_call_eq
+  function: getLogger.__module__.__eq__
+  args: ["logging"]
+  expected: true
+
+invariant logging_extra3.basicConfig.module:
+  description: "logging.basicConfig.__module__ == 'logging'"
+  category: function_modules
+  kind: python_call_eq
+  function: basicConfig.__module__.__eq__
+  args: ["logging"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getLevelName and getLogger are callable — verify via __class__.__name__
+# ---------------------------------------------------------------------------
+
+invariant logging_extra3.getLevelName.class_is_function:
+  description: "logging.getLevelName.__class__.__name__ == 'function'"
+  category: function_types
+  kind: python_call_eq
+  function: getLevelName.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant logging_extra3.getLogger.class_is_function:
+  description: "logging.getLogger.__class__.__name__ == 'function'"
+  category: function_types
+  kind: python_call_eq
+  function: getLogger.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true

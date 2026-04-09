@@ -1,0 +1,186 @@
+spec: os_path_extra3
+version: ">=3.9"
+backend: python_module(os.path)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.path.html — Python os.path documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py"
+  notes:
+    - "This spec extends os_path.zspec.zsdl, os_path_extra.zspec.zsdl, os_path_extra2.zspec.zsdl."
+    - "Focus: __module__ and __name__ attributes for os.path functions not yet covered."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+table os_path_extra3.function_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [join,       join.__module__.__eq__,       ["posixpath"], true]
+    - [split,      split.__module__.__eq__,      ["posixpath"], true]
+    - [splitext,   splitext.__module__.__eq__,   ["posixpath"], true]
+    - [basename,   basename.__module__.__eq__,   ["posixpath"], true]
+    - [dirname,    dirname.__module__.__eq__,    ["posixpath"], true]
+    - [normpath,   normpath.__module__.__eq__,   ["posixpath"], true]
+    - [abspath,    abspath.__module__.__eq__,    ["posixpath"], true]
+    - [expanduser, expanduser.__module__.__eq__, ["posixpath"], true]
+
+table os_path_extra3.function_names:
+  kind: python_call_eq
+  category: names
+  id_prefix: name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [abspath,    abspath.__name__.__eq__,    ["abspath"],    true]
+    - [expanduser, expanduser.__name__.__eq__, ["expanduser"], true]
+    - [normcase,   normcase.__name__.__eq__,   ["normcase"],   true]
+    - [samefile,   samefile.__name__.__eq__,   ["samefile"],   true]
+    - [getatime,   getatime.__name__.__eq__,   ["getatime"],   true]
+    - [getmtime,   getmtime.__name__.__eq__,   ["getmtime"],   true]
+    - [getsize,    getsize.__name__.__eq__,    ["getsize"],    true]
+
+invariant os_path_extra3.normcase.posix_identity:
+  description: "os.path.normcase('/tmp/foo') == '/tmp/foo' on POSIX (normcase is identity)"
+  category: normcase
+  kind: python_call_eq
+  function: normcase
+  args: ["/tmp/foo"]
+  expected: "/tmp/foo"
+
+# ---------------------------------------------------------------------------
+# splitext('/path/to/file.txt') — component-wise
+# os_path.zspec.zsdl covers 'hello.py', 'a.b.c', 'noext', '.hidden'.
+# os_path_extra.zspec.zsdl covers '/a/b/c.txt' and '/a/b/c.tar.gz'.
+# We add '/path/to/file.txt' as a new distinct path not present in prior specs.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra3.splitext.path_to_file_base:
+  description: "splitext('/path/to/file.txt')[0] == '/path/to/file'"
+  category: splitext
+  kind: python_call_eq
+  function: splitext
+  args: ["/path/to/file.txt"]
+  method: __getitem__
+  method_args: [0]
+  expected: "/path/to/file"
+
+invariant os_path_extra3.splitext.path_to_file_ext:
+  description: "splitext('/path/to/file.txt')[1] == '.txt'"
+  category: splitext
+  kind: python_call_eq
+  function: splitext
+  args: ["/path/to/file.txt"]
+  method: __getitem__
+  method_args: [1]
+  expected: ".txt"
+
+# ---------------------------------------------------------------------------
+# split('/a/b/c') — component-wise
+# os_path.zspec.zsdl covers '/foo/bar.py' and '/foo/'.
+# We add '/a/b/c' (three-component path, no extension).
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra3.split.abc_head:
+  description: "split('/a/b/c')[0] == '/a/b'"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["/a/b/c"]
+  method: __getitem__
+  method_args: [0]
+  expected: "/a/b"
+
+invariant os_path_extra3.split.abc_tail:
+  description: "split('/a/b/c')[1] == 'c'"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["/a/b/c"]
+  method: __getitem__
+  method_args: [1]
+  expected: "c"
+
+# ---------------------------------------------------------------------------
+# basename and dirname for '/a/b/c' (no extension)
+# os_path.zspec.zsdl: basename('/foo/bar.py'), dirname('/foo/bar.py').
+# os_path_extra.zspec.zsdl: basename/dirname for '/a/b/c.txt'.
+# We add '/a/b/c' (no extension) as a new distinct vector.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra3.basename.abc:
+  description: "basename('/a/b/c') == 'c'"
+  category: basename
+  kind: python_call_eq
+  function: basename
+  args: ["/a/b/c"]
+  expected: "c"
+
+invariant os_path_extra3.dirname.abc:
+  description: "dirname('/a/b/c') == '/a/b'"
+  category: dirname
+  kind: python_call_eq
+  function: dirname
+  args: ["/a/b/c"]
+  expected: "/a/b"
+
+# ---------------------------------------------------------------------------
+# isabs('/tmp') and isabs('tmp') — single-component paths
+# os_path.zspec.zsdl: isabs('/foo') and isabs('foo').
+# os_path_extra2: isabs('/foo/bar') and isabs('foo/bar').
+# We add '/tmp' (single-component absolute) and 'tmp' (single-component relative).
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra3.isabs.tmp_absolute:
+  description: "isabs('/tmp') == True — single-component absolute path"
+  category: isabs
+  kind: python_call_eq
+  function: isabs
+  args: ["/tmp"]
+  expected: true
+
+invariant os_path_extra3.isabs.tmp_relative:
+  description: "isabs('tmp') == False — single-component relative path"
+  category: isabs
+  kind: python_call_eq
+  function: isabs
+  args: ["tmp"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# commonprefix(['/a/b', '/a/c']) — character-level prefix
+# os_path.zspec.zsdl covers ['/foo/bar','/foo/baz'] -> '/foo/ba'.
+# We add ['/a/b', '/a/c']; the character-level common prefix is '/a/'
+# because after '/a/' the characters diverge ('b' vs 'c').
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra3.commonprefix.ab_ac:
+  description: "commonprefix(['/a/b', '/a/c']) == '/a/' — character-level, stops at diverging char"
+  category: commonprefix
+  kind: python_call_eq
+  function: commonprefix
+  args: [["/a/b", "/a/c"]]
+  expected: "/a/"
+
+# ---------------------------------------------------------------------------
+# commonpath — three-path vector not yet covered
+# os_path_extra2 covers commonpath(['/a/b','/a/c']) == '/a' and single path.
+# We add a three-path vector.
+# ---------------------------------------------------------------------------
+
+invariant os_path_extra3.commonpath.three_paths:
+  description: "commonpath(['/a/b/c', '/a/b/d', '/a/b/e']) == '/a/b'"
+  category: commonpath
+  kind: python_call_eq
+  function: commonpath
+  args: [["/a/b/c", "/a/b/d", "/a/b/e"]]
+  expected: "/a/b"

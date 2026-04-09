@@ -11,16 +11,20 @@ provenance:
     - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
   not_derived_from:
     - "CPython source: Lib/gzip.py"
-    - "gzip.zspec.zsdl — covers compress/decompress roundtrips, output lengths, BadGzipFile errors, BadGzipFile.__name__"
+    - "gzip.zspec.zsdl — covers compress/decompress roundtrips via pre-computed hex, compress output length checks, BadGzipFile error cases, BadGzipFile.__name__"
     - "gzip_extra.zspec.zsdl — covers GzipFile.__name__, GzipFile.__module__, BadGzipFile.__module__, BadGzipFile base OSError, compress/decompress/open __name__, compress module, compress(b'hello') returns bytes, roundtrip"
   notes:
-    - "This spec extends gzip_extra.zspec.zsdl with coverage not already present there."
+    - "Extends gzip_extra.zspec.zsdl with coverage not already present in gzip.zspec.zsdl or gzip_extra.zspec.zsdl."
     - "compress(b'') returns bytes of length 20 — a valid gzip stream for empty input."
     - "The gzip stream for empty input starts with magic bytes 0x1f8b (gzip header)."
     - "decompress(compress(b'')) == b'' — roundtrip of empty bytes produces empty bytes."
     - "GzipFile.__bases__[0].__name__ == 'BaseStream' — GzipFile inherits from io.BaseStream in CPython."
     - "open.__module__ == 'gzip' — the open function is defined in the gzip module."
     - "decompress.__module__ == 'gzip' — the decompress function is defined in the gzip module."
+    - "BadGzipFile is a subclass of OSError; OSError is a subclass of Exception."
+    - "BadGzipFile.__mro__[2].__name__ == 'Exception' — third MRO entry for BadGzipFile is Exception."
+    - "GzipFile.__module__ == 'gzip' — already in gzip_extra but repeated here for cross-check via __mro__."
+    - "GzipFile has read, write, close, peek, and readable methods."
     - "All expected values verified by running Python 3.12 gzip module on macOS/Darwin 25.4.0, 2026-04-09."
   created_at: "2026-04-09T00:00:00Z"
 
@@ -31,7 +35,7 @@ error_model:
   codes: {}
 
 # ---------------------------------------------------------------------------
-# compress(b'') — returns bytes
+# compress(b'') — returns bytes, length, hex identity
 # ---------------------------------------------------------------------------
 
 invariant gzip_extra2.compress.empty_returns_bytes:
@@ -54,7 +58,7 @@ invariant gzip_extra2.compress.empty_output_length:
   expected: 20
 
 invariant gzip_extra2.compress.empty_starts_with_magic:
-  description: "compress(b'')[:2].hex() starts with gzip magic 1f8b"
+  description: "compress(b'', compresslevel=9).hex() == known hex for empty gzip stream"
   category: compress
   kind: python_call_eq
   function: compress
@@ -67,7 +71,7 @@ invariant gzip_extra2.compress.empty_starts_with_magic:
 # ---------------------------------------------------------------------------
 
 invariant gzip_extra2.decompress.empty_roundtrip_length:
-  description: "decompress(compress(b'', level=9)) == b'' — roundtrip of empty bytes; result length == 0"
+  description: "decompress(compress(b'', level=9)) has length 0 — roundtrip of empty bytes"
   category: roundtrip
   kind: python_call_eq
   function: decompress
@@ -75,8 +79,18 @@ invariant gzip_extra2.decompress.empty_roundtrip_length:
   method: __len__
   expected: 0
 
+invariant gzip_extra2.decompress.empty_roundtrip_eq:
+  description: "decompress of empty gzip stream == b'' — roundtrip identity"
+  category: roundtrip
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ff03000000000000000000"}]
+  method: __eq__
+  method_args: [!ascii ""]
+  expected: true
+
 # ---------------------------------------------------------------------------
-# GzipFile — base class
+# GzipFile — base class and module
 # ---------------------------------------------------------------------------
 
 invariant gzip_extra2.GzipFile.base_class_name:
@@ -89,7 +103,7 @@ invariant gzip_extra2.GzipFile.base_class_name:
   expected: "BaseStream"
 
 # ---------------------------------------------------------------------------
-# open() and decompress() — module checks
+# open() and decompress() — __module__ checks
 # ---------------------------------------------------------------------------
 
 invariant gzip_extra2.open.module:
@@ -107,3 +121,42 @@ invariant gzip_extra2.decompress.module:
   function: decompress.__module__.__eq__
   args: ["gzip"]
   expected: true
+
+# ---------------------------------------------------------------------------
+# BadGzipFile — error hierarchy
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra2.BadGzipFile.mro_oserror:
+  description: "BadGzipFile.__mro__[1].__name__ == 'OSError' — second MRO entry is OSError"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BadGzipFile.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "OSError"
+
+invariant gzip_extra2.BadGzipFile.mro_exception:
+  description: "BadGzipFile.__mro__[2].__name__ == 'Exception' — third MRO entry is Exception"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BadGzipFile.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# GzipFile method names
+# ---------------------------------------------------------------------------
+
+table gzip_extra2.GzipFile.method_names:
+  kind: python_call_eq
+  category: method_names
+  id_prefix: method
+
+  columns: [id, function, args, expected]
+  rows:
+    - [read,     GzipFile.read.__name__.__eq__,     ["read"],     true]
+    - [write,    GzipFile.write.__name__.__eq__,    ["write"],    true]
+    - [close,    GzipFile.close.__name__.__eq__,    ["close"],    true]
+    - [readable, GzipFile.readable.__name__.__eq__, ["readable"], true]
+    - [peek,     GzipFile.peek.__name__.__eq__,     ["peek"],     true]

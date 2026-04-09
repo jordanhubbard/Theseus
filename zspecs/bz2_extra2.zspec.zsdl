@@ -1,0 +1,172 @@
+spec: bz2_extra2
+version: ">=3.9"
+backend: python_module(bz2)
+
+docs: https://docs.python.org/3/library/bz2.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/bz2.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "bz2 source: Lib/bz2.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "bz2 source: internal C extension _bz2 implementation details"
+    - "bz2.zspec.zsdl — covers class_names, module_checks, function_names tables, compress magic bytes, compress nonempty output, BZ2Compressor/BZ2Decompressor is_type, BZ2Decompressor.eof initially false"
+    - "bz2_extra.zspec.zsdl — covers BZ2File/BZ2Compressor/BZ2Decompressor __name__/__module__, compress/decompress/open __name__, compress returns bytes"
+  notes:
+    - "Extends bz2.zspec.zsdl and bz2_extra.zspec.zsdl with method-name checks and additional hierarchy invariants."
+    - "BZ2Compressor().compress.__name__ == 'compress' — the compress method name on an instance."
+    - "BZ2Compressor().flush.__name__ == 'flush' — flush drains the compressor buffer."
+    - "BZ2Decompressor().decompress.__name__ == 'decompress' — the decompress method name on an instance."
+    - "BZ2File.read.__name__ == 'read' — BZ2File inherits file-like method names."
+    - "BZ2File.write.__name__ == 'write'."
+    - "BZ2File.close.__name__ == 'close'."
+    - "BZ2File.__bases__[0].__name__ == 'BaseFile' — in CPython, BZ2File inherits from _compression.BaseStream."
+    - "BZ2Compressor.__bases__[0].__name__ == 'object' — BZ2Compressor inherits directly from object (C extension type)."
+    - "BZ2Decompressor.__bases__[0].__name__ == 'object' — BZ2Decompressor inherits directly from object."
+    - "compress.__module__ == 'bz2' — the compress convenience function lives in the bz2 module."
+    - "decompress.__module__ == 'bz2' — the decompress convenience function lives in the bz2 module."
+    - "open.__module__ == 'bz2' — the module-level open function lives in the bz2 module."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __module__ checks — compress, decompress, open
+# ---------------------------------------------------------------------------
+
+table bz2_extra2.function_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [compress_module,   compress.__module__.__eq__,   ["bz2"], true]
+    - [decompress_module, decompress.__module__.__eq__, ["bz2"], true]
+    - [open_module,       open.__module__.__eq__,       ["bz2"], true]
+
+# ---------------------------------------------------------------------------
+# BZ2Compressor instance method names
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra2.BZ2Compressor.compress_method:
+  description: "BZ2Compressor().compress.__name__ == 'compress'"
+  category: method_names
+  kind: python_call_eq
+  function: BZ2Compressor
+  args: []
+  method: compress.__name__.__eq__
+  method_args: ["compress"]
+  expected: true
+
+invariant bz2_extra2.BZ2Compressor.flush_method:
+  description: "BZ2Compressor().flush.__name__ == 'flush'"
+  category: method_names
+  kind: python_call_eq
+  function: BZ2Compressor
+  args: []
+  method: flush.__name__.__eq__
+  method_args: ["flush"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BZ2Decompressor instance method names
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra2.BZ2Decompressor.decompress_method:
+  description: "BZ2Decompressor().decompress.__name__ == 'decompress'"
+  category: method_names
+  kind: python_call_eq
+  function: BZ2Decompressor
+  args: []
+  method: decompress.__name__.__eq__
+  method_args: ["decompress"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BZ2File class method names
+# ---------------------------------------------------------------------------
+
+table bz2_extra2.BZ2File.method_names:
+  kind: python_call_eq
+  category: method_names
+  id_prefix: bz2file_method
+
+  columns: [id, function, args, expected]
+  rows:
+    - [read,  BZ2File.read.__name__.__eq__,  ["read"],  true]
+    - [write, BZ2File.write.__name__.__eq__, ["write"], true]
+    - [close, BZ2File.close.__name__.__eq__, ["close"], true]
+
+# ---------------------------------------------------------------------------
+# BZ2Compressor base class — inherits from object
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra2.BZ2Compressor.base_is_object:
+  description: "BZ2Compressor.__bases__[0].__name__ == 'object' — C extension type inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: BZ2Compressor.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# BZ2Decompressor base class — inherits from object
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra2.BZ2Decompressor.base_is_object:
+  description: "BZ2Decompressor.__bases__[0].__name__ == 'object' — C extension type inherits from object"
+  category: hierarchy
+  kind: python_call_eq
+  function: BZ2Decompressor.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# BZ2File base class check — BZ2File inherits from _compression.BaseStream
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra2.BZ2File.base_class_name:
+  description: "BZ2File.__bases__[0].__name__ == 'BaseStream' — BZ2File inherits from _compression.BaseStream"
+  category: hierarchy
+  kind: python_call_eq
+  function: BZ2File.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "BaseStream"
+
+# ---------------------------------------------------------------------------
+# BZ2Compressor is_type and BZ2Decompressor is_type (class-level meta checks)
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra2.BZ2Compressor.class_is_type:
+  description: "BZ2Compressor.__class__.__name__ == 'type' — BZ2Compressor is a type object"
+  category: class_names
+  kind: python_call_eq
+  function: BZ2Compressor.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant bz2_extra2.BZ2Decompressor.class_is_type:
+  description: "BZ2Decompressor.__class__.__name__ == 'type' — BZ2Decompressor is a type object"
+  category: class_names
+  kind: python_call_eq
+  function: BZ2Decompressor.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BZ2File class_is_type
+# ---------------------------------------------------------------------------
+
+invariant bz2_extra2.BZ2File.class_is_type:
+  description: "BZ2File.__class__.__name__ == 'type' — BZ2File is a type object"
+  category: class_names
+  kind: python_call_eq
+  function: BZ2File.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true

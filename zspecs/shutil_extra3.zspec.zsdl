@@ -1,0 +1,187 @@
+spec: shutil_extra3
+version: ">=3.9"
+backend: python_module(shutil)
+
+docs: https://docs.python.org/3/library/shutil.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/shutil.html — Python shutil module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/shutil.py"
+    - "shutil.zspec.zsdl — covers function_names table, Error/__name__, SameFileError/__name__, disk_usage/_fields/total_positive/free_nonneg, which_nonexistent, archive_formats_is_list/count, unpack_formats_count, COPY_BUFSIZE"
+    - "shutil_extra.zspec.zsdl — covers function __name__ invariants for copy/copy2/copyfile/copyfileobj/copytree/rmtree/move/make_archive/unpack_archive/disk_usage/which, copy.__module__, get_archive_formats/get_unpack_formats returns_list, Error.__name__/base OSError"
+    - "shutil_extra2.zspec.zsdl — covers copy2/copyfileobj/which/disk_usage/make_archive/unpack_archive/get_archive_formats __name__; which/make_archive/unpack_archive __module__; disk_usage total/used/free type == int"
+  notes:
+    - "This spec extends shutil.zspec.zsdl, shutil_extra.zspec.zsdl, and shutil_extra2.zspec.zsdl with coverage not already present."
+    - "Focus: __module__ checks for copy, copy2, copyfile, copytree, rmtree that were NOT covered in prior specs."
+    - "ExecError is a shutil exception class (alias of Error in CPython >= 3.12; previously a distinct class)."
+    - "disk_usage result class name: shutil.disk_usage('/') returns a named tuple whose __class__.__name__ is 'usage'."
+    - "SameFileError.__bases__[0].__name__ == 'Error' — SameFileError inherits from shutil.Error."
+    - "get_archive_formats.__module__ == 'shutil'; get_unpack_formats.__module__ == 'shutil'."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __module__ checks — functions not already covered in prior specs
+# shutil_extra.zspec.zsdl covers copy.__module__
+# shutil_extra2.zspec.zsdl covers which/make_archive/unpack_archive __module__
+# We add copy2, copyfile, copytree, rmtree, move, disk_usage, get_archive_formats,
+#             get_unpack_formats
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra3.function_modules.copy2:
+  description: "shutil.copy2.__module__ == 'shutil'"
+  category: function_modules
+  kind: python_call_eq
+  function: copy2.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+invariant shutil_extra3.function_modules.copyfile:
+  description: "shutil.copyfile.__module__ == 'shutil'"
+  category: function_modules
+  kind: python_call_eq
+  function: copyfile.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+invariant shutil_extra3.function_modules.copytree:
+  description: "shutil.copytree.__module__ == 'shutil'"
+  category: function_modules
+  kind: python_call_eq
+  function: copytree.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+invariant shutil_extra3.function_modules.rmtree:
+  description: "shutil.rmtree.__module__ == 'shutil'"
+  category: function_modules
+  kind: python_call_eq
+  function: rmtree.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+invariant shutil_extra3.function_modules.move:
+  description: "shutil.move.__module__ == 'shutil'"
+  category: function_modules
+  kind: python_call_eq
+  function: move.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+invariant shutil_extra3.function_modules.disk_usage:
+  description: "shutil.disk_usage.__module__ == 'shutil'"
+  category: function_modules
+  kind: python_call_eq
+  function: disk_usage.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+invariant shutil_extra3.function_modules.get_archive_formats:
+  description: "shutil.get_archive_formats.__module__ == 'shutil'"
+  category: function_modules
+  kind: python_call_eq
+  function: get_archive_formats.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+invariant shutil_extra3.function_modules.get_unpack_formats:
+  description: "shutil.get_unpack_formats.__module__ == 'shutil'"
+  category: function_modules
+  kind: python_call_eq
+  function: get_unpack_formats.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# disk_usage — result class name
+# The named tuple type returned by disk_usage is named 'usage' in CPython.
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra3.disk_usage.result_class_name:
+  description: "shutil.disk_usage('/').__class__.__name__ == 'usage'"
+  category: disk_usage
+  kind: python_call_eq
+  function: disk_usage
+  args: ["/"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["usage"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SameFileError — class hierarchy
+# shutil.zspec.zsdl and shutil_extra.zspec.zsdl verify SameFileError.__name__
+# We add: SameFileError.__bases__[0].__name__ == 'Error' (inherits from shutil.Error)
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra3.SameFileError.base_is_Error:
+  description: "shutil.SameFileError.__bases__[0].__name__ == 'Error' — SameFileError inherits from shutil.Error"
+  category: exceptions
+  kind: python_call_eq
+  function: SameFileError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Error"
+
+# ---------------------------------------------------------------------------
+# ExecError — class name and module
+# shutil.ExecError is an exception class defined in shutil.
+# In CPython >= 3.12 it is an alias of shutil.Error; __name__ may be 'Error'.
+# We test what is always true: ExecError.__module__ == 'shutil' and it is a type.
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra3.ExecError.module:
+  description: "shutil.ExecError.__module__ == 'shutil'"
+  category: exceptions
+  kind: python_call_eq
+  function: ExecError.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+invariant shutil_extra3.ExecError.is_type:
+  description: "shutil.ExecError.__class__.__name__ == 'type' — ExecError is a class object"
+  category: exceptions
+  kind: python_call_eq
+  function: ExecError.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Error — module check (complementing the name/base checks in prior specs)
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra3.Error.module:
+  description: "shutil.Error.__module__ == 'shutil'"
+  category: exceptions
+  kind: python_call_eq
+  function: Error.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __name__ for get_archive_formats and get_unpack_formats
+# These were covered in shutil_extra2 but NOT via the function approach with
+# args []; add the __module__ cross-check as a standalone for completeness.
+# Re-verify identity: get_archive_formats is callable (has __call__)
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra3.get_archive_formats.is_callable:
+  description: "shutil.get_archive_formats is callable — hasattr(__call__)"
+  category: archive_formats
+  kind: python_call_eq
+  function: get_archive_formats.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant shutil_extra3.get_unpack_formats.is_callable:
+  description: "shutil.get_unpack_formats is callable — type is function"
+  category: unpack_formats
+  kind: python_call_eq
+  function: get_unpack_formats.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true

@@ -1,0 +1,224 @@
+spec: pathlib_extra5
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/"
+    - "pathlib.zspec.zsdl — covers PurePosixPath name/stem/suffix/suffixes/parts/parent/joinpath/str/as_posix/relative_to/is_absolute"
+    - "pathlib_pure.zspec.zsdl — covers PurePosixPath/__name__, PureWindowsPath/__name__, PurePath/__name__, module attrs, class hierarchy, Windows/POSIX components, match, drive, anchor"
+    - "pathlib_extra.zspec.zsdl — covers Path/__name__, Path/__module__, PurePosixPath/__module__, component access for /a/b/c, parent, truediv, parts tuple for /a/b/c, is_absolute for /a/b/c"
+    - "pathlib_extra2.zspec.zsdl — covers suffixes, with_name, with_suffix, joinpath multi-arg, is_absolute, parents"
+    - "pathlib_extra3.zspec.zsdl — covers PosixPath/__name__, WindowsPath/__name__, PosixPath/__module__, WindowsPath/__module__, PurePath/__module__, Path/PosixPath base classes"
+    - "pathlib_extra4.zspec.zsdl — covers Path method __name__ checks: iterdir, glob, rglob, open, stat, mkdir, exists, is_file, is_dir, is_symlink, read_text, write_text; WindowsPath.__bases__[0]"
+  notes:
+    - "This spec does NOT duplicate any invariant already in the prior 5 pathlib specs."
+    - "Focus: concrete Path('.').resolve().__class__.__name__, Path('/tmp').__class__.__name__, Path('a/b/c').parts == ('a','b','c') (relative), Path('a/b/c').parts.__class__.__name__ == 'tuple', Path('/a/b').root == '/', Path('a/b').root == '', Path('/a/b/c').anchor == '/', Path('file.tar.gz').suffixes == ['.tar','.gz'], Path('file.tar.gz').stem == 'file.tar', with_name class name, with_suffix class name, relative_to result == Path('b'), division result class name, expanduser class name."
+    - "Path('.').resolve().__class__.__name__ is 'PosixPath' on POSIX or 'WindowsPath' on Windows; we test membership in the set ('PosixPath','WindowsPath') via __class__.__name__ in ('PosixPath','WindowsPath')."
+    - "Path('a/b/c').parts returns a tuple — tested via __class__.__name__ == 'tuple'."
+    - "Path('/a/b').root == '/' and Path('a/b').root == '' — root is empty for relative paths."
+    - "Path('/a/b/c').anchor == '/' — anchor is the concatenation of drive and root."
+    - "Path('file.tar.gz').suffixes == ['.tar', '.gz'] on a concrete Path object."
+    - "Path('file.tar.gz').stem == 'file.tar' — stem drops only the last extension."
+    - "Path('a/b/c').with_name('d').__class__.__name__ is 'PosixPath' on POSIX."
+    - "Path('a/b').with_suffix('.txt').__class__.__name__ is 'PosixPath' on POSIX."
+    - "Path('/a/b').relative_to('/a') == Path('b') — tested via __str__."
+    - "Path('a/b') / 'c' == Path('a/b/c') — tested via __str__."
+    - "Path('~').expanduser().__class__.__name__ is 'PosixPath' on POSIX."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Path('a/b/c').parts — relative path parts tuple
+# pathlib.zspec.zsdl has parts for '/usr/bin/python' (absolute).
+# pathlib_extra.zspec.zsdl has parts for '/a/b/c' (absolute).
+# We add 'a/b/c' (relative — no leading '/'), where parts == ('a','b','c').
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.parts.relative_abc:
+  description: "Path('a/b/c').parts == ('a', 'b', 'c') — relative path, no leading root component"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["a/b/c"]
+  method: parts
+  expected: ["a", "b", "c"]
+
+invariant pathlib_extra5.parts.class_name_is_tuple:
+  description: "Path('a/b/c').parts.__class__.__name__ == 'tuple'"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["a/b/c"]
+  method: parts.__class__.__name__.__eq__
+  method_args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# root attribute — '/' for absolute paths, '' for relative
+# pathlib.zspec.zsdl covers PurePosixPath root for '/etc/passwd' via table.
+# None of the prior specs test Path.root directly on 'a/b' or '/a/b' paths
+# using the concrete Path class.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.root.absolute_slash:
+  description: "Path('/a/b').root == '/' — absolute path has root '/'"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["/a/b"]
+  method: root
+  expected: "/"
+
+invariant pathlib_extra5.root.relative_empty:
+  description: "Path('a/b').root == '' — relative path has empty root"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["a/b"]
+  method: root
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# anchor attribute — concatenation of drive + root
+# On POSIX there is no drive, so anchor == root.
+# None of the prior specs test Path.anchor on a concrete Path instance.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.anchor.absolute:
+  description: "Path('/a/b/c').anchor == '/' — absolute POSIX path anchor is '/'"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["/a/b/c"]
+  method: anchor
+  expected: "/"
+
+invariant pathlib_extra5.anchor.relative_empty:
+  description: "Path('a/b').anchor == '' — relative path anchor is empty"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["a/b"]
+  method: anchor
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# suffixes and stem — on a concrete Path object with two extensions
+# pathlib.zspec.zsdl covers suffixes for PurePosixPath('archive.tar.gz').
+# pathlib_extra2 covers PurePosixPath suffixes via method chain.
+# We add Path('file.tar.gz').suffixes and Path('file.tar.gz').stem using Path.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.suffixes.file_tar_gz:
+  description: "Path('file.tar.gz').suffixes == ['.tar', '.gz']"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["file.tar.gz"]
+  method: suffixes
+  expected: [".tar", ".gz"]
+
+invariant pathlib_extra5.stem.file_tar_gz:
+  description: "Path('file.tar.gz').stem == 'file.tar' — stem drops only the last extension"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["file.tar.gz"]
+  method: stem
+  expected: "file.tar"
+
+# ---------------------------------------------------------------------------
+# with_name — class name of the result (PosixPath on POSIX)
+# pathlib_extra2 covers with_name string value via __str__.
+# We test the __class__.__name__ of the result object.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.with_name.result_class_name:
+  description: "Path('a/b/c').with_name('d').__class__.__name__ == 'PosixPath' on POSIX"
+  category: manipulation
+  kind: python_call_eq
+  function: Path
+  args: ["a/b/c"]
+  method: with_name
+  method_args: ["d"]
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["PosixPath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# with_suffix — class name of the result
+# pathlib_extra2 covers with_suffix string value.
+# We test __class__.__name__ of the result object.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.with_suffix.result_class_name:
+  description: "Path('a/b').with_suffix('.txt').__class__.__name__ == 'PosixPath' on POSIX"
+  category: manipulation
+  kind: python_call_eq
+  function: Path
+  args: ["a/b"]
+  method: with_suffix
+  method_args: [".txt"]
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["PosixPath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# relative_to — result string value on a concrete Path
+# pathlib.zspec.zsdl covers PurePosixPath.relative_to('/etc', ...) == 'passwd'.
+# We verify Path('/a/b').relative_to('/a') via __str__ == 'b'.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.relative_to.str_value:
+  description: "Path('/a/b').relative_to('/a') via __str__ == 'b'"
+  category: manipulation
+  kind: python_call_eq
+  function: Path
+  args: ["/a/b"]
+  method: relative_to
+  method_args: ["/a"]
+  method_chain: __str__
+  expected: "b"
+
+# ---------------------------------------------------------------------------
+# Division operator on concrete Path — Path('a/b') / 'c' == Path('a/b/c')
+# pathlib.zspec.zsdl covers PurePosixPath('/usr') / 'bin/python'.
+# pathlib_extra covers PurePosixPath('/a/b') / 'c'.
+# We verify the result string for Path('a/b') / 'c' (relative, concrete Path).
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.truediv.relative_path:
+  description: "Path('a/b') / 'c' as string == 'a/b/c' (relative concrete path)"
+  category: joining
+  kind: python_call_eq
+  function: Path
+  args: ["a/b"]
+  method: __truediv__
+  method_args: ["c"]
+  method_chain: __str__
+  expected: "a/b/c"
+
+# ---------------------------------------------------------------------------
+# expanduser — class name of the result
+# Path('~').expanduser() returns a concrete PosixPath (or WindowsPath).
+# We verify __class__.__name__ == 'PosixPath' on POSIX.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra5.expanduser.result_class_name:
+  description: "Path('~').expanduser().__class__.__name__ == 'PosixPath' on POSIX"
+  category: manipulation
+  kind: python_call_eq
+  function: Path
+  args: ["~"]
+  method: expanduser
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["PosixPath"]
+  expected: true
