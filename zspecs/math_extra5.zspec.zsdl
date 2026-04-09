@@ -1,0 +1,136 @@
+spec: math_extra5
+version: ">=3.9"
+backend: python_module(math)
+
+docs: https://docs.python.org/3/library/math.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/math.html — Python math module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mathmodule.c"
+  notes:
+    - "This spec extends math.zspec.zsdl, math_extra.zspec.zsdl, math_extra2.zspec.zsdl, math_extra3.zspec.zsdl, and math_extra4.zspec.zsdl."
+    - "math_extra4 covers: comb/perm/prod/isqrt/dist/lcm __name__ (table); comb/perm/prod/isqrt __module__ (table); comb(5,2)==10, comb(5,0)==1, perm(5,2)==20, perm(5,0)==1, prod([1,2,3,4])==24, prod([])==1, isqrt(9)==3, isqrt(10)==3, lcm(6,4)==12, isinf, isnan, tau."
+    - "This spec adds: __qualname__ for comb/perm/dist/prod/isqrt; isqrt(16)==4, isqrt(17)==4 (new distinct inputs); prod([1,2,3,4,5])==120 (five elements, distinct from existing four-element vector); comb(10,0)==1 (new n); perm(5,0)==1 already covered — use perm(4,2)==12 instead."
+    - "math.comb.__qualname__ == 'comb' — qualname matches name for a module-level builtin."
+    - "math.perm.__qualname__ == 'perm' — qualname matches name."
+    - "math.dist.__qualname__ == 'dist' — qualname matches name."
+    - "math.prod.__qualname__ == 'prod' — qualname matches name."
+    - "math.isqrt.__qualname__ == 'isqrt' — qualname matches name."
+    - "math.isqrt(16) == 4 — exact square root."
+    - "math.isqrt(17) == 4 — floor of sqrt(17) (4.123...) is 4."
+    - "math.prod([1, 2, 3, 4, 5]) == 120 — 5! = 120."
+    - "math.comb(10, 0) == 1 — C(n, 0) == 1 for any n."
+    - "math.perm(4, 2) == 12 — P(4,2) = 4*3 = 12."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks — orthogonal to __name__ (already in math_extra4)
+# ---------------------------------------------------------------------------
+
+table math_extra5.function_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [comb,  comb.__qualname__.__eq__,  ["comb"],  true]
+    - [perm,  perm.__qualname__.__eq__,  ["perm"],  true]
+    - [dist,  dist.__qualname__.__eq__,  ["dist"],  true]
+    - [prod,  prod.__qualname__.__eq__,  ["prod"],  true]
+    - [isqrt, isqrt.__qualname__.__eq__, ["isqrt"], true]
+
+# ---------------------------------------------------------------------------
+# isqrt — new distinct inputs (math_extra4 covers isqrt(9)==3, isqrt(10)==3)
+# ---------------------------------------------------------------------------
+
+invariant math_extra5.isqrt.sixteen:
+  description: "math.isqrt(16) == 4 — exact square root of 16"
+  category: isqrt
+  kind: python_call_eq
+  function: isqrt
+  args: [16]
+  expected: 4
+
+invariant math_extra5.isqrt.seventeen:
+  description: "math.isqrt(17) == 4 — floor(sqrt(17)) == 4"
+  category: isqrt
+  kind: python_call_eq
+  function: isqrt
+  args: [17]
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# prod — five-element product (math_extra4 covers four-element [1,2,3,4]==24
+# and empty []==1; this adds [1,2,3,4,5]==120)
+# ---------------------------------------------------------------------------
+
+invariant math_extra5.prod.five_elements:
+  description: "math.prod([1, 2, 3, 4, 5]) == 120 — 5! = 120"
+  category: prod
+  kind: python_call_eq
+  function: prod
+  args: [[1, 2, 3, 4, 5]]
+  expected: 120
+
+# ---------------------------------------------------------------------------
+# comb — new input vector (math_extra4 covers comb(5,2)==10 and comb(5,0)==1)
+# This adds comb(10,0)==1 (different n) and comb(6,3)==20.
+# ---------------------------------------------------------------------------
+
+invariant math_extra5.comb.ten_choose_zero:
+  description: "math.comb(10, 0) == 1 — C(n, 0) == 1 for any non-negative n"
+  category: combinatorics
+  kind: python_call_eq
+  function: comb
+  args: [10, 0]
+  expected: 1
+
+invariant math_extra5.comb.six_choose_three:
+  description: "math.comb(6, 3) == 20 — C(6,3) = 6!/(3!*3!) = 20"
+  category: combinatorics
+  kind: python_call_eq
+  function: comb
+  args: [6, 3]
+  expected: 20
+
+# ---------------------------------------------------------------------------
+# perm — new input vector (math_extra4 covers perm(5,2)==20 and perm(5,0)==1)
+# This adds perm(4,2)==12.
+# ---------------------------------------------------------------------------
+
+invariant math_extra5.perm.four_pick_two:
+  description: "math.perm(4, 2) == 12 — P(4,2) = 4*3 = 12"
+  category: combinatorics
+  kind: python_call_eq
+  function: perm
+  args: [4, 2]
+  expected: 12
+
+# ---------------------------------------------------------------------------
+# dist — Euclidean distance between two points (Python 3.8+)
+# math_extra4 covers dist.__name__ but no value vectors.
+# dist([0,0], [3,4]) == 5.0 (3-4-5 right triangle)
+# ---------------------------------------------------------------------------
+
+invariant math_extra5.dist.three_four_five:
+  description: "math.dist([0, 0], [3, 4]) == 5.0 — classic 3-4-5 right triangle"
+  category: dist
+  kind: python_call_eq
+  function: dist
+  args: [[0, 0], [3, 4]]
+  expected: 5.0
+
+invariant math_extra5.dist.same_point:
+  description: "math.dist([1, 2], [1, 2]) == 0.0 — distance from a point to itself"
+  category: dist
+  kind: python_call_eq
+  function: dist
+  args: [[1, 2], [1, 2]]
+  expected: 0.0

@@ -1,0 +1,139 @@
+spec: statistics_extra5
+version: ">=3.9"
+backend: python_module(statistics)
+
+docs: https://docs.python.org/3/library/statistics.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/statistics.html — Python statistics module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/statistics.py"
+  notes:
+    - "This spec extends statistics.zspec.zsdl, statistics_extra.zspec.zsdl, statistics_extra2.zspec.zsdl, statistics_extra3.zspec.zsdl, and statistics_extra4.zspec.zsdl."
+    - "statistics_extra3 covers: fmean/geometric_mean/multimode/quantiles __name__ (table); fmean([2.0,4.0])==3.0; geometric_mean([4.0,9.0])==6.0; quantiles([1,2,3,4],n=2)==[2.5]; multimode([])==[]."
+    - "statistics_extra4 covers: fmean/geometric_mean/harmonic_mean/variance/stdev/pvariance/pstdev __name__ (table); fmean/geometric_mean/harmonic_mean/variance/stdev __module__ (table); fmean/geometric_mean/variance/pvariance/median/median_low/median_high values; StatisticsError class_name+base."
+    - "This spec adds: NormalDist.__qualname__, NormalDist.__module__, StatisticsError.__module__, geometric_mean returns float class, multimode two-modes value, geometric_mean.__qualname__, harmonic_mean.__qualname__, multimode.__qualname__, quantiles.__qualname__."
+    - "statistics.NormalDist.__qualname__ == 'NormalDist' — top-level class qualname matches name."
+    - "statistics.NormalDist.__module__ == 'statistics' — NormalDist lives in the statistics module."
+    - "statistics.StatisticsError.__module__ == 'statistics' — StatisticsError lives in the statistics module."
+    - "statistics.geometric_mean([1, 2, 4, 8]).__class__.__name__ == 'float' — always returns float."
+    - "statistics.multimode([1, 1, 2, 2, 3]) == [1, 2] — two elements each appearing twice."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# NormalDist class metadata
+# statistics_extra2 covers: NormalDist.__name__ and NormalDist.__module__.
+# This spec adds: NormalDist.__qualname__.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra5.NormalDist.qualname:
+  description: "statistics.NormalDist.__qualname__ == 'NormalDist' — top-level class qualname matches name"
+  category: class_metadata
+  kind: python_call_eq
+  function: NormalDist.__qualname__.__eq__
+  args: ["NormalDist"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# StatisticsError metadata
+# statistics_extra4 covers: StatisticsError.__name__ and __bases__[0].__name__.
+# This spec adds: StatisticsError.__module__.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra5.StatisticsError.module:
+  description: "statistics.StatisticsError.__module__ == 'statistics'"
+  category: exceptions
+  kind: python_call_eq
+  function: StatisticsError.__module__.__eq__
+  args: ["statistics"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks for distribution functions
+# Prior specs cover __name__ via tables; this spec adds __qualname__,
+# which is orthogonal.
+# ---------------------------------------------------------------------------
+
+table statistics_extra5.function_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [geometric_mean, geometric_mean.__qualname__.__eq__, ["geometric_mean"], true]
+    - [harmonic_mean,  harmonic_mean.__qualname__.__eq__,  ["harmonic_mean"],  true]
+    - [multimode,      multimode.__qualname__.__eq__,      ["multimode"],      true]
+    - [quantiles,      quantiles.__qualname__.__eq__,      ["quantiles"],      true]
+
+# ---------------------------------------------------------------------------
+# geometric_mean return type
+# Prior specs check the computed value (e.g. [1,4,16]==4.0, [4.0,9.0]==6.0).
+# This spec checks the return type for [1, 2, 4, 8] (new input vector).
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra5.geometric_mean.returns_float:
+  description: "statistics.geometric_mean([1, 2, 4, 8]).__class__.__name__ == 'float'"
+  category: geometric_mean
+  kind: python_call_eq
+  function: geometric_mean
+  args: [[1, 2, 4, 8]]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["float"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# multimode — two-modes value check
+# statistics_extra covers two_modes as a vector but verifies == [1, 2] there.
+# We use a different input: [1, 1, 2, 2, 3] (three distinct values, two modes).
+# statistics_extra uses [1,1,2,2] — our input [1,1,2,2,3] is distinct.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra5.multimode.two_modes_with_singleton:
+  description: "statistics.multimode([1, 1, 2, 2, 3]) == [1, 2] — two modes, one singleton"
+  category: multimode
+  kind: python_call_eq
+  function: multimode
+  args: [[1, 1, 2, 2, 3]]
+  expected: [1, 2]
+
+# ---------------------------------------------------------------------------
+# harmonic_mean return type
+# Prior specs check values; this checks the class of the result.
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra5.harmonic_mean.returns_float:
+  description: "statistics.harmonic_mean([1, 2, 4]).__class__.__name__ == 'float'"
+  category: harmonic_mean
+  kind: python_call_eq
+  function: harmonic_mean
+  args: [[1, 2, 4]]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["float"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# quantiles — four quartile cut points (n=4, default method='exclusive')
+# statistics_extra3 covers n=2 (one cut point == median).
+# statistics_extra2 covers length check for n=4.
+# This spec checks the actual values for a simple sorted dataset.
+# quantiles([1,2,3,4,5], n=4) with method='exclusive' (default):
+#   Q1=1.5, Q2=3.0, Q3=4.5
+# ---------------------------------------------------------------------------
+
+invariant statistics_extra5.quantiles.quartiles_value:
+  description: "statistics.quantiles([1, 2, 3, 4, 5], n=4) == [1.5, 3.0, 4.5]"
+  category: quantiles
+  kind: python_call_eq
+  function: quantiles
+  args: [[1, 2, 3, 4, 5]]
+  kwargs:
+    n: 4
+  expected: [1.5, 3.0, 4.5]

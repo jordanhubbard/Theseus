@@ -1,0 +1,117 @@
+spec: gc_extra5
+version: ">=3.9"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gc.html — Python gc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/gcmodule.c"
+  notes:
+    - "This spec extends gc.zspec.zsdl, gc_extra.zspec.zsdl, gc_extra2.zspec.zsdl, gc_extra3.zspec.zsdl, gc_extra4.zspec.zsdl."
+    - "gc_extra.zspec.zsdl covers: garbage.__class__.__name__=='list', callbacks class name (not explicitly), collect/get_threshold/get_count return types and lengths."
+    - "gc_extra3.zspec.zsdl covers: enable/disable/isenabled/get_count/get_threshold/get_objects __module__=='gc'; callbacks.__class__.__name__=='list'."
+    - "gc_extra4.zspec.zsdl covers: function __name__ table (enable, disable, isenabled, collect, get_count, get_threshold, set_threshold, get_objects, get_referrers, get_referents), debug constants table, isenabled returns bool, get_threshold/get_count return tuple of len 3, collect returns int."
+    - "This spec adds __module__ checks for gc functions not covered by gc_extra3: collect, set_threshold, get_referrers, get_referents, is_tracked, is_finalized, freeze, unfreeze, get_freeze_count."
+    - "gc.collect.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.set_threshold.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.get_referrers.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.get_referents.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.is_tracked.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.is_finalized.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.freeze.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.unfreeze.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.get_freeze_count.__module__ == 'gc' — C-level builtin function reports module 'gc'."
+    - "gc.garbage.__len__() == 0 — garbage list is empty in a normal interpreter run."
+    - "gc.callbacks.__len__() == 0 — no GC callbacks are registered by default."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __module__ checks — functions NOT covered by gc_extra3
+#
+# gc_extra3 covers: enable, disable, isenabled, get_count, get_threshold,
+# get_objects.  This spec adds: collect, set_threshold, get_referrers,
+# get_referents, is_tracked, is_finalized, freeze, unfreeze, get_freeze_count.
+# ---------------------------------------------------------------------------
+
+table gc_extra5.function_modules:
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [collect,         collect.__module__.__eq__,         ["gc"], true]
+    - [set_threshold,   set_threshold.__module__.__eq__,   ["gc"], true]
+    - [get_referrers,   get_referrers.__module__.__eq__,   ["gc"], true]
+    - [get_referents,   get_referents.__module__.__eq__,   ["gc"], true]
+    - [is_tracked,      is_tracked.__module__.__eq__,      ["gc"], true]
+    - [is_finalized,    is_finalized.__module__.__eq__,    ["gc"], true]
+    - [freeze,          freeze.__module__.__eq__,          ["gc"], true]
+    - [unfreeze,        unfreeze.__module__.__eq__,        ["gc"], true]
+    - [get_freeze_count, get_freeze_count.__module__.__eq__, ["gc"], true]
+
+# ---------------------------------------------------------------------------
+# garbage — initial length is 0 in a normal interpreter run
+# gc_extra covers: garbage.__class__.__name__ == 'list' (type check).
+# This spec adds: garbage.__len__() == 0 (length check — new vector).
+# ---------------------------------------------------------------------------
+
+invariant gc_extra5.garbage.initial_length:
+  description: "gc.garbage.__len__() == 0 — garbage list is empty in a normal run (no DEBUG_SAVEALL)"
+  category: garbage
+  kind: python_call_eq
+  function: garbage.__len__
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# callbacks — initial length is 0 when no callbacks are registered
+# gc_extra3 covers: callbacks.__class__.__name__ == 'list' (type check).
+# This spec adds: callbacks.__len__() == 0 (length check — new vector).
+# ---------------------------------------------------------------------------
+
+invariant gc_extra5.callbacks.initial_length:
+  description: "gc.callbacks.__len__() == 0 — no GC callbacks registered by default"
+  category: callbacks
+  kind: python_call_eq
+  function: callbacks.__len__
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# set_threshold.__name__ — standalone named invariant
+# gc_extra4 covers this in a table row; this provides a named invariant anchor
+# in the gc_extra5 namespace for cross-reference.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra5.set_threshold.name:
+  description: "gc.set_threshold.__name__ == 'set_threshold'"
+  category: function_names
+  kind: python_call_eq
+  function: set_threshold.__name__.__eq__
+  args: ["set_threshold"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_objects — class name check
+# gc_extra covers via get_objects().__class__.__name__.__eq__ form.
+# This provides a method-chain form for the same invariant in the gc_extra5 namespace.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra5.get_objects.return_class_name:
+  description: "gc.get_objects().__class__.__name__ == 'list'"
+  category: get_objects
+  kind: python_call_eq
+  function: get_objects
+  args: []
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["list"]
+  expected: true
