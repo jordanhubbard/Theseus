@@ -1,0 +1,129 @@
+spec: fcntl_extra2
+version: ">=3.9"
+backend: python_module(fcntl)
+
+docs: https://docs.python.org/3/library/fcntl.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/fcntl.html — Python fcntl module documentation"
+    - "POSIX.1-2017 — fcntl(2) system call specification (F_GETLK, F_SETLK, F_SETLKW)"
+    - "4.4BSD — flock(2) lock constants (LOCK_SH=1, LOCK_EX=2, LOCK_NB=4, LOCK_UN=8)"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/fcntlmodule.c"
+  notes:
+    - "This spec extends fcntl.zspec.zsdl and fcntl_extra.zspec.zsdl with new, non-duplicate invariants."
+    - "fcntl is a POSIX-only Unix module; it is NOT available on Windows."
+    - "fcntl.zspec.zsdl covers: __name__ for all four functions, LOCK_SH/EX/NB/UN values, F_GETFL/SETFL/GETFD/SETFD/FD_CLOEXEC type checks, LOCK_SH|LOCK_NB==5."
+    - "fcntl_extra.zspec.zsdl covers: same __name__ checks (as invariants), is_builtin checks for all four functions, LOCK_* type and value invariants."
+    - "New here: F_GETLK/F_SETLK/F_SETLKW type checks, __qualname__ for all four functions, FD_CLOEXEC value pin, LOCK_EX|LOCK_NB bitwise combination, LOCK_UN|LOCK_NB combination."
+    - "F_GETLK, F_SETLK, F_SETLKW are POSIX record-locking constants; exact int values are platform-specific."
+    - "FD_CLOEXEC == 1 on macOS and Linux (the close-on-exec flag occupies bit 0 of the fd flags word)."
+    - "LOCK_EX | LOCK_NB == 6 (2 | 4) — non-blocking exclusive lock."
+    - "LOCK_UN | LOCK_NB == 12 (8 | 4) — non-blocking unlock (rarely used but arithmetically defined)."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# F_GETLK, F_SETLK, F_SETLKW — POSIX record-locking constants (type checks)
+# fcntl.zspec.zsdl covers F_GETFL, F_SETFL, F_GETFD, F_SETFD, FD_CLOEXEC only.
+# ---------------------------------------------------------------------------
+
+invariant fcntl_extra2.F_GETLK.is_int:
+  description: "fcntl.F_GETLK is an int — get lock status constant"
+  category: constants
+  kind: python_call_eq
+  function: F_GETLK.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant fcntl_extra2.F_SETLK.is_int:
+  description: "fcntl.F_SETLK is an int — set lock (non-blocking) constant"
+  category: constants
+  kind: python_call_eq
+  function: F_SETLK.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant fcntl_extra2.F_SETLKW.is_int:
+  description: "fcntl.F_SETLKW is an int — set lock (blocking wait) constant"
+  category: constants
+  kind: python_call_eq
+  function: F_SETLKW.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# FD_CLOEXEC value pin
+# fcntl.zspec.zsdl checks FD_CLOEXEC is an int but does not pin its value.
+# FD_CLOEXEC == 1 on macOS and Linux (bit 0 of the fd-flags word).
+# ---------------------------------------------------------------------------
+
+invariant fcntl_extra2.FD_CLOEXEC.value:
+  description: "fcntl.FD_CLOEXEC == 1 — close-on-exec flag is bit 0 on macOS and Linux"
+  category: constants
+  kind: python_call_eq
+  function: FD_CLOEXEC.__eq__
+  args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# LOCK_* bitwise combinations — new vectors not in fcntl.zspec.zsdl
+# fcntl.zspec covers LOCK_SH | LOCK_NB == 5 only.
+# New: LOCK_EX | LOCK_NB == 6, LOCK_UN | LOCK_NB == 12.
+# ---------------------------------------------------------------------------
+
+invariant fcntl_extra2.constants.lock_ex_nb_combined:
+  description: "fcntl.LOCK_EX | fcntl.LOCK_NB == 6 — non-blocking exclusive lock (2|4)"
+  category: constants
+  kind: python_call_eq
+  function: LOCK_EX.__or__
+  args: [4]
+  expected: 6
+
+invariant fcntl_extra2.constants.lock_un_nb_combined:
+  description: "fcntl.LOCK_UN | fcntl.LOCK_NB == 12 — non-blocking unlock (8|4)"
+  category: constants
+  kind: python_call_eq
+  function: LOCK_UN.__or__
+  args: [4]
+  expected: 12
+
+# ---------------------------------------------------------------------------
+# LOCK_* constants table — __class__.__name__ as a table
+# fcntl_extra has these as individual invariants; here as a compact table.
+# This table format is new — no table existed for LOCK_* types in prior specs.
+# ---------------------------------------------------------------------------
+
+table fcntl_extra2.constants.lock_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: lock_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [LOCK_SH, LOCK_SH.__class__.__name__.__eq__, ["int"], true]
+    - [LOCK_EX, LOCK_EX.__class__.__name__.__eq__, ["int"], true]
+    - [LOCK_NB, LOCK_NB.__class__.__name__.__eq__, ["int"], true]
+    - [LOCK_UN, LOCK_UN.__class__.__name__.__eq__, ["int"], true]
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ attributes
+# fcntl.zspec.zsdl and fcntl_extra.zspec.zsdl cover __name__ but not __qualname__.
+# For C-level builtins, __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+table fcntl_extra2.function_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [fcntl, fcntl.__qualname__.__eq__, ["fcntl"], true]
+    - [ioctl, ioctl.__qualname__.__eq__, ["ioctl"], true]
+    - [flock, flock.__qualname__.__eq__, ["flock"], true]
+    - [lockf, lockf.__qualname__.__eq__, ["lockf"], true]

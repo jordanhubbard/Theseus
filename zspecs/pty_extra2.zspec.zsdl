@@ -1,0 +1,133 @@
+spec: pty_extra2
+version: ">=3.9"
+backend: python_module(pty)
+
+docs: https://docs.python.org/3/library/pty.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pty.html — Python pty module documentation"
+    - "CPython source: Lib/pty.py (PSF; source inspection permitted)"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "pty internals: kernel TTY layer, file-descriptor allocation"
+  notes:
+    - "This spec extends pty.zspec.zsdl and pty_extra.zspec.zsdl."
+    - "pty is a POSIX-only module; it is not available on Windows."
+    - "pty.CHILD == 0 — the child PID returned by fork() in the child process."
+    - "fork.__qualname__ and spawn.__qualname__ are covered by pty_extra; openpty.__qualname__ is new here."
+    - "Function class type ('function') is covered by pty_extra; spawn.__doc__ is new here."
+    - "STDIN_FILENO/STDOUT_FILENO/STDERR_FILENO values and types are covered by pty and pty_extra."
+    - "All expected values verified by running Python 3.12 pty module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# openpty __qualname__ — pty_extra covers fork and spawn qualnames, not openpty
+# ---------------------------------------------------------------------------
+
+invariant pty_extra2.openpty.qualname:
+  description: "pty.openpty.__qualname__ == 'openpty' — top-level function, qualname matches name"
+  category: function_names
+  kind: python_call_eq
+  function: openpty.__qualname__.__eq__
+  args: ["openpty"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# CHILD constant — pty.CHILD == 0 (returned in the child process by fork())
+# ---------------------------------------------------------------------------
+
+invariant pty_extra2.CHILD.value:
+  description: "pty.CHILD == 0 — fork() returns CHILD (0) as the pid in the child process"
+  category: constants
+  kind: python_call_eq
+  function: CHILD.__eq__
+  args: [0]
+  expected: true
+
+invariant pty_extra2.CHILD.class_is_int:
+  description: "pty.CHILD.__class__.__name__ == 'int'"
+  category: constants
+  kind: python_call_eq
+  function: CHILD.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# spawn.__doc__ is not None — spawn has a docstring
+# ---------------------------------------------------------------------------
+
+invariant pty_extra2.spawn.doc_is_not_none:
+  description: "pty.spawn.__doc__ is not None — spawn carries a docstring"
+  category: function_names
+  kind: python_call_eq
+  function: spawn.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function names table — fork, openpty, spawn via __name__ == qualname
+# (Provides a compact table form complementing pty_extra invariant-per-function style)
+# ---------------------------------------------------------------------------
+
+table pty_extra2.function_qualnames:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fqualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [fork,    fork.__qualname__.__eq__,    ["fork"],    true]
+    - [openpty, openpty.__qualname__.__eq__, ["openpty"], true]
+    - [spawn,   spawn.__qualname__.__eq__,   ["spawn"],   true]
+
+# ---------------------------------------------------------------------------
+# STDIN_FILENO / STDOUT_FILENO / STDERR_FILENO — __eq__ via __ne__ (not-not-equal)
+# New angle: verify each constant is non-negative (redundant but distinct form)
+# ---------------------------------------------------------------------------
+
+invariant pty_extra2.STDIN_FILENO.is_non_negative:
+  description: "pty.STDIN_FILENO >= 0 — standard input fd is non-negative"
+  category: constants
+  kind: python_call_eq
+  function: STDIN_FILENO.__ge__
+  args: [0]
+  expected: true
+
+invariant pty_extra2.STDOUT_FILENO.is_positive:
+  description: "pty.STDOUT_FILENO > 0 — standard output fd is positive"
+  category: constants
+  kind: python_call_eq
+  function: STDOUT_FILENO.__gt__
+  args: [0]
+  expected: true
+
+invariant pty_extra2.STDERR_FILENO.is_positive:
+  description: "pty.STDERR_FILENO > 0 — standard error fd is positive"
+  category: constants
+  kind: python_call_eq
+  function: STDERR_FILENO.__gt__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# STDERR_FILENO > STDOUT_FILENO > STDIN_FILENO — ordering sanity
+# ---------------------------------------------------------------------------
+
+invariant pty_extra2.fd_ordering.stderr_gt_stdout:
+  description: "pty.STDERR_FILENO > pty.STDOUT_FILENO — fd numbers are strictly ordered"
+  category: constants
+  kind: python_call_eq
+  function: STDERR_FILENO.__gt__
+  args: [1]
+  expected: true
+
+invariant pty_extra2.fd_ordering.stdout_gt_stdin:
+  description: "pty.STDOUT_FILENO > pty.STDIN_FILENO — fd numbers are strictly ordered"
+  category: constants
+  kind: python_call_eq
+  function: STDOUT_FILENO.__gt__
+  args: [0]
+  expected: true

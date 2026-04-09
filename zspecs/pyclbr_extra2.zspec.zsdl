@@ -1,0 +1,93 @@
+spec: pyclbr_extra2
+version: ">=3.9"
+backend: python_module(pyclbr)
+
+docs: https://docs.python.org/3/library/pyclbr.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pyclbr.html — Python pyclbr module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pyclbr.py"
+  notes:
+    - "This spec extends pyclbr.zspec.zsdl and pyclbr_extra.zspec.zsdl."
+    - "pyclbr (base) covers: readmodule/__name__, readmodule_ex/__name__ (table), Class/__name__, Function/__name__ (table), Class/__module__, Function/__module__ (table), readmodule/__class__/__name__, readmodule_ex/__class__/__name__ (type_checks table), readmodule('math') returns dict, readmodule_ex('math') returns dict, readmodule/__qualname__, readmodule_ex/__qualname__."
+    - "pyclbr_extra covers: readmodule/__name__, readmodule_ex/__name__ (table), readmodule/__module__, readmodule_ex/__module__ (table), Function/__name__, Function/__module__, Class/__name__, Class/__module__, Class/__bases__[0]/__name__=='_Object', Class/__bases__[0]/__module__=='pyclbr', Function/__bases__[0]/__name__=='_Object', Class/__class__/__name__=='type', Function/__class__/__name__=='type' (table)."
+    - "This spec adds: Class/__qualname__, Function/__qualname__, Function/__bases__[0]/__module__ (not in pyclbr_extra), readmodule('math') dict is empty (__len__==0), Class/__bases__.__len__==1, Function/__bases__.__len__==1."
+    - "Class.__qualname__ == 'Class' — top-level class; qualname equals name."
+    - "Function.__qualname__ == 'Function' — top-level class; qualname equals name."
+    - "Function.__bases__[0].__module__ == 'pyclbr' — pyclbr_extra only checks Class.__bases__[0].__module__; this adds the same check for Function."
+    - "readmodule('math').__len__() == 0 — math is a C extension; it has no Python-level class definitions visible to pyclbr."
+    - "Class.__bases__.__len__() == 1 — Class has exactly one base class (_Object)."
+    - "Function.__bases__.__len__() == 1 — Function has exactly one base class (_Object)."
+    - "All expected values verified by running Python 3.12 pyclbr module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class and Function __qualname__ — not covered in any prior pyclbr spec
+# ---------------------------------------------------------------------------
+
+table pyclbr_extra2.class_qualnames:
+  kind: python_call_eq
+  category: class_qualnames
+  id_prefix: qname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Class,    Class.__qualname__.__eq__,    ["Class"],    true]
+    - [Function, Function.__qualname__.__eq__, ["Function"], true]
+
+# ---------------------------------------------------------------------------
+# Function.__bases__[0].__module__ — pyclbr_extra covers Class but not Function
+# ---------------------------------------------------------------------------
+
+invariant pyclbr_extra2.Function.base_class_module:
+  description: "pyclbr.Function.__bases__[0].__module__ == 'pyclbr' — _Object is defined in pyclbr"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Function.__bases__.__getitem__
+  args: [0]
+  method: __module__.__eq__
+  method_args: ["pyclbr"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __bases__ length — Class and Function each have exactly one base class
+# Confirms the single-inheritance hierarchy through _Object.
+# ---------------------------------------------------------------------------
+
+invariant pyclbr_extra2.Class.bases_len:
+  description: "len(pyclbr.Class.__bases__) == 1 — Class has exactly one base class (_Object)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Class.__bases__.__len__
+  args: []
+  expected: 1
+
+invariant pyclbr_extra2.Function.bases_len:
+  description: "len(pyclbr.Function.__bases__) == 1 — Function has exactly one base class (_Object)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Function.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# readmodule('math') returns an empty dict — math is a C extension module
+# and has no Python-level class definitions visible to the pyclbr browser.
+# pyclbr (base) checks only that readmodule('math') returns a dict;
+# this spec adds the emptiness check (__len__ == 0).
+# ---------------------------------------------------------------------------
+
+invariant pyclbr_extra2.readmodule.math_is_empty:
+  description: "pyclbr.readmodule('math').__len__() == 0 — math has no Python-level classes"
+  category: runtime
+  kind: python_call_eq
+  function: readmodule
+  args: ["math"]
+  method: __len__
+  method_args: []
+  expected: 0

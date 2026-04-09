@@ -1,0 +1,132 @@
+spec: termios_extra2
+version: ">=3.9"
+backend: python_module(termios)
+
+docs: https://docs.python.org/3/library/termios.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/termios.html — Python termios module documentation"
+    - "POSIX.1-2017 — termios(3) terminal I/O interface specification"
+    - "IEEE Std 1003.1 — TCSANOW=0, TCSADRAIN=1, TCSAFLUSH=2 (standardized across macOS and Linux)"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/termios.c"
+  notes:
+    - "This spec extends termios.zspec.zsdl and termios_extra.zspec.zsdl."
+    - "termios is POSIX-only; it is not available on Windows. All invariants apply to macOS and Linux."
+    - "termios_extra covers tcgetattr/tcsetattr/tcdrain/tcflush/tcflow __name__ but NOT tcsendbreak; added here."
+    - "Function class type ('builtin_function_or_method') checks are new here — termios wraps C-level functions."
+    - "Function __qualname__ checks are new here."
+    - "termios_extra covers IFLAG/OFLAG/CFLAG/LFLAG/ISPEED/OSPEED/CC values but NOT their class checks; added here."
+    - "TCSANOW/TCSADRAIN/TCSAFLUSH compact value table is a new presentation form."
+    - "All expected values verified by running Python 3.12 termios module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# tcsendbreak __name__ — termios_extra covers tcgetattr/tcsetattr/tcdrain/tcflush/tcflow
+# but NOT tcsendbreak; this invariant is new
+# ---------------------------------------------------------------------------
+
+invariant termios_extra2.tcsendbreak.name:
+  description: "termios.tcsendbreak.__name__ == 'tcsendbreak'"
+  category: function_names
+  kind: python_call_eq
+  function: tcsendbreak.__name__.__eq__
+  args: ["tcsendbreak"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ checks — not in termios.zspec.zsdl or termios_extra.zspec.zsdl
+# ---------------------------------------------------------------------------
+
+table termios_extra2.function_qualnames:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fqualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [tcgetattr,   tcgetattr.__qualname__.__eq__,   ["tcgetattr"],   true]
+    - [tcsetattr,   tcsetattr.__qualname__.__eq__,   ["tcsetattr"],   true]
+    - [tcsendbreak, tcsendbreak.__qualname__.__eq__, ["tcsendbreak"], true]
+    - [tcdrain,     tcdrain.__qualname__.__eq__,     ["tcdrain"],     true]
+    - [tcflush,     tcflush.__qualname__.__eq__,     ["tcflush"],     true]
+    - [tcflow,      tcflow.__qualname__.__eq__,      ["tcflow"],      true]
+
+# ---------------------------------------------------------------------------
+# Function class type — termios functions are C-level builtins
+# (builtin_function_or_method is the type for functions from C extension modules)
+# ---------------------------------------------------------------------------
+
+table termios_extra2.function_types:
+  kind: python_call_eq
+  category: function_types
+  id_prefix: ftype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [tcgetattr,   tcgetattr.__class__.__name__.__eq__,   ["builtin_function_or_method"], true]
+    - [tcsetattr,   tcsetattr.__class__.__name__.__eq__,   ["builtin_function_or_method"], true]
+    - [tcsendbreak, tcsendbreak.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+    - [tcdrain,     tcdrain.__class__.__name__.__eq__,     ["builtin_function_or_method"], true]
+    - [tcflush,     tcflush.__class__.__name__.__eq__,     ["builtin_function_or_method"], true]
+    - [tcflow,      tcflow.__class__.__name__.__eq__,      ["builtin_function_or_method"], true]
+
+# ---------------------------------------------------------------------------
+# TCSANOW / TCSADRAIN / TCSAFLUSH — compact value table
+# (termios.zspec.zsdl has individual invariants; this table form is new)
+# ---------------------------------------------------------------------------
+
+table termios_extra2.tcsa_constants.values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: tcsa_value
+
+  columns: [id, function, args, expected]
+  rows:
+    - [TCSANOW,   TCSANOW.__eq__,   [0], true]
+    - [TCSADRAIN, TCSADRAIN.__eq__, [1], true]
+    - [TCSAFLUSH, TCSAFLUSH.__eq__, [2], true]
+
+# ---------------------------------------------------------------------------
+# Termios attribute-list index constants — class checks
+# termios_extra covers the VALUES (0..6) but not the CLASS checks; those are new here
+# ---------------------------------------------------------------------------
+
+table termios_extra2.index_constants.class_checks:
+  kind: python_call_eq
+  category: index_constants
+  id_prefix: idx_class
+
+  columns: [id, function, args, expected]
+  rows:
+    - [IFLAG,  IFLAG.__class__.__name__.__eq__,  ["int"], true]
+    - [OFLAG,  OFLAG.__class__.__name__.__eq__,  ["int"], true]
+    - [CFLAG,  CFLAG.__class__.__name__.__eq__,  ["int"], true]
+    - [LFLAG,  LFLAG.__class__.__name__.__eq__,  ["int"], true]
+    - [ISPEED, ISPEED.__class__.__name__.__eq__, ["int"], true]
+    - [OSPEED, OSPEED.__class__.__name__.__eq__, ["int"], true]
+    - [CC,     CC.__class__.__name__.__eq__,     ["int"], true]
+
+# ---------------------------------------------------------------------------
+# Ordering sanity — TCSANOW < TCSADRAIN < TCSAFLUSH
+# ---------------------------------------------------------------------------
+
+invariant termios_extra2.tcsa_ordering.now_lt_drain:
+  description: "termios.TCSANOW < termios.TCSADRAIN — TCSANOW(0) precedes TCSADRAIN(1)"
+  category: constants
+  kind: python_call_eq
+  function: TCSANOW.__lt__
+  args: [1]
+  expected: true
+
+invariant termios_extra2.tcsa_ordering.drain_lt_flush:
+  description: "termios.TCSADRAIN < termios.TCSAFLUSH — TCSADRAIN(1) precedes TCSAFLUSH(2)"
+  category: constants
+  kind: python_call_eq
+  function: TCSADRAIN.__lt__
+  args: [2]
+  expected: true

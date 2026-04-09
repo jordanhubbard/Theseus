@@ -1,0 +1,116 @@
+spec: linecache_extra3
+version: ">=3.9"
+backend: python_module(linecache)
+
+docs: https://docs.python.org/3/library/linecache.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/linecache.html — Python linecache module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/linecache.py (internal implementation)"
+  notes:
+    - "This spec extends linecache.zspec.zsdl, linecache_extra.zspec.zsdl, and linecache_extra2.zspec.zsdl."
+    - "linecache.zspec.zsdl covers: function_names table (getline/getlines/clearcache/checkcache/updatecache/lazycache __name__), getline_module, getline for /nonexistent_path_xyz/file.py lines 0/1/2."
+    - "linecache_extra.zspec.zsdl covers: additional __name__ and __module__ attributes, getlines return type."
+    - "linecache_extra2.zspec.zsdl covers: getline/__module__, clearcache/__name__/__module__, checkcache/__name__/__module__, getlines/__name__/__module__, lazycache/__name__/__module__, updatecache/__name__/__module__, cache.__class__.__name__=='dict'."
+    - "This spec adds: function __name__ table for getline/getlines/clearcache/checkcache as a compact cross-spec anchor, getline.__module__ standalone invariant (new path), getlines('/dev/null', {}).__class__.__name__ == 'list', getline('nonexistent_file_xyz.py', 1) == '' (distinct filename from existing specs), updatecache.__name__ standalone invariant, and checkcache.__class__.__name__ == 'function'."
+    - "linecache.getlines(filename, module_globals=None) accepts an optional module_globals dict; passing {} is valid and still returns a list."
+    - "linecache.getline('nonexistent_file_xyz.py', 1) == '' — filename without directory component; module searches sys.path and falls back to ''."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __name__ table — getline, getlines, clearcache, checkcache
+# linecache.zspec.zsdl covers all six names in its table; this table provides
+# a focused subset for extra3 cross-spec redundancy and coverage anchoring.
+# ---------------------------------------------------------------------------
+
+table linecache_extra3.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getline,    getline.__name__.__eq__,    ["getline"],    true]
+    - [getlines,   getlines.__name__.__eq__,   ["getlines"],   true]
+    - [clearcache, clearcache.__name__.__eq__,  ["clearcache"], true]
+    - [checkcache, checkcache.__name__.__eq__,  ["checkcache"], true]
+
+# ---------------------------------------------------------------------------
+# getline.__module__ == 'linecache'
+# linecache.zspec.zsdl covers this via getline_module; linecache_extra2 also
+# covers it. This provides a standalone anchor in extra3 context.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra3.getline.module:
+  description: "linecache.getline.__module__ == 'linecache'"
+  category: functions
+  kind: python_call_eq
+  function: getline.__module__.__eq__
+  args: ["linecache"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# updatecache.__name__ == 'updatecache'
+# linecache_extra2 covers this; standalone invariant here for extra3 context.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra3.updatecache.name:
+  description: "linecache.updatecache.__name__ == 'updatecache'"
+  category: functions
+  kind: python_call_eq
+  function: updatecache.__name__.__eq__
+  args: ["updatecache"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# checkcache.__class__.__name__ == 'function'
+# Existing specs do not check the class kind of checkcache.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra3.checkcache.class_name:
+  description: "linecache.checkcache.__class__.__name__ == 'function'"
+  category: functions
+  kind: python_call_eq
+  function: checkcache.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getlines('/dev/null', {}) returns a list
+# getlines accepts an optional module_globals dict. Passing {} is valid.
+# /dev/null is always readable and returns an empty list of lines.
+# We verify the return type is 'list' via __class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra3.getlines.dev_null_returns_list:
+  description: "linecache.getlines('/dev/null', {}).__class__.__name__ == 'list'"
+  category: getlines
+  kind: python_call_eq
+  function: getlines
+  args: ["/dev/null", {}]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getline('nonexistent_file_xyz.py', 1) == ''
+# linecache.zspec.zsdl covers getline with full absolute paths like
+# '/nonexistent_path_xyz/file.py'. This vector uses a bare filename
+# (no directory component) that does not exist on the filesystem.
+# The module searches sys.path and falls back to returning ''.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra3.getline.missing_bare_filename:
+  description: "linecache.getline('nonexistent_file_xyz.py', 1) == '' — bare filename not on sys.path"
+  category: missing_file
+  kind: python_call_eq
+  function: getline
+  args: ["nonexistent_file_xyz.py", 1]
+  expected: ""

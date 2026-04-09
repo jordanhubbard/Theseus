@@ -1,0 +1,126 @@
+spec: grp_extra2
+version: ">=3.9"
+backend: python_module(grp)
+
+docs: https://docs.python.org/3/library/grp.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/grp.html — Python grp module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/grpmodule.c"
+  notes:
+    - "This spec extends grp.zspec.zsdl and grp_extra.zspec.zsdl with new, non-duplicate invariants."
+    - "grp is a POSIX-only Unix module; it is available on macOS and Linux but NOT on Windows."
+    - "struct_group is a C-level struct-sequence type (not a namedtuple); it does NOT have a _fields attribute."
+    - "Instead of _fields, C struct-sequence types expose __match_args__ (Python 3.10+) and n_sequence_fields."
+    - "struct_group.__match_args__ is a tuple of 4 strings: ('gr_name', 'gr_passwd', 'gr_gid', 'gr_mem')."
+    - "struct_group.n_unnamed_fields == 0 — all four fields are named (no anonymous tail fields)."
+    - "Individual __match_args__ positions: index 0 == 'gr_name', 1 == 'gr_passwd', 2 == 'gr_gid', 3 == 'gr_mem'."
+    - "getgrall(), getgrgid(), getgrnam() all have non-None __doc__ strings (C-level docstrings are present)."
+    - "getgrall().__len__() >= 1 is NOT tested here because group-database size is system-dependent."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct_group.__match_args__ — individual field names by index
+# grp_extra covers: is tuple, len==4, __contains__ for all 4 fields.
+# New here: each field by positional index via __getitem__.
+# ---------------------------------------------------------------------------
+
+invariant grp_extra2.struct_group.match_args_0:
+  description: "grp.struct_group.__match_args__[0] == 'gr_name' — first positional field"
+  category: match_args
+  kind: python_call_eq
+  function: struct_group.__match_args__.__getitem__
+  args: [0]
+  expected: "gr_name"
+
+invariant grp_extra2.struct_group.match_args_1:
+  description: "grp.struct_group.__match_args__[1] == 'gr_passwd' — second positional field"
+  category: match_args
+  kind: python_call_eq
+  function: struct_group.__match_args__.__getitem__
+  args: [1]
+  expected: "gr_passwd"
+
+invariant grp_extra2.struct_group.match_args_2:
+  description: "grp.struct_group.__match_args__[2] == 'gr_gid' — third positional field (group id)"
+  category: match_args
+  kind: python_call_eq
+  function: struct_group.__match_args__.__getitem__
+  args: [2]
+  expected: "gr_gid"
+
+invariant grp_extra2.struct_group.match_args_3:
+  description: "grp.struct_group.__match_args__[3] == 'gr_mem' — fourth positional field (member list)"
+  category: match_args
+  kind: python_call_eq
+  function: struct_group.__match_args__.__getitem__
+  args: [3]
+  expected: "gr_mem"
+
+# ---------------------------------------------------------------------------
+# struct_group.n_unnamed_fields == 0
+# C struct-sequence types may have unnamed tail fields; struct_group has none.
+# grp.zspec.zsdl and grp_extra.zspec.zsdl do not cover n_unnamed_fields.
+# ---------------------------------------------------------------------------
+
+invariant grp_extra2.struct_group.n_unnamed_fields:
+  description: "grp.struct_group.n_unnamed_fields == 0 — no anonymous tail fields"
+  category: struct
+  kind: python_call_eq
+  function: struct_group.n_unnamed_fields.__eq__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ attributes
+# grp.zspec.zsdl and grp_extra.zspec.zsdl cover __name__ but not __qualname__.
+# For C-level builtins, __qualname__ == __name__ (no class scoping).
+# ---------------------------------------------------------------------------
+
+table grp_extra2.function_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getgrnam, getgrnam.__qualname__.__eq__, ["getgrnam"], true]
+    - [getgrgid, getgrgid.__qualname__.__eq__, ["getgrgid"], true]
+    - [getgrall, getgrall.__qualname__.__eq__, ["getgrall"], true]
+
+# ---------------------------------------------------------------------------
+# getgrall() — result is a list whose items are struct_group instances
+# New vector: element class name check (not covered in prior specs).
+# We call getgrall() and inspect the class of the first element.
+# This is safe only if the group database is non-empty (always true on POSIX).
+# ---------------------------------------------------------------------------
+
+invariant grp_extra2.getgrall.item_class:
+  description: "getgrall()[0].__class__.__name__ == 'struct_group' — elements are struct_group objects"
+  category: behavior
+  kind: python_call_eq
+  function: getgrall
+  args: []
+  method: __getitem__
+  method_args: [0]
+  expected: "struct_group"
+
+# ---------------------------------------------------------------------------
+# struct_group.__bases__ — struct_group inherits from tuple
+# C struct-sequence types are tuple subclasses.
+# ---------------------------------------------------------------------------
+
+invariant grp_extra2.struct_group.bases_getitem:
+  description: "grp.struct_group.__bases__[0].__name__ == 'tuple' — struct_group is a tuple subclass"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: struct_group.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "tuple"
