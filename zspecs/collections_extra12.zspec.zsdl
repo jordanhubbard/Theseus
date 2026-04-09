@@ -1,0 +1,194 @@
+spec: collections_extra12
+version: ">=3.9"
+backend: python_module(collections)
+
+docs: https://docs.python.org/3/library/collections.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html — Python collections documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+    - "CPython source: Modules/_collectionsmodule.c"
+  notes:
+    - "This spec extends collections.zspec.zsdl and prior extras through collections_extra11.zspec.zsdl."
+    - "collections_extra11 covers: ChainMap.maps.__class__.__name__=='list'; ChainMap.get() present/absent; ChainMap.__contains__ present/absent; UserDict/UserList/UserString instance __class__.__name__; UserString.data value equality; UserList.data.__len__ and UserDict.data.__len__; ChainMap single-map __len__; UserDict.__len__."
+    - "NOT yet covered as invariants: UserString.__add__ string concatenation result; UserList.__add__ list concatenation result; UserDict.__getitem__ for present key; namedtuple._make alternative constructor; deque.popleft()."
+    - "UserString.__add__('suffix') returns a new UserString whose .data equals the concatenated string. No prior spec tests UserString.__add__ as a value invariant."
+    - "UserList.__add__([4,5]) returns a new UserList whose .data holds the concatenated list. No prior spec tests UserList.__add__."
+    - "UserDict({'a':42}).__getitem__('a') returns 42. No prior spec tests UserDict instance __getitem__."
+    - "namedtuple._make(iterable) is an alternative class constructor — documented but not yet tested as an invariant."
+    - "deque.popleft() removes and returns the leftmost element — no prior spec tests the returned value."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# UserString.__add__ — string concatenation
+#
+# collections_extra9 covers UserString('hello').data.__class__.__name__ == 'str'.
+# collections_extra11 covers UserString('hello').data.__eq__('hello') and
+# UserString('hello').__class__.__name__ == 'UserString'.
+# No prior spec tests UserString.__add__, which concatenates the string and
+# returns a new UserString. The result's .data attribute holds the concatenated
+# string value.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra12.UserString.add_data_value:
+  description: "UserString('hello').__add__(' world').data.__eq__('hello world') — concatenation result data value"
+  category: user_string_ops
+  kind: python_call_eq
+  function: UserString
+  args: ["hello"]
+  method: __add__
+  method_args: [" world"]
+  method_chain: data.__eq__
+  method_chain_args: ["hello world"]
+  expected: true
+
+invariant collections_extra12.UserString.add_class_name:
+  description: "UserString('hello').__add__(' world').__class__.__name__ == 'UserString' — concat returns UserString"
+  category: user_string_ops
+  kind: python_call_eq
+  function: UserString
+  args: ["hello"]
+  method: __add__
+  method_args: [" world"]
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["UserString"]
+  expected: true
+
+invariant collections_extra12.UserString.add_len:
+  description: "UserString('ab').__add__('cd').__len__() == 4 — concatenated UserString has combined length"
+  category: user_string_ops
+  kind: python_call_eq
+  function: UserString
+  args: ["ab"]
+  method: __add__
+  method_args: ["cd"]
+  method_chain: __len__
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# UserList.__add__ — list concatenation
+#
+# collections_extra9 covers UserList([1,2,3]).data.__class__.__name__ == 'list'
+# and UserList([1,2,3]).__len__() == 3. No prior spec tests UserList.__add__,
+# which concatenates and returns a new UserList. The result's .data holds the
+# full concatenated list.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra12.UserList.add_len:
+  description: "UserList([1,2,3]).__add__([4,5]).__len__() == 5 — concatenated UserList has combined length"
+  category: user_list_ops
+  kind: python_call_eq
+  function: UserList
+  args: [[1, 2, 3]]
+  method: __add__
+  method_args: [[4, 5]]
+  method_chain: __len__
+  expected: 5
+
+invariant collections_extra12.UserList.add_class_name:
+  description: "UserList([1,2,3]).__add__([4,5]).__class__.__name__ == 'UserList' — result is still a UserList"
+  category: user_list_ops
+  kind: python_call_eq
+  function: UserList
+  args: [[1, 2, 3]]
+  method: __add__
+  method_args: [[4, 5]]
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["UserList"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UserDict.__getitem__ — value retrieval for present key
+#
+# No prior spec tests UserDict instance __getitem__ for a present key.
+# collections_extra10 covers UserDict.__contains__ for present and absent keys.
+# UserDict({'a': 42}).__getitem__('a') == 42 — retrieves the stored value.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra12.UserDict.getitem_present:
+  description: "UserDict({'a': 42}).__getitem__('a') == 42 — present key returns stored value"
+  category: user_dict_ops
+  kind: python_call_eq
+  function: UserDict
+  args: [{"a": 42}]
+  method: __getitem__
+  method_args: ["a"]
+  expected: 42
+
+# ---------------------------------------------------------------------------
+# namedtuple._make — alternative constructor from an iterable
+#
+# collections_namedtuple.zspec covers _asdict(), _fields, __call__, __getitem__,
+# __len__, and __class__.__name__ on namedtuple instances. No prior spec tests
+# the _make classmethod as an alternative constructor.
+# namedtuple('Point', ['x','y'])._make([10, 20])[0] == 10.
+# namedtuple('Point', ['x','y'])._make([10, 20])[1] == 20.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra12.namedtuple.make_first_field:
+  description: "namedtuple('Point', ['x','y'])._make([10, 20])[0] == 10 — _make constructs from iterable, first field"
+  category: namedtuple_make
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: _make
+  method_args: [[10, 20]]
+  method_chain: __getitem__
+  method_chain_args: [0]
+  expected: 10
+
+invariant collections_extra12.namedtuple.make_second_field:
+  description: "namedtuple('Point', ['x','y'])._make([10, 20])[1] == 20 — _make constructs from iterable, second field"
+  category: namedtuple_make
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: _make
+  method_args: [[10, 20]]
+  method_chain: __getitem__
+  method_chain_args: [1]
+  expected: 20
+
+invariant collections_extra12.namedtuple.make_len:
+  description: "namedtuple('Point', ['x','y'])._make([10, 20]).__len__() == 2 — _make result has correct length"
+  category: namedtuple_make
+  kind: python_call_eq
+  function: namedtuple
+  args: ["Point", ["x", "y"]]
+  method: _make
+  method_args: [[10, 20]]
+  method_chain: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# deque.popleft — removes and returns the leftmost element
+#
+# Prior specs cover deque.rotate (method type check), deque.maxlen (bounded/
+# unbounded), and deque.__mro__.__len__. No prior spec tests popleft() as a
+# value invariant — only the returned value, not structural checks.
+# deque([1, 2, 3]).popleft() == 1.
+# ---------------------------------------------------------------------------
+
+invariant collections_extra12.deque.popleft_value:
+  description: "deque([1, 2, 3]).popleft() == 1 — removes and returns the leftmost element"
+  category: deque_ops
+  kind: python_call_eq
+  function: deque
+  args: [[1, 2, 3]]
+  method: popleft
+  expected: 1
+
+invariant collections_extra12.deque.popleft_empty_raises:
+  description: "deque([]).popleft() raises IndexError — popleft on empty deque"
+  category: deque_ops
+  kind: python_call_raises
+  function: deque
+  args: [[]]
+  method: popleft
+  raises: IndexError

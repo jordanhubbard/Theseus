@@ -1,0 +1,132 @@
+spec: contextlib_extra13
+version: ">=3.10"
+backend: python_module(contextlib)
+
+docs: https://docs.python.org/3/library/contextlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/contextlib.html — Python contextlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/contextlib.py"
+  notes:
+    - "This spec extends contextlib.zspec.zsdl through contextlib_extra12.zspec.zsdl and contextlib_suppress.zspec.zsdl."
+    - "contextlib_extra12 covers: standalone __name__ invariants for contextmanager/asynccontextmanager/closing/nullcontext/suppress/ExitStack/AsyncExitStack/AbstractContextManager/AbstractAsyncContextManager; contextmanager/__module__ and ExitStack/__module__ standalone."
+    - "contextlib_extra11 covers: __abstractmethods__.__len__ == 0 for suppress/closing/nullcontext/aclosing/redirect_stdout/redirect_stderr; redirect_stdout/__name__ and redirect_stderr/__name__ standalone; redirect_stdout/__qualname__ and redirect_stderr/__qualname__ standalone; MRO lengths for nullcontext/aclosing/redirect_stdout/redirect_stderr/AsyncContextDecorator."
+    - "NOT yet covered: suppress(ValueError).__enter__() returns None — suppress.__enter__ returns None (the context protocol requires this for non-suppressing entry)."
+    - "NOT yet covered: AbstractContextManager.__mro__.__len__() == 3 — [AbstractContextManager, ABC, object]."
+    - "NOT yet covered: AbstractContextManager.__mro__[1].__name__ == 'ABC' — ABC is the direct base."
+    - "NOT yet covered: AbstractAsyncContextManager.__mro__.__len__() == 3 — [AbstractAsyncContextManager, ABC, object]."
+    - "NOT yet covered: AbstractAsyncContextManager.__mro__[1].__name__ == 'ABC' — ABC is the direct base."
+    - "NOT yet covered: nullcontext(True).__enter__() == True — enter_result is returned as-is regardless of truthiness."
+    - "NOT yet covered: nullcontext(0).__enter__() == 0 — enter_result of 0 (falsy int) is returned unchanged."
+    - "contextlib.suppress(ValueError).__enter__() returns None — suppress simply returns None on entry; it does not return self."
+    - "contextlib.AbstractContextManager inherits from ABC: MRO is [AbstractContextManager, ABC, object], length 3."
+    - "contextlib.AbstractAsyncContextManager inherits from ABC: MRO is [AbstractAsyncContextManager, ABC, object], length 3."
+    - "contextlib.nullcontext(enter_result).__enter__() returns enter_result unchanged for any value including bool and 0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# suppress.__enter__() — returns None
+#
+# contextlib.zspec covers nullcontext.__enter__ returning various values.
+# contextlib_suppress.zspec covers ExitStack().__enter__().__class__.__name__.
+# No prior spec tests suppress(Exception).__enter__(), which returns None.
+# suppress.__enter__ is a no-op that returns None; the suppression logic is
+# entirely in __exit__. Returning None from __enter__ means 'as' clauses
+# in `with suppress(...) as x:` bind x to None.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra13.suppress.enter_returns_none:
+  description: "suppress().__enter__() is None — suppress.__enter__ returns None (no-op entry)"
+  category: suppress_behavior
+  kind: python_call_eq
+  function: suppress
+  args: []
+  method: __enter__
+  expected: ~
+
+# ---------------------------------------------------------------------------
+# AbstractContextManager.__mro__ length and intermediate base
+#
+# contextlib_suppress.zspec covers AbstractContextManager.__bases__[0].__name__
+# == 'ABC' (direct base). contextlib_extra9 covers AbstractContextManager.
+# __abstractmethods__.__len__() == 1. No prior spec checks the full MRO length
+# or the identity of MRO[1] for these ABCs.
+# AbstractContextManager MRO: [AbstractContextManager, ABC, object] — length 3.
+# AbstractAsyncContextManager MRO: [AbstractAsyncContextManager, ABC, object] — length 3.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra13.AbstractContextManager.mro_len:
+  description: "AbstractContextManager.__mro__.__len__() == 3 — [AbstractContextManager, ABC, object]"
+  category: abc_mro
+  kind: python_call_eq
+  function: AbstractContextManager.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant contextlib_extra13.AbstractContextManager.mro_1_name:
+  description: "AbstractContextManager.__mro__[1].__name__ == 'ABC' — second entry in MRO is ABC"
+  category: abc_mro
+  kind: python_call_eq
+  function: AbstractContextManager.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "ABC"
+
+invariant contextlib_extra13.AbstractAsyncContextManager.mro_len:
+  description: "AbstractAsyncContextManager.__mro__.__len__() == 3 — [AbstractAsyncContextManager, ABC, object]"
+  category: abc_mro
+  kind: python_call_eq
+  function: AbstractAsyncContextManager.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant contextlib_extra13.AbstractAsyncContextManager.mro_1_name:
+  description: "AbstractAsyncContextManager.__mro__[1].__name__ == 'ABC' — second entry in MRO is ABC"
+  category: abc_mro
+  kind: python_call_eq
+  function: AbstractAsyncContextManager.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "ABC"
+
+# ---------------------------------------------------------------------------
+# nullcontext.__enter__ with bool and falsy int enter_result
+#
+# contextlib.zspec covers nullcontext with int 42, string 'hello', None, no-arg,
+# and list [1,2,3]. No prior spec verifies that nullcontext returns bool True
+# or falsy int 0 — values that could be mishandled if the implementation
+# applied a truthiness check before returning.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra13.nullcontext.enter_bool_true:
+  description: "nullcontext(True).__enter__() == True — enter_result is returned unchanged regardless of truthiness"
+  category: nullcontext_enter
+  kind: python_call_eq
+  function: nullcontext
+  args: [true]
+  method: __enter__
+  expected: true
+
+invariant contextlib_extra13.nullcontext.enter_falsy_int:
+  description: "nullcontext(0).__enter__() == 0 — falsy int 0 is returned unchanged as enter_result"
+  category: nullcontext_enter
+  kind: python_call_eq
+  function: nullcontext
+  args: [0]
+  method: __enter__
+  expected: 0
+
+invariant contextlib_extra13.nullcontext.enter_bool_false:
+  description: "nullcontext(False).__enter__() == False — bool False is returned unchanged as enter_result"
+  category: nullcontext_enter
+  kind: python_call_eq
+  function: nullcontext
+  args: [false]
+  method: __enter__
+  expected: false
