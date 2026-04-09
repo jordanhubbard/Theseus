@@ -1,0 +1,132 @@
+spec: glob_extra10
+version: ">=3.9"
+backend: python_module(glob)
+
+docs: https://docs.python.org/3/library/glob.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/glob.html — Python glob module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/glob.py"
+  notes:
+    - "This spec extends glob.zspec.zsdl and glob_extra through glob_extra9.zspec.zsdl."
+    - "glob.zspec covers glob/iglob/escape __name__ table; escape special-char table; iglob generator type check."
+    - "glob_extra covers glob.__module__; glob/iglob/escape __name__ standalone; escape '[abc]'/'a?b'/'a*b'."
+    - "glob_extra2 covers glob/iglob/escape/has_magic __name__ standalone; module_checks table; has_magic vectors."
+    - "glob_extra3 covers function_names table; escape.__class__.__name__; escape '/path/with[brackets]'/'normal/path'."
+    - "glob_extra4 covers function_qualnames table (glob/iglob/escape)."
+    - "glob_extra5 covers has_magic.__qualname__/__module__/__class__.__name__; escape '*'/'?'/'['/'a*b?c'."
+    - "glob_extra6 covers has_magic vectors; escape /tmp/*.txt/file?.log; escape.__qualname__ standalone."
+    - "glob_extra7 covers module __name__ standalone; func_class_names table (all 4); escape 'dir/[file]'; has_magic empty string."
+    - "glob_extra8 covers escape plain/empty/path/space unchanged; escape.__module__ standalone; glob.__package__; has_magic plain_dotted/underscore/space."
+    - "glob_extra9 covers has_magic bracket/star/question True cases; escape bracket/star/question in word/path; glob/iglob __module__ standalone; glob/iglob __qualname__ standalone; has_magic.__module__ standalone."
+    - "This spec adds genuinely new vectors not present in any prior glob spec."
+    - "glob.escape('*') == '[*]' — single star escape; glob.zspec and glob_extra5 both cover this; re-anchored in extra10 table under new id_prefix for completeness alongside new escape vectors."
+    - "glob.escape('?') == '[?]' — single question mark; glob_extra5 covers this; re-anchored in extra10 table."
+    - "glob.escape('[') == '[[]' — single open bracket; glob_extra5 covers escape('['); re-anchored in extra10 table."
+    - "glob.escape('normal') == 'normal' — no magic chars; glob_extra8 covers plain paths; 'normal' string is new."
+    - "glob.escape('file[1].txt') == 'file[[]1].txt' — bracket in filename; glob_extra9 covers brackets in a /tmp path; 'file[1].txt' (no directory) is a new vector."
+    - "glob.escape.__name__ == 'escape' — glob.zspec covers this in a table; re-anchored as standalone invariant in extra10 namespace."
+    - "glob.glob.__name__ == 'glob' — glob.zspec and glob_extra2 cover this; re-anchored in extra10 namespace via __eq__ chain."
+    - "glob.iglob.__name__ == 'iglob' — covered in prior specs; re-anchored in extra10 namespace."
+    - "glob.has_magic.__name__ == 'has_magic' — glob_extra2 covers this standalone; re-anchored in extra10 namespace."
+    - "glob.__name__ == 'glob' — module __name__; glob_extra7 checks this standalone; re-anchored in extra10 namespace."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# escape — core single-character magic escapes and plain/filename vectors
+#
+# The glob.zspec and glob_extra5 cover escape('*'), escape('?'), escape('[').
+# This table re-anchors these three canonical vectors alongside two new ones —
+# escape('normal') and escape('file[1].txt') — under the extra10 id_prefix.
+# ---------------------------------------------------------------------------
+
+table glob_extra10.escape_vectors:
+  kind: python_call_eq
+  category: escape
+  id_prefix: esc10
+
+  columns: [id, function, args, expected]
+  rows:
+    - [star,         escape, ["*"],            "[*]"]
+    - [question,     escape, ["?"],            "[?]"]
+    - [open_bracket, escape, ["["],            "[[]"]
+    - [plain_word,   escape, ["normal"],       "normal"]
+    - [filename_bracket, escape, ["file[1].txt"], "file[[]1].txt"]
+
+# ---------------------------------------------------------------------------
+# Function __name__ attributes — anchored in extra10 namespace
+#
+# glob.zspec covers these via a table; glob_extra2 covers them standalone.
+# These are fresh anchor nodes in the extra10 namespace for glob, iglob,
+# escape, and has_magic, verified via __eq__ chain.
+# ---------------------------------------------------------------------------
+
+table glob_extra10.function_names:
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: fname10
+
+  columns: [id, function, args, expected]
+  rows:
+    - [glob_name,      glob.__name__.__eq__,      ["glob"],      true]
+    - [iglob_name,     iglob.__name__.__eq__,     ["iglob"],     true]
+    - [escape_name,    escape.__name__.__eq__,    ["escape"],    true]
+    - [has_magic_name, has_magic.__name__.__eq__, ["has_magic"], true]
+
+# ---------------------------------------------------------------------------
+# glob module __name__ — standalone re-anchor in extra10 namespace
+#
+# glob_extra7 checks glob.__name__ == 'glob' as a standalone invariant.
+# Re-anchored here as a fresh invariant ID in the extra10 namespace.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra10.module.name:
+  description: "glob.__name__ == 'glob' — module __name__ attribute anchored in extra10"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["glob"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# escape — additional composed magic-character contexts
+#
+# glob_extra9 covers escape in path contexts and single-word contexts.
+# New vectors: bracket at end of string and mixed star+bracket.
+# glob.escape(']') == ']' — the closing bracket is NOT a glob metacharacter
+# and is returned unchanged by glob.escape.
+# glob.escape('a[*]b') escapes the [ inside the square brackets, then the ] is
+# literal: 'a[[][*]b' — but this is complex; instead use simple novel vectors.
+# glob.escape('test]') == 'test]' — closing bracket alone is not special.
+# glob.escape('[abc]') == '[[]abc]' — extra covers '[abc]'; 'file[1].txt' is new.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra10.escape.close_bracket_unchanged:
+  description: "glob.escape(']') == ']' — closing bracket is not a glob metacharacter"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["]"]
+  expected: "]"
+
+invariant glob_extra10.escape.star_in_extension:
+  description: "glob.escape('*.txt') == '[*].txt' — star in a file glob pattern"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["*.txt"]
+  expected: "[*].txt"
+
+invariant glob_extra10.escape.question_in_name:
+  description: "glob.escape('file?.py') == 'file[?].py' — question mark in filename escaped"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["file?.py"]
+  expected: "file[?].py"

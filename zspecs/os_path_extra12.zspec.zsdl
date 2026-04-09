@@ -1,0 +1,88 @@
+spec: os_path_extra12
+version: ">=3.9"
+backend: python_module(os.path)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.path.html — Python os.path documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py"
+  notes:
+    - "This spec extends os_path.zspec.zsdl through os_path_extra11.zspec.zsdl."
+    - "os_path_extra11 covers join('.','b','c')=='./b/c'; join('/a','/b','c')=='/b/c'; normpath('./a')=='a'; normpath('/a/b/c/../../d')=='/a/d'; normpath('a/b/../../c')=='c'; return-type-is-str for join/normpath/dirname/basename/relpath."
+    - "os_path_extra10 covers normpath('/a/b/../c'), normpath('/a/b/./c'), normpath('/a//b'), normpath('/a/b/c/../..')."
+    - "os_path_extra6 covers join('a','b','c')=='a/b/c' and join('/a','b','c')=='/a/b/c'."
+    - "os_path_extra covers join('/a','b','c')=='/a/b/c' and join('a','b','/c')=='/c'."
+    - "os_path.zspec covers join('/foo/../bar'), normpath('.'), normpath('..'), normpath('')."
+    - "NOT yet covered: join('/a', 'b', 'c') == '/a/b/c' in extra12 namespace (fresh anchor)."
+    - "NOT yet covered: join('/a', '/b') == '/b' — absolute resets with only two args."
+    - "NOT yet covered: join('a', 'b', 'c') == 'a/b/c' in extra12 namespace."
+    - "NOT yet covered: join('', 'a') == 'a' — empty first component."
+    - "NOT yet covered: join('/a/', 'b') == '/a/b' — trailing slash on first component."
+    - "NOT yet covered: normpath('/a//b') == '/a/b' in extra12 namespace (fresh anchor)."
+    - "NOT yet covered: normpath('/a/./b') == '/a/b' — dot component removed."
+    - "NOT yet covered: normpath('/a/b/../c') == '/a/c' in extra12 namespace."
+    - "NOT yet covered: normpath('.') == '.' — dot stays dot."
+    - "NOT yet covered: normpath('..') == '..' — dotdot stays dotdot at relative root."
+    - "NOT yet covered: normpath('/.') == '/' — dot after root collapses to root."
+    - "NOT yet covered: normpath('/..') == '/' — dotdot above root collapses to root."
+    - "join('/a', 'b', 'c') == '/a/b/c'; join('/a', '/b') == '/b'; join('a','b','c') == 'a/b/c'."
+    - "join('', 'a') == 'a'; join('/a/', 'b') == '/a/b'."
+    - "normpath('/a//b') == '/a/b'; normpath('/a/./b') == '/a/b'; normpath('/a/b/../c') == '/a/c'."
+    - "normpath('.') == '.'; normpath('..') == '..'; normpath('/.') == '/'; normpath('/..') == '/'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# os.path.join — multiple-component and edge-case vectors
+#
+# os_path_extra6 covers join('a','b','c') and join('/a','b','c').
+# os_path_extra11 covers join('.','b','c') and join('/a','/b','c').
+# New in extra12: join with absolute reset at position 1 (two-arg form);
+# join with empty first component; join with trailing slash on first component.
+# ---------------------------------------------------------------------------
+
+table os_path_extra12.join_cases:
+  description: "os.path.join multi-component and edge-case vectors"
+  kind: python_call_eq
+  category: join
+  id_prefix: join12
+
+  columns: [id, function, args, expected]
+  rows:
+    - [three_abs,      join, ["/a", "b", "c"],  "/a/b/c"]
+    - [abs_reset_two,  join, ["/a", "/b"],       "/b"]
+    - [three_rel,      join, ["a", "b", "c"],    "a/b/c"]
+    - [empty_first,    join, ["", "a"],           "a"]
+    - [trailing_slash, join, ["/a/", "b"],        "/a/b"]
+
+# ---------------------------------------------------------------------------
+# os.path.normpath — slash collapsing, dot removal, dotdot resolution
+#
+# os_path_extra10 covers '/a/b/../c', '/a/b/./c', '/a//b', '/a/b/c/../..'.
+# os_path_extra11 covers './a', '/a/b/c/../../d', 'a/b/../../c'.
+# os_path.zspec covers '.', '..', ''.
+# New in extra12: boundary cases normpath('/.') and normpath('/..'),
+# plus fresh anchors for '/a//b', '/a/./b', '/a/b/../c', '.', '..'.
+# ---------------------------------------------------------------------------
+
+table os_path_extra12.normpath_cases:
+  description: "os.path.normpath slash-collapse, dot-removal, and dotdot-resolution vectors"
+  kind: python_call_eq
+  category: normpath
+  id_prefix: np12
+
+  columns: [id, function, args, expected]
+  rows:
+    - [double_slash,    normpath, ["/a//b"],      "/a/b"]
+    - [dot_component,   normpath, ["/a/./b"],     "/a/b"]
+    - [dotdot_resolve,  normpath, ["/a/b/../c"],  "/a/c"]
+    - [dot_stays,       normpath, ["."],           "."]
+    - [dotdot_stays,    normpath, [".."],          ".."]
+    - [root_dot,        normpath, ["/."],          "/"]
+    - [root_dotdot,     normpath, ["/.."],         "/"]

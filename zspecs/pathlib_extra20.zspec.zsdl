@@ -1,0 +1,222 @@
+spec: pathlib_extra20
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+  notes:
+    - "This spec extends pathlib.zspec.zsdl through pathlib_extra19.zspec.zsdl."
+    - "pathlib_extra19 covers Path.home/cwd/stat/open/mkdir/exists __qualname__; PurePath/PurePosixPath/PosixPath/PureWindowsPath __module__ and __qualname__ standalone."
+    - "pathlib_extra18 covers PurePath/PosixPath/PurePosixPath MRO[1].__name__; PurePosixPath root parts, two-component parts, name with extension, root/anchor of '/'."
+    - "pathlib_extra14 covers PurePosixPath('/a/b/c').parts == ('/', 'a', 'b', 'c')."
+    - "pathlib_extra12 covers parts.__len__ and parts[0] for /a/b/c."
+    - "pathlib_extra9 covers PurePosixPath('/a/b/c').name, .root, .suffix, .stem."
+    - "NOT yet covered: PurePosixPath('/a/b/c').parts.__len__ >= 3 — three-component path has at least 3 parts."
+    - "NOT yet covered: PurePosixPath('/a/b/c').parent.__str__() == '/a/b' — parent as string."
+    - "NOT yet covered: PurePosixPath('/a/b/c').parents[0].__str__() == '/a/b'."
+    - "NOT yet covered: PurePosixPath('/a/b/c').parents[1].__str__() == '/a'."
+    - "NOT yet covered: PurePosixPath('/a/b').name == 'b' — last component of two-part path."
+    - "NOT yet covered: PurePosixPath('/a/b').suffix == '' — no extension."
+    - "NOT yet covered: PurePosixPath('/a/b.txt').suffix == '.txt' — single extension."
+    - "NOT yet covered: PurePosixPath('/a/b.tar.gz').suffixes.__len__() == 2 — double suffix."
+    - "NOT yet covered: PurePosixPath('/a/b').stem == 'b' — stem with no extension."
+    - "NOT yet covered: PurePosixPath('/a/b.txt').stem == 'b' — stem strips extension."
+    - "NOT yet covered: PurePosixPath('/a/b').root == '/', PurePosixPath('a/b').root == '' (table)."
+    - "NOT yet covered: PurePosixPath('/a/b') == PurePosixPath('/a/b') via __eq__."
+    - "NOT yet covered: PurePosixPath('/a/b').__str__() == '/a/b' — string representation."
+    - "PurePosixPath('/a/b/c').parts has length >= 3 — the root plus two components."
+    - "PurePosixPath('/a/b/c').parent.__str__() == '/a/b' — parent strips final component."
+    - "PurePosixPath('/a/b/c').parents[0] is '/a/b'; parents[1] is '/a'."
+    - "PurePosixPath('/a/b').name == 'b'; suffix == '' (no dot); stem == 'b'."
+    - "PurePosixPath('/a/b.txt').suffix == '.txt'; stem == 'b'."
+    - "PurePosixPath('/a/b.tar.gz').suffixes has length 2."
+    - "PurePosixPath('/a/b') == PurePosixPath('/a/b') via __eq__ — paths are equal."
+    - "PurePosixPath('/a/b').__str__() == '/a/b' — canonical string form."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PurePosixPath('/a/b/c').parts length — at least 3 components
+#
+# pathlib_extra18 covers parts.__len__ for '/' (1) and '/a/b' (3).
+# pathlib_extra12 covers parts.__len__ for '/a/b/c' (4 including root).
+# This invariant confirms the three-component absolute path has parts >= 3.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra20.PurePosixPath.abc_parts_len:
+  description: "pathlib.PurePosixPath('/a/b/c').parts.__len__() >= 3 — root + two components"
+  category: parts
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parts.__len__
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# PurePosixPath('/a/b/c').parent — string representation
+#
+# No prior pathlib spec checks .parent.__str__ as a standalone invariant for
+# the three-component path '/a/b/c'. The parent should be '/a/b'.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra20.PurePosixPath.parent_str:
+  description: "pathlib.PurePosixPath('/a/b/c').parent.__str__() == '/a/b'"
+  category: parent
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parent.__str__
+  method_args: []
+  expected: "/a/b"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath('/a/b/c').parents — indexed access
+#
+# No prior pathlib spec checks .parents[0] or .parents[1] string values.
+# parents[0] is the immediate parent; parents[1] is one level further up.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra20.PurePosixPath.parents0_str:
+  description: "pathlib.PurePosixPath('/a/b/c').parents[0].__str__() == '/a/b'"
+  category: parents
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parents.__getitem__
+  method_args: [0]
+  expected: "/a/b"
+
+invariant pathlib_extra20.PurePosixPath.parents1_str:
+  description: "pathlib.PurePosixPath('/a/b/c').parents[1].__str__() == '/a'"
+  category: parents
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parents.__getitem__
+  method_args: [1]
+  expected: "/a"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath name, suffix, stem attributes for '/a/b' and '/a/b.txt'
+#
+# pathlib_extra9 covers name/root/suffix/stem for '/a/b/c' (no extension).
+# pathlib_extra13 covers name for a relative path 'hello.py'.
+# pathlib_extra18 covers name for '/a/b/c.txt'.
+# New: two-component paths '/a/b' (no extension) and '/a/b.txt' (with extension).
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra20.PurePosixPath.two_part_name:
+  description: "pathlib.PurePosixPath('/a/b').name == 'b'"
+  category: name
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: name.__eq__
+  method_args: ["b"]
+  expected: true
+
+invariant pathlib_extra20.PurePosixPath.no_extension_suffix:
+  description: "pathlib.PurePosixPath('/a/b').suffix == '' — no extension means empty suffix"
+  category: suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: suffix.__eq__
+  method_args: [""]
+  expected: true
+
+invariant pathlib_extra20.PurePosixPath.txt_extension_suffix:
+  description: "pathlib.PurePosixPath('/a/b.txt').suffix == '.txt'"
+  category: suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b.txt"]
+  method: suffix.__eq__
+  method_args: [".txt"]
+  expected: true
+
+invariant pathlib_extra20.PurePosixPath.double_suffix_len:
+  description: "pathlib.PurePosixPath('/a/b.tar.gz').suffixes has length 2"
+  category: suffixes
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b.tar.gz"]
+  method: suffixes.__len__
+  expected: 2
+
+invariant pathlib_extra20.PurePosixPath.no_extension_stem:
+  description: "pathlib.PurePosixPath('/a/b').stem == 'b' — stem without extension equals name"
+  category: stem
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: stem.__eq__
+  method_args: ["b"]
+  expected: true
+
+invariant pathlib_extra20.PurePosixPath.txt_stem:
+  description: "pathlib.PurePosixPath('/a/b.txt').stem == 'b' — stem strips the extension"
+  category: stem
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b.txt"]
+  method: stem.__eq__
+  method_args: ["b"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# root and anchor attributes — table for absolute vs relative paths
+#
+# pathlib_extra9 covers .root for '/a/b/c'. pathlib_extra18 covers .root
+# and .anchor for the root-only path '/'.
+# New: two-component absolute path root == '/', relative path root == '',
+# and absolute path anchor == '/'.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra20.root_anchor:
+  description: "PurePosixPath root and anchor attributes for absolute and relative paths"
+  kind: python_call_eq
+  category: root_anchor
+  id_prefix: ra
+
+  columns: [id, function, args, expected, method, method_args]
+  rows:
+    - [abs_root,    PurePosixPath, ["/a/b"], "/",  root.__eq__,   ["/"]]
+    - [rel_root,    PurePosixPath, ["a/b"],  "",   root.__eq__,   [""]]
+    - [abs_anchor,  PurePosixPath, ["/a/b"], "/",  anchor.__eq__, ["/"]]
+
+# ---------------------------------------------------------------------------
+# PurePosixPath equality and string representation
+#
+# No prior pathlib spec verifies that two PurePosixPath instances constructed
+# from the same string compare equal via __eq__, or that __str__ returns the
+# canonical form. These are fundamental identity properties.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra20.PurePosixPath.eq_self:
+  description: "pathlib.PurePosixPath('/a/b') == PurePosixPath('/a/b') via __eq__"
+  category: equality
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: __eq__
+  method_args: ["/a/b"]
+  expected: true
+
+invariant pathlib_extra20.PurePosixPath.str_repr:
+  description: "pathlib.PurePosixPath('/a/b').__str__() == '/a/b'"
+  category: str_repr
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: __str__
+  method_args: []
+  expected: "/a/b"

@@ -1,0 +1,158 @@
+spec: fnmatch_extra11
+version: ">=3.9"
+backend: python_module(fnmatch)
+
+docs: https://docs.python.org/3/library/fnmatch.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/fnmatch.html — Python fnmatch module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/fnmatch.py"
+  notes:
+    - "This spec extends fnmatch.zspec.zsdl and fnmatch_extra through fnmatch_extra10.zspec.zsdl."
+    - "fnmatch_extra10 covers function __name__ and __qualname__ tables; fnmatch basic '*.py' match/no-match; fnmatchcase case-sensitivity; filter basic star."
+    - "fnmatch_extra9 covers '?' wildcard; filter bracket-class and prefix-star; translate '?.py' and '*.py'."
+    - "fnmatch_extra8 covers __class__.__name__ == 'function' for all 4 functions; fnmatch [a-z]/[0-9] range vectors."
+    - "fnmatch_extra7 covers function __module__ anchors for fnmatch/fnmatchcase/filter/translate."
+    - "NOT yet covered: fnmatch('hello.py', '*.py') == True — sanity anchor in extra11 namespace."
+    - "NOT yet covered: fnmatch('HELLO.PY', '*.py') == False — POSIX case-sensitive upper case."
+    - "NOT yet covered: fnmatch('test_foo.py', 'test_*.py') == True — prefix-underscore star pattern."
+    - "NOT yet covered: fnmatch('foo.pyc', 'test_*.py') == False — neither prefix nor extension matches."
+    - "NOT yet covered: fnmatch('a', '[a-z]') == True — single char in lowercase range."
+    - "NOT yet covered: fnmatch('A', '[a-z]') == False — uppercase not in lowercase bracket range."
+    - "NOT yet covered: fnmatch('abc', 'a?c') == True — question mark matches single middle char."
+    - "NOT yet covered: fnmatch('ac', 'a?c') == False — '?' requires exactly one character."
+    - "NOT yet covered: fnmatch('file.txt', '*.txt') == True — alternative extension star match."
+    - "NOT yet covered: fnmatch('.hidden', '.*') == True — dot-files match '.*' pattern."
+    - "NOT yet covered: fnmatch('normal', '.*') == False — non-dot file does not match '.*'."
+    - "NOT yet covered: fnmatchcase('Hello.PY', '*.py') == False — always case-sensitive."
+    - "NOT yet covered: fnmatchcase('Hello.py', '*.py') == True — exact case match."
+    - "NOT yet covered: fnmatch.__module__ == 'fnmatch' as standalone via __eq__."
+    - "NOT yet covered: fnmatch.__name__ == 'fnmatch' as standalone in extra11 namespace."
+    - "fnmatch('hello.py', '*.py') == True; fnmatch('HELLO.PY', '*.py') == False (POSIX case-sensitive)."
+    - "fnmatch('test_foo.py', 'test_*.py') == True; fnmatch('foo.pyc', 'test_*.py') == False."
+    - "fnmatch('a', '[a-z]') == True; fnmatch('A', '[a-z]') == False."
+    - "fnmatch('abc', 'a?c') == True; fnmatch('ac', 'a?c') == False."
+    - "fnmatch('file.txt', '*.txt') == True; fnmatch('.hidden', '.*') == True; fnmatch('normal', '.*') == False."
+    - "fnmatchcase('Hello.PY', '*.py') == False; fnmatchcase('Hello.py', '*.py') == True."
+    - "fnmatch.__module__ == 'fnmatch'; fnmatch.__name__ == 'fnmatch'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# fnmatch — star-pattern behavioral vectors not yet covered in extra11 namespace
+#
+# fnmatch_extra10 anchors basic '*.py' match/no-match and README no-match.
+# New vectors: uppercase POSIX no-match, test_* prefix pattern, alternative
+# extension '*.txt', and hidden-file '.*' pattern.
+# ---------------------------------------------------------------------------
+
+table fnmatch_extra11.fnmatch_star_patterns:
+  description: "fnmatch star-pattern match and no-match vectors"
+  kind: python_call_eq
+  category: fnmatch
+  id_prefix: fstar11
+
+  columns: [id, function, args, expected]
+  rows:
+    - [hello_py_match,       fnmatch, ["hello.py",     "*.py"],       true]
+    - [upper_py_no_match,    fnmatch, ["HELLO.PY",     "*.py"],       false]
+    - [test_prefix_match,    fnmatch, ["test_foo.py",  "test_*.py"],  true]
+    - [pyc_no_match,         fnmatch, ["foo.pyc",      "test_*.py"],  false]
+    - [txt_match,            fnmatch, ["file.txt",     "*.txt"],      true]
+    - [hidden_dot_match,     fnmatch, [".hidden",      ".*"],         true]
+    - [normal_dot_no_match,  fnmatch, ["normal",       ".*"],         false]
+
+# ---------------------------------------------------------------------------
+# fnmatch — bracket range and question-mark vectors
+#
+# fnmatch_extra8 covers [a-z] and [0-9] range matches.
+# fnmatch_extra9 covers '?' wildcard in various positions.
+# New in extra11 namespace: single-char lowercase range match/no-match;
+# question-mark match (exactly one char) and no-match (zero chars).
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra11.fnmatch.lower_range_match:
+  description: "fnmatch.fnmatch('a', '[a-z]') == True — single char in lowercase range"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["a", "[a-z]"]
+  expected: true
+
+invariant fnmatch_extra11.fnmatch.lower_range_no_match:
+  description: "fnmatch.fnmatch('A', '[a-z]') == False — uppercase not in lowercase bracket range"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["A", "[a-z]"]
+  expected: false
+
+invariant fnmatch_extra11.fnmatch.question_match:
+  description: "fnmatch.fnmatch('abc', 'a?c') == True — '?' matches exactly one middle character"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["abc", "a?c"]
+  expected: true
+
+invariant fnmatch_extra11.fnmatch.question_no_match_zero:
+  description: "fnmatch.fnmatch('ac', 'a?c') == False — '?' requires exactly one character, not zero"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["ac", "a?c"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# fnmatchcase — always case-sensitive regardless of platform
+#
+# fnmatch_extra10 anchors fnmatchcase('Test.PY', '*.py') and ('test.py', '*.py').
+# New in extra11: mixed-case stem with lowercase extension to confirm that only
+# the extension case matters, and uppercase-extension fails.
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra11.fnmatchcase.mixed_upper_ext_no_match:
+  description: "fnmatch.fnmatchcase('Hello.PY', '*.py') == False — uppercase extension fails"
+  category: fnmatchcase
+  kind: python_call_eq
+  function: fnmatchcase
+  args: ["Hello.PY", "*.py"]
+  expected: false
+
+invariant fnmatch_extra11.fnmatchcase.mixed_lower_ext_match:
+  description: "fnmatch.fnmatchcase('Hello.py', '*.py') == True — lowercase extension matches"
+  category: fnmatchcase
+  kind: python_call_eq
+  function: fnmatchcase
+  args: ["Hello.py", "*.py"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# fnmatch module attribute checks — standalone invariants
+#
+# fnmatch_extra7 covers __module__ for all four functions in a table.
+# fnmatch_extra10 covers __name__ for all four functions in a table.
+# These standalone invariants anchor fnmatch.__module__ and fnmatch.__name__
+# directly in the extra11 namespace for the primary fnmatch function.
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra11.fnmatch.module_standalone:
+  description: "fnmatch.fnmatch.__module__ == 'fnmatch' — standalone invariant in extra11 namespace"
+  category: function_identity
+  kind: python_call_eq
+  function: fnmatch.__module__.__eq__
+  args: ["fnmatch"]
+  expected: true
+
+invariant fnmatch_extra11.fnmatch.name_standalone:
+  description: "fnmatch.fnmatch.__name__ == 'fnmatch' — standalone invariant in extra11 namespace"
+  category: function_identity
+  kind: python_call_eq
+  function: fnmatch.__name__.__eq__
+  args: ["fnmatch"]
+  expected: true

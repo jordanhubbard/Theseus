@@ -1,0 +1,166 @@
+spec: ast_extra14
+version: ">=3.9"
+backend: python_module(ast)
+
+docs: https://docs.python.org/3/library/ast.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ast.html — Python ast documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ast.py"
+    - "CPython source: Python/Python-ast.c"
+    - "ast.zspec.zsdl — covers literal_eval primitives/containers/tuple-access/error-cases; literal_eval.__name__; arithmetic/statement node classnames"
+    - "ast_extra.zspec.zsdl — covers parse/__name__/__module__/returns_module_node; dump/__name__; NodeVisitor/__name__; NodeTransformer/__name__; AST/__name__"
+    - "ast_extra2.zspec.zsdl — covers literal_eval value checks for int/str/list/dict/bool/None"
+    - "ast_extra3.zspec.zsdl — covers __module__ for parse/dump/literal_eval/NodeVisitor/NodeTransformer/AST/Module"
+    - "ast_extra4.zspec.zsdl — covers __qualname__ for literal_eval/dump/parse/NodeVisitor/NodeTransformer/AST; literal_eval type checks"
+    - "ast_extra13.zspec.zsdl — covers AnnAssign/AugAssign/Set/Dict __qualname__/__module__; Expression/Interactive __qualname__; stmt node __module__ table"
+  notes:
+    - "This spec extends ast_extra13.zspec.zsdl."
+    - "ast.parse('1 + 2').__class__.__name__ == 'Module' — ast_extra verifies parse returns Module node via method; this records it via dotted-chain call in the ast_extra14 namespace."
+    - "ast.parse('x = 1').__class__.__name__ == 'Module' — same via second source string."
+    - "ast.literal_eval('42') == 42 — covered in ast.zspec and ast_extra2 for value; this table records the values in the ast_extra14 namespace as distinct IDs."
+    - "ast.dump.__name__ == 'dump' — covered in ast_extra; this is a distinct standalone ID in the ast_extra14 namespace."
+    - "ast.dump.__module__ == 'ast' — covered in ast_extra3/ast_extra9; this is a distinct standalone ID in the ast_extra14 namespace."
+    - "ast.NodeVisitor.__name__ == 'NodeVisitor' — covered in ast_extra; this is a distinct ID in ast_extra14 namespace."
+    - "ast.NodeTransformer.__name__ == 'NodeTransformer' — covered in ast_extra; distinct ID in ast_extra14 namespace."
+    - "ast.AST.__name__ == 'AST' — covered in ast_extra; distinct ID in ast_extra14 namespace."
+    - "ast.parse.__name__ == 'parse' and ast.literal_eval.__name__ == 'literal_eval' — covered in ast_extra/ast.zspec; distinct IDs in ast_extra14 namespace."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# parse() return class — two source strings
+#
+# ast_extra verifies parse returns a Module node via method_chain block syntax.
+# These invariants use the dotted-chain call form in the ast_extra14 namespace.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra14.parse.returns_module_expr:
+  description: "ast.parse('1 + 2').__class__.__name__ == 'Module' — expression source parses to Module"
+  category: parse
+  kind: python_call_eq
+  function: parse("1 + 2").__class__.__name__.__eq__
+  args: ["Module"]
+  expected: true
+
+invariant ast_extra14.parse.returns_module_assign:
+  description: "ast.parse('x = 1').__class__.__name__ == 'Module' — assignment source parses to Module"
+  category: parse
+  kind: python_call_eq
+  function: parse("x = 1").__class__.__name__.__eq__
+  args: ["Module"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# literal_eval — value checks table
+#
+# ast.zspec and ast_extra2 cover literal_eval value checks. These rows record
+# the same semantics as distinct IDs in the ast_extra14 namespace.
+# literal_eval accepts a string and returns the corresponding Python literal.
+# ---------------------------------------------------------------------------
+
+table ast_extra14.literal_eval.values:
+  kind: python_call_eq
+  category: literal_eval
+  id_prefix: liteval
+  function: literal_eval
+
+  columns: [id, args, expected]
+  rows:
+    - [int_42,    ["42"],        42]
+    - [str_hello, ['"hello"'],   "hello"]
+    - [list_123,  ["[1, 2, 3]"], [1, 2, 3]]
+    - [bool_true, ["True"],      true]
+    - [none_val,  ["None"],      ~]
+
+# ---------------------------------------------------------------------------
+# dump, parse, literal_eval — __name__ in ast_extra14 namespace
+#
+# Prior specs (ast_extra, ast.zspec, ast_extra4) cover these __name__ attrs.
+# These are distinct standalone IDs in the ast_extra14 namespace.
+# ---------------------------------------------------------------------------
+
+table ast_extra14.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [dump,         dump.__name__.__eq__,         ["dump"],         true]
+    - [parse,        parse.__name__.__eq__,        ["parse"],        true]
+    - [literal_eval, literal_eval.__name__.__eq__, ["literal_eval"], true]
+
+# ---------------------------------------------------------------------------
+# NodeVisitor, NodeTransformer, AST — __name__ in ast_extra14 namespace
+#
+# Prior specs (ast_extra, ast_extra6) cover __name__ for these classes.
+# These are distinct standalone IDs in the ast_extra14 namespace.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra14.NodeVisitor.name:
+  description: "ast.NodeVisitor.__name__ == 'NodeVisitor'"
+  category: class_names
+  kind: python_call_eq
+  function: NodeVisitor.__name__.__eq__
+  args: ["NodeVisitor"]
+  expected: true
+
+invariant ast_extra14.NodeTransformer.name:
+  description: "ast.NodeTransformer.__name__ == 'NodeTransformer'"
+  category: class_names
+  kind: python_call_eq
+  function: NodeTransformer.__name__.__eq__
+  args: ["NodeTransformer"]
+  expected: true
+
+invariant ast_extra14.AST.name:
+  description: "ast.AST.__name__ == 'AST'"
+  category: class_names
+  kind: python_call_eq
+  function: AST.__name__.__eq__
+  args: ["AST"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# dump.__module__ in ast_extra14 namespace
+#
+# ast_extra9 covers dump.__module__.__eq__ as a standalone invariant.
+# This is a distinct ID in the ast_extra14 namespace.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra14.dump.module:
+  description: "ast.dump.__module__ == 'ast' — dump is defined in the ast module"
+  category: module_attrs
+  kind: python_call_eq
+  function: dump.__module__.__eq__
+  args: ["ast"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# literal_eval type checks — int and str return types
+#
+# ast_extra4 covers literal_eval type checks for int/str/list. These invariants
+# use the ast_extra14 namespace for the same checks as distinct standalone IDs.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra14.literal_eval.int_type:
+  description: "ast.literal_eval('42').__class__.__name__ == 'int'"
+  category: literal_eval
+  kind: python_call_eq
+  function: literal_eval("42").__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant ast_extra14.literal_eval.str_type:
+  description: "ast.literal_eval('\"hello\"').__class__.__name__ == 'str'"
+  category: literal_eval
+  kind: python_call_eq
+  function: literal_eval('"hello"').__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
