@@ -454,7 +454,7 @@ class TestLxmlAll:
     def test_invariant_count(self, lxml_spec, lxml_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(lxml_spec, lxml_mod)
-        assert len(results) == 25
+        assert len(results) == 34
 
     def test_no_skips(self, lxml_spec, lxml_mod):
         runner = vb.InvariantRunner()
@@ -465,7 +465,7 @@ class TestLxmlAll:
     def test_filter_by_version(self, lxml_spec, lxml_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(lxml_spec, lxml_mod, filter_category="version")
-        assert len(results) == 3
+        assert len(results) == 5
         assert all(r.passed for r in results)
 
     def test_filter_by_parse(self, lxml_spec, lxml_mod):
@@ -489,7 +489,7 @@ class TestLxmlAll:
     def test_filter_by_xpath(self, lxml_spec, lxml_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(lxml_spec, lxml_mod, filter_category="xpath")
-        assert len(results) == 3
+        assert len(results) == 6
         assert all(r.passed for r in results)
 
     def test_filter_by_errors(self, lxml_spec, lxml_mod):
@@ -512,7 +512,7 @@ class TestLxmlCLI:
         vb.main([str(LXML_SPEC_PATH), "--verbose"])
         out = capsys.readouterr().out
         assert "PASS" in out
-        assert "25 invariants" in out
+        assert "34 invariants" in out
 
     def test_list_flag(self, capsys):
         rc = vb.main([str(LXML_SPEC_PATH), "--list"])
@@ -532,5 +532,5 @@ class TestLxmlCLI:
         vb.main([str(LXML_SPEC_PATH), "--json-out", str(out_file)])
         data = json.loads(out_file.read_text())
         assert isinstance(data, list)
-        assert len(data) == 25
+        assert len(data) == 34
         assert all(r["passed"] for r in data)

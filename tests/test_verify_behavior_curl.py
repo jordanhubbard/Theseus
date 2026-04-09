@@ -181,7 +181,7 @@ class TestCurlSpecIntegration:
     def test_invariant_count(self, curl_spec, curl_backend):
         runner  = vb.InvariantRunner()
         results = runner.run_all(curl_spec, curl_backend)
-        assert len(results) == 12
+        assert len(results) == 24
 
     def test_no_skips(self, curl_spec, curl_backend):
         runner  = vb.InvariantRunner()
@@ -191,19 +191,19 @@ class TestCurlSpecIntegration:
     def test_health_category(self, curl_spec, curl_backend):
         runner  = vb.InvariantRunner()
         results = runner.run_all(curl_spec, curl_backend, filter_category="health")
-        assert len(results) == 7
+        assert len(results) == 13
         assert all(r.passed for r in results)
 
     def test_file_protocol_category(self, curl_spec, curl_backend):
         runner  = vb.InvariantRunner()
         results = runner.run_all(curl_spec, curl_backend, filter_category="file_protocol")
-        assert len(results) == 2
+        assert len(results) == 3
         assert all(r.passed for r in results)
 
     def test_error_behavior_category(self, curl_spec, curl_backend):
         runner  = vb.InvariantRunner()
         results = runner.run_all(curl_spec, curl_backend, filter_category="error_behavior")
-        assert len(results) == 3
+        assert len(results) == 5
         assert all(r.passed for r in results)
 
     def test_all_ids_unique(self, curl_spec):
@@ -239,5 +239,5 @@ class TestCurlCLI:
         out_file = tmp_path / "results.json"
         vb.main([str(CURL_SPEC_PATH), "--json-out", str(out_file)])
         data = json.loads(out_file.read_text())
-        assert len(data) == 12
+        assert len(data) == 24
         assert all(r["passed"] for r in data)

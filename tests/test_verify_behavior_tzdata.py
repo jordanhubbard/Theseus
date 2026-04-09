@@ -100,7 +100,7 @@ class TestTzdataLoader:
         assert len(ids) == len(set(ids))
 
     def test_invariant_count_is_13(self, tzdata_spec):
-        assert len(tzdata_spec["invariants"]) == 13
+        assert len(tzdata_spec["invariants"]) == 25
 
 
 # ---------------------------------------------------------------------------
@@ -427,7 +427,7 @@ class TestTzdataAll:
     def test_invariant_count(self, tzdata_spec, zoneinfo_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(tzdata_spec, zoneinfo_mod)
-        assert len(results) == 13
+        assert len(results) == 25
 
     def test_no_skips(self, tzdata_spec, zoneinfo_mod):
         runner = vb.InvariantRunner()
@@ -440,21 +440,21 @@ class TestTzdataAll:
         results = runner.run_all(tzdata_spec, zoneinfo_mod, filter_category="zoneinfo_keys")
         # UTC, America/New_York, Europe/London, Asia/Tokyo, America/Los_Angeles,
         # Pacific/Auckland = 6
-        assert len(results) == 6
+        assert len(results) == 14
         assert all(r.passed for r in results)
 
     def test_filter_zoneinfo_create_category(self, tzdata_spec, zoneinfo_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(tzdata_spec, zoneinfo_mod, filter_category="zoneinfo_create")
         # utc_key, america_new_york_key, europe_london_key, asia_tokyo_key = 4
-        assert len(results) == 4
+        assert len(results) == 7
         assert all(r.passed for r in results)
 
     def test_filter_count_category(self, tzdata_spec, zoneinfo_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(tzdata_spec, zoneinfo_mod, filter_category="count")
         # utc_key_len, america_new_york_key_len = 2
-        assert len(results) == 2
+        assert len(results) == 3
         assert all(r.passed for r in results)
 
     def test_filter_error_category(self, tzdata_spec, zoneinfo_mod):
@@ -478,7 +478,7 @@ class TestTzdataCLI:
         vb.main([str(TZDATA_SPEC_PATH), "--verbose"])
         out = capsys.readouterr().out
         assert "PASS" in out
-        assert "13 invariants" in out
+        assert "25 invariants" in out
 
     def test_list_flag(self, capsys):
         rc = vb.main([str(TZDATA_SPEC_PATH), "--list"])
@@ -498,5 +498,5 @@ class TestTzdataCLI:
         vb.main([str(TZDATA_SPEC_PATH), "--json-out", str(out_file)])
         data = json.loads(out_file.read_text())
         assert isinstance(data, list)
-        assert len(data) == 13
+        assert len(data) == 25
         assert all(r["passed"] for r in data)

@@ -557,8 +557,8 @@ class TestFullCompilerOutput:
 VERIFY_SCRIPT = REPO_ROOT / "tools" / "verify_behavior.py"
 
 ZSDL_SPECS = [
-    ("zstd", 15),
-    ("difflib", 17),
+    ("zstd", 25),
+    ("difflib", 23),
     ("urllib_parse", 18),
 ]
 
@@ -618,6 +618,16 @@ def test_zsdl_zstd_invariant_ids():
         "zstd.compressBound.256bytes",
         "zstd.compressBound.monotone",
         "zstd.versionNumber.range",
+        "zstd.exact.n0",
+        "zstd.exact.n100",
+        "zstd.exact.n256",
+        "zstd.exact.n512",
+        "zstd.exact.n1000",
+        "zstd.not_error.n0",
+        "zstd.not_error.n100",
+        "zstd.not_error.n256",
+        "zstd.not_error.n512",
+        "zstd.not_error.n1000",
     }
     assert ids == expected_ids
 
@@ -645,6 +655,12 @@ def test_zsdl_difflib_invariant_ids():
         "difflib.is_line_junk.blank",
         "difflib.is_line_junk.hash_only",
         "difflib.is_line_junk.code_line",
+        "difflib.get_close_matches.cutoff_high",
+        "difflib.sequence_matcher.blocks_identical_len",
+        "difflib.sequence_matcher.blocks_disjoint_len",
+        "difflib.sequence_matcher.opcodes_identical_len",
+        "difflib.differ.class_name",
+        "difflib.htmldiff.class_name",
     }
     assert ids == expected_ids
 

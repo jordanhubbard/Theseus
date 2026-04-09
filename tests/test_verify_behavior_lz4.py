@@ -74,7 +74,7 @@ class TestLZ4Loading:
         assert lz4_spec["identity"]["canonical_name"] == "lz4"
 
     def test_invariant_count(self, lz4_spec):
-        assert len(lz4_spec["invariants"]) == 8
+        assert len(lz4_spec["invariants"]) == 20
 
     def test_no_duplicate_ids(self, lz4_spec):
         ids = [i["id"] for i in lz4_spec["invariants"]]
@@ -162,7 +162,7 @@ class TestLZ4All:
         runner = vb.InvariantRunner()
         lib = vb.LibraryLoader().load(lz4_spec["library"])
         results = runner.run_all(lz4_spec, lib)
-        assert len(results) == 8
+        assert len(results) == 20
 
     def test_cli_exit_0(self):
         rc = vb.main([str(LZ4_SPEC_PATH)])
@@ -172,4 +172,4 @@ class TestLZ4All:
         vb.main([str(LZ4_SPEC_PATH), "--verbose"])
         out = capsys.readouterr().out
         assert "PASS" in out
-        assert "8 invariants" in out
+        assert "20 invariants" in out

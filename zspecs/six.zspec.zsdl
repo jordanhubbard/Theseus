@@ -147,3 +147,118 @@ invariant six.b_u.u_hello:
   function: u
   args: ["hello"]
   expected: "hello"
+
+# ---------------------------------------------------------------------------
+# types — six.text_type, six.string_types, six.integer_types (Python 3 values)
+#
+# On Python 3: text_type == str, string_types == (str,), integer_types == (int,)
+# ---------------------------------------------------------------------------
+
+invariant six.types.text_type_is_str:
+  description: "six.text_type is str on Python 3"
+  category: types
+  kind: python_call_eq
+  function: text_type.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant six.types.string_types_len:
+  description: "len(six.string_types) == 1 on Python 3 (only str, not basestring)"
+  category: types
+  kind: python_call_eq
+  function: string_types.__len__
+  args: []
+  expected: 1
+
+invariant six.types.integer_types_len:
+  description: "len(six.integer_types) == 1 on Python 3 (only int, not long)"
+  category: types
+  kind: python_call_eq
+  function: integer_types.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# callable — six.callable() compat shim
+#
+# six.callable(42) == False — integers are not callable
+# six.callable(None) == False — None is not callable
+# ---------------------------------------------------------------------------
+
+invariant six.callable.int_not_callable:
+  description: "six.callable(42) == False — integers are not callable"
+  category: callable
+  kind: python_call_eq
+  function: callable
+  args: [42]
+  expected: false
+
+invariant six.callable.none_not_callable:
+  description: "six.callable(None) == False — None is not callable"
+  category: callable
+  kind: python_call_eq
+  function: callable
+  args: [null]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# byte_utils (extended) — boundary values 0x00 and 0xFF
+#
+# b'\x00' base64: AA==
+# b'\xff' base64: /w==
+# ---------------------------------------------------------------------------
+
+invariant six.byte_utils.byte2int_zero:
+  description: "six.byte2int(b'\\x00') == 0"
+  category: byte_utils
+  kind: python_call_eq
+  function: byte2int
+  args: [!b64 AA==]
+  expected: 0
+
+invariant six.byte_utils.int2byte_zero:
+  description: "six.int2byte(0) == b'\\x00'"
+  category: byte_utils
+  kind: python_call_eq
+  function: int2byte
+  args: [0]
+  expected: !b64 AA==
+
+invariant six.byte_utils.byte2int_255:
+  description: "six.byte2int(b'\\xff') == 255"
+  category: byte_utils
+  kind: python_call_eq
+  function: byte2int
+  args: [!b64 /w==]
+  expected: 255
+
+invariant six.byte_utils.int2byte_255:
+  description: "six.int2byte(255) == b'\\xff'"
+  category: byte_utils
+  kind: python_call_eq
+  function: int2byte
+  args: [255]
+  expected: !b64 /w==
+
+# ---------------------------------------------------------------------------
+# string_utils (extended) — non-ASCII UTF-8 round-trip
+#
+# 'café' in UTF-8 = bytes([99, 97, 102, 195, 169]) = b'caf\xc3\xa9'
+# base64: Y2Fmw6k=
+# ---------------------------------------------------------------------------
+
+invariant six.string_utils.ensure_binary_unicode:
+  description: "six.ensure_binary('café') == b'caf\\xc3\\xa9' — UTF-8 encoding by default"
+  category: string_utils
+  kind: python_call_eq
+  function: ensure_binary
+  args: ["café"]
+  expected: !b64 Y2Fmw6k=
+
+invariant six.string_utils.ensure_text_utf8:
+  description: "six.ensure_text(b'caf\\xc3\\xa9') == 'café' — UTF-8 decode"
+  category: string_utils
+  kind: python_call_eq
+  function: ensure_text
+  args: [!b64 Y2Fmw6k=]
+  expected: "café"

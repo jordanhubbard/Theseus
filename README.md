@@ -14,7 +14,7 @@ On top of that pipeline sits a **Z-layer behavioral spec system**: 70 machine-re
 
 [![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
-**70 specs · 1,118 invariants · 3,203 tests · 100% top-50 pipeline coverage**
+**70 specs · 1,342 invariants · 3,203 tests · 100% top-50 pipeline coverage**
 
 ---
 

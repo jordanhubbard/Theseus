@@ -55,7 +55,7 @@ class TestZstdLoading:
         assert zstd_spec["identity"]["canonical_name"] == "zstd"
 
     def test_invariant_count(self, zstd_spec):
-        assert len(zstd_spec["invariants"]) == 15
+        assert len(zstd_spec["invariants"]) == 25
 
     def test_no_duplicate_ids(self, zstd_spec):
         ids = [i["id"] for i in zstd_spec["invariants"]]
@@ -165,7 +165,7 @@ class TestZstdFullSpec:
     def test_invariant_count(self, registry, zstd_spec):
         runner = vb.InvariantRunner()
         results = runner.run_all(zstd_spec, zstd_lib := vb.LibraryLoader().load(zstd_spec["library"]))
-        assert len(results) == 15
+        assert len(results) == 25
 
     def test_cli_exit_0(self):
         rc = vb.main([str(ZSTD_SPEC_PATH)])
@@ -175,4 +175,4 @@ class TestZstdFullSpec:
         vb.main([str(ZSTD_SPEC_PATH), "--verbose"])
         out = capsys.readouterr().out
         assert "PASS" in out
-        assert "15 invariants" in out
+        assert "25 invariants" in out

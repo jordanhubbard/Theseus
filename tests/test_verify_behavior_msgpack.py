@@ -382,4 +382,4 @@ class TestMsgpackAll:
     def test_invariant_count(self, msgpack_spec, msgpack_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(msgpack_spec, msgpack_mod)
-        assert len(results) == 22
+        assert len(results) == 32

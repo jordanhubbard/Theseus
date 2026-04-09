@@ -77,7 +77,7 @@ class TestFontToolsLoader:
         assert len(ids) == len(set(ids))
 
     def test_invariant_count_is_ten(self, fonttools_spec):
-        assert len(fonttools_spec["invariants"]) == 10
+        assert len(fonttools_spec["invariants"]) == 18
 
     def test_submodules_loaded(self, fonttools_mod):
         """Submodules must be accessible as attributes after library load."""
@@ -246,7 +246,7 @@ class TestFontToolsAll:
     def test_invariant_count(self, fonttools_spec, fonttools_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(fonttools_spec, fonttools_mod)
-        assert len(results) == 10
+        assert len(results) == 18
 
     def test_filter_by_category_version(self, fonttools_spec, fonttools_mod):
         runner = vb.InvariantRunner()

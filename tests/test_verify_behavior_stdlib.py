@@ -511,24 +511,24 @@ class TestStructSpecIntegration:
     def test_invariant_count(self, struct_spec, struct_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(struct_spec, struct_mod)
-        assert len(results) == 24
+        assert len(results) == 45
 
     def test_pack_vector_category(self, struct_spec, struct_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(struct_spec, struct_mod, filter_category="pack_vector")
-        assert len(results) == 9
+        assert len(results) == 18
         assert all(r.passed for r in results)
 
     def test_calcsize_category(self, struct_spec, struct_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(struct_spec, struct_mod, filter_category="calcsize")
-        assert len(results) == 5
+        assert len(results) == 10
         assert all(r.passed for r in results)
 
     def test_roundtrip_category(self, struct_spec, struct_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(struct_spec, struct_mod, filter_category="roundtrip")
-        assert len(results) == 3
+        assert len(results) == 5
         assert all(r.passed for r in results)
 
     def test_error_category(self, struct_spec, struct_mod):

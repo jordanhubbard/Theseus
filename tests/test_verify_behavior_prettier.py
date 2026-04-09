@@ -176,7 +176,7 @@ class TestPrettierSpecIntegration:
     def test_invariant_count(self, prettier_spec, prettier_backend):
         runner = vb.InvariantRunner()
         results = runner.run_all(prettier_spec, prettier_backend)
-        assert len(results) == 10
+        assert len(results) == 25
 
     def test_no_skips(self, prettier_spec, prettier_backend):
         runner = vb.InvariantRunner()
@@ -192,19 +192,19 @@ class TestPrettierSpecIntegration:
     def test_api_category(self, prettier_spec, prettier_backend):
         runner = vb.InvariantRunner()
         results = runner.run_all(prettier_spec, prettier_backend, filter_category="api")
-        assert len(results) == 3
+        assert len(results) == 6
         assert all(r.passed for r in results)
 
     def test_format_category(self, prettier_spec, prettier_backend):
         runner = vb.InvariantRunner()
         results = runner.run_all(prettier_spec, prettier_backend, filter_category="format")
-        assert len(results) == 3
+        assert len(results) == 14
         assert all(r.passed for r in results)
 
     def test_check_category(self, prettier_spec, prettier_backend):
         runner = vb.InvariantRunner()
         results = runner.run_all(prettier_spec, prettier_backend, filter_category="check")
-        assert len(results) == 2
+        assert len(results) == 3
         assert all(r.passed for r in results)
 
     def test_all_ids_unique(self, prettier_spec):
@@ -242,5 +242,5 @@ class TestPrettierCLI:
         out_file = tmp_path / "results.json"
         vb.main([str(PRETTIER_SPEC_PATH), "--json-out", str(out_file)])
         data = json.loads(out_file.read_text())
-        assert len(data) == 10
+        assert len(data) == 25
         assert all(r["passed"] for r in data)

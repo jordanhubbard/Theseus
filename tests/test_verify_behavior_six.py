@@ -289,7 +289,7 @@ class TestSixAll:
     def test_invariant_count(self, six_spec, six_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(six_spec, six_mod)
-        assert len(results) == 11
+        assert len(results) == 22
 
     def test_filter_by_category_version(self, six_spec, six_mod):
         runner = vb.InvariantRunner()
@@ -306,13 +306,13 @@ class TestSixAll:
     def test_filter_by_category_byte_utils(self, six_spec, six_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(six_spec, six_mod, filter_category="byte_utils")
-        assert len(results) == 3
+        assert len(results) == 7
         assert all(r.passed for r in results)
 
     def test_filter_by_category_string_utils(self, six_spec, six_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(six_spec, six_mod, filter_category="string_utils")
-        assert len(results) == 3
+        assert len(results) == 5
         assert all(r.passed for r in results)
 
     def test_filter_by_category_b_u(self, six_spec, six_mod):

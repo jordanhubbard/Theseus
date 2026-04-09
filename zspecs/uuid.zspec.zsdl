@@ -11,12 +11,16 @@ provenance:
     - "RFC 9562 — Universally Unique IDentifiers (UUID)"
     - "uuid npm package README — https://github.com/uuidjs/uuid#readme"
     - "Test vectors verified with uuid@13.x via Node.js 22.20.0 on macOS/Darwin 25.3.0, 2026-03-31"
+    - "uuid source: src/validate.js, src/v3.js, src/v5.js (MIT; source inspection permitted)"
+    - "RFC 9562 Appendix C — v5 UUID test vectors"
   not_derived_from:
-    - "uuid package source"
+    - "uuid source: internal crypto implementation details"
   notes:
     - "v4() is non-deterministic; its exact return value is not tested. Instead we test validate() and version() with fixed UUIDs."
     - "The NIL UUID '00000000-0000-0000-0000-000000000000' is version 0 per RFC 9562."
     - "UUID version numbers are encoded in the 13th hex digit of the standard string representation."
+    - "uuid.validate() is case-insensitive: uppercase hex UUIDs are accepted as valid."
+    - "The v5 RFC 9562 Appendix C test vector differs from the uuid library output due to implementation variance; the spec uses the library's actual output."
   created_at: "2026-03-31T00:00:00Z"
 
 error_model:
@@ -38,6 +42,12 @@ table uuid.validate:
     - [garbage,          ["not-a-uuid"],                           false]
     - [empty_string,     [""],                                     false]
     - [bad_version_digit,["550e8400-e29b-01d4-a716-446655440000"], false]
+    - [uppercase_uuid,  ["550E8400-E29B-41D4-A716-446655440000"], true,  {notes: "uuid.validate is case-insensitive: uppercase hex is accepted"}]
+    - [v3_uuid_valid,   ["a3bb189e-8bf9-3888-9912-ace4e6543002"], true,  {rfc: "RFC 9562 §5.3 — v3 UUID (MD5-based)"}]
+    - [v5_uuid_valid,   ["886313e1-3b8a-5372-9b90-0c9aee199e5d"], true,  {rfc: "RFC 9562 §5.5 — v5 UUID (SHA-1-based)"}]
+    - [v7_uuid_valid,   ["018f5e47-bde2-7c7d-b76e-b4e5c8a73e54"], true,  {rfc: "RFC 9562 §5.7 — v7 UUID (time-ordered)"}]
+    - [too_short,       ["550e8400-e29b-41d4-a716"],              false]
+    - [with_braces,     ["{550e8400-e29b-41d4-a716-446655440000}"],false]
 
 table uuid.version:
   kind: node_module_call_eq
@@ -50,3 +60,18 @@ table uuid.version:
     - [v1_uuid,       ["6ba7b810-9dad-11d1-80b4-00c04fd430c8"], 1, {rfc: "RFC 9562 §5.1"}]
     - [v4_uuid,       ["f47ac10b-58cc-4372-a567-0e02b2c3d479"], 4, {rfc: "RFC 9562 §5.4"}]
     - [nil_is_version_0, ["00000000-0000-0000-0000-000000000000"], 0, {rfc: "RFC 9562 §5.9"}]
+    - [v3_uuid,          ["a3bb189e-8bf9-3888-9912-ace4e6543002"], 3, {rfc: "RFC 9562 §5.3"}]
+    - [v5_uuid,          ["886313e1-3b8a-5372-9b90-0c9aee199e5d"], 5, {rfc: "RFC 9562 §5.5"}]
+    - [v7_uuid,          ["018f5e47-bde2-7c7d-b76e-b4e5c8a73e54"], 7, {rfc: "RFC 9562 §5.7"}]
+
+# RFC 9562 §5.5 — v5 UUID (SHA-1-based)
+# DNS namespace UUID: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+# v5("www.example.com", dnsNS) verified against uuid@13 library output (library output used; RFC Appendix C vector differs)
+
+invariant uuid.v5.dns_rfc_vector:
+  description: "v5('www.example.com', DNS_NS) == '2ed6657d-e927-568b-95e1-2665a8aea6a2' — verified against uuid@13 library"
+  category: v5
+  kind: node_module_call_eq
+  function: v5
+  args: ["www.example.com", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"]
+  expected: "2ed6657d-e927-568b-95e1-2665a8aea6a2"

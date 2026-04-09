@@ -136,4 +136,4 @@ class TestChalkAll:
         assert not failures, "\n".join(f"{r.inv_id}: {r.message}" for r in failures)
 
     def test_invariant_count(self, chalk_spec):
-        assert len(chalk_spec["invariants"]) == 10
+        assert len(chalk_spec["invariants"]) == 25

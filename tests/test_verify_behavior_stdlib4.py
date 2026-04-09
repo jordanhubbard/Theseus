@@ -322,7 +322,7 @@ class TestDifflibLoading:
         assert dl_spec["identity"]["canonical_name"] == "difflib"
 
     def test_invariant_count(self, dl_spec):
-        assert len(dl_spec["invariants"]) == 17
+        assert len(dl_spec["invariants"]) == 23
 
     def test_lib_loads(self, dl_lib):
         import difflib

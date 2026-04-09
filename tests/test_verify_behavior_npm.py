@@ -186,7 +186,7 @@ class TestUuidSpecIntegration:
 
     def test_invariant_count(self, uuid_spec, uuid_backend):
         results = vb.InvariantRunner().run_all(uuid_spec, uuid_backend)
-        assert len(results) == 8
+        assert len(results) == 18
 
     def test_cli_exit_0(self):
         assert vb.main([str(UUID_SPEC_PATH)]) == 0
@@ -278,7 +278,7 @@ class TestMinimistSpecIntegration:
 
     def test_invariant_count(self, mini_spec, mini_backend):
         results = vb.InvariantRunner().run_all(mini_spec, mini_backend)
-        assert len(results) == 9
+        assert len(results) == 15
 
     def test_cli_exit_0(self):
         assert vb.main([str(MINI_SPEC_PATH)]) == 0

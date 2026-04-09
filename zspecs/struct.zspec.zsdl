@@ -39,6 +39,15 @@ table struct.pack.vectors:
     - [uint8_max,                           [">B", 255],       !hex ff        ]
     - [int8_minus1,                         [">b", -1],        !hex ff        ]
     - [big_endian_uint16_max,               [">H", 65535],     !hex ffff      ]
+    - [big_endian_uint64_zero,              [">Q", 0],         !hex 0000000000000000]
+    - [big_endian_int64_minus1,             [">q", -1],        !hex ffffffffffffffff]
+    - [big_endian_int64_one,               [">q", 1],         !hex 0000000000000001]
+    - [big_endian_short_one,               [">h", 1],         !hex 0001      ]
+    - [big_endian_short_minus1,            [">h", -1],        !hex ffff      ]
+    - [bool_true,                           ["?", true],       !hex 01        ]
+    - [bool_false,                          ["?", false],      !hex 00        ]
+    - [half_float_zero,                     [">e", 0.0],       !hex 0000      ]
+    - [pad_bytes_3x,                        ["3x"],            !hex 000000    ]
 
 table struct.calcsize.vectors:
   kind: python_call_eq
@@ -53,6 +62,11 @@ table struct.calcsize.vectors:
     - [Q,   [">Q"],   8]
     - [HI,  [">HI"],  6]
     - [HIQ, [">HIQ"], 14]
+    - [q,   [">q"],   8]
+    - [h,   [">h"],   2]
+    - [b,   [">b"],   1]
+    - [bool_fmt, ["?"], 1]
+    - [half_float, [">e"], 2]
 
 table struct.unpack.vectors:
   kind: python_call_eq
@@ -62,11 +76,30 @@ table struct.unpack.vectors:
 
   columns: [id, args, expected]
   rows:
-    - [big_endian_uint16,  [">H",  !hex 0100],     [256]        ]
-    - [little_endian_uint16,["<H", !hex 0001],     [256]        ]
-    - [big_endian_uint32,  [">I",  !hex 12345678], [305419896]  ]
-    - [two_uint16,         [">2H", !hex 00010002], [1, 2]       ]
-    - [mixed_BH,           [">BH", !hex ff0100],   [255, 256]   ]
+    - [big_endian_uint16,       [">H",  !hex 0100],             [256]          ]
+    - [little_endian_uint16,    ["<H",  !hex 0001],             [256]          ]
+    - [big_endian_uint32,       [">I",  !hex 12345678],         [305419896]    ]
+    - [two_uint16,              [">2H", !hex 00010002],         [1, 2]         ]
+    - [mixed_BH,                [">BH", !hex ff0100],           [255, 256]     ]
+    - [uint64_zero,             [">Q",  !hex 0000000000000000], [0]            ]
+    - [int64_minus1,            [">q",  !hex ffffffffffffffff], [-1]           ]
+    - [short_one,               [">h",  !hex 0001],             [1]            ]
+    - [bool_true,               ["?",   !hex 01],               [true]         ]
+    - [bool_false,              ["?",   !hex 00],               [false]        ]
+
+invariant struct.roundtrip.int64_big_endian:
+  description: "pack then unpack is lossless for '>q' (signed 64-bit) across representative values"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: ">q"
+  test_cases: [[0], [1], [-1], [-9223372036854775808], [9223372036854775807]]
+
+invariant struct.roundtrip.uint64_big_endian:
+  description: "pack then unpack is lossless for '>Q' (unsigned 64-bit)"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: ">Q"
+  test_cases: [[0], [1], [18446744073709551615]]
 
 invariant struct.roundtrip.uint16_big_endian:
   description: "pack then unpack is lossless for '>H' across the full range of representative values"

@@ -362,7 +362,7 @@ class TestSqliteSpecIntegration:
         assert not failed, [f"{r.inv_id}: {r.message}" for r in failed]
 
     def test_invariant_count(self, sq_spec, sq_lib):
-        assert len(vb.InvariantRunner().run_all(sq_spec, sq_lib)) == 13
+        assert len(vb.InvariantRunner().run_all(sq_spec, sq_lib)) == 20
 
     def test_cli_exit_0(self):
         assert vb.main([str(SQ_SPEC_PATH)]) == 0

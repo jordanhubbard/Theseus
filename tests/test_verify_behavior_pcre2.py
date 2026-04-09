@@ -77,7 +77,7 @@ class TestPCRE2Loading:
         assert pcre2_spec["identity"]["canonical_name"] == "pcre2"
 
     def test_invariant_count(self, pcre2_spec):
-        assert len(pcre2_spec["invariants"]) == 16
+        assert len(pcre2_spec["invariants"]) == 30
 
     def test_no_duplicate_ids(self, pcre2_spec):
         ids = [i["id"] for i in pcre2_spec["invariants"]]
@@ -203,7 +203,7 @@ class TestPCRE2All:
         runner = vb.InvariantRunner()
         lib = vb.LibraryLoader().load(pcre2_spec["library"])
         results = runner.run_all(pcre2_spec, lib)
-        assert len(results) == 16
+        assert len(results) == 30
 
     def test_cli_exit_0(self):
         rc = vb.main([str(PCRE2_SPEC_PATH)])
@@ -213,4 +213,4 @@ class TestPCRE2All:
         vb.main([str(PCRE2_SPEC_PATH), "--verbose"])
         out = capsys.readouterr().out
         assert "PASS" in out
-        assert "16 invariants" in out
+        assert "30 invariants" in out
