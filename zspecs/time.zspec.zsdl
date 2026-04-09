@@ -1,0 +1,170 @@
+spec: time
+version: ">=3.3"
+backend: python_module(time)
+
+docs: https://docs.python.org/3/library/time.html
+
+provenance:
+  derived_from:
+    - "Python time documentation — https://docs.python.org/3/library/time.html"
+    - "POSIX.1-2017 — The Open Group Base Specifications (time functions)"
+    - "Test vectors verified by running Python 3.14.3 time module on macOS/Darwin 25.4.0, 2026-04-08"
+  not_derived_from:
+    - "CPython source: Modules/timemodule.c"
+  notes:
+    - "time.gmtime(0) returns the Unix epoch (1970-01-01T00:00:00Z) as struct_time."
+    - "time.strftime() with a fixed struct_time produces deterministic output."
+    - "time.strptime() parses a string into struct_time and is fully deterministic."
+    - "time.time(), time.monotonic(), time.perf_counter() are non-deterministic and not tested."
+    - "time.localtime(0) is platform/timezone-dependent and not tested."
+    - "struct_time attributes are accessed via method: <attr_name> with no method_args."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-08."
+  created_at: "2026-04-08T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# gmtime(0) — Unix epoch (1970-01-01T00:00:00Z) attributes
+# ---------------------------------------------------------------------------
+
+table time.gmtime.epoch_attributes:
+  kind: python_call_eq
+  category: gmtime
+  id_prefix: gmtime_epoch
+  function: gmtime
+  args: [0]
+
+  columns: [id, method, expected]
+  rows:
+    - [tm_year,  tm_year,  1970]
+    - [tm_mon,   tm_mon,   1   ]
+    - [tm_mday,  tm_mday,  1   ]
+    - [tm_hour,  tm_hour,  0   ]
+    - [tm_min,   tm_min,   0   ]
+    - [tm_sec,   tm_sec,   0   ]
+    - [tm_wday,  tm_wday,  3   ]
+    - [tm_yday,  tm_yday,  1   ]
+    - [tm_isdst, tm_isdst, 0   ]
+
+# ---------------------------------------------------------------------------
+# gmtime(1704067200) — 2024-01-01T00:00:00Z attributes
+#   1704067200 = (2024 - 1970) years * seconds_per_year ... verified empirically
+# ---------------------------------------------------------------------------
+
+table time.gmtime.year2024_attributes:
+  kind: python_call_eq
+  category: gmtime
+  id_prefix: gmtime_2024
+  function: gmtime
+  args: [1704067200]
+
+  columns: [id, method, expected]
+  rows:
+    - [tm_year, tm_year, 2024]
+    - [tm_mon,  tm_mon,  1   ]
+    - [tm_mday, tm_mday, 1   ]
+    - [tm_wday, tm_wday, 0   ]
+
+# ---------------------------------------------------------------------------
+# strptime — parse date string into struct_time
+# ---------------------------------------------------------------------------
+
+table time.strptime.date_attributes:
+  kind: python_call_eq
+  category: strptime
+  id_prefix: strptime_date
+  function: strptime
+  args: ["2024-01-15", "%Y-%m-%d"]
+
+  columns: [id, method, expected]
+  rows:
+    - [tm_year,  tm_year,  2024]
+    - [tm_mon,   tm_mon,   1   ]
+    - [tm_mday,  tm_mday,  15  ]
+    - [tm_hour,  tm_hour,  0   ]
+    - [tm_min,   tm_min,   0   ]
+    - [tm_sec,   tm_sec,   0   ]
+
+table time.strptime.time_attributes:
+  kind: python_call_eq
+  category: strptime
+  id_prefix: strptime_time
+  function: strptime
+  args: ["12:30:45", "%H:%M:%S"]
+
+  columns: [id, method, expected]
+  rows:
+    - [tm_hour, tm_hour, 12]
+    - [tm_min,  tm_min,  30]
+    - [tm_sec,  tm_sec,  45]
+
+# ---------------------------------------------------------------------------
+# strptime — additional date vectors
+# ---------------------------------------------------------------------------
+
+invariant time.strptime.epoch_year:
+  description: "time.strptime('1970-01-01', '%Y-%m-%d').tm_year == 1970 — Unix epoch year"
+  category: strptime
+  kind: python_call_eq
+  function: strptime
+  args: ["1970-01-01", "%Y-%m-%d"]
+  method: tm_year
+  expected: 1970
+
+invariant time.strptime.epoch_yday:
+  description: "time.strptime('1970-01-01', '%Y-%m-%d').tm_yday == 1 — day-of-year for Jan 1"
+  category: strptime
+  kind: python_call_eq
+  function: strptime
+  args: ["1970-01-01", "%Y-%m-%d"]
+  method: tm_yday
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# Function identity — __name__ attributes
+# ---------------------------------------------------------------------------
+
+table time.functions.names:
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gmtime_name,   gmtime.__name__.__eq__,   ["gmtime"],   true]
+    - [strptime_name, strptime.__name__.__eq__, ["strptime"], true]
+    - [strftime_name, strftime.__name__.__eq__, ["strftime"], true]
+    - [mktime_name,   mktime.__name__.__eq__,   ["mktime"],   true]
+    - [sleep_name,    sleep.__name__.__eq__,    ["sleep"],    true]
+
+# ---------------------------------------------------------------------------
+# struct_time class identity
+# ---------------------------------------------------------------------------
+
+invariant time.struct_time.class_name:
+  description: "time.struct_time.__name__ == 'struct_time'"
+  category: struct_time
+  kind: python_call_eq
+  function: struct_time.__name__.__eq__
+  args: ["struct_time"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Error handling — strptime with invalid input raises ValueError
+# ---------------------------------------------------------------------------
+
+invariant time.strptime.invalid_format_raises:
+  description: "time.strptime('not-a-date', '%Y-%m-%d') raises ValueError"
+  category: error
+  kind: python_call_raises
+  function: strptime
+  args: ["not-a-date", "%Y-%m-%d"]
+  expected_exception: ValueError
+
+invariant time.strptime.wrong_month_raises:
+  description: "time.strptime('2024-13-01', '%Y-%m-%d') raises ValueError — month 13 invalid"
+  category: error
+  kind: python_call_raises
+  function: strptime
+  args: ["2024-13-01", "%Y-%m-%d"]
+  expected_exception: ValueError

@@ -1,0 +1,199 @@
+spec: os_path
+version: ">=3.2"
+backend: python_module(os.path)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "Python os.path documentation — https://docs.python.org/3/library/os.path.html"
+    - "Test vectors verified by running Python 3.14.3 os.path module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py"
+    - "CPython source: Lib/ntpath.py"
+  notes:
+    - "os.path is POSIX-flavored on Unix (posixpath) and NT-flavored on Windows (ntpath). These invariants target POSIX behavior."
+    - "os.path.join() resets to an absolute path if any component is absolute."
+    - "os.path.normpath('') returns '.' (current directory)."
+    - "os.path.commonprefix() operates on character sequences, not path components — may return a non-directory prefix."
+    - "os.path.splitext('.hidden') returns ('.hidden', '') — leading dot files have no extension."
+    - "os.path.splitdrive() always returns ('', path) on POSIX systems."
+    - "All expected values verified by running Python 3.14.3 os.path module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# os.path.join — joining path components
+# ---------------------------------------------------------------------------
+
+table os_path.join.basic:
+  kind: python_call_eq
+  function: join
+  id_prefix: join
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [two_parts,   "join('a', 'b') == 'a/b'",                       basic,    ["a", "b"],         "a/b"]
+    - [three_parts, "join('a', 'b', 'c') == 'a/b/c'",                basic,    ["a", "b", "c"],    "a/b/c"]
+    - [abs_root,    "join('/root', 'sub') == '/root/sub'",            absolute, ["/root", "sub"],   "/root/sub"]
+    - [abs_reset,   "join('a', '/abs') == '/abs' — absolute resets",  absolute, ["a", "/abs"],      "/abs"]
+    - [empty_head,  "join('', 'b') == 'b'",                          edge,     ["", "b"],           "b"]
+    - [empty_tail,  "join('a', '') == 'a/'",                         edge,     ["a", ""],           "a/"]
+
+# ---------------------------------------------------------------------------
+# os.path.basename — last component of a path
+# ---------------------------------------------------------------------------
+
+table os_path.basename.basic:
+  kind: python_call_eq
+  function: basename
+  id_prefix: basename
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [file_in_dir,   "basename('/foo/bar.py') == 'bar.py'",    basic,  ["/foo/bar.py"],  "bar.py"]
+    - [trailing_sep,  "basename('/foo/') == '' — trailing /",   edge,   ["/foo/"],        ""]
+    - [bare_file,     "basename('bar.py') == 'bar.py'",         basic,  ["bar.py"],       "bar.py"]
+    - [empty_path,    "basename('') == ''",                     edge,   [""],             ""]
+
+# ---------------------------------------------------------------------------
+# os.path.dirname — directory part of a path
+# ---------------------------------------------------------------------------
+
+table os_path.dirname.basic:
+  kind: python_call_eq
+  function: dirname
+  id_prefix: dirname
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [file_in_dir,   "dirname('/foo/bar.py') == '/foo'",         basic,  ["/foo/bar.py"],  "/foo"]
+    - [bare_file,     "dirname('bar.py') == ''",                  edge,   ["bar.py"],       ""]
+    - [trailing_sep,  "dirname('/foo/') == '/foo'",               edge,   ["/foo/"],        "/foo"]
+    - [empty_path,    "dirname('') == ''",                        edge,   [""],             ""]
+
+# ---------------------------------------------------------------------------
+# os.path.isabs — test whether a path is absolute
+# ---------------------------------------------------------------------------
+
+table os_path.isabs.basic:
+  kind: python_call_eq
+  function: isabs
+  id_prefix: isabs
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [abs_path,  "isabs('/foo') == True",   basic,  ["/foo"],  true]
+    - [rel_path,  "isabs('foo') == False",   basic,  ["foo"],   false]
+    - [empty,     "isabs('') == False",      edge,   [""],      false]
+
+# ---------------------------------------------------------------------------
+# os.path.normpath — normalize a path by collapsing redundant separators
+# ---------------------------------------------------------------------------
+
+table os_path.normpath.basic:
+  kind: python_call_eq
+  function: normpath
+  id_prefix: normpath
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [dotdot,     "normpath('/foo/../bar') == '/bar'",     dotdot,  ["/foo/../bar"],  "/bar"]
+    - [dot_seg,    "normpath('a/./b') == 'a/b'",           dot,     ["a/./b"],        "a/b"]
+    - [double_sep, "normpath('a//b') == 'a/b'",            sep,     ["a//b"],         "a/b"]
+    - [empty,      "normpath('') == '.'",                  edge,    [""],             "."]
+    - [dot_only,   "normpath('.') == '.'",                 edge,    ["."],            "."]
+    - [dotdot_rel, "normpath('..') == '..'",               edge,    [".."],           ".."]
+
+# ---------------------------------------------------------------------------
+# os.path.commonprefix — longest common leading substring across all paths
+# Note: operates on characters, not path components
+# ---------------------------------------------------------------------------
+
+table os_path.commonprefix.basic:
+  kind: python_call_eq
+  function: commonprefix
+  id_prefix: commonprefix
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [shared_dir,  "commonprefix(['/foo/bar', '/foo/baz']) == '/foo/ba'",   charwise,  [["/foo/bar", "/foo/baz"]],   "/foo/ba"]
+    - [identical,   "commonprefix(['/home', '/home']) == '/home'",           basic,     [["/home", "/home"]],         "/home"]
+    - [short,       "commonprefix(['abc', 'abd']) == 'ab'",                  basic,     [["abc", "abd"]],             "ab"]
+    - [empty_list,  "commonprefix([]) == ''",                               edge,      [[]],                         ""]
+
+# ---------------------------------------------------------------------------
+# os.path.splitext — split filename into (root, ext) tuple
+# Tuple elements accessed via __getitem__.
+# ---------------------------------------------------------------------------
+
+table os_path.splitext.base:
+  kind: python_call_eq
+  function: splitext
+  method: __getitem__
+  method_args: [0]
+  id_prefix: splitext_base
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [simple,    "splitext('hello.py')[0] == 'hello'",     basic,   ["hello.py"],  "hello"]
+    - [multi_dot, "splitext('a.b.c')[0] == 'a.b'",         basic,   ["a.b.c"],     "a.b"]
+    - [no_ext,    "splitext('noext')[0] == 'noext'",        edge,    ["noext"],     "noext"]
+    - [hidden,    "splitext('.hidden')[0] == '.hidden'",    hidden,  [".hidden"],   ".hidden"]
+
+table os_path.splitext.ext:
+  kind: python_call_eq
+  function: splitext
+  method: __getitem__
+  method_args: [1]
+  id_prefix: splitext_ext
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [simple,    "splitext('hello.py')[1] == '.py'",   basic,   ["hello.py"],  ".py"]
+    - [multi_dot, "splitext('a.b.c')[1] == '.c'",       basic,   ["a.b.c"],     ".c"]
+    - [no_ext,    "splitext('noext')[1] == ''",          edge,    ["noext"],     ""]
+    - [hidden,    "splitext('.hidden')[1] == ''",        hidden,  [".hidden"],   ""]
+
+# ---------------------------------------------------------------------------
+# os.path.splitdrive — split into (drive, tail) — always ('', path) on POSIX
+# ---------------------------------------------------------------------------
+
+invariant os_path.splitdrive.posix_drive:
+  description: "splitdrive('/foo/bar')[0] == '' — no drive on POSIX"
+  category: splitdrive
+  kind: python_call_eq
+  function: splitdrive
+  args: ["/foo/bar"]
+  method: __getitem__
+  method_args: [0]
+  expected: ""
+
+invariant os_path.splitdrive.posix_tail:
+  description: "splitdrive('/foo/bar')[1] == '/foo/bar' — full path as tail on POSIX"
+  category: splitdrive
+  kind: python_call_eq
+  function: splitdrive
+  args: ["/foo/bar"]
+  method: __getitem__
+  method_args: [1]
+  expected: "/foo/bar"
+
+# ---------------------------------------------------------------------------
+# os.path.split — split into (head, tail) tuple
+# ---------------------------------------------------------------------------
+
+table os_path.split.basic:
+  kind: python_call_eq
+  function: split
+  id_prefix: split
+
+  columns: [id, description, method, method_args, category, args, expected]
+  rows:
+    - [file_head,    "split('/foo/bar.py')[0] == '/foo'",  __getitem__,  [0],  basic,  ["/foo/bar.py"],  "/foo"]
+    - [file_tail,    "split('/foo/bar.py')[1] == 'bar.py'", __getitem__, [1],  basic,  ["/foo/bar.py"],  "bar.py"]
+    - [trailing_sep_head, "split('/foo/')[0] == '/foo'",   __getitem__,  [0],  edge,   ["/foo/"],        "/foo"]
+    - [trailing_sep_tail, "split('/foo/')[1] == ''",       __getitem__,  [1],  edge,   ["/foo/"],        ""]
+    - [bare_head,    "split('bar.py')[0] == ''",           __getitem__,  [0],  edge,   ["bar.py"],       ""]
+    - [bare_tail,    "split('bar.py')[1] == 'bar.py'",     __getitem__,  [1],  edge,   ["bar.py"],       "bar.py"]

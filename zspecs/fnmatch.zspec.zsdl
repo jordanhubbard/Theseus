@@ -1,0 +1,144 @@
+spec: fnmatch
+version: ">=3.2"
+backend: python_module(fnmatch)
+
+docs: https://docs.python.org/3/library/fnmatch.html
+
+provenance:
+  derived_from:
+    - "Python fnmatch documentation — https://docs.python.org/3/library/fnmatch.html"
+    - "Test vectors verified by running Python 3.14.3 fnmatch module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/fnmatch.py"
+  notes:
+    - "fnmatch.fnmatch() is case-sensitive on Unix, case-insensitive on Windows."
+    - "fnmatch.fnmatchcase() is always case-sensitive regardless of platform."
+    - "* matches any sequence of characters including empty. ? matches exactly one character. [seq] matches any character in seq."
+    - "fnmatch.filter(names, pattern) is equivalent to [n for n in names if fnmatch(n, pattern)]."
+    - "fnmatch.translate(pattern) converts a shell pattern to a regular expression string suitable for re.match()."
+    - "All expected values verified by running Python 3.14.3 fnmatch module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# fnmatch.fnmatch — wildcard star (*)
+# ---------------------------------------------------------------------------
+
+table fnmatch.fnmatch.star:
+  kind: python_call_eq
+  function: fnmatch
+  id_prefix: star
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [py_match,       "fnmatch('hello.py', '*.py') == True",         extension,  ["hello.py",  "*.py"],   true]
+    - [js_no_match,    "fnmatch('hello.js', '*.py') == False",        extension,  ["hello.js",  "*.py"],   false]
+    - [md_match,       "fnmatch('README.md', '*.md') == True",        extension,  ["README.md", "*.md"],   true]
+    - [star_all,       "fnmatch('hello', '*') == True",               wildcard,   ["hello",     "*"],      true]
+    - [star_empty,     "fnmatch('', '*') == True — * matches empty",  wildcard,   ["",          "*"],      true]
+    - [file_dot_star,  "fnmatch('file.py', 'file.*') == True",        wildcard,   ["file.py",   "file.*"], true]
+    - [file_nodot,     "fnmatch('file', 'file.*') == False — no dot", wildcard,   ["file",      "file.*"], false]
+    - [slash_match,    "fnmatch('a/b', '*') == True — * matches /",   wildcard,   ["a/b",       "*"],      true]
+
+# ---------------------------------------------------------------------------
+# fnmatch.fnmatch — question mark (?)
+# ---------------------------------------------------------------------------
+
+table fnmatch.fnmatch.question:
+  kind: python_call_eq
+  function: fnmatch
+  id_prefix: question
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [prefix_match,  "fnmatch('hello', '?ello') == True",              question,  ["hello",    "?ello"],    true]
+    - [mid_match,     "fnmatch('hello', 'h?llo') == True",              question,  ["hello",    "h?llo"],    true]
+    - [too_short,     "fnmatch('hllo', 'h?llo') == False — zero chars", question,  ["hllo",     "h?llo"],    false]
+    - [single_match,  "fnmatch('a', '?') == True",                      question,  ["a",        "?"],        true]
+    - [too_long,      "fnmatch('ab', '?') == False — two chars",        question,  ["ab",       "?"],        false]
+    - [ext_match,     "fnmatch('hello.py', 'hello.p?') == True",        question,  ["hello.py", "hello.p?"], true]
+    - [ext_match2,    "fnmatch('hello.px', 'hello.p?') == True",        question,  ["hello.px", "hello.p?"], true]
+    - [mixed_match,   "fnmatch('test.txt', '*.t?t') == True",           mixed,     ["test.txt", "*.t?t"],    true]
+
+# ---------------------------------------------------------------------------
+# fnmatch.fnmatch — character classes [seq]
+# ---------------------------------------------------------------------------
+
+table fnmatch.fnmatch.charclass:
+  kind: python_call_eq
+  function: fnmatch
+  id_prefix: charclass
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [lower_h,     "fnmatch('hello', '[hH]ello') == True — h in class",  charclass,  ["hello", "[hH]ello"],  true]
+    - [upper_H,     "fnmatch('Hello', '[hH]ello') == True — H in class",  charclass,  ["Hello", "[hH]ello"],  true]
+    - [not_in,      "fnmatch('xello', '[hH]ello') == False — x not in",   charclass,  ["xello", "[hH]ello"],  false]
+    - [range_a,     "fnmatch('abc', '[a-c]bc') == True — a in [a-c]",     charclass,  ["abc",   "[a-c]bc"],   true]
+    - [range_out,   "fnmatch('dbc', '[a-c]bc') == False — d not in",      charclass,  ["dbc",   "[a-c]bc"],   false]
+
+# ---------------------------------------------------------------------------
+# fnmatch.fnmatch — empty pattern and empty name edge cases
+# ---------------------------------------------------------------------------
+
+table fnmatch.fnmatch.empty:
+  kind: python_call_eq
+  function: fnmatch
+  id_prefix: empty
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [both_empty,    "fnmatch('', '') == True — empty matches empty",        edge,   ["",  ""],  true]
+    - [name_nonempty, "fnmatch('a', '') == False — non-empty vs empty pat",   edge,   ["a", ""],  false]
+
+# ---------------------------------------------------------------------------
+# fnmatch.fnmatchcase — always case-sensitive
+# ---------------------------------------------------------------------------
+
+table fnmatch.fnmatchcase.case:
+  kind: python_call_eq
+  function: fnmatchcase
+  id_prefix: fnmatchcase
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [lower_match,  "fnmatchcase('hello.py', '*.py') == True",         case,  ["hello.py", "*.py"],  true]
+    - [mixed_match,  "fnmatchcase('Hello.py', '*.py') == True",         case,  ["Hello.py", "*.py"],  true]
+    - [upper_no,     "fnmatchcase('HELLO.PY', '*.py') == False",        case,  ["HELLO.PY", "*.py"],  false]
+    - [upper_yes,    "fnmatchcase('HELLO.PY', '*.PY') == True",         case,  ["HELLO.PY", "*.PY"],  true]
+
+# ---------------------------------------------------------------------------
+# fnmatch.filter — returns matching subset of names list
+# ---------------------------------------------------------------------------
+
+table fnmatch.filter.lists:
+  kind: python_call_eq
+  function: filter
+  id_prefix: filter
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [py_files,    "filter(['a.py','b.js','c.py','d.txt'], '*.py')",   filter,  [["a.py", "b.js", "c.py", "d.txt"], "*.py"],  ["a.py", "c.py"]]
+    - [no_match,    "filter(['a.py','b.js'], '*.rb') == []",            filter,  [["a.py", "b.js"], "*.rb"],                   []]
+    - [empty_input, "filter([], '*.py') == []",                         edge,    [[], "*.py"],                                 []]
+    - [star_all,    "filter(['hello','world'], '*') — all match",       filter,  [["hello", "world"], "*"],                    ["hello", "world"]]
+
+# ---------------------------------------------------------------------------
+# fnmatch.translate — converts shell pattern to regex string
+# Exact values verified against Python 3.14.3 on macOS/Darwin 25.4.0.
+# ---------------------------------------------------------------------------
+
+table fnmatch.translate.patterns:
+  kind: python_call_eq
+  function: translate
+  id_prefix: translate
+
+  columns: [id, description, category, args, expected]
+  rows:
+    - [star_py,   "translate('*.py') produces regex matching .py files",  translate,  ["*.py"],   "(?s:.*\\.py)\\z"]
+    - [star_txt,  "translate('*.txt') produces regex for .txt files",     translate,  ["*.txt"],  "(?s:.*\\.txt)\\z"]
+    - [question,  "translate('?') produces regex for single char",        translate,  ["?"],      "(?s:.)\\z"]
+    - [charclass, "translate('[abc]') produces regex for char class",     translate,  ["[abc]"],  "(?s:[abc])\\z"]
+    - [star_only, "translate('*') produces regex matching anything",      translate,  ["*"],      "(?s:.*)\\z"]
+    - [empty_pat, "translate('') produces regex matching empty string",   translate,  [""],       "(?s:)\\z"]
