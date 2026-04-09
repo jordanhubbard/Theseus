@@ -1,0 +1,135 @@
+spec: sqlite3_extra5
+version: ">=3.9"
+backend: python_module(sqlite3)
+
+docs: https://docs.python.org/3/library/sqlite3.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sqlite3.html — Python sqlite3 module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_sqlite/module.c"
+    - "CPython source: Modules/_sqlite/connection.c"
+    - "CPython source: Modules/_sqlite/cursor.c"
+  notes:
+    - "This spec extends sqlite3.zspec.zsdl, sqlite3_cli.zspec.zsdl, sqlite3_extra.zspec.zsdl, sqlite3_extra2.zspec.zsdl, sqlite3_extra3.zspec.zsdl, sqlite3_extra4.zspec.zsdl."
+    - "sqlite3_extra4.zspec.zsdl covers: __name__ for Error/DatabaseError/OperationalError/IntegrityError/InterfaceError/ProgrammingError/DataError/NotSupportedError/Row/Connection/Cursor; sqlite_version/__class__.__name__; version/__class__.__name__; paramstyle; PARSE_DECLTYPES; PARSE_COLNAMES; Error.__bases__; DatabaseError.__bases__."
+    - "This spec adds __qualname__ vectors for Connection/Cursor/Row/Error/Warning/IntegrityError/OperationalError, the connect and complete_statement function qualnames, and complete_statement functional behavior — none previously covered."
+    - "sqlite3.Connection.__qualname__ == 'Connection' — top-level C extension type."
+    - "sqlite3.Cursor.__qualname__ == 'Cursor' — top-level C extension type."
+    - "sqlite3.Row.__qualname__ == 'Row' — top-level C extension type."
+    - "sqlite3.Error.__qualname__ == 'Error' — top-level exception class."
+    - "sqlite3.Warning.__qualname__ == 'Warning' — top-level exception class."
+    - "sqlite3.IntegrityError.__qualname__ == 'IntegrityError' — top-level exception class."
+    - "sqlite3.OperationalError.__qualname__ == 'OperationalError' — top-level exception class."
+    - "sqlite3.connect.__qualname__ == 'connect' — top-level function."
+    - "sqlite3.complete_statement.__qualname__ == 'complete_statement' — top-level function."
+    - "sqlite3.complete_statement('SELECT 1;') == True — semicolon-terminated statement is complete."
+    - "sqlite3.complete_statement('SELECT') == False — statement without semicolon is incomplete."
+    - "sqlite3.complete_statement('SELECT 1') == False — no semicolon means incomplete."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ table for core sqlite3 classes
+#
+# For top-level (non-nested) classes, __qualname__ equals __name__.
+# sqlite3_extra4 checked __name__ for Connection/Cursor/Row; this spec
+# introduces __qualname__ checks as independent new vectors.
+# ---------------------------------------------------------------------------
+
+table sqlite3_extra5.class_qualnames:
+  description: "Core sqlite3 classes have correct __qualname__ (equals __name__ for top-level classes)"
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Connection, Connection.__qualname__.__eq__, ["Connection"], true]
+    - [Cursor,     Cursor.__qualname__.__eq__,     ["Cursor"],     true]
+    - [Row,        Row.__qualname__.__eq__,        ["Row"],        true]
+    - [Error,      Error.__qualname__.__eq__,      ["Error"],      true]
+    - [Warning,    Warning.__qualname__.__eq__,    ["Warning"],    true]
+
+# ---------------------------------------------------------------------------
+# __qualname__ for additional exception classes
+#
+# IntegrityError and OperationalError are subclasses of DatabaseError.
+# sqlite3_extra4 covered their __name__; these add __qualname__ vectors.
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_extra5.IntegrityError.qualname:
+  description: "sqlite3.IntegrityError.__qualname__ == 'IntegrityError'"
+  category: exception_qualnames
+  kind: python_call_eq
+  function: IntegrityError.__qualname__.__eq__
+  args: ["IntegrityError"]
+  expected: true
+
+invariant sqlite3_extra5.OperationalError.qualname:
+  description: "sqlite3.OperationalError.__qualname__ == 'OperationalError'"
+  category: exception_qualnames
+  kind: python_call_eq
+  function: OperationalError.__qualname__.__eq__
+  args: ["OperationalError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __qualname__ for sqlite3 functions
+#
+# connect and complete_statement are top-level functions; their __qualname__
+# equals their __name__. Not previously covered by any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_extra5.connect.qualname:
+  description: "sqlite3.connect.__qualname__ == 'connect'"
+  category: function_qualnames
+  kind: python_call_eq
+  function: connect.__qualname__.__eq__
+  args: ["connect"]
+  expected: true
+
+invariant sqlite3_extra5.complete_statement.qualname:
+  description: "sqlite3.complete_statement.__qualname__ == 'complete_statement'"
+  category: function_qualnames
+  kind: python_call_eq
+  function: complete_statement.__qualname__.__eq__
+  args: ["complete_statement"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# complete_statement — functional behavior
+#
+# sqlite3.complete_statement(sql) returns True if the string contains one or
+# more complete SQL statements terminated by a semicolon. Returns False for
+# incomplete SQL (missing semicolon or trailing fragment).
+# Not covered in any prior sqlite3 spec.
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_extra5.complete_statement.complete_select:
+  description: "sqlite3.complete_statement('SELECT 1;') == True — complete SQL statement"
+  category: complete_statement
+  kind: python_call_eq
+  function: complete_statement
+  args: ["SELECT 1;"]
+  expected: true
+
+invariant sqlite3_extra5.complete_statement.missing_semicolon:
+  description: "sqlite3.complete_statement('SELECT 1') == False — no semicolon means incomplete"
+  category: complete_statement
+  kind: python_call_eq
+  function: complete_statement
+  args: ["SELECT 1"]
+  expected: false
+
+invariant sqlite3_extra5.complete_statement.bare_keyword:
+  description: "sqlite3.complete_statement('SELECT') == False — bare keyword without semicolon"
+  category: complete_statement
+  kind: python_call_eq
+  function: complete_statement
+  args: ["SELECT"]
+  expected: false
