@@ -1,0 +1,101 @@
+spec: pickle_extra
+version: ">=3.0"
+backend: python_module(pickle)
+
+docs: https://docs.python.org/3/library/pickle.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/pickle.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pickle.py and Modules/_pickle.c"
+    - "pickle.zspec.zsdl — base coverage"
+    - "_pickle.zspec.zsdl — C accelerator coverage"
+  notes:
+    - "Complements pickle.zspec.zsdl with additional protocol and class name checks."
+    - "pickle.HIGHEST_PROTOCOL == 5 in CPython 3.8+; >= 5 used for forward compatibility."
+    - "pickle.DEFAULT_PROTOCOL is always an int; its exact value may increase in future Python versions."
+    - "pickle.Pickler and pickle.Unpickler are the pure-Python implementations (may be shadowed by C accel)."
+    - "pickle.PickleError inherits from Exception; PicklingError and UnpicklingError inherit from PickleError."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Protocol constant class name checks
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra.HIGHEST_PROTOCOL.class_name:
+  description: "pickle.HIGHEST_PROTOCOL.__class__.__name__ == 'int'"
+  category: constants
+  kind: python_call_eq
+  function: HIGHEST_PROTOCOL.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant pickle_extra.DEFAULT_PROTOCOL.class_name:
+  description: "pickle.DEFAULT_PROTOCOL.__class__.__name__ == 'int'"
+  category: constants
+  kind: python_call_eq
+  function: DEFAULT_PROTOCOL.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant pickle_extra.HIGHEST_PROTOCOL.gte5:
+  description: "pickle.HIGHEST_PROTOCOL >= 5 — protocol 5 added in CPython 3.8"
+  category: constants
+  kind: python_call_eq
+  function: HIGHEST_PROTOCOL.__ge__
+  args: [5]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class name checks — Pickler and Unpickler
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra.Pickler.name:
+  description: "pickle.Pickler.__name__ == 'Pickler'"
+  category: classes
+  kind: python_call_eq
+  function: Pickler.__name__.__eq__
+  args: ["Pickler"]
+  expected: true
+
+invariant pickle_extra.Unpickler.name:
+  description: "pickle.Unpickler.__name__ == 'Unpickler'"
+  category: classes
+  kind: python_call_eq
+  function: Unpickler.__name__.__eq__
+  args: ["Unpickler"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Exception class name checks
+# ---------------------------------------------------------------------------
+
+table pickle_extra.exception_names:
+  kind: python_call_eq
+  category: exceptions
+  id_prefix: ename
+
+  columns: [id, description, function, args, expected]
+  rows:
+    - [PickleError,     "PickleError.__name__ == 'PickleError'",         PickleError.__name__.__eq__,     ["PickleError"],     true]
+    - [PicklingError,   "PicklingError.__name__ == 'PicklingError'",     PicklingError.__name__.__eq__,   ["PicklingError"],   true]
+    - [UnpicklingError, "UnpicklingError.__name__ == 'UnpicklingError'", UnpicklingError.__name__.__eq__, ["UnpicklingError"], true]
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy — PickleError inherits from Exception
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra.PickleError.base_is_Exception:
+  description: "pickle.PickleError.__bases__[0].__name__ == 'Exception'"
+  category: exceptions
+  kind: python_call_eq
+  function: PickleError.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Exception"]
+  expected: true

@@ -1,0 +1,109 @@
+spec: gzip_extra2
+version: ">=3.8"
+backend: python_module(gzip)
+
+docs: https://docs.python.org/3/library/gzip.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gzip.html — Python gzip module documentation"
+    - "RFC 1952 — GZIP file format specification version 4.3"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/gzip.py"
+    - "gzip.zspec.zsdl — covers compress/decompress roundtrips, output lengths, BadGzipFile errors, BadGzipFile.__name__"
+    - "gzip_extra.zspec.zsdl — covers GzipFile.__name__, GzipFile.__module__, BadGzipFile.__module__, BadGzipFile base OSError, compress/decompress/open __name__, compress module, compress(b'hello') returns bytes, roundtrip"
+  notes:
+    - "This spec extends gzip_extra.zspec.zsdl with coverage not already present there."
+    - "compress(b'') returns bytes of length 20 — a valid gzip stream for empty input."
+    - "The gzip stream for empty input starts with magic bytes 0x1f8b (gzip header)."
+    - "decompress(compress(b'')) == b'' — roundtrip of empty bytes produces empty bytes."
+    - "GzipFile.__bases__[0].__name__ == 'BaseStream' — GzipFile inherits from io.BaseStream in CPython."
+    - "open.__module__ == 'gzip' — the open function is defined in the gzip module."
+    - "decompress.__module__ == 'gzip' — the decompress function is defined in the gzip module."
+    - "All expected values verified by running Python 3.12 gzip module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "gzip.decompress() raises gzip.BadGzipFile (subclass of OSError) on invalid input."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# compress(b'') — returns bytes
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra2.compress.empty_returns_bytes:
+  description: "compress(b'').__class__.__name__ == 'bytes' — empty input still returns bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_hex, value: ""}]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant gzip_extra2.compress.empty_output_length:
+  description: "compress(b'', compresslevel=9).__len__() == 20 — gzip stream for empty input is 20 bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_hex, value: ""}, 9]
+  method: __len__
+  expected: 20
+
+invariant gzip_extra2.compress.empty_starts_with_magic:
+  description: "compress(b'')[:2].hex() starts with gzip magic 1f8b"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_hex, value: ""}, 9]
+  method: hex
+  expected: "1f8b08000000000002ff03000000000000000000"
+
+# ---------------------------------------------------------------------------
+# decompress(compress(b'')) == b'' — roundtrip of empty bytes
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra2.decompress.empty_roundtrip_length:
+  description: "decompress(compress(b'', level=9)) == b'' — roundtrip of empty bytes; result length == 0"
+  category: roundtrip
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ff03000000000000000000"}]
+  method: __len__
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# GzipFile — base class
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra2.GzipFile.base_class_name:
+  description: "GzipFile.__bases__[0].__name__ == 'BaseStream'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: GzipFile.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "BaseStream"
+
+# ---------------------------------------------------------------------------
+# open() and decompress() — module checks
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra2.open.module:
+  description: "open.__module__ == 'gzip'"
+  category: function_metadata
+  kind: python_call_eq
+  function: open.__module__.__eq__
+  args: ["gzip"]
+  expected: true
+
+invariant gzip_extra2.decompress.module:
+  description: "decompress.__module__ == 'gzip'"
+  category: function_metadata
+  kind: python_call_eq
+  function: decompress.__module__.__eq__
+  args: ["gzip"]
+  expected: true
