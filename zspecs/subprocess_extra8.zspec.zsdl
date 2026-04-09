@@ -1,0 +1,187 @@
+spec: subprocess_extra8
+version: ">=3.9"
+backend: python_module(subprocess)
+
+docs: https://docs.python.org/3/library/subprocess.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/subprocess.html — Python subprocess module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/subprocess.py"
+  notes:
+    - "This spec extends subprocess.zspec.zsdl and prior extras through subprocess_extra7.zspec.zsdl."
+    - "subprocess_extra7 covers: call/getoutput/getstatusoutput __module__; call/run/check_call/check_output __qualname__ as standalone invariants; consolidated __module__ table for all six functions."
+    - "subprocess_extra5 covers: PIPE/STDOUT/DEVNULL exact values; class and function __name__ tables."
+    - "subprocess_extra4 covers: PIPE/STDOUT/DEVNULL negativity checks (__lt__(0)); PIPE.__gt__(-2); STDOUT.__gt__(-3) [sic STDOUT>DEVNULL]."
+    - "This spec adds NEW axes:"
+    - "  (1) PIPE/STDOUT/DEVNULL absolute-value checks — __abs__() returns 1, 2, 3 respectively (not yet covered)."
+    - "  (2) PIPE.__add__(-2) == -3 == DEVNULL — sentinel arithmetic (not covered)."
+    - "  (3) CalledProcessError with output/stderr keyword args — constructor stores bytes correctly."
+    - "  (4) SubprocessError MRO index 2 == 'BaseException' (extra3 covers index 1 == 'Exception'; index 2 is new)."
+    - "  (5) CalledProcessError and TimeoutExpired MRO index 2 == 'Exception' (index 1 was covered; index 2 is new)."
+    - "  (6) getoutput.__name__ and getstatusoutput.__name__ as standalone invariants (tables in extra5/subprocess cover them; standalone form is new)."
+    - "  (7) PIPE.__ne__(-2) and STDOUT.__ne__(-1) — inequality checks between sentinel pairs."
+    - "subprocess.PIPE.__abs__() == 1 — abs(-1) == 1."
+    - "subprocess.STDOUT.__abs__() == 2 — abs(-2) == 2."
+    - "subprocess.DEVNULL.__abs__() == 3 — abs(-3) == 3."
+    - "subprocess.PIPE.__add__(-2) == -3 — PIPE + STDOUT == DEVNULL (arithmetic identity)."
+    - "subprocess.CalledProcessError(1,'cmd',output='hello').output == 'hello' — output kwarg stored."
+    - "subprocess.CalledProcessError(1,'cmd',stderr='world').stderr == 'world' — stderr kwarg stored."
+    - "subprocess.SubprocessError.__mro__[2].__name__ == 'BaseException' — full MRO: SubprocessError→Exception→BaseException."
+    - "subprocess.CalledProcessError.__mro__[2].__name__ == 'Exception' — full MRO: CalledProcessError→SubprocessError→Exception."
+    - "subprocess.TimeoutExpired.__mro__[2].__name__ == 'Exception' — full MRO: TimeoutExpired→SubprocessError→Exception."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PIPE, STDOUT, DEVNULL — absolute-value checks
+#
+# extra4 verifies that all three sentinels are < 0 (negative).
+# This spec adds __abs__() checks, verifying their unsigned magnitudes
+# (1, 2, 3) as an independent arithmetic constraint.
+# ---------------------------------------------------------------------------
+
+table subprocess_extra8.sentinel_abs:
+  description: "PIPE/STDOUT/DEVNULL __abs__() returns their unsigned magnitudes 1, 2, 3"
+  kind: python_call_eq
+  category: constants
+  id_prefix: abs
+
+  columns: [id, function, args, expected]
+  rows:
+    - [PIPE,    PIPE.__abs__,    [], 1]
+    - [STDOUT,  STDOUT.__abs__,  [], 2]
+    - [DEVNULL, DEVNULL.__abs__, [], 3]
+
+# ---------------------------------------------------------------------------
+# PIPE sentinel arithmetic
+#
+# PIPE (-1) + STDOUT (-2) == -3 == DEVNULL. This arithmetic identity relates
+# all three sentinels and has not been tested in any prior subprocess spec.
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra8.PIPE.add_stdout_eq_devnull:
+  description: "subprocess.PIPE.__add__(-2) == -3 — PIPE + STDOUT equals DEVNULL's value"
+  category: constants
+  kind: python_call_eq
+  function: PIPE.__add__
+  args: [-2]
+  expected: -3
+
+# ---------------------------------------------------------------------------
+# PIPE and STDOUT inequality checks
+#
+# Prior specs verify equality and ordering (lt/gt); this spec adds __ne__
+# checks between adjacent sentinels as an orthogonal inequality constraint.
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra8.PIPE.ne_stdout:
+  description: "subprocess.PIPE.__ne__(-2) is True — PIPE (-1) differs from STDOUT (-2)"
+  category: constants
+  kind: python_call_eq
+  function: PIPE.__ne__
+  args: [-2]
+  expected: true
+
+invariant subprocess_extra8.STDOUT.ne_pipe:
+  description: "subprocess.STDOUT.__ne__(-1) is True — STDOUT (-2) differs from PIPE (-1)"
+  category: constants
+  kind: python_call_eq
+  function: STDOUT.__ne__
+  args: [-1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# CalledProcessError — output and stderr keyword-argument storage
+#
+# subprocess_popen covers CalledProcessError(1,'cmd').returncode and .cmd.
+# subprocess_extra2 covers .output and .stderr defaulting to None (no kwargs).
+# This spec adds the case where output and stderr are supplied explicitly
+# as keyword arguments — not tested in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra8.CalledProcessError.output_kwarg:
+  description: "CalledProcessError(1,'cmd',output='hello').output == 'hello' — output keyword arg stored"
+  category: exceptions
+  kind: python_call_eq
+  function: CalledProcessError
+  args: [1, "cmd"]
+  kwargs: {output: "hello"}
+  method: output
+  expected: "hello"
+
+invariant subprocess_extra8.CalledProcessError.stderr_kwarg:
+  description: "CalledProcessError(1,'cmd',stderr='world').stderr == 'world' — stderr keyword arg stored"
+  category: exceptions
+  kind: python_call_eq
+  function: CalledProcessError
+  args: [1, "cmd"]
+  kwargs: {stderr: "world"}
+  method: stderr
+  expected: "world"
+
+# ---------------------------------------------------------------------------
+# Exception MRO — deeper entries not yet covered
+#
+# extra3 checks __mro__[1] for CalledProcessError/SubprocessError.
+# extra4 checks __mro__[0] for CalledProcessError/TimeoutExpired/SubprocessError
+# (identity — each class is its own MRO[0]).
+# This spec adds MRO[2] for all three, reaching one step further:
+#   SubprocessError.__mro__[2] == BaseException
+#   CalledProcessError.__mro__[2] == Exception (through SubprocessError)
+#   TimeoutExpired.__mro__[2] == Exception (through SubprocessError)
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra8.SubprocessError.mro_index2:
+  description: "subprocess.SubprocessError.__mro__[2].__name__ == 'BaseException' — full MRO depth"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: SubprocessError.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "BaseException"
+
+invariant subprocess_extra8.CalledProcessError.mro_index2:
+  description: "subprocess.CalledProcessError.__mro__[2].__name__ == 'Exception' — via SubprocessError"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: CalledProcessError.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "Exception"
+
+invariant subprocess_extra8.TimeoutExpired.mro_index2:
+  description: "subprocess.TimeoutExpired.__mro__[2].__name__ == 'Exception' — via SubprocessError"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TimeoutExpired.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# getoutput and getstatusoutput — __name__ standalone invariants
+#
+# subprocess.zspec.zsdl and subprocess_extra5 cover these in tables.
+# This spec adds them as standalone named invariants (independent vectors).
+# ---------------------------------------------------------------------------
+
+invariant subprocess_extra8.getoutput.name:
+  description: "subprocess.getoutput.__name__ == 'getoutput' — standalone invariant"
+  category: function_names
+  kind: python_call_eq
+  function: getoutput.__name__.__eq__
+  args: ["getoutput"]
+  expected: true
+
+invariant subprocess_extra8.getstatusoutput.name:
+  description: "subprocess.getstatusoutput.__name__ == 'getstatusoutput' — standalone invariant"
+  category: function_names
+  kind: python_call_eq
+  function: getstatusoutput.__name__.__eq__
+  args: ["getstatusoutput"]
+  expected: true

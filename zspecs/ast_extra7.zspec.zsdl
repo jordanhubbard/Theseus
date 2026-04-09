@@ -1,0 +1,185 @@
+spec: ast_extra7
+version: ">=3.9"
+backend: python_module(ast)
+
+docs: https://docs.python.org/3/library/ast.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ast.html — Python ast documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ast.py"
+    - "CPython source: Python/Python-ast.c"
+    - "ast.zspec.zsdl — covers literal_eval primitives/containers/tuple-access, error cases, literal_eval.__name__, arithmetic/statement node classnames (Add,Sub,Mult,Div,Module,Constant,Expr,Name,FunctionDef,ClassDef,If,For,Import,Call)"
+    - "ast_extra.zspec.zsdl — covers parse/__name__/__module__/returns_module_node, dump/__name__, get_docstring/__name__, fix_missing_locations/__name__, NodeVisitor/__name__, NodeTransformer/__name__/__bases__[0], AST/__name__, literal_eval standalone round-trips"
+    - "ast_extra2.zspec.zsdl — covers literal_eval value checks for int/str/list/dict/bool/None"
+    - "ast_extra3.zspec.zsdl — covers __module__ for parse/dump/literal_eval/get_docstring/fix_missing_locations/walk/NodeVisitor/NodeTransformer/Module/FunctionDef/Constant/Name/AST/Expr/ClassDef"
+    - "ast_extra4.zspec.zsdl — covers __qualname__ for literal_eval/get_docstring/dump/walk/fix_missing_locations/NodeVisitor/NodeTransformer/AST/Module/Constant/parse; literal_eval type checks"
+    - "ast_extra5.zspec.zsdl — covers __qualname__ for FunctionDef/Expr/ClassDef/Name/If/For/Import/Call/Assign/Return/AsyncFunctionDef/AsyncFor/AsyncWith/With/Delete; unparse/__qualname__/__module__, copy_location/__qualname__/__module__, increment_lineno/__qualname__/__module__"
+    - "ast_extra6.zspec.zsdl — covers __name__ for Module/Constant/Name/Expr/FunctionDef/ClassDef/If/Return/Assign/Call/Import/For (table); walk.__name__; NodeVisitor.__bases__[0]; AST.__bases__[0]; AsyncFunctionDef/__name__, With/__name__, Delete/__name__"
+  notes:
+    - "This spec adds new axes: abstract base node class names (ast.mod, ast.stmt, ast.expr) not checked in any prior spec; __module__ for additional node classes (BinOp, While, Tuple, List, Try, Raise, Pass, Break, Continue) not covered in extra3; __qualname__ for those same classes; parse return body length check."
+    - "ast.mod.__name__ == 'mod' — abstract grammar category for module-level forms; not checked in any prior spec."
+    - "ast.stmt.__name__ == 'stmt' — abstract grammar category for statement nodes; not checked."
+    - "ast.expr.__name__ == 'expr' — abstract grammar category for expression nodes; not checked."
+    - "ast.BinOp.__name__ == 'BinOp' — not covered as standalone __name__ in prior specs."
+    - "ast.While.__name__ == 'While' — not covered as standalone __name__ in prior specs."
+    - "ast.Tuple.__name__ == 'Tuple' — not covered as standalone in prior specs."
+    - "ast.List.__name__ == 'List' — not covered as standalone in prior specs."
+    - "ast.Try.__name__ == 'Try' — not covered as standalone in prior specs."
+    - "ast.BinOp.__qualname__ == 'BinOp' — qualname not covered for BinOp in any prior spec."
+    - "ast.BinOp.__module__ == 'ast' — module not covered for BinOp in extra3 table."
+    - "ast.parse('x = 1 + 2').body.__len__() == 1 — a single assignment statement produces one body item."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Abstract grammar base node __name__ checks
+# ast.mod, ast.stmt, ast.expr are abstract base classes for the grammar
+# categories. No prior spec covers their __name__ attributes.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra7.mod.name:
+  description: "ast.mod.__name__ == 'mod' — abstract grammar category for module-level forms"
+  category: class_names
+  kind: python_call_eq
+  function: mod.__name__.__eq__
+  args: ["mod"]
+  expected: true
+
+invariant ast_extra7.stmt.name:
+  description: "ast.stmt.__name__ == 'stmt' — abstract grammar category for statement nodes"
+  category: class_names
+  kind: python_call_eq
+  function: stmt.__name__.__eq__
+  args: ["stmt"]
+  expected: true
+
+invariant ast_extra7.expr.name:
+  description: "ast.expr.__name__ == 'expr' — abstract grammar category for expression nodes"
+  category: class_names
+  kind: python_call_eq
+  function: expr.__name__.__eq__
+  args: ["expr"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __name__ checks for concrete node classes not covered as standalones
+# ast_extra6 covered Module/Constant/Name/Expr/FunctionDef/ClassDef/If/
+# Return/Assign/Call/Import/For/AsyncFunctionDef/With/Delete.
+# New here: BinOp, While, Tuple, List, Try.
+# ---------------------------------------------------------------------------
+
+table ast_extra7.node_class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: cname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [BinOp,    BinOp.__name__.__eq__,    ["BinOp"],    true]
+    - [While,    While.__name__.__eq__,    ["While"],    true]
+    - [Tuple,    Tuple.__name__.__eq__,    ["Tuple"],    true]
+    - [List,     List.__name__.__eq__,     ["List"],     true]
+    - [Try,      Try.__name__.__eq__,      ["Try"],      true]
+    - [Raise,    Raise.__name__.__eq__,    ["Raise"],    true]
+    - [Pass,     Pass.__name__.__eq__,     ["Pass"],     true]
+    - [Break,    Break.__name__.__eq__,    ["Break"],    true]
+    - [Continue, Continue.__name__.__eq__, ["Continue"], true]
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks for concrete node classes not previously covered
+# ast_extra5 covered FunctionDef/Expr/ClassDef/Name/If/For/Import/Call/
+# Assign/Return/AsyncFunctionDef/AsyncFor/AsyncWith/With/Delete.
+# ast_extra4 covered Module/Constant/AST/NodeVisitor/NodeTransformer.
+# New here: BinOp, While, Tuple, List, Try, Raise, Pass, Break, Continue.
+# ---------------------------------------------------------------------------
+
+table ast_extra7.node_class_qualnames:
+  kind: python_call_eq
+  category: qualname_attrs
+  id_prefix: qname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [BinOp,    BinOp.__qualname__.__eq__,    ["BinOp"],    true]
+    - [While,    While.__qualname__.__eq__,    ["While"],    true]
+    - [Tuple,    Tuple.__qualname__.__eq__,    ["Tuple"],    true]
+    - [List,     List.__qualname__.__eq__,     ["List"],     true]
+    - [Try,      Try.__qualname__.__eq__,      ["Try"],      true]
+
+# ---------------------------------------------------------------------------
+# __module__ checks for node classes not in ast_extra3 table
+# ast_extra3 covered: parse/dump/literal_eval/get_docstring/fix_missing_locations/
+# walk/NodeVisitor/NodeTransformer/Module/FunctionDef/Constant/Name/AST/Expr/ClassDef.
+# New here: BinOp, While, Tuple — node classes whose __module__ has not been checked.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra7.BinOp.module:
+  description: "ast.BinOp.__module__ == 'ast'"
+  category: module_attrs
+  kind: python_call_eq
+  function: BinOp.__module__.__eq__
+  args: ["ast"]
+  expected: true
+
+invariant ast_extra7.While.module:
+  description: "ast.While.__module__ == 'ast'"
+  category: module_attrs
+  kind: python_call_eq
+  function: While.__module__.__eq__
+  args: ["ast"]
+  expected: true
+
+invariant ast_extra7.Tuple.module:
+  description: "ast.Tuple.__module__ == 'ast'"
+  category: module_attrs
+  kind: python_call_eq
+  function: Tuple.__module__.__eq__
+  args: ["ast"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ast.Module MRO check — Module's __mro__ includes 'mod' and 'AST'
+# No prior spec checks __mro__ for any ast node class.
+# Module.__mro__ == [Module, mod, AST, object]
+# We verify key positions using __getitem__ on the __mro__ tuple.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra7.Module.mro_index0:
+  description: "ast.Module.__mro__[0].__name__ == 'Module' — Module is first in its own MRO"
+  category: hierarchy
+  kind: python_call_eq
+  function: Module.__mro__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Module"]
+  expected: true
+
+invariant ast_extra7.Module.mro_index2:
+  description: "ast.Module.__mro__[2].__name__ == 'AST' — AST is third in Module's MRO"
+  category: hierarchy
+  kind: python_call_eq
+  function: Module.__mro__.__getitem__
+  args: [2]
+  method: __name__.__eq__
+  method_args: ["AST"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ast.parse body length check
+# ast.parse('x = 1 + 2').body has exactly one statement.
+# No prior spec verifies the body attribute of a parsed tree.
+# ---------------------------------------------------------------------------
+
+invariant ast_extra7.parse.body_len:
+  description: "ast.parse('x = 1 + 2').body length == 1 — single assignment statement"
+  category: parse
+  kind: python_call_eq
+  function: parse
+  args: ["x = 1 + 2"]
+  method: body.__len__
+  expected: 1

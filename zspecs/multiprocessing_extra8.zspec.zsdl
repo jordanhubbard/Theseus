@@ -1,0 +1,140 @@
+spec: multiprocessing_extra8
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html — Python multiprocessing module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/multiprocessing/__init__.py"
+    - "CPython source: Lib/multiprocessing/context.py"
+    - "CPython source: Lib/multiprocessing/process.py"
+  notes:
+    - "This spec extends multiprocessing.zspec.zsdl and prior extras through multiprocessing_extra7.zspec.zsdl."
+    - "multiprocessing_extra4 covers: Process.__module__ == 'multiprocessing.process'; Process.__bases__[0].__name__ not yet checked."
+    - "multiprocessing_extra5 covers: __qualname__ for Process/Pool/Manager/Pipe/Lock/Queue/Value/Array/ProcessError/AuthenticationError/TimeoutError."
+    - "multiprocessing_extra6 covers: __qualname__ for Event/Semaphore; function __qualname__ for current_process/active_children/cpu_count."
+    - "multiprocessing_extra7 covers: __module__ for Pool/Queue/Manager/Lock/Event/Semaphore/Value/Array/Pipe/ProcessError/AuthenticationError/TimeoutError; cpu_count/current_process/active_children __module__."
+    - "This spec adds NEW axes:"
+    - "  (1) Class hierarchy (__bases__[0].__name__) for Process, ProcessError, AuthenticationError, TimeoutError — not yet covered."
+    - "  (2) Exception MRO[1] for ProcessError/AuthenticationError/TimeoutError (complementary to __bases__ check)."
+    - "  (3) __name__/__qualname__/__module__ for get_context, get_start_method, set_start_method — context control functions not covered in any prior spec."
+    - "multiprocessing.Process.__bases__[0].__name__ == 'BaseProcess' — Process inherits from BaseProcess (Lib/multiprocessing/process.py)."
+    - "multiprocessing.ProcessError.__bases__[0].__name__ == 'Exception' — root of the multiprocessing exception hierarchy."
+    - "multiprocessing.AuthenticationError.__bases__[0].__name__ == 'ProcessError' — direct subclass of ProcessError."
+    - "multiprocessing.TimeoutError.__bases__[0].__name__ == 'ProcessError' — direct subclass of ProcessError."
+    - "multiprocessing.ProcessError.__mro__[1].__name__ == 'Exception' — same as __bases__[0] via MRO."
+    - "multiprocessing.AuthenticationError.__mro__[1].__name__ == 'ProcessError' — same as __bases__[0] via MRO."
+    - "multiprocessing.TimeoutError.__mro__[1].__name__ == 'ProcessError' — same as __bases__[0] via MRO."
+    - "multiprocessing.get_context.__name__ == 'get_context' — module-level context-selection function."
+    - "multiprocessing.get_context.__module__ == 'multiprocessing.context' — defined in context.py."
+    - "multiprocessing.get_start_method.__name__ == 'get_start_method' — returns current start method string."
+    - "multiprocessing.get_start_method.__module__ == 'multiprocessing.context' — defined in context.py."
+    - "multiprocessing.set_start_method.__name__ == 'set_start_method' — sets the start method for spawning."
+    - "multiprocessing.set_start_method.__module__ == 'multiprocessing.context' — defined in context.py."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class hierarchy — __bases__[0].__name__ for Process and exception classes
+#
+# multiprocessing_extra4 covered Process.__module__; no prior spec has checked
+# Process.__bases__[0].__name__. ProcessError/AuthenticationError/TimeoutError
+# had __name__/__qualname__/__module__ checked but not their base class.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra8.Process.base_is_BaseProcess:
+  description: "multiprocessing.Process.__bases__[0].__name__ == 'BaseProcess'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Process.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "BaseProcess"
+
+invariant multiprocessing_extra8.ProcessError.base_is_Exception:
+  description: "multiprocessing.ProcessError.__bases__[0].__name__ == 'Exception' — root exception"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: ProcessError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+invariant multiprocessing_extra8.AuthenticationError.base_is_ProcessError:
+  description: "multiprocessing.AuthenticationError.__bases__[0].__name__ == 'ProcessError'"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: AuthenticationError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ProcessError"
+
+invariant multiprocessing_extra8.TimeoutError.base_is_ProcessError:
+  description: "multiprocessing.TimeoutError.__bases__[0].__name__ == 'ProcessError'"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: TimeoutError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ProcessError"
+
+# ---------------------------------------------------------------------------
+# Exception MRO[1] — orthogonal complement to __bases__ checks
+#
+# For single-inheritance classes, __mro__[1] == __bases__[0]. Providing
+# both gives independent verification of the exception inheritance chain.
+# Not covered in any prior multiprocessing spec.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra8.exception_mro1:
+  description: "multiprocessing exception classes have correct __mro__[1].__name__"
+  kind: python_call_eq
+  category: exception_hierarchy
+  id_prefix: mro1
+
+  columns: [id, function, args, method, expected]
+  rows:
+    - [ProcessError,        ProcessError.__mro__.__getitem__,        [1], __name__, "Exception"]
+    - [AuthenticationError, AuthenticationError.__mro__.__getitem__, [1], __name__, "ProcessError"]
+    - [TimeoutError,        TimeoutError.__mro__.__getitem__,        [1], __name__, "ProcessError"]
+
+# ---------------------------------------------------------------------------
+# get_context, get_start_method, set_start_method
+#
+# These are the three context-control functions that determine how child
+# processes are started ('fork', 'spawn', or 'forkserver'). No prior
+# multiprocessing spec has checked __name__ or __module__ for any of them.
+# Note: their __qualname__ is 'DefaultContext.<name>' since they are bound
+# methods on the default context singleton — so __qualname__ differs from
+# __name__.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra8.context_function_names:
+  description: "multiprocessing context-control functions have correct __name__"
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [get_context,      get_context.__name__.__eq__,      ["get_context"],      true]
+    - [get_start_method, get_start_method.__name__.__eq__, ["get_start_method"], true]
+    - [set_start_method, set_start_method.__name__.__eq__, ["set_start_method"], true]
+
+table multiprocessing_extra8.context_function_modules:
+  description: "multiprocessing context-control functions have __module__ == 'multiprocessing.context'"
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [get_context,      get_context.__module__.__eq__,      ["multiprocessing.context"], true]
+    - [get_start_method, get_start_method.__module__.__eq__, ["multiprocessing.context"], true]
+    - [set_start_method, set_start_method.__module__.__eq__, ["multiprocessing.context"], true]
