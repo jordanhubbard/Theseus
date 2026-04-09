@@ -1,0 +1,118 @@
+spec: stat
+version: ">=3.x"
+backend: python_module(stat)
+
+docs: https://docs.python.org/3/library/stat.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/stat.html"
+    - "POSIX.1-2017 — IEEE Std 1003.1, file type and permission bits"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/stat.py"
+    - "CPython source: Modules/_stat.c"
+  notes:
+    - "All integer constants are given in decimal. Octal equivalents: S_IFREG=0o100000, S_IFDIR=0o040000, S_IFLNK=0o120000, S_IFSOCK=0o140000."
+    - "S_IRUSR=0o400=256, S_IWUSR=0o200=128, S_IXUSR=0o100=64."
+    - "stat.S_ISREG(mode) tests the S_IFREG bits: (mode & 0o170000) == 0o100000."
+    - "stat.S_ISDIR(mode) tests the S_IFDIR bits: (mode & 0o170000) == 0o040000."
+    - "stat.S_IMODE(mode) returns the permission bits: mode & 0o7777."
+    - "0o100644 (regular file, rw-r--r--) == 33188 decimal; S_IMODE gives 0o644 == 420 decimal."
+    - "stat.filemode(mode) returns a 10-character string like '-rw-r--r--' or 'drwxr-xr-x'."
+    - "0o40755 == 16877 decimal (directory, rwxr-xr-x)."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "The stat module functions are pure computations on integer mode values and do not raise exceptions for valid integer inputs."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# File-type constants (decimal integers)
+# ---------------------------------------------------------------------------
+
+table stat.file_type_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: const
+
+  columns: [id, function, args, expected]
+  rows:
+    - [S_IFREG,  "S_IFREG.__eq__",  [32768], true]
+    - [S_IFDIR,  "S_IFDIR.__eq__",  [16384], true]
+    - [S_IFLNK,  "S_IFLNK.__eq__",  [40960], true]
+    - [S_IFSOCK, "S_IFSOCK.__eq__", [49152], true]
+
+# ---------------------------------------------------------------------------
+# Permission bit constants (decimal integers)
+# ---------------------------------------------------------------------------
+
+table stat.permission_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: const
+
+  columns: [id, function, args, expected]
+  rows:
+    - [S_IRUSR, "S_IRUSR.__eq__", [256], true]
+    - [S_IWUSR, "S_IWUSR.__eq__", [128], true]
+    - [S_IXUSR, "S_IXUSR.__eq__", [64],  true]
+
+# ---------------------------------------------------------------------------
+# S_ISREG — file-type predicate
+# ---------------------------------------------------------------------------
+
+table stat.S_ISREG:
+  kind: python_call_eq
+  category: predicates
+  id_prefix: S_ISREG
+  function: S_ISREG
+
+  columns: [id, args, expected]
+  rows:
+    - [regular_file_true,   [32768], true]
+    - [directory_false,     [16384], false]
+
+# ---------------------------------------------------------------------------
+# S_ISDIR — directory-type predicate
+# ---------------------------------------------------------------------------
+
+table stat.S_ISDIR:
+  kind: python_call_eq
+  category: predicates
+  id_prefix: S_ISDIR
+  function: S_ISDIR
+
+  columns: [id, args, expected]
+  rows:
+    - [directory_true,    [16384], true]
+    - [regular_file_false, [32768], false]
+
+# ---------------------------------------------------------------------------
+# S_IMODE — extract permission bits
+# ---------------------------------------------------------------------------
+
+invariant stat.S_IMODE.rw_r_r:
+  description: "S_IMODE(33188) == 420 — 0o100644 stripped to 0o644 (420 decimal)"
+  category: predicates
+  kind: python_call_eq
+  function: S_IMODE
+  args: [33188]
+  expected: 420
+
+# ---------------------------------------------------------------------------
+# filemode — human-readable mode string
+# ---------------------------------------------------------------------------
+
+table stat.filemode:
+  kind: python_call_eq
+  category: filemode
+  id_prefix: filemode
+  function: filemode
+
+  columns: [id, args, expected]
+  rows:
+    - [regular_rw_r_r,   [33188], "-rw-r--r--"]
+    - [directory_rwxr_xr_x, [16877], "drwxr-xr-x"]

@@ -1,0 +1,99 @@
+spec: smtplib
+version: ">=3.6"
+backend: python_module(smtplib)
+
+docs: https://docs.python.org/3/library/smtplib.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/smtplib.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "smtplib source: internal CPython socket/TLS implementation details"
+  notes:
+    - "No actual SMTP connections are made; invariants test class names, hierarchy, constants, and module membership only."
+    - "smtplib.SMTP_PORT == 25 (standard SMTP) and smtplib.SMTP_SSL_PORT == 465 (SMTPS) are plain ints defined at module level."
+    - "smtplib.SMTPException inherits from OSError — this mirrors the socket-level semantics of SMTP failures."
+    - "smtplib.SMTPAuthenticationError inherits from SMTPException, not directly from OSError."
+    - "smtplib.SMTPNotSupportedError was added in Python 3.5.3 and is present in all 3.6+ releases."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "smtplib raises subclasses of smtplib.SMTPException (itself a subclass of OSError) for all SMTP protocol errors."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are stateless constant and class attribute reads."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name checks — SMTP client classes and exception hierarchy
+# ---------------------------------------------------------------------------
+
+table smtplib.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [smtp,                   SMTP.__name__.__eq__,                    ["SMTP"],                    true]
+    - [smtp_ssl,               SMTP_SSL.__name__.__eq__,                ["SMTP_SSL"],                true]
+    - [smtpexception,          SMTPException.__name__.__eq__,           ["SMTPException"],           true]
+    - [smtpauthenticationerror, SMTPAuthenticationError.__name__.__eq__, ["SMTPAuthenticationError"], true]
+    - [smtpconnecterror,        SMTPConnectError.__name__.__eq__,        ["SMTPConnectError"],        true]
+    - [smtprecipientsrefused,   SMTPRecipientsRefused.__name__.__eq__,   ["SMTPRecipientsRefused"],   true]
+    - [smtpsenderrefused,       SMTPSenderRefused.__name__.__eq__,       ["SMTPSenderRefused"],       true]
+    - [smtpdataerror,           SMTPDataError.__name__.__eq__,           ["SMTPDataError"],           true]
+    - [smtpnotsupportederror,   SMTPNotSupportedError.__name__.__eq__,   ["SMTPNotSupportedError"],   true]
+    - [smtpheloerror,           SMTPHeloError.__name__.__eq__,           ["SMTPHeloError"],           true]
+
+# ---------------------------------------------------------------------------
+# Module check
+# ---------------------------------------------------------------------------
+
+invariant smtplib.module.smtp_module:
+  description: "smtplib.SMTP.__module__ == 'smtplib'"
+  category: modules
+  kind: python_call_eq
+  function: SMTP.__module__.__eq__
+  args: ["smtplib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Hierarchy checks
+# SMTPException -> OSError
+# SMTPAuthenticationError -> SMTPException
+# ---------------------------------------------------------------------------
+
+invariant smtplib.hierarchy.smtpexception_base:
+  description: "smtplib.SMTPException.__bases__[0].__name__ == 'OSError' — SMTPException is a subclass of OSError"
+  category: hierarchy
+  kind: python_call_eq
+  function: SMTPException.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "OSError"
+
+invariant smtplib.hierarchy.smtpauthenticationerror_base:
+  description: "smtplib.SMTPAuthenticationError.__bases__[0].__name__ == 'SMTPException'"
+  category: hierarchy
+  kind: python_call_eq
+  function: SMTPAuthenticationError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "SMTPException"
+
+# ---------------------------------------------------------------------------
+# Port constants — plain ints at module level
+# SMTP_PORT=25 (standard), SMTP_SSL_PORT=465 (SMTPS)
+# ---------------------------------------------------------------------------
+
+table smtplib.port_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: port
+
+  columns: [id, function, args, expected]
+  rows:
+    - [smtp,     SMTP_PORT.__eq__,     [25],  true]
+    - [smtp_ssl, SMTP_SSL_PORT.__eq__, [465], true]

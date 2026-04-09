@@ -1,0 +1,133 @@
+spec: pkgutil
+version: ">=3.9"
+backend: python_module(pkgutil)
+
+docs: https://docs.python.org/3/library/pkgutil.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/pkgutil.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "pkgutil source: Lib/pkgutil.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "pkgutil source: internal importlib integration details"
+  notes:
+    - "pkgutil.walk_packages() yields ModuleInfo namedtuples for all packages recursively reachable from a given path."
+    - "pkgutil.iter_modules() yields ModuleInfo namedtuples for top-level modules on a given path."
+    - "pkgutil.get_data(package, resource) returns the bytes content of a resource file within a package."
+    - "pkgutil.extend_path(path, name) extends __path__ for a namespace package split across multiple directories."
+    - "pkgutil.resolve_name(name) resolves a dotted name to a Python object; added in Python 3.9."
+    - "pkgutil.get_loader() and pkgutil.find_loader() were deprecated in Python 3.12 and removed in 3.14; they are omitted from this spec."
+    - "pkgutil.ModuleInfo is a namedtuple with fields: module_finder, name, ispkg."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "pkgutil functions raise ImportError or AttributeError for unresolvable names. resolve_name() raises ModuleNotFoundError or AttributeError for bad dotted names."
+  stderr: "null"
+  stickiness: "N/A — functions are stateless utilities."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name checks — verify exported callables via __name__
+# ---------------------------------------------------------------------------
+
+table pkgutil.function_names:
+  kind: python_call_eq
+  category: names
+  id_prefix: funcname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [walk_packages, walk_packages.__name__.__eq__, ["walk_packages"], true]
+    - [iter_modules,  iter_modules.__name__.__eq__,  ["iter_modules"],  true]
+    - [get_data,      get_data.__name__.__eq__,      ["get_data"],      true]
+    - [extend_path,   extend_path.__name__.__eq__,   ["extend_path"],   true]
+    - [resolve_name,  resolve_name.__name__.__eq__,  ["resolve_name"],  true]
+
+# ---------------------------------------------------------------------------
+# Class name check — ModuleInfo namedtuple (added in Python 3.6)
+# ---------------------------------------------------------------------------
+
+invariant pkgutil.ModuleInfo.name:
+  description: "pkgutil.ModuleInfo.__name__ == 'ModuleInfo'"
+  category: class_names
+  kind: python_call_eq
+  function: ModuleInfo.__name__.__eq__
+  args: ["ModuleInfo"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Type checks — verify exported callables are Python functions
+# ---------------------------------------------------------------------------
+
+table pkgutil.type_checks:
+  kind: python_call_eq
+  category: types
+  id_prefix: typecheck
+
+  columns: [id, function, args, expected]
+  rows:
+    - [walk_packages_is_function, walk_packages.__class__.__name__.__eq__, ["function"], true]
+    - [iter_modules_is_function,  iter_modules.__class__.__name__.__eq__,  ["function"], true]
+    - [get_data_is_function,      get_data.__class__.__name__.__eq__,      ["function"], true]
+    - [extend_path_is_function,   extend_path.__class__.__name__.__eq__,   ["function"], true]
+    - [resolve_name_is_function,  resolve_name.__class__.__name__.__eq__,  ["function"], true]
+
+# ---------------------------------------------------------------------------
+# ModuleInfo — namedtuple field count (_fields has 3 members)
+# ---------------------------------------------------------------------------
+
+invariant pkgutil.ModuleInfo.fields_len:
+  description: "len(pkgutil.ModuleInfo._fields) == 3 — module_finder, name, ispkg"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._fields.__len__
+  args: []
+  expected: 3
+
+invariant pkgutil.ModuleInfo.field_name:
+  description: "pkgutil.ModuleInfo._fields[1] == 'name' — second field is 'name'"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._fields.__getitem__
+  args: [1]
+  expected: "name"
+
+invariant pkgutil.ModuleInfo.field_ispkg:
+  description: "pkgutil.ModuleInfo._fields[2] == 'ispkg' — third field is 'ispkg'"
+  category: ModuleInfo
+  kind: python_call_eq
+  function: ModuleInfo._fields.__getitem__
+  args: [2]
+  expected: "ispkg"
+
+# ---------------------------------------------------------------------------
+# resolve_name — resolves a dotted attribute path to an object
+# 'builtins.len' should resolve to the built-in len function
+# ---------------------------------------------------------------------------
+
+invariant pkgutil.resolve_name.builtin_len:
+  description: "pkgutil.resolve_name('builtins.len').__name__ == 'len'"
+  category: resolve_name
+  kind: python_call_eq
+  function: resolve_name
+  args: ["builtins.len"]
+  method: __name__
+  expected: "len"
+
+# ---------------------------------------------------------------------------
+# extend_path — called with a list and a package name string; returns a list
+# extend_path([], 'os') must return a list (possibly empty)
+# ---------------------------------------------------------------------------
+
+invariant pkgutil.extend_path.returns_list:
+  description: "type(pkgutil.extend_path([], 'os')).__name__ == 'list'"
+  category: extend_path
+  kind: python_call_eq
+  function: extend_path
+  args: [[], "os"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["list"]
+  expected: true

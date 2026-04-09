@@ -1,0 +1,157 @@
+spec: xmlrpc_client
+version: ">=3.0"
+backend: python_module(xmlrpc.client)
+
+docs: https://docs.python.org/3/library/xmlrpc.client.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/xmlrpc.client.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "xmlrpc.client source: Lib/xmlrpc/client.py (PSF; source inspection permitted)"
+  not_derived_from:
+    - "xmlrpc.client source: internal expat XML parsing details"
+  notes:
+    - "ServerProxy is the primary client interface; it proxies XML-RPC method calls over HTTP."
+    - "Fault is raised when the server returns a fault response; it is a subclass of Error."
+    - "ProtocolError is raised for non-200 HTTP responses; it is also a subclass of Error."
+    - "Error is the base exception class for all xmlrpc.client exceptions."
+    - "MultiCall batches multiple XML-RPC calls into a single HTTP request."
+    - "Binary wraps arbitrary binary data for transport as base64-encoded XML."
+    - "DateTime wraps datetime values for ISO 8601 / XML-RPC dateTime.iso8601 encoding."
+    - "loads() parses an XML-RPC response or method call; dumps() serializes params to XML."
+    - "Unmarshaller and Marshaller are the lower-level (de)serialization classes."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "xmlrpc.client.Fault is raised when the remote procedure returns a fault. xmlrpc.client.ProtocolError is raised for HTTP-level errors. Both are subclasses of xmlrpc.client.Error."
+  stderr: "null"
+  stickiness: "N/A — each ServerProxy instance is independent."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name checks — verify exported class __name__ attributes
+# ---------------------------------------------------------------------------
+
+table xmlrpc_client.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ServerProxy,     ServerProxy.__name__.__eq__,     ["ServerProxy"],     true]
+    - [Fault,           Fault.__name__.__eq__,           ["Fault"],           true]
+    - [ProtocolError,   ProtocolError.__name__.__eq__,   ["ProtocolError"],   true]
+    - [MultiCall,       MultiCall.__name__.__eq__,       ["MultiCall"],       true]
+    - [Binary,          Binary.__name__.__eq__,          ["Binary"],          true]
+    - [DateTime,        DateTime.__name__.__eq__,        ["DateTime"],        true]
+    - [ResponseError,   ResponseError.__name__.__eq__,   ["ResponseError"],   true]
+    - [Unmarshaller,    Unmarshaller.__name__.__eq__,    ["Unmarshaller"],    true]
+    - [Marshaller,      Marshaller.__name__.__eq__,      ["Marshaller"],      true]
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy — Fault and ProtocolError inherit from Error
+# ---------------------------------------------------------------------------
+
+invariant xmlrpc_client.Fault.base_is_Error:
+  description: "xmlrpc.client.Fault.__bases__[0].__name__ == 'Error'"
+  category: exceptions
+  kind: python_call_eq
+  function: Fault.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Error"
+
+invariant xmlrpc_client.ProtocolError.base_is_Error:
+  description: "xmlrpc.client.ProtocolError.__bases__[0].__name__ == 'Error'"
+  category: exceptions
+  kind: python_call_eq
+  function: ProtocolError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Error"
+
+# ---------------------------------------------------------------------------
+# Function name checks — loads and dumps
+# ---------------------------------------------------------------------------
+
+table xmlrpc_client.function_names:
+  kind: python_call_eq
+  category: names
+  id_prefix: funcname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [loads, loads.__name__.__eq__, ["loads"], true]
+    - [dumps, dumps.__name__.__eq__, ["dumps"], true]
+
+# ---------------------------------------------------------------------------
+# Type checks — verify key exports are types (classes)
+# ---------------------------------------------------------------------------
+
+table xmlrpc_client.type_checks:
+  kind: python_call_eq
+  category: types
+  id_prefix: typecheck
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ServerProxy_is_type,   ServerProxy.__class__.__name__.__eq__,   ["type"], true]
+    - [Fault_is_type,         Fault.__class__.__name__.__eq__,         ["type"], true]
+    - [ProtocolError_is_type, ProtocolError.__class__.__name__.__eq__, ["type"], true]
+    - [Binary_is_type,        Binary.__class__.__name__.__eq__,        ["type"], true]
+    - [DateTime_is_type,      DateTime.__class__.__name__.__eq__,      ["type"], true]
+
+# ---------------------------------------------------------------------------
+# Binary — encodes/decodes arbitrary bytes via base64
+# Binary(b'hello').data == b'hello' verifies round-trip attribute storage
+# ---------------------------------------------------------------------------
+
+invariant xmlrpc_client.Binary.data_roundtrip:
+  description: "xmlrpc.client.Binary(b'hello').data == b'hello' — binary payload stored in .data"
+  category: Binary
+  kind: python_call_eq
+  function: Binary
+  args: ["hello"]
+  method: data
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# Fault — faultCode and faultString attributes
+# ---------------------------------------------------------------------------
+
+invariant xmlrpc_client.Fault.faultCode:
+  description: "Fault(42, 'test error').faultCode == 42"
+  category: Fault
+  kind: python_call_eq
+  function: Fault
+  args: [42, "test error"]
+  method: faultCode
+  expected: 42
+
+invariant xmlrpc_client.Fault.faultString:
+  description: "Fault(42, 'test error').faultString == 'test error'"
+  category: Fault
+  kind: python_call_eq
+  function: Fault
+  args: [42, "test error"]
+  method: faultString
+  expected: "test error"
+
+# ---------------------------------------------------------------------------
+# dumps() — serializes params tuple to XML-RPC XML string
+# A single-param call wraps the value in <value><int> tags
+# ---------------------------------------------------------------------------
+
+invariant xmlrpc_client.dumps.returns_str:
+  description: "type(xmlrpc.client.dumps((1,))).__name__ == 'str' — dumps returns a string"
+  category: dumps
+  kind: python_call_eq
+  function: dumps
+  args: [[1]]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["str"]
+  expected: true

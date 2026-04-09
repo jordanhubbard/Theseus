@@ -1,0 +1,127 @@
+spec: zipimport
+version: ">=3.1"
+backend: python_module(zipimport)
+
+docs: https://docs.python.org/3/library/zipimport.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/zipimport.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+    - "zipimport source: Modules/zipimport.c (PSF; source inspection permitted)"
+  not_derived_from:
+    - "zipimport source: internal zip parsing implementation details"
+  notes:
+    - "zipimport.zipimporter is the core class; instances are created with a path to a ZIP file."
+    - "zipimport.ZipImportError is the module-level exception, a subclass of ImportError."
+    - "zipimporter.find_spec() is the modern importlib-compatible method (Python 3.4+)."
+    - "zipimporter.load_module() is deprecated since Python 3.10 but still present in Python 3.12."
+    - "zipimporter.get_data() returns bytes for a named resource inside the ZIP archive."
+    - "zipimporter.get_filename() returns the path to the source file inside the archive."
+    - "zipimporter.get_source() returns the source code as a string, or None if not available."
+    - "zipimporter.get_code() returns a code object for the named module."
+    - "zipimporter.is_package() returns True if the named module is a package."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "zipimport.ZipImportError is raised when a ZIP archive cannot be found, is invalid, or a requested module is not present in the archive. It is a subclass of ImportError."
+  stderr: "null"
+  stickiness: "N/A — each zipimporter instance is independent."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name checks — zipimporter and ZipImportError
+# ---------------------------------------------------------------------------
+
+table zipimport.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [zipimporter,    zipimporter.__name__.__eq__,    ["zipimporter"],    true]
+    - [ZipImportError, ZipImportError.__name__.__eq__, ["ZipImportError"], true]
+
+# ---------------------------------------------------------------------------
+# Module membership checks
+# ---------------------------------------------------------------------------
+
+table zipimport.module_checks:
+  kind: python_call_eq
+  category: modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [zipimporter_module,    zipimporter.__module__.__eq__,    ["zipimport"], true]
+    - [ZipImportError_module, ZipImportError.__module__.__eq__, ["zipimport"], true]
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy — ZipImportError is a subclass of ImportError
+# ---------------------------------------------------------------------------
+
+invariant zipimport.ZipImportError.base_is_ImportError:
+  description: "zipimport.ZipImportError.__bases__[0].__name__ == 'ImportError'"
+  category: exceptions
+  kind: python_call_eq
+  function: ZipImportError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ImportError"
+
+# ---------------------------------------------------------------------------
+# zipimporter method name checks — class-level (unbound) method __name__
+# ---------------------------------------------------------------------------
+
+table zipimport.zipimporter.method_names:
+  kind: python_call_eq
+  category: zipimporter_methods
+  id_prefix: method
+
+  columns: [id, function, args, expected]
+  rows:
+    - [find_spec,    zipimporter.find_spec.__name__.__eq__,    ["find_spec"],    true]
+    - [get_code,     zipimporter.get_code.__name__.__eq__,     ["get_code"],     true]
+    - [get_data,     zipimporter.get_data.__name__.__eq__,     ["get_data"],     true]
+    - [get_filename, zipimporter.get_filename.__name__.__eq__, ["get_filename"], true]
+    - [get_source,   zipimporter.get_source.__name__.__eq__,   ["get_source"],   true]
+    - [is_package,   zipimporter.is_package.__name__.__eq__,   ["is_package"],   true]
+    - [load_module,  zipimporter.load_module.__name__.__eq__,  ["load_module"],  true]
+
+# ---------------------------------------------------------------------------
+# Type checks — zipimporter is a type (class); ZipImportError is a type
+# ---------------------------------------------------------------------------
+
+table zipimport.type_checks:
+  kind: python_call_eq
+  category: types
+  id_prefix: typecheck
+
+  columns: [id, function, args, expected]
+  rows:
+    - [zipimporter_is_type,    zipimporter.__class__.__name__.__eq__,    ["type"], true]
+    - [ZipImportError_is_type, ZipImportError.__class__.__name__.__eq__, ["type"], true]
+
+# ---------------------------------------------------------------------------
+# ZipImportError — MRO chain passes through ImportError → Exception
+# ---------------------------------------------------------------------------
+
+invariant zipimport.ZipImportError.mro_ImportError:
+  description: "ZipImportError.__mro__[1].__name__ == 'ImportError'"
+  category: exceptions
+  kind: python_call_eq
+  function: ZipImportError.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "ImportError"
+
+invariant zipimport.ZipImportError.mro_Exception:
+  description: "ZipImportError.__mro__[2].__name__ == 'Exception'"
+  category: exceptions
+  kind: python_call_eq
+  function: ZipImportError.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "Exception"

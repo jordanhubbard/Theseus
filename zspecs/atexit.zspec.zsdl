@@ -1,0 +1,102 @@
+spec: atexit
+version: ">=3.x"
+backend: python_module(atexit)
+
+docs: https://docs.python.org/3/library/atexit.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/atexit.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/atexitmodule.c"
+  notes:
+    - "atexit is a C-accelerated module in CPython; register, unregister, _ncallbacks, and _clear are all C-level function objects."
+    - "_ncallbacks() returns the count of registered callbacks. At interpreter start (before any user registration) this is 0."
+    - "_clear() is a private but documented function that removes all registered callbacks."
+    - "atexit.__name__ is the standard Python module __name__ attribute, equal to 'atexit'."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "atexit.register raises TypeError if func is not callable; unregister silently ignores unknown callables."
+  stderr: "null"
+  stickiness: "N/A — each call is stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Function name attributes — verify the public API names are as documented
+# ---------------------------------------------------------------------------
+
+table atexit.func_names:
+  kind: python_call_eq
+  category: classnames
+  id_prefix: func_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [register,    register.__name__.__eq__,   ["register"],    true]
+    - [unregister,  unregister.__name__.__eq__,  ["unregister"],  true]
+    - [_ncallbacks, _ncallbacks.__name__.__eq__,  ["_ncallbacks"], true]
+    - [_clear,      _clear.__name__.__eq__,      ["_clear"],      true]
+
+# ---------------------------------------------------------------------------
+# Module identity
+# ---------------------------------------------------------------------------
+
+invariant atexit.module_name:
+  description: "atexit.__name__ == 'atexit' — the module's own __name__ attribute"
+  category: classnames
+  kind: python_call_eq
+  function: "__name__.__eq__"
+  args: ["atexit"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# _ncallbacks() — initially zero registered callbacks
+# ---------------------------------------------------------------------------
+
+invariant atexit.ncallbacks.initially_zero:
+  description: "_ncallbacks() == 0 — no callbacks are registered at module import time"
+  category: callbacks
+  kind: python_call_eq
+  function: _ncallbacks
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# _ncallbacks return type is int
+# ---------------------------------------------------------------------------
+
+invariant atexit.ncallbacks.returns_int:
+  description: "_ncallbacks().__class__.__name__ == 'int' — count is an integer"
+  category: callbacks
+  kind: python_call_eq
+  function: _ncallbacks
+  args: []
+  method: __class__
+  method_chain: __name__
+  expected: "int"
+
+# ---------------------------------------------------------------------------
+# register is callable (has __call__)
+# ---------------------------------------------------------------------------
+
+invariant atexit.register.is_callable:
+  description: "callable(atexit.register) — register must be a callable"
+  category: classnames
+  kind: python_call_eq
+  function: "register.__class__.__name__.__eq__"
+  args: ["builtin_function_or_method"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# _clear is callable
+# ---------------------------------------------------------------------------
+
+invariant atexit.clear.is_callable:
+  description: "_clear.__class__.__name__ == 'builtin_function_or_method'"
+  category: classnames
+  kind: python_call_eq
+  function: "_clear.__class__.__name__.__eq__"
+  args: ["builtin_function_or_method"]
+  expected: true

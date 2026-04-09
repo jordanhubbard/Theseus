@@ -1,0 +1,92 @@
+spec: socketserver
+version: ">=3.0"
+backend: python_module(socketserver)
+
+docs: https://docs.python.org/3/library/socketserver.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/socketserver.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "socketserver source: internal CPython socket/threading implementation details"
+  notes:
+    - "No actual servers are started; invariants test class names, hierarchy, and module membership only."
+    - "socketserver.TCPServer.__bases__[0] is BaseServer — the direct parent, not socket.socket."
+    - "socketserver.StreamRequestHandler.__bases__[0] is BaseRequestHandler."
+    - "socketserver.ForkingMixIn is available on POSIX systems only; it is present in the module on macOS/Darwin."
+    - "socketserver.ThreadingTCPServer and ThreadingUDPServer are convenience classes combining ThreadingMixIn with TCPServer/UDPServer."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "socketserver raises OSError (and subclasses) for socket-level failures; no custom exception hierarchy is defined by the module itself."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are stateless class attribute reads."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Class name checks — server classes, mixin classes, and request handlers
+# ---------------------------------------------------------------------------
+
+table socketserver.server_class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [tcpserver,            TCPServer.__name__.__eq__,             ["TCPServer"],             true]
+    - [udpserver,            UDPServer.__name__.__eq__,             ["UDPServer"],             true]
+    - [baseserver,           BaseServer.__name__.__eq__,            ["BaseServer"],            true]
+    - [threadingmixin,       ThreadingMixIn.__name__.__eq__,        ["ThreadingMixIn"],        true]
+    - [forkingmixin,         ForkingMixIn.__name__.__eq__,          ["ForkingMixIn"],          true]
+    - [threadingtcpserver,   ThreadingTCPServer.__name__.__eq__,    ["ThreadingTCPServer"],    true]
+    - [threadingudpserver,   ThreadingUDPServer.__name__.__eq__,    ["ThreadingUDPServer"],    true]
+
+table socketserver.handler_class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: handlername
+
+  columns: [id, function, args, expected]
+  rows:
+    - [baserequesthandler,     BaseRequestHandler.__name__.__eq__,     ["BaseRequestHandler"],     true]
+    - [streamrequesthandler,   StreamRequestHandler.__name__.__eq__,   ["StreamRequestHandler"],   true]
+    - [datagramrequesthandler, DatagramRequestHandler.__name__.__eq__, ["DatagramRequestHandler"], true]
+
+# ---------------------------------------------------------------------------
+# Module check
+# ---------------------------------------------------------------------------
+
+invariant socketserver.module.tcpserver_module:
+  description: "socketserver.TCPServer.__module__ == 'socketserver'"
+  category: modules
+  kind: python_call_eq
+  function: TCPServer.__module__.__eq__
+  args: ["socketserver"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Hierarchy checks
+# TCPServer -> BaseServer
+# StreamRequestHandler -> BaseRequestHandler
+# ---------------------------------------------------------------------------
+
+invariant socketserver.hierarchy.tcpserver_base:
+  description: "socketserver.TCPServer.__bases__[0].__name__ == 'BaseServer' — TCPServer inherits directly from BaseServer"
+  category: hierarchy
+  kind: python_call_eq
+  function: TCPServer.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "BaseServer"
+
+invariant socketserver.hierarchy.streamrequesthandler_base:
+  description: "socketserver.StreamRequestHandler.__bases__[0].__name__ == 'BaseRequestHandler'"
+  category: hierarchy
+  kind: python_call_eq
+  function: StreamRequestHandler.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "BaseRequestHandler"
