@@ -1,0 +1,129 @@
+spec: bisect_extra4
+version: ">=3.9"
+backend: python_module(bisect)
+
+docs: https://docs.python.org/3/library/bisect.html
+
+provenance:
+  derived_from:
+    - "Python bisect documentation — https://docs.python.org/3/library/bisect.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/bisect.py"
+    - "CPython source: Modules/_bisectmodule.c"
+  notes:
+    - "Extends bisect.zspec.zsdl, bisect_extra.zspec.zsdl, bisect_extra2.zspec.zsdl, and bisect_extra3.zspec.zsdl."
+    - "bisect.zspec.zsdl covers: bisect_left/bisect_right tables on [1,3,5,7,9]; duplicates on [1,3,5,5,5,7]; bisect alias; lo/hi args; function __name__ identity."
+    - "bisect_extra.zspec.zsdl covers: bisect_left/__name__/__module__=='_bisect'; bisect_right/__name__; insort_left/__name__; insort_right/__name__; bisect/__name__=='bisect_right'; insort/__name__=='insort_right'; behavior on [1,2,3,4,5] and [1,2,3,3,3,4]."
+    - "bisect_extra2.zspec.zsdl covers: insort/__name__; insort_left/__name__; insort_right/__name__; bisect/__name__; bisect_left([1,3,5,7], 4)==2."
+    - "bisect_extra3.zspec.zsdl covers: __module__ for bisect/bisect_right/insort/insort_left/insort_right; __name__ for bisect_left/bisect_right/insort_left/insort_right; behavior on [1,2,3,4,5] (right/left point for 3); bisect before/after all."
+    - "This spec adds: bisect module-level __name__ attribute; behavioral vectors on [1,2,3,3,4] (two duplicates, not three); behavioral vectors on even-number list [2,4,6,8,10] (new input domain)."
+    - "bisect_left([1,2,3,3,4], 3) == 2 — leftmost 3 is at index 2 in [1,2,3,3,4]."
+    - "bisect_right([1,2,3,3,4], 3) == 4 — one past the last 3 (at index 3) in [1,2,3,3,4]."
+    - "bisect_left([2,4,6,8,10], 5) == 2 — 5 falls between 4 (index 1) and 6 (index 2)."
+    - "bisect_right([2,4,6,8,10], 6) == 3 — 6 is at index 2; right point is 3."
+    - "bisect_left([2,4,6,8,10], 6) == 2 — 6 is at index 2; left insertion point is 2."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# bisect module-level __name__ attribute
+# Prior specs test individual function __name__ attrs; this tests the module's
+# own __name__ attribute accessed via the backend binding.
+# ---------------------------------------------------------------------------
+
+invariant bisect_extra4.module.name:
+  description: "bisect.__name__ == 'bisect' — module-level __name__ attribute"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["bisect"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Behavioral invariants — [1, 2, 3, 3, 4] (two adjacent duplicates)
+#
+# bisect_extra covers [1,2,3,3,3,4] (three duplicates of 3).
+# This input [1,2,3,3,4] has exactly two duplicates; it is a new test vector.
+# ---------------------------------------------------------------------------
+
+invariant bisect_extra4.bisect_left.two_dups_left:
+  description: "bisect_left([1,2,3,3,4], 3) == 2 — index of first 3 in two-duplicate list"
+  category: duplicates
+  kind: python_call_eq
+  function: bisect_left
+  args: [[1, 2, 3, 3, 4], 3]
+  expected: 2
+
+invariant bisect_extra4.bisect_right.two_dups_right:
+  description: "bisect_right([1,2,3,3,4], 3) == 4 — one past last 3 in two-duplicate list"
+  category: duplicates
+  kind: python_call_eq
+  function: bisect_right
+  args: [[1, 2, 3, 3, 4], 3]
+  expected: 4
+
+invariant bisect_extra4.bisect.two_dups_alias:
+  description: "bisect([1,2,3,3,4], 3) == 4 — bisect (alias for bisect_right) on two-duplicate list"
+  category: duplicates
+  kind: python_call_eq
+  function: bisect
+  args: [[1, 2, 3, 3, 4], 3]
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# Behavioral invariants — [2, 4, 6, 8, 10] (even-number sorted list)
+#
+# None of the prior specs use this input. Tests gap search (absent element)
+# and present-element search on an even-number list.
+# ---------------------------------------------------------------------------
+
+invariant bisect_extra4.bisect_left.even_gap:
+  description: "bisect_left([2,4,6,8,10], 5) == 2 — 5 falls between 4 and 6"
+  category: behavior
+  kind: python_call_eq
+  function: bisect_left
+  args: [[2, 4, 6, 8, 10], 5]
+  expected: 2
+
+invariant bisect_extra4.bisect_right.even_gap:
+  description: "bisect_right([2,4,6,8,10], 5) == 2 — 5 absent; left and right agree"
+  category: behavior
+  kind: python_call_eq
+  function: bisect_right
+  args: [[2, 4, 6, 8, 10], 5]
+  expected: 2
+
+invariant bisect_extra4.bisect_left.even_present:
+  description: "bisect_left([2,4,6,8,10], 6) == 2 — 6 is at index 2; left point is 2"
+  category: behavior
+  kind: python_call_eq
+  function: bisect_left
+  args: [[2, 4, 6, 8, 10], 6]
+  expected: 2
+
+invariant bisect_extra4.bisect_right.even_present:
+  description: "bisect_right([2,4,6,8,10], 6) == 3 — 6 is at index 2; right point is 3"
+  category: behavior
+  kind: python_call_eq
+  function: bisect_right
+  args: [[2, 4, 6, 8, 10], 6]
+  expected: 3
+
+invariant bisect_extra4.bisect_left.even_before_all:
+  description: "bisect_left([2,4,6,8,10], 1) == 0 — 1 is before all elements"
+  category: behavior
+  kind: python_call_eq
+  function: bisect_left
+  args: [[2, 4, 6, 8, 10], 1]
+  expected: 0
+
+invariant bisect_extra4.bisect_right.even_after_all:
+  description: "bisect_right([2,4,6,8,10], 11) == 5 — 11 is after all elements"
+  category: behavior
+  kind: python_call_eq
+  function: bisect_right
+  args: [[2, 4, 6, 8, 10], 11]
+  expected: 5

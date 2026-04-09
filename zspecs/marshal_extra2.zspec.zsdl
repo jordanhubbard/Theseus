@@ -1,0 +1,143 @@
+spec: marshal_extra2
+version: ">=3.9"
+backend: python_module(marshal)
+
+docs: https://docs.python.org/3/library/marshal.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/marshal.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/marshal.c (CPython internals)"
+    - "marshal.zspec.zsdl — covers dumps/loads byte-level vectors, version == 5, version >= 1, function names, error cases"
+    - "marshal_extra.zspec.zsdl — covers version class_name, version >= 4, dumps returns bytes for str/list/None, roundtrip for str/list"
+  notes:
+    - "This spec extends marshal.zspec.zsdl and marshal_extra.zspec.zsdl with additional new vectors."
+    - "marshal.version >= 2 — a weaker lower-bound check than marshal_extra's >= 4; added for completeness of the version invariant set."
+    - "marshal.dumps(True) returns bytes — True is distinct from int 1 at the type level; its encoding is b'T' (0x54), distinct from the integer encoding."
+    - "marshal.dumps(False) returns bytes — marshalled as b'F' (0x46)."
+    - "marshal.dumps(3.14) returns bytes — floats are marshalable since Python 3."
+    - "marshal.dumps(-1).__class__.__name__ == 'bytes' — negative integers are marshalable."
+    - "marshal.loads(marshal.dumps(True)) == True — bool round-trip (via pre-computed hex b'T')."
+    - "marshal.loads(marshal.dumps(False)) == False — bool round-trip (via pre-computed hex b'F')."
+    - "marshal.loads(marshal.dumps(-1)) == -1 — negative int round-trip (via pre-computed hex)."
+    - "marshal.dumps.__qualname__ == 'dumps' — qualname of a built-in function equals its __name__."
+    - "marshal.loads.__qualname__ == 'loads'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# version — additional lower-bound check
+# marshal.zspec.zsdl covers: version >= 1, version == 5
+# marshal_extra.zspec.zsdl covers: version >= 4, version.__class__.__name__ == 'int'
+# New here: version >= 2 (intermediate bound, explicitly documenting minimum)
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra2.version.ge_2:
+  description: "marshal.version >= 2 — version is at least 2 on all Python 3.x installations"
+  category: constants
+  kind: python_call_eq
+  function: version.__ge__
+  args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# dumps — return-type checks for types not yet covered
+# marshal.zspec.zsdl covers: dumps(42) returns bytes
+# marshal_extra.zspec.zsdl covers: dumps('hello'), dumps([1,2,3]), dumps(None) return bytes
+# New here: True, False, 3.14, -1
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra2.dumps.true_returns_bytes:
+  description: "marshal.dumps(True).__class__.__name__ == 'bytes' — True is marshalable"
+  category: dumps_type
+  kind: python_call_eq
+  function: dumps
+  args: [true]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant marshal_extra2.dumps.false_returns_bytes:
+  description: "marshal.dumps(False).__class__.__name__ == 'bytes' — False is marshalable"
+  category: dumps_type
+  kind: python_call_eq
+  function: dumps
+  args: [false]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant marshal_extra2.dumps.float_returns_bytes:
+  description: "marshal.dumps(3.14).__class__.__name__ == 'bytes' — floats are marshalable"
+  category: dumps_type
+  kind: python_call_eq
+  function: dumps
+  args: [3.14]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant marshal_extra2.dumps.negative_int_returns_bytes:
+  description: "marshal.dumps(-1).__class__.__name__ == 'bytes' — negative integers are marshalable"
+  category: dumps_type
+  kind: python_call_eq
+  function: dumps
+  args: [-1]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Round-trip: loads(dumps(x)) == x via pre-computed wire bytes
+# marshal.zspec.zsdl covers: loads_42 (int), loads_hello (str)
+# marshal_extra.zspec.zsdl covers: roundtrip for str 'hello' and list [1,2,3]
+# New here: True, False, -1 (using pre-computed hex from Python 3.12)
+# marshal.dumps(True)  == b'\x54'  (hex: 54)
+# marshal.dumps(False) == b'\x46'  (hex: 46)
+# marshal.dumps(-1)    == b'\xe9\xff\xff\xff\xff'  (hex: e9ffffffff)
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra2.roundtrip.true:
+  description: "marshal.loads(b'\\x54') == True — True round-trip via pre-computed hex"
+  category: roundtrip
+  kind: python_call_eq
+  function: loads
+  args: [!hex 54]
+  expected: true
+
+invariant marshal_extra2.roundtrip.false:
+  description: "marshal.loads(b'\\x46') == False — False round-trip via pre-computed hex"
+  category: roundtrip
+  kind: python_call_eq
+  function: loads
+  args: [!hex 46]
+  expected: false
+
+invariant marshal_extra2.roundtrip.negative_one:
+  description: "marshal.loads(b'\\xe9\\xff\\xff\\xff\\xff') == -1 — negative int round-trip via pre-computed hex"
+  category: roundtrip
+  kind: python_call_eq
+  function: loads
+  args: [!hex e9ffffffff]
+  expected: -1
+
+# ---------------------------------------------------------------------------
+# __qualname__ — built-in function qualname equals __name__ for marshal callables
+# Not covered in marshal.zspec.zsdl or marshal_extra.zspec.zsdl
+# ---------------------------------------------------------------------------
+
+table marshal_extra2.function_qualnames:
+  kind: python_call_eq
+  category: functions
+  id_prefix: fqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [loads, loads.__qualname__.__eq__, ["loads"], true]
+    - [dumps, dumps.__qualname__.__eq__, ["dumps"], true]
+    - [load,  load.__qualname__.__eq__,  ["load"],  true]
+    - [dump,  dump.__qualname__.__eq__,  ["dump"],  true]

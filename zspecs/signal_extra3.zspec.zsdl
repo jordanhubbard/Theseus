@@ -1,0 +1,129 @@
+spec: signal_extra3
+version: ">=3.9"
+backend: python_module(signal)
+
+docs: https://docs.python.org/3/library/signal.html
+
+provenance:
+  derived_from:
+    - "Python signal documentation — https://docs.python.org/3/library/signal.html"
+    - "POSIX.1-2017 — The Open Group Base Specifications Issue 7, 2018 Edition"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/signalmodule.c"
+  notes:
+    - "Extends signal.zspec.zsdl, signal_extra.zspec.zsdl, and signal_extra2.zspec.zsdl."
+    - "signal.zspec.zsdl covers: POSIX signal integer values; Signals/Handlers class names; SIG_DFL/SIG_IGN values; strsignal strings."
+    - "signal_extra.zspec.zsdl covers: getsignal/raise_signal/strsignal/valid_signals __name__ table; SIG_DFL/SIG_IGN class names; SIGABRT/SIGFPE/SIGILL/SIGINT/SIGSEGV/SIGTERM class names; valid_signals() return type and membership."
+    - "signal_extra2.zspec.zsdl covers: function __module__ table; signal.__name__; getsignal.__name__; SIG_DFL/SIG_IGN/SIGTERM/SIGINT class names (standalone); Signals/Handlers __name__ (standalone); Signals/Handlers __bases__[0].__name__."
+    - "This spec adds: signal.__name__ == 'signal' as module-level __name__ attribute; NSIG >= 16 (platform-universal lower bound); Signals enum class for SIGHUP/SIGKILL/SIGQUIT/SIGALRM/SIGPIPE (not covered in signal_extra table)."
+    - "signal.NSIG is an int constant exposing the total number of signal slots; it is at least 16 on all POSIX platforms (macOS: 32, Linux: 65)."
+    - "SIGHUP, SIGKILL, SIGQUIT, SIGALRM, SIGPIPE are POSIX-required signals and Signals enum members."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# signal module __name__ attribute
+# signal_extra.zspec.zsdl notes 'signal.__name__ is signal' but does not expose
+# it as an invariant; signal_extra2 covers the *function* named 'signal' via
+# signal.__name__.__eq__. This invariant tests the module-level __name__ attr.
+# ---------------------------------------------------------------------------
+
+invariant signal_extra3.module.name:
+  description: "signal.__name__ == 'signal' — the module's own __name__ attribute"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["signal"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# NSIG — platform integer constant (minimum value across all POSIX systems)
+# macOS: NSIG == 32; Linux: NSIG == 65. The spec uses __ge__ to avoid
+# platform-specific lock-in while still asserting a meaningful lower bound.
+# ---------------------------------------------------------------------------
+
+invariant signal_extra3.NSIG.ge_16:
+  description: "signal.NSIG >= 16 — at least 16 signal slots on all POSIX platforms"
+  category: constants
+  kind: python_call_eq
+  function: NSIG.__ge__
+  args: [16]
+  expected: true
+
+invariant signal_extra3.NSIG.is_int:
+  description: "signal.NSIG.__class__.__name__ == 'int' — NSIG is an integer constant"
+  category: constants
+  kind: python_call_eq
+  function: NSIG.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Signals enum membership — SIGHUP, SIGKILL, SIGQUIT, SIGALRM, SIGPIPE
+#
+# signal_extra.zspec.zsdl covers SIGABRT, SIGFPE, SIGILL, SIGINT, SIGSEGV, SIGTERM.
+# This table covers the remaining POSIX-required signal constants that are
+# present in signal.zspec.zsdl's value table but not its class-membership table.
+# ---------------------------------------------------------------------------
+
+table signal_extra3.signals_enum_membership:
+  description: "SIGHUP/SIGKILL/SIGQUIT/SIGALRM/SIGPIPE are all Signals enum members"
+  kind: python_call_eq
+  category: signals_enum
+  id_prefix: sig_class
+
+  columns: [id, function, args, expected]
+  rows:
+    - [SIGHUP,  SIGHUP.__class__.__name__.__eq__,  ["Signals"], true]
+    - [SIGKILL, SIGKILL.__class__.__name__.__eq__,  ["Signals"], true]
+    - [SIGQUIT, SIGQUIT.__class__.__name__.__eq__,  ["Signals"], true]
+    - [SIGALRM, SIGALRM.__class__.__name__.__eq__,  ["Signals"], true]
+    - [SIGPIPE, SIGPIPE.__class__.__name__.__eq__,  ["Signals"], true]
+
+# ---------------------------------------------------------------------------
+# Signals enum — .name attribute for additional POSIX signals
+# signal.zspec.zsdl covers Signals.SIGINT.name and Signals.SIGTERM.name.
+# These add .name checks for SIGHUP and SIGKILL via the top-level constant,
+# confirming the enum member's string name matches the symbol.
+# ---------------------------------------------------------------------------
+
+invariant signal_extra3.SIGHUP.enum_name:
+  description: "signal.SIGHUP.name == 'SIGHUP' — Signals enum member name"
+  category: enum_names
+  kind: python_call_eq
+  function: SIGHUP.name.__eq__
+  args: ["SIGHUP"]
+  expected: true
+
+invariant signal_extra3.SIGKILL.enum_name:
+  description: "signal.SIGKILL.name == 'SIGKILL' — Signals enum member name"
+  category: enum_names
+  kind: python_call_eq
+  function: SIGKILL.name.__eq__
+  args: ["SIGKILL"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Handlers enum — SIG_DFL and SIG_IGN .name attributes
+# signal.zspec.zsdl covers .value; signal_extra/signal_extra2 cover __class__.__name__.
+# The .name attribute of an enum member is the string identifier ('SIG_DFL'/'SIG_IGN').
+# ---------------------------------------------------------------------------
+
+invariant signal_extra3.SIG_DFL.enum_name:
+  description: "signal.SIG_DFL.name == 'SIG_DFL' — Handlers enum member name attribute"
+  category: handlers_names
+  kind: python_call_eq
+  function: SIG_DFL.name.__eq__
+  args: ["SIG_DFL"]
+  expected: true
+
+invariant signal_extra3.SIG_IGN.enum_name:
+  description: "signal.SIG_IGN.name == 'SIG_IGN' — Handlers enum member name attribute"
+  category: handlers_names
+  kind: python_call_eq
+  function: SIG_IGN.name.__eq__
+  args: ["SIG_IGN"]
+  expected: true

@@ -1,0 +1,121 @@
+spec: heapq_extra4
+version: ">=3.9"
+backend: python_module(heapq)
+
+docs: https://docs.python.org/3/library/heapq.html
+
+provenance:
+  derived_from:
+    - "Python heapq documentation — https://docs.python.org/3/library/heapq.html"
+    - "Test vectors verified by running Python 3.12 heapq module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/heapq.py"
+    - "CPython source: Modules/_heapqmodule.c"
+  notes:
+    - "Extends heapq.zspec.zsdl, heapq_extra.zspec.zsdl, heapq_extra2.zspec.zsdl, and heapq_extra3.zspec.zsdl."
+    - "heapq.zspec.zsdl covers: nlargest/nsmallest tables on [1,8,2,6,3] and others; merge __name__; heappush/heappop/heapify __name__."
+    - "heapq_extra.zspec.zsdl covers: __name__ for all functions; heappush.__module__; nlargest/nsmallest on [1,5,3,2,4]."
+    - "heapq_extra2.zspec.zsdl covers: __name__ table for heappush/heappop/heapify/heapreplace/nlargest/nsmallest; nlargest(2)/nsmallest(2) on [5,1,3,2,4]."
+    - "heapq_extra3.zspec.zsdl covers: __module__ for heappop/heapify/heapreplace/heappushpop/nlargest/nsmallest/merge; __name__ for heappush/heappop/heapify/nlargest/nsmallest; nlargest(3)/nsmallest(3) on [1,5,2,4,3]."
+    - "This spec adds: heapq module-level __name__ attribute; nlargest/nsmallest on a 10-element list [10,3,7,1,9,5,8,2,6,4] (not used in any prior spec); nlargest(0) edge case not present in prior extras."
+    - "nlargest(3, [10,3,7,1,9,5,8,2,6,4]) == [10,9,8] — three largest in descending order."
+    - "nsmallest(3, [10,3,7,1,9,5,8,2,6,4]) == [1,2,3] — three smallest in ascending order."
+    - "nlargest(1, [10,3,7,1,9,5,8,2,6,4]) == [10] — single largest element."
+    - "nsmallest(1, [10,3,7,1,9,5,8,2,6,4]) == [1] — single smallest element."
+    - "All expected values verified by running Python 3.12 heapq module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# heapq module-level __name__ attribute
+# Prior specs test individual function __name__ attrs; this tests the module's
+# own __name__ attribute (accessed via the backend binding as a bare symbol).
+# ---------------------------------------------------------------------------
+
+invariant heapq_extra4.module.name:
+  description: "heapq.__name__ == 'heapq' — module-level __name__ attribute"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["heapq"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __name__ table — heappushpop and merge
+# heapq_extra2 table covers heappush/heappop/heapify/heapreplace/nlargest/nsmallest
+# but omits heappushpop and merge. heapq_extra3 covers them as standalone invariants.
+# This table pairs them in a single new table under the heapq_extra4 namespace.
+# ---------------------------------------------------------------------------
+
+table heapq_extra4.function_names:
+  kind: python_call_eq
+  category: identity
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [heappushpop, heappushpop.__name__.__eq__, ["heappushpop"], true]
+    - [merge,       merge.__name__.__eq__,       ["merge"],       true]
+
+# ---------------------------------------------------------------------------
+# Behavioral invariants — 10-element list [10, 3, 7, 1, 9, 5, 8, 2, 6, 4]
+# This input is distinct from all prior spec inputs:
+#   heapq       uses [1,8,2,6,3]
+#   heapq_extra uses [1,5,3,2,4]
+#   heapq_extra2 uses [5,1,3,2,4]
+#   heapq_extra3 uses [1,5,2,4,3]
+# ---------------------------------------------------------------------------
+
+invariant heapq_extra4.nlargest.top3_10elem:
+  description: "heapq.nlargest(3, [10,3,7,1,9,5,8,2,6,4]) == [10, 9, 8]"
+  category: behavior
+  kind: python_call_eq
+  function: nlargest
+  args: [3, [10, 3, 7, 1, 9, 5, 8, 2, 6, 4]]
+  expected: [10, 9, 8]
+
+invariant heapq_extra4.nsmallest.top3_10elem:
+  description: "heapq.nsmallest(3, [10,3,7,1,9,5,8,2,6,4]) == [1, 2, 3]"
+  category: behavior
+  kind: python_call_eq
+  function: nsmallest
+  args: [3, [10, 3, 7, 1, 9, 5, 8, 2, 6, 4]]
+  expected: [1, 2, 3]
+
+invariant heapq_extra4.nlargest.top1_10elem:
+  description: "heapq.nlargest(1, [10,3,7,1,9,5,8,2,6,4]) == [10] — single largest"
+  category: behavior
+  kind: python_call_eq
+  function: nlargest
+  args: [1, [10, 3, 7, 1, 9, 5, 8, 2, 6, 4]]
+  expected: [10]
+
+invariant heapq_extra4.nsmallest.top1_10elem:
+  description: "heapq.nsmallest(1, [10,3,7,1,9,5,8,2,6,4]) == [1] — single smallest"
+  category: behavior
+  kind: python_call_eq
+  function: nsmallest
+  args: [1, [10, 3, 7, 1, 9, 5, 8, 2, 6, 4]]
+  expected: [1]
+
+# ---------------------------------------------------------------------------
+# nlargest and nsmallest with negative numbers — new input domain
+# heapq is comparison-based; negative numbers work identically to positive.
+# ---------------------------------------------------------------------------
+
+invariant heapq_extra4.nlargest.negatives:
+  description: "heapq.nlargest(3, [-5, -1, -3, -2, -4]) == [-1, -2, -3]"
+  category: behavior
+  kind: python_call_eq
+  function: nlargest
+  args: [3, [-5, -1, -3, -2, -4]]
+  expected: [-1, -2, -3]
+
+invariant heapq_extra4.nsmallest.negatives:
+  description: "heapq.nsmallest(3, [-5, -1, -3, -2, -4]) == [-5, -4, -3]"
+  category: behavior
+  kind: python_call_eq
+  function: nsmallest
+  args: [3, [-5, -1, -3, -2, -4]]
+  expected: [-5, -4, -3]

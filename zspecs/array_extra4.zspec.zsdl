@@ -1,0 +1,173 @@
+spec: array_extra4
+version: ">=3.9"
+backend: python_module(array)
+
+docs: https://docs.python.org/3/library/array.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/array.html — Python array module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/arraymodule.c"
+  notes:
+    - "This spec extends array.zspec.zsdl, array_extra.zspec.zsdl, array_extra2.zspec.zsdl, and array_extra3.zspec.zsdl."
+    - "array.zspec.zsdl: typecode/itemsize/len/getitem/tolist/count/index for i/d/b/B/h/q/f."
+    - "array_extra.zspec.zsdl: array.__name__/__module__, ArrayType.__name__, typecodes is str, itemsize b/h, typecode b, length/getitem/tolist for b."
+    - "array_extra2.zspec.zsdl: typecodes is str + min_length, typecodes.contains for b/B/h/i/l/q/f/d, itemsize table b/B/h/f/d, typecode_attr b/B/h/i/f/d."
+    - "array_extra3.zspec.zsdl: ArrayType.__module__, itemsize H/I, typecode H/d, typecode class_name, buffer_info, tolist/count/index on 'i', unsigned short tolist."
+    - "This spec adds: typecodes.__contains__ for H/L/Q (not in array_extra2 table); itemsize for 'l'/'L'/'Q'; typecode attr for 'l'/'L'/'Q'; array.__bases__ check; tolist on 'q'; getitem on 'B' at index 1; array class __qualname__."
+    - "array.array.__qualname__ == 'array' — the qualified name of the C-level type is 'array'."
+    - "array.array('l', [1]).itemsize >= 4 — signed long is at least 4 bytes (C standard guarantee)."
+    - "array.array('L', [1]).itemsize >= 4 — unsigned long is at least 4 bytes."
+    - "array.array('Q', [1]).itemsize == 8 — unsigned long long is 8 bytes on all supported platforms."
+    - "array.array.__bases__[0].__name__ == 'object' — array is a C extension type inheriting from object."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# typecodes.__contains__ — typecodes H, L, Q not in array_extra2 table
+# array_extra2 covers: b, B, h, i, l, q, f, d
+# New here: H, L, Q
+# ---------------------------------------------------------------------------
+
+table array_extra4.typecodes.contains_new:
+  kind: python_call_eq
+  category: typecodes
+  id_prefix: contains
+
+  columns: [id, function, args, expected]
+  rows:
+    - [H, typecodes.__contains__, ["H"], true]
+    - [L, typecodes.__contains__, ["L"], true]
+    - [Q, typecodes.__contains__, ["Q"], true]
+
+# ---------------------------------------------------------------------------
+# itemsize — signed long 'l', unsigned long 'L', unsigned long long 'Q'
+# array.zspec.zsdl covers: i(4), d(8), b(1), B(1), h(2), q(8), f(4)
+# array_extra.zspec.zsdl covers: b(1), h(2)
+# array_extra2.zspec.zsdl covers: b/B/h/f/d
+# array_extra3.zspec.zsdl covers: H(2), I(4)
+# New here: l (>=4), L (>=4), Q (==8)
+# ---------------------------------------------------------------------------
+
+invariant array_extra4.itemsize.signed_long_ge4:
+  description: "array.array('l', [1]).itemsize >= 4 — signed long is at least 4 bytes (C standard)"
+  category: itemsize
+  kind: python_call_eq
+  function: array
+  args: ["l", [1]]
+  method: itemsize.__ge__
+  method_args: [4]
+  expected: true
+
+invariant array_extra4.itemsize.unsigned_long_ge4:
+  description: "array.array('L', [1]).itemsize >= 4 — unsigned long is at least 4 bytes (C standard)"
+  category: itemsize
+  kind: python_call_eq
+  function: array
+  args: ["L", [1]]
+  method: itemsize.__ge__
+  method_args: [4]
+  expected: true
+
+invariant array_extra4.itemsize.unsigned_longlong:
+  description: "array.array('Q', [1]).itemsize == 8 — unsigned long long is 8 bytes"
+  category: itemsize
+  kind: python_call_eq
+  function: array
+  args: ["Q", [1]]
+  method: itemsize
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# typecode attribute — 'l', 'L', 'Q' not in any prior typecode_attr table
+# array_extra2 typecode_attr covers: b, B, h, i, f, d
+# array_extra3 typecode attr covers: H, d (and class_name check for 'i')
+# New here: l, L, Q
+# ---------------------------------------------------------------------------
+
+table array_extra4.typecode_attr_new:
+  kind: python_call_eq
+  category: typecode_attr
+  id_prefix: typecode
+
+  columns: [id, function, args, method, expected]
+  rows:
+    - [l, array, ["l", [0]],  typecode, "l"]
+    - [L, array, ["L", [0]],  typecode, "L"]
+    - [Q, array, ["Q", [0]],  typecode, "Q"]
+
+# ---------------------------------------------------------------------------
+# tolist — unsigned long long 'Q' array (new, not in any prior spec)
+# ---------------------------------------------------------------------------
+
+invariant array_extra4.tolist.unsigned_longlong:
+  description: "array.array('Q', [1, 2, 3]).tolist() == [1, 2, 3] — unsigned long long tolist"
+  category: tolist
+  kind: python_call_eq
+  function: array
+  args: ["Q", [1, 2, 3]]
+  method: tolist
+  method_args: []
+  expected: [1, 2, 3]
+
+# ---------------------------------------------------------------------------
+# tolist — long long 'q' with distinct values not in array.zspec.zsdl
+# array.zspec.zsdl tolist uses ('i', [10,20,30]); array_extra3 uses ('i', [1,2,3])
+# New here: 'q' typecode with [9000000001, 9000000002]
+# ---------------------------------------------------------------------------
+
+invariant array_extra4.tolist.longlong:
+  description: "array.array('q', [9000000001, 9000000002]).tolist() == [9000000001, 9000000002]"
+  category: tolist
+  kind: python_call_eq
+  function: array
+  args: ["q", [9000000001, 9000000002]]
+  method: tolist
+  method_args: []
+  expected: [9000000001, 9000000002]
+
+# ---------------------------------------------------------------------------
+# __qualname__ — C extension type's qualified name
+# Not covered in any prior array spec
+# ---------------------------------------------------------------------------
+
+invariant array_extra4.class_identity.qualname:
+  description: "array.array.__qualname__ == 'array' — qualified name of the C-level type"
+  category: class_identity
+  kind: python_call_eq
+  function: array.__qualname__.__eq__
+  args: ["array"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __bases__ — array type inherits from object
+# Not covered in any prior array spec
+# ---------------------------------------------------------------------------
+
+invariant array_extra4.class_identity.bases_object:
+  description: "array.array.__bases__[0].__name__ == 'object' — array inherits from object"
+  category: class_identity
+  kind: python_call_eq
+  function: array.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# getitem — unsigned char 'B' at index 1 (new index not in array.zspec.zsdl)
+# array.zspec.zsdl covers B[0] == 65; new here: B[1]
+# ---------------------------------------------------------------------------
+
+invariant array_extra4.getitem.unsigned_char_index1:
+  description: "array.array('B', [65, 66, 67])[1] == 66 — second element of unsigned char array"
+  category: getitem
+  kind: python_call_eq
+  function: array
+  args: ["B", [65, 66, 67]]
+  method: __getitem__
+  method_args: [1]
+  expected: 66

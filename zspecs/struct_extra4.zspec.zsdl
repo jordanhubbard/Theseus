@@ -1,0 +1,155 @@
+spec: struct_extra4
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+rfcs:
+  - "IEEE 754-2019 — Standard for Floating-Point Arithmetic (for float/double format strings)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "Test vectors verified by running Python 3.12 struct module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+    - "struct.zspec.zsdl — covers pack/unpack vectors for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize for H/I/Q/HI/HIQ/q/h/b/?/e; roundtrip; error cases"
+    - "struct_extra.zspec.zsdl — covers Struct format/size attrs, calcsize extra formats, pack_into method name (via __func__.__name__), unpack_from with offset, iter_unpack, error __name__/bases"
+    - "struct_extra2.zspec.zsdl — covers pack/__name__, unpack/__name__, calcsize/__name__, all function __module__ attrs, Struct/__module__, pack('>H',256)==b'\\x01\\x00', unpack('>H',b'\\x01\\x00')==(256,), calcsize('>HHH')==6, Struct base is object"
+    - "struct_extra3.zspec.zsdl — covers pack/unpack/calcsize for network byte order float/double/bool; calcsize for !5s/!3p/!x/!5x"
+  notes:
+    - "This spec adds invariants not present in any prior struct spec."
+    - "struct.pack_into.__name__ == 'pack_into' — struct_extra checks this via Struct('>H').pack_into.__func__.__name__; this spec checks the module-level function directly."
+    - "struct.unpack_from.__name__ == 'unpack_from' — covered in struct_extra via function: unpack_from.__name__.__eq__; this spec adds __qualname__ check."
+    - "struct.iter_unpack.__name__ == 'iter_unpack' — covered in struct_extra; this spec adds __qualname__ and __module__ cross-checks not previously recorded together."
+    - "struct.Struct.__name__ == 'Struct' — not in struct_extra2 (which covers __module__); this spec adds the __name__ check."
+    - "struct.pack('>I', 65536) == b'\\x00\\x01\\x00\\x00' — big-endian 32-bit encoding of 65536 (0x00010000); struct.zspec.zsdl uses 305419896 (0x12345678), not 65536."
+    - "struct.pack('<I', 65536) == b'\\x00\\x00\\x01\\x00' — little-endian 32-bit encoding of 65536."
+    - "struct.pack('>i', -256) == b'\\xff\\xff\\xff\\x00' — big-endian signed 32-bit encoding of -256 (not in any prior spec)."
+    - "struct.calcsize('>i') == 4 — signed 32-bit int is 4 bytes; not in prior calcsize tables."
+    - "struct.calcsize('<i') == 4 — same size regardless of byte order."
+    - "struct.error.__qualname__ == 'error' — flat qualname for module-level exception class."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.Struct.__name__ — not in struct_extra2 (which has __module__ only)
+# ---------------------------------------------------------------------------
+
+invariant struct_extra4.Struct.name:
+  description: "struct.Struct.__name__ == 'Struct'"
+  category: class_identity
+  kind: python_call_eq
+  function: Struct.__name__.__eq__
+  args: ["Struct"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pack_into — module-level function __name__
+# struct_extra verified this via Struct('>H').pack_into.__func__.__name__; this checks
+# the standalone module-level pack_into directly.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra4.pack_into.name:
+  description: "struct.pack_into.__name__ == 'pack_into'"
+  category: function_names
+  kind: python_call_eq
+  function: pack_into.__name__.__eq__
+  args: ["pack_into"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ — new axis not covered by prior specs
+# struct_extra2 covers __name__ and __module__ for pack/unpack/calcsize/etc.
+# This spec adds __qualname__ checks (module-level functions have qualname == name).
+# ---------------------------------------------------------------------------
+
+table struct_extra4.function_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: fqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pack,        pack.__qualname__.__eq__,        ["pack"],        true]
+    - [unpack,      unpack.__qualname__.__eq__,       ["unpack"],      true]
+    - [pack_into,   pack_into.__qualname__.__eq__,    ["pack_into"],   true]
+    - [unpack_from, unpack_from.__qualname__.__eq__,  ["unpack_from"], true]
+    - [iter_unpack, iter_unpack.__qualname__.__eq__,  ["iter_unpack"], true]
+    - [calcsize,    calcsize.__qualname__.__eq__,     ["calcsize"],    true]
+
+# ---------------------------------------------------------------------------
+# struct.error.__qualname__ — not checked in any prior struct spec
+# ---------------------------------------------------------------------------
+
+invariant struct_extra4.error.qualname:
+  description: "struct.error.__qualname__ == 'error' — module-level exception class has flat qualname"
+  category: class_identity
+  kind: python_call_eq
+  function: error.__qualname__.__eq__
+  args: ["error"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pack() — big-endian uint32 encoding of 65536 (0x00010000)
+# struct.zspec.zsdl uses 305419896 (0x12345678); struct_extra2 uses '>H' 256.
+# 65536 is a new distinct vector: the leading zero byte makes it non-trivial.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra4.pack.big_endian_uint32_65536:
+  description: "struct.pack('>I', 65536) == b'\\x00\\x01\\x00\\x00' — big-endian uint32 encoding of 65536"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">I", 65536]
+  expected: !hex 00010000
+
+# ---------------------------------------------------------------------------
+# pack() — little-endian uint32 encoding of 65536 (0x00000100 in LE)
+# Distinct from all prior pack vectors.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra4.pack.little_endian_uint32_65536:
+  description: "struct.pack('<I', 65536) == b'\\x00\\x00\\x01\\x00' — little-endian uint32 encoding of 65536"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: ["<I", 65536]
+  expected: !hex 00000100
+
+# ---------------------------------------------------------------------------
+# pack() — big-endian signed int32 of -256 (0xFFFFFF00)
+# struct.zspec.zsdl has int8_minus1 ('>b', -1); no prior spec has '>i' for -256.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra4.pack.big_endian_int32_neg256:
+  description: "struct.pack('>i', -256) == b'\\xff\\xff\\xff\\x00' — big-endian signed 32-bit -256"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">i", -256]
+  expected: !hex ffffff00
+
+# ---------------------------------------------------------------------------
+# calcsize() — signed 32-bit int format 'i' (not in any prior calcsize table)
+# struct.zspec.zsdl covers I (uint32) but not i (int32) — same size, different sign.
+# ---------------------------------------------------------------------------
+
+table struct_extra4.calcsize.signed_int_formats:
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: calcsize
+
+  columns: [id, args, expected]
+  rows:
+    - [big_i,    [">i"],  4]
+    - [little_i, ["<i"],  4]
+    - [big_I,    [">I"],  4]

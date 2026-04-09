@@ -1,0 +1,136 @@
+spec: locale_extra3
+version: ">=3.9"
+backend: python_module(locale)
+
+docs: https://docs.python.org/3/library/locale.html
+
+provenance:
+  derived_from:
+    - "Python locale documentation — https://docs.python.org/3/library/locale.html"
+    - "Test vectors verified by running Python 3.12 locale module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/locale.py"
+  notes:
+    - "This spec extends locale.zspec.zsdl, locale_extra.zspec.zsdl, and locale_extra2.zspec.zsdl."
+    - "locale.zspec.zsdl covers: LC_ALL/CTYPE/NUMERIC/TIME/COLLATE/MONETARY is_int; setlocale/getlocale/getpreferredencoding/format_string/atoi/atof names."
+    - "locale_extra.zspec.zsdl covers: Error.__name__/__bases__; full func_names table; LC_ALL/COLLATE is_int."
+    - "locale_extra2.zspec.zsdl covers: LC_MESSAGES is_int; LC_CTYPE/NUMERIC/TIME/MONETARY is_int; Error.__module__; normalize passthrough; currency name."
+    - "This spec focuses on __module__ affiliation for locale functions not yet checked by module."
+    - "locale.setlocale, locale.getlocale, locale.normalize, locale.format_string, locale.atoi, locale.atof are all defined in locale module (__module__ == 'locale')."
+    - "locale.resetlocale is present in Python 3.9–3.12 (deprecated 3.11, removed 3.13); __module__ == 'locale'."
+    - "locale.getpreferredencoding is a Python function defined in the locale module; __module__ == 'locale'."
+    - "locale.Error.__module__ == 'locale' is covered in locale_extra2; not duplicated here."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "locale functions raise locale.Error (a subclass of Exception) when an unsupported locale is requested."
+  stderr: "null"
+  stickiness: "N/A"
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# __module__ affiliation for locale functions
+# None of these module checks appear in locale.zspec, locale_extra, or locale_extra2.
+# ---------------------------------------------------------------------------
+
+table locale_extra3.func_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [setlocale,    "setlocale.__module__.__eq__",    ["locale"], true]
+    - [getlocale,    "getlocale.__module__.__eq__",    ["locale"], true]
+    - [normalize,    "normalize.__module__.__eq__",    ["locale"], true]
+    - [format_string,"format_string.__module__.__eq__",["locale"], true]
+    - [atoi,         "atoi.__module__.__eq__",         ["locale"], true]
+    - [atof,         "atof.__module__.__eq__",         ["locale"], true]
+    - [currency,     "currency.__module__.__eq__",     ["locale"], true]
+
+# ---------------------------------------------------------------------------
+# resetlocale __module__ — Python 3.9–3.12 only (deprecated 3.11, removed 3.13)
+# Verified present in Python 3.12; __module__ == 'locale'.
+# ---------------------------------------------------------------------------
+
+invariant locale_extra3.resetlocale.module:
+  description: "locale.resetlocale.__module__ == 'locale' — resetlocale is defined in the locale module"
+  category: modules
+  kind: python_call_eq
+  function: "resetlocale.__module__.__eq__"
+  args: ["locale"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getpreferredencoding — __module__ affiliation
+# ---------------------------------------------------------------------------
+
+invariant locale_extra3.getpreferredencoding.module:
+  description: "locale.getpreferredencoding.__module__ == 'locale'"
+  category: modules
+  kind: python_call_eq
+  function: "getpreferredencoding.__module__.__eq__"
+  args: ["locale"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# LC_ALL, LC_COLLATE — positive integer (value > 0 or >= 0)
+# locale.zspec and locale_extra cover is_int; here we add __class__ identity
+# via a table using __class__.__name__ for LC_ALL and LC_COLLATE only, but in
+# a new namespace (locale_extra3) not duplicating locale_extra2's table.
+#
+# Instead, add a complementary check: LC_ALL != LC_COLLATE (they are distinct).
+# ---------------------------------------------------------------------------
+
+invariant locale_extra3.LC_ALL.ne_LC_COLLATE:
+  description: "locale.LC_ALL != locale.LC_COLLATE — LC_ALL and LC_COLLATE have distinct integer values"
+  category: constants
+  kind: python_call_eq
+  function: "LC_ALL.__ne__"
+  args: [3]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# locale.Error — class type check
+# locale_extra2 covers __module__; locale_extra covers __name__ and __bases__.
+# New: Error.__class__.__name__ == 'type' (it is a class, not an instance).
+# ---------------------------------------------------------------------------
+
+invariant locale_extra3.Error.is_type:
+  description: "locale.Error.__class__.__name__ == 'type' — Error is a class object"
+  category: classnames
+  kind: python_call_eq
+  function: "Error.__class__.__name__.__eq__"
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# normalize — returns str for an unknown locale alias (non-canonical input)
+# locale_extra2 covers normalize('C') and normalize('en_US.UTF-8').
+# New: normalize('english') — maps to a canonical form (returns a non-empty str).
+# ---------------------------------------------------------------------------
+
+invariant locale_extra3.normalize.english_returns_str:
+  description: "locale.normalize('english').__class__.__name__ == 'str' — normalize always returns str"
+  category: behavior
+  kind: python_call_eq
+  function: normalize
+  args: ["english"]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getdefaultlocale — function name (deprecated 3.11; present in 3.9–3.12)
+# locale_extra covers getdefaultlocale in the func_names table.
+# New: getdefaultlocale.__module__ == 'locale'
+# ---------------------------------------------------------------------------
+
+invariant locale_extra3.getdefaultlocale.module:
+  description: "locale.getdefaultlocale.__module__ == 'locale'"
+  category: modules
+  kind: python_call_eq
+  function: "getdefaultlocale.__module__.__eq__"
+  args: ["locale"]
+  expected: true

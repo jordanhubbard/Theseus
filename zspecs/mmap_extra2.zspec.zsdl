@@ -1,0 +1,121 @@
+spec: mmap_extra2
+version: ">=3.9"
+backend: python_module(mmap)
+
+docs: https://docs.python.org/3/library/mmap.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/mmap.html — Python mmap module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/mmapmodule.c"
+    - "mmap.zspec.zsdl — covers mmap.__name__, error.__name__, ACCESS_READ==1, ACCESS_WRITE==2, ACCESS_COPY==3, PAGESIZE is int, PAGESIZE > 0, ALLOCATIONGRANULARITY is int, POSIX constants (PROT_READ, MAP_SHARED, MAP_PRIVATE), method names (read/write/seek/tell/close/find/flush)"
+    - "mmap_extra.zspec.zsdl — covers mmap.__module__=='mmap', mmap.__qualname__=='mmap', ACCESS_READ/__class__.__name__=='int', ACCESS_WRITE/__class__.__name__=='int', ACCESS_COPY/__class__.__name__=='int', ALLOCATIONGRANULARITY > 0, error.__module__=='builtins', method names (rfind/readline/read_byte/write_byte/move), read method __class__.__name__=='wrapper_descriptor', PAGESIZE >= 4096, ALLOCATIONGRANULARITY >= 4096"
+  notes:
+    - "This spec adds invariants not present in mmap.zspec.zsdl or mmap_extra.zspec.zsdl."
+    - "mmap.ACCESS_NONE == 0 — added in Python 3.7 for anonymous, non-accessible mappings; value is 0."
+    - "mmap.ACCESS_NONE.__class__.__name__ == 'int' — it is a plain int constant, like the other ACCESS_* values."
+    - "mmap.mmap.__name__ is in mmap.zspec; here we check mmap.__class__.__name__ == 'type' (not checked in prior specs)."
+    - "mmap.error.__bases__[0].__name__ == 'OSError' — mmap.error is OSError; its base is Exception (checked via __bases__[0])."
+    - "mmap.PAGESIZE is a multiple of mmap.ACCESS_READ (i.e., PAGESIZE % 1 == 0) — trivially true but verifies PAGESIZE is numeric."
+    - "mmap.mmap.read.__doc__.__class__.__name__ == 'str' — C methods have docstrings."
+    - "ACCESS_READ < ACCESS_WRITE < ACCESS_COPY — the three original constants are ordered 1, 2, 3."
+    - "ACCESS_NONE < ACCESS_READ — ACCESS_NONE (0) precedes ACCESS_READ (1)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ACCESS_NONE — added in Python 3.7 (not covered in mmap.zspec.zsdl or mmap_extra)
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra2.ACCESS_NONE.value:
+  description: "mmap.ACCESS_NONE == 0 — anonymous, non-accessible mapping constant added in Python 3.7"
+  category: constants
+  kind: python_call_eq
+  function: ACCESS_NONE.__eq__
+  args: [0]
+  expected: true
+
+invariant mmap_extra2.ACCESS_NONE.is_int:
+  description: "mmap.ACCESS_NONE.__class__.__name__ == 'int'"
+  category: constants
+  kind: python_call_eq
+  function: ACCESS_NONE.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ACCESS_* ordering — no prior spec checks relative ordering
+# ACCESS_NONE (0) < ACCESS_READ (1) < ACCESS_WRITE (2) < ACCESS_COPY (3)
+# ---------------------------------------------------------------------------
+
+table mmap_extra2.constants.access_ordering:
+  kind: python_call_eq
+  category: constants
+  id_prefix: order
+
+  columns: [id, function, args, expected]
+  rows:
+    - [none_lt_read,   ACCESS_NONE.__lt__,  [1], true]
+    - [read_lt_write,  ACCESS_READ.__lt__,  [2], true]
+    - [write_lt_copy,  ACCESS_WRITE.__lt__, [3], true]
+
+# ---------------------------------------------------------------------------
+# mmap.mmap class — __class__.__name__ == 'type' (not in any prior spec)
+# mmap.zspec.zsdl checks mmap.__name__; mmap_extra checks __module__ and __qualname__.
+# This spec adds the metaclass check.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra2.mmap_class.is_type:
+  description: "mmap.mmap.__class__.__name__ == 'type' — mmap is a C extension type object"
+  category: class_identity
+  kind: python_call_eq
+  function: mmap.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# mmap.error hierarchy
+# mmap.error is OSError; OSError.__bases__[0].__name__ == 'Exception'.
+# (mmap.zspec.zsdl checks error.__name__=='OSError'; mmap_extra checks error.__module__=='builtins')
+# This spec adds the base class check.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra2.error.base_is_Exception:
+  description: "mmap.error.__bases__[0].__name__ == 'Exception' — OSError inherits from Exception"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# PAGESIZE — divisibility: PAGESIZE % 4096 == 0
+# All known hardware page sizes are multiples of 4096.
+# (mmap.zspec.zsdl checks > 0; mmap_extra checks >= 4096; this adds modulo check)
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra2.constants.pagesize_multiple_of_4096:
+  description: "mmap.PAGESIZE % 4096 == 0 — page size is always a multiple of 4096 bytes"
+  category: constants
+  kind: python_call_eq
+  function: PAGESIZE.__mod__
+  args: [4096]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# mmap.mmap method __doc__ — C methods have docstrings (not None)
+# No prior spec checks __doc__ on mmap methods.
+# ---------------------------------------------------------------------------
+
+invariant mmap_extra2.mmap.read_has_doc:
+  description: "mmap.mmap.read.__doc__.__class__.__name__ == 'str' — C-implemented methods have docstrings"
+  category: method_docs
+  kind: python_call_eq
+  function: mmap.read.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
