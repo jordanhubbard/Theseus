@@ -1,0 +1,108 @@
+spec: platform_extra5
+version: ">=3.9"
+backend: python_module(platform)
+
+docs: https://docs.python.org/3/library/platform.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/platform.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/platform.py"
+  notes:
+    - "This spec extends platform.zspec.zsdl and prior extras."
+    - "platform.zspec.zsdl covers: __name__ table for system/node/release/machine/processor/architecture/uname/python_version/python_implementation/python_version_tuple; python_impl_cpython; version_tuple_major/is_tuple/len3; python_version_is_str/nonempty; architecture_64bit; node_is_str; uname field types."
+    - "platform_extra.zspec.zsdl covers: __name__ for release/version/python_build; return types for system/machine/processor/release/version/python_implementation (all str); uname_result type/field types; python_build tuple shape."
+    - "platform_extra2.zspec.zsdl covers: __module__ table for all callables; __name__ spot-checks for system/node/release/machine/python_compiler; python_compiler is str and non-empty."
+    - "platform_extra3.zspec.zsdl covers: version_tuple minor/micro element types; node/python_implementation nonempty; uname len/node nonempty; architecture linkage str; python_build buildno nonempty; python_version contains dot."
+    - "platform_extra4.zspec.zsdl covers: __qualname__ for system/node/release/version/machine/processor/python_version/python_implementation/python_version_tuple/uname (table) and uname_result."
+    - "This spec adds: module __name__; architecture().__class__.__name__; architecture()[0].__class__.__name__; python_compiler/__qualname__; architecture/__qualname__; python_version_tuple()[0].__class__.__name__."
+    - "platform.__name__ == 'platform' — the module's own __name__ attribute. No prior spec covers this."
+    - "platform.architecture().__class__.__name__ == 'tuple' — architecture() returns a 2-tuple. Not covered (only python_version_tuple class name was covered, not architecture)."
+    - "platform.architecture()[0].__class__.__name__ == 'str' — the bits field is a str. platform.zspec covers the VALUE ('64bit') but not the type."
+    - "platform.python_compiler.__qualname__ == 'python_compiler' — platform_extra4 table omitted python_compiler and architecture. Not covered."
+    - "platform.architecture.__qualname__ == 'architecture' — platform_extra4 table omitted architecture. Not covered."
+    - "platform.python_version_tuple()[0].__class__.__name__ == 'str' — platform.zspec covers the VALUE ('3') but not the type."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module __name__ attribute
+#
+# No prior spec covers platform.__name__ (the module attribute) as opposed to
+# the __name__ of symbols within the module. Distinct axis.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra5.module_name:
+  description: "platform.__name__ == 'platform' — the module's own __name__ attribute"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["platform"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# architecture() — return type and element type checks
+#
+# platform.zspec.zsdl covers: architecture()[0] == '64bit' (value, not type).
+# platform_extra3 covers: architecture()[1].__class__.__name__ == 'str' (linkage type).
+# New here: architecture().__class__.__name__ == 'tuple'; architecture()[0].__class__.__name__ == 'str'.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra5.architecture_is_tuple:
+  description: "platform.architecture().__class__.__name__ == 'tuple' — architecture() returns a 2-tuple"
+  category: architecture
+  kind: python_call_eq
+  function: architecture().__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant platform_extra5.architecture_bits_is_str:
+  description: "platform.architecture()[0].__class__.__name__ == 'str' — the bits field is always a str"
+  category: architecture
+  kind: python_call_eq
+  function: architecture().__getitem__
+  args: [0]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __qualname__ for python_compiler and architecture
+#
+# platform_extra4.zspec.zsdl covers __qualname__ for:
+#   system, node, release, version, machine, processor,
+#   python_version, python_implementation, python_version_tuple, uname, uname_result.
+# It does NOT cover python_compiler or architecture. New coverage here.
+# ---------------------------------------------------------------------------
+
+table platform_extra5.missing_qualnames:
+  kind: python_call_eq
+  category: function_qualnames
+  id_prefix: qname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [python_compiler, python_compiler.__qualname__.__eq__, ["python_compiler"], true]
+    - [architecture,    architecture.__qualname__.__eq__,    ["architecture"],    true]
+
+# ---------------------------------------------------------------------------
+# python_version_tuple()[0] element type check
+#
+# platform.zspec.zsdl covers: python_version_tuple()[0] == '3' (value).
+# platform_extra3 covers: [1] and [2] element types (str).
+# New here: [0].__class__.__name__ == 'str' — the major version element is a str.
+# ---------------------------------------------------------------------------
+
+invariant platform_extra5.version_tuple_major_is_str:
+  description: "platform.python_version_tuple()[0].__class__.__name__ == 'str' — major version element is a str"
+  category: python_info
+  kind: python_call_eq
+  function: python_version_tuple().__getitem__
+  args: [0]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true

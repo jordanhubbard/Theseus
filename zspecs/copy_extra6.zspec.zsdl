@@ -1,0 +1,98 @@
+spec: copy_extra6
+version: ">=3.9"
+backend: python_module(copy)
+
+docs: https://docs.python.org/3/library/copy.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/copy.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/copy.py"
+  notes:
+    - "This spec extends copy.zspec.zsdl and prior extras."
+    - "copy_extra4 covers: copy.__name__, deepcopy.__name__, copy.__module__, deepcopy.__module__, Error.__name__, Error.__module__."
+    - "copy_extra5 covers: copy.__qualname__, deepcopy.__qualname__, Error.__qualname__."
+    - "Focus here: copy.copy.__name__ (same as extra4 — covered, so we use new axes), copy.Error.__bases__[0].__name__ == 'Exception', copy.Error.__qualname__ (extra5 has it — skip), copy.copy.__class__.__name__, copy.deepcopy.__class__.__name__, copy.Error.__class__.__name__."
+    - "copy.copy.__class__.__name__ == 'function' — copy is a plain Python function."
+    - "copy.deepcopy.__class__.__name__ == 'function' — deepcopy is a plain Python function."
+    - "copy.Error.__class__.__name__ == 'type' — Error is a class (type object)."
+    - "copy.Error.__bases__[0].__name__ == 'Exception' — Error inherits from Exception."
+    - "copy.Error.__bases__[0].__module__ == 'builtins' — Exception is a builtin."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __class__.__name__ for copy functions and Error exception
+# copy_extra4 checks __name__ and __module__; copy_extra5 checks __qualname__.
+# This spec adds __class__.__name__ checks — a distinct attribute axis.
+# ---------------------------------------------------------------------------
+
+table copy_extra6.callable_class_names:
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: class_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [copy,     copy.__class__.__name__.__eq__,     ["function"], true]
+    - [deepcopy, deepcopy.__class__.__name__.__eq__, ["function"], true]
+
+invariant copy_extra6.Error.class_name:
+  description: "copy.Error.__class__.__name__ == 'type' — Error is a class object"
+  category: class_metadata
+  kind: python_call_eq
+  function: Error.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# copy.Error base class hierarchy
+# copy.Error inherits from Exception (the standard base for custom exceptions).
+# copy_extra4 checks Error.__name__ and Error.__module__; no prior spec checks
+# the base class of Error.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra6.Error.base_is_Exception:
+  description: "copy.Error.__bases__[0].__name__ == 'Exception' — Error inherits from Exception"
+  category: hierarchy
+  kind: python_call_eq
+  function: Error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+invariant copy_extra6.Error.base_module:
+  description: "copy.Error.__bases__[0].__module__ == 'builtins' — Exception lives in builtins"
+  category: hierarchy
+  kind: python_call_eq
+  function: Error.__bases__.__getitem__
+  args: [0]
+  method: __module__
+  expected: "builtins"
+
+# ---------------------------------------------------------------------------
+# copy.copy and copy.deepcopy __qualname__ == __name__ cross-check
+# copy_extra5 checks __qualname__ directly; here we verify via __eq__ with
+# the __name__ string to confirm __qualname__ matches __name__ for both funcs.
+# These are top-level functions so qualname and name must be equal.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra6.copy.qualname_eq_name:
+  description: "copy.copy.__qualname__ == copy.copy.__name__ — top-level function, qualname == name"
+  category: qualnames
+  kind: python_call_eq
+  function: copy.__qualname__.__eq__
+  args: ["copy"]
+  expected: true
+
+invariant copy_extra6.deepcopy.qualname_eq_name:
+  description: "copy.deepcopy.__qualname__ == copy.deepcopy.__name__ — top-level function, qualname == name"
+  category: qualnames
+  kind: python_call_eq
+  function: deepcopy.__qualname__.__eq__
+  args: ["deepcopy"]
+  expected: true

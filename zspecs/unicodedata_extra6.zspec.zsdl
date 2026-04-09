@@ -1,0 +1,169 @@
+spec: unicodedata_extra6
+version: ">=3.9"
+backend: python_module(unicodedata)
+
+docs: https://docs.python.org/3/library/unicodedata.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/unicodedata.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/unicodedata.c"
+  notes:
+    - "This spec extends unicodedata.zspec.zsdl and prior extras."
+    - "unicodedata_extra covers: __name__ for all major functions; unidata_version.__class__.__name__; name('A'); category('A')."
+    - "unicodedata_extra2 covers: __module__ for normalize/decomposition/bidirectional/east_asian_width/combining/category/lookup/name; unidata_version dot/length."
+    - "unicodedata_extra3 covers: __module__ for decimal/numeric/digit/mirrored; ucd_3_2_0.__class__.__name__=='UCD'."
+    - "unicodedata_extra4 covers: __name__ table for lookup/category/bidirectional/combining/east_asian_width/mirrored/decomposition/normalize/is_normalized; unidata_version.__class__.__name__; category A/a/0; bidirectional A; combining A; east_asian_width A; mirrored '('."
+    - "unicodedata_extra5 covers: lookup 'LATIN SMALL LETTER A'/'DIGIT FIVE'; decimal '5'; digit 0/7/9; numeric '9'; normalize NFKC/NFKD for 'A'; category tab/plus; bidirectional space; combining U+0301; decomposition e-acute; ucd_3_2_0.category('A')."
+    - "Focus: new name() vectors; east_asian_width for CJK/fullwidth characters; mirrored for non-mirrored chars; decimal for '1' and '7'; lookup for 'EURO SIGN'; ucd_3_2_0 behavioral vectors; numeric for '½' via __class__.__name__."
+    - "unicodedata.name('Z') == 'LATIN CAPITAL LETTER Z' — new name() vector not in prior specs."
+    - "unicodedata.name('9') == 'DIGIT NINE' — new name() vector not in prior specs."
+    - "unicodedata.east_asian_width('中') == 'W' — CJK ideograph is wide (covered in base, confirmed here)."
+    - "unicodedata.east_asian_width('０') == 'F' — fullwidth digit is F(ull)."
+    - "unicodedata.mirrored(')') == 1 — right paren is also mirrored (not covered in prior specs)."
+    - "unicodedata.mirrored('A') == 0 — letter A is not mirrored."
+    - "unicodedata.decimal('1') == 1 — decimal value of '1'; prior specs cover 0/5/9."
+    - "unicodedata.decimal('7') == 7 — decimal value of '7'; prior specs cover 0/5/9."
+    - "unicodedata.lookup('EURO SIGN') == '€' — inverse of name('€') == 'EURO SIGN'."
+    - "unicodedata.ucd_3_2_0.name('A') == 'LATIN CAPITAL LETTER A' — UCD 3.2.0 name lookup."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# name() — new vectors not in unicodedata.zspec.zsdl or prior extras
+#
+# unicodedata.zspec.zsdl covers: 'A', 'a', '0', '€'.
+# unicodedata_extra and extra3 cover: 'A' (confirmed).
+# We add 'Z' -> 'LATIN CAPITAL LETTER Z' and '9' -> 'DIGIT NINE'.
+# ---------------------------------------------------------------------------
+
+table unicodedata_extra6.name.new_vectors:
+  kind: python_call_eq
+  category: name
+  id_prefix: name
+  function: name
+
+  columns: [id, args, expected]
+  rows:
+    - [capital_z, ["Z"], "LATIN CAPITAL LETTER Z"]
+    - [digit_nine, ["9"], "DIGIT NINE"]
+
+# ---------------------------------------------------------------------------
+# lookup() — EURO SIGN vector
+#
+# unicodedata.zspec.zsdl covers: 'LATIN CAPITAL LETTER A' -> 'A', 'DIGIT ZERO' -> '0'.
+# unicodedata_extra5 covers: 'LATIN SMALL LETTER A' -> 'a', 'DIGIT FIVE' -> '5'.
+# We add 'EURO SIGN' -> '€'.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra6.lookup.euro_sign:
+  description: "unicodedata.lookup('EURO SIGN') == '€'"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["EURO SIGN"]
+  expected: "€"
+
+# ---------------------------------------------------------------------------
+# east_asian_width() — fullwidth digit
+#
+# unicodedata.zspec.zsdl covers: 'A' -> 'Na' (narrow), '中' -> 'W' (wide).
+# unicodedata_extra4 covers: 'A' -> 'Na'.
+# We add '０' (U+FF10 FULLWIDTH DIGIT ZERO) -> 'F' (full-width).
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra6.east_asian_width.fullwidth_zero:
+  description: "unicodedata.east_asian_width('０') == 'F' — fullwidth digit is full-width"
+  category: east_asian_width
+  kind: python_call_eq
+  function: east_asian_width
+  args: ["０"]
+  expected: "F"
+
+# ---------------------------------------------------------------------------
+# mirrored() — new vectors
+#
+# unicodedata.zspec.zsdl: not covered.
+# unicodedata_extra4 covers: '(' -> 1.
+# We add: ')' -> 1 (right paren is also mirrored) and 'A' -> 0.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra6.mirrored.close_paren:
+  description: "unicodedata.mirrored(')') == 1 — right parenthesis is mirrored"
+  category: mirrored
+  kind: python_call_eq
+  function: mirrored
+  args: [")"]
+  expected: 1
+
+invariant unicodedata_extra6.mirrored.letter_a:
+  description: "unicodedata.mirrored('A') == 0 — letter A is not mirrored"
+  category: mirrored
+  kind: python_call_eq
+  function: mirrored
+  args: ["A"]
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# decimal() — new digit values
+#
+# unicodedata.zspec.zsdl covers: '0' -> 0, '9' -> 9.
+# unicodedata_extra5 covers: '5' -> 5.
+# We add: '1' -> 1 and '7' -> 7.
+# ---------------------------------------------------------------------------
+
+table unicodedata_extra6.decimal.new_vectors:
+  kind: python_call_eq
+  category: decimal
+  id_prefix: decimal
+  function: decimal
+
+  columns: [id, args, expected]
+  rows:
+    - [one,   ["1"], 1]
+    - [seven, ["7"], 7]
+
+# ---------------------------------------------------------------------------
+# ucd_3_2_0 — behavioral vectors via UCD object
+#
+# unicodedata_extra3 confirms ucd_3_2_0.__class__.__name__ == 'UCD'.
+# unicodedata_extra5 confirms ucd_3_2_0.category('A') == 'Lu'.
+# We add ucd_3_2_0.name('A') == 'LATIN CAPITAL LETTER A' — name lookup via UCD object.
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra6.ucd_3_2_0.name_A:
+  description: "unicodedata.ucd_3_2_0.name('A') == 'LATIN CAPITAL LETTER A'"
+  category: ucd_object
+  kind: python_call_eq
+  function: ucd_3_2_0.name
+  args: ["A"]
+  expected: "LATIN CAPITAL LETTER A"
+
+# ---------------------------------------------------------------------------
+# category() — new characters not in prior specs
+#
+# unicodedata.zspec.zsdl: 'A'->Lu, 'a'->Ll, '0'->Nd, '!'->Po, ' '->Zs.
+# unicodedata_extra4: 'A'->Lu, 'a'->Ll, '0'->Nd.
+# unicodedata_extra5: '\t'->Cc, '+'->Sm.
+# We add: '€' -> 'Sc' (currency symbol), '\n' -> 'Cc' (control character).
+# ---------------------------------------------------------------------------
+
+invariant unicodedata_extra6.category.euro:
+  description: "unicodedata.category('€') == 'Sc' — euro sign is a currency symbol"
+  category: category
+  kind: python_call_eq
+  function: category
+  args: ["€"]
+  expected: "Sc"
+
+invariant unicodedata_extra6.category.newline:
+  description: "unicodedata.category('\\n') == 'Cc' — newline is a control character"
+  category: category
+  kind: python_call_eq
+  function: category
+  args: ["\n"]
+  expected: "Cc"

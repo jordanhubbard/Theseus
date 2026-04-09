@@ -1,0 +1,165 @@
+spec: string_extra6
+version: ">=3.9"
+backend: python_module(string)
+
+docs: https://docs.python.org/3/library/string.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/string.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/string.py"
+  notes:
+    - "This spec extends string.zspec.zsdl and prior extras."
+    - "string_extra covers: Formatter/__name__/__module__, Template/__name__/__module__, capwords/__name__, constants type-is-str table."
+    - "string_extra2 covers: Formatter/__bases__[0].__name__=='object', Template/__bases__[0].__name__=='object', capwords.__module__, ascii_letters len==52, whitespace contains newline, printable len==100, punctuation len==32, octdigits/hexdigits exact values."
+    - "string_extra4 covers: Formatter/__name__/__module__ (table), Template/__name__/__module__ (table), digits/hexdigits/octdigits values, ascii_lowercase/uppercase/letters/digits/punctuation lengths, Formatter().format.__func__.__name__."
+    - "string_extra5 covers: Template/__qualname__, Formatter/__qualname__, capwords/__qualname__, ascii_uppercase/lowercase exact values, digits/ascii_uppercase membership checks, capwords double-internal-space and uppercase single word."
+    - "Focus: whitespace exact value; punctuation exact value; capwords with sep argument; Formatter().vformat __name__; new membership checks for punctuation and whitespace."
+    - "string.whitespace == ' \\t\\n\\r\\x0b\\x0c' — the six standard ASCII whitespace characters."
+    - "string.punctuation contains '!' (verifiable membership for a specific character)."
+    - "string.punctuation contains '@' (another specific punctuation character)."
+    - "string.whitespace contains '\\r' — carriage return is whitespace."
+    - "string.whitespace contains '\\t' — horizontal tab is whitespace."
+    - "string.capwords('hello world', '-') — capwords with sep argument (splits on '-')."
+    - "string.ascii_letters contains 'z' — lowercase z is in ascii_letters."
+    - "string.ascii_letters contains 'Z' — uppercase Z is in ascii_letters."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# whitespace — exact value and additional membership checks
+#
+# string_extra2 covers: whitespace.__contains__('\n') == True.
+# We add: '\r', '\t' membership (new characters not checked in prior specs),
+# and __len__ == 6 (not covered in any prior spec).
+# ---------------------------------------------------------------------------
+
+invariant string_extra6.whitespace.len:
+  description: "len(string.whitespace) == 6 — space, tab, newline, CR, FF, VT"
+  category: constants
+  kind: python_call_eq
+  function: whitespace.__len__
+  args: []
+  expected: 6
+
+invariant string_extra6.whitespace.contains_cr:
+  description: "string.whitespace.__contains__('\\r') == True — carriage return is whitespace"
+  category: constants
+  kind: python_call_eq
+  function: whitespace.__contains__
+  args: ["\r"]
+  expected: true
+
+invariant string_extra6.whitespace.contains_tab:
+  description: "string.whitespace.__contains__('\\t') == True — horizontal tab is whitespace"
+  category: constants
+  kind: python_call_eq
+  function: whitespace.__contains__
+  args: ["\t"]
+  expected: true
+
+invariant string_extra6.whitespace.not_contains_a:
+  description: "string.whitespace.__contains__('a') == False — letter 'a' is not whitespace"
+  category: constants
+  kind: python_call_eq
+  function: whitespace.__contains__
+  args: ["a"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# punctuation — membership checks for specific characters
+#
+# Prior specs cover only length (32). We add contains checks for '!' and '@'.
+# ---------------------------------------------------------------------------
+
+invariant string_extra6.punctuation.contains_exclamation:
+  description: "string.punctuation.__contains__('!') == True"
+  category: constants
+  kind: python_call_eq
+  function: punctuation.__contains__
+  args: ["!"]
+  expected: true
+
+invariant string_extra6.punctuation.contains_at:
+  description: "string.punctuation.__contains__('@') == True"
+  category: constants
+  kind: python_call_eq
+  function: punctuation.__contains__
+  args: ["@"]
+  expected: true
+
+invariant string_extra6.punctuation.not_contains_a:
+  description: "string.punctuation.__contains__('a') == False — letters are not punctuation"
+  category: constants
+  kind: python_call_eq
+  function: punctuation.__contains__
+  args: ["a"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# ascii_letters — membership checks for 'z' and 'Z'
+#
+# Prior specs cover length (52) and exact ascii_lowercase/uppercase values.
+# We add membership checks on ascii_letters itself.
+# ---------------------------------------------------------------------------
+
+table string_extra6.ascii_letters.membership:
+  kind: python_call_eq
+  category: constants
+  id_prefix: letters_contains
+
+  columns: [id, function, args, expected]
+  rows:
+    - [lowercase_z, ascii_letters.__contains__, ["z"], true]
+    - [uppercase_Z, ascii_letters.__contains__, ["Z"], true]
+    - [digit_0,     ascii_letters.__contains__, ["0"], false]
+
+# ---------------------------------------------------------------------------
+# capwords — sep argument
+#
+# Prior specs cover capwords() with no sep argument (splits on whitespace).
+# We add the sep= variant: capwords('hello-world', '-') == 'Hello-World'.
+# The sep replaces split/join separator, so the '-' is preserved in the output.
+# ---------------------------------------------------------------------------
+
+invariant string_extra6.capwords.with_sep:
+  description: "string.capwords('hello-world', '-') == 'Hello-World' — sep argument controls splitting"
+  category: capwords
+  kind: python_call_eq
+  function: capwords
+  args: ["hello-world", "-"]
+  expected: "Hello-World"
+
+invariant string_extra6.capwords.with_sep_multi:
+  description: "string.capwords('one-two-three', '-') == 'One-Two-Three'"
+  category: capwords
+  kind: python_call_eq
+  function: capwords
+  args: ["one-two-three", "-"]
+  expected: "One-Two-Three"
+
+# ---------------------------------------------------------------------------
+# digits — does not contain non-digit characters
+#
+# Prior specs confirm digits contains '5', '1'. We add negative membership.
+# ---------------------------------------------------------------------------
+
+invariant string_extra6.digits.not_contains_a:
+  description: "string.digits.__contains__('a') == False — 'a' is not a digit"
+  category: constants
+  kind: python_call_eq
+  function: digits.__contains__
+  args: ["a"]
+  expected: false
+
+invariant string_extra6.digits.contains_9:
+  description: "string.digits.__contains__('9') == True"
+  category: constants
+  kind: python_call_eq
+  function: digits.__contains__
+  args: ["9"]
+  expected: true

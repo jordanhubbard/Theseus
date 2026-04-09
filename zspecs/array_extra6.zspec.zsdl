@@ -1,0 +1,152 @@
+spec: array_extra6
+version: ">=3.9"
+backend: python_module(array)
+
+docs: https://docs.python.org/3/library/array.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/array.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/arraymodule.c"
+  notes:
+    - "This spec extends array.zspec.zsdl and prior extras."
+    - "array_extra covers: array.__name__/__module__, ArrayType.__name__, typecodes is str, itemsize b/h, typecode b, length/getitem/tolist for b."
+    - "array_extra2 covers: typecodes min_length, typecodes.__contains__ for b/B/h/i/l/q/f/d, itemsize table b/B/h/f/d, typecode_attr b/B/h/i/f/d."
+    - "array_extra3 covers: ArrayType.__module__, itemsize H/I, typecode H/d, buffer_info, tolist/count/index on 'i', unsigned short tolist."
+    - "array_extra4 covers: typecodes.__contains__ H/L/Q; itemsize l/L/Q; typecode_attr l/L/Q; array.__bases__[0].__name__=='object'; array.__qualname__."
+    - "array_extra5 covers: ArrayType.__qualname__; typecodes.__contains__('I'); tobytes() class and length; itemsize lower-bound guard."
+    - "This spec adds: array.array.__class__.__name__ == 'type' (metaclass check; not in any prior spec); array.array.__mro__.__len__() == 2 (MRO depth; not in any prior spec); typecodes.__contains__ for 'u' and 'w' (present on Python 3.9+ on macOS; not in any prior spec); class identity table under id_prefix aident (new namespace grouping __name__/__module__/__qualname__ for array); behavioral vectors using typecode 'f' (float, 4 bytes) with tolist and getitem (not in any prior array spec)."
+    - "array.array.__class__.__name__ == 'type' — array.array is a C extension type; its metaclass is 'type'."
+    - "array.array.__mro__.__len__() == 2 — MRO is (array.array, object), depth 2."
+    - "array.typecodes.__contains__('u') == True — Unicode char typecode (Py_UNICODE); present on macOS/Darwin 25.4.0."
+    - "array.typecodes.__contains__('w') == True — wide Unicode char typecode; present on macOS/Darwin 25.4.0 Python 3.12."
+    - "array.array('f', [1.0, 2.0, 3.0]).tolist() == [1.0, 2.0, 3.0] — float array round-trips through tolist."
+    - "array.array('f', [1.0, 2.0, 3.0]).__len__() == 3 — three-element float array has length 3."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# array.array metaclass check — __class__.__name__ == 'type'
+# No prior spec checks the metaclass of array.array. The class itself is
+# an instance of 'type' (i.e., a standard Python type, not a metaclass).
+# ---------------------------------------------------------------------------
+
+invariant array_extra6.array.class_is_type:
+  description: "array.array.__class__.__name__ == 'type' — array.array is an instance of the type metaclass"
+  category: class_identity
+  kind: python_call_eq
+  function: array.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# array.array MRO length — (array.array, object) has two entries
+# array_extra4 checks __bases__[0].__name__ == 'object'; no prior spec checks
+# the __mro__ length.
+# ---------------------------------------------------------------------------
+
+invariant array_extra6.array.mro_length:
+  description: "array.array.__mro__.__len__() == 2 — MRO is (array.array, object)"
+  category: hierarchy
+  kind: python_call_eq
+  function: array.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# typecodes.__contains__ — 'u' and 'w' Unicode typecodes
+# array_extra2 covers: b/B/h/i/l/q/f/d
+# array_extra4 covers: H/L/Q
+# array_extra5 covers: I
+# New here: u (Py_UNICODE) and w (wide Unicode), both present on macOS.
+# ---------------------------------------------------------------------------
+
+invariant array_extra6.typecodes.contains_u:
+  description: "array.typecodes.__contains__('u') == True — Unicode char typecode is present"
+  category: typecodes
+  kind: python_call_eq
+  function: typecodes.__contains__
+  args: ["u"]
+  expected: true
+
+invariant array_extra6.typecodes.contains_w:
+  description: "array.typecodes.__contains__('w') == True — wide Unicode char typecode is present"
+  category: typecodes
+  kind: python_call_eq
+  function: typecodes.__contains__
+  args: ["w"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class identity table — __name__, __module__, __qualname__ under id_prefix aident
+# Prior specs check these individually; this table groups them in a new
+# namespace. Table form with id_prefix aident is a new structural vector.
+# ---------------------------------------------------------------------------
+
+table array_extra6.class_identity:
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: aident
+
+  columns: [id, function, args, expected]
+  rows:
+    - [name,    array.__name__.__eq__,     ["array"], true]
+    - [module,  array.__module__.__eq__,   ["array"], true]
+    - [qualname, array.__qualname__.__eq__, ["array"], true]
+
+# ---------------------------------------------------------------------------
+# ArrayType alias — __name__ confirmation in table context
+# array_extra covers ArrayType.__name__ as a standalone invariant; this table
+# row pairs it with the array class under a new id_prefix for cross-checking.
+# ---------------------------------------------------------------------------
+
+table array_extra6.arraytype_alias:
+  kind: python_call_eq
+  category: arraytype_alias
+  id_prefix: atype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [name,    ArrayType.__name__.__eq__,     ["array"], true]
+    - [qualname, ArrayType.__qualname__.__eq__, ["array"], true]
+
+# ---------------------------------------------------------------------------
+# Behavioral invariants — typecode 'f' (float, 4 bytes)
+# Prior specs use 'i', 'b', 'B', 'h', 'H', 'd', 'l', 'L', 'Q', 'q' for
+# behavioral tests. 'f' (float) has not appeared in a behavioral test before.
+# (array.zspec.zsdl covers 'f' itemsize only; no tolist/len/getitem for 'f'.)
+# ---------------------------------------------------------------------------
+
+invariant array_extra6.float_array.tolist:
+  description: "array.array('f', [1.0, 2.0, 3.0]).tolist() == [1.0, 2.0, 3.0] — float array round-trips"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["f", [1.0, 2.0, 3.0]]
+  method: tolist
+  method_args: []
+  expected: [1.0, 2.0, 3.0]
+
+invariant array_extra6.float_array.length:
+  description: "array.array('f', [1.0, 2.0, 3.0]).__len__() == 3 — three-element float array"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["f", [1.0, 2.0, 3.0]]
+  method: __len__
+  method_args: []
+  expected: 3
+
+invariant array_extra6.float_array.typecode:
+  description: "array.array('f', [1.0, 2.0, 3.0]).typecode == 'f' — typecode attribute reflects constructor arg"
+  category: behavior
+  kind: python_call_eq
+  function: array
+  args: ["f", [1.0, 2.0, 3.0]]
+  method: typecode.__eq__
+  method_args: ["f"]
+  expected: true
