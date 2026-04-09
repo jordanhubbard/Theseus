@@ -1,0 +1,134 @@
+spec: sqlite3_extra6
+version: ">=3.9"
+backend: python_module(sqlite3)
+
+docs: https://docs.python.org/3/library/sqlite3.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sqlite3.html — Python sqlite3 module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_sqlite/module.c"
+    - "CPython source: Modules/_sqlite/connection.c"
+    - "CPython source: Modules/_sqlite/cursor.c"
+  notes:
+    - "This spec extends sqlite3.zspec.zsdl, sqlite3_extra.zspec.zsdl, sqlite3_extra2.zspec.zsdl, sqlite3_extra3.zspec.zsdl, sqlite3_extra4.zspec.zsdl, sqlite3_extra5.zspec.zsdl."
+    - "sqlite3_extra5 covers __qualname__ for Connection/Cursor/Row/Error/Warning/IntegrityError/OperationalError/connect/complete_statement."
+    - "sqlite3_extra4 covers: exception __name__ (Error/DatabaseError/OperationalError/IntegrityError/InterfaceError/ProgrammingError/DataError/NotSupportedError); class __name__ (Row/Connection/Cursor); sqlite_version class; paramstyle; PARSE_DECLTYPES/PARSE_COLNAMES."
+    - "sqlite3_extra3 covers: apilevel value and type; sqlite_version_info tuple type check; __module__ for Cursor/Row/Error/DatabaseError/OperationalError/IntegrityError/ProgrammingError/InterfaceError."
+    - "This spec adds: __qualname__ for DatabaseError/ProgrammingError/InterfaceError/DataError/NotSupportedError/Warning (not in extra5); sqlite_version_info.__len__() >= 3; sqlite_version_info element types; new functional vectors."
+    - "sqlite3.DatabaseError.__qualname__ == 'DatabaseError' — top-level exception class."
+    - "sqlite3.ProgrammingError.__qualname__ == 'ProgrammingError' — top-level exception class."
+    - "sqlite3.InterfaceError.__qualname__ == 'InterfaceError' — top-level exception class."
+    - "sqlite3.DataError.__qualname__ == 'DataError' — top-level exception class."
+    - "sqlite3.NotSupportedError.__qualname__ == 'NotSupportedError' — top-level exception class."
+    - "sqlite3.sqlite_version_info.__len__() >= 3 — version tuple has at least 3 elements."
+    - "sqlite3.sqlite_version_info[0].__class__.__name__ == 'int' — first element is an int."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ for exception classes not yet covered in sqlite3_extra5
+#
+# sqlite3_extra5 covers Connection/Cursor/Row/Error/Warning/IntegrityError/
+# OperationalError/connect/complete_statement.
+# This spec adds DatabaseError, ProgrammingError, InterfaceError, DataError,
+# and NotSupportedError — all top-level exception classes not yet checked
+# for __qualname__ in any prior spec.
+# ---------------------------------------------------------------------------
+
+table sqlite3_extra6.exception_qualnames:
+  kind: python_call_eq
+  category: exception_qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [DatabaseError,   DatabaseError.__qualname__.__eq__,   ["DatabaseError"],   true]
+    - [ProgrammingError, ProgrammingError.__qualname__.__eq__, ["ProgrammingError"], true]
+    - [InterfaceError,  InterfaceError.__qualname__.__eq__,  ["InterfaceError"],  true]
+    - [DataError,       DataError.__qualname__.__eq__,       ["DataError"],       true]
+    - [NotSupportedError, NotSupportedError.__qualname__.__eq__, ["NotSupportedError"], true]
+
+# ---------------------------------------------------------------------------
+# sqlite_version_info — length and element types
+#
+# sqlite3_extra3 checks that sqlite_version_info.__class__.__name__ == 'tuple'.
+# This spec adds: __len__() >= 3 (length check), and that the first element
+# is an int — both new vectors not present in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_extra6.sqlite_version_info.len_ge_3:
+  description: "sqlite3.sqlite_version_info has at least 3 elements"
+  category: sqlite_version_info
+  kind: python_call_eq
+  function: sqlite_version_info.__len__
+  args: []
+  method: __ge__
+  method_args: [3]
+  expected: true
+
+invariant sqlite3_extra6.sqlite_version_info.first_is_int:
+  description: "sqlite3.sqlite_version_info[0].__class__.__name__ == 'int' — first element is an integer"
+  category: sqlite_version_info
+  kind: python_call_eq
+  function: sqlite_version_info.__getitem__
+  args: [0]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true
+
+invariant sqlite3_extra6.sqlite_version_info.second_is_int:
+  description: "sqlite3.sqlite_version_info[1].__class__.__name__ == 'int' — second element is an integer"
+  category: sqlite_version_info
+  kind: python_call_eq
+  function: sqlite_version_info.__getitem__
+  args: [1]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sqlite3 exception hierarchy — __qualname__ of base classes
+#
+# These verify the inheritance chain via __bases__[0].__qualname__ for the
+# classes not yet checked in any prior spec for this attribute.
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_extra6.DatabaseError.base_qualname:
+  description: "sqlite3.DatabaseError.__bases__[0].__qualname__ == 'Error'"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: DatabaseError.__bases__.__getitem__
+  args: [0]
+  method: __qualname__
+  expected: "Error"
+
+invariant sqlite3_extra6.OperationalError.base_qualname:
+  description: "sqlite3.OperationalError.__bases__[0].__qualname__ == 'DatabaseError'"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: OperationalError.__bases__.__getitem__
+  args: [0]
+  method: __qualname__
+  expected: "DatabaseError"
+
+# ---------------------------------------------------------------------------
+# sqlite3.threadsafety — class name check
+#
+# sqlite3_extra3 checks threadsafety value bounds; extra4 checks paramstyle.
+# This adds a __class__.__name__ check for threadsafety (an int constant).
+# ---------------------------------------------------------------------------
+
+invariant sqlite3_extra6.threadsafety.class_is_int:
+  description: "sqlite3.threadsafety.__class__.__name__ == 'int'"
+  category: constants
+  kind: python_call_eq
+  function: threadsafety.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true

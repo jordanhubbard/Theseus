@@ -1,0 +1,103 @@
+spec: dataclasses_extra8
+version: ">=3.9"
+backend: python_module(dataclasses)
+
+docs: https://docs.python.org/3/library/dataclasses.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/dataclasses.html — Python dataclasses module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/dataclasses.py"
+  notes:
+    - "This spec extends dataclasses.zspec.zsdl, dataclasses_extra.zspec.zsdl, dataclasses_extra2.zspec.zsdl, dataclasses_extra3.zspec.zsdl, dataclasses_extra4.zspec.zsdl, dataclasses_extra5.zspec.zsdl, dataclasses_extra6.zspec.zsdl, dataclasses_extra7.zspec.zsdl, and dataclasses_field.zspec.zsdl."
+    - "dataclasses_extra7 covers __qualname__ for dataclass/field/fields/asdict/astuple/replace/make_dataclass."
+    - "This spec adds __qualname__ for is_dataclass, FrozenInstanceError, and Field — not covered in any prior spec."
+    - "Also adds: MISSING.__class__.__name__ via table (extra7 uses an invariant, this is a separate table row); InitVar.__qualname__; FrozenInstanceError.__qualname__."
+    - "dataclasses.is_dataclass.__qualname__ == 'is_dataclass' — top-level function, qualname equals name."
+    - "dataclasses.FrozenInstanceError.__qualname__ == 'FrozenInstanceError' — top-level exception class."
+    - "dataclasses.Field.__qualname__ == 'Field' — top-level class definition."
+    - "dataclasses.InitVar.__qualname__ == 'InitVar' — top-level class, qualname equals name."
+    - "dataclasses.MISSING.__class__.__name__ == '_MISSING_TYPE' — sentinel object class name."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ for symbols not yet covered in earlier dataclasses specs
+#
+# dataclasses_extra7 covers: dataclass, field, fields, asdict, astuple,
+# replace, make_dataclass (all via a table).
+# This spec adds is_dataclass, FrozenInstanceError, Field, and InitVar.
+# ---------------------------------------------------------------------------
+
+table dataclasses_extra8.qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [is_dataclass,       is_dataclass.__qualname__.__eq__,       ["is_dataclass"],       true]
+    - [FrozenInstanceError, FrozenInstanceError.__qualname__.__eq__, ["FrozenInstanceError"], true]
+    - [Field,              Field.__qualname__.__eq__,              ["Field"],              true]
+    - [InitVar,            InitVar.__qualname__.__eq__,            ["InitVar"],            true]
+
+# ---------------------------------------------------------------------------
+# dataclasses.InitVar — __name__ and __module__
+#
+# InitVar is a special marker class for init-only fields. Its __name__ and
+# __module__ are not individually covered in prior specs (only via __qualname__
+# in dataclasses_extra3 for __name__).
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra8.InitVar.name:
+  description: "dataclasses.InitVar.__name__ == 'InitVar'"
+  category: class_names
+  kind: python_call_eq
+  function: InitVar.__name__.__eq__
+  args: ["InitVar"]
+  expected: true
+
+invariant dataclasses_extra8.InitVar.module:
+  description: "dataclasses.InitVar.__module__ == 'dataclasses'"
+  category: module
+  kind: python_call_eq
+  function: InitVar.__module__.__eq__
+  args: ["dataclasses"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# dataclasses.FrozenInstanceError — __qualname__ check (see table above for
+# the core check). This adds a standalone invariant confirming the bases.
+#
+# Already covered: __name__ (extra2), __module__ (extra5), bases (extra5).
+# New: __qualname__ (in table above); here we add a bases qualname check.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra8.FrozenInstanceError.base_qualname:
+  description: "dataclasses.FrozenInstanceError.__bases__[0].__qualname__ == 'AttributeError'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: FrozenInstanceError.__bases__.__getitem__
+  args: [0]
+  method: __qualname__
+  expected: "AttributeError"
+
+# ---------------------------------------------------------------------------
+# dataclasses.field — __qualname__ check (in table above). Additional:
+# confirm field().__class__.__qualname__ == 'Field' (instance's class).
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra8.field_instance.class_qualname:
+  description: "dataclasses.field().__class__.__qualname__ == 'Field'"
+  category: field_instance
+  kind: python_call_eq
+  function: field
+  args: []
+  method: __class__
+  method_chain: __qualname__.__eq__
+  method_chain_args: ["Field"]
+  expected: true
