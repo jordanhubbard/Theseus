@@ -1,0 +1,241 @@
+spec: ast
+version: ">=3.2"
+backend: python_module(ast)
+
+docs: https://docs.python.org/3/library/ast.html
+
+provenance:
+  derived_from:
+    - "Python ast documentation — https://docs.python.org/3/library/ast.html"
+    - "Test vectors verified by running Python 3.14.3 ast module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ast.py"
+    - "CPython source: Python/Python-ast.c"
+  notes:
+    - "ast.literal_eval() safely evaluates a string containing a Python literal or container of literals."
+    - "ast.literal_eval() raises ValueError for expressions that are not safe literals (e.g. function calls, operators)."
+    - "Tuples returned by literal_eval are tested via __getitem__ chaining since tuples are not JSON-serializable as distinct from lists."
+    - "ast node class names (Add, Sub, Mult, Div, etc.) are C-level types; verified via __name__.__eq__ pattern."
+    - "ast.Mult is the correct class name (not ast.Mul) as of Python 3.x."
+    - "ast.literal_eval.__name__ == 'literal_eval' — it is a Python function."
+    - "All expected values verified by running Python 3.14.3 ast module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ast.literal_eval — safe evaluation of Python literal strings
+# ---------------------------------------------------------------------------
+
+table ast.literal_eval.primitives:
+  kind: python_call_eq
+  category: literal_eval
+  id_prefix: lit
+  function: literal_eval
+
+  columns: [id, args, expected]
+  rows:
+    - [int_val,   ["42"],         42]
+    - [float_val, ["3.14"],       3.14]
+    - [str_val,   ["\"hello\""],  "hello"]
+    - [true_val,  ["True"],       true]
+    - [false_val, ["False"],      false]
+    - [none_val,  ["None"],       null]
+
+table ast.literal_eval.containers:
+  kind: python_call_eq
+  category: literal_eval
+  id_prefix: lit
+  function: literal_eval
+
+  columns: [id, args, expected]
+  rows:
+    - [list_val,  ["[1, 2, 3]"],    [1, 2, 3]]
+    - [dict_val,  ["{\"a\": 1}"],   {"a": 1}]
+    - [empty_list, ["[]"],          []]
+
+# ---------------------------------------------------------------------------
+# ast.literal_eval — tuple access via __getitem__ method chain
+# ---------------------------------------------------------------------------
+
+invariant ast.literal_eval.tuple_first:
+  description: "ast.literal_eval('(1, 2, 3)')[0] == 1 — tuple indexed at 0"
+  category: literal_eval
+  kind: python_call_eq
+  function: literal_eval
+  args: ["(1, 2, 3)"]
+  method: __getitem__
+  method_args: [0]
+  expected: 1
+
+invariant ast.literal_eval.tuple_second:
+  description: "ast.literal_eval('(1, 2, 3)')[1] == 2 — tuple indexed at 1"
+  category: literal_eval
+  kind: python_call_eq
+  function: literal_eval
+  args: ["(1, 2, 3)"]
+  method: __getitem__
+  method_args: [1]
+  expected: 2
+
+invariant ast.literal_eval.tuple_third:
+  description: "ast.literal_eval('(1, 2, 3)')[2] == 3 — tuple indexed at 2"
+  category: literal_eval
+  kind: python_call_eq
+  function: literal_eval
+  args: ["(1, 2, 3)"]
+  method: __getitem__
+  method_args: [2]
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# ast.literal_eval — error cases
+# ---------------------------------------------------------------------------
+
+invariant ast.literal_eval.raises_on_call_expr:
+  description: "ast.literal_eval('os.path.join()') raises ValueError — function calls are not literals"
+  category: literal_eval_errors
+  kind: python_call_raises
+  function: literal_eval
+  args: ["os.path.join()"]
+  expected_exception: ValueError
+
+invariant ast.literal_eval.raises_on_operator_expr:
+  description: "ast.literal_eval('1/0') raises ValueError — arithmetic expressions are not literals"
+  category: literal_eval_errors
+  kind: python_call_raises
+  function: literal_eval
+  args: ["1/0"]
+  expected_exception: ValueError
+
+# ---------------------------------------------------------------------------
+# ast.literal_eval function identity
+# ---------------------------------------------------------------------------
+
+invariant ast.literal_eval.function_name:
+  description: "ast.literal_eval.__name__ == 'literal_eval'"
+  category: classes
+  kind: python_call_eq
+  function: literal_eval.__name__.__eq__
+  args: ["literal_eval"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ast node class names — arithmetic operator nodes
+# ---------------------------------------------------------------------------
+
+invariant ast.classnames.Add:
+  description: "ast.Add.__name__ == 'Add'"
+  category: classnames
+  kind: python_call_eq
+  function: Add.__name__.__eq__
+  args: ["Add"]
+  expected: true
+
+invariant ast.classnames.Sub:
+  description: "ast.Sub.__name__ == 'Sub'"
+  category: classnames
+  kind: python_call_eq
+  function: Sub.__name__.__eq__
+  args: ["Sub"]
+  expected: true
+
+invariant ast.classnames.Mult:
+  description: "ast.Mult.__name__ == 'Mult' (note: Mult, not Mul)"
+  category: classnames
+  kind: python_call_eq
+  function: Mult.__name__.__eq__
+  args: ["Mult"]
+  expected: true
+
+invariant ast.classnames.Div:
+  description: "ast.Div.__name__ == 'Div'"
+  category: classnames
+  kind: python_call_eq
+  function: Div.__name__.__eq__
+  args: ["Div"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ast node class names — statement and expression nodes
+# ---------------------------------------------------------------------------
+
+invariant ast.classnames.Module:
+  description: "ast.Module.__name__ == 'Module'"
+  category: classnames
+  kind: python_call_eq
+  function: Module.__name__.__eq__
+  args: ["Module"]
+  expected: true
+
+invariant ast.classnames.Constant:
+  description: "ast.Constant.__name__ == 'Constant'"
+  category: classnames
+  kind: python_call_eq
+  function: Constant.__name__.__eq__
+  args: ["Constant"]
+  expected: true
+
+invariant ast.classnames.Expr:
+  description: "ast.Expr.__name__ == 'Expr'"
+  category: classnames
+  kind: python_call_eq
+  function: Expr.__name__.__eq__
+  args: ["Expr"]
+  expected: true
+
+invariant ast.classnames.Name:
+  description: "ast.Name.__name__ == 'Name'"
+  category: classnames
+  kind: python_call_eq
+  function: Name.__name__.__eq__
+  args: ["Name"]
+  expected: true
+
+invariant ast.classnames.FunctionDef:
+  description: "ast.FunctionDef.__name__ == 'FunctionDef'"
+  category: classnames
+  kind: python_call_eq
+  function: FunctionDef.__name__.__eq__
+  args: ["FunctionDef"]
+  expected: true
+
+invariant ast.classnames.ClassDef:
+  description: "ast.ClassDef.__name__ == 'ClassDef'"
+  category: classnames
+  kind: python_call_eq
+  function: ClassDef.__name__.__eq__
+  args: ["ClassDef"]
+  expected: true
+
+invariant ast.classnames.If:
+  description: "ast.If.__name__ == 'If'"
+  category: classnames
+  kind: python_call_eq
+  function: If.__name__.__eq__
+  args: ["If"]
+  expected: true
+
+invariant ast.classnames.For:
+  description: "ast.For.__name__ == 'For'"
+  category: classnames
+  kind: python_call_eq
+  function: For.__name__.__eq__
+  args: ["For"]
+  expected: true
+
+invariant ast.classnames.Import:
+  description: "ast.Import.__name__ == 'Import'"
+  category: classnames
+  kind: python_call_eq
+  function: Import.__name__.__eq__
+  args: ["Import"]
+  expected: true
+
+invariant ast.classnames.Call:
+  description: "ast.Call.__name__ == 'Call'"
+  category: classnames
+  kind: python_call_eq
+  function: Call.__name__.__eq__
+  args: ["Call"]
+  expected: true

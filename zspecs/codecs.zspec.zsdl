@@ -1,0 +1,260 @@
+spec: codecs
+version: ">=3.2"
+backend: python_module(codecs)
+
+docs: https://docs.python.org/3/library/codecs.html
+
+provenance:
+  derived_from:
+    - "Python codecs documentation — https://docs.python.org/3/library/codecs.html"
+    - "Test vectors verified by running Python 3.14.3 codecs module on macOS/Darwin 25.4.0, 2026-04-09"
+    - "codecs source: Lib/codecs.py (PSF License; source inspection permitted)"
+  not_derived_from:
+    - "codecs source: internal codec state machines"
+  notes:
+    - "codecs.encode(str, 'rot_13') performs ROT-13 rotation — a pure string→string encoding."
+    - "codecs.decode(str, 'rot_13') reverses ROT-13. Non-alphabetic characters are unchanged."
+    - "codecs.encode(bytes, 'hex') returns a hex-encoded bytes object (lowercase digits)."
+    - "codecs.decode(bytes, 'hex') converts hex bytes back to raw bytes."
+    - "codecs.BOM_UTF8 is the UTF-8 byte order mark b'\\xef\\xbb\\xbf' (3 bytes)."
+    - "codecs.BOM_UTF16_LE and BOM_UTF16_BE are each 2 bytes."
+    - "codecs.BOM_UTF32_LE and BOM_UTF32_BE are each 4 bytes."
+    - "codecs.lookup(encoding) returns a CodecInfo with .name set to the canonical encoding name."
+    - "lookup('rot-13').name is 'rot-13'; lookup('latin-1').name is 'iso8859-1'."
+    - "codecs.decode raises binascii.Error (odd-length) or ValueError for invalid hex input."
+    - "codecs.lookup raises LookupError for unknown encoding names."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ROT-13 encode (str → str)
+# ---------------------------------------------------------------------------
+
+table codecs.rot13.encode:
+  kind: python_call_eq
+  function: encode
+  id_prefix: rot13_enc
+  category: rot13
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,    ["hello",         "rot_13"], "uryyb"]
+    - [world,    ["world",         "rot_13"], "jbeyq"]
+    - [upper,    ["Hello World",   "rot_13"], "Uryyb Jbeyq"]
+    - [all_caps, ["ABCDEFGHIJKLM", "rot_13"], "NOPQRSTUVWXYZ"]
+    - [all_caps2,["NOPQRSTUVWXYZ", "rot_13"], "ABCDEFGHIJKLM"]
+    - [digits,   ["123!@#",        "rot_13"], "123!@#"]
+    - [empty,    ["",              "rot_13"], ""]
+
+# ---------------------------------------------------------------------------
+# ROT-13 decode (str → str)  — symmetric: decode == encode
+# ---------------------------------------------------------------------------
+
+table codecs.rot13.decode:
+  kind: python_call_eq
+  function: decode
+  id_prefix: rot13_dec
+  category: rot13
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,    ["uryyb",       "rot_13"], "hello"]
+    - [world,    ["jbeyq",       "rot_13"], "world"]
+    - [upper,    ["Uryyb Jbeyq", "rot_13"], "Hello World"]
+    - [empty,    ["",            "rot_13"], ""]
+
+# ---------------------------------------------------------------------------
+# hex encode  (bytes → bytes; compare via .decode('ascii'))
+# ---------------------------------------------------------------------------
+
+invariant codecs.hex.encode.hello:
+  description: "codecs.encode(b'hello', 'hex').decode('ascii') == '68656c6c6f'"
+  category: hex
+  kind: python_call_eq
+  function: encode
+  args: [{type: bytes_ascii, value: "hello"}, "hex"]
+  method: decode
+  method_args: ["ascii"]
+  expected: "68656c6c6f"
+
+invariant codecs.hex.encode.ABC:
+  description: "codecs.encode(b'ABC', 'hex').decode('ascii') == '414243'"
+  category: hex
+  kind: python_call_eq
+  function: encode
+  args: [{type: bytes_ascii, value: "ABC"}, "hex"]
+  method: decode
+  method_args: ["ascii"]
+  expected: "414243"
+
+invariant codecs.hex.encode.empty:
+  description: "codecs.encode(b'', 'hex').decode('ascii') == ''"
+  category: hex
+  kind: python_call_eq
+  function: encode
+  args: [{type: bytes_ascii, value: ""}, "hex"]
+  method: decode
+  method_args: ["ascii"]
+  expected: ""
+
+invariant codecs.hex.encode.null_byte:
+  description: "codecs.encode(b'\\x00', 'hex').decode('ascii') == '00'"
+  category: hex
+  kind: python_call_eq
+  function: encode
+  args: [{type: bytes_hex, value: "00"}, "hex"]
+  method: decode
+  method_args: ["ascii"]
+  expected: "00"
+
+invariant codecs.hex.encode.ff_byte:
+  description: "codecs.encode(b'\\xff', 'hex').decode('ascii') == 'ff'"
+  category: hex
+  kind: python_call_eq
+  function: encode
+  args: [{type: bytes_hex, value: "ff"}, "hex"]
+  method: decode
+  method_args: ["ascii"]
+  expected: "ff"
+
+# ---------------------------------------------------------------------------
+# hex decode  (bytes → bytes)
+# ---------------------------------------------------------------------------
+
+invariant codecs.hex.decode.hello:
+  description: "codecs.decode(b'68656c6c6f', 'hex') == b'hello'"
+  category: hex
+  kind: python_call_eq
+  function: decode
+  args: [{type: bytes_ascii, value: "68656c6c6f"}, "hex"]
+  expected: {type: bytes_ascii, value: "hello"}
+
+invariant codecs.hex.decode.ABC:
+  description: "codecs.decode(b'414243', 'hex') == b'ABC'"
+  category: hex
+  kind: python_call_eq
+  function: decode
+  args: [{type: bytes_ascii, value: "414243"}, "hex"]
+  expected: {type: bytes_ascii, value: "ABC"}
+
+invariant codecs.hex.decode.deadbeef:
+  description: "codecs.decode(b'deadbeef', 'hex') == b'\\xde\\xad\\xbe\\xef'"
+  category: hex
+  kind: python_call_eq
+  function: decode
+  args: [{type: bytes_ascii, value: "deadbeef"}, "hex"]
+  expected: {type: bytes_hex, value: "deadbeef"}
+
+# ---------------------------------------------------------------------------
+# lookup — canonical encoding names
+# ---------------------------------------------------------------------------
+
+invariant codecs.lookup.utf8:
+  description: "codecs.lookup('utf-8').name == 'utf-8'"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["utf-8"]
+  method: name
+  expected: "utf-8"
+
+invariant codecs.lookup.ascii:
+  description: "codecs.lookup('ascii').name == 'ascii'"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["ascii"]
+  method: name
+  expected: "ascii"
+
+invariant codecs.lookup.latin1:
+  description: "codecs.lookup('latin-1').name == 'iso8859-1' — canonical name for latin-1"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["latin-1"]
+  method: name
+  expected: "iso8859-1"
+
+invariant codecs.lookup.utf16:
+  description: "codecs.lookup('utf-16').name == 'utf-16'"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["utf-16"]
+  method: name
+  expected: "utf-16"
+
+invariant codecs.lookup.rot13:
+  description: "codecs.lookup('rot-13').name == 'rot-13'"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["rot-13"]
+  method: name
+  expected: "rot-13"
+
+# ---------------------------------------------------------------------------
+# BOM constants — byte values via .hex()
+# ---------------------------------------------------------------------------
+
+invariant codecs.bom.utf8:
+  description: "codecs.BOM_UTF8.hex() == 'efbbbf'"
+  category: bom
+  kind: python_call_eq
+  function: BOM_UTF8.hex
+  args: []
+  expected: "efbbbf"
+
+invariant codecs.bom.utf16_le:
+  description: "codecs.BOM_UTF16_LE.hex() == 'fffe'"
+  category: bom
+  kind: python_call_eq
+  function: BOM_UTF16_LE.hex
+  args: []
+  expected: "fffe"
+
+invariant codecs.bom.utf16_be:
+  description: "codecs.BOM_UTF16_BE.hex() == 'feff'"
+  category: bom
+  kind: python_call_eq
+  function: BOM_UTF16_BE.hex
+  args: []
+  expected: "feff"
+
+invariant codecs.bom.utf32_le:
+  description: "codecs.BOM_UTF32_LE.hex() == 'fffe0000'"
+  category: bom
+  kind: python_call_eq
+  function: BOM_UTF32_LE.hex
+  args: []
+  expected: "fffe0000"
+
+invariant codecs.bom.utf32_be:
+  description: "codecs.BOM_UTF32_BE.hex() == '0000feff'"
+  category: bom
+  kind: python_call_eq
+  function: BOM_UTF32_BE.hex
+  args: []
+  expected: "0000feff"
+
+# ---------------------------------------------------------------------------
+# Error cases
+# ---------------------------------------------------------------------------
+
+invariant codecs.hex.decode.odd_length_raises:
+  description: "codecs.decode(b'abc', 'hex') raises binascii.Error — odd-length hex is invalid"
+  category: error
+  kind: python_call_raises
+  function: decode
+  args: [{type: bytes_ascii, value: "abc"}, "hex"]
+  expected_exception: binascii.Error
+
+invariant codecs.lookup.unknown_raises:
+  description: "codecs.lookup('nonexistent_codec_xyz') raises LookupError"
+  category: error
+  kind: python_call_raises
+  function: lookup
+  args: ["nonexistent_codec_xyz"]
+  expected_exception: LookupError

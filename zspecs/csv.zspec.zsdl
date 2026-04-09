@@ -1,0 +1,272 @@
+spec: csv
+version: ">=3.2"
+backend: python_module(csv)
+
+docs: https://docs.python.org/3/library/csv.html
+
+provenance:
+  derived_from:
+    - "Python csv documentation — https://docs.python.org/3/library/csv.html"
+    - "RFC 4180 — Common Format and MIME Type for Comma-Separated Values (CSV) Files"
+    - "Test vectors verified by running Python 3.14.3 csv module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_csv.c"
+  notes:
+    - "csv.reader(list_of_strings) produces a reader that iterates over parsed rows."
+    - "csv.reader uses \\r\\n or \\n as line terminators by default."
+    - "Quoted fields can contain commas, newlines, and quotes (escaped as \"\")."
+    - "csv.QUOTE_MINIMAL=0, csv.QUOTE_ALL=1, csv.QUOTE_NONNUMERIC=2, csv.QUOTE_NONE=3."
+    - "csv.reader(['']) returns [] (empty list) — a blank line produces no fields."
+    - "csv.reader([',']) returns ['', ''] — two empty fields separated by one comma."
+    - "csv.excel.lineterminator == '\\r\\n' (CRLF) per RFC 4180."
+    - "csv.field_size_limit() returns 131072 on most platforms (128 KiB)."
+    - "All expected values verified by running Python 3.14.3 csv module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# csv.reader — basic row parsing via __next__
+# ---------------------------------------------------------------------------
+
+invariant csv.reader.basic_abc:
+  description: "csv.reader(['a,b,c']).__next__() == ['a', 'b', 'c']"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["a,b,c"]]
+  method: __next__
+  expected: ["a", "b", "c"]
+
+invariant csv.reader.integers_as_strings:
+  description: "csv.reader(['1,2,3']).__next__() == ['1', '2', '3'] — numbers parsed as strings"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["1,2,3"]]
+  method: __next__
+  expected: ["1", "2", "3"]
+
+invariant csv.reader.quoted_field_with_space:
+  description: "csv.reader(['a,\"b c\",d']).__next__() == ['a', 'b c', 'd'] — quoted field preserves spaces"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["a,\"b c\",d"]]
+  method: __next__
+  expected: ["a", "b c", "d"]
+
+invariant csv.reader.double_quote_escape:
+  description: "csv.reader(['\"\"\"quoted\"\"\",plain']).__next__() == ['\"quoted\"', 'plain'] — doubled quotes unescape to single quote"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["\"\"\"quoted\"\"\",plain"]]
+  method: __next__
+  expected: ["\"quoted\"", "plain"]
+
+invariant csv.reader.empty_field:
+  description: "csv.reader(['a,,c']).__next__() == ['a', '', 'c'] — adjacent commas produce empty string field"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["a,,c"]]
+  method: __next__
+  expected: ["a", "", "c"]
+
+invariant csv.reader.single_field:
+  description: "csv.reader(['single']).__next__() == ['single'] — one field, no delimiters"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["single"]]
+  method: __next__
+  expected: ["single"]
+
+invariant csv.reader.only_comma:
+  description: "csv.reader([',']).__next__() == ['', ''] — bare comma produces two empty fields"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [[","]]
+  method: __next__
+  expected: ["", ""]
+
+invariant csv.reader.empty_line:
+  description: "csv.reader(['']).__next__() == [] — blank line produces no fields (empty list)"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [[""]]
+  method: __next__
+  expected: []
+
+# ---------------------------------------------------------------------------
+# csv.reader — alternate delimiters
+# ---------------------------------------------------------------------------
+
+invariant csv.reader.semicolon_delimiter:
+  description: "csv.reader(['a;b;c'], delimiter=';').__next__() == ['a', 'b', 'c']"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["a;b;c"]]
+  kwargs: {delimiter: ";"}
+  method: __next__
+  expected: ["a", "b", "c"]
+
+invariant csv.reader.tab_delimiter:
+  description: "csv.reader(['a\\tb\\tc'], delimiter='\\t').__next__() == ['a', 'b', 'c']"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["a\tb\tc"]]
+  kwargs: {delimiter: "\t"}
+  method: __next__
+  expected: ["a", "b", "c"]
+
+invariant csv.reader.skipinitialspace:
+  description: "csv.reader(['a, b, c'], skipinitialspace=True).__next__() == ['a', 'b', 'c']"
+  category: reader
+  kind: python_call_eq
+  function: reader
+  args: [["a, b, c"]]
+  kwargs: {skipinitialspace: true}
+  method: __next__
+  expected: ["a", "b", "c"]
+
+# ---------------------------------------------------------------------------
+# QUOTE_* constants
+# ---------------------------------------------------------------------------
+
+invariant csv.quote_minimal:
+  description: "csv.QUOTE_MINIMAL == 0"
+  category: constants
+  kind: python_call_eq
+  function: QUOTE_MINIMAL.__eq__
+  args: [0]
+  expected: true
+
+invariant csv.quote_all:
+  description: "csv.QUOTE_ALL == 1"
+  category: constants
+  kind: python_call_eq
+  function: QUOTE_ALL.__eq__
+  args: [1]
+  expected: true
+
+invariant csv.quote_nonnumeric:
+  description: "csv.QUOTE_NONNUMERIC == 2"
+  category: constants
+  kind: python_call_eq
+  function: QUOTE_NONNUMERIC.__eq__
+  args: [2]
+  expected: true
+
+invariant csv.quote_none:
+  description: "csv.QUOTE_NONE == 3"
+  category: constants
+  kind: python_call_eq
+  function: QUOTE_NONE.__eq__
+  args: [3]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# field_size_limit()
+# ---------------------------------------------------------------------------
+
+invariant csv.field_size_limit.default_positive:
+  description: "csv.field_size_limit() > 0 — default limit is positive (131072 on most platforms)"
+  category: field_size_limit
+  kind: python_call_eq
+  function: field_size_limit
+  args: []
+  method: __gt__
+  method_args: [0]
+  expected: true
+
+invariant csv.field_size_limit.default_value:
+  description: "csv.field_size_limit() == 131072 (128 KiB default)"
+  category: field_size_limit
+  kind: python_call_eq
+  function: field_size_limit
+  args: []
+  method: __eq__
+  method_args: [131072]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class / dialect names
+# ---------------------------------------------------------------------------
+
+invariant csv.dialect.class_name:
+  description: "csv.Dialect.__name__ == 'Dialect'"
+  category: classes
+  kind: python_call_eq
+  function: Dialect.__name__.__eq__
+  args: ["Dialect"]
+  expected: true
+
+invariant csv.excel.class_name:
+  description: "csv.excel.__name__ == 'excel'"
+  category: classes
+  kind: python_call_eq
+  function: excel.__name__.__eq__
+  args: ["excel"]
+  expected: true
+
+invariant csv.excel_tab.class_name:
+  description: "csv.excel_tab.__name__ == 'excel_tab'"
+  category: classes
+  kind: python_call_eq
+  function: excel_tab.__name__.__eq__
+  args: ["excel_tab"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# csv.excel dialect properties
+# ---------------------------------------------------------------------------
+
+invariant csv.excel.delimiter:
+  description: "csv.excel.delimiter == ','"
+  category: excel_dialect
+  kind: python_call_eq
+  function: excel.delimiter.__eq__
+  args: [","]
+  expected: true
+
+invariant csv.excel.quotechar:
+  description: "csv.excel.quotechar == '\"'"
+  category: excel_dialect
+  kind: python_call_eq
+  function: excel.quotechar.__eq__
+  args: ["\""]
+  expected: true
+
+invariant csv.excel.lineterminator:
+  description: "csv.excel.lineterminator == '\\r\\n' (CRLF per RFC 4180)"
+  category: excel_dialect
+  kind: python_call_eq
+  function: excel.lineterminator.__eq__
+  args: ["\r\n"]
+  expected: true
+
+invariant csv.excel.quoting:
+  description: "csv.excel.quoting == 0 (QUOTE_MINIMAL)"
+  category: excel_dialect
+  kind: python_call_eq
+  function: excel.quoting.__eq__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# csv.excel_tab dialect properties
+# ---------------------------------------------------------------------------
+
+invariant csv.excel_tab.delimiter:
+  description: "csv.excel_tab.delimiter == '\\t'"
+  category: excel_tab_dialect
+  kind: python_call_eq
+  function: excel_tab.delimiter.__eq__
+  args: ["\t"]
+  expected: true
