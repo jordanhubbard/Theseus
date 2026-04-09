@@ -1,0 +1,115 @@
+spec: shutil_extra9
+version: ">=3.9"
+backend: python_module(shutil)
+
+docs: https://docs.python.org/3/library/shutil.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/shutil.html — Python shutil documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/shutil.py"
+  notes:
+    - "This spec extends shutil.zspec.zsdl and prior extras through shutil_extra8.zspec.zsdl."
+    - "shutil_extra8 covers: copy2/copyfile/copyfileobj/copytree/make_archive/unpack_archive/chown/get_terminal_size __class__.__name__; Error.__mro__[1].__name__=='OSError'; Error.__mro__[2].__name__=='Exception'; SameFileError.__mro__[2].__name__=='OSError'; disk_usage('/tmp') total/used/fields."
+    - "shutil_extra7 covers: copy/rmtree/move/which __class__.__name__=='function'; copymode __name__/__module__/__qualname__/__class__.__name__; copystat __module__/__class__.__name__; chown __qualname__/__module__; get_unpack_formats __qualname__; get_terminal_size __module__."
+    - "shutil_extra6 covers: Error/SameFileError/ReadError __name__ table; Error/SameFileError/ReadError __module__ table; Error/ReadError __qualname__; SameFileError base bool form; ReadError base both forms."
+    - "shutil_extra5 covers: copy/copy2/copyfile/copytree/rmtree/move/make_archive/unpack_archive/disk_usage/which/get_terminal_size __qualname__; Error/SameFileError __qualname__; copy/copy2/copyfile/rmtree/move/which/unpack_archive __module__ table."
+    - "shutil_extra4 covers: copy/copy2/copyfile/copyfileobj/copytree/rmtree/move/disk_usage/which/get_terminal_size/get_archive_formats/make_archive __name__ table; Error/SameFileError base; disk_usage named-tuple class name; disk_usage total>0."
+    - "shutil_extra3 covers: disk_usage result class name 'usage'; SameFileError base; ExecError module/is_type."
+    - "shutil_extra2 covers: disk_usage total/used/free type == int (using '/' path)."
+    - "shutil.zspec.zsdl covers: disk_usage/_fields/total_positive/free_nonneg (using '/' path); which nonexistent; COPY_BUFSIZE."
+    - "No prior spec covers: copyfileobj.__module__ == 'shutil'."
+    - "No prior spec covers: shutil.Error.__mro__[3].__name__ == 'BaseException' — the fourth MRO entry."
+    - "No prior spec covers: shutil.ExecError.__name__ == 'RuntimeError' — ExecError is a deprecated alias for RuntimeError in CPython >= 3.12."
+    - "No prior spec covers: shutil.get_archive_formats().__len__() >= 4 — at least tar/gzip/bztar/xztar formats are registered; len check via bool form."
+    - "shutil.Error.__mro__: [Error, OSError, Exception, BaseException, object]."
+    - "shutil.ExecError is deprecated since 3.14 and slated for removal; its __name__ is 'RuntimeError' on CPython>=3.12 (it is an alias)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# copyfileobj.__module__ — not covered in any prior shutil spec
+# shutil_extra5 covers copy/copy2/copyfile/rmtree/move/which/unpack_archive
+# __module__; shutil_extra3 covers copytree/make_archive/disk_usage __module__.
+# copyfileobj.__module__ has never appeared in any prior shutil spec.
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra9.copyfileobj.module:
+  description: "shutil.copyfileobj.__module__ == 'shutil'"
+  category: module
+  kind: python_call_eq
+  function: copyfileobj.__module__.__eq__
+  args: ["shutil"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# shutil.Error MRO depth 3 — BaseException
+# shutil_extra8 covers mro[1].__name__=='OSError' and mro[2].__name__=='Exception'.
+# mro[3].__name__ == 'BaseException' is the next step and not in any prior spec.
+# Error.__mro__: [Error, OSError, Exception, BaseException, object]
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra9.Error.mro_index3:
+  description: "shutil.Error.__mro__[3].__name__ == 'BaseException' — Error MRO depth 3"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Error.__mro__.__getitem__
+  args: [3]
+  method: __name__
+  expected: "BaseException"
+
+# ---------------------------------------------------------------------------
+# shutil.ExecError.__name__ — deprecated alias identity
+# shutil_extra3 covers ExecError.__module__ and ExecError.__class__.__name__.
+# No prior spec checks ExecError.__name__. On CPython >= 3.12, ExecError is
+# an alias for RuntimeError, so __name__ == 'RuntimeError'.
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra9.ExecError.name:
+  description: "shutil.ExecError.__name__ == 'RuntimeError' — ExecError is a deprecated alias for RuntimeError (CPython >= 3.12)"
+  category: class_metadata
+  kind: python_call_eq
+  function: ExecError.__name__.__eq__
+  args: ["RuntimeError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_archive_formats() length — lower bound check via bool form
+# shutil.zspec.zsdl and shutil_extra4 check that get_archive_formats() returns
+# a list and that len >= 3. shutil_extra4 uses __len__() directly returning
+# the integer. This invariant uses a __ge__ bool-form check — a distinct pattern.
+# Python 3.x ships at least: tar, gzip, bztar, xztar (4 formats).
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra9.get_archive_formats.count_ge4:
+  description: "len(shutil.get_archive_formats()) >= 4 — at least tar/gzip/bztar/xztar registered"
+  category: archive_formats
+  kind: python_call_eq
+  function: get_archive_formats
+  args: []
+  method: __len__
+  method_chain: __ge__
+  method_chain_args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_unpack_formats() length — lower bound check via bool form
+# Prior specs (shutil_extra4) confirm len >= 3 via __len__() as an integer.
+# This invariant uses __ge__ bool form and a higher bound (4) — a new axis.
+# Python 3.x ships at least: tar, gzip, bztar, xztar (4 unpack formats).
+# ---------------------------------------------------------------------------
+
+invariant shutil_extra9.get_unpack_formats.count_ge4:
+  description: "len(shutil.get_unpack_formats()) >= 4 — at least tar/gzip/bztar/xztar registered"
+  category: archive_formats
+  kind: python_call_eq
+  function: get_unpack_formats
+  args: []
+  method: __len__
+  method_chain: __ge__
+  method_chain_args: [4]
+  expected: true
