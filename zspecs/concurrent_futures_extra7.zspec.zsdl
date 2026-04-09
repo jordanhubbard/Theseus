@@ -1,0 +1,137 @@
+spec: concurrent_futures_extra7
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html — Python concurrent.futures documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/concurrent/futures/__init__.py"
+    - "CPython source: Lib/concurrent/futures/_base.py"
+    - "CPython source: Lib/concurrent/futures/process.py"
+  notes:
+    - "This spec extends concurrent_futures.zspec.zsdl and prior extras through concurrent_futures_extra6.zspec.zsdl."
+    - "extra5 covers: __name__ for all classes + functions; __module__ for ThreadPoolExecutor/Future/Executor; wait constants; BrokenExecutor.__bases__[0].__name__."
+    - "extra6 covers: __qualname__ for all major classes and functions; wait-constant __class__.__name__ == 'str'."
+    - "This spec adds: __module__ for ProcessPoolExecutor, CancelledError, BrokenExecutor, as_completed, wait (not previously checked)."
+    - "This spec adds: class hierarchy (__bases__[0].__name__) for Executor, ProcessPoolExecutor, ThreadPoolExecutor (Executor → object; both executors → Executor)."
+    - "This spec adds: CancelledError.__bases__[0].__name__ and TimeoutError.__bases__[0].__name__ for exception hierarchy coverage."
+    - "concurrent.futures.ProcessPoolExecutor.__module__ == 'concurrent.futures.process'."
+    - "concurrent.futures.CancelledError.__module__ == 'concurrent.futures._base'."
+    - "concurrent.futures.BrokenExecutor.__module__ == 'concurrent.futures._base'."
+    - "concurrent.futures.as_completed.__module__ == 'concurrent.futures._base'."
+    - "concurrent.futures.wait.__module__ == 'concurrent.futures._base'."
+    - "concurrent.futures.TimeoutError.__module__ == 'builtins' on Python 3.11+ (TimeoutError is a builtin alias)."
+    - "concurrent.futures.Executor.__bases__[0].__name__ == 'object'."
+    - "concurrent.futures.ProcessPoolExecutor.__bases__[0].__name__ == 'Executor'."
+    - "concurrent.futures.ThreadPoolExecutor.__bases__[0].__name__ == 'Executor'."
+    - "concurrent.futures.CancelledError.__bases__[0].__name__ == 'Error' (inherits from asyncio-compatible Error)."
+    - "concurrent.futures.TimeoutError.__bases__[0].__name__ == 'OSError' (builtin TimeoutError inherits from OSError)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __module__ for classes not previously checked
+#
+# extra5 covered ThreadPoolExecutor/Future/Executor __module__.
+# ProcessPoolExecutor, CancelledError, and BrokenExecutor are new.
+# TimeoutError.__module__ is 'builtins' on Python 3.11+ (it is the builtin).
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra7.class_modules:
+  description: "Additional concurrent.futures classes have correct __module__"
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: cmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ProcessPoolExecutor, ProcessPoolExecutor.__module__.__eq__, ["concurrent.futures.process"],  true]
+    - [CancelledError,      CancelledError.__module__.__eq__,      ["concurrent.futures._base"],    true]
+    - [BrokenExecutor,      BrokenExecutor.__module__.__eq__,      ["concurrent.futures._base"],    true]
+
+# ---------------------------------------------------------------------------
+# __module__ for module-level functions not previously checked
+#
+# as_completed and wait are defined in concurrent.futures._base.
+# extra5 checked their __name__; extra6 checked __qualname__ — __module__ is new.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra7.function_modules:
+  description: "concurrent.futures module-level functions have correct __module__"
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [as_completed, as_completed.__module__.__eq__, ["concurrent.futures._base"], true]
+    - [wait,         wait.__module__.__eq__,         ["concurrent.futures._base"], true]
+
+# ---------------------------------------------------------------------------
+# Class hierarchy — __bases__[0].__name__ for executor classes
+#
+# Executor is an abstract base class inheriting from object.
+# Both ThreadPoolExecutor and ProcessPoolExecutor inherit from Executor.
+# extra5 covered BrokenExecutor.__bases__[0].__name__ == 'RuntimeError'.
+# Executor, ProcessPoolExecutor, ThreadPoolExecutor bases are new coverage.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra7.Executor.base_is_object:
+  description: "concurrent.futures.Executor.__bases__[0].__name__ == 'object'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Executor.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "object"
+
+invariant concurrent_futures_extra7.ProcessPoolExecutor.base_is_Executor:
+  description: "concurrent.futures.ProcessPoolExecutor.__bases__[0].__name__ == 'Executor'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: ProcessPoolExecutor.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Executor"
+
+invariant concurrent_futures_extra7.ThreadPoolExecutor.base_is_Executor:
+  description: "concurrent.futures.ThreadPoolExecutor.__bases__[0].__name__ == 'Executor'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: ThreadPoolExecutor.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Executor"
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy — __bases__[0].__name__ for exception classes
+#
+# CancelledError inherits from concurrent.futures._base.Error.
+# TimeoutError on Python 3.11+ is the builtin TimeoutError which inherits
+# from OSError (it was re-aliased to the builtin in Python 3.11).
+# Not covered in any prior concurrent_futures spec.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra7.CancelledError.base_is_Error:
+  description: "concurrent.futures.CancelledError.__bases__[0].__name__ == 'Error'"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: CancelledError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Error"
+
+invariant concurrent_futures_extra7.TimeoutError.base_is_OSError:
+  description: "concurrent.futures.TimeoutError.__bases__[0].__name__ == 'OSError' (builtin TimeoutError inherits from OSError)"
+  category: exception_hierarchy
+  kind: python_call_eq
+  function: TimeoutError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "OSError"

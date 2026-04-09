@@ -1,0 +1,87 @@
+spec: builtins_extra6
+version: ">=3.9"
+backend: python_module(builtins)
+
+docs: https://docs.python.org/3/library/builtins.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/builtins.html — Python builtins module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/bltinmodule.c"
+    - "builtins.zspec.zsdl — covers exception/type/function __name__ checks and basic function calls"
+    - "builtins_extra.zspec.zsdl — covers function call behavior"
+    - "builtins_extra2.zspec.zsdl — covers exception class hierarchies"
+    - "builtins_extra3.zspec.zsdl — covers __name__ for print/input/open/vars/dir/id/frozenset/memoryview/slice/staticmethod/classmethod/super; __module__ for built-in types; base class checks"
+    - "builtins_extra4.zspec.zsdl — covers __qualname__ for abs through id (26 entries: abs, all, any, bin, bool, callable, chr, compile, complex, delattr, dict, dir, divmod, enumerate, eval, exec, filter, float, format, frozenset, getattr, globals, hasattr, hash, hex, id)"
+    - "builtins_extra5.zspec.zsdl — covers __qualname__ for input through zip (36 entries)"
+  notes:
+    - "This spec covers: (1) __qualname__ for bytearray, bytes, and classmethod — three built-in types NOT present in extra4 or extra5; (2) singleton constant class checks for NotImplemented and Ellipsis; (3) __module__ for built-in functions abs, len, print, type."
+    - "builtins_extra4 covered abs-id: abs, all, any, bin, bool, callable, chr, compile, complex, delattr, dict, dir, divmod, enumerate, eval, exec, filter, float, format, frozenset, getattr, globals, hasattr, hash, hex, id."
+    - "builtins_extra5 covered input-zip: input, int, isinstance, issubclass, iter, len, list, locals, map, max, memoryview, min, next, object, oct, open, ord, pow, print, property, range, repr, reversed, round, set, setattr, slice, sorted, staticmethod, str, sum, super, tuple, type, vars, zip."
+    - "bytearray, bytes, and classmethod are NOT in extra4 or extra5 __qualname__ tables."
+    - "NotImplemented is a singleton constant; its type is 'NotImplementedType'."
+    - "Ellipsis (...) is a singleton constant; its type is 'ellipsis' (lowercase)."
+    - "Built-in functions defined in C (abs, len, print) have __module__ == 'builtins'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks — bytearray, bytes, classmethod
+# These three built-in types were omitted from both extra4 and extra5.
+# For built-in types, __qualname__ == __name__ (top-level definitions).
+# ---------------------------------------------------------------------------
+
+table builtins_extra6.missing_qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [bytearray,   bytearray.__qualname__.__eq__,   ["bytearray"],   true]
+    - [bytes,       bytes.__qualname__.__eq__,       ["bytes"],       true]
+    - [classmethod, classmethod.__qualname__.__eq__, ["classmethod"], true]
+
+# ---------------------------------------------------------------------------
+# Singleton constant type checks — NotImplemented and Ellipsis
+# NotImplemented.__class__.__name__ == 'NotImplementedType'
+# Ellipsis.__class__.__name__ == 'ellipsis' (lowercase)
+# ---------------------------------------------------------------------------
+
+invariant builtins_extra6.NotImplemented.class_name:
+  description: "builtins.NotImplemented.__class__.__name__ == 'NotImplementedType'"
+  category: singletons
+  kind: python_call_eq
+  function: NotImplemented.__class__.__name__.__eq__
+  args: ["NotImplementedType"]
+  expected: true
+
+invariant builtins_extra6.Ellipsis.class_name:
+  description: "builtins.Ellipsis.__class__.__name__ == 'ellipsis' (lowercase)"
+  category: singletons
+  kind: python_call_eq
+  function: Ellipsis.__class__.__name__.__eq__
+  args: ["ellipsis"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __module__ checks for built-in functions
+# Built-in functions implemented in C report __module__ == 'builtins'.
+# abs, len, print, and type are representative examples.
+# ---------------------------------------------------------------------------
+
+table builtins_extra6.function_module_attrs:
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [abs,   abs.__module__.__eq__,   ["builtins"], true]
+    - [len,   len.__module__.__eq__,   ["builtins"], true]
+    - [print, print.__module__.__eq__, ["builtins"], true]
+    - [type,  type.__module__.__eq__,  ["builtins"], true]

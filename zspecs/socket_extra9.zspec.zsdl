@@ -1,0 +1,124 @@
+spec: socket_extra9
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/socket.py"
+    - "CPython source: Modules/socketmodule.c"
+  notes:
+    - "This spec extends socket.zspec.zsdl and prior extras through socket_extra8.zspec.zsdl."
+    - "Focus: enum .name accessor for AddressFamily/SocketKind members (AF_INET.name, SOCK_STREAM.name, SOCK_DGRAM.name); AF_INET6.value accessor (not yet checked — extra7 checks class name only); IPPROTO_UDP.value accessor (extra7 checks __eq__ as int, not .value); gethostname/__module__; getaddrinfo/__module__; socket.socket type identity."
+    - "socket.AF_INET.name == 'AF_INET' — the IntEnum .name string attribute, distinct from __name__ on the class."
+    - "socket.SOCK_STREAM.name == 'SOCK_STREAM' — IntEnum member .name, not class __name__."
+    - "socket.SOCK_DGRAM.name == 'SOCK_DGRAM' — IntEnum member .name."
+    - "socket.AF_INET6.value == 30 on macOS/Darwin; socket_extra6 adds AF_INET.value, AF_UNIX.value but not AF_INET6.value."
+    - "socket.IPPROTO_UDP.value == 17 — socket_extra6 adds IPPROTO_TCP.value; IPPROTO_UDP.value is new here."
+    - "socket.gethostname.__module__ == 'socket' — no prior spec checks this function's __module__."
+    - "socket.getaddrinfo.__module__ == 'socket' — no prior spec checks this function's __module__."
+    - "socket.socket.__class__.__name__ == 'type' — confirms socket.socket is a proper class object."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# AddressFamily / SocketKind enum member .name attribute
+# The .name property is the IntEnum string identifier for the member itself
+# (e.g. AF_INET.name == 'AF_INET'), distinct from the class __name__.
+# No prior spec has tested .name on any AddressFamily or SocketKind instance.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra9.AF_INET.member_name:
+  description: "socket.AF_INET.name == 'AF_INET' — enum member .name attribute"
+  category: enum_members
+  kind: python_call_eq
+  function: AF_INET.name.__eq__
+  args: ["AF_INET"]
+  expected: true
+
+invariant socket_extra9.AF_INET6.member_name:
+  description: "socket.AF_INET6.name == 'AF_INET6' — enum member .name attribute"
+  category: enum_members
+  kind: python_call_eq
+  function: AF_INET6.name.__eq__
+  args: ["AF_INET6"]
+  expected: true
+
+table socket_extra9.socket_kind_member_names:
+  kind: python_call_eq
+  category: enum_members
+  id_prefix: kindname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [SOCK_STREAM, SOCK_STREAM.name.__eq__, ["SOCK_STREAM"], true]
+    - [SOCK_DGRAM,  SOCK_DGRAM.name.__eq__,  ["SOCK_DGRAM"],  true]
+    - [SOCK_RAW,    SOCK_RAW.name.__eq__,    ["SOCK_RAW"],    true]
+
+# ---------------------------------------------------------------------------
+# AF_INET6.value — .value accessor, macOS-specific (30)
+# socket.zspec.zsdl checks AF_INET6 == 30 as integer equality.
+# socket_extra6 adds AF_INET.value and AF_UNIX.value.
+# AF_INET6.value is a new dimension not covered by any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra9.AF_INET6.value:
+  description: "socket.AF_INET6.value == 30 on macOS/Darwin — enum .value accessor"
+  category: constants
+  kind: python_call_eq
+  function: AF_INET6.value.__eq__
+  args: [30]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPPROTO_UDP.value — .value accessor
+# socket.zspec.zsdl checks IPPROTO_UDP == 17 via __eq__.
+# socket_extra7 also uses __eq__. socket_extra6 adds IPPROTO_TCP.value.
+# IPPROTO_UDP.value is new here.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra9.IPPROTO_UDP.value:
+  description: "socket.IPPROTO_UDP.value == 17 — enum .value accessor"
+  category: constants
+  kind: python_call_eq
+  function: IPPROTO_UDP.value.__eq__
+  args: [17]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __module__ checks — gethostname and getaddrinfo
+# socket_extra5 checks create_connection and create_server __module__.
+# socket_extra8 table checks qualnames for gethostname/getaddrinfo.
+# No prior spec checks __module__ for gethostname or getaddrinfo.
+# ---------------------------------------------------------------------------
+
+table socket_extra9.function_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gethostname,  gethostname.__module__.__eq__,  ["socket"], true]
+    - [getaddrinfo,  getaddrinfo.__module__.__eq__,  ["socket"], true]
+    - [getnameinfo,  getnameinfo.__module__.__eq__,  ["socket"], true]
+    - [getfqdn,      getfqdn.__module__.__eq__,      ["socket"], true]
+
+# ---------------------------------------------------------------------------
+# socket.socket type identity — socket.socket is a class (type object)
+# No prior spec checks socket.socket.__class__.__name__ == 'type'.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra9.socket_class.is_type:
+  description: "socket.socket.__class__.__name__ == 'type' — socket.socket is a class object"
+  category: type_identity
+  kind: python_call_eq
+  function: socket.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
