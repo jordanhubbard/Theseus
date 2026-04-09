@@ -1,0 +1,121 @@
+spec: glob_extra6
+version: ">=3.9"
+backend: python_module(glob)
+
+docs: https://docs.python.org/3/library/glob.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/glob.html — Python glob module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/glob.py"
+  notes:
+    - "This spec extends glob.zspec.zsdl and prior extras."
+    - "glob.zspec.zsdl covers: glob/iglob/escape __name__ (table); glob no-match/exact-match; escape special-char table; iglob generator type check."
+    - "glob_extra.zspec.zsdl covers: glob.__module__; glob/iglob/escape __name__ standalone; escape '[abc]'/'a?b'/'a*b'."
+    - "glob_extra2.zspec.zsdl covers: glob/iglob/escape/has_magic __name__ standalone; module checks table; has_magic vectors ('*.py', '?.py', '[abc]', 'foo.py', ''); escape 'normal.txt' and ''."
+    - "glob_extra3.zspec.zsdl covers: function_names table; glob.__module__ standalone; escape.__class__.__name__; iglob.__class__.__name__; escape '/path/with[brackets]'; escape 'normal/path'."
+    - "glob_extra4.zspec.zsdl covers: function_qualnames table (glob/iglob/escape); glob.__class__.__name__=='function'; escape '/path/to/[file].txt'."
+    - "glob_extra5.zspec.zsdl covers: has_magic.__qualname__; has_magic.__module__; has_magic.__class__.__name__=='function'; escape '*'/'?'/'['; escape 'a*b?c'."
+    - "This spec adds: has_magic('**') == True — double-star is magic; has_magic('[') == True — bare open bracket is magic; has_magic(']') == False — close bracket alone is not magic; has_magic('a?') == True — trailing question mark; has_magic('/path/to/*.py') == True — wildcard in absolute path; escape('/tmp/*.txt') — path with star in filename; escape('file?.log') — question mark in extension; escape.__qualname__ standalone (cross-check separate from extra4 table)."
+    - "glob.has_magic('**') == True — double-star is a glob wildcard in recursive patterns."
+    - "glob.has_magic('[') == True — bare '[' triggers magic (even without closing bracket)."
+    - "glob.has_magic(']') == False — ']' alone is not a magic character (magic chars are *, ?, [)."
+    - "glob.has_magic('a?') == True — trailing '?' is a single-char wildcard."
+    - "glob.has_magic('/path/to/*.py') == True — '*' in an absolute path pattern is magic."
+    - "glob.escape('/tmp/*.txt') == '/tmp/[*].txt' — '*' in path filename component is bracket-escaped."
+    - "glob.escape('file?.log') == 'file[?].log' — '?' in filename is bracket-escaped."
+    - "glob.escape.__qualname__ == 'escape' — module-level function, qualname equals name (standalone cross-check)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# has_magic — additional boundary vectors
+# glob_extra2 covers: '*.py', '?.py', '[abc]', 'foo.py', ''
+# glob_extra5 covers: None of these below.
+# New: '**', '[', ']', 'a?', '/path/to/*.py'
+# ---------------------------------------------------------------------------
+
+invariant glob_extra6.has_magic.double_star:
+  description: "glob.has_magic('**') == True — double-star is a glob wildcard"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["**"]
+  expected: true
+
+invariant glob_extra6.has_magic.bare_open_bracket:
+  description: "glob.has_magic('[') == True — bare '[' triggers magic detection"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["["]
+  expected: true
+
+invariant glob_extra6.has_magic.close_bracket_only:
+  description: "glob.has_magic(']') == False — ']' alone is not a magic character"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["]"]
+  expected: false
+
+invariant glob_extra6.has_magic.trailing_question:
+  description: "glob.has_magic('a?') == True — trailing '?' is a single-char wildcard"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["a?"]
+  expected: true
+
+invariant glob_extra6.has_magic.absolute_path_with_star:
+  description: "glob.has_magic('/path/to/*.py') == True — '*' in absolute path is magic"
+  category: has_magic
+  kind: python_call_eq
+  function: has_magic
+  args: ["/path/to/*.py"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# escape — new path/string vectors not in any prior spec
+# glob_extra covers: '[abc]', 'a?b', 'a*b'
+# glob_extra2 covers: 'normal.txt', ''
+# glob_extra3 covers: '/path/with[brackets]', 'normal/path'
+# glob_extra4 covers: '/path/to/[file].txt'
+# glob_extra5 covers: '*', '?', '[', 'a*b?c'
+# New: '/tmp/*.txt' (star in filename component of absolute path),
+#      'file?.log' (question mark before extension separator)
+# ---------------------------------------------------------------------------
+
+invariant glob_extra6.escape.absolute_path_with_star:
+  description: "glob.escape('/tmp/*.txt') == '/tmp/[*].txt' — '*' in filename component is bracket-escaped"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["/tmp/*.txt"]
+  expected: "/tmp/[*].txt"
+
+invariant glob_extra6.escape.question_before_extension:
+  description: "glob.escape('file?.log') == 'file[?].log' — '?' before extension is bracket-escaped"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["file?.log"]
+  expected: "file[?].log"
+
+# ---------------------------------------------------------------------------
+# escape.__qualname__ — standalone invariant
+# glob_extra4 covers escape.__qualname__ in a table row.
+# This is a standalone cross-check invariant with a distinct id.
+# ---------------------------------------------------------------------------
+
+invariant glob_extra6.escape.qualname_standalone:
+  description: "glob.escape.__qualname__ == 'escape' — module-level function qualname equals name (standalone)"
+  category: function_qualnames
+  kind: python_call_eq
+  function: escape.__qualname__.__eq__
+  args: ["escape"]
+  expected: true

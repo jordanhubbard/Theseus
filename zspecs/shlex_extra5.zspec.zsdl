@@ -1,0 +1,174 @@
+spec: shlex_extra5
+version: ">=3.8"
+backend: python_module(shlex)
+
+docs: https://docs.python.org/3/library/shlex.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/shlex.html — Python shlex module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/shlex.py"
+  notes:
+    - "This spec extends shlex.zspec.zsdl and shlex_extra through shlex_extra4.zspec.zsdl."
+    - "shlex.zspec.zsdl covers: split/join/quote behavioral tables; ValueError on unclosed quotes."
+    - "shlex_extra covers: shlex.__name__/__module__, split/join/quote __name__ checks (table), selected split/quote standalone invariants."
+    - "shlex_extra2 covers: shlex.__name__/__module__, split/join/quote __name__/__module__ (tables), whitespace/wordchars type/membership checks, shlex.__bases__[0].__name__=='object'."
+    - "shlex_extra3 covers: split/join/quote __qualname__ (table), shlex.__qualname__, join standalone invariants (two_safe_words/single_token_with_space/empty_list), split three_words, quote hyphen_prefixed."
+    - "shlex_extra4 covers: split/join/quote __class__.__name__=='function' (table), shlex.__class__.__name__=='type', wordchars contains 'a'/'z'/'_', quote(';cmd') and quote('hello=world'), split single-quoted token."
+    - "Focus: quote with tilde/pipe/ampersand/backtick; split with tab separator; split with comments=True; split posix=False (keeps quotes); join with three safe tokens and with dollar-sign token; shlex.shlex.__doc__ is not None."
+    - "shlex.quote('~/home') == \"'~/home'\" — tilde is a shell-special character; shlex quotes it."
+    - "shlex.quote('echo | cat') == \"'echo | cat'\" — pipe is special; entire string is single-quoted."
+    - "shlex.quote('a & b') == \"'a & b'\" — ampersand is shell-special."
+    - "shlex.quote('`date`') == \"'`date`'\" — backticks trigger command substitution; shlex quotes them."
+    - "shlex.split('a\\tb') == ['a', 'b'] — tab is a whitespace character; treated the same as space."
+    - "shlex.split('hello # comment', comments=True) == ['hello'] — # starts a comment in comment mode."
+    - "shlex.split(\"'hello world'\", posix=False) == [\"'hello world'\"] — posix=False keeps the quotes."
+    - "shlex.join(['a', 'b', 'c']) == 'a b c' — three safe single-character tokens joined with spaces."
+    - "shlex.join(['echo', '$HOME']) == \"echo '$HOME'\" — dollar sign is shell-special; token is quoted."
+    - "shlex.shlex.__doc__ is not None — the class has a docstring."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# shlex.quote — shell-special character vectors not in prior specs
+#
+# shlex.zspec.zsdl covers: safe_word, safe_alphanumeric, with_space, empty,
+#   dollar_sign, tab_char, newline.
+# shlex_extra3 covers: '--verbose' (hyphens are safe).
+# shlex_extra4 covers: ';cmd' and 'hello=world'.
+# We add: tilde, pipe, ampersand, backtick.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra5.quote.tilde:
+  description: "shlex.quote('~/home') == \"'~/home'\" — tilde is shell-special and is quoted"
+  category: quote
+  kind: python_call_eq
+  function: quote
+  args: ["~/home"]
+  expected: "'~/home'"
+
+invariant shlex_extra5.quote.pipe:
+  description: "shlex.quote('echo | cat') == \"'echo | cat'\" — pipe character forces quoting"
+  category: quote
+  kind: python_call_eq
+  function: quote
+  args: ["echo | cat"]
+  expected: "'echo | cat'"
+
+invariant shlex_extra5.quote.ampersand:
+  description: "shlex.quote('a & b') == \"'a & b'\" — ampersand is shell-special"
+  category: quote
+  kind: python_call_eq
+  function: quote
+  args: ["a & b"]
+  expected: "'a & b'"
+
+invariant shlex_extra5.quote.backtick:
+  description: "shlex.quote('`date`') == \"'`date`'\" — backticks trigger command substitution; shlex quotes them"
+  category: quote
+  kind: python_call_eq
+  function: quote
+  args: ["`date`"]
+  expected: "'`date`'"
+
+# ---------------------------------------------------------------------------
+# shlex.split — tab separator and comment mode
+#
+# shlex.zspec.zsdl covers many split vectors; none use a tab as the only separator
+# or the comments=True keyword.
+# shlex_extra4 covers split("'hello world'") in POSIX mode.
+# We add: split('a\tb') and split('hello # comment', comments=True).
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra5.split.tab_separator:
+  description: "shlex.split('a\\tb') == ['a', 'b'] — tab is treated as whitespace"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["a\tb"]
+  expected: ["a", "b"]
+
+invariant shlex_extra5.split.comments_true:
+  description: "shlex.split('hello # comment', comments=True) == ['hello'] — # starts a comment"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["hello # comment", true]
+  expected: ["hello"]
+
+# ---------------------------------------------------------------------------
+# shlex.split — posix=False keeps surrounding quotes intact
+#
+# shlex_extra4 covers split("'hello world'") with posix=True (default).
+# posix=False is not covered in any prior spec. In non-POSIX mode the quotes
+# are preserved as part of the token.
+# shlex.split("'hello world'", posix=False) == ["'hello world'"]
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra5.split.posix_false:
+  description: "shlex.split(\"'hello world'\", posix=False) == [\"'hello world'\"] — quotes are kept in non-POSIX mode"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["'hello world'", false]
+  expected: ["'hello world'"]
+
+# ---------------------------------------------------------------------------
+# shlex.join — three safe tokens and dollar-sign token
+#
+# shlex.zspec.zsdl covers join with two safe tokens, token-with-space, empty list, single token.
+# shlex_extra3 covers join(['hello','world']) and join(['hello world']) and join([]).
+# No prior spec has a three-element list or a dollar-sign token.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra5.join.three_safe_tokens:
+  description: "shlex.join(['a', 'b', 'c']) == 'a b c' — three safe single-char tokens"
+  category: join
+  kind: python_call_eq
+  function: join
+  args: [["a", "b", "c"]]
+  expected: "a b c"
+
+invariant shlex_extra5.join.dollar_sign_token:
+  description: "shlex.join(['echo', '$HOME']) == \"echo '$HOME'\" — dollar sign causes quoting"
+  category: join
+  kind: python_call_eq
+  function: join
+  args: [["echo", "$HOME"]]
+  expected: "echo '$HOME'"
+
+# ---------------------------------------------------------------------------
+# shlex.split — five bare words
+#
+# shlex.zspec.zsdl covers split of 'a b c d' (4 words) and 'echo foo' (2 words).
+# shlex_extra3 covers split('one two three') (3 words).
+# No prior spec covers a 5-word string.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra5.split.five_words:
+  description: "shlex.split('a b c d e') == ['a', 'b', 'c', 'd', 'e'] — five bare words"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["a b c d e"]
+  expected: ["a", "b", "c", "d", "e"]
+
+# ---------------------------------------------------------------------------
+# shlex.shlex class — __doc__ is not None
+#
+# No prior shlex spec checks whether the class has a docstring.
+# shlex.shlex.__doc__ is a non-None string describing the lexical analyzer.
+# We verify it is not None by checking its class name is 'str'.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra5.shlex_class.doc_is_str:
+  description: "shlex.shlex.__doc__.__class__.__name__ == 'str' — the class has a docstring"
+  category: class_metadata
+  kind: python_call_eq
+  function: shlex.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true

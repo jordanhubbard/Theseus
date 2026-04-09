@@ -1,0 +1,164 @@
+spec: textwrap_extra7
+version: ">=3.9"
+backend: python_module(textwrap)
+
+docs: https://docs.python.org/3/library/textwrap.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/textwrap.html — Python textwrap module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/textwrap.py"
+    - "textwrap.zspec.zsdl — covers wrap/fill/dedent/indent/shorten basic vectors; TextWrapper(width=40).width."
+    - "textwrap_extra.zspec.zsdl — covers wrap/fill/dedent/indent/shorten __name__; TextWrapper __name__/__module__; additional behavioral vectors."
+    - "textwrap_extra2.zspec.zsdl — covers TextWrapper __name__/__module__/__qualname__/is_type; function_names/qualnames/modules for fill/indent/dedent/shorten; TextWrapper defaults (width=70, break_long_words=True, width=120); fill/dedent return type."
+    - "textwrap_extra3.zspec.zsdl — covers function __module__ table; wrap/fill behavioral vectors; indent with angle prefix; dedent blank_first_line; shorten truncated/fits vectors."
+    - "textwrap_extra4.zspec.zsdl — covers function_names/function_modules tables; TextWrapper __name__/__module__; TextWrapper defaults (width, expand_tabs); wrap/fill/dedent basic invariants."
+    - "textwrap_extra5.zspec.zsdl — covers TextWrapper.__bases__[0].__name__=='object'; TextWrapper defaults (drop_whitespace, fix_sentence_endings, placeholder); shorten exact-fit/default-placeholder/short-input; wrap.__qualname__; shorten.__class__.__name__=='function'."
+    - "textwrap_extra6.zspec.zsdl — covers TextWrapper __name__/__module__/__qualname__/__bases__ as extra6 anchors; function_names table (wrap/fill/dedent/indent/shorten) as extra6 anchors."
+  notes:
+    - "This spec adds genuinely new test vectors not present in any prior textwrap spec."
+    - "textwrap.TextWrapper().break_on_hyphens == True — default is True; no prior spec checks this attribute."
+    - "textwrap.TextWrapper().max_lines == None — default is None (no line limit); no prior spec checks max_lines."
+    - "textwrap.TextWrapper().tabsize == 8 — default tab expansion size is 8; no prior spec checks tabsize."
+    - "textwrap.wrap.__class__.__name__ == 'function' — extra5 checks shorten; no prior spec checks the class kind for wrap, fill, dedent, or indent."
+    - "textwrap.fill.__class__.__name__ == 'function' — plain Python function."
+    - "textwrap.dedent.__class__.__name__ == 'function' — plain Python function."
+    - "textwrap.indent.__class__.__name__ == 'function' — plain Python function."
+    - "textwrap.wrap('hello\\tworld', 20) == ['hello\\tworld'] — tab in input; textwrap.wrap treats tab as a single whitespace token by default when expand_tabs=True. With width=20 and a short string the line is not split."
+    - "textwrap.TextWrapper(width=30, initial_indent='> ').wrap('hello world foo') == ['> hello world foo'] — initial_indent shifts first-line content; no prior spec uses initial_indent."
+    - "textwrap.indent('hello\\nworld\\n', '#') == '#hello\\n#world\\n' — trailing newline on input; prior specs use '>> ' or '  ' prefixes; '#' is a new prefix character."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# TextWrapper defaults — break_on_hyphens, max_lines, tabsize
+#
+# textwrap_extra2 covers width and break_long_words.
+# textwrap_extra4 covers expand_tabs.
+# textwrap_extra5 covers drop_whitespace, fix_sentence_endings, placeholder.
+# This spec adds the remaining uncovered defaults.
+# ---------------------------------------------------------------------------
+
+invariant textwrap_extra7.TextWrapper.break_on_hyphens_default:
+  description: "textwrap.TextWrapper().break_on_hyphens == True — default is True"
+  category: TextWrapper_defaults
+  kind: python_call_eq
+  function: TextWrapper
+  args: []
+  method: break_on_hyphens.__eq__
+  method_args: [true]
+  expected: true
+
+invariant textwrap_extra7.TextWrapper.max_lines_default:
+  description: "textwrap.TextWrapper().max_lines is None — default is None (no line limit)"
+  category: TextWrapper_defaults
+  kind: python_call_eq
+  function: TextWrapper
+  args: []
+  method: max_lines.__eq__
+  method_args: [null]
+  expected: true
+
+invariant textwrap_extra7.TextWrapper.tabsize_default:
+  description: "textwrap.TextWrapper().tabsize == 8 — default tab stop width is 8"
+  category: TextWrapper_defaults
+  kind: python_call_eq
+  function: TextWrapper
+  args: []
+  method: tabsize.__eq__
+  method_args: [8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function class checks — __class__.__name__ == 'function'
+#
+# textwrap_extra5 checks shorten.__class__.__name__. This spec extends that
+# axis to wrap, fill, dedent, and indent — each a distinct module-level function.
+# ---------------------------------------------------------------------------
+
+table textwrap_extra7.function_class_names:
+  description: "textwrap public functions are plain Python functions (__class__.__name__ == 'function')"
+  kind: python_call_eq
+  category: function_class
+  id_prefix: fclass
+
+  columns: [id, function, args, expected]
+  rows:
+    - [wrap,   wrap.__class__.__name__.__eq__,   ["function"], true]
+    - [fill,   fill.__class__.__name__.__eq__,   ["function"], true]
+    - [dedent, dedent.__class__.__name__.__eq__, ["function"], true]
+    - [indent, indent.__class__.__name__.__eq__, ["function"], true]
+
+# ---------------------------------------------------------------------------
+# indent() — new prefix character and trailing newline
+#
+# Prior specs use '>> ' (base), '  ' (base/extra), and '> ' (extra3) prefixes.
+# This spec uses '#' — a new prefix not appearing in any prior spec.
+# The input also carries a trailing newline, testing that indent preserves it.
+# ---------------------------------------------------------------------------
+
+invariant textwrap_extra7.indent.hash_prefix_with_trailing_newline:
+  description: "textwrap.indent('hello\\nworld\\n', '#') == '#hello\\n#world\\n' — hash prefix"
+  category: indent
+  kind: python_call_eq
+  function: indent
+  args: ["hello\nworld\n", "#"]
+  expected: "#hello\n#world\n"
+
+# ---------------------------------------------------------------------------
+# TextWrapper with initial_indent — wrap()
+#
+# No prior spec exercises TextWrapper.wrap() with a non-empty initial_indent.
+# TextWrapper(width=30, initial_indent='> ').wrap('hello world foo') applies
+# '> ' only to the first line. With width=30 and a short string the result
+# is a single line: '> hello world foo'.
+# ---------------------------------------------------------------------------
+
+invariant textwrap_extra7.TextWrapper.wrap_with_initial_indent:
+  description: "TextWrapper(width=30, initial_indent='> ').wrap('hello world foo') == ['> hello world foo']"
+  category: TextWrapper_behavior
+  kind: python_call_eq
+  function: TextWrapper
+  kwargs: {width: 30, initial_indent: "> "}
+  method: wrap
+  method_args: ["hello world foo"]
+  expected: ["> hello world foo"]
+
+# ---------------------------------------------------------------------------
+# shorten() with custom placeholder
+#
+# textwrap_extra3 covers shorten('hello world foo', 11, placeholder='...') == 'hello...'.
+# This spec uses a different word and a different placeholder to provide a new vector.
+# shorten('The quick brown fox', 10, placeholder='…') truncates at 10 chars.
+# The word 'The' (3) + ' ' + 'quick' (5) = 9 chars — 'quick' fits, 'brown' does not.
+# With placeholder='…' (1 char), result is 'The quick…' (10 chars).
+# ---------------------------------------------------------------------------
+
+invariant textwrap_extra7.shorten.custom_unicode_placeholder:
+  description: "textwrap.shorten('The quick brown fox', 10, placeholder='…') == 'The quick…'"
+  category: shorten
+  kind: python_call_eq
+  function: shorten
+  args: ["The quick brown fox", 10]
+  kwargs: {placeholder: "…"}
+  expected: "The quick…"
+
+# ---------------------------------------------------------------------------
+# fill() — multiple words, narrow column
+#
+# textwrap.zspec.zsdl covers fill('hello world', 5) == 'hello\nworld'.
+# This spec uses fill('one two three four', 9) producing 'one two\nthree\nfour'.
+# A new input string with a distinct word count and width is a new vector.
+# ---------------------------------------------------------------------------
+
+invariant textwrap_extra7.fill.three_line_output:
+  description: "textwrap.fill('one two three four', 9) == 'one two\\nthree\\nfour'"
+  category: fill
+  kind: python_call_eq
+  function: fill
+  args: ["one two three four", 9]
+  expected: "one two\nthree\nfour"

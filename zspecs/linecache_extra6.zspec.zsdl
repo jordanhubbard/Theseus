@@ -1,0 +1,150 @@
+spec: linecache_extra6
+version: ">=3.9"
+backend: python_module(linecache)
+
+docs: https://docs.python.org/3/library/linecache.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/linecache.html — Python linecache module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/linecache.py"
+    - "linecache.zspec.zsdl — covers function_names table; getline for /nonexistent_path_xyz/file.py lineno 0/1/2/-1; getlines nonexistent; clearcache/checkcache return None."
+    - "linecache_extra.zspec.zsdl — covers getline/__name__/__module__; getlines/__name__; clearcache/__name__; checkcache/__name__; cache.__class__.__name__=='dict'; getline('',1)==''."
+    - "linecache_extra2.zspec.zsdl — covers getline/__module__, clearcache/__name__/__module__, checkcache/__name__/__module__, getlines/__name__/__module__, lazycache/__name__/__module__, updatecache/__name__/__module__, cache.__class__.__name__=='dict'."
+    - "linecache_extra3.zspec.zsdl — covers function_names table; getline.__module__ standalone; updatecache.__name__ standalone; checkcache.__class__.__name__=='function'; getlines('/dev/null',{}) return type; getline('nonexistent_file_xyz.py',1)==''."
+    - "linecache_extra4.zspec.zsdl — covers __qualname__ for getline/getlines/clearcache/checkcache/updatecache; getline('/dev/null',1)==''; getlines('/dev/null')==[]."
+    - "linecache_extra5.zspec.zsdl — covers lazycache.__qualname__; function_class_names table (getline/getlines/clearcache/updatecache/lazycache __class__.__name__=='function'); getline('',0)==''."
+  notes:
+    - "This spec adds genuinely new test vectors not present in any prior linecache spec."
+    - "getline('/dev/null', 2) == '' — extra4 covers lineno=1 on /dev/null; lineno=2 is a distinct vector."
+    - "getline('/dev/null', -1) == '' — negative lineno on /dev/null; prior specs cover negative lineno only on /nonexistent_path_xyz/file.py (linecache.zspec.zsdl)."
+    - "getline('', 2) == '' — extra5 covers lineno=0 for empty filename; extra1 covers lineno=1; lineno=2 is new."
+    - "getline('/nonexistent_path_xyz/file.py', 100) == '' — lineno=100 is a new value; prior specs use 0/1/2/-1 for this path."
+    - "getlines('') == [] — empty filename returns empty list; no prior spec checks getlines with an empty filename argument."
+    - "getlines('nonexistent_file_xyz.txt', {}) returns a list — extra3 covers getlines('/dev/null', {}) type; this uses a nonexistent bare filename with .txt extension and a module_globals dict."
+    - "getlines('nonexistent_file_xyz.txt') == [] — bare nonexistent filename not on sys.path; extra3 uses .py extension."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# getline('/dev/null', 2) == ''
+# linecache_extra4 covers getline('/dev/null', 1) == ''. /dev/null is always
+# readable but contains zero bytes, so no line 2 exists. This is a new lineno.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra6.getline.dev_null_line2:
+  description: "linecache.getline('/dev/null', 2) == '' — /dev/null has no lines"
+  category: behavior
+  kind: python_call_eq
+  function: getline
+  args: ["/dev/null", 2]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# getline('/dev/null', -1) == ''
+# linecache.zspec.zsdl covers getline('/nonexistent_path_xyz/file.py', -1) == ''.
+# This vector uses /dev/null with a negative lineno — a new combination.
+# linecache returns '' for any lineno < 1, including negatives.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra6.getline.dev_null_neg_lineno:
+  description: "linecache.getline('/dev/null', -1) == '' — negative lineno on /dev/null returns ''"
+  category: behavior
+  kind: python_call_eq
+  function: getline
+  args: ["/dev/null", -1]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# getline('', 2) == ''
+# linecache_extra.zspec.zsdl covers getline('', 1) == ''.
+# linecache_extra5.zspec.zsdl covers getline('', 0) == ''.
+# lineno=2 with an empty filename is the first vector combining '' with lineno=2.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra6.getline.empty_filename_lineno2:
+  description: "linecache.getline('', 2) == '' — empty filename always returns ''"
+  category: behavior
+  kind: python_call_eq
+  function: getline
+  args: ["", 2]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# getline('/nonexistent_path_xyz/file.py', 100) == ''
+# Prior specs cover lineno 0, 1, 2, -1 for this path. lineno=100 is new.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra6.getline.nonexistent_lineno100:
+  description: "linecache.getline('/nonexistent_path_xyz/file.py', 100) == '' — large lineno for missing file"
+  category: missing_file
+  kind: python_call_eq
+  function: getline
+  args: ["/nonexistent_path_xyz/file.py", 100]
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# getlines('') == []
+# An empty string filename cannot be read. No prior spec passes '' to getlines.
+# linecache_extra4 covers getlines('/dev/null') == []; linecache.zspec.zsdl
+# covers getlines('/nonexistent_path_xyz/file.py') == [].
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra6.getlines.empty_filename:
+  description: "linecache.getlines('') == [] — empty filename yields no lines"
+  category: behavior
+  kind: python_call_eq
+  function: getlines
+  args: [""]
+  expected: []
+
+# ---------------------------------------------------------------------------
+# getlines('nonexistent_file_xyz.txt') == []
+# linecache_extra3 covers getline('nonexistent_file_xyz.py', 1); this spec
+# covers getlines with a bare .txt filename — a different extension and function.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra6.getlines.bare_nonexistent_txt:
+  description: "linecache.getlines('nonexistent_file_xyz.txt') == [] — bare .txt filename not found"
+  category: missing_file
+  kind: python_call_eq
+  function: getlines
+  args: ["nonexistent_file_xyz.txt"]
+  expected: []
+
+# ---------------------------------------------------------------------------
+# getlines('nonexistent_file_xyz.txt', {}) returns a list
+# linecache_extra3 covers getlines('/dev/null', {}) return type.
+# This vector combines a nonexistent bare .txt filename with module_globals={}.
+# The return type is 'list' regardless of whether the file exists.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra6.getlines.bare_nonexistent_txt_with_globals:
+  description: "linecache.getlines('nonexistent_file_xyz.txt', {}).__class__.__name__ == 'list'"
+  category: behavior
+  kind: python_call_eq
+  function: getlines
+  args: ["nonexistent_file_xyz.txt", {}]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# checkcache(None) returns None
+# linecache.zspec.zsdl covers checkcache() with no args.
+# Passing None explicitly as the filename argument is a distinct call signature:
+# checkcache(filename=None) is the documented API; the base spec uses no-arg form.
+# ---------------------------------------------------------------------------
+
+invariant linecache_extra6.checkcache.explicit_none_arg:
+  description: "linecache.checkcache(None) returns None — explicit None filename behaves like no-arg form"
+  category: cache_ops
+  kind: python_call_eq
+  function: checkcache
+  args: [null]
+  expected: null

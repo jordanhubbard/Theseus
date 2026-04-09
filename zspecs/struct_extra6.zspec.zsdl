@@ -1,0 +1,152 @@
+spec: struct_extra6
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+rfcs:
+  - "IEEE 754-2019 — Standard for Floating-Point Arithmetic (for float format strings)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+    - "struct.zspec.zsdl — covers pack/unpack for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize for H/I/Q/HI/HIQ/q/h/b/?/e; roundtrip; error cases."
+    - "struct_extra.zspec.zsdl — covers Struct format/size for '>H' and '>BHI'; calcsize for f/d/B/4s/>BHI; pack_into; unpack_from; iter_unpack; error class."
+    - "struct_extra2.zspec.zsdl — covers __name__/__module__ for pack/unpack/calcsize/pack_into/unpack_from/iter_unpack/error/Struct; pack('>H',256); unpack('>H',b'\\x01\\x00'); calcsize('>HHH'); Struct base."
+    - "struct_extra3.zspec.zsdl — covers pack/unpack/calcsize for !f/!d/!?; calcsize for !5s/!3p/!x/!5x."
+    - "struct_extra4.zspec.zsdl — covers Struct.__name__; pack_into.__name__; function __qualname__ table; error.__qualname__; pack('>I',65536)/('<I',65536)/('>i',-256); calcsize('>i'/'<i'/>I')."
+    - "struct_extra5.zspec.zsdl — covers Struct.__qualname__; Struct instance attrs for '>I'/'>H' format/size; pack('>B',255); unpack('>B',b'\\xff'); calcsize('>B'/'<B'/'>5s'); Struct('>I').pack(256) method form."
+  notes:
+    - "This spec adds genuinely new test vectors not present in any prior struct spec."
+    - "struct.pack('>b', 127) == b'\\x7f' — maximum signed byte; struct.zspec.zsdl has only '>b' -1; no spec has 127."
+    - "struct.pack('>b', -128) == b'\\x80' — minimum signed byte (two's complement); no prior spec covers this value."
+    - "struct.unpack('>b', b'\\x7f') == (127,) — inverse of the pack above; not in any prior spec."
+    - "struct.unpack('>b', b'\\x80') == (-128,) — minimum signed byte; not in any prior spec."
+    - "struct.Struct('>b').format == '>b' — struct_extra5 covers '>I' and '>H' only; '>b' is new."
+    - "struct.Struct('>b').size == 1 — signed byte Struct object; no prior spec checks Struct('>b')."
+    - "struct.Struct('>Q').format == '>Q' — 64-bit unsigned int; not in any prior Struct-instance attr check."
+    - "struct.Struct('>Q').size == 8 — 64-bit unsigned int is 8 bytes."
+    - "struct.pack('<h', -1) == b'\\xff\\xff' — little-endian signed 16-bit -1; struct.zspec.zsdl has '>h' -1; '<h' is new."
+    - "struct.calcsize('<h') == 2 — struct.zspec.zsdl has '>h' only; '<h' is a new byte-order variant."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# pack() — signed byte extremes ('>b')
+#
+# struct.zspec.zsdl has pack('>b', -1) == b'\xff' only.
+# No prior spec covers the maximum (127) or minimum (-128) signed byte values.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra6.pack.int8_max:
+  description: "struct.pack('>b', 127) == b'\\x7f' — maximum signed byte value"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">b", 127]
+  expected: !hex 7f
+
+invariant struct_extra6.pack.int8_min:
+  description: "struct.pack('>b', -128) == b'\\x80' — minimum signed byte value (two's complement)"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: [">b", -128]
+  expected: !hex 80
+
+# ---------------------------------------------------------------------------
+# unpack() — signed byte extremes ('>b')
+#
+# Inverse of the pack vectors above; verifies round-trip symmetry for int8.
+# No prior spec covers unpack('>b', ...) for any value other than -1.
+# Results are tuples normalised to lists by the harness.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra6.unpack.int8_max:
+  description: "struct.unpack('>b', b'\\x7f') == (127,) — maximum signed byte"
+  category: unpack_values
+  kind: python_call_eq
+  function: unpack
+  args: [">b", !hex 7f]
+  expected: [127]
+
+invariant struct_extra6.unpack.int8_min:
+  description: "struct.unpack('>b', b'\\x80') == (-128,) — minimum signed byte"
+  category: unpack_values
+  kind: python_call_eq
+  function: unpack
+  args: [">b", !hex 80]
+  expected: [-128]
+
+# ---------------------------------------------------------------------------
+# Struct instance — format and size for '>b' and '>Q'
+#
+# struct_extra5 covers '>I' and '>H'; struct_extra covers '>H' and '>BHI'.
+# '>b' (signed byte) and '>Q' (64-bit unsigned) are new Struct fixture formats.
+# ---------------------------------------------------------------------------
+
+table struct_extra6.struct_instance_attrs:
+  kind: python_call_eq
+  category: struct_attrs
+  id_prefix: attr
+
+  columns: [id, function, args, expected, method]
+  rows:
+    - [Struct_b_format, Struct, [">b"], ">b", format]
+    - [Struct_b_size,   Struct, [">b"], 1,    size]
+    - [Struct_Q_format, Struct, [">Q"], ">Q", format]
+    - [Struct_Q_size,   Struct, [">Q"], 8,    size]
+
+# ---------------------------------------------------------------------------
+# pack() and calcsize() — little-endian signed 16-bit short
+#
+# struct.zspec.zsdl has pack('>h', -1) and calcsize('>h') == 2.
+# '<h' (little-endian signed short) is a distinct format not in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra6.pack.little_endian_int16_neg1:
+  description: "struct.pack('<h', -1) == b'\\xff\\xff' — little-endian signed 16-bit -1"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: ["<h", -1]
+  expected: !hex ffff
+
+invariant struct_extra6.pack.little_endian_int16_1:
+  description: "struct.pack('<h', 1) == b'\\x01\\x00' — little-endian signed 16-bit 1"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: ["<h", 1]
+  expected: !hex 0100
+
+invariant struct_extra6.calcsize.little_endian_h:
+  description: "struct.calcsize('<h') == 2 — little-endian signed short is 2 bytes"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["<h"]
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# unpack() — little-endian signed 16-bit short
+#
+# Inverse of the pack vectors above; '<h' is a new format for unpack.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra6.unpack.little_endian_int16_1:
+  description: "struct.unpack('<h', b'\\x01\\x00') == (1,) — little-endian signed 16-bit 1"
+  category: unpack_values
+  kind: python_call_eq
+  function: unpack
+  args: ["<h", !hex 0100]
+  expected: [1]

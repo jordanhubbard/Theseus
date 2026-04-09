@@ -1,0 +1,155 @@
+spec: pprint_extra6
+version: ">=3.9"
+backend: python_module(pprint)
+
+docs: https://docs.python.org/3/library/pprint.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pprint.html — Python pprint module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pprint.py"
+  notes:
+    - "This spec extends pprint.zspec.zsdl and pprint_extra through pprint_extra5.zspec.zsdl."
+    - "pprint.zspec.zsdl covers: pformat primitives/containers (int/str/None/bool/float/0/empty_str/empty_list/empty_dict/list_123), isreadable/isrecursive/saferepr tables, PrettyPrinter.__name__, function type checks."
+    - "pprint_extra covers: PrettyPrinter.__name__/__module__, pformat/pprint/isreadable/isrecursive/saferepr __name__, pformat(42/'hello'/[1,2,3]), isreadable(42), isrecursive({})."
+    - "pprint_extra2 covers: pformat([1,2,3]/{}/''), isreadable([1,2,3]/{}), isrecursive([1,2,3]/[])."
+    - "pprint_extra3 covers: __module__ for pformat/pprint/isreadable/isrecursive/saferepr/PrettyPrinter, pformat({}/[]), isreadable(None/{'a':1}), saferepr(42/None/[1,2,3]/True)."
+    - "pprint_extra4 covers: class_names table (PrettyPrinter), function_names table (pformat/pprint/isreadable/isrecursive/saferepr/pp), PrettyPrinter.__module__, pformat.__module__, PrettyPrinter._indent_per_level==1, PrettyPrinter._width==80, PrettyPrinter instance class name, isreadable(42), isrecursive([1,2,3]), saferepr('hello'), pformat([1,2,3])."
+    - "pprint_extra5 covers: PrettyPrinter/__qualname__, PrettyPrinter.__bases__[0].__name__=='object', function_qualnames table (pformat/isreadable/isrecursive/saferepr/pp), pp.__module__, saferepr(False/''), isreadable(True/3.14), isrecursive(42/'hello')."
+    - "Focus: pformat({'a':1,'b':2}), pformat(-1), pformat(3.14), saferepr({}), saferepr([]), saferepr(3.14), saferepr(0), isreadable(0.0), isreadable(-1), isrecursive(None), PrettyPrinter()._depth is None."
+    - "pprint.pformat({'a': 1, 'b': 2}) == \"{'a': 1, 'b': 2}\" — two-key dict on one line with insertion order."
+    - "pprint.pformat(-1) == '-1' — negative integer uses repr."
+    - "pprint.pformat(3.14) == '3.14' — float already in pprint.zspec.zsdl primitives table; extra6 adds saferepr(3.14) separately."
+    - "pprint.saferepr({}) == '{}' — empty dict safe repr."
+    - "pprint.saferepr([]) == '[]' — empty list safe repr."
+    - "pprint.saferepr(3.14) == '3.14' — float safe repr."
+    - "pprint.saferepr(0) == '0' — zero integer safe repr."
+    - "pprint.isreadable(0.0) == True — zero float has a readable repr."
+    - "pprint.isreadable(-1) == True — negative integer has a readable repr."
+    - "pprint.isrecursive(None) == False — None has no recursive references."
+    - "pprint.PrettyPrinter()._depth is None — default depth is unlimited (None)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pformat — two-key dict and negative integer
+#
+# pprint.zspec.zsdl covers pformat of empty_dict, list_123, and primitives.
+# pprint_extra2 adds pformat({}/[1,2,3]/'').
+# No prior spec covers pformat({'a':1,'b':2}) or pformat(-1).
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra6.pformat.two_key_dict:
+  description: "pprint.pformat({'a': 1, 'b': 2}) == \"{'a': 1, 'b': 2}\" — two-key dict on one line"
+  category: pformat
+  kind: python_call_eq
+  function: pformat
+  args: [{"a": 1, "b": 2}]
+  expected: "{'a': 1, 'b': 2}"
+
+invariant pprint_extra6.pformat.negative_int:
+  description: "pprint.pformat(-1) == '-1' — negative integer uses repr"
+  category: pformat
+  kind: python_call_eq
+  function: pformat
+  args: [-1]
+  expected: "-1"
+
+# ---------------------------------------------------------------------------
+# saferepr — empty containers and numeric types
+#
+# pprint_extra3 covers saferepr(42/None/[1,2,3]/True); pprint_extra4 covers saferepr('hello');
+# pprint_extra5 covers saferepr(False/'').
+# We add: saferepr({}), saferepr([]), saferepr(3.14), saferepr(0).
+# ---------------------------------------------------------------------------
+
+table pprint_extra6.saferepr.new_vectors:
+  kind: python_call_eq
+  category: saferepr
+  id_prefix: saferepr
+  function: saferepr
+
+  columns: [id, args, expected]
+  rows:
+    - [empty_dict, [{}],   "{}"]
+    - [empty_list, [[]],   "[]"]
+    - [float,      [3.14], "3.14"]
+    - [zero,       [0],    "0"]
+
+# ---------------------------------------------------------------------------
+# isreadable — zero float and negative integer
+#
+# pprint.zspec.zsdl covers isreadable(int/str/None/bool/list/dict/empty_list).
+# pprint_extra5 adds isreadable(True/3.14).
+# We add isreadable(0.0) and isreadable(-1).
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra6.isreadable.zero_float:
+  description: "pprint.isreadable(0.0) == True — zero float has a readable repr"
+  category: isreadable
+  kind: python_call_eq
+  function: isreadable
+  args: [0.0]
+  expected: true
+
+invariant pprint_extra6.isreadable.negative_int:
+  description: "pprint.isreadable(-1) == True — negative integer has a readable repr"
+  category: isreadable
+  kind: python_call_eq
+  function: isreadable
+  args: [-1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# isrecursive — None
+#
+# pprint.zspec.zsdl covers isrecursive(int/str/None/list/dict/empty_list/empty_dict).
+# pprint_extra5 covers isrecursive(42/'hello'). We add isrecursive(None) as a
+# standalone named invariant in the extra6 namespace.
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra6.isrecursive.none:
+  description: "pprint.isrecursive(None) == False — None has no recursive references"
+  category: isrecursive
+  kind: python_call_eq
+  function: isrecursive
+  args: [null]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# PrettyPrinter — _depth default is None
+#
+# pprint_extra4 checks _indent_per_level==1 and _width==80.
+# The _depth attribute (unlimited depth sentinel) is not checked in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra6.PrettyPrinter.depth_default_is_none:
+  description: "pprint.PrettyPrinter()._depth is None — default depth is unlimited"
+  category: PrettyPrinter_defaults
+  kind: python_call_eq
+  function: PrettyPrinter
+  args: []
+  method: _depth.__eq__
+  method_args: [null]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PrettyPrinter — compact default is False
+#
+# PrettyPrinter() constructed with no arguments has _compact == False.
+# Not checked in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant pprint_extra6.PrettyPrinter.compact_default_is_false:
+  description: "pprint.PrettyPrinter()._compact == False — compact mode is off by default"
+  category: PrettyPrinter_defaults
+  kind: python_call_eq
+  function: PrettyPrinter
+  args: []
+  method: _compact.__eq__
+  method_args: [false]
+  expected: true

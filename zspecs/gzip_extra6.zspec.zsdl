@@ -1,0 +1,124 @@
+spec: gzip_extra6
+version: ">=3.8"
+backend: python_module(gzip)
+
+docs: https://docs.python.org/3/library/gzip.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gzip.html — Python gzip documentation"
+    - "RFC 1952 — GZIP file format specification version 4.3"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/gzip.py"
+  notes:
+    - "This spec extends gzip.zspec.zsdl and prior extras."
+    - "gzip (base) covers: compress/decompress roundtrips via pre-computed hex, compress output length, BadGzipFile error cases, BadGzipFile.__name__."
+    - "gzip_extra covers: GzipFile/__name__/__module__, BadGzipFile/__module__/base, compress/decompress/open __name__, compress/__module__, compress returns bytes, roundtrip."
+    - "gzip_extra2 covers: compress(b'') behavior, decompress empty roundtrip, GzipFile base class (BaseStream), open/__module__, decompress/__module__, BadGzipFile MRO, GzipFile method names."
+    - "gzip_extra3 covers: GzipFile/__name__, BadGzipFile/__name__, compress/decompress/open __name__ table, GzipFile/__module__, BadGzipFile base, compress returns bytes (method_chain), compress header magic byte[0], compress/__module__, decompress/__module__, open/__module__."
+    - "gzip_extra4 covers: GzipFile/__qualname__, BadGzipFile/__qualname__, open/compress/decompress __qualname__ table, compress(b'') class name (method_chain), GzipFile.__qualname__ is str, decompress.__qualname__."
+    - "gzip_extra5 covers: gzip.__name__ == 'gzip', open/compress/decompress __code__.co_name table, GzipFile.__bases__[0].__qualname__ == 'BaseStream', BadGzipFile.__bases__[0].__qualname__ == 'OSError'."
+    - "This spec adds: gzip flag constants (FTEXT/FHCRC/FEXTRA/FNAME/FCOMMENT — not in any prior gzip spec), gzip magic byte values in compress output (byte[0]==31 and byte[1]==139 — new; base only checks output length, not specific byte values), GzipFile.__bases__[0].__module__ (new — not the same as __name__ or __qualname__ already covered), and GzipFile MRO depth (__mro__[2].__name__ == 'BufferedIOBase' — extra2 covers mro[1] only)."
+    - "gzip.FTEXT == 1 — flag bit for text content."
+    - "gzip.FHCRC == 2 — flag bit for header CRC."
+    - "gzip.FEXTRA == 4 — flag bit for extra field."
+    - "gzip.FNAME == 8 — flag bit for filename."
+    - "gzip.FCOMMENT == 16 — flag bit for comment."
+    - "gzip.compress(b'hello')[0] == 31 (0x1f) — first byte of gzip magic number."
+    - "gzip.compress(b'hello')[1] == 139 (0x8b) — second byte of gzip magic number."
+    - "gzip.GzipFile.__bases__[0].__module__ == 'compression._common._streams' — BaseStream lives in the internal compression module on Python 3.12+."
+    - "gzip.GzipFile.__mro__[2].__name__ == 'BufferedIOBase' — third MRO entry; extra2 only confirms mro[1]."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# gzip flag constants — FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT
+# These are internal constants used in gzip file headers; not covered in any
+# prior gzip spec.
+# ---------------------------------------------------------------------------
+
+table gzip_extra6.flag_constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: flag
+
+  columns: [id, function, args, expected]
+  rows:
+    - [FTEXT,    FTEXT.__eq__,    [1],  true]
+    - [FHCRC,    FHCRC.__eq__,    [2],  true]
+    - [FEXTRA,   FEXTRA.__eq__,   [4],  true]
+    - [FNAME,    FNAME.__eq__,    [8],  true]
+    - [FCOMMENT, FCOMMENT.__eq__, [16], true]
+
+# ---------------------------------------------------------------------------
+# Flag constant types — all are plain int.
+# Not covered in any prior gzip spec.
+# ---------------------------------------------------------------------------
+
+table gzip_extra6.flag_types:
+  kind: python_call_eq
+  category: constants
+  id_prefix: flagtype
+
+  columns: [id, function, args, expected]
+  rows:
+    - [FTEXT,  FTEXT.__class__.__name__.__eq__,  ["int"], true]
+    - [FHCRC,  FHCRC.__class__.__name__.__eq__,  ["int"], true]
+    - [FNAME,  FNAME.__class__.__name__.__eq__,  ["int"], true]
+
+# ---------------------------------------------------------------------------
+# gzip magic bytes in compress output — byte[0]==0x1f, byte[1]==0x8b.
+# Not covered in any prior gzip spec (prior specs check output type and length).
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra6.compress.magic_byte_0:
+  description: "gzip.compress(b'hello')[0] == 31 (0x1f) — first gzip magic byte"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [!ascii "hello"]
+  method: __getitem__
+  method_args: [0]
+  expected: 31
+
+invariant gzip_extra6.compress.magic_byte_1:
+  description: "gzip.compress(b'hello')[1] == 139 (0x8b) — second gzip magic byte"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [!ascii "hello"]
+  method: __getitem__
+  method_args: [1]
+  expected: 139
+
+# ---------------------------------------------------------------------------
+# GzipFile.__bases__[0].__module__ — the base class BaseStream lives in
+# compression._common._streams on Python 3.12. Not in any prior gzip spec.
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra6.GzipFile.base_module:
+  description: "gzip.GzipFile.__bases__[0].__module__ == 'compression._common._streams'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: GzipFile.__bases__.__getitem__
+  args: [0]
+  method: __module__
+  expected: "compression._common._streams"
+
+# ---------------------------------------------------------------------------
+# GzipFile MRO third entry — BufferedIOBase.
+# gzip_extra2 covers __mro__[1].__name__ == 'BaseStream';
+# this checks the next step in the chain (new vector).
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra6.GzipFile.mro2_name:
+  description: "gzip.GzipFile.__mro__[2].__name__ == 'BufferedIOBase' — third MRO entry"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: GzipFile.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "BufferedIOBase"

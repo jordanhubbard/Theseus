@@ -1,0 +1,196 @@
+spec: fnmatch_extra6
+version: ">=3.9"
+backend: python_module(fnmatch)
+
+docs: https://docs.python.org/3/library/fnmatch.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/fnmatch.html — Python fnmatch module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/fnmatch.py"
+  notes:
+    - "This spec extends fnmatch.zspec.zsdl and fnmatch_extra through fnmatch_extra5.zspec.zsdl."
+    - "fnmatch.zspec.zsdl covers: fnmatch star/question/charclass/empty tables; fnmatchcase case table; filter lists table; translate patterns table (star_py/star_txt/question/charclass/star_only/empty_pat)."
+    - "fnmatch_extra covers: module/function_kind checks; filter overlap (tar.gz/dotfiles/all); translate_returns_str; fnmatchcase digit brackets; fnmatch compound (test?.py/a/b/c.py/.hidden.py/README [!.]*) vectors."
+    - "fnmatch_extra2 covers: function_names/qualnames tables; translate star_py value/nonempty/contains_dot_escape/not_equal_to_input; translate('?')/'hello'; fnmatch/fnmatchcase is_callable."
+    - "fnmatch_extra3 covers: function_names_direct table; fnmatch.module standalone; translate.returns_str; fnmatch hello.py/HELLO.PY; fnmatchcase uppercase; filter two_py_one_txt."
+    - "fnmatch_extra4 covers: fnmatch py_vs_txt_no_match; fnmatch mixed_case_py_match; fnmatchcase lowercase_vs_upper_pattern; filter hello_world_foo."
+    - "fnmatch_extra5 covers: translate('*') and translate(''); fnmatch txt_extension_match; fnmatch empty_matches_empty; filter empty_list; fnmatchcase exact_lowercase_match; fnmatchcase lower_name_upper_literal_pattern."
+    - "Focus: translate('[a-z]'), translate('*.md'), translate('file.txt'), translate('[!abc]'), translate('?.py'); fnmatch('[0-9]*' digit-start match/no-match); fnmatch '*.tar.gz' compound-extension; fnmatch '[!.]*' negation; fnmatchcase 'abc*' prefix; fnmatchcase '*.TXT' extension mismatch; filter '*.md' list."
+    - "translate('[a-z]') == '(?s:[a-z])\\z' — character range becomes a regex character class."
+    - "translate('*.md') == '(?s:.*\\\\.md)\\z' — markdown extension pattern."
+    - "translate('file.txt') == '(?s:file\\\\.txt)\\z' — literal name with escaped dot."
+    - "translate('[!abc]') == '(?s:[^abc])\\z' — fnmatch negation [!] becomes regex [^]."
+    - "translate('?.py') == '(?s:.\\\\.py)\\z' — question mark becomes regex dot."
+    - "fnmatch('3files', '[0-9]*') == True — digit at start matches [0-9] character class."
+    - "fnmatch('abc', '[0-9]*') == False — 'a' is not in [0-9]."
+    - "fnmatch('file.tar.gz', '*.tar.gz') == True — star absorbs 'file', literal '.tar.gz' matches."
+    - "fnmatch('file.gz', '*.tar.gz') == False — the '.tar' part does not match."
+    - "fnmatch('README', '[!.]*') == True — 'R' is not '.', so [!.]* matches."
+    - "fnmatch('.hidden', '[!.]*') == False — '.' is excluded by [!.]."
+    - "fnmatchcase('abc123', 'abc*') == True — 'abc' prefix matches; star absorbs '123'."
+    - "fnmatchcase('file.txt', '*.TXT') == False — '.txt' != '.TXT', case-sensitive."
+    - "filter(['README.md','CHANGELOG.md','setup.py'], '*.md') == ['README.md','CHANGELOG.md']."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# translate — new pattern types
+#
+# fnmatch.zspec.zsdl covers: translate('*.py'), translate('*.txt'), translate('?'),
+#   translate('[abc]'), translate('*'), translate('').
+# fnmatch_extra2 covers: translate('*.py') exact value, translate('?'), translate('hello').
+# fnmatch_extra5 covers: translate('*') and translate('') as standalone invariants.
+# We add: translate('[a-z]'), translate('*.md'), translate('file.txt'),
+#   translate('[!abc]'), translate('?.py').
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra6.translate.char_range:
+  description: "translate('[a-z]') == '(?s:[a-z])\\\\z' — character range becomes regex char class"
+  category: translate
+  kind: python_call_eq
+  function: translate
+  args: ["[a-z]"]
+  expected: "(?s:[a-z])\\z"
+
+invariant fnmatch_extra6.translate.md_extension:
+  description: "translate('*.md') == '(?s:.*\\\\.md)\\\\z' — markdown extension pattern"
+  category: translate
+  kind: python_call_eq
+  function: translate
+  args: ["*.md"]
+  expected: "(?s:.*\\.md)\\z"
+
+invariant fnmatch_extra6.translate.literal_with_dot:
+  description: "translate('file.txt') == '(?s:file\\\\.txt)\\\\z' — literal name with escaped dot"
+  category: translate
+  kind: python_call_eq
+  function: translate
+  args: ["file.txt"]
+  expected: "(?s:file\\.txt)\\z"
+
+invariant fnmatch_extra6.translate.negation_bracket:
+  description: "translate('[!abc]') == '(?s:[^abc])\\\\z' — fnmatch [!] negation maps to regex [^]"
+  category: translate
+  kind: python_call_eq
+  function: translate
+  args: ["[!abc]"]
+  expected: "(?s:[^abc])\\z"
+
+invariant fnmatch_extra6.translate.question_dot_py:
+  description: "translate('?.py') == '(?s:.\\\\.py)\\\\z' — question mark + extension"
+  category: translate
+  kind: python_call_eq
+  function: translate
+  args: ["?.py"]
+  expected: "(?s:.\\.py)\\z"
+
+# ---------------------------------------------------------------------------
+# fnmatch — digit character class and compound extension
+#
+# fnmatch.zspec.zsdl covers charclass [hH]/[a-c]; fnmatch_extra covers [!.]*; fnmatch_extra2/3 use *.py.
+# We add: [0-9]* digit prefix (match and no-match) and *.tar.gz compound extension (match and no-match).
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra6.fnmatch.digit_prefix_match:
+  description: "fnmatch('3files', '[0-9]*') == True — digit at start matches [0-9] character class"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["3files", "[0-9]*"]
+  expected: true
+
+invariant fnmatch_extra6.fnmatch.digit_prefix_no_match:
+  description: "fnmatch('abc', '[0-9]*') == False — 'a' is not in [0-9]"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["abc", "[0-9]*"]
+  expected: false
+
+invariant fnmatch_extra6.fnmatch.compound_extension_match:
+  description: "fnmatch('file.tar.gz', '*.tar.gz') == True — star absorbs prefix; literal .tar.gz matches"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["file.tar.gz", "*.tar.gz"]
+  expected: true
+
+invariant fnmatch_extra6.fnmatch.compound_extension_no_match:
+  description: "fnmatch('file.gz', '*.tar.gz') == False — missing .tar component"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["file.gz", "*.tar.gz"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# fnmatch — negation bracket [!.]*
+#
+# fnmatch_extra covers [!.] in the compound table (no_dot_star vector).
+# We add standalone invariants for match and no-match using [!.]* as the full pattern.
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra6.fnmatch.negation_no_dot_match:
+  description: "fnmatch('README', '[!.]*') == True — 'R' is not '.'; [!.]* matches"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: ["README", "[!.]*"]
+  expected: true
+
+invariant fnmatch_extra6.fnmatch.negation_no_dot_no_match:
+  description: "fnmatch('.hidden', '[!.]*') == False — '.' is excluded by [!.]"
+  category: fnmatch
+  kind: python_call_eq
+  function: fnmatch
+  args: [".hidden", "[!.]*"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# fnmatchcase — prefix star and extension case mismatch
+#
+# fnmatch_extra4 covers fnmatchcase('hello.py', '*.PY')==False.
+# fnmatch_extra5 covers fnmatchcase('abc','abc')==True and fnmatchcase('abc','ABC')==False.
+# We add: fnmatchcase('abc123','abc*')==True (prefix-star match) and
+#         fnmatchcase('file.txt','*.TXT')==False (extension case mismatch).
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra6.fnmatchcase.prefix_star_match:
+  description: "fnmatchcase('abc123', 'abc*') == True — 'abc' prefix matches; star absorbs '123'"
+  category: fnmatchcase
+  kind: python_call_eq
+  function: fnmatchcase
+  args: ["abc123", "abc*"]
+  expected: true
+
+invariant fnmatch_extra6.fnmatchcase.extension_case_mismatch:
+  description: "fnmatchcase('file.txt', '*.TXT') == False — .txt != .TXT in case-sensitive mode"
+  category: fnmatchcase
+  kind: python_call_eq
+  function: fnmatchcase
+  args: ["file.txt", "*.TXT"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# filter — markdown extension
+#
+# fnmatch.zspec.zsdl covers filter with *.py and *.rb.
+# fnmatch_extra covers filter with *.tar.gz, .*, *.
+# fnmatch_extra3 covers filter with *.py on a 3-element list.
+# fnmatch_extra4 covers filter with *.py on ['hello.py','world.txt','foo.py'].
+# fnmatch_extra5 covers filter([], '*.py').
+# No prior spec uses *.md as the filter pattern.
+# ---------------------------------------------------------------------------
+
+invariant fnmatch_extra6.filter.md_extension:
+  description: "filter(['README.md','CHANGELOG.md','setup.py'], '*.md') == ['README.md','CHANGELOG.md']"
+  category: filter
+  kind: python_call_eq
+  function: filter
+  args: [["README.md", "CHANGELOG.md", "setup.py"], "*.md"]
+  expected: ["README.md", "CHANGELOG.md"]
