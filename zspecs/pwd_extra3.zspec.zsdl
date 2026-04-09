@@ -1,0 +1,134 @@
+spec: pwd_extra3
+version: ">=3.9"
+backend: python_module(pwd)
+
+docs: https://docs.python.org/3/library/pwd.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pwd.html — Python pwd module documentation"
+    - "POSIX.1-2017 — IEEE Std 1003.1, passwd database access"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/pwdmodule.c"
+  notes:
+    - "This spec extends pwd.zspec.zsdl through pwd_extra2.zspec.zsdl with new, non-duplicate invariants."
+    - "pwd.zspec.zsdl covers: function __name__/is_builtin, struct_passwd __name__/__module__/n_sequence_fields/n_fields, getpwall returns list."
+    - "pwd_extra.zspec.zsdl covers: function __name__, struct_passwd __name__/__module__, __match_args__ is tuple/len/all 7 indices by __getitem__."
+    - "pwd_extra2.zspec.zsdl covers: n_unnamed_fields==0, __bases__[0] is tuple, __match_args__ __contains__ for all 7 fields, function __qualname__, function is_builtin, getpwall()[0] class."
+    - "New here: module __name__, struct_passwd __qualname__, function __module__ attributes, struct_passwd __bases__.__len__==1, struct_passwd __mro__ length and positions, function __doc__ type checks."
+    - "pwd is a POSIX-only module; it is available on macOS and Linux but NOT on Windows."
+    - "struct_passwd.__qualname__ == 'struct_passwd' — top-level class, not nested."
+    - "struct_passwd.__mro__ == [struct_passwd, tuple, object] — length 3."
+    - "getpwuid, getpwnam, getpwall all have __module__ == 'pwd'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module identity — pwd.__name__
+# Not covered in any prior pwd spec.
+# ---------------------------------------------------------------------------
+
+invariant pwd_extra3.module.name:
+  description: "pwd.__name__ == 'pwd' — the module's own __name__ attribute"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["pwd"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct_passwd.__qualname__ — not covered in any prior spec
+# pwd.zspec.zsdl and pwd_extra cover __name__ and __module__ but not __qualname__.
+# For a C struct-sequence type at module scope, __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+invariant pwd_extra3.struct_passwd.qualname:
+  description: "pwd.struct_passwd.__qualname__ == 'struct_passwd' — top-level class, not nested"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_passwd.__qualname__.__eq__
+  args: ["struct_passwd"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function __module__ attributes
+# Prior specs cover __name__ and __qualname__ but not __module__.
+# For C-level builtins in the pwd module, __module__ == 'pwd'.
+# ---------------------------------------------------------------------------
+
+table pwd_extra3.function_modules:
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getpwuid, getpwuid.__module__.__eq__, ["pwd"], true]
+    - [getpwnam, getpwnam.__module__.__eq__, ["pwd"], true]
+    - [getpwall, getpwall.__module__.__eq__, ["pwd"], true]
+
+# ---------------------------------------------------------------------------
+# Function __doc__ type checks
+# All three C-level pwd functions have non-None docstrings.
+# Not covered in any prior pwd spec.
+# ---------------------------------------------------------------------------
+
+table pwd_extra3.function_docs:
+  kind: python_call_eq
+  category: function_docs
+  id_prefix: fdoc
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getpwuid, getpwuid.__doc__.__class__.__name__.__eq__, ["str"], true]
+    - [getpwnam, getpwnam.__doc__.__class__.__name__.__eq__, ["str"], true]
+    - [getpwall, getpwall.__doc__.__class__.__name__.__eq__, ["str"], true]
+
+# ---------------------------------------------------------------------------
+# struct_passwd.__bases__.__len__ == 1 — single inheritance
+# pwd_extra2 checks __bases__[0].__name__=='tuple' but not the count.
+# ---------------------------------------------------------------------------
+
+invariant pwd_extra3.struct_passwd.bases_len:
+  description: "len(pwd.struct_passwd.__bases__) == 1 — struct_passwd has exactly one base class"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: struct_passwd.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# struct_passwd.__mro__ — method resolution order
+# struct_passwd inherits from tuple which inherits from object.
+# MRO: [struct_passwd, tuple, object] — length 3.
+# Not covered in any prior pwd spec.
+# ---------------------------------------------------------------------------
+
+invariant pwd_extra3.struct_passwd.mro_len:
+  description: "len(pwd.struct_passwd.__mro__) == 3 — MRO is [struct_passwd, tuple, object]"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: struct_passwd.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant pwd_extra3.struct_passwd.mro_1_is_tuple:
+  description: "pwd.struct_passwd.__mro__[1].__name__ == 'tuple' — MRO position 1 is tuple"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: struct_passwd.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "tuple"
+
+invariant pwd_extra3.struct_passwd.mro_2_is_object:
+  description: "pwd.struct_passwd.__mro__[2].__name__ == 'object' — MRO position 2 is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: struct_passwd.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "object"

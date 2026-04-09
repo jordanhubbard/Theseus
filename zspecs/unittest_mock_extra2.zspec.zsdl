@@ -1,0 +1,180 @@
+spec: unittest_mock_extra2
+version: ">=3.8"
+backend: python_module(unittest.mock)
+
+docs: https://docs.python.org/3/library/unittest.mock.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/unittest.mock.html — Python unittest.mock module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/unittest/mock.py"
+  notes:
+    - "This spec extends unittest_mock.zspec.zsdl and unittest_mock_extra.zspec.zsdl."
+    - "unittest_mock covers: Mock/MagicMock/AsyncMock/NonCallableMock/patch __name__; Mock/MagicMock/AsyncMock __module__; MagicMock.__bases__[0].__name__=='MagicMixinBase'; AsyncMock.__bases__[0].__name__=='AsyncMockMixin'; Mock().called/call_count; MagicMock().__class__.__name__; sentinel.__class__.__name__; call.__class__.__name__."
+    - "unittest_mock_extra covers: Mock/MagicMock/AsyncMock/patch/NonCallableMock/PropertyMock __qualname__; call.__qualname__; DEFAULT.__class__.__name__; Mock.__module__ standalone."
+    - "NEW in this spec: NonCallableMock/PropertyMock __module__ checks; NonCallableMock.__bases__[0].__name__=='Base'; PropertyMock.__bases__[0].__name__=='Mock'; ANY.__class__.__name__; call.__class__.__module__; MagicMock().called/call_count (MagicMock-specific, prior spec covers Mock only); Mock().call_args is None; Mock().return_value class name; patch.object/__name__ and patch.dict/__name__ (patch subclass method names)."
+    - "unittest.mock.NonCallableMock.__bases__[0].__name__ == 'Base' — NonCallableMock inherits from internal Base mixin."
+    - "unittest.mock.PropertyMock.__bases__[0].__name__ == 'Mock' — PropertyMock inherits from Mock."
+    - "unittest.mock.ANY is a special singleton that compares equal to everything; its class is _ANY."
+    - "unittest.mock.call.__class__.__module__ == 'unittest.mock' — the _Call class is defined in unittest.mock."
+    - "MagicMock().called is False and call_count is 0 — same as Mock but verified independently for MagicMock."
+    - "Mock().call_args is None for a mock that has never been called."
+    - "Mock().return_value is itself a Mock instance — __class__.__name__ == 'Mock'."
+    - "patch.object.__name__ == '_patch_object' — patch.object is a classmethod that returns a _patch_object instance."
+    - "patch.dict.__name__ == '_patch_dict' — patch.dict is implemented as _patch_dict."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# NonCallableMock and PropertyMock — module checks
+# unittest_mock covers __name__; unittest_mock_extra covers __qualname__.
+# __module__ is new here.
+# ---------------------------------------------------------------------------
+
+table unittest_mock_extra2.extended_class_modules:
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: cmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [NonCallableMock, NonCallableMock.__module__.__eq__, ["unittest.mock"], true]
+    - [PropertyMock,    PropertyMock.__module__.__eq__,    ["unittest.mock"], true]
+
+# ---------------------------------------------------------------------------
+# NonCallableMock.__bases__[0].__name__ — inherits from internal Base mixin.
+# Not covered in any prior unittest.mock spec.
+# ---------------------------------------------------------------------------
+
+invariant unittest_mock_extra2.NonCallableMock.base:
+  description: "unittest.mock.NonCallableMock.__bases__[0].__name__ == 'Base' — inherits from internal Base mixin"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: NonCallableMock.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Base"
+
+# ---------------------------------------------------------------------------
+# PropertyMock.__bases__[0].__name__ — inherits from Mock.
+# Not covered in any prior unittest.mock spec.
+# ---------------------------------------------------------------------------
+
+invariant unittest_mock_extra2.PropertyMock.base:
+  description: "unittest.mock.PropertyMock.__bases__[0].__name__ == 'Mock' — PropertyMock inherits from Mock"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: PropertyMock.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Mock"
+
+# ---------------------------------------------------------------------------
+# ANY — the universal equality sentinel.
+# Not covered in any prior unittest.mock spec.
+# ---------------------------------------------------------------------------
+
+invariant unittest_mock_extra2.ANY.class_name:
+  description: "unittest.mock.ANY.__class__.__name__ == '_ANY' — ANY is a _ANY singleton"
+  category: sentinel
+  kind: python_call_eq
+  function: ANY.__class__.__name__.__eq__
+  args: ["_ANY"]
+  expected: true
+
+invariant unittest_mock_extra2.ANY.class_module:
+  description: "unittest.mock.ANY.__class__.__module__ == 'unittest.mock'"
+  category: sentinel
+  kind: python_call_eq
+  function: ANY.__class__.__module__.__eq__
+  args: ["unittest.mock"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# call.__class__.__module__ — the _Call class lives in unittest.mock.
+# unittest_mock covers call.__class__.__name__ == '_Call';
+# __module__ is new here.
+# ---------------------------------------------------------------------------
+
+invariant unittest_mock_extra2.call.class_module:
+  description: "unittest.mock.call.__class__.__module__ == 'unittest.mock'"
+  category: call_helper
+  kind: python_call_eq
+  function: call.__class__.__module__.__eq__
+  args: ["unittest.mock"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# MagicMock instance — called and call_count.
+# unittest_mock covers these for Mock; this verifies MagicMock independently.
+# ---------------------------------------------------------------------------
+
+invariant unittest_mock_extra2.MagicMock.called_false:
+  description: "MagicMock().called == False — a fresh MagicMock has never been called"
+  category: mock_instance
+  kind: python_call_eq
+  function: MagicMock
+  args: []
+  method: called
+  expected: false
+
+invariant unittest_mock_extra2.MagicMock.call_count_zero:
+  description: "MagicMock().call_count == 0 — a fresh MagicMock has call_count of zero"
+  category: mock_instance
+  kind: python_call_eq
+  function: MagicMock
+  args: []
+  method: call_count
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# Mock().call_args — None for an uncalled mock.
+# Not covered in any prior unittest.mock spec.
+# ---------------------------------------------------------------------------
+
+invariant unittest_mock_extra2.Mock.call_args_none:
+  description: "Mock().call_args is None — call_args is None before any call"
+  category: mock_instance
+  kind: python_call_eq
+  function: Mock
+  args: []
+  method: call_args.__class__.__name__.__eq__
+  method_args: ["NoneType"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Mock().return_value — the return_value of a fresh Mock is itself a Mock.
+# Not covered in any prior unittest.mock spec.
+# ---------------------------------------------------------------------------
+
+invariant unittest_mock_extra2.Mock.return_value_is_mock:
+  description: "Mock().return_value.__class__.__name__ == 'Mock' — return_value is a Mock instance"
+  category: mock_instance
+  kind: python_call_eq
+  function: Mock
+  args: []
+  method: return_value.__class__.__name__.__eq__
+  method_args: ["Mock"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# patch classmethod names — patch.object, patch.dict, patch.multiple.
+# These are classmethods on the patch class; their __name__ attributes
+# reveal the underlying implementation class names.
+# Not covered in any prior unittest.mock spec.
+# ---------------------------------------------------------------------------
+
+table unittest_mock_extra2.patch_submethods:
+  kind: python_call_eq
+  category: patch_attrs
+  id_prefix: pattr
+
+  columns: [id, function, args, expected]
+  rows:
+    - [patch_object,   patch.object.__name__.__eq__,   ["_patch_object"],   true]
+    - [patch_dict,     patch.dict.__name__.__eq__,     ["_patch_dict"],     true]
+    - [patch_multiple, patch.multiple.__name__.__eq__, ["_patch_multiple"], true]

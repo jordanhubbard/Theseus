@@ -1,0 +1,141 @@
+spec: zoneinfo_extra2
+version: ">=3.9"
+backend: python_module(zoneinfo)
+
+docs: https://docs.python.org/3/library/zoneinfo.html
+
+provenance:
+  derived_from:
+    - "Python zoneinfo documentation — https://docs.python.org/3/library/zoneinfo.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/zoneinfo/_common.py, Lib/zoneinfo/_tzpath.py"
+    - "tzdata package — https://pypi.org/project/tzdata/"
+    - "zoneinfo.zspec.zsdl — covers ZoneInfo/__name__, ZoneInfo/__module__, ZoneInfoNotFoundError/__name__, available_timezones/__name__, ZoneInfoNotFoundError base=KeyError, available_timezones returns set / contains UTC+America/New_York, ZoneInfo('UTC') class"
+    - "zoneinfo_extra.zspec.zsdl — covers class_names table (ZoneInfo/ZoneInfoNotFoundError __name__), ZoneInfo/__module__, ZoneInfoNotFoundError base=KeyError, available_timezones/__name__/__returns_set__/min_count"
+  notes:
+    - "This spec adds new axes not present in either prior zoneinfo spec."
+    - "New axis 1: __qualname__ for ZoneInfo, ZoneInfoNotFoundError, available_timezones."
+    - "New axis 2: ZoneInfo.__bases__[0].__name__ == 'tzinfo' — ZoneInfo subclasses datetime.tzinfo."
+    - "New axis 3: ZoneInfoNotFoundError.__module__ == 'zoneinfo._common' — defined in the internal submodule."
+    - "New axis 4: available_timezones.__module__ == 'zoneinfo._tzpath' — defined in the internal submodule."
+    - "New axis 5: ZoneInfo instance .key attribute — ZoneInfo('UTC').key == 'UTC'."
+    - "New axis 6: additional timezone keys in available_timezones() beyond UTC and America/New_York."
+    - "zoneinfo.ZoneInfo.__qualname__ == 'ZoneInfo' — class qualname equals unqualified name."
+    - "zoneinfo.ZoneInfoNotFoundError.__qualname__ == 'ZoneInfoNotFoundError'."
+    - "zoneinfo.available_timezones.__qualname__ == 'available_timezones'."
+    - "zoneinfo.ZoneInfo.__bases__[0].__name__ == 'tzinfo' — verified Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "zoneinfo.ZoneInfoNotFoundError.__module__ == 'zoneinfo._common' — verified Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "zoneinfo.available_timezones.__module__ == 'zoneinfo._tzpath' — verified Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "zoneinfo.ZoneInfo('UTC').key == 'UTC' — the .key attribute holds the IANA key used to construct the object."
+    - "zoneinfo.ZoneInfo('America/New_York').key == 'America/New_York' — .key reflects the constructor argument."
+    - "available_timezones() contains 'Europe/London' and 'Asia/Tokyo' on all standard IANA tzdata installs."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "ZoneInfo() raises ZoneInfoNotFoundError (subclass of KeyError) for unknown timezone keys"
+  stderr: "null"
+  stickiness: "N/A"
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# __qualname__ checks — new axis; not in any prior zoneinfo* spec
+# ---------------------------------------------------------------------------
+
+table zoneinfo_extra2.qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ZoneInfo,              ZoneInfo.__qualname__.__eq__,              ["ZoneInfo"],              true]
+    - [ZoneInfoNotFoundError, ZoneInfoNotFoundError.__qualname__.__eq__, ["ZoneInfoNotFoundError"], true]
+    - [available_timezones,   available_timezones.__qualname__.__eq__,   ["available_timezones"],   true]
+
+# ---------------------------------------------------------------------------
+# ZoneInfo base class — ZoneInfo subclasses datetime.tzinfo
+#
+# Neither prior spec checks ZoneInfo.__bases__. The ZoneInfo class inherits
+# from datetime.tzinfo to integrate with the datetime system.
+# ---------------------------------------------------------------------------
+
+invariant zoneinfo_extra2.ZoneInfo.base_is_tzinfo:
+  description: "zoneinfo.ZoneInfo.__bases__[0].__name__ == 'tzinfo' — ZoneInfo subclasses datetime.tzinfo"
+  category: hierarchy
+  kind: python_call_eq
+  function: ZoneInfo.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "tzinfo"
+
+# ---------------------------------------------------------------------------
+# Module membership — internal submodule locations
+#
+# ZoneInfoNotFoundError and available_timezones are defined in internal
+# submodules (_common and _tzpath). Neither prior spec checks these.
+# ---------------------------------------------------------------------------
+
+invariant zoneinfo_extra2.ZoneInfoNotFoundError.module:
+  description: "zoneinfo.ZoneInfoNotFoundError.__module__ == 'zoneinfo._common'"
+  category: modules
+  kind: python_call_eq
+  function: ZoneInfoNotFoundError.__module__.__eq__
+  args: ["zoneinfo._common"]
+  expected: true
+
+invariant zoneinfo_extra2.available_timezones.module:
+  description: "zoneinfo.available_timezones.__module__ == 'zoneinfo._tzpath'"
+  category: modules
+  kind: python_call_eq
+  function: available_timezones.__module__.__eq__
+  args: ["zoneinfo._tzpath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ZoneInfo .key attribute
+#
+# ZoneInfo instances expose a .key attribute containing the IANA timezone
+# string passed to the constructor. Neither prior spec tests this attribute.
+# ---------------------------------------------------------------------------
+
+invariant zoneinfo_extra2.ZoneInfo.utc_key:
+  description: "zoneinfo.ZoneInfo('UTC').key == 'UTC' — .key attribute holds the constructor argument"
+  category: behavioral
+  kind: python_call_eq
+  function: ZoneInfo
+  args: ["UTC"]
+  method: key
+  method_args: []
+  expected: "UTC"
+
+invariant zoneinfo_extra2.ZoneInfo.new_york_key:
+  description: "zoneinfo.ZoneInfo('America/New_York').key == 'America/New_York'"
+  category: behavioral
+  kind: python_call_eq
+  function: ZoneInfo
+  args: ["America/New_York"]
+  method: key
+  method_args: []
+  expected: "America/New_York"
+
+# ---------------------------------------------------------------------------
+# Behavioral — available_timezones() contains additional well-known keys
+#
+# zoneinfo and zoneinfo_extra confirm UTC and America/New_York.
+# This spec adds Europe/London, Asia/Tokyo, and Pacific/Auckland as three
+# additional timezone keys guaranteed present on standard IANA tzdata installs.
+# ---------------------------------------------------------------------------
+
+table zoneinfo_extra2.additional_timezones:
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: tzcontains
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [europe_london,   available_timezones, [], __contains__, ["Europe/London"],    true]
+    - [asia_tokyo,      available_timezones, [], __contains__, ["Asia/Tokyo"],        true]
+    - [pacific_auckland, available_timezones, [], __contains__, ["Pacific/Auckland"], true]

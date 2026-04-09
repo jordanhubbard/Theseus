@@ -1,0 +1,118 @@
+spec: unittest_extra6
+version: ">=3.9"
+backend: python_module(unittest)
+
+docs: https://docs.python.org/3/library/unittest.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/unittest.html — Python unittest module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/unittest/__init__.py"
+  notes:
+    - "This spec extends unittest through unittest_extra5."
+    - "unittest covers: class __name__ table, function __name__ table, SkipTest.__bases__[0], TestLoader prefix, TestSuite/TestResult initial state."
+    - "unittest_extra covers: class __module__ table, decorator __module__ table, main identity/module, TestCase/FunctionTestCase bases, TestLoader/TestResult state."
+    - "unittest_extra2 covers: TextTestRunner/TextTestResult __module__, BaseTestSuite __name__+__module__, class hierarchy bases."
+    - "unittest_extra3 covers: IsolatedAsyncioTestCase.__module__, standalone module anchors, TestCase method names (setUp/tearDown/assertEqual/assertTrue/assertRaises/assertFalse/assertIsNone/assertIn/assertNotEqual/assertIsInstance), decorator type checks, SkipTest/TestSuite base anchors."
+    - "unittest_extra4 covers: class_names table, decorator_names table, class_modules table, SkipTest.base, TestCase.__class__.__name__, defaultTestLoader.__class__.__name__."
+    - "unittest_extra5 covers: __qualname__ table for classes and decorators/main, TestCase.__module__ standalone."
+    - "NEW in this spec: signal-function module checks (installHandler/registerResult/removeResult/removeHandler are in unittest.signals), signal function __qualname__ checks, IsolatedAsyncioTestCase.__bases__[0].__name__, IsolatedAsyncioTestCase.__qualname__, IsolatedAsyncioTestCase.__module__ == 'unittest.async_case' (not .case), additional TestCase method names not yet covered (addCleanup/assertAlmostEqual/assertGreater/assertRegex/assertLess/skipTest/countTestCases)."
+    - "unittest.installHandler.__module__ == 'unittest.signals' — all four signal helpers live in Lib/unittest/signals.py."
+    - "unittest.IsolatedAsyncioTestCase.__module__ == 'unittest.async_case' — NOT 'unittest.case'; defined in Lib/unittest/async_case.py."
+    - "unittest.IsolatedAsyncioTestCase.__bases__[0].__name__ == 'TestCase'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Signal-function module checks — not covered in any prior unittest spec.
+# installHandler/registerResult/removeResult/removeHandler all live in
+# unittest.signals (Lib/unittest/signals.py), not unittest.case.
+# ---------------------------------------------------------------------------
+
+table unittest_extra6.signal_modules:
+  kind: python_call_eq
+  category: signal_modules
+  id_prefix: sigmod
+
+  columns: [id, function, args, expected]
+  rows:
+    - [installHandler, installHandler.__module__.__eq__, ["unittest.signals"], true]
+    - [registerResult, registerResult.__module__.__eq__, ["unittest.signals"], true]
+    - [removeResult,   removeResult.__module__.__eq__,   ["unittest.signals"], true]
+    - [removeHandler,  removeHandler.__module__.__eq__,  ["unittest.signals"], true]
+
+# ---------------------------------------------------------------------------
+# Signal-function __qualname__ checks — not covered in any prior spec.
+# All four are top-level functions; qualname equals name.
+# ---------------------------------------------------------------------------
+
+table unittest_extra6.signal_qualnames:
+  kind: python_call_eq
+  category: signal_qualnames
+  id_prefix: sigqn
+
+  columns: [id, function, args, expected]
+  rows:
+    - [installHandler, installHandler.__qualname__.__eq__, ["installHandler"], true]
+    - [registerResult, registerResult.__qualname__.__eq__, ["registerResult"], true]
+    - [removeResult,   removeResult.__qualname__.__eq__,   ["removeResult"],   true]
+    - [removeHandler,  removeHandler.__qualname__.__eq__,  ["removeHandler"],  true]
+
+# ---------------------------------------------------------------------------
+# IsolatedAsyncioTestCase — module, qualname, and base class.
+# unittest_extra3 incorrectly notes this as unittest.case; runtime confirms
+# it is unittest.async_case. __qualname__ and __bases__[0] are both new.
+# ---------------------------------------------------------------------------
+
+invariant unittest_extra6.IsolatedAsyncioTestCase.module:
+  description: "unittest.IsolatedAsyncioTestCase.__module__ == 'unittest.async_case' — defined in Lib/unittest/async_case.py"
+  category: class_modules
+  kind: python_call_eq
+  function: IsolatedAsyncioTestCase.__module__.__eq__
+  args: ["unittest.async_case"]
+  expected: true
+
+invariant unittest_extra6.IsolatedAsyncioTestCase.qualname:
+  description: "unittest.IsolatedAsyncioTestCase.__qualname__ == 'IsolatedAsyncioTestCase'"
+  category: qualnames
+  kind: python_call_eq
+  function: IsolatedAsyncioTestCase.__qualname__.__eq__
+  args: ["IsolatedAsyncioTestCase"]
+  expected: true
+
+invariant unittest_extra6.IsolatedAsyncioTestCase.base_is_TestCase:
+  description: "unittest.IsolatedAsyncioTestCase.__bases__[0].__name__ == 'TestCase'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: IsolatedAsyncioTestCase.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "TestCase"
+
+# ---------------------------------------------------------------------------
+# Additional TestCase method names not covered in unittest_extra3.
+# unittest_extra3 covers: setUp, tearDown, assertEqual, assertTrue,
+# assertRaises, assertFalse, assertIsNone, assertIn, assertNotEqual,
+# assertIsInstance.
+# New here: addCleanup, assertAlmostEqual, assertGreater, assertRegex,
+# assertLess, skipTest, countTestCases.
+# ---------------------------------------------------------------------------
+
+table unittest_extra6.TestCase.extra_method_names:
+  kind: python_call_eq
+  category: method_names
+  id_prefix: mname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [addCleanup,       TestCase.addCleanup.__name__.__eq__,       ["addCleanup"],       true]
+    - [assertAlmostEqual, TestCase.assertAlmostEqual.__name__.__eq__, ["assertAlmostEqual"], true]
+    - [assertGreater,    TestCase.assertGreater.__name__.__eq__,    ["assertGreater"],    true]
+    - [assertRegex,      TestCase.assertRegex.__name__.__eq__,      ["assertRegex"],      true]
+    - [assertLess,       TestCase.assertLess.__name__.__eq__,       ["assertLess"],       true]
+    - [skipTest,         TestCase.skipTest.__name__.__eq__,         ["skipTest"],         true]
+    - [countTestCases,   TestCase.countTestCases.__name__.__eq__,   ["countTestCases"],   true]
