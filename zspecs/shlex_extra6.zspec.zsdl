@@ -1,0 +1,165 @@
+spec: shlex_extra6
+version: ">=3.8"
+backend: python_module(shlex)
+
+docs: https://docs.python.org/3/library/shlex.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/shlex.html — Python shlex module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/shlex.py"
+  notes:
+    - "This spec extends shlex.zspec.zsdl and shlex_extra through shlex_extra5.zspec.zsdl."
+    - "shlex.zspec.zsdl covers: split/join/quote behavioral tables; ValueError on unclosed quotes."
+    - "shlex_extra covers: shlex.__name__/__module__, split/join/quote __name__ checks (table), selected split/quote standalone invariants."
+    - "shlex_extra2 covers: shlex.__name__/__module__, split/join/quote __name__/__module__ (tables), whitespace type/membership checks, shlex.__bases__[0].__name__=='object'."
+    - "shlex_extra3 covers: split/join/quote __qualname__ (table), shlex.__qualname__, join behavioral invariants, split three_words, quote hyphen_prefixed."
+    - "shlex_extra4 covers: split/join/quote __class__.__name__=='function' (table), shlex.__class__.__name__=='type', wordchars contains 'a'/'z'/'_', quote(';cmd') and quote('hello=world'), split single-quoted token."
+    - "shlex_extra5 covers: quote tilde/pipe/ampersand/backtick, split tab_separator/comments_true/posix_false, join three_safe_tokens/dollar_sign_token, split five_words, shlex.__doc__ is str."
+    - "NEW in this spec: shlex instance attribute behavioral invariants: shlex().quotes, shlex().commenters, shlex().escape, shlex().token, shlex().eof, shlex().debug, shlex().whitespace_split, shlex().punctuation_chars. These are instance attrs set in __init__, not class-level attrs. Also: split with backslash-escaped space, quote with forward slash (safe), quote with dot (safe in some paths)."
+    - "shlex.shlex().quotes == '\\''\"' — both single and double quote characters are recognized."
+    - "shlex.shlex().commenters == '#' — the hash character starts a comment by default."
+    - "shlex.shlex().escape == '\\\\' — backslash is the escape character."
+    - "shlex.shlex().token == '' — the current token buffer is empty on construction."
+    - "shlex.shlex().eof == '' — eof token is empty string by default."
+    - "shlex.shlex().debug == 0 — debug mode is off by default."
+    - "shlex.shlex().whitespace_split == False — word splitting does not use whitespace-only mode by default."
+    - "shlex.shlex().punctuation_chars == '' — no punctuation characters treated specially by default."
+    - "shlex.split('hello\\\\ world') == ['hello world'] — backslash escapes the space in POSIX mode."
+    - "shlex.quote('/usr/bin/python') == '/usr/bin/python' — forward slashes are shell-safe."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# shlex instance attribute behavioral invariants
+# These test the per-instance state set in shlex.__init__().
+# No prior shlex spec covers any of these instance attributes.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra6.instance.quotes:
+  description: "shlex.shlex().quotes == '\\''\"' — single and double quotes are recognized"
+  category: instance_attrs
+  kind: python_call_eq
+  function: shlex
+  args: []
+  method: quotes.__eq__
+  method_args: ["'\""]
+  expected: true
+
+invariant shlex_extra6.instance.commenters:
+  description: "shlex.shlex().commenters == '#' — hash starts a comment by default"
+  category: instance_attrs
+  kind: python_call_eq
+  function: shlex
+  args: []
+  method: commenters.__eq__
+  method_args: ["#"]
+  expected: true
+
+invariant shlex_extra6.instance.escape:
+  description: "shlex.shlex().escape == '\\\\' — backslash is the escape character"
+  category: instance_attrs
+  kind: python_call_eq
+  function: shlex
+  args: []
+  method: escape.__eq__
+  method_args: ["\\"]
+  expected: true
+
+invariant shlex_extra6.instance.token:
+  description: "shlex.shlex().token == '' — current token buffer is empty on construction"
+  category: instance_attrs
+  kind: python_call_eq
+  function: shlex
+  args: []
+  method: token.__eq__
+  method_args: [""]
+  expected: true
+
+invariant shlex_extra6.instance.eof:
+  description: "shlex.shlex().eof == '' — eof token is empty string by default"
+  category: instance_attrs
+  kind: python_call_eq
+  function: shlex
+  args: []
+  method: eof.__eq__
+  method_args: [""]
+  expected: true
+
+invariant shlex_extra6.instance.debug:
+  description: "shlex.shlex().debug == 0 — debug mode is off by default"
+  category: instance_attrs
+  kind: python_call_eq
+  function: shlex
+  args: []
+  method: debug.__eq__
+  method_args: [0]
+  expected: true
+
+invariant shlex_extra6.instance.whitespace_split:
+  description: "shlex.shlex().whitespace_split == False — whitespace-only split mode is off by default"
+  category: instance_attrs
+  kind: python_call_eq
+  function: shlex
+  args: []
+  method: whitespace_split.__eq__
+  method_args: [false]
+  expected: true
+
+invariant shlex_extra6.instance.punctuation_chars:
+  description: "shlex.shlex().punctuation_chars == '' — no punctuation chars are treated specially by default"
+  category: instance_attrs
+  kind: python_call_eq
+  function: shlex
+  args: []
+  method: punctuation_chars.__eq__
+  method_args: [""]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# shlex.split — backslash-escaped space (POSIX mode)
+# In POSIX mode, a backslash before a space escapes it so the space is part
+# of the token. Result: ['hello world'] (one token, not two).
+# Not covered by any prior shlex spec.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra6.split.backslash_space:
+  description: "shlex.split('hello\\\\ world') == ['hello world'] — backslash escapes the space in POSIX mode"
+  category: split
+  kind: python_call_eq
+  function: split
+  args: ["hello\\ world"]
+  expected: ["hello world"]
+
+# ---------------------------------------------------------------------------
+# shlex.quote — forward slash is safe
+# shlex.quote('/usr/bin/python') == '/usr/bin/python' because slashes are
+# not shell-special. Verified on Python 3.12.
+# Not covered by any prior shlex spec.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra6.quote.forward_slash:
+  description: "shlex.quote('/usr/bin/python') == '/usr/bin/python' — forward slashes are shell-safe"
+  category: quote
+  kind: python_call_eq
+  function: quote
+  args: ["/usr/bin/python"]
+  expected: "/usr/bin/python"
+
+# ---------------------------------------------------------------------------
+# shlex.quote — underscore+dot token is safe
+# 'foo_bar.txt' is safe (letters, digits, underscore, dot); quote returns it unchanged.
+# Verified on Python 3.12: shlex.quote('foo_bar.txt') == 'foo_bar.txt'
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra6.quote.dot_in_token:
+  description: "shlex.quote('foo_bar.txt') == 'foo_bar.txt' — underscores and dots are shell-safe"
+  category: quote
+  kind: python_call_eq
+  function: quote
+  args: ["foo_bar.txt"]
+  expected: "foo_bar.txt"
