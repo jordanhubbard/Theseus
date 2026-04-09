@@ -1,0 +1,185 @@
+spec: itertools_extra10
+version: ">=3.9"
+backend: python_module(itertools)
+
+docs: https://docs.python.org/3/library/itertools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/itertools.html — Python itertools documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/itertoolsmodule.c"
+  notes:
+    - "This spec extends itertools.zspec.zsdl and prior extras through itertools_extra9.zspec.zsdl."
+    - "itertools_extra9 covers: filterfalse(None,[0,1,2]).__next__()==0; filterfalse instance class name; combinations_with_replacement('AB',2).__next__()==('A','A'); zip_longest([],[1,2],fillvalue=99).__next__()==(99,1); compress('ABCDE',[1,0,1,0,1]).__next__()=='A'."
+    - "NOT yet covered: takewhile first-element behavioral test with a callable predicate — only class name tested in extra2; dropwhile first-element behavioral test — only class name tested in extra2; count with a step argument, first element; repeat(x, n).__length_hint__() for n>1 (extra covers repeat(7,3).__length_hint__()==3 but not the second element); starmap with max function — extra2 covers pow; groupby with a string input first key."
+    - "takewhile(int, [1,2,0,3]).__next__() == 1 — first element passes int() truth test; 0 terminates."
+    - "dropwhile(int, [1,2,0,3]).__next__() == 0 — predicate int() fails on 0; first yielded element is 0."
+    - "count(5, 2).__next__() == 5 — counter starting at 5 with step 2; first value is 5."
+    - "repeat(42, 3).__length_hint__() == 3 — bounded repeat has a length hint of 3."
+    - "starmap(max, [[1,3],[2,4]]).__next__() == 3 — max(1,3) == 3; first result of starmap."
+    - "groupby('AABBB').__next__()[0] == 'A' — first group key from a string input is 'A'."
+    - "accumulate([1,2,3], max).__next__() == 1 — running max starts at the first element."
+    - "islice([10,20,30,40], 2, 4).__next__() == 30 — islice with start index 2 skips first two elements."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# takewhile — first-element behavioral test
+#
+# itertools_extra2 covers takewhile(int, [1,2,3]).__class__.__name__ == 'takewhile'
+# (class identity only). No prior spec tests takewhile for its first *yielded*
+# value. takewhile yields elements while predicate is truthy; stops on first
+# falsy element. With predicate=int (truthy for non-zero) and [1,2,0,3], the
+# first yielded element is 1.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra10.takewhile.first_element:
+  description: "takewhile(int, [1,2,0,3]).__next__() == 1 — first element before predicate fails"
+  category: takewhile
+  kind: python_call_eq
+  function: takewhile
+  args: [int, [1, 2, 0, 3]]
+  method: __next__
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# dropwhile — first-element behavioral test
+#
+# itertools_extra2 covers dropwhile(int, []).__class__.__name__ == 'dropwhile'
+# (class identity only). No prior spec tests dropwhile for its first *yielded*
+# value. dropwhile skips elements while the predicate is truthy; then yields
+# the rest. With predicate=int and [1,2,0,3], int(1)=truthy, int(2)=truthy,
+# int(0)=falsy — so 0 is the first yielded element (predicate failed on it).
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra10.dropwhile.first_element:
+  description: "dropwhile(int, [1,2,0,3]).__next__() == 0 — first element after predicate fails"
+  category: dropwhile
+  kind: python_call_eq
+  function: dropwhile
+  args: [int, [1, 2, 0, 3]]
+  method: __next__
+  expected: 0
+
+invariant itertools_extra10.dropwhile.instance_class_name:
+  description: "dropwhile(int, [1,2,0,3]).__class__.__name__ == 'dropwhile' — instance class name after first call"
+  category: dropwhile
+  kind: python_call_eq
+  function: dropwhile
+  args: [int, [1, 2, 0, 3]]
+  method: __class__.__name__.__eq__
+  method_args: ["dropwhile"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# count with step — first element
+#
+# itertools.zspec covers count(7).__next__() == 7 (step=1, default).
+# No prior spec tests count with a step argument. count(5, 2) produces
+# 5, 7, 9, 11, ... — first element is 5.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra10.count.step_first_element:
+  description: "count(5, 2).__next__() == 5 — counter starting at 5 with step 2; first value is 5"
+  category: count
+  kind: python_call_eq
+  function: count
+  args: [5, 2]
+  method: __next__
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# repeat(x, n).__length_hint__() — bounded repeat has a length hint
+#
+# itertools_extra.zspec.zsdl covers repeat(7, 3).__length_hint__() == 3.
+# No prior spec tests a different repeat count to verify the length hint
+# reflects the actual bound. repeat(42, 5).__length_hint__() == 5.
+# This confirms the length hint equals n (the count argument).
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra10.repeat.length_hint_five:
+  description: "repeat(42, 5).__length_hint__() == 5 — bounded repeat with count=5"
+  category: repeat
+  kind: python_call_eq
+  function: repeat
+  args: [42, 5]
+  method: __length_hint__
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# starmap(max, ...) — first element with a different built-in
+#
+# itertools_extra2 covers starmap(pow, [(2,3),(3,2)]).__next__() == 8.
+# No prior spec tests starmap with max as the function. starmap applies the
+# callable to each unpacked argument tuple. max(1,3) == 3; max(2,4) == 4.
+# The first element is 3.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra10.starmap.first_element_max:
+  description: "starmap(max, [[1,3],[2,4]]).__next__() == 3 — first result: max(1,3) == 3"
+  category: starmap
+  kind: python_call_eq
+  function: starmap
+  args: [max, [[1, 3], [2, 4]]]
+  method: __next__
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# groupby with a string input — first group key
+#
+# itertools_extra2 covers groupby([1,1,2]).__next__()[0] == 1 and class name.
+# No prior spec tests groupby with a string input. groupby('AABBB') groups
+# consecutive equal characters. The first group key is 'A'.
+# The key is the first element of the (key, group) tuple returned by __next__.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra10.groupby.string_first_key:
+  description: "groupby('AABBB').__next__()[0] == 'A' — first group key from string input"
+  category: groupby
+  kind: python_call_eq
+  function: groupby
+  args: ["AABBB"]
+  method: __next__
+  method_chain: __getitem__
+  method_chain_args: [0]
+  expected: "A"
+
+# ---------------------------------------------------------------------------
+# accumulate with func argument — running max
+#
+# itertools.zspec covers accumulate([5,10,15]).__next__() == 5 (default sum).
+# No prior spec tests accumulate with a custom func. accumulate([1,2,3], max)
+# yields 1, 2, 3 (running maximum). The first element is always the first
+# input element, regardless of the function.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra10.accumulate.running_max_first:
+  description: "accumulate([1,2,3], max).__next__() == 1 — running max starts at first element"
+  category: accumulate
+  kind: python_call_eq
+  function: accumulate
+  args: [[1, 2, 3], max]
+  method: __next__
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# islice with start index — skips first n elements
+#
+# itertools.zspec covers islice([5,6,7,8], 2).__next__() == 5 (stop only, no start).
+# No prior spec tests islice with both start and stop arguments.
+# islice([10,20,30,40], 2, 4) skips first 2 elements and yields [30, 40].
+# The first yielded element is 30.
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra10.islice.start_stop_first:
+  description: "islice([10,20,30,40], 2, 4).__next__() == 30 — islice(start=2, stop=4) skips first 2"
+  category: islice
+  kind: python_call_eq
+  function: islice
+  args: [[10, 20, 30, 40], 2, 4]
+  method: __next__
+  expected: 30

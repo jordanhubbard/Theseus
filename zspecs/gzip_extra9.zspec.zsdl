@@ -1,0 +1,137 @@
+spec: gzip_extra9
+version: ">=3.8"
+backend: python_module(gzip)
+
+docs: https://docs.python.org/3/library/gzip.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gzip.html — Python gzip documentation"
+    - "RFC 1952 — GZIP file format specification version 4.3"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/gzip.py"
+  notes:
+    - "This spec extends gzip.zspec.zsdl through gzip_extra8.zspec.zsdl."
+    - "gzip_extra8 covers: GzipFile.__mro__[4].__name__=='IOBase'; compress(b'hello')[3]==0 (FLG); compress(b'hello',9)[8]==2 (XFL); compress(b'hello',9)[9]==255 (OS); compress(b'hello',9).__len__().__eq__(25) bool form."
+    - "gzip_extra7 covers: GzipFile/BadGzipFile __class__.__name__=='type'; open/compress/decompress __class__.__name__=='function'; FEXTRA/FCOMMENT class names; GzipFile.__mro__[3]=='RawIOBase'; BadGzipFile.__module__ bool form; compress(b'a') len==21; compress(b'hello')[2]==8."
+    - "gzip_extra6 covers: FTEXT/FHCRC/FEXTRA/FNAME/FCOMMENT constants; compress magic bytes [0] and [1]; GzipFile.__bases__[0].__module__; GzipFile.__mro__[2].__name__."
+    - "No prior spec covers: gzip.GzipFile.__mro__[5].__name__ — fifth-index MRO entry."
+    - "No prior spec covers: gzip.BadGzipFile.__mro__[1].__name__ == 'OSError' — BadGzipFile MRO depth 1."
+    - "No prior spec covers: gzip.BadGzipFile.__mro__[2].__name__ == 'Exception' — BadGzipFile MRO depth 2."
+    - "No prior spec covers: gzip.BadGzipFile.__mro__[3].__name__ == 'BaseException' — BadGzipFile MRO depth 3."
+    - "No prior spec covers: gzip.compress(b'') output length == 20 bytes (empty-input overhead)."
+    - "No prior spec covers: gzip.compress(b'', compresslevel=1) length == 20 — level-1 empty output."
+    - "No prior spec covers: gzip.FTEXT == 1 bool form (__eq__ returning True) — distinct from value check in extra6."
+    - "No prior spec covers: gzip.FNAME == 8 bool form (__eq__ returning True) — distinct from value check in extra6."
+    - "gzip.GzipFile.__mro__: [GzipFile, BaseStream, BufferedIOBase, _BufferedIOBase, IOBase, _IOBase, object]."
+    - "gzip.GzipFile.__mro__[5].__name__ == '_IOBase' — the private _IOBase abstract base at index 5."
+    - "gzip.BadGzipFile.__mro__: [BadGzipFile, OSError, Exception, BaseException, object]."
+    - "gzip.compress(b'') produces a 20-byte output: 10-byte header + 2-byte empty deflate stream + 8-byte trailer."
+    - "gzip.FTEXT == 1, gzip.FNAME == 8 — verified both as integer values in extra6; bool-form eq is a new axis."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# GzipFile MRO index 5 — _IOBase
+# gzip_extra8 covers mro[4].__name__ == 'IOBase'.
+# mro[5].__name__ == '_IOBase' is the next entry. Not in any prior gzip spec.
+# Full MRO: [GzipFile, BaseStream, BufferedIOBase, _BufferedIOBase, IOBase, _IOBase, object]
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra9.GzipFile.mro5_name:
+  description: "gzip.GzipFile.__mro__[5].__name__ == '_IOBase' — sixth MRO entry"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: GzipFile.__mro__.__getitem__
+  args: [5]
+  method: __name__
+  expected: "_IOBase"
+
+# ---------------------------------------------------------------------------
+# BadGzipFile MRO depths 1, 2, and 3
+# gzip_extra2 covers BadGzipFile MRO in summary; gzip_extra5 covers __bases__[0].__qualname__.
+# No prior gzip spec checks BadGzipFile.__mro__[N].__name__ for any N.
+# BadGzipFile.__mro__: [BadGzipFile, OSError, Exception, BaseException, object]
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra9.BadGzipFile.mro_index1:
+  description: "gzip.BadGzipFile.__mro__[1].__name__ == 'OSError' — BadGzipFile MRO depth 1"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BadGzipFile.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "OSError"
+
+invariant gzip_extra9.BadGzipFile.mro_index2:
+  description: "gzip.BadGzipFile.__mro__[2].__name__ == 'Exception' — BadGzipFile MRO depth 2"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BadGzipFile.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "Exception"
+
+invariant gzip_extra9.BadGzipFile.mro_index3:
+  description: "gzip.BadGzipFile.__mro__[3].__name__ == 'BaseException' — BadGzipFile MRO depth 3"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BadGzipFile.__mro__.__getitem__
+  args: [3]
+  method: __name__
+  expected: "BaseException"
+
+# ---------------------------------------------------------------------------
+# compress(b'') length — empty-input gzip overhead
+# gzip_extra4 checks compress(b'') class name via method_chain.
+# gzip_extra7 checks compress(b'a') len == 21.
+# No prior spec checks the exact length of compress(b''). It should be 20 bytes:
+# 10-byte header + 2-byte empty deflate stream (0x03, 0x00) + 8-byte trailer.
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra9.compress.empty_length:
+  description: "gzip.compress(b'').__len__() == 20 — empty-input gzip is 20 bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [!hex ""]
+  method: __len__
+  expected: 20
+
+# ---------------------------------------------------------------------------
+# FTEXT and FNAME bool-form equality checks
+# gzip_extra6 covers FTEXT==1 and FNAME==8 as direct integer values.
+# No prior spec uses the bool-form __eq__ pattern for these two constants.
+# This is a distinct axis (pattern: bool eq) from the value check in extra6.
+# ---------------------------------------------------------------------------
+
+table gzip_extra9.flag_bool_eq:
+  description: "gzip FTEXT and FNAME flag constants — bool-form equality checks"
+  kind: python_call_eq
+  category: constants
+  id_prefix: fbeq9
+
+  columns: [id, function, args, expected]
+  rows:
+    - [FTEXT, FTEXT.__eq__, [1], true]
+    - [FNAME, FNAME.__eq__, [8], true]
+
+# ---------------------------------------------------------------------------
+# compress with compresslevel=1 — fastest compression flag (XFL=4)
+# gzip_extra8 covers compresslevel=9 at byte[8]==2 (XFL maximum compression).
+# compresslevel=1 produces XFL==4 (fastest compression). Not in any prior spec.
+# RFC 1952: XFL == 4 when compressor uses fastest algorithm.
+# ---------------------------------------------------------------------------
+
+invariant gzip_extra9.compress.xfl_fastest:
+  description: "gzip.compress(b'hello', compresslevel=1)[8] == 4 — XFL byte: fastest compression"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [!ascii "hello", 1]
+  method: __getitem__
+  method_args: [8]
+  expected: 4

@@ -1,0 +1,121 @@
+spec: configparser_extra9
+version: ">=3.9"
+backend: python_module(configparser)
+
+docs: https://docs.python.org/3/library/configparser.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/configparser.html — Python configparser documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/configparser.py"
+  notes:
+    - "This spec extends configparser.zspec.zsdl and configparser_extra through configparser_extra8."
+    - "configparser_extra7 covers: exception_bases table (InterpolationDepthError/MissingOptionError/SyntaxError/DuplicateOptionError/ParsingError __bases__[0]); DEFAULTSECT.__class__.__name__; MAX_INTERPOLATION_DEPTH ordering."
+    - "configparser_extra8 covers: __bases__.__len__() == 1 for ConfigParser/RawConfigParser/Error/NoSectionError; ConfigParser method names read_dict/has_option/getint/getfloat/getboolean; NoSectionError/__class__.__name__=='type'; Error/__class__.__name__=='type'."
+    - "This spec adds new axes: InterpolationError.__bases__[0].__name__ == 'Error' (extra7 covers sub-exceptions of InterpolationError but not InterpolationError itself); Interpolation/__class__.__name__=='type'; BasicInterpolation/__class__.__name__=='type'; ExtendedInterpolation/__class__.__name__=='type'; RawConfigParser.__class__.__name__=='ABCMeta' (uses ABC metaclass, distinct from 'type'); __bases__.__len__()==1 for Interpolation/BasicInterpolation/ExtendedInterpolation/NoOptionError/DuplicateSectionError/MissingSectionHeaderError; ConfigParser method names read_file/keys/values/defaults not covered by extra2 or extra8."
+    - "configparser.InterpolationError.__bases__[0].__name__ == 'Error' — InterpolationError is the base for all interpolation sub-exceptions and itself inherits from Error. extra7 only covers sub-exceptions of InterpolationError."
+    - "configparser.Interpolation.__class__.__name__ == 'type' — Interpolation is a plain class object; its metaclass is 'type'. extra8 covers ConfigParser/RawConfigParser and NoSectionError/Error but not interpolation classes."
+    - "configparser.RawConfigParser.__class__.__name__ == 'ABCMeta' — RawConfigParser uses collections.abc.MutableMapping which gives it ABCMeta as its metaclass. This is distinct from 'type'. No prior spec checks this."
+    - "configparser.Interpolation.__bases__.__len__() == 1 — Interpolation has exactly one base (object). extra6 checks __bases__[0].__name__ but not the tuple length."
+    - "configparser.ConfigParser.read_file.__name__ == 'read_file' — not in extra2 (which covers read/read_string/get/set/add_section/has_section/sections/options/items/write/remove_section/remove_option) or extra8 (read_dict/has_option/getint/getfloat/getboolean)."
+    - "configparser.ConfigParser.keys.__name__ == 'keys' — MutableMapping method not in any prior configparser spec."
+    - "configparser.ConfigParser.values.__name__ == 'values' — MutableMapping method not in any prior configparser spec."
+    - "configparser.ConfigParser.defaults.__name__ == 'defaults' — not in any prior configparser spec."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# InterpolationError.__bases__[0].__name__ == 'Error'
+#
+# configparser_extra7 covers the bases of sub-exceptions of InterpolationError
+# (InterpolationDepthError, InterpolationMissingOptionError, InterpolationSyntaxError)
+# but no prior spec checks InterpolationError's own parent class.
+# ---------------------------------------------------------------------------
+
+invariant configparser_extra9.InterpolationError.base_name:
+  description: "configparser.InterpolationError.__bases__[0].__name__ == 'Error' — inherits from the root configparser Error"
+  category: hierarchy
+  kind: python_call_eq
+  function: InterpolationError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Error"
+
+# ---------------------------------------------------------------------------
+# Metaclass checks for interpolation classes and RawConfigParser.
+#
+# configparser_extra8 checks __class__.__name__ for ConfigParser (== 'type'),
+# NoSectionError (== 'type'), and Error (== 'type').
+# This table adds: Interpolation/'type', BasicInterpolation/'type',
+# ExtendedInterpolation/'type'.
+# A separate invariant checks RawConfigParser whose metaclass is 'ABCMeta'
+# (because RawConfigParser inherits from MutableMapping which uses ABCMeta).
+# ---------------------------------------------------------------------------
+
+table configparser_extra9.interpolation_metaclasses:
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: metacls9
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Interpolation,         Interpolation.__class__.__name__.__eq__,         ["type"], true]
+    - [BasicInterpolation,    BasicInterpolation.__class__.__name__.__eq__,    ["type"], true]
+    - [ExtendedInterpolation, ExtendedInterpolation.__class__.__name__.__eq__, ["type"], true]
+
+invariant configparser_extra9.RawConfigParser.metaclass:
+  description: "configparser.RawConfigParser.__class__.__name__ == 'ABCMeta' — RawConfigParser uses ABCMeta via MutableMapping"
+  category: class_metadata
+  kind: python_call_eq
+  function: RawConfigParser.__class__.__name__.__eq__
+  args: ["ABCMeta"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __bases__.__len__() == 1 for interpolation classes and remaining exceptions.
+#
+# configparser_extra8 covers __bases__.__len__() for ConfigParser, RawConfigParser,
+# Error, NoSectionError. This table adds the remaining classes whose base
+# tuple length has not been verified: Interpolation, BasicInterpolation,
+# ExtendedInterpolation, NoOptionError, DuplicateSectionError,
+# MissingSectionHeaderError.
+# ---------------------------------------------------------------------------
+
+table configparser_extra9.bases_len:
+  kind: python_call_eq
+  category: hierarchy
+  id_prefix: baselen9
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Interpolation,          Interpolation.__bases__.__len__,          [], 1]
+    - [BasicInterpolation,     BasicInterpolation.__bases__.__len__,     [], 1]
+    - [ExtendedInterpolation,  ExtendedInterpolation.__bases__.__len__,  [], 1]
+    - [NoOptionError,          NoOptionError.__bases__.__len__,          [], 1]
+    - [DuplicateSectionError,  DuplicateSectionError.__bases__.__len__,  [], 1]
+    - [MissingSectionHeaderError, MissingSectionHeaderError.__bases__.__len__, [], 1]
+
+# ---------------------------------------------------------------------------
+# ConfigParser method names not covered in any prior configparser spec.
+#
+# extra2 covers: read, read_string, get, set, add_section, has_section,
+#   sections, options, items, write, remove_section, remove_option.
+# extra8 covers: read_dict, has_option, getint, getfloat, getboolean.
+# This table adds: read_file, keys, values, defaults.
+# ---------------------------------------------------------------------------
+
+table configparser_extra9.ConfigParser.additional_method_names:
+  kind: python_call_eq
+  category: method_names
+  id_prefix: mname9
+
+  columns: [id, function, args, expected]
+  rows:
+    - [read_file, ConfigParser.read_file.__name__.__eq__, ["read_file"], true]
+    - [keys,      ConfigParser.keys.__name__.__eq__,      ["keys"],      true]
+    - [values,    ConfigParser.values.__name__.__eq__,    ["values"],    true]
+    - [defaults,  ConfigParser.defaults.__name__.__eq__,  ["defaults"],  true]

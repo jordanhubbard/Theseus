@@ -1,0 +1,160 @@
+spec: time_extra6
+version: ">=3.9"
+backend: python_module(time)
+
+docs: https://docs.python.org/3/library/time.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/time.html — Python time module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/timemodule.c"
+    - "time.zspec.zsdl — covers gmtime/strptime/strftime/mktime/sleep __name__ (table), struct_time.__name__, gmtime epoch, strptime vectors, error cases"
+    - "time_extra.zspec.zsdl — covers struct_time.__module__, float return types, gmtime/localtime return types, timezone/altzone class names"
+    - "time_extra2.zspec.zsdl — covers struct_time.__name__/__module__, timezone/altzone/daylight class names, gmtime(0) epoch fields, time/__name__, sleep/__name__"
+    - "time_extra3.zspec.zsdl — covers struct_time._fields, altzone/daylight/timezone/tzname class names, function __name__ table"
+    - "time_extra4.zspec.zsdl — covers __qualname__ for all core time functions and struct_time"
+    - "time_extra5.zspec.zsdl — covers __module__ for all core time functions and struct_time"
+  notes:
+    - "This spec extends the time chain and does NOT duplicate invariants already present in any prior spec."
+    - "Focus: CLOCK_* integer constants and struct_time size attributes not covered by any prior spec."
+    - "time.CLOCK_REALTIME == 0 — POSIX clock identifier for the system-wide real-time clock."
+    - "time.CLOCK_MONOTONIC == 6 — macOS/Darwin value for CLOCK_MONOTONIC (verified Python 3.12/Darwin 25.4.0)."
+    - "time.CLOCK_PROCESS_CPUTIME_ID == 12 — macOS/Darwin value (verified Python 3.12/Darwin 25.4.0)."
+    - "time.CLOCK_THREAD_CPUTIME_ID == 16 — macOS/Darwin value (verified Python 3.12/Darwin 25.4.0)."
+    - "time.CLOCK_REALTIME.__class__.__name__ == 'int' — CLOCK constants are plain integers."
+    - "time.struct_time.n_fields == 11 — total field count including tm_gmtoff/tm_zone extensions."
+    - "time.struct_time.n_sequence_fields == 9 — the nine positional/sequence fields."
+    - "time.struct_time.n_unnamed_fields == 0 — no unnamed fields."
+    - "time.get_clock_info.__name__ == 'get_clock_info' — function name check for get_clock_info."
+    - "time.get_clock_info.__module__ == 'time' — module membership."
+    - "time.get_clock_info('perf_counter').monotonic == True — perf_counter is monotonic."
+    - "time.get_clock_info('monotonic').adjustable == False — monotonic clock is not adjustable."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# CLOCK_* integer constants
+#
+# No prior spec in the time chain checks CLOCK_* constants. They are plain
+# integers (not enums). CLOCK_REALTIME == 0 is POSIX-stable. The remaining
+# values are Darwin-specific and verified on macOS/Darwin 25.4.0.
+# ---------------------------------------------------------------------------
+
+invariant time_extra6.CLOCK_REALTIME.value:
+  description: "time.CLOCK_REALTIME == 0 — POSIX system-wide real-time clock identifier"
+  category: clock_constants
+  kind: python_call_eq
+  function: CLOCK_REALTIME.__eq__
+  args: [0]
+  expected: true
+
+invariant time_extra6.CLOCK_MONOTONIC.value:
+  description: "time.CLOCK_MONOTONIC == 6 — macOS/Darwin monotonic clock identifier"
+  category: clock_constants
+  kind: python_call_eq
+  function: CLOCK_MONOTONIC.__eq__
+  args: [6]
+  expected: true
+
+invariant time_extra6.CLOCK_PROCESS_CPUTIME_ID.value:
+  description: "time.CLOCK_PROCESS_CPUTIME_ID == 12 — macOS/Darwin process CPU-time clock identifier"
+  category: clock_constants
+  kind: python_call_eq
+  function: CLOCK_PROCESS_CPUTIME_ID.__eq__
+  args: [12]
+  expected: true
+
+invariant time_extra6.CLOCK_THREAD_CPUTIME_ID.value:
+  description: "time.CLOCK_THREAD_CPUTIME_ID == 16 — macOS/Darwin thread CPU-time clock identifier"
+  category: clock_constants
+  kind: python_call_eq
+  function: CLOCK_THREAD_CPUTIME_ID.__eq__
+  args: [16]
+  expected: true
+
+invariant time_extra6.CLOCK_REALTIME.class_name:
+  description: "time.CLOCK_REALTIME.__class__.__name__ == 'int' — CLOCK constants are plain integers"
+  category: clock_constants
+  kind: python_call_eq
+  function: CLOCK_REALTIME.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct_time size attributes — n_fields, n_sequence_fields, n_unnamed_fields
+#
+# No prior spec checks these class-level integer attributes on struct_time.
+# n_fields == 11 because Python 3 extended struct_time with tm_gmtoff and
+# tm_zone beyond the nine classic POSIX fields; n_sequence_fields == 9.
+# ---------------------------------------------------------------------------
+
+invariant time_extra6.struct_time.n_fields:
+  description: "time.struct_time.n_fields == 11 — total field count including tm_gmtoff/tm_zone"
+  category: struct_time
+  kind: python_call_eq
+  function: struct_time.n_fields.__eq__
+  args: [11]
+  expected: true
+
+invariant time_extra6.struct_time.n_sequence_fields:
+  description: "time.struct_time.n_sequence_fields == 9 — nine positional sequence fields"
+  category: struct_time
+  kind: python_call_eq
+  function: struct_time.n_sequence_fields.__eq__
+  args: [9]
+  expected: true
+
+invariant time_extra6.struct_time.n_unnamed_fields:
+  description: "time.struct_time.n_unnamed_fields == 0 — no unnamed fields"
+  category: struct_time
+  kind: python_call_eq
+  function: struct_time.n_unnamed_fields.__eq__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_clock_info — function identity and behavioral checks
+#
+# No prior spec covers get_clock_info at all. The function returns a
+# namespace object with adjustable, implementation, monotonic, and resolution
+# attributes. Two stable behavioral invariants are: perf_counter is monotonic,
+# and the monotonic clock is not adjustable.
+# ---------------------------------------------------------------------------
+
+invariant time_extra6.get_clock_info.name:
+  description: "time.get_clock_info.__name__ == 'get_clock_info'"
+  category: function_names
+  kind: python_call_eq
+  function: get_clock_info.__name__.__eq__
+  args: ["get_clock_info"]
+  expected: true
+
+invariant time_extra6.get_clock_info.module:
+  description: "time.get_clock_info.__module__ == 'time'"
+  category: modules
+  kind: python_call_eq
+  function: get_clock_info.__module__.__eq__
+  args: ["time"]
+  expected: true
+
+invariant time_extra6.get_clock_info.perf_counter_monotonic:
+  description: "time.get_clock_info('perf_counter').monotonic == True — perf_counter is a monotonic clock"
+  category: behavioral
+  kind: python_call_eq
+  function: get_clock_info
+  args: ["perf_counter"]
+  method: monotonic
+  expected: true
+
+invariant time_extra6.get_clock_info.monotonic_not_adjustable:
+  description: "time.get_clock_info('monotonic').adjustable == False — monotonic clock cannot be adjusted"
+  category: behavioral
+  kind: python_call_eq
+  function: get_clock_info
+  args: ["monotonic"]
+  method: adjustable
+  expected: false
