@@ -1,0 +1,122 @@
+spec: struct_extra3
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+rfcs:
+  - "IEEE 754-2019 — Standard for Floating-Point Arithmetic (for float/double format strings)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "Test vectors verified by running Python 3.14.3 struct module on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl, struct_extra.zspec.zsdl, and struct_extra2.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "struct.zspec.zsdl covers: pack/unpack vectors for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize for H/I/Q/HI/HIQ/q/h/b/?/e; roundtrip and error cases."
+    - "struct_extra.zspec.zsdl covers: Struct format/size attrs, calcsize for f/d/B/4s/>BHI, pack_into method name, unpack_from with offset, iter_unpack, error class name/bases."
+    - "struct_extra2.zspec.zsdl covers: pack/unpack for >I/>H/<I/>4B; calcsize for !IHH."
+    - "'!f' and '!d' are network byte order (big-endian) IEEE 754 single and double precision floats."
+    - "pack('!f', 1.0) == b'\\x3f\\x80\\x00\\x00' — IEEE 754 single precision 1.0 in big-endian (hex: 3f800000)."
+    - "pack('!d', 1.0) == b'\\x3f\\xf0\\x00\\x00\\x00\\x00\\x00\\x00' — IEEE 754 double precision 1.0 in big-endian (hex: 3ff0000000000000)."
+    - "pack('!?', True) == b'\\x01' — boolean True packs to 0x01 in network byte order."
+    - "pack('!?', False) == b'\\x00' — boolean False packs to 0x00 in network byte order."
+    - "unpack('!?', b'\\x01') == (True,); unpack('!?', b'\\x00') == (False,)."
+    - "calcsize('!5s') == 5 — five-character string occupies 5 bytes in network byte order format."
+    - "calcsize('!3p') == 3 — three-byte Pascal string (1-byte length prefix + 2 data bytes)."
+    - "calcsize('!x') == 1 — a single pad byte."
+    - "calcsize('!5x') == 5 — five pad bytes."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# pack() — network byte order float and double: output class is bytes
+# ---------------------------------------------------------------------------
+
+invariant struct_extra3.pack.network_float_class:
+  description: "pack('!f', 1.0).__class__.__name__ == 'bytes'"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: ["!f", 1.0]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant struct_extra3.pack.network_double_class:
+  description: "pack('!d', 1.0).__class__.__name__ == 'bytes'"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: ["!d", 1.0]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pack() — network byte order bool
+# ---------------------------------------------------------------------------
+
+invariant struct_extra3.pack.network_bool_true:
+  description: "pack('!?', True) == b'\\x01'"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: ["!?", true]
+  expected: !hex 01
+
+invariant struct_extra3.pack.network_bool_false:
+  description: "pack('!?', False) == b'\\x00'"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: ["!?", false]
+  expected: !hex 00
+
+# ---------------------------------------------------------------------------
+# unpack() — network byte order bool
+# ---------------------------------------------------------------------------
+
+invariant struct_extra3.unpack.network_bool_true:
+  description: "unpack('!?', b'\\x01') == (True,)"
+  category: unpack
+  kind: python_call_eq
+  function: unpack
+  args: ["!?", !hex 01]
+  expected: [true]
+
+invariant struct_extra3.unpack.network_bool_false:
+  description: "unpack('!?', b'\\x00') == (False,)"
+  category: unpack
+  kind: python_call_eq
+  function: unpack
+  args: ["!?", !hex 00]
+  expected: [false]
+
+# ---------------------------------------------------------------------------
+# calcsize() — string, Pascal string, and pad byte formats
+# (struct.zspec.zsdl covers ?, e; struct_extra.zspec.zsdl covers 4s, 3p, f, d, B, >BHI)
+# Here we use network byte order prefix '!' with these characters.
+# ---------------------------------------------------------------------------
+
+table struct_extra3.calcsize.network_formats:
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: calcsize
+
+  columns: [id, args, expected]
+  rows:
+    - [five_s,    ["!5s"],  5]
+    - [three_p,   ["!3p"],  3]
+    - [one_pad,   ["!x"],   1]
+    - [five_pad,  ["!5x"],  5]

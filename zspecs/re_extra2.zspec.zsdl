@@ -1,0 +1,126 @@
+spec: re_extra2
+version: ">=3.11"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "Python 3 re documentation — https://docs.python.org/3/library/re.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+    - "re.zspec.zsdl — covers sub, findall, split, escape, and compile error cases"
+    - "re_patterns.zspec.zsdl — covers match, search, fullmatch, capture groups, compile pattern/class_name"
+    - "re_extra.zspec.zsdl — covers Pattern/Match/error class metadata, flag values, match/search/sub/split/findall variants"
+  notes:
+    - "This spec extends re.zspec.zsdl, re_extra.zspec.zsdl, and re_patterns.zspec.zsdl with coverage not already present."
+    - "re.RegexFlag is an IntFlag enum (Python 3.11+) whose members are: NOFLAG, ASCII, IGNORECASE, LOCALE, UNICODE, MULTILINE, DOTALL, VERBOSE, TEMPLATE, DEBUG."
+    - "re.LOCALE, re.UNICODE, re.IGNORECASE, re.NOFLAG are all instances of re.RegexFlag."
+    - "re.RegexFlag.__name__ == 'RegexFlag' — it is an enum class."
+    - "re.compile('a|b').pattern == 'a|b' — the .pattern attribute stores the original pattern string."
+    - "re.compile('abc', re.IGNORECASE).flags is a RegexFlag instance."
+    - "re.fullmatch.__name__ == 'fullmatch' — function identity check."
+    - "re.purge.__name__ == 'purge' — function identity check."
+    - "re.escape.__name__ == 'escape' — function identity check."
+    - "re.escape('a.b+c') == 'a\\.b\\+c' — only regex metacharacters are escaped (Python 3.7+ behaviour)."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# RegexFlag — class identity
+# re_extra.zspec.zsdl tests flag integer values; here we test the RegexFlag type.
+# ---------------------------------------------------------------------------
+
+invariant re_extra2.RegexFlag.class_name:
+  description: "re.RegexFlag.__name__ == 'RegexFlag'"
+  category: class_metadata
+  kind: python_call_eq
+  function: RegexFlag.__name__.__eq__
+  args: ["RegexFlag"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Flag constant class membership — LOCALE, UNICODE, IGNORECASE, NOFLAG
+# re_extra.zspec.zsdl covers integer values; here we test __class__.__name__.
+# ---------------------------------------------------------------------------
+
+table re_extra2.flag_class_names:
+  description: "re.LOCALE, UNICODE, IGNORECASE, NOFLAG are all instances of RegexFlag"
+  kind: python_call_eq
+  category: flags
+  id_prefix: flag_class
+
+  columns: [id, function, args, expected]
+  rows:
+    - [LOCALE,     LOCALE.__class__.__name__.__eq__,     ["RegexFlag"], true]
+    - [UNICODE,    UNICODE.__class__.__name__.__eq__,    ["RegexFlag"], true]
+    - [IGNORECASE, IGNORECASE.__class__.__name__.__eq__, ["RegexFlag"], true]
+    - [NOFLAG,     NOFLAG.__class__.__name__.__eq__,     ["RegexFlag"], true]
+
+# ---------------------------------------------------------------------------
+# compile — pattern attribute and flags class
+# re_patterns.zspec.zsdl covers compile(r'\d+').pattern and class_name;
+# here we test 'a|b' pattern and the flags class of a flagged compile.
+# ---------------------------------------------------------------------------
+
+invariant re_extra2.compile.alternation_pattern:
+  description: "re.compile('a|b').pattern == 'a|b'"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["a|b"]
+  method: pattern.__eq__
+  method_args: ["a|b"]
+  expected: true
+
+invariant re_extra2.compile.flags_class_name:
+  description: "re.compile('abc', re.IGNORECASE).flags.__class__.__name__ == 'RegexFlag'"
+  category: compile
+  kind: python_call_eq
+  function: compile
+  args: ["abc", 2]
+  method: flags.__class__.__name__.__eq__
+  method_args: ["RegexFlag"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Function identity checks — fullmatch, purge, escape
+# re_patterns.zspec.zsdl tests fullmatch behaviour; here we test __name__ only.
+# re.zspec.zsdl tests escape vectors; here we test __name__ and one new vector.
+# ---------------------------------------------------------------------------
+
+invariant re_extra2.fullmatch.function_name:
+  description: "re.fullmatch.__name__ == 'fullmatch'"
+  category: functions
+  kind: python_call_eq
+  function: fullmatch.__name__.__eq__
+  args: ["fullmatch"]
+  expected: true
+
+invariant re_extra2.purge.function_name:
+  description: "re.purge.__name__ == 'purge'"
+  category: functions
+  kind: python_call_eq
+  function: purge.__name__.__eq__
+  args: ["purge"]
+  expected: true
+
+invariant re_extra2.escape.function_name:
+  description: "re.escape.__name__ == 'escape'"
+  category: functions
+  kind: python_call_eq
+  function: escape.__name__.__eq__
+  args: ["escape"]
+  expected: true
+
+invariant re_extra2.escape.metacharacters:
+  description: "re.escape('a.b+c') == 'a\\.b\\+c' — dots and plus signs are escaped"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["a.b+c"]
+  expected: "a\\.b\\+c"

@@ -1,0 +1,157 @@
+spec: pathlib_extra2
+version: ">=3.4"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "Python 3 pathlib documentation — https://docs.python.org/3/library/pathlib.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython pathlib source: Lib/pathlib/"
+    - "pathlib.zspec.zsdl — covers PurePosixPath name/stem/suffix/suffixes/parts/parent/joinpath/str/as_posix/relative_to/is_absolute"
+    - "pathlib_pure.zspec.zsdl — covers class names, module, hierarchy, Windows components, match, drive, anchor"
+    - "pathlib_extra.zspec.zsdl — covers Path class identity, name/stem/suffix for /a/b/c, parent via __str__, /a/b division, parts tuple for /a/b/c, is_absolute for /a/b/c"
+  notes:
+    - "This spec extends pathlib.zspec.zsdl, pathlib_pure.zspec.zsdl, and pathlib_extra.zspec.zsdl with additional coverage."
+    - "PurePosixPath('/a/b/c').suffixes returns a list of all dot-suffixes; empty list when there are none."
+    - "PurePosixPath('/a/b/c.tar.gz').suffixes == ['.tar', '.gz'] — two suffix components."
+    - "suffixes.__class__.__name__ == 'list' — the suffixes property returns a Python list."
+    - "with_name() replaces the final path component entirely (including extension)."
+    - "with_suffix() replaces only the extension of the final component."
+    - "joinpath() with multiple args chains subdirectories in order."
+    - "is_absolute() returns False for paths that do not start with '/'."
+    - "is_absolute() returns True for paths that start with '/'."
+    - "PurePosixPath.parents is a sequence; len(parents) == number of ancestor directories."
+    - "All expected values verified by running Python 3.12 pathlib module on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# suffixes — list of all suffix components
+# pathlib.zspec.zsdl already covers suffixes for 'archive.tar.gz'
+# We add the class name check and a path-qualified variant
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra2.suffixes.class_name:
+  description: "PurePosixPath('/a/b/c.tar.gz').suffixes.__class__.__name__ == 'list'"
+  category: components
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.tar.gz"]
+  method: suffixes.__class__.__name__.__eq__
+  method_args: ["list"]
+  expected: true
+
+invariant pathlib_extra2.suffixes.tar_gz:
+  description: "PurePosixPath('/a/b/c.tar.gz').suffixes == ['.tar', '.gz']"
+  category: components
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.tar.gz"]
+  method: suffixes.__eq__
+  method_args: [[".tar", ".gz"]]
+  expected: true
+
+invariant pathlib_extra2.suffixes.no_suffix_empty:
+  description: "PurePosixPath('/a/b/c').suffixes == [] — path without extension has empty suffixes"
+  category: components
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: suffixes.__eq__
+  method_args: [[]]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# with_name — replace the final path component
+# pathlib.zspec.zsdl covers with_name('/etc/passwd', 'shadow') == '/etc/shadow'
+# We add a path-qualified variant with extension
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra2.with_name.replace_txt:
+  description: "str(PurePosixPath('/a/b/c.txt').with_name('d.txt')) == '/a/b/d.txt'"
+  category: manipulation
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: with_name
+  method_args: ["d.txt"]
+  method_chain: __str__
+  expected: "/a/b/d.txt"
+
+# ---------------------------------------------------------------------------
+# with_suffix — replace only the extension
+# pathlib.zspec.zsdl covers with_suffix('report.txt', '.md') == 'report.md'
+# We add a path-qualified variant
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra2.with_suffix.txt_to_py:
+  description: "str(PurePosixPath('/a/b/c.txt').with_suffix('.py')) == '/a/b/c.py'"
+  category: manipulation
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.txt"]
+  method: with_suffix
+  method_args: [".py"]
+  method_chain: __str__
+  expected: "/a/b/c.py"
+
+# ---------------------------------------------------------------------------
+# joinpath with multiple arguments
+# pathlib.zspec.zsdl covers joinpath('/etc', 'passwd') == '/etc/passwd'
+# pathlib_extra.zspec.zsdl covers __truediv__ for '/a/b' / 'c'
+# We add joinpath with two positional args: '/a/b'.joinpath('c', 'd')
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra2.joinpath.two_args:
+  description: "str(PurePosixPath('/a/b').joinpath('c', 'd')) == '/a/b/c/d'"
+  category: joining
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: joinpath
+  method_args: ["c", "d"]
+  method_chain: __str__
+  expected: "/a/b/c/d"
+
+# ---------------------------------------------------------------------------
+# is_absolute — relative and absolute paths
+# pathlib.zspec.zsdl covers is_absolute('/etc/passwd') == True and 'relative/path' == False
+# pathlib_extra.zspec.zsdl covers is_absolute('/a/b/c') == True
+# We add 'a/b' (relative, no leading slash) == False, and '/a/b' == True
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra2.is_absolute.relative_false:
+  description: "PurePosixPath('a/b').is_absolute() == False"
+  category: predicates
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["a/b"]
+  method: is_absolute
+  expected: false
+
+invariant pathlib_extra2.is_absolute.absolute_true:
+  description: "PurePosixPath('/a/b').is_absolute() == True"
+  category: predicates
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: is_absolute
+  expected: true
+
+# ---------------------------------------------------------------------------
+# parents — sequence of ancestor directories
+# len(parents) for '/a/b/c' == 3 (parents are '/a/b', '/a', '/')
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra2.parents.len_abc:
+  description: "len(PurePosixPath('/a/b/c').parents) == 3 — three ancestor directories"
+  category: components
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parents.__len__
+  expected: 3
