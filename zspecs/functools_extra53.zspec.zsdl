@@ -1,0 +1,113 @@
+spec: functools_extra53
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec extends functools_extra52.zspec.zsdl."
+    - "Prior specs covered: __name__.__len__() for wraps/partial/lru_cache/total_ordering/singledispatch/cached_property/reduce/cmp_to_key/partialmethod/singledispatchmethod/update_wrapper; __qualname__.__len__() for all major functools objects; WRAPPER_ASSIGNMENTS/WRAPPER_UPDATES lengths; __all__ lengths; partial/__class__.__name__; cached_property/__set_name__/__get__/__init__.__qualname__; partial/__new__.__qualname__; class __dict__.__class__.__name__.__len__ for partial/partialmethod/singledispatchmethod/cached_property; reduce with initial value; lru_cache(128).__ne__(None)==True; lru_cache(maxsize=2) behavioral; reduce/__qualname__=='reduce'; lru_cache/__qualname__=='lru_cache'; cache/__name__/__qualname__/__module__; cached_property/__name__/__qualname__/__module__/__bases__[0].__name__; total_ordering/__name__/__qualname__/__module__; singledispatch/__name__/__qualname__/__module__; wraps/__name__/__qualname__/__module__; update_wrapper/__name__/__qualname__/__module__; partial/__bases__[0].__name__=='object'; partial/__name__/__qualname__/__module__; lru_cache/__name__/__module__; cmp_to_key/__name__=='cmp_to_key'/__qualname__/'_functools'; partialmethod/__name__/__qualname__/__module__/__bases__[0].__name__; singledispatchmethod/__name__/__module__/__qualname__; singledispatchmethod/__mro__.__len__()==2; partial/__mro__.__len__()==2; partialmethod/__mro__.__len__()==2; cached_property/__mro__.__len__()==2; reduce/__module__.__len__()==10; cached_property/__bases__[0].__qualname__=='object'; partialmethod/__bases__[0].__qualname__=='object'; partial/__bases__[0].__qualname__=='object'; singledispatchmethod/__bases__[0].__qualname__=='object'; reduce/__class__.__name__=='builtin_function_or_method'; cmp_to_key/__class__.__name__=='builtin_function_or_method'; wraps/__class__.__name__=='function'; lru_cache/__class__.__name__=='function'; update_wrapper/__class__.__name__=='function'; singledispatch/__class__.__name__=='function'; total_ordering/__class__.__name__=='function'; cache/__class__.__name__=='function'; partial/__class__.__name__=='type'; cached_property/__class__.__name__=='type'; partialmethod/__class__.__name__=='type'; singledispatchmethod/__class__.__name__=='type'; reduce/__class__.__qualname__=='builtin_function_or_method'; wraps/__class__.__qualname__=='function'; lru_cache/__class__.__qualname__=='function'; singledispatch/__class__.__qualname__=='function'; total_ordering/__class__.__qualname__=='function'; partial/__class__.__qualname__=='type'; cached_property/__class__.__qualname__=='type'."
+    - "This spec covers: functools.reduce.__class__.__module__ == 'builtins'; functools.wraps.__class__.__module__ == 'builtins'; functools.lru_cache.__class__.__module__ == 'builtins'; functools.partial.__class__.__module__ == '_functools'; functools.cached_property.__class__.__module__ == 'builtins'; functools.total_ordering.__class__.__module__ == 'builtins'; functools.singledispatch.__class__.__module__ == 'builtins'."
+    - "Key findings: __class__.__module__ gives the module where the __class__ (the type/metaclass) is defined, not where the object itself is defined. For functools objects: reduce.__class__ is 'builtin_function_or_method' (defined in 'builtins' — the C runtime module for built-in types), wraps.__class__ is the Python 'function' type (defined in 'builtins'), lru_cache.__class__ is 'function' (defined in 'builtins'), total_ordering.__class__ is 'function' (defined in 'builtins'), singledispatch.__class__ is 'function' (defined in 'builtins'), cached_property.__class__ is 'type' (defined in 'builtins'). The sole exception is functools.partial: partial.__class__ is the 'partial' type (a C-extension type defined in Modules/_functoolsmodule.c), and its module is '_functools' rather than 'builtins'. This distinction — 'builtins' for all standard Python runtime types vs '_functools' for the C-extension partial type — is the key new finding in this spec. No prior spec recorded __class__.__module__ string equality for any functools object. All seven invariants are new to extra53."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# functools C-extension function __class__.__module__ — extra53 namespace
+#
+# functools.reduce is a C-extension function. Its __class__ is
+# 'builtin_function_or_method', which is defined in the 'builtins' module
+# (the implicit C runtime namespace). Therefore reduce.__class__.__module__
+# == 'builtins'. This is distinct from reduce.__module__ ('_functools') —
+# __class__.__module__ reflects where the *type* lives, not the object itself.
+# No prior spec recorded __class__.__module__ for any functools object.
+# New to extra53.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra53.reduce_class_module:
+  description: "functools.reduce.__class__.__module__ == 'builtins' — C-extension function; __class__ is builtin_function_or_method type defined in the 'builtins' C runtime module; 7-char module name"
+  category: identity
+  kind: python_call_eq
+  function: reduce.__class__.__module__.__eq__
+  args: ["builtins"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# functools pure-Python function objects __class__.__module__ — extra53
+#
+# functools.wraps, lru_cache, total_ordering, and singledispatch are all
+# pure-Python functions defined in Lib/functools.py. Their __class__ is the
+# built-in 'function' type, which is defined in the 'builtins' C runtime
+# module. Therefore all four have __class__.__module__ == 'builtins'.
+# This contrasts with the objects' own __module__ attribute, which is 'functools'.
+# No prior spec recorded __class__.__module__ for any of these objects.
+# All four are new to extra53.
+# ---------------------------------------------------------------------------
+
+table functools_extra53.pure_python_function_class_modules:
+  description: "functools pure-Python function objects __class__.__module__ == 'builtins' — wraps/lru_cache/total_ordering/singledispatch; __class__ is the Python function type defined in 'builtins'; 7-char module name"
+  kind: python_call_eq
+  category: identity
+  id_prefix: ppfnmod53
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [wraps_class_module,
+       wraps.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "functools.wraps.__class__.__module__ == 'builtins' — pure-Python decorator function in Lib/functools.py; __class__ is the built-in 'function' type; the function type is defined in the 'builtins' C runtime module (not in 'functools' where wraps itself lives); 7-char module name"]
+    - [lru_cache_class_module,
+       lru_cache.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "functools.lru_cache.__class__.__module__ == 'builtins' — pure-Python decorator function in Lib/functools.py; __class__ is the built-in 'function' type; the function type is defined in the 'builtins' C runtime module; 7-char module name"]
+    - [total_ordering_class_module,
+       total_ordering.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "functools.total_ordering.__class__.__module__ == 'builtins' — pure-Python decorator function in Lib/functools.py; fills in missing comparison methods; __class__ is the built-in 'function' type defined in 'builtins'; 7-char module name"]
+    - [singledispatch_class_module,
+       singledispatch.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "functools.singledispatch.__class__.__module__ == 'builtins' — pure-Python decorator function in Lib/functools.py; enables single-dispatch generic functions; __class__ is the built-in 'function' type defined in 'builtins'; 7-char module name"]
+
+# ---------------------------------------------------------------------------
+# functools class objects __class__.__module__ — extra53 namespace
+#
+# functools.partial and functools.cached_property are class objects. Their
+# __class__ is the 'type' metaclass (for cached_property, a pure-Python class)
+# or the 'partial' type (for partial, a C-extension class). The 'type' metaclass
+# is defined in 'builtins', so cached_property.__class__.__module__ == 'builtins'.
+# However, partial.__class__ IS the partial type itself — partial is a C-extension
+# type defined in Modules/_functoolsmodule.c, so partial.__class__.__module__
+# == '_functools'. This is the key distinction for this spec.
+# No prior spec recorded __class__.__module__ for partial or cached_property.
+# Both are new to extra53.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra53.partial_class_module:
+  description: "functools.partial.__class__.__module__ == '_functools' — C-extension type from Modules/_functoolsmodule.c; __class__ IS the partial type itself; the partial type is defined in the '_functools' C extension module; 9-char module name"
+  category: identity
+  kind: python_call_eq
+  function: partial.__class__.__module__.__eq__
+  args: ["_functools"]
+  expected: true
+
+invariant functools_extra53.cached_property_class_module:
+  description: "functools.cached_property.__class__.__module__ == 'builtins' — pure-Python class in Lib/functools.py; __class__ is the built-in 'type' metaclass; the 'type' metaclass is defined in the 'builtins' C runtime module; 7-char module name"
+  category: identity
+  kind: python_call_eq
+  function: cached_property.__class__.__module__.__eq__
+  args: ["builtins"]
+  expected: true
