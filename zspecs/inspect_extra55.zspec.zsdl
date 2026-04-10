@@ -1,0 +1,167 @@
+spec: inspect_extra55
+version: ">=3.9"
+backend: python_module(inspect)
+
+docs: https://docs.python.org/3/library/inspect.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/inspect.html — Python inspect module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/inspect.py"
+  notes:
+    - "This spec extends inspect_extra54.zspec.zsdl."
+    - "Prior specs covered __class__.__module__.__eq__('str') (measuring the type of __module__ string) for isfunction/isbuiltin/isclass/ismodule/signature/getmembers (extra52). Prior extra44 covered Parameter.empty/__class__.__module__=='builtins'. No prior inspect spec records __class__.__module__.__eq__('builtins') (measuring the metaclass module) for isfunction/isbuiltin/isclass/ismodule as plain module-level functions."
+    - "No prior inspect spec records Parameter.__init__.__class__.__name__.__eq__('function') or Signature.__init__.__class__.__name__.__eq__('function')."
+    - "No prior inspect spec records Parameter.__init__.__class__.__module__.__eq__('builtins') or Signature.__init__.__class__.__module__.__eq__('builtins')."
+    - "No prior inspect spec records Parameter.__init__.__class__.__qualname__.__eq__('function') or Signature.__init__.__class__.__qualname__.__eq__('function')."
+    - "This spec covers: inspect.isfunction/__class__.__module__.__eq__('builtins')==true; inspect.isbuiltin/__class__.__module__.__eq__('builtins')==true; inspect.isclass/__class__.__module__.__eq__('builtins')==true; inspect.ismodule/__class__.__module__.__eq__('builtins')==true; inspect.Parameter.__init__.__class__.__name__.__eq__('function')==true; inspect.Signature.__init__.__class__.__name__.__eq__('function')==true; inspect.Parameter.__init__.__class__.__module__.__eq__('builtins')==true; inspect.Signature.__init__.__class__.__module__.__eq__('builtins')==true; inspect.Parameter.__init__.__class__.__qualname__.__eq__('function')==true; inspect.Signature.__init__.__class__.__qualname__.__eq__('function')==true."
+    - "Key findings: inspect is a pure-Python module; its module-level functions (isfunction, isbuiltin, isclass, ismodule) are 'function' objects. The function type is a C runtime built-in, so function.__module__ == 'builtins'. This is distinct from extra52's __module__.__class__.__module__ (which measured the type of the __module__ string, not the function type's module). The new axis here is function.__class__.__module__ — the module where the function type itself is defined. For Parameter and Signature, __init__ is a pure-Python method (a function object bound to the class via the descriptor protocol); its __class__ is 'function' (from builtins), and __class__.__qualname__ == 'function' (top-level type). All ten invariants are new to extra55."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# inspect function __class__.__module__ == 'builtins' — extra55
+#
+# inspect module-level functions are pure-Python function objects defined in
+# Lib/inspect.py. The Python 'function' type is a C runtime built-in; it is
+# defined in Objects/funcobject.c and exposed in the builtins C module.
+# Therefore function.__module__ == 'builtins' (8 chars), which means that for
+# any inspect module-level function F: F.__class__.__module__ == 'builtins'.
+#
+# This is semantically different from extra52's __module__.__class__.__module__
+# (which traversed: __module__ string -> str type -> str.__module__ == 'builtins').
+# Here the chain is: function object -> __class__ -> function type -> __module__
+# == 'builtins'. The subject of the __class__ lookup is different in each case.
+# No prior inspect spec records this dimension for isfunction/isbuiltin/isclass/
+# ismodule. All four checks below are new to extra55.
+# ---------------------------------------------------------------------------
+
+table inspect_extra55.function_class_module_builtins:
+  description: "inspect function __class__.__module__ == 'builtins' — pure-Python function objects; 'function' type is a C runtime built-in with __module__=='builtins' (8 chars); different from extra52's __module__.__class__.__module__; isfunction/isbuiltin/isclass/ismodule are new to extra55"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: inspmod55
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [isfunction_class_module,
+       isfunction.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "inspect.isfunction.__class__.__module__ == 'builtins' — isfunction is a pure-Python function in Lib/inspect.py that returns True if the object is a Python function; its __class__ is the 'function' built-in type; function.__module__ == 'builtins' (8 chars); prior extra52 confirmed isfunction.__module__.__class__.__name__.__eq__('str') (type of the module string), a different chain; this is the first __class__.__module__ check for isfunction as a function object; new to extra55"]
+    - [isbuiltin_class_module,
+       isbuiltin.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "inspect.isbuiltin.__class__.__module__ == 'builtins' — isbuiltin is a pure-Python function in Lib/inspect.py that returns True if the object is a built-in function or bound built-in method; its __class__ is the 'function' built-in type; function.__module__ == 'builtins' (8 chars); prior extra52 confirmed isbuiltin.__module__.__class__.__name__.__eq__('str'); this is the first __class__.__module__ check for isbuiltin as a function object; new to extra55"]
+    - [isclass_class_module,
+       isclass.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "inspect.isclass.__class__.__module__ == 'builtins' — isclass is a pure-Python function in Lib/inspect.py that returns True if the object is a class; its __class__ is the 'function' built-in type; function.__module__ == 'builtins' (8 chars); prior extra52 confirmed isclass.__module__.__class__.__name__.__eq__('str'); this is the first __class__.__module__ check for isclass as a function object; new to extra55"]
+    - [ismodule_class_module,
+       ismodule.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "inspect.ismodule.__class__.__module__ == 'builtins' — ismodule is a pure-Python function in Lib/inspect.py that returns True if the object is a module; its __class__ is the 'function' built-in type; function.__module__ == 'builtins' (8 chars); prior extra52 confirmed ismodule.__module__.__class__.__name__.__eq__('str'); this is the first __class__.__module__ check for ismodule as a function object; new to extra55"]
+
+# ---------------------------------------------------------------------------
+# inspect.Parameter and Signature __init__.__class__ attrs — extra55
+#
+# inspect.Parameter and inspect.Signature are pure-Python classes defined in
+# Lib/inspect.py. When accessed on the class (not an instance), __init__ is
+# the underlying Python function object (the unbound function). Its __class__
+# is the 'function' built-in type. Therefore:
+#   __init__.__class__.__name__   == 'function'  (8 chars)
+#   __init__.__class__.__module__ == 'builtins'  (8 chars)
+#   __init__.__class__.__qualname__ == 'function' (8 chars; top-level type)
+#
+# No prior inspect spec records any __init__.__class__ attribute for Parameter
+# or Signature. All six checks below are new to extra55.
+# ---------------------------------------------------------------------------
+
+table inspect_extra55.class_init_class_name:
+  description: "inspect.Parameter/Signature __init__.__class__.__name__ == 'function' — class-level __init__ is a function object; 'function' type is from builtins; 8 chars; not recorded in any prior inspect spec; new to extra55"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: inspmod55
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Parameter_init_class_name,
+       Parameter.__init__.__class__.__name__.__eq__,
+       ["function"],
+       true,
+       "inspect.Parameter.__init__.__class__.__name__ == 'function' — Parameter is a pure-Python class in Lib/inspect.py; accessed on the class (not an instance), __init__ is the underlying function object; its __class__ is the built-in 'function' type; function.__name__ == 'function' (8 chars); no prior inspect spec records __init__.__class__.__name__ for Parameter; new to extra55"]
+    - [Signature_init_class_name,
+       Signature.__init__.__class__.__name__.__eq__,
+       ["function"],
+       true,
+       "inspect.Signature.__init__.__class__.__name__ == 'function' — Signature is a pure-Python class in Lib/inspect.py; accessed on the class, __init__ is the underlying function object; its __class__ is the built-in 'function' type; function.__name__ == 'function' (8 chars); no prior inspect spec records __init__.__class__.__name__ for Signature; new to extra55"]
+
+table inspect_extra55.class_init_class_module:
+  description: "inspect.Parameter/Signature __init__.__class__.__module__ == 'builtins' — class-level __init__ is a function object; 'function' type has __module__=='builtins' (8 chars); not recorded in any prior inspect spec; new to extra55"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: inspmod55
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Parameter_init_class_module,
+       Parameter.__init__.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "inspect.Parameter.__init__.__class__.__module__ == 'builtins' — Parameter.__init__ is a function object; the 'function' built-in type is defined in the C runtime 'builtins' module; function.__module__ == 'builtins' (8 chars); consistent with extra55's isfunction/__class__.__module__=='builtins'; no prior inspect spec records __init__.__class__.__module__ for Parameter; new to extra55"]
+    - [Signature_init_class_module,
+       Signature.__init__.__class__.__module__.__eq__,
+       ["builtins"],
+       true,
+       "inspect.Signature.__init__.__class__.__module__ == 'builtins' — Signature.__init__ is a function object; the 'function' built-in type is defined in the C runtime 'builtins' module; function.__module__ == 'builtins' (8 chars); consistent with extra55's isfunction/__class__.__module__=='builtins'; no prior inspect spec records __init__.__class__.__module__ for Signature; new to extra55"]
+
+table inspect_extra55.class_init_class_qualname:
+  description: "inspect.Parameter/Signature __init__.__class__.__qualname__ == 'function' — 'function' is a top-level built-in type so __qualname__ == __name__ == 'function' (8 chars); not recorded in any prior inspect spec; new to extra55"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: inspmod55
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Parameter_init_class_qualname,
+       Parameter.__init__.__class__.__qualname__.__eq__,
+       ["function"],
+       true,
+       "inspect.Parameter.__init__.__class__.__qualname__ == 'function' — Parameter.__init__ is a function object; the 'function' built-in type is a top-level type with no enclosing class scope; therefore __qualname__ == __name__ == 'function' (8 chars); consistent with extra55's __class__.__name__ and __class__.__module__ rows for Parameter; no prior inspect spec records __init__.__class__.__qualname__ for Parameter; new to extra55"]
+    - [Signature_init_class_qualname,
+       Signature.__init__.__class__.__qualname__.__eq__,
+       ["function"],
+       true,
+       "inspect.Signature.__init__.__class__.__qualname__ == 'function' — Signature.__init__ is a function object; the 'function' built-in type is a top-level type with __qualname__ == __name__ == 'function' (8 chars; no dotted prefix because 'function' is not a nested class); consistent with extra55's __class__.__name__ and __class__.__module__ rows for Signature; no prior inspect spec records __init__.__class__.__qualname__ for Signature; new to extra55"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra55
+# ---------------------------------------------------------------------------
+
+invariant inspect_extra55.isfunction_function_type_from_builtins:
+  description: "isfunction __class__.__module__ == 'builtins' — pure-Python functions have the 'function' type from the builtins C module; different from extra52's __module__.__class__.__module__ chain"
+  kind: python_call_eq
+  function: isfunction.__class__.__module__.__eq__
+  args: ["builtins"]
+  expected: true
+
+invariant inspect_extra55.Parameter_init_is_function:
+  description: "Parameter.__init__.__class__.__name__ == 'function' — class-level __init__ is the underlying function object; the function type is from builtins; distinguishes pure-Python classes from C-extension ones"
+  kind: python_call_eq
+  function: Parameter.__init__.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant inspect_extra55.Signature_init_class_qualname_function:
+  description: "Signature.__init__.__class__.__qualname__ == 'function' — top-level type so __qualname__ == __name__ == 'function'; consistent with the builtins module chain"
+  kind: python_call_eq
+  function: Signature.__init__.__class__.__qualname__.__eq__
+  args: ["function"]
+  expected: true
