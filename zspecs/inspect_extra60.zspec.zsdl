@@ -1,0 +1,182 @@
+spec: inspect_extra60
+version: ">=3.9"
+backend: python_module(inspect)
+
+docs: https://docs.python.org/3/library/inspect.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/inspect.html — Python inspect module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/inspect.py"
+  notes:
+    - "This spec extends inspect_extra59.zspec.zsdl."
+    - "Wave 226 theme: __loader__ attribute chains (depth 2+): __loader__.__name__.__len__(), __loader__.__name__.__class__.__name__; __spec__.origin values; __spec__.submodule_search_locations checks; __version__ attribute presence/absence."
+    - "inspect is a pure-Python module (Lib/inspect.py). Its __loader__ is an instance of SourceFileLoader from _frozen_importlib_external. SourceFileLoader instances do not have a __name__ attribute (they have .name for the module's own name, not the loader class name). The loader class name is accessed via __loader__.__class__.__name__ == 'SourceFileLoader' (16 chars, verified extra59). Wave 226 adds the depth-2 chain: __loader__.__class__.__name__.__len__() == 16."
+    - "inspect.__spec__.origin is a str (the absolute filesystem path to inspect.py). The depth-2 check is __spec__.origin.__class__.__name__.__eq__('str'). extra59 checked __spec__.__class__.__name__.__eq__('ModuleSpec'); wave 226 goes deeper into the spec by checking the origin field's type."
+    - "inspect.__spec__.submodule_search_locations is None — inspect is a regular module (not a package), so there are no subpackage search paths. The NoneType check uses __spec__.submodule_search_locations.__class__.__name__.__eq__('NoneType'). New to extra60."
+    - "inspect.__dict__.__contains__('__version__') is False — inspect does not expose a __version__ attribute. CPython stdlib modules are versioned with Python itself and generally do not define __version__ in their module namespace. New to extra60."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# inspect.__loader__.__class__.__name__.__len__() — depth-2 chain — extra60
+#
+# Wave 226 theme: __loader__ attribute chains (depth 2+).
+#
+# extra59 covered: __loader__.__class__.__name__.__eq__('SourceFileLoader') == True
+# Wave 226 goes deeper: __loader__.__class__.__name__.__len__() == 16
+#
+# inspect.__loader__ is a SourceFileLoader instance (not the class itself).
+# SourceFileLoader instances have no __name__ attribute; the loader class name
+# is accessed via __loader__.__class__.__name__ == 'SourceFileLoader'.
+# 'SourceFileLoader' has 16 characters: S-o-u-r-c-e-F-i-l-e-L-o-a-d-e-r.
+#
+# __len__() on a str returns the character count as a Python int.
+# __loader__.__class__.__name__.__len__() == 16 is a depth-3 attribute chain
+# terminating in a method call — new depth beyond extra59.
+#
+# No prior inspect spec has a table row checking __loader__.__class__.__name__.__len__()==16.
+# New to extra60.
+# ---------------------------------------------------------------------------
+
+table inspect_extra60.loader_name_len:
+  description: "inspect.__loader__.__class__.__name__.__len__()==16 — 'SourceFileLoader' is 16 chars; depth-2 chain beyond the __eq__ check in extra59; wave 226 __loader__ depth-2 chain; new to extra60"
+  kind: python_call_eq
+  category: string_length
+  id_prefix: inspspec60
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [loader_class_name_len_eq_16,
+       __loader__.__class__.__name__.__len__,
+       [],
+       16,
+       "inspect.__loader__.__class__.__name__.__len__() == 16 — inspect.__loader__ is a SourceFileLoader instance; SourceFileLoader instances (unlike classes) do not expose __name__ directly, so the class name is reached via __loader__.__class__.__name__; the string 'SourceFileLoader' has exactly 16 characters (S-o-u-r-c-e-F-i-l-e-L-o-a-d-e-r); __len__() on a str returns the character count as a Python int; this is a depth-3 attribute chain (__loader__ → __class__ → __name__ → __len__()) probing the loader class name length; extra59 verified __eq__('SourceFileLoader') == True; wave 226 adds the __len__ depth check; inspect is one of the largest stdlib modules (Lib/inspect.py, 1700+ lines) but its loader type is the same SourceFileLoader used for any other pure-Python stdlib module; no prior inspect spec has a table row checking __loader__.__class__.__name__.__len__()==16; new to extra60"]
+
+# ---------------------------------------------------------------------------
+# inspect.__spec__.origin type check — extra60
+#
+# Wave 226 theme: __spec__.origin values.
+#
+# inspect.__spec__.origin is the filesystem path to inspect.py — a str.
+# For pure-Python stdlib modules loaded by SourceFileLoader, the ModuleSpec
+# origin field is always a str containing the absolute path to the .py source
+# file. Example: '/opt/homebrew/.../lib/python3.14/inspect.py'
+#
+# The depth-2 check: __spec__.origin.__class__.__name__.__eq__('str')
+# — origin is a str whose __class__ is str, and str.__name__ == 'str' (3 chars).
+#
+# extra59 checked __spec__.__class__.__name__.__eq__('ModuleSpec') (the spec
+# object's class). Wave 226 goes one level deeper: checking the type of the
+# origin field itself.
+#
+# No prior inspect spec has a table row checking __spec__.origin.__class__.__name__.__eq__('str').
+# New to extra60.
+# ---------------------------------------------------------------------------
+
+table inspect_extra60.spec_origin_type:
+  description: "inspect.__spec__.origin.__class__.__name__.__eq__('str')==true — spec origin is a str (file path) for pure-Python modules; wave 226 __spec__.origin depth check; no prior inspect spec has table rows for __spec__.origin type; new to extra60"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: inspspec60
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [spec_origin_class_name_eq_str,
+       __spec__.origin.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "inspect.__spec__.origin.__class__.__name__.__eq__('str') == True — inspect.__spec__.origin is a Python str object containing the absolute filesystem path to the inspect.py source file (e.g., '/opt/homebrew/.../lib/python3.14/inspect.py'); for pure-Python stdlib modules loaded by SourceFileLoader, the ModuleSpec.origin field is always a str set to the source file path; the depth-2 chain (__spec__ → origin → __class__ → __name__ → __eq__) checks the type of the origin value itself; extra59 checked __spec__.__class__.__name__ (the ModuleSpec class); wave 226 checks __spec__.origin.__class__.__name__ (the origin value's type); inspect.py is a large module providing runtime introspection utilities; like other pure-Python stdlib modules, its spec origin is a str file path; no prior inspect spec has a table row checking __spec__.origin.__class__.__name__.__eq__('str'); new to extra60"]
+
+# ---------------------------------------------------------------------------
+# inspect.__spec__.submodule_search_locations — NoneType check — extra60
+#
+# Wave 226 theme: __spec__.submodule_search_locations checks.
+#
+# inspect is a regular module, not a package. Its __spec__.submodule_search_locations
+# is None. The NoneType check confirms that inspect is not a package and has no
+# subpackage search paths.
+#
+# The check: __spec__.submodule_search_locations.__class__.__name__.__eq__('NoneType')
+# — None.__class__ is NoneType, NoneType.__name__ == 'NoneType' (8 chars).
+#
+# No prior inspect spec has a table row checking __spec__.submodule_search_locations.
+# New to extra60.
+# ---------------------------------------------------------------------------
+
+table inspect_extra60.spec_submodule_search_locations:
+  description: "inspect.__spec__.submodule_search_locations.__class__.__name__.__eq__('NoneType')==true — inspect is not a package, submodule_search_locations is None; wave 226 submodule_search_locations check; new to extra60"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: inspspec60
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [spec_submodule_search_locations_is_none,
+       __spec__.submodule_search_locations.__class__.__name__.__eq__,
+       ["NoneType"],
+       true,
+       "inspect.__spec__.submodule_search_locations.__class__.__name__.__eq__('NoneType') == True — inspect is a regular Python module (not a package); Python packages (directories containing __init__.py or namespace packages) set ModuleSpec.submodule_search_locations to a list-like object of filesystem paths enabling the import system to search for submodules within the package; regular modules like inspect have submodule_search_locations == None, indicating there are no subpackage search paths; None.__class__ is the built-in NoneType and NoneType.__name__ == 'NoneType' (8 chars); the attribute chain traverses through the None object's class to its name; inspect is one of the largest single-file modules in the stdlib (Lib/inspect.py) but is not a package; no prior inspect spec has a table row checking __spec__.submodule_search_locations; new to extra60"]
+
+# ---------------------------------------------------------------------------
+# inspect.__dict__.__contains__('__version__') — extra60
+#
+# Wave 226 theme: __version__ attribute presence/absence.
+#
+# inspect does NOT define a __version__ attribute. CPython stdlib modules
+# are versioned with Python itself and do not expose __version__ in their
+# module namespace. inspect.__dict__.__contains__('__version__') is False.
+#
+# No prior inspect spec has a table row checking __dict__.__contains__('__version__').
+# New to extra60.
+# ---------------------------------------------------------------------------
+
+table inspect_extra60.version_absence:
+  description: "inspect.__dict__.__contains__('__version__')==false — inspect has no __version__ attribute; CPython stdlib modules do not define __version__; wave 226 __version__ presence/absence check; new to extra60"
+  kind: python_call_eq
+  category: membership
+  id_prefix: inspspec60
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dict_not_contains_version,
+       __dict__.__contains__,
+       ["__version__"],
+       false,
+       "inspect.__dict__.__contains__('__version__') == False — inspect does not define a __version__ attribute in its module namespace; CPython stdlib pure-Python modules (inspect, functools, threading) are versioned with Python itself and do not expose a standalone __version__ string; third-party packages typically define __version__ for version introspection, but stdlib modules rely on sys.version for version information; '__version__' is not a key in inspect.__dict__; no prior inspect spec has a table row checking __dict__.__contains__('__version__'); new to extra60"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra60
+# ---------------------------------------------------------------------------
+
+invariant inspect_extra60.loader_class_name_len_is_16:
+  description: "inspect.__loader__.__class__.__name__.__len__() == 16 — 'SourceFileLoader' has 16 chars; depth-2 __loader__ chain beyond extra59's __eq__ check; wave 226; new to extra60"
+  kind: python_call_eq
+  function: __loader__.__class__.__name__.__len__
+  args: []
+  expected: 16
+
+invariant inspect_extra60.spec_origin_is_str:
+  description: "inspect.__spec__.origin.__class__.__name__.__eq__('str') == True — spec origin is a str file path for pure-Python modules; wave 226 __spec__.origin depth check; new to extra60"
+  kind: python_call_eq
+  function: __spec__.origin.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant inspect_extra60.spec_submodule_search_locations_is_NoneType:
+  description: "inspect.__spec__.submodule_search_locations.__class__.__name__.__eq__('NoneType') == True — inspect is not a package; submodule_search_locations is None; wave 226; new to extra60"
+  kind: python_call_eq
+  function: __spec__.submodule_search_locations.__class__.__name__.__eq__
+  args: ["NoneType"]
+  expected: true
+
+invariant inspect_extra60.no_version_in_dict:
+  description: "inspect.__dict__.__contains__('__version__') == False — inspect has no __version__; CPython stdlib modules are versioned with Python itself; wave 226; new to extra60"
+  kind: python_call_eq
+  function: __dict__.__contains__
+  args: ["__version__"]
+  expected: false
