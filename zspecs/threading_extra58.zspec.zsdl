@@ -1,0 +1,187 @@
+spec: threading_extra58
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec extends threading_extra57.zspec.zsdl."
+    - "Wave 223 theme: __subclasses__ behavior + __subclasshook__ checks + __instancecheck__ / __subclasscheck__ presence + module __all__ content checks where available."
+    - "threading has __all__ (hasattr(threading, '__all__') is True). Prior threading_extra50 confirmed threading.__all__.__len__()==28. threading_extra52 confirmed threading.__all__.__class__.__name__.__eq__('list')==true. Both facts are already covered — the wave 223 __all__ re-check for threading will use __len__()==28 in the equality form from a table row (extra52 had this only as a functional check on __class__.__name__, not __len__)."
+    - "No prior threading spec records __subclasshook__.__class__.__name__ for Thread, Event, or Semaphore."
+    - "No prior threading spec records __eq__.__class__.__name__ for Thread, Event, Semaphore, or Condition."
+    - "threading_extra57 confirmed Thread.__hash__.__class__.__name__=='wrapper_descriptor' (inherited from object, not defining __eq__). The __eq__.__class__.__name__ check is distinct: Thread/Event/Semaphore/Condition do not define __eq__ either, so they also inherit __eq__ from object as a 'wrapper_descriptor'."
+    - "This spec covers: threading.__all__.__len__()==28 (table form); threading.Thread.__subclasshook__.__class__.__name__.__eq__('builtin_function_or_method')==true; threading.Event.__subclasshook__.__class__.__name__.__eq__('builtin_function_or_method')==true; threading.Semaphore.__subclasshook__.__class__.__name__.__eq__('builtin_function_or_method')==true; threading.Thread.__eq__.__class__.__name__.__eq__('wrapper_descriptor')==true; threading.Event.__eq__.__class__.__name__.__eq__('wrapper_descriptor')==true; threading.Semaphore.__eq__.__class__.__name__.__eq__('wrapper_descriptor')==true; threading.Condition.__eq__.__class__.__name__.__eq__('wrapper_descriptor')==true."
+    - "Key findings: threading.__all__ has 28 entries (a list) — confirmed by prior extra50 and re-checked here in table form. Thread, Event, and Semaphore are pure-Python classes in Lib/threading.py. Their class-level __subclasshook__ is 'builtin_function_or_method' — the ABC hook inherited from object as a C-level classmethod (same pattern as inspect.Parameter/Signature confirmed in extra57). Thread, Event, Semaphore, and Condition do not define __eq__; they inherit the identity-comparison __eq__ from object via the C tp_richcompare slot, exposed as 'wrapper_descriptor' at the class level. This contrasts with __hash__ (also 'wrapper_descriptor', confirmed in extra57) — both __eq__ and __hash__ are inherited from object for all four classes. All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# threading.__all__ length — extra58 (wave 223 table form)
+#
+# Wave 223 theme: module __all__ content checks where available.
+#
+# threading has a module-level __all__ list. Prior threading_extra50 recorded
+# threading.__all__.__len__()==28 as a standalone invariant. threading_extra52
+# confirmed threading.__all__.__class__.__name__.__eq__('list')==true as a
+# table row. No prior threading spec has a table row checking __all__.__len__()==28
+# in the equality assertion form (extra50's coverage was as a standalone invariant
+# under an earlier id_prefix). This table provides the wave 223 table-form check.
+# ---------------------------------------------------------------------------
+
+table threading_extra58.all_len_wave223:
+  description: "threading.__all__.__len__()==28 — wave 223 table form; extra50 confirmed this as standalone invariant; extra52 confirmed __class__.__name__=='list'; this is the first table row checking __len__==28 in equality form under thrdall58; new to extra58"
+  kind: python_call_eq
+  category: length
+  id_prefix: thrdall58
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [all_len_eq_28,
+       __all__.__len__,
+       [],
+       28,
+       "threading.__all__.__len__() == 28 — threading.__all__ is a list of 28 public names in Python 3.14: ['get_ident', 'active_count', 'Condition', 'current_thread', 'enumerate', 'main_thread', 'TIMEOUT_MAX', 'Event', 'Lock', 'RLock', 'Semaphore', 'BoundedSemaphore', 'Thread', 'Barrier', 'BrokenBarrierError', 'Timer', 'ThreadError', 'setprofile', 'settrace', 'local', 'stack_size', 'excepthook', 'ExceptHookArgs', 'gettrace', 'getprofile', 'setprofile_all_threads', 'settrace_all_threads', 'get_native_id']; prior extra50 confirmed __len__()==28 as a standalone invariant and extra52 confirmed __class__.__name__=='list' as a table row; this is the first table row confirming __len__==28 in equality form under id_prefix thrdall58; new to extra58"]
+
+# ---------------------------------------------------------------------------
+# threading pure-Python class __subclasshook__ is builtin_function_or_method — extra58
+#
+# Wave 223 theme: __subclasshook__ checks.
+#
+# Thread, Event, and Semaphore are pure-Python classes in Lib/threading.py.
+# Despite being pure-Python classes, their class-level __subclasshook__ is
+# 'builtin_function_or_method' — the same as C-extension types such as
+# itertools.groupby (extra57).
+#
+# This is because __subclasshook__ is NOT defined in the class body of Thread,
+# Event, or Semaphore. It is inherited from object, where it is implemented as
+# a C-level classmethod. The Python-vs-C distinction for method types only
+# applies to methods that are defined in the class body:
+#
+#   - Thread.__repr__ == 'function' (defined in class body, extra57)
+#   - Thread.__subclasshook__ == 'builtin_function_or_method' (inherited from object)
+#
+# When called, __subclasshook__(SomeClass) returns NotImplemented by default,
+# indicating that normal ABC subclass checking applies.
+#
+# No prior threading spec records __subclasshook__.__class__.__name__ for any
+# threading class. All three checks below are new to extra58.
+# ---------------------------------------------------------------------------
+
+table threading_extra58.pure_python_subclasshook:
+  description: "threading Thread/Event/Semaphore.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — pure-Python classes inherit ABC hook from object as C-level built-in; contrasts with class-level __repr__=='function' (defined in class body, extra57); not recorded in any prior threading spec; new to extra58"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: thrdall58
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Thread_subclasshook_class_name,
+       Thread.__subclasshook__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "threading.Thread.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — Thread is a pure-Python class in Lib/threading.py; its class-level __repr__ is a Python 'function' (extra57) because __repr__ is defined in Thread's class body; however __subclasshook__ is NOT defined in Thread's class body — it is inherited from object as a C-level classmethod; inherited C-level classmethods are always 'builtin_function_or_method' regardless of whether the class is pure-Python or C-extension; consistent with inspect.Parameter.__subclasshook__ (extra57) which shows the same pattern; calling Thread.__subclasshook__(SomeClass) returns NotImplemented; no prior threading spec records __subclasshook__.__class__.__name__ for Thread; new to extra58"]
+    - [Event_subclasshook_class_name,
+       Event.__subclasshook__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "threading.Event.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — Event is a pure-Python class in Lib/threading.py implementing a flag-based thread synchronization primitive; its class-level __repr__ is a Python 'function' (extra57) but __subclasshook__ is inherited from object as a C-level classmethod ('builtin_function_or_method'); consistent with Thread above; no prior threading spec records __subclasshook__.__class__.__name__ for Event; new to extra58"]
+    - [Semaphore_subclasshook_class_name,
+       Semaphore.__subclasshook__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "threading.Semaphore.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — Semaphore is a pure-Python class in Lib/threading.py implementing a counting semaphore; its class-level __repr__ is a Python 'function' (extra57) but __subclasshook__ is inherited from object as a C-level classmethod ('builtin_function_or_method'); consistent with Thread and Event; no prior threading spec records __subclasshook__.__class__.__name__ for Semaphore; new to extra58"]
+
+# ---------------------------------------------------------------------------
+# threading pure-Python class __eq__ is a wrapper_descriptor — extra58
+#
+# Wave 223 theme: __subclasshook__ checks (complementary __eq__ check).
+#
+# Thread, Event, Semaphore, and Condition are pure-Python classes in
+# Lib/threading.py that do NOT define __eq__. In Python 3, a class that does
+# not define __eq__ inherits the default identity-comparison __eq__ from object.
+# The class-level __eq__ is therefore the tp_richcompare slot from the object
+# base type (specifically the == operator slot), which Python exposes as a
+# 'wrapper_descriptor' at the class level.
+#
+# This mirrors the __hash__ pattern established in threading_extra57: Thread,
+# Event, and Semaphore all have __hash__.__class__.__name__ == 'wrapper_descriptor'
+# (because they don't define __eq__/hash, inheriting from object). The __eq__
+# result is the same 'wrapper_descriptor' pattern for the same reason.
+#
+# This contrasts with inspect.Parameter and inspect.Signature, which explicitly
+# define __eq__ as Python functions (so their __eq__.__class__.__name__ == 'function').
+#
+# No prior threading spec records __eq__.__class__.__name__ for any threading
+# class. Thread, Event, Semaphore, and Condition are all new to extra58.
+# ---------------------------------------------------------------------------
+
+table threading_extra58.class_eq_is_wrapper_descriptor:
+  description: "threading Thread/Event/Semaphore/Condition.__eq__.__class__.__name__ == 'wrapper_descriptor' — pure-Python classes that do not define __eq__ inherit the identity-comparison __eq__ from object as a C-slot wrapper_descriptor; contrasts with inspect.Parameter (defines __eq__ as Python function); not recorded in any prior threading spec; new to extra58"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: thrdall58
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Thread_eq_class_name,
+       Thread.__eq__.__class__.__name__.__eq__,
+       ["wrapper_descriptor"],
+       true,
+       "threading.Thread.__eq__.__class__.__name__ == 'wrapper_descriptor' — Thread does not define __eq__ in its class body; it inherits the default identity-comparison __eq__ from object via the tp_richcompare C slot; the class-level __eq__ descriptor is therefore a 'wrapper_descriptor' (the same mechanism as the inherited __hash__ confirmed in extra57); contrasts with inspect.Parameter which explicitly defines __eq__ as a Python function ('function'); no prior threading spec records __eq__.__class__.__name__ for Thread; new to extra58"]
+    - [Event_eq_class_name,
+       Event.__eq__.__class__.__name__.__eq__,
+       ["wrapper_descriptor"],
+       true,
+       "threading.Event.__eq__.__class__.__name__ == 'wrapper_descriptor' — Event does not define __eq__; it inherits the identity-comparison __eq__ from object via the tp_richcompare C slot; the class-level descriptor is 'wrapper_descriptor'; consistent with Thread above; no prior threading spec records __eq__.__class__.__name__ for Event; new to extra58"]
+    - [Semaphore_eq_class_name,
+       Semaphore.__eq__.__class__.__name__.__eq__,
+       ["wrapper_descriptor"],
+       true,
+       "threading.Semaphore.__eq__.__class__.__name__ == 'wrapper_descriptor' — Semaphore does not define __eq__; it inherits the identity-comparison __eq__ from object via the tp_richcompare C slot; the class-level descriptor is 'wrapper_descriptor'; consistent with Thread and Event; no prior threading spec records __eq__.__class__.__name__ for Semaphore; new to extra58"]
+    - [Condition_eq_class_name,
+       Condition.__eq__.__class__.__name__.__eq__,
+       ["wrapper_descriptor"],
+       true,
+       "threading.Condition.__eq__.__class__.__name__ == 'wrapper_descriptor' — Condition does not define __eq__; it inherits the identity-comparison __eq__ from object via the tp_richcompare C slot; the class-level descriptor is 'wrapper_descriptor'; consistent with Thread, Event, and Semaphore; Condition's __hash__ was not explicitly checked in extra57 (only Thread, Event, Semaphore were checked for __hash__); this __eq__ check covers Condition for the first time in the wave 223 context; no prior threading spec records __eq__.__class__.__name__ for Condition; new to extra58"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra58
+# ---------------------------------------------------------------------------
+
+invariant threading_extra58.all_len_28:
+  description: "threading.__all__.__len__() == 28 — 28 public names in threading module; wave 223 table form re-verification; extra50 established as standalone invariant; new id under thrdall58"
+  kind: python_call_eq
+  function: __all__.__len__
+  args: []
+  expected: 28
+
+invariant threading_extra58.Thread_subclasshook_is_builtin:
+  description: "Thread.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — pure-Python class inherits ABC hook from object as C-level classmethod; contrasts with __repr__=='function' (defined in class body, extra57); new to extra58"
+  kind: python_call_eq
+  function: Thread.__subclasshook__.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant threading_extra58.Thread_eq_inherited_from_object:
+  description: "Thread.__eq__.__class__.__name__ == 'wrapper_descriptor' — Thread does not define __eq__; inherits identity-comparison __eq__ from object as tp_richcompare slot descriptor; same pattern as inherited __hash__ (extra57); new to extra58"
+  kind: python_call_eq
+  function: Thread.__eq__.__class__.__name__.__eq__
+  args: ["wrapper_descriptor"]
+  expected: true
+
+invariant threading_extra58.Condition_eq_inherited_from_object:
+  description: "Condition.__eq__.__class__.__name__ == 'wrapper_descriptor' — Condition does not define __eq__; inherits identity-comparison __eq__ from object as wrapper_descriptor; first Condition check for __eq__; consistent with Thread, Event, Semaphore; new to extra58"
+  kind: python_call_eq
+  function: Condition.__eq__.__class__.__name__.__eq__
+  args: ["wrapper_descriptor"]
+  expected: true

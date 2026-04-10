@@ -1,0 +1,157 @@
+spec: itertools_extra57
+version: ">=3.9"
+backend: python_module(itertools)
+
+docs: https://docs.python.org/3/library/itertools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/itertools.html — Python itertools module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/itertoolsmodule.c"
+  notes:
+    - "This spec extends itertools_extra56.zspec.zsdl."
+    - "Wave 223 theme: __subclasses__ behavior + __subclasshook__ checks + __instancecheck__ / __subclasscheck__ presence + module __all__ content checks where available."
+    - "itertools does NOT have a module-level __all__ attribute (hasattr(itertools, '__all__') is False). This is by design — itertools is a C-extension module and does not define __all__; its public API is determined by the C module initialization rather than an __all__ list."
+    - "No prior itertools spec records __subclasshook__.__class__.__name__ for any itertools type."
+    - "No prior itertools spec records __subclasscheck__.__class__.__name__ or __instancecheck__.__class__.__name__ for any itertools type."
+    - "This spec covers: itertools.groupby.__subclasshook__.__class__.__name__.__eq__('builtin_function_or_method')==true; itertools.chain.__subclasshook__.__class__.__name__.__eq__('builtin_function_or_method')==true; itertools.count.__subclasshook__.__class__.__name__.__eq__('builtin_function_or_method')==true; itertools.product.__subclasshook__.__class__.__name__.__eq__('builtin_function_or_method')==true; itertools.groupby.__subclasscheck__.__class__.__name__.__eq__('builtin_function_or_method')==true; itertools.chain.__subclasscheck__.__class__.__name__.__eq__('builtin_function_or_method')==true; itertools.groupby.__instancecheck__.__class__.__name__.__eq__('builtin_function_or_method')==true; itertools.chain.__instancecheck__.__class__.__name__.__eq__('builtin_function_or_method')==true."
+    - "Key findings: itertools does not define __all__ (it is a C-extension module). All itertools types (groupby, chain, count, product) are C-extension types defined in Modules/itertoolsmodule.c. Their class-level __subclasshook__, __subclasscheck__, and __instancecheck__ are all 'builtin_function_or_method' — C-level functions inherited from the object base type and the type metaclass. This is the same pattern as functools.partial (functools_extra62). The 'builtin_function_or_method' result for these hooks contrasts with 'wrapper_descriptor' (C slot methods like tp_repr) — the ABC hooks and isinstance/issubclass hooks are not C slot methods but rather C-level built-in function objects. All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# itertools C-type __subclasshook__ is builtin_function_or_method — extra57
+#
+# Wave 223 theme: __subclasshook__ checks.
+#
+# All itertools types (groupby, chain, count, product) are C-extension types
+# defined in Modules/itertoolsmodule.c. Their metaclass is the standard 'type'.
+# The class-level __subclasshook__ is the ABC customization hook inherited from
+# the object base type. For C-extension types using the standard 'type' metaclass,
+# __subclasshook__ is a C-level classmethod exposed as 'builtin_function_or_method'.
+#
+# This is distinct from 'wrapper_descriptor' (which is used for C slot methods
+# like tp_repr, tp_hash stored in the type object). __subclasshook__ is not a
+# C slot method; it is a C built-in classmethod. When called, it returns
+# NotImplemented by default (signaling that normal subclass checking applies).
+#
+# itertools does not define __all__. itertools is a C-extension module whose
+# public API is determined by its C module initialization, not by __all__.
+# hasattr(itertools, '__all__') == False.
+#
+# No prior itertools spec records __subclasshook__.__class__.__name__ for any
+# itertools type. All four checks below are new to extra57.
+# ---------------------------------------------------------------------------
+
+table itertools_extra57.c_type_subclasshook:
+  description: "itertools C-type __subclasshook__.__class__.__name__ == 'builtin_function_or_method' — C-extension types inherit ABC hook from object as C-level built-in; contrasts with wrapper_descriptor (C slot methods like __repr__); not recorded in any prior itertools spec; new to extra57"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: itertall57
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [groupby_subclasshook_class_name,
+       groupby.__subclasshook__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "itertools.groupby.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — groupby is a C-extension type in Modules/itertoolsmodule.c; its class-level __subclasshook__ is the ABC customization hook inherited from object as a C-level classmethod; C-level classmethods are exposed as 'builtin_function_or_method', not 'wrapper_descriptor' (which is used for C slot methods like tp_repr); calling groupby.__subclasshook__(SomeClass) returns NotImplemented; no prior itertools spec records __subclasshook__.__class__.__name__ for groupby; new to extra57"]
+    - [chain_subclasshook_class_name,
+       chain.__subclasshook__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "itertools.chain.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — chain is a C-extension type that inherits __subclasshook__ from object as a C-level classmethod exposed as 'builtin_function_or_method'; consistent with groupby above; no prior itertools spec records __subclasshook__.__class__.__name__ for chain; new to extra57"]
+    - [count_subclasshook_class_name,
+       count.__subclasshook__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "itertools.count.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — count is a C-extension type that generates an infinite arithmetic sequence; inherits __subclasshook__ from object as a C-level built-in classmethod; consistent with groupby and chain; no prior itertools spec records __subclasshook__.__class__.__name__ for count; new to extra57"]
+    - [product_subclasshook_class_name,
+       product.__subclasshook__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "itertools.product.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — product is a C-extension type that yields the Cartesian product of input iterables; inherits __subclasshook__ from object as a C-level built-in classmethod; consistent with groupby, chain, and count; no prior itertools spec records __subclasshook__.__class__.__name__ for product; new to extra57"]
+
+# ---------------------------------------------------------------------------
+# itertools C-type __subclasscheck__ and __instancecheck__ — extra57
+#
+# Wave 223 theme: __instancecheck__ / __subclasscheck__ presence.
+#
+# itertools C-extension types inherit __subclasscheck__ and __instancecheck__
+# from the 'type' metaclass. These hooks control the behavior of issubclass()
+# and isinstance() respectively. For type objects, both are C-level built-in
+# functions exposed as 'builtin_function_or_method'.
+#
+# __subclasscheck__ is invoked by issubclass(X, itertools.groupby).
+# __instancecheck__ is invoked by isinstance(obj, itertools.groupby).
+# Both are C-level built-in methods, not wrapper_descriptors or Python functions.
+#
+# No prior itertools spec records __subclasscheck__.__class__.__name__ or
+# __instancecheck__.__class__.__name__ for any itertools type. Four checks
+# (groupby and chain for both hooks) are new to extra57.
+# ---------------------------------------------------------------------------
+
+table itertools_extra57.c_type_isinstance_hooks:
+  description: "itertools C-type __subclasscheck__/__instancecheck__ are 'builtin_function_or_method' — hooks controlling issubclass()/isinstance() are C built-in functions from the type metaclass; not recorded in any prior itertools spec; new to extra57"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: itertall57
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [groupby_subclasscheck_class_name,
+       groupby.__subclasscheck__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "itertools.groupby.__subclasscheck__.__class__.__name__ == 'builtin_function_or_method' — __subclasscheck__ controls the behavior of issubclass(X, groupby); it is inherited from the 'type' metaclass as a C-level built-in function; when issubclass is called, Python invokes type.__subclasscheck__ which performs the standard MRO-based subclass check; accessed at the class level it is a 'builtin_function_or_method'; no prior itertools spec records __subclasscheck__.__class__.__name__ for groupby; new to extra57"]
+    - [chain_subclasscheck_class_name,
+       chain.__subclasscheck__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "itertools.chain.__subclasscheck__.__class__.__name__ == 'builtin_function_or_method' — __subclasscheck__ for chain is inherited from the 'type' metaclass as a C-level built-in function; controls issubclass(X, chain); consistent with groupby; no prior itertools spec records __subclasscheck__.__class__.__name__ for chain; new to extra57"]
+    - [groupby_instancecheck_class_name,
+       groupby.__instancecheck__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "itertools.groupby.__instancecheck__.__class__.__name__ == 'builtin_function_or_method' — __instancecheck__ controls the behavior of isinstance(obj, groupby); it is inherited from the 'type' metaclass as a C-level built-in function; when isinstance is called, Python invokes type.__instancecheck__ which performs the standard instance type check; accessed at the class level it is a 'builtin_function_or_method'; no prior itertools spec records __instancecheck__.__class__.__name__ for groupby; new to extra57"]
+    - [chain_instancecheck_class_name,
+       chain.__instancecheck__.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "itertools.chain.__instancecheck__.__class__.__name__ == 'builtin_function_or_method' — __instancecheck__ for chain is inherited from the 'type' metaclass as a C-level built-in function; controls isinstance(obj, chain); consistent with groupby; no prior itertools spec records __instancecheck__.__class__.__name__ for chain; new to extra57"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra57
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra57.groupby_subclasshook_is_builtin:
+  description: "groupby.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — C-extension type inherits ABC hook from object as C-level built-in; contrasts with wrapper_descriptor (C slot methods like __repr__/__hash__); new to extra57"
+  kind: python_call_eq
+  function: groupby.__subclasshook__.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant itertools_extra57.chain_subclasshook_is_builtin:
+  description: "chain.__subclasshook__.__class__.__name__ == 'builtin_function_or_method' — same pattern as groupby; ABC hook inherited from object as C-level classmethod; new to extra57"
+  kind: python_call_eq
+  function: chain.__subclasshook__.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant itertools_extra57.groupby_subclasscheck_is_builtin:
+  description: "groupby.__subclasscheck__.__class__.__name__ == 'builtin_function_or_method' — issubclass() hook inherited from type metaclass as C-level built-in; new to extra57"
+  kind: python_call_eq
+  function: groupby.__subclasscheck__.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant itertools_extra57.groupby_instancecheck_is_builtin:
+  description: "groupby.__instancecheck__.__class__.__name__ == 'builtin_function_or_method' — isinstance() hook inherited from type metaclass as C-level built-in; new to extra57"
+  kind: python_call_eq
+  function: groupby.__instancecheck__.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
