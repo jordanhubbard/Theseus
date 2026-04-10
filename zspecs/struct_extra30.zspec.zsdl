@@ -1,0 +1,80 @@
+spec: struct_extra30
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra29.zspec.zsdl — covers Struct.__dict__['size']/__dict__['format'] descriptor class name len (17 'getset_descriptor'); struct.__spec__.__name__/__loader__.__class__.__name__.__len__()."
+    - "struct_extra28.zspec.zsdl — covers calcsize() for c/B/h/H/i/f/d/q/l and multi-element 2i/ii/4s/3I and prefix-invariance for <i/>i/!i/=i/@i; Struct.__init_subclass__.__qualname__.__len__()==24."
+    - "struct_extra9.zspec.zsdl — covers calcsize('c')==1; calcsize('P')==8; Struct method descriptor __qualname__ and __name__ tables."
+    - "struct_extra5.zspec.zsdl — covers calcsize('>B'/'<B'/'>5s'); Struct('>I'/'>H') format and size."
+    - "struct_extra3.zspec.zsdl — covers pack/unpack/calcsize for '!f'/'!d'/'!?'; calcsize for '!5s'/'!3p'/'!x'/'!5x'."
+  notes:
+    - "This spec extends struct through struct_extra29; it does NOT duplicate invariants present in those files."
+    - "Prior specs covered: calcsize() for all primitive chars c/B/h/H/i/f/d/q/l (extra28); calcsize('P')==8 (extra9); calcsize('4s')==4 (extra/base); calcsize('3p')==3 (extra/base); calcsize('>5s')==5 and '<5s'==5 (extra5); calcsize('!5s')==5 and '!3p'==3 (extra3); calcsize() multi-element and prefix-invariance (extra28); Struct('>H') and Struct('>I') and Struct('>BHI') format/size (extra5/extra/extra8)."
+    - "This spec covers: struct.calcsize('10s') (NOVEL — prior specs cover 4s/5s/3p/3s but not 10s; '10s' is a 10-byte char array, calcsize returns 10); struct.calcsize('?') (NOVEL — extra3 covers '!?' but not bare '?'; bare '?' uses native bool format, size 1); struct.calcsize('e') (NOVEL — 'e' is the IEEE 754 half-float format added in Python 3.6, calcsize returns 2; no prior spec checks calcsize('e')); struct.Struct('4B').size (NOVEL — prior Struct specs use '>H'/'>I'/'>BHI'/'>BB'/'>b'/'>Q'/'>l' but not '4B'; Struct('4B').size==4 — four unsigned bytes, total 4); struct.Struct('4B').format.__len__() (NOVEL — no prior spec checks the length of a Struct instance's format string; '4B' has len 2)."
+    - "struct.calcsize('10s') == 10. A fixed-length 10-byte character array format. No prior spec checks calcsize for any two-digit count format. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.calcsize('?') == 1. The native-order boolean format. extra3 covers '!?' (network-order bool) but no prior spec checks bare '?' (native-order). On CPython 3.12 macOS, native bool is 1 byte. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.calcsize('e') == 2. The IEEE 754 half-float (binary16) format; added in Python 3.6. Always 2 bytes regardless of byte order. No prior struct spec checks calcsize('e'). Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.Struct('4B').size == 4. A Struct instance for four consecutive unsigned bytes. Prior Struct specs use formats like '>H' (size 2), '>I' (size 4), '>BHI' (size 7), '>BB' (size 2); none uses '4B'. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.Struct('4B').format.__len__() == 2. The format string '4B' stored in the Struct instance has length 2 (two characters: '4' and 'B'). No prior spec checks the length of a Struct instance's format string attribute. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.calcsize() for novel format characters: '10s', '?', 'e'
+#
+# Prior specs cover: 'c'==1 (extra9); 'P'==8 (extra9); '4s'==4 (extra/base);
+# '5s'==5 (extra5); '3s'==3 (extra11); '!f'==4 and '!?'==1 (extra3);
+# 'c'/'B'/'h'/'H'/'i'/'f'/'d'/'q'/'l' (extra28).
+# Novel angles:
+#   '10s' — two-digit count character array, size == 10
+#   '?'   — native-order boolean (extra3 covers '!?' only), size == 1
+#   'e'   — IEEE 754 half-float (Python 3.6+), size == 2
+# ---------------------------------------------------------------------------
+
+table struct_extra30.calcsize_novel_formats:
+  description: "struct.calcsize() for novel format chars: '10s'(10), '?'(1), 'e'(2) — prior specs cover 4s/5s/3s and '!?' but not 10s/bare-?/e"
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: scnf30
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ten_char_str,  calcsize, ["10s"], 10]
+    - [bool_native,   calcsize, ["?"],   1]
+    - [half_float,    calcsize, ["e"],   2]
+
+# ---------------------------------------------------------------------------
+# struct.Struct('4B').size and struct.Struct('4B').format.__len__()
+#
+# No prior spec creates a Struct instance with format '4B'. The format string
+# '4B' (four unsigned bytes) is novel: Struct('4B').size == 4 (four 1-byte
+# values) and the format string itself has length 2 (chars '4' and 'B').
+# Prior Struct specs use '>H', '>I', '>BHI', '>BB', '>b', '>Q', '>l'.
+# No prior spec checks the __len__() of any Struct instance's format string.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra30.Struct_4B_size:
+  description: "struct.Struct('4B').size == 4 — four consecutive unsigned bytes total 4 bytes; novel format '4B' not in any prior spec"
+  category: behavioral
+  kind: python_call_eq
+  function: "Struct('4B').size.__eq__"
+  args: [4]
+  expected: true
+
+invariant struct_extra30.Struct_4B_format_len:
+  description: "struct.Struct('4B').format.__len__() == 2 — format string '4B' has 2 characters; novel: no prior spec checks Struct instance format string length"
+  category: behavioral
+  kind: python_call_eq
+  function: "Struct('4B').format.__len__"
+  args: []
+  expected: 2
