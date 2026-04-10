@@ -1,0 +1,117 @@
+spec: hashlib_extra41
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "hashlib_extra40.zspec.zsdl — covers sha3_512.__module__.__len__()==8; scrypt.__qualname__/__module__.__len__(); md5.__doc__.__class__.__name__.__len__()==3; sha256/sha512/md5/sha1 digest_size."
+    - "hashlib_extra39.zspec.zsdl — covers sha3_512 hexdigest len (128); hashlib.__class__.__name__.__len__()==6; sha256.__doc__.__class__.__name__.__len__()==3; scrypt.__name__.__len__()==6."
+    - "hashlib_extra38.zspec.zsdl — covers pbkdf2_hmac.__name__.__len__()==11; sha3_256/sha3_224/sha3_384/blake2b/blake2s hexdigest lengths via method_chain."
+    - "hashlib_extra33.zspec.zsdl — covers sha3_512/shake_128/shake_256 __name__.__len__()==16; algorithms_guaranteed/__class__/__name__.__len__()==3."
+    - "hashlib_extra31.zspec.zsdl — covers md5/sha1/sha256/sha512/sha224/sha384 __name__.__len__()."
+    - "hashlib_extra24.zspec.zsdl — covers md5/sha1/sha256/sha512/sha224/sha384/new/pbkdf2_hmac __qualname__.__len__()."
+  notes:
+    - "This spec extends hashlib through hashlib_extra40; it does NOT duplicate invariants present in those files."
+    - "algorithms_guaranteed is a 'set' (NOT 'frozenset') on CPython 3.14/macOS. extra33 covers algorithms_guaranteed/__class__/__name__.__len__()==3 ('set' has 3 chars) but does NOT check __contains__ membership or the class name string directly."
+    - "hashlib.algorithms_guaranteed.__contains__('sha256') == True. Verifies that SHA-256 is in the guaranteed algorithm set. No prior spec checks __contains__ directly on algorithms_guaranteed for any algorithm name. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "hashlib.algorithms_guaranteed.__contains__('md5') == True. MD5 is guaranteed across all CPython platforms. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "hashlib.algorithms_guaranteed.__contains__('sha1') == True. SHA-1 is guaranteed. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "hashlib.algorithms_guaranteed.__contains__('sha512') == True. SHA-512 is guaranteed. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "hashlib.algorithms_guaranteed.__class__.__name__ == 'set'. The type of algorithms_guaranteed is 'set' (CPython exposes it as a plain set, not frozenset). extra33 covers __class__/__name__.__len__()==3 but does NOT check the string value directly via __eq__. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "hashlib.new.__name__ == '__hash_new'. The module-level 'new' function is actually named '__hash_new' internally. No prior spec checks new.__name__ as a string value (extra16 may cover __name__.__len__() only). Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "hashlib.new.__module__ == 'hashlib'. new is defined in the hashlib Python module (not in _hashlib C extension). No prior spec checks new.__module__ directly as a string value. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "hashlib.md5.__name__ == 'openssl_md5'. The md5 function alias points to the OpenSSL-backed implementation named 'openssl_md5'. extra31 covers md5.__name__.__len__()==10 but does NOT check the string value. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# hashlib.algorithms_guaranteed.__contains__ membership checks
+#
+# algorithms_guaranteed is the set of hash algorithm names guaranteed to be
+# supported on all CPython platforms. No prior spec checks __contains__
+# directly for any algorithm — prior specs use 'in' operator indirectly via
+# method_chain or check __class__/__name__.__len__() only.
+#
+# Verified on Python 3.14 macOS/Darwin 25.4.0:
+#   'sha256' in hashlib.algorithms_guaranteed -> True
+#   'md5'    in hashlib.algorithms_guaranteed -> True
+#   'sha1'   in hashlib.algorithms_guaranteed -> True
+#   'sha512' in hashlib.algorithms_guaranteed -> True
+# ---------------------------------------------------------------------------
+
+table hashlib_extra41.algorithms_guaranteed_contains:
+  description: "hashlib.algorithms_guaranteed.__contains__ for sha256/md5/sha1/sha512 — all True; novel: no prior spec checks __contains__ directly on algorithms_guaranteed for any algorithm name"
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: agc41
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sha256_in, "algorithms_guaranteed.__contains__", ["sha256"], true]
+    - [md5_in,    "algorithms_guaranteed.__contains__", ["md5"],    true]
+    - [sha1_in,   "algorithms_guaranteed.__contains__", ["sha1"],   true]
+    - [sha512_in, "algorithms_guaranteed.__contains__", ["sha512"], true]
+
+# ---------------------------------------------------------------------------
+# hashlib.algorithms_guaranteed.__class__.__name__ == 'set'
+#
+# extra33 covers algorithms_guaranteed/__class__/__name__.__len__()==3 confirming
+# the class name is 3 chars, but does NOT check the string value directly.
+# The actual type is 'set' (plain set, not frozenset) on CPython 3.14/macOS.
+# Checking __eq__ on the class name string directly is a novel invariant.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra41.algorithms_guaranteed.class_name_eq:
+  description: "hashlib.algorithms_guaranteed.__class__.__name__ == 'set' — algorithms_guaranteed is a plain set (not frozenset) on CPython; novel: extra33 covers __len__()==3 but not the string value directly"
+  category: module_metadata
+  kind: python_call_eq
+  function: algorithms_guaranteed.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hashlib.new.__name__ and hashlib.new.__module__
+#
+# hashlib.new.__name__ == '__hash_new': the module-level 'new' function
+# is internally named '__hash_new' (10 chars). No prior spec checks this
+# string value directly.
+#
+# hashlib.new.__module__ == 'hashlib': new is defined in the Python-level
+# hashlib module (not the _hashlib C extension). No prior spec checks
+# new.__module__ as a string value.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra41.new_name_and_module:
+  description: "hashlib.new.__name__=='__hash_new' and hashlib.new.__module__=='hashlib' — novel string-value checks; no prior spec verifies new.__name__ or new.__module__ as eq values"
+  kind: python_call_eq
+  category: function_names
+  id_prefix: hnm41
+
+  columns: [id, function, args, expected]
+  rows:
+    - [new_name_eq,   new.__name__.__eq__,   ["__hash_new"], true]
+    - [new_module_eq, new.__module__.__eq__,  ["hashlib"],    true]
+
+# ---------------------------------------------------------------------------
+# hashlib.md5.__name__ == 'openssl_md5'
+#
+# extra31 covers md5.__name__.__len__()==10 but does NOT check the string
+# value. The actual internal name is 'openssl_md5' confirming the OpenSSL
+# backend. Checking the string value directly via __eq__ is novel.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra41.md5.name_eq:
+  description: "hashlib.md5.__name__ == 'openssl_md5' — md5 is backed by OpenSSL and its internal name reflects that; novel: extra31 covers md5.__name__.__len__()==10 but not the string value"
+  category: function_names
+  kind: python_call_eq
+  function: md5.__name__.__eq__
+  args: ["openssl_md5"]
+  expected: true

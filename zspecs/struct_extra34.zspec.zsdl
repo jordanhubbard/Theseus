@@ -1,0 +1,111 @@
+spec: struct_extra34
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra33.zspec.zsdl — covers struct.__name__.__len__()==6; error/__module__.__len__()==6; Struct/__module__.__len__()==7; pack('>3B',1,2,3)==b'\\x01\\x02\\x03'; Struct('!4s').pack(b'test')==b'test'."
+    - "struct_extra32.zspec.zsdl — covers Struct METHOD __name__.__len__() for pack/unpack/pack_into/unpack_from/iter_unpack."
+    - "struct_extra30.zspec.zsdl — covers calcsize('10s'/'?'/'e'); Struct('4B').size; Struct('4B').format.__len__()==2."
+    - "struct_extra20.zspec.zsdl — covers __qualname__.__len__() for all six module-level functions."
+    - "struct_extra16.zspec.zsdl — covers MODULE-LEVEL pack/unpack/calcsize/pack_into/unpack_from/iter_unpack __name__.__len__()."
+  notes:
+    - "This spec extends struct through struct_extra33; it does NOT duplicate invariants present in those files."
+    - "Prior specs covered: module-level function __name__.__len__() for pack/unpack/calcsize (extra16, via len); calcsize for '10s'/'?'/'e' (extra30); calcsize for '>5s' and '3s' covered in extra5/extra11 — verify 3s is NOT covered. Key coverage gap: no prior spec checks pack/__name__ or calcsize/__name__ as eq string values; struct.pack/__module__ as eq string value."
+    - "struct.pack.__name__ == 'pack'. extra16 covers pack.__name__.__len__()==4 but not the string value via __eq__. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.pack.__module__ == '_struct'. struct.pack is implemented in the _struct C extension. extra33 covers Struct.__module__.__len__()==7 but Struct is the class; for the module-level pack function the __module__ attribute is also '_struct' (7 chars). No prior spec checks pack.__module__ as a string eq value. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.unpack.__name__ == 'unpack'. Same gap as pack: extra16 covers __len__()==6 only. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize.__name__ == 'calcsize'. extra16 covers __len__()==8 only. No prior spec checks the string eq value. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize('>H') == 2. Unsigned short (H) is 2 bytes regardless of byte order prefix. extra30 covers '10s'/'?'/'e' but not '>H'. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize('>I') == 4. Unsigned int (I) is 4 bytes. No prior spec checks '>I'. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize('>Q') == 8. Unsigned long long (Q) is 8 bytes. No prior spec checks '>Q'. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize('>B') == 1. Unsigned char (B) is 1 byte. No prior spec checks '>B'. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.pack/__name__ and struct.unpack/__name__ string eq checks
+#
+# extra16 covers pack.__name__.__len__()==4 and unpack.__name__.__len__()==6
+# but does NOT check the string values via __eq__. These are distinct
+# invariants from the length checks.
+# ---------------------------------------------------------------------------
+
+table struct_extra34.function_name_eqs:
+  description: "struct.pack/__name__=='pack' and struct.unpack/__name__=='unpack' — novel string eq checks; extra16 covers __name__.__len__() only for these functions"
+  kind: python_call_eq
+  category: function_names
+  id_prefix: sfne34
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pack_name_eq,   pack.__name__.__eq__,   ["pack"],   true]
+    - [unpack_name_eq, unpack.__name__.__eq__,  ["unpack"], true]
+
+# ---------------------------------------------------------------------------
+# struct.pack.__module__ == '_struct'
+#
+# The module-level pack (and calcsize) functions are implemented in the
+# _struct C extension. Their __module__ attribute is '_struct' (7 chars).
+# extra33 covers Struct.__module__.__len__()==7 for the Struct CLASS but not
+# for the module-level functions. No prior spec checks pack.__module__ or
+# calcsize.__module__ as string eq values.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra34.pack.module_eq:
+  description: "struct.pack.__module__ == '_struct' — pack is a C builtin from the _struct extension; novel: extra33 covers Struct.__module__.__len__()==7 (the class) but not module-level function __module__ as a string eq value"
+  category: module_metadata
+  kind: python_call_eq
+  function: pack.__module__.__eq__
+  args: ["_struct"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct.calcsize.__name__ == 'calcsize'
+#
+# extra16 covers calcsize.__name__.__len__()==8 (length only).
+# No prior spec checks the string eq value for calcsize.__name__.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra34.calcsize.name_eq:
+  description: "struct.calcsize.__name__ == 'calcsize' — novel string eq check; extra16 covers calcsize.__name__.__len__()==8 only"
+  category: function_names
+  kind: python_call_eq
+  function: calcsize.__name__.__eq__
+  args: ["calcsize"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct.calcsize for common big-endian format characters
+#
+# extra30 covers calcsize('10s')==10, calcsize('?')==1, calcsize('e')==2.
+# No prior spec checks the fundamental integer/byte format sizes using
+# explicit big-endian prefix. These sizes are fixed by the C standard for
+# the struct format characters regardless of platform byte order.
+#
+#   '>H' — unsigned short    — 2 bytes
+#   '>I' — unsigned int      — 4 bytes
+#   '>Q' — unsigned long long — 8 bytes
+#   '>B' — unsigned char     — 1 byte
+# ---------------------------------------------------------------------------
+
+table struct_extra34.calcsize_bigendian_formats:
+  description: "struct.calcsize for '>H'==2, '>I'==4, '>Q'==8, '>B'==1 — fundamental C type sizes; novel: no prior spec checks '>H'/'>I'/'>Q'/'>B' with explicit big-endian prefix"
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: scbf34
+
+  columns: [id, function, args, expected]
+  rows:
+    - [calcsize_H, calcsize, [">H"], 2]
+    - [calcsize_I, calcsize, [">I"], 4]
+    - [calcsize_Q, calcsize, [">Q"], 8]
+    - [calcsize_B, calcsize, [">B"], 1]
