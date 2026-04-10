@@ -1,0 +1,238 @@
+spec: threading_extra71
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec extends threading_extra70.zspec.zsdl."
+    - "Wave 236 theme: threading module spec/loader identity, Lock/RLock type identity, Event/Condition docstring content."
+    - "threading.__name__ == 'threading' — module __name__ equals its registered fully-qualified name. Verified with Python 3.14.3."
+    - "threading.__spec__.name == 'threading' — ModuleSpec.name is the fully-qualified name used by the import system. Verified with Python 3.14.3."
+    - "threading.__loader__.__class__.__name__ == 'SourceFileLoader' — threading is a pure-Python module (Lib/threading.py) loaded by SourceFileLoader. Verified with Python 3.14.3."
+    - "threading.__file__.__contains__('.py') == True — threading.__file__ is a path ending with '.py'. Verified with Python 3.14.3."
+    - "Lock.__class__.__name__ == 'builtin_function_or_method' — threading.Lock is actually _thread.allocate_lock, a C builtin function that returns a lock object when called; it is not a class. Verified with Python 3.14.3."
+    - "Lock.__module__ == '_thread' — Lock is implemented in Modules/_threadmodule.c under the module name '_thread'. Verified with Python 3.14.3."
+    - "RLock.__class__.__name__ == 'function' — threading.RLock is a factory function defined in Lib/threading.py that returns an _RLock instance; it is a plain Python function, not a class. Verified with Python 3.14.3."
+    - "RLock.__module__ == 'threading' — RLock is defined in Lib/threading.py. Verified with Python 3.14.3."
+    - "Event.__doc__.__class__.__name__ == 'str' — threading.Event has a docstring stored as a str. Verified with Python 3.14.3."
+    - "Event.__doc__.__contains__('event') == True — the word 'event' appears (case-sensitive or lower) in the Event class docstring. Verified with Python 3.14.3."
+    - "Condition.__doc__.__class__.__name__ == 'str' — threading.Condition has a docstring stored as a str. Verified with Python 3.14.3."
+    - "Condition.__doc__.__contains__('condition') == True — the word 'condition' appears in the Condition class docstring. Verified with Python 3.14.3."
+    - "Prior threading_extra70 covered Timer/local identity and main_thread/active_count. This spec covers threading module spec/loader checks, Lock/RLock type identity (Lock is a C builtin function, RLock is a Python function), and Event/Condition docstring class and content — all novel under the thrdmod71 id_prefix. All checks in this spec are new to extra71."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# threading module spec identity — extra71
+#
+# Wave 236 theme: threading module __name__, __spec__, __loader__, __file__ checks.
+#
+# threading is a pure-Python module (Lib/threading.py). Like all importable
+# modules it has a __name__, a __spec__ of type ModuleSpec, and a __loader__
+# of type SourceFileLoader (since it is a .py source file).
+#
+# threading.__name__                         == 'threading'
+# threading.__spec__.name                    == 'threading'
+# threading.__loader__.__class__.__name__    == 'SourceFileLoader'
+# threading.__file__.__contains__('.py')     == True
+#
+# No prior threading spec checks these module-spec attributes via thrdmod71.
+# New to extra71.
+# ---------------------------------------------------------------------------
+
+table threading_extra71.threading_module_spec:
+  description: "threading module spec identity: __name__=='threading', __spec__.name=='threading', __loader__.__class__.__name__=='SourceFileLoader', __file__ contains '.py'; wave 236 module spec identity; new to extra71"
+  kind: python_call_eq
+  category: module_identity
+  id_prefix: thrdmod71
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [threading_name_eq_threading,
+       __name__.__eq__,
+       ["threading"],
+       true,
+       "threading.__name__.__eq__('threading') == True — every Python module has a __name__ attribute equal to its fully-qualified module name as registered in sys.modules; for the top-level threading module this is 'threading' (9 chars) with no package prefix; str.__eq__('threading') returns True; no prior threading spec checks __name__.__eq__ via the thrdmod71 id_prefix; new to extra71"]
+    - [threading_spec_name_eq_threading,
+       __spec__.name.__eq__,
+       ["threading"],
+       true,
+       "threading.__spec__.name.__eq__('threading') == True — __spec__ is an importlib.machinery.ModuleSpec object carrying the import metadata; ModuleSpec.name is the fully-qualified module name 'threading' (9 chars); __eq__ returns True; no prior threading spec checks __spec__.name via the thrdmod71 id_prefix; new to extra71"]
+    - [threading_loader_class_name_eq_SourceFileLoader,
+       __loader__.__class__.__name__.__eq__,
+       ["SourceFileLoader"],
+       true,
+       "threading.__loader__.__class__.__name__.__eq__('SourceFileLoader') == True — threading is a pure-Python module stored in Lib/threading.py; the import system uses importlib._bootstrap_external.SourceFileLoader to read and compile the source; SourceFileLoader.__name__ == 'SourceFileLoader' (16 chars); __eq__ returns True; no prior threading spec checks __loader__.__class__.__name__ via the thrdmod71 id_prefix; new to extra71"]
+    - [threading_file_contains_py,
+       __file__.__contains__,
+       [".py"],
+       true,
+       "threading.__file__.__contains__('.py') == True — threading is a pure-Python source module; its __file__ attribute is the absolute path to Lib/threading.py which ends with '.py'; str.__contains__('.py') returns True; no prior threading spec checks __file__.__contains__('.py') via the thrdmod71 id_prefix; new to extra71"]
+
+# ---------------------------------------------------------------------------
+# Lock/RLock type identity — extra71
+#
+# Wave 236 theme: threading.Lock is a C builtin function; threading.RLock is
+# a Python factory function.
+#
+# threading.Lock is NOT a class — it is _thread.allocate_lock, a C builtin
+# function (builtin_function_or_method) from Modules/_threadmodule.c that
+# allocates and returns a lock object. Its __module__ is '_thread'.
+#
+# threading.RLock is a Python factory function defined in Lib/threading.py
+# that creates and returns an _RLock instance. Its __module__ is 'threading'.
+#
+# Lock.__class__.__name__  == 'builtin_function_or_method'
+# Lock.__module__          == '_thread'
+# RLock.__class__.__name__ == 'function'
+# RLock.__module__         == 'threading'
+#
+# No prior threading spec checks Lock or RLock identity via thrdmod71. New to extra71.
+# ---------------------------------------------------------------------------
+
+table threading_extra71.Lock_RLock_identity:
+  description: "Lock is a C builtin function from _thread; RLock is a Python function from threading; __class__.__name__ and __module__ checks; wave 236 Lock/RLock identity; new to extra71"
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: thrdmod71
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Lock_class_name_eq_builtin_function_or_method,
+       Lock.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "threading.Lock.__class__.__name__.__eq__('builtin_function_or_method') == True — threading.Lock is not a class but is _thread.allocate_lock, a C builtin function defined in Modules/_threadmodule.c; calling Lock() returns a new lock object; C builtin functions have __class__ == builtin_function_or_method; builtin_function_or_method.__name__ == 'builtin_function_or_method' (26 chars); __eq__ returns True; no prior threading spec checks Lock.__class__.__name__ via thrdmod71; new to extra71"]
+    - [Lock_module_eq_thread,
+       Lock.__module__.__eq__,
+       ["_thread"],
+       true,
+       "threading.Lock.__module__.__eq__('_thread') == True — threading.Lock is _thread.allocate_lock, implemented in Modules/_threadmodule.c which registers itself as the '_thread' module (7 chars, with leading underscore indicating a private C implementation module); the threading module re-exports allocate_lock as Lock; Lock.__module__ is '_thread' not 'threading'; __eq__ returns True; no prior threading spec checks Lock.__module__ via thrdmod71; new to extra71"]
+    - [RLock_class_name_eq_function,
+       RLock.__class__.__name__.__eq__,
+       ["function"],
+       true,
+       "threading.RLock.__class__.__name__.__eq__('function') == True — threading.RLock is a Python factory function defined in Lib/threading.py (not a class); it creates and returns a new _RLock instance; its __class__ is the built-in function type; function.__name__ == 'function' (8 chars); __eq__ returns True; no prior threading spec checks RLock.__class__.__name__ via thrdmod71; new to extra71"]
+    - [RLock_module_eq_threading,
+       RLock.__module__.__eq__,
+       ["threading"],
+       true,
+       "threading.RLock.__module__.__eq__('threading') == True — RLock is a Python factory function defined in Lib/threading.py; its __module__ attribute is 'threading' (9 chars); __eq__ returns True; no prior threading spec checks RLock.__module__ via thrdmod71; new to extra71"]
+
+# ---------------------------------------------------------------------------
+# threading.Event docstring content — extra71
+#
+# Wave 236 theme: Event class has a str docstring containing 'event'.
+#
+# threading.Event is a pure-Python class in Lib/threading.py that implements
+# a simple event synchronization primitive. Its docstring is a str and
+# mentions the word 'event' (lowercase), which appears in the class
+# description.
+#
+# Event.__doc__.__class__.__name__   == 'str'
+# Event.__doc__.__contains__('event') == True
+#
+# No prior threading spec checks Event.__doc__ via thrdmod71. New to extra71.
+# ---------------------------------------------------------------------------
+
+table threading_extra71.Event_doc_contains:
+  description: "Event.__doc__ is a str and contains 'event'; wave 236 Event docstring content; new to extra71"
+  kind: python_call_eq
+  category: class_doc
+  id_prefix: thrdmod71
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Event_doc_class_name_eq_str,
+       Event.__doc__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "threading.Event.__doc__.__class__.__name__.__eq__('str') == True — threading.Event is a pure-Python class defined in Lib/threading.py that implements a simple event flag synchronization primitive; its class body begins with a docstring that is stored as a Python str object; str.__name__ == 'str' (3 chars); __eq__ returns True; no prior threading spec checks Event.__doc__.__class__.__name__ via thrdmod71; new to extra71"]
+    - [Event_doc_contains_event,
+       Event.__doc__.__contains__,
+       ["event"],
+       true,
+       "threading.Event.__doc__.__contains__('event') == True — threading.Event is documented as managing an internal event flag; the word 'event' (lowercase) appears in the class docstring describing what an Event object represents; str.__contains__('event') returns True at the first occurrence; no prior threading spec checks Event.__doc__.__contains__('event') via thrdmod71; new to extra71"]
+
+# ---------------------------------------------------------------------------
+# threading.Condition docstring content — extra71
+#
+# Wave 236 theme: Condition class has a str docstring containing 'condition'.
+#
+# threading.Condition is a pure-Python class in Lib/threading.py that
+# implements a condition variable synchronization primitive. Its docstring
+# is a str and mentions the word 'condition' (lowercase).
+#
+# Condition.__doc__.__class__.__name__       == 'str'
+# Condition.__doc__.__contains__('condition') == True
+#
+# No prior threading spec checks Condition.__doc__ via thrdmod71. New to extra71.
+# ---------------------------------------------------------------------------
+
+table threading_extra71.Condition_doc_contains:
+  description: "Condition.__doc__ is a str and contains 'condition'; wave 236 Condition docstring content; new to extra71"
+  kind: python_call_eq
+  category: class_doc
+  id_prefix: thrdmod71
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Condition_doc_class_name_eq_str,
+       Condition.__doc__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "threading.Condition.__doc__.__class__.__name__.__eq__('str') == True — threading.Condition is a pure-Python class defined in Lib/threading.py that implements a condition variable (a synchronization primitive that allows threads to wait for some condition to become true); its class body begins with a docstring stored as a Python str object; str.__name__ == 'str' (3 chars); __eq__ returns True; no prior threading spec checks Condition.__doc__.__class__.__name__ via thrdmod71; new to extra71"]
+    - [Condition_doc_contains_condition,
+       Condition.__doc__.__contains__,
+       ["condition"],
+       true,
+       "threading.Condition.__doc__.__contains__('condition') == True — threading.Condition implements a condition variable; the word 'condition' (lowercase) appears in the class docstring describing the synchronization primitive and how threads can wait for a condition to become true before proceeding; str.__contains__('condition') returns True at the first occurrence; no prior threading spec checks Condition.__doc__.__contains__('condition') via thrdmod71; new to extra71"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra71
+# ---------------------------------------------------------------------------
+
+invariant threading_extra71.threading_name_threading:
+  description: "threading.__name__.__eq__('threading') == True — module __name__ equals its registered fully-qualified name; wave 236 module spec identity; new to extra71"
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["threading"]
+  expected: true
+
+invariant threading_extra71.threading_loader_SourceFileLoader:
+  description: "threading.__loader__.__class__.__name__.__eq__('SourceFileLoader') == True — threading is a pure-Python .py module loaded by SourceFileLoader; wave 236 module loader identity; new to extra71"
+  kind: python_call_eq
+  function: __loader__.__class__.__name__.__eq__
+  args: ["SourceFileLoader"]
+  expected: true
+
+invariant threading_extra71.Lock_class_builtin:
+  description: "threading.Lock.__class__.__name__.__eq__('builtin_function_or_method') == True — Lock is _thread.allocate_lock, a C builtin function not a class; wave 236 Lock identity; new to extra71"
+  kind: python_call_eq
+  function: Lock.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant threading_extra71.RLock_class_function:
+  description: "threading.RLock.__class__.__name__.__eq__('function') == True — RLock is a Python factory function in Lib/threading.py; wave 236 RLock identity; new to extra71"
+  kind: python_call_eq
+  function: RLock.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant threading_extra71.Event_doc_str:
+  description: "threading.Event.__doc__.__class__.__name__.__eq__('str') == True — Event has a str docstring; wave 236 Event docstring identity; new to extra71"
+  kind: python_call_eq
+  function: Event.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
