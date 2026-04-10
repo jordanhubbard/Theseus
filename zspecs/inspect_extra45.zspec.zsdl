@@ -1,0 +1,103 @@
+spec: inspect_extra45
+version: ">=3.9"
+backend: python_module(inspect)
+
+docs: https://docs.python.org/3/library/inspect.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/inspect.html — Python inspect module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/inspect.py"
+  notes:
+    - "This spec extends inspect_extra44.zspec.zsdl."
+    - "Prior specs covered: ismodule/isclass/isfunction/ismethod/isbuiltin/isroutine/iscode/isframe/istraceback __name__/__qualname__.__len__(); iscoroutinefunction/isgeneratorfunction/isasyncgenfunction __name__/__qualname__.__len__(); getmembers/getfile/getsource/getmodule/signature/stack/currentframe/getfullargspec __qualname__.__len__(); Parameter/__mro__.__len__()==2; Signature/__mro__.__len__()==2; BoundArguments/__mro__.__len__()==2; FullArgSpec/__mro__.__len__()==3; FrameInfo/__mro__.__len__()==4; Parameter.empty/kind constants; inspect.__all__.__len__()==107; CO_OPTIMIZED==1; cleandoc/formatannotation/getattr_static/classify_class_attrs __name__ lengths; Signature/Parameter/BoundArguments method qualnames; getmembers/__module__.__len__(7); parameter kind integer values; Parameter/__name__/__module__/__qualname__; Signature/__name__/__module__/__qualname__; BoundArguments/__name__/__qualname__/__module__; FullArgSpec/__name__/__qualname__/__module__; FrameInfo/__name__/__qualname__; class __bases__[0].__name__ for Parameter/Signature/BoundArguments (all 'object'); FullArgSpec/__bases__[0].__name__ == 'tuple'; FrameInfo/__bases__[0].__name__ == '_FrameInfo'; Parameter/__qualname__.__len__()==9; Signature/__qualname__.__len__()==9; BoundArguments/__qualname__.__len__()==14; FullArgSpec/__qualname__.__len__()==11; FrameInfo/__qualname__.__len__()==9."
+    - "This spec covers: inspect.Parameter.__bases__[0].__qualname__ == 'object'; inspect.Signature.__bases__[0].__qualname__ == 'object'; inspect.BoundArguments.__bases__[0].__qualname__ == 'object'; inspect.FullArgSpec.__bases__[0].__qualname__ == 'tuple'; inspect.FrameInfo.__bases__[0].__qualname__ == '_FrameInfo'."
+    - "Key findings: inspect.Parameter, Signature, and BoundArguments are pure-Python classes defined at module level in Lib/inspect.py that inherit directly from object; their __bases__[0].__qualname__ is 'object'. inspect.FullArgSpec is a named tuple created via collections.namedtuple; its immediate base class is the generated tuple subclass, so __bases__[0].__qualname__ is 'tuple' (5 chars) — distinguished from the built-in tuple type via __qualname__=='tuple'. inspect.FrameInfo is a newer structured type (Python 3.11+) whose __bases__[0].__qualname__ is '_FrameInfo' (10 chars) — an internal named-tuple-like class defined in Lib/inspect.py as a private implementation detail; prior specs recorded FrameInfo.__bases__[0].__name__ == '_FrameInfo' (string equality via __name__) but not __qualname__. No prior spec recorded __bases__[0].__qualname__ for any of these five classes."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# inspect.Parameter, Signature, BoundArguments __bases__[0].__qualname__
+# — extra45 namespace
+#
+# inspect.Parameter, Signature, and BoundArguments are pure-Python classes
+# defined at module level in Lib/inspect.py. All three inherit directly from
+# object as their sole base class. For the built-in object type, __qualname__
+# equals __name__ (both are 'object'). Prior specs recorded:
+#   - __bases__[0].__name__ == 'object' (string equality) for all three
+#   - __mro__.__len__() == 2 for all three (confirming only two MRO entries)
+# No prior spec recorded __bases__[0].__qualname__ for any of these three.
+# All three invariants are new to extra45.
+# ---------------------------------------------------------------------------
+
+table inspect_extra45.param_sig_ba_bases_qualname:
+  description: "inspect.Parameter/Signature/BoundArguments __bases__[0].__qualname__ == 'object' — pure-Python classes inheriting directly from object; __qualname__ == __name__ for built-in object type"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: psbbq45
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [parameter_bases_qualname,
+       "Parameter.__bases__[0].__qualname__.__eq__",
+       ["object"],
+       true,
+       "inspect.Parameter.__bases__[0].__qualname__ == 'object' — pure-Python class in Lib/inspect.py; inherits directly from object; no intermediate base class; represents a formal parameter in a callable's signature"]
+    - [signature_bases_qualname,
+       "Signature.__bases__[0].__qualname__.__eq__",
+       ["object"],
+       true,
+       "inspect.Signature.__bases__[0].__qualname__ == 'object' — pure-Python class in Lib/inspect.py; inherits directly from object; no intermediate base class; represents the call signature of a callable object"]
+    - [boundarguments_bases_qualname,
+       "BoundArguments.__bases__[0].__qualname__.__eq__",
+       ["object"],
+       true,
+       "inspect.BoundArguments.__bases__[0].__qualname__ == 'object' — pure-Python class in Lib/inspect.py; inherits directly from object; no intermediate base class; holds arguments bound to a Signature via bind() or bind_partial()"]
+
+# ---------------------------------------------------------------------------
+# inspect.FullArgSpec __bases__[0].__qualname__ — extra45 namespace
+#
+# inspect.FullArgSpec is a named tuple created via collections.namedtuple in
+# Lib/inspect.py. Its immediate base class is the dynamically generated tuple
+# subclass, whose __qualname__ is 'tuple' (5 chars). This is distinct from the
+# built-in tuple type itself — named tuple generation wraps the built-in tuple
+# via dynamic class creation. FullArgSpec.__mro__ is [FullArgSpec, tuple, object]
+# (length 3, confirmed in a prior spec). Prior specs recorded:
+#   - FullArgSpec.__bases__[0].__name__ == 'tuple' (string equality)
+#   - FullArgSpec.__mro__.__len__() == 3
+# No prior spec recorded FullArgSpec.__bases__[0].__qualname__. New to extra45.
+# ---------------------------------------------------------------------------
+
+invariant inspect_extra45.FullArgSpec_bases_qualname:
+  description: "inspect.FullArgSpec.__bases__[0].__qualname__ == 'tuple' — named tuple; immediate base class is tuple; __qualname__ == __name__ == 'tuple' for the built-in tuple type; MRO is [FullArgSpec, tuple, object]"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "FullArgSpec.__bases__[0].__qualname__.__eq__"
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# inspect.FrameInfo __bases__[0].__qualname__ — extra45 namespace
+#
+# inspect.FrameInfo is a structured result type added in Python 3.11 that
+# wraps frame inspection data. Its immediate base class is _FrameInfo, a
+# private internal class defined in Lib/inspect.py. _FrameInfo.__qualname__
+# is '_FrameInfo' (10 chars). FrameInfo.__mro__ is
+# [FrameInfo, _FrameInfo, tuple, object] (length 4, confirmed in a prior spec).
+# Prior specs recorded:
+#   - FrameInfo.__bases__[0].__name__ == '_FrameInfo' (string equality)
+#   - FrameInfo.__mro__.__len__() == 4
+# No prior spec recorded FrameInfo.__bases__[0].__qualname__. New to extra45.
+# ---------------------------------------------------------------------------
+
+invariant inspect_extra45.FrameInfo_bases_qualname:
+  description: "inspect.FrameInfo.__bases__[0].__qualname__ == '_FrameInfo' — private internal base class defined in Lib/inspect.py; 10 chars; MRO is [FrameInfo, _FrameInfo, tuple, object] (length 4); __qualname__ == __name__ == '_FrameInfo'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "FrameInfo.__bases__[0].__qualname__.__eq__"
+  args: ["_FrameInfo"]
+  expected: true
