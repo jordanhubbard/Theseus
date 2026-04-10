@@ -1,0 +1,85 @@
+spec: queue_extra11
+version: ">=3.9"
+backend: python_module(queue)
+
+docs: https://docs.python.org/3/library/queue.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/queue.html — Python queue module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/queue.py"
+    - "CPython source: Modules/_queuemodule.c"
+  notes:
+    - "This spec extends queue.zspec.zsdl and prior extras through queue_extra10.zspec.zsdl."
+    - "queue_extra4 covers __qualname__ table for all 6 classes."
+    - "queue_extra8 covers __qualname__ table for all 6 classes in extra8 namespace."
+    - "queue_extra10 covers __module__ table and __name__ length table for all 6 classes."
+    - "NOT yet covered: queue module __name__ == 'queue' as module-level attribute; queue module __package__ == '' (never checked); __qualname__.__len__() for any queue class."
+    - "Focus: module-level __name__ and __package__; __qualname__ length table for all 6 classes."
+    - "queue.__name__ == 'queue' — module's own __name__ attribute. Verified Python 3.12 macOS."
+    - "queue.__package__ == '' — queue is a top-level module with no parent package. Verified."
+    - "len('Queue') == 5, len('LifoQueue') == 9, len('PriorityQueue') == 13, len('SimpleQueue') == 11, len('Empty') == 5, len('Full') == 4."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# queue module-level __name__ attribute
+#
+# queue_extra covers class-level __name__ for Queue/LifoQueue etc.
+# No prior queue spec checks the module's own __name__ attribute directly.
+# Under python_module(queue), function: __name__.__eq__ accesses
+# queue.__name__.__eq__, evaluating to 'queue'.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra11.module.name:
+  description: "queue.__name__ == 'queue' — module's own __name__ attribute"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["queue"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# queue module-level __package__ attribute
+#
+# queue is a top-level module; its __package__ is the empty string.
+# No prior queue spec checks __package__. Under python_module(queue),
+# function: __package__.__eq__ accesses queue.__package__.__eq__('').
+# ---------------------------------------------------------------------------
+
+invariant queue_extra11.module.package:
+  description: "queue.__package__ == '' — queue is a top-level module with no parent package"
+  category: module_identity
+  kind: python_call_eq
+  function: __package__.__eq__
+  args: [""]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __qualname__.__len__() table for all 6 queue classes
+#
+# queue_extra4 and queue_extra8 check __qualname__.__eq__ for all 6 classes.
+# No prior queue spec checks __qualname__.__len__(). These length invariants
+# provide an independent execution path. For top-level classes __qualname__
+# equals __name__, so these lengths match the __name__ lengths in queue_extra10.
+# id_prefix clsqlen11 does not conflict with any prior queue spec.
+# ---------------------------------------------------------------------------
+
+table queue_extra11.class_qualname_lengths:
+  description: "Length of __qualname__ strings for all 6 queue classes"
+  kind: python_call_eq
+  category: class_qualnames
+  id_prefix: clsqlen11
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Queue,         Queue.__qualname__.__len__,         [],  5]
+    - [LifoQueue,     LifoQueue.__qualname__.__len__,     [],  9]
+    - [PriorityQueue, PriorityQueue.__qualname__.__len__, [], 13]
+    - [SimpleQueue,   SimpleQueue.__qualname__.__len__,   [], 11]
+    - [Empty,         Empty.__qualname__.__len__,         [],  5]
+    - [Full,          Full.__qualname__.__len__,          [],  4]
