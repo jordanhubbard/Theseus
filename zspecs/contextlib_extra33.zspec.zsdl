@@ -1,0 +1,180 @@
+spec: contextlib_extra33
+version: ">=3.9"
+backend: python_module(contextlib)
+
+docs: https://docs.python.org/3/library/contextlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/contextlib.html — Python contextlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/contextlib.py"
+  notes:
+    - "This spec extends contextlib_extra32.zspec.zsdl."
+    - "Prior specs covered: __module__/__name__/__qualname__ for all major contextlib symbols; MRO lengths; AbstractContextManager.__abstractmethods__.__len__()==1; method __qualname__.__len__() for suppress/__enter__/__exit__/__init__, nullcontext/__enter__/__exit__/__init__, ExitStack.close/__enter__/__exit__, closing/__enter__/__exit__/__init__; __dict__.__class__.__name__.__len__()==12 for 8 classes; ExitStack.enter_context/__qualname__.__len__()==28; ExitStack.callback/__qualname__.__len__()==23; contextlib.__all__.__len__()==14; asynccontextmanager/__qualname__.__len__()==19; suppress/__bases__[0].__name__.__len__()==22; closing/__bases__[0].__name__.__len__()==22."
+    - "This spec covers: __mro__.__len__() for closing/suppress (4 each), ExitStack/AsyncExitStack (5 each), AbstractContextManager/AbstractAsyncContextManager (3 each), ContextDecorator (2), nullcontext (5); ExitStack/__bases__[0].__name__.__len__()==14 ('_BaseExitStack'); AsyncExitStack/__bases__[0].__name__.__len__()==14; nullcontext/__bases__[0].__name__.__len__()==22 ('AbstractContextManager'); ContextDecorator/__bases__[0].__name__.__len__()==6 ('object'); ExitStack.push/__qualname__.__len__()==19; AsyncExitStack.enter_async_context/__qualname__.__len__()==34; contextlib.__name__.__len__()==10."
+    - "Surprise: closing.__mro__.__len__() == 4 (NOT 2 as one might assume): closing → AbstractContextManager → abc.ABC → object. suppress likewise is 4. Both classes inherit from AbstractContextManager which itself inherits from abc.ABC."
+    - "Surprise: ExitStack.__mro__.__len__() == 5 (NOT 3): ExitStack → _BaseExitStack → AbstractContextManager → abc.ABC → object. AsyncExitStack.__mro__.__len__() is also 5 (different path through AbstractAsyncContextManager)."
+    - "Surprise: contextlib.asynccontextmanager.__qualname__.__len__() == 19 (NOT 20 as the task prompt suggested). Verified: len('asynccontextmanager') == 19."
+    - "nullcontext.__mro__.__len__() == 5: nullcontext → AbstractContextManager → AbstractAsyncContextManager → abc.ABC → object. nullcontext is unique in inheriting from BOTH context manager ABCs."
+    - "ContextDecorator.__mro__.__len__() == 2 — the simplest MRO among contextlib classes; ContextDecorator → object with no ABC ancestry."
+    - "ExitStack.__bases__[0].__name__ == '_BaseExitStack' (len=14) — the private internal base class."
+    - "AsyncExitStack.__bases__[0].__name__ == '_BaseExitStack' (len=14) — same private base as ExitStack."
+    - "AsyncExitStack.enter_async_context.__qualname__ == 'AsyncExitStack.enter_async_context' (len=34) — the longest method qualname in the contextlib spec series."
+    - "ExitStack.push.__qualname__ == '_BaseExitStack.push' (len=19) — inherited from _BaseExitStack, like enter_context and callback."
+    - "contextlib.__name__ == 'contextlib' (len=10)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __mro__.__len__() for contextlib classes with ABC ancestry (extra33 namespace)
+#
+# closing and suppress each have MRO length 4:
+#   closing/suppress → AbstractContextManager → abc.ABC → object
+# ExitStack and AsyncExitStack each have MRO length 5:
+#   ExitStack → _BaseExitStack → AbstractContextManager → abc.ABC → object
+#   AsyncExitStack → _BaseExitStack → AbstractAsyncContextManager → abc.ABC → object
+# No prior contextlib spec records these four MRO lengths together in the
+# extra33 namespace. Note the ABC inclusion is the key reason counts exceed
+# simple parent-counting intuition.
+# ---------------------------------------------------------------------------
+
+table contextlib_extra33.mro_lens_abc_based:
+  description: "__mro__.__len__() for closing/suppress (4 each) and ExitStack/AsyncExitStack (5 each)"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: mro_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [closing,       closing.__mro__.__len__,       [], 4]
+    - [suppress,      suppress.__mro__.__len__,      [], 4]
+    - [ExitStack,     ExitStack.__mro__.__len__,     [], 5]
+    - [AsyncExitStack, AsyncExitStack.__mro__.__len__, [], 5]
+
+# ---------------------------------------------------------------------------
+# __mro__.__len__() for simpler contextlib classes (extra33 namespace)
+#
+# AbstractContextManager and AbstractAsyncContextManager both have MRO length 3:
+#   AbstractContextManager/AbstractAsyncContextManager → abc.ABC → object
+# ContextDecorator has MRO length 2 (ContextDecorator → object) — the simplest.
+# nullcontext has MRO length 5: nullcontext → AbstractContextManager →
+#   AbstractAsyncContextManager → abc.ABC → object. nullcontext is unique in
+#   inheriting from BOTH manager ABCs. No prior contextlib spec records these
+#   four in the extra33 namespace.
+# ---------------------------------------------------------------------------
+
+table contextlib_extra33.mro_lens_simple:
+  description: "__mro__.__len__() for AbstractContextManager/AbstractAsyncContextManager (3), ContextDecorator (2), nullcontext (5)"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: mro_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [AbstractContextManager,      AbstractContextManager.__mro__.__len__,      [], 3]
+    - [AbstractAsyncContextManager, AbstractAsyncContextManager.__mro__.__len__,  [], 3]
+    - [ContextDecorator,            ContextDecorator.__mro__.__len__,            [], 2]
+    - [nullcontext,                 nullcontext.__mro__.__len__,                 [], 5]
+
+# ---------------------------------------------------------------------------
+# __bases__[0].__name__.__len__() for ExitStack family and nullcontext
+# (extra33 namespace)
+#
+# ExitStack and AsyncExitStack share '_BaseExitStack' as their direct base
+# class (length 14). nullcontext's direct base is 'AbstractContextManager'
+# (length 22). ContextDecorator's direct base is 'object' (length 6).
+# No prior contextlib spec records these four base name lengths in the
+# extra33 namespace.
+# ---------------------------------------------------------------------------
+
+table contextlib_extra33.base_name_lens:
+  description: "__bases__[0].__name__.__len__() for ExitStack/AsyncExitStack (14), nullcontext (22), ContextDecorator (6)"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: base_name_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ExitStack,        "ExitStack.__bases__[0].__name__.__len__",       [], 14]
+    - [AsyncExitStack,   "AsyncExitStack.__bases__[0].__name__.__len__",  [], 14]
+    - [nullcontext,      "nullcontext.__bases__[0].__name__.__len__",     [], 22]
+    - [ContextDecorator, "ContextDecorator.__bases__[0].__name__.__len__", [], 6]
+
+# ---------------------------------------------------------------------------
+# contextlib.__name__.__len__() == 10 — standalone (extra33 namespace)
+#
+# The module's own __name__ is 'contextlib' — 10 characters. No prior
+# contextlib spec records this standalone in the extra33 namespace.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra33.module_name_len:
+  description: "contextlib.__name__.__len__() == 10 — the module name 'contextlib' has 10 characters"
+  category: module_attrs
+  kind: python_call_eq
+  function: contextlib.__name__.__len__
+  args: []
+  expected: 10
+
+# ---------------------------------------------------------------------------
+# AsyncExitStack.enter_async_context.__qualname__.__len__() == 34 — standalone
+# (extra33 namespace)
+#
+# 'AsyncExitStack.enter_async_context' has 34 characters: 14 (AsyncExitStack)
+# + 1 (.) + 19 (enter_async_context) = 34. This is the longest method qualname
+# in the entire contextlib spec series, surpassing ExitStack.enter_context
+# (_BaseExitStack.enter_context, 28 chars from extra32) by 6 characters.
+# Unlike ExitStack.enter_context which is inherited from _BaseExitStack,
+# AsyncExitStack.enter_async_context is defined directly on AsyncExitStack.
+# No prior contextlib spec records this standalone in the extra33 namespace.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra33.AsyncExitStack.enter_async_context.qualname_len:
+  description: "len(contextlib.AsyncExitStack.enter_async_context.__qualname__) == 34 — longest contextlib method qualname; 'AsyncExitStack.enter_async_context' is 14+1+19=34 chars"
+  category: method_qualname_lengths
+  kind: python_call_eq
+  function: AsyncExitStack.enter_async_context.__qualname__.__len__
+  args: []
+  expected: 34
+
+# ---------------------------------------------------------------------------
+# ExitStack.push.__qualname__.__len__() == 19 — standalone
+# (extra33 namespace)
+#
+# ExitStack.push is defined on _BaseExitStack, so its __qualname__ is
+# '_BaseExitStack.push' (19 characters): 14 (_BaseExitStack) + 1 (.) +
+# 4 (push) = 19. This matches asynccontextmanager's qualname length (also 19,
+# from extra32). ExitStack.push registers an arbitrary callable as a cleanup
+# callback in the exit stack. No prior contextlib spec records this standalone
+# in the extra33 namespace.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra33.ExitStack.push.qualname_len:
+  description: "len(contextlib.ExitStack.push.__qualname__) == 19 — inherited from _BaseExitStack: '_BaseExitStack.push' is 14+1+4=19 chars"
+  category: method_qualname_lengths
+  kind: python_call_eq
+  function: ExitStack.push.__qualname__.__len__
+  args: []
+  expected: 19
+
+# ---------------------------------------------------------------------------
+# ExitStack.__bases__[0].__name__.__len__() == 14 — standalone
+# (extra33 namespace)
+#
+# ExitStack's direct base class is '_BaseExitStack' (14 characters). This
+# private class holds the implementation shared by both ExitStack and
+# AsyncExitStack, which is why several methods show '_BaseExitStack.*' as
+# their qualname prefix rather than 'ExitStack.*'. No prior contextlib spec
+# records this standalone in the extra33 namespace.
+# ---------------------------------------------------------------------------
+
+invariant contextlib_extra33.ExitStack.base_name_len:
+  description: "len(contextlib.ExitStack.__bases__[0].__name__) == 14 — direct base is '_BaseExitStack', the private shared implementation class"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "ExitStack.__bases__[0].__name__.__len__"
+  args: []
+  expected: 14
