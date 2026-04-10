@@ -1,0 +1,126 @@
+spec: copy_extra18
+version: ">=3.9"
+backend: python_module(copy)
+
+docs: https://docs.python.org/3/library/copy.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/copy.html — Python copy module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/copy.py"
+    - "copy_extra17.zspec.zsdl — covers __spec__.__class__.__name__; __qualname__.__len__() for copy/deepcopy/Error; __name__ re-anchored."
+    - "copy_extra16.zspec.zsdl — covers __qualname__/__module__ standalone and table for copy/deepcopy/Error."
+    - "copy_extra11.zspec.zsdl — covers Error.__bases__[0].__name__ standalone."
+    - "copy_extra6.zspec.zsdl — covers Error.__bases__[0].__name__ and Error.__class__.__name__."
+  notes:
+    - "This spec extends copy.zspec.zsdl through copy_extra17.zspec.zsdl."
+    - "Prior specs cover: __qualname__/__module__ for copy/deepcopy/Error (extras 4,5,6,11,12,13,15,16); __qualname__.__len__ (extra17); __spec__.__class__.__name__ (extra17); Error.__bases__[0].__name__.__eq__ (extra6, extra11)."
+    - "NOT yet covered: __loader__.__class__.__name__ standalone in extra18 namespace; __spec__.name (the .name attribute, not .__name__); __module__.__len__() for copy/deepcopy/Error callables; Error.__bases__[0].__name__.__len__()."
+    - "Focus: copy.__loader__.__class__.__name__; copy.__spec__.name; __module__.__len__() for copy/deepcopy/Error; Error.__bases__[0].__name__.__len__()."
+    - "copy.__loader__.__class__.__name__ == 'SourceFileLoader' — the module is loaded from a .py source file. Verified Python 3.12 macOS."
+    - "len('SourceFileLoader') == 16. Verified."
+    - "copy.__spec__.name == 'copy' — ModuleSpec.name attribute (not __name__). Verified."
+    - "len('copy') == 4. Verified."
+    - "copy.copy.__module__ == 'copy'; len('copy') == 4. Verified."
+    - "copy.deepcopy.__module__ == 'copy'; len('copy') == 4. Verified."
+    - "copy.Error.__module__ == 'copy'; len('copy') == 4. Verified."
+    - "copy.Error.__bases__[0].__name__ == 'Exception'; len('Exception') == 9. Verified."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# copy.__loader__.__class__.__name__ — loader type identity
+#
+# No prior copy spec checks copy.__loader__. The module's __loader__ is a
+# SourceFileLoader instance from importlib.machinery, used because copy.py
+# is a pure-Python source file. __loader__.__class__.__name__ == 'SourceFileLoader'.
+# Under python_module(copy), the function chain accesses the attribute on the
+# copy module object.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra18.loader.class_name:
+  description: "copy.__loader__.__class__.__name__ == 'SourceFileLoader' — module loaded from .py source file"
+  category: module_identity
+  kind: python_call_eq
+  function: "__loader__.__class__.__name__.__eq__"
+  args: ["SourceFileLoader"]
+  expected: true
+
+invariant copy_extra18.loader.class_name_len:
+  description: "copy.__loader__.__class__.__name__.__len__() == 16 — len('SourceFileLoader') == 16"
+  category: module_identity
+  kind: python_call_eq
+  function: "__loader__.__class__.__name__.__len__"
+  args: []
+  expected: 16
+
+# ---------------------------------------------------------------------------
+# copy.__spec__.name — ModuleSpec.name attribute
+#
+# copy_extra17 covers copy.__spec__.__class__.__name__. No prior copy spec
+# accesses copy.__spec__.name (the .name attribute of the ModuleSpec object,
+# distinct from copy.__spec__.__name__ which does not exist). ModuleSpec.name
+# equals the fully-qualified module name: 'copy'.
+# Under python_module(copy), __spec__.name.__eq__ accesses the ModuleSpec
+# instance's name attribute.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra18.spec.name:
+  description: "copy.__spec__.name == 'copy' — ModuleSpec.name attribute equals module name"
+  category: module_identity
+  kind: python_call_eq
+  function: "__spec__.name.__eq__"
+  args: ["copy"]
+  expected: true
+
+invariant copy_extra18.spec.name_len:
+  description: "copy.__spec__.name.__len__() == 4 — len('copy') == 4"
+  category: module_identity
+  kind: python_call_eq
+  function: "__spec__.name.__len__"
+  args: []
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# __module__.__len__() for copy.copy, copy.deepcopy, and copy.Error
+#
+# copy_extra16 covers __module__.__eq__ for all three. No prior copy spec
+# checks the length of their __module__ strings. All three are defined in
+# Lib/copy.py, so __module__ == 'copy' and len('copy') == 4 for each.
+# id_prefix cpmodlen18 does not conflict with any prior copy spec.
+# ---------------------------------------------------------------------------
+
+table copy_extra18.module_lengths:
+  description: "__module__.__len__() == 4 for copy.copy, copy.deepcopy, and copy.Error — all defined in 'copy'"
+  kind: python_call_eq
+  category: function_module
+  id_prefix: cpmodlen18
+
+  columns: [id, function, args, expected]
+  rows:
+    - [copy_module_len,    copy.__module__.__len__,    [], 4]
+    - [deepcopy_module_len, deepcopy.__module__.__len__, [], 4]
+    - [Error_module_len,   Error.__module__.__len__,   [], 4]
+
+# ---------------------------------------------------------------------------
+# copy.Error.__bases__[0].__name__.__len__() — base class name length
+#
+# copy_extra6 and copy_extra11 cover Error.__bases__[0].__name__.__eq__ ==
+# 'Exception'. No prior copy spec checks the length of that name string.
+# len('Exception') == 9.
+# Under python_module(copy), "Error.__bases__[0].__name__.__len__" accesses
+# the chain: module.Error -> __bases__ tuple -> index 0 -> __name__ -> __len__.
+# The function value contains '[', so it must be quoted.
+# ---------------------------------------------------------------------------
+
+invariant copy_extra18.Error.bases_name_len:
+  description: "copy.Error.__bases__[0].__name__.__len__() == 9 — len('Exception') == 9"
+  category: class_identity
+  kind: python_call_eq
+  function: "Error.__bases__[0].__name__.__len__"
+  args: []
+  expected: 9
