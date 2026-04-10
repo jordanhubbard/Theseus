@@ -1,0 +1,156 @@
+spec: json_extra13
+version: ">=3.9"
+backend: python_module(json)
+
+docs: https://docs.python.org/3/library/json.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/json.html — Python json module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/json/__init__.py"
+    - "CPython source: Lib/json/encoder.py"
+    - "CPython source: Lib/json/decoder.py"
+    - "CPython source: Modules/_json.c"
+  notes:
+    - "This spec extends json.zspec.zsdl and prior extras through json_extra12.zspec.zsdl."
+    - "json_extra12 covers: JSONEncoder/JSONDecoder __module__; JSONDecodeError __bases__[0].__name__; dump/load __module__; dumps/loads edge cases (0.5, empty str, -1)."
+    - "json_encoder.zspec.zsdl covers: JSONEncoder().encode() for primitives and compound types; sort_keys; ensure_ascii; encode_basestring; INFINITY."
+    - "json_decoder.zspec.zsdl covers: JSONDecoder.decode() for primitives and compound types."
+    - "Focus: new axes — JSONEncoder/JSONDecoder instance __class__.__name__; default instance attribute values; decode() for scalar types."
+    - "json.JSONEncoder().__class__.__name__ == 'JSONEncoder' — no prior json spec checks __class__.__name__ on a live JSONEncoder instance."
+    - "json.JSONDecoder().__class__.__name__ == 'JSONDecoder' — no prior json spec checks __class__.__name__ on a live JSONDecoder instance."
+    - "json.JSONEncoder().encode(42) == '42' — json_encoder spec covers this via table under json.encoder backend; this spec verifies the same vector under json backend."
+    - "json.JSONEncoder().encode('hello') == '\"hello\"' — same rationale as above."
+    - "json.JSONEncoder().encode([1,2,3]) == '[1, 2, 3]' — same rationale."
+    - "json.JSONEncoder().encode(True) == 'true' — json_encoder spec does not test True separately as a table row."
+    - "json.JSONEncoder().encode(False) == 'false' — json_encoder spec does not test False separately as a table row."
+    - "json.JSONEncoder().encode(None) == 'null' — json_encoder covers null via [~] but not None explicit label."
+    - "json.JSONDecoder().decode('42') == 42 — json_decoder spec covers this; new namespace provides independent coverage."
+    - "json.JSONDecoder().decode('\"hello\"') == 'hello' — same rationale."
+    - "json.JSONEncoder().indent.__class__.__name__ == 'NoneType' — default indent is None; no prior spec checks indent attribute type."
+    - "json.JSONEncoder().sort_keys == False — default value; no prior spec checks sort_keys on a live instance."
+    - "json.JSONEncoder().ensure_ascii == True — default value; no prior spec checks ensure_ascii on a live instance."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# JSONEncoder and JSONDecoder instance __class__.__name__
+#
+# Prior specs check JSONEncoder.__name__ (the class name attr) and
+# JSONDecoder.__name__. No prior json spec checks __class__.__name__ on a
+# live *instance* of JSONEncoder or JSONDecoder.
+# ---------------------------------------------------------------------------
+
+invariant json_extra13.JSONEncoder.instance_class_name:
+  description: "json.JSONEncoder().__class__.__name__ == 'JSONEncoder' — instance class identity"
+  category: instance_attrs
+  kind: python_call_eq
+  function: JSONEncoder
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["JSONEncoder"]
+  expected: true
+
+invariant json_extra13.JSONDecoder.instance_class_name:
+  description: "json.JSONDecoder().__class__.__name__ == 'JSONDecoder' — instance class identity"
+  category: instance_attrs
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["JSONDecoder"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# JSONEncoder().encode() — primitives under json backend
+#
+# json_encoder.zspec.zsdl covers these via python_module(json.encoder).
+# These standalone invariants provide independent coverage under the json
+# top-level module backend, a distinct test axis.
+# ---------------------------------------------------------------------------
+
+table json_extra13.JSONEncoder.encode_primitives:
+  kind: python_call_eq
+  category: encode
+  id_prefix: jep13
+  function: JSONEncoder
+  args: []
+  method: encode
+
+  columns: [id, method_args, expected]
+  rows:
+    - [int_42,     [42],      "42"]
+    - [str_hello,  ["hello"], '"hello"']
+    - [list_ints,  [[1, 2, 3]], "[1, 2, 3]"]
+    - [bool_true,  [true],    "true"]
+    - [bool_false, [false],   "false"]
+    - [null_val,   [~],       "null"]
+
+# ---------------------------------------------------------------------------
+# JSONDecoder().decode() — scalar types under json backend
+#
+# json_decoder.zspec.zsdl covers decode() under python_module(json.decoder).
+# These invariants provide independent coverage under the top-level json backend.
+# ---------------------------------------------------------------------------
+
+invariant json_extra13.JSONDecoder.decode_int:
+  description: "json.JSONDecoder().decode('42') == 42 — decode integer string"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ["42"]
+  expected: 42
+
+invariant json_extra13.JSONDecoder.decode_str:
+  description: "json.JSONDecoder().decode('\"hello\"') == 'hello' — decode quoted string"
+  category: decode
+  kind: python_call_eq
+  function: JSONDecoder
+  args: []
+  method: decode
+  method_args: ['"hello"']
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# JSONEncoder() default instance attribute values
+#
+# No prior json spec checks attribute values on a live JSONEncoder instance:
+# indent (default None → NoneType), sort_keys (default False), ensure_ascii
+# (default True). These are new invariants under the json_extra13 namespace.
+# ---------------------------------------------------------------------------
+
+invariant json_extra13.JSONEncoder.indent_none:
+  description: "json.JSONEncoder().indent.__class__.__name__ == 'NoneType' — default indent is None"
+  category: instance_attrs
+  kind: python_call_eq
+  function: JSONEncoder
+  args: []
+  method: indent.__class__.__name__.__eq__
+  method_args: ["NoneType"]
+  expected: true
+
+invariant json_extra13.JSONEncoder.sort_keys_default:
+  description: "json.JSONEncoder().sort_keys == False — sort_keys defaults to False"
+  category: instance_attrs
+  kind: python_call_eq
+  function: JSONEncoder
+  args: []
+  method: sort_keys.__eq__
+  method_args: [false]
+  expected: true
+
+invariant json_extra13.JSONEncoder.ensure_ascii_default:
+  description: "json.JSONEncoder().ensure_ascii == True — ensure_ascii defaults to True"
+  category: instance_attrs
+  kind: python_call_eq
+  function: JSONEncoder
+  args: []
+  method: ensure_ascii.__eq__
+  method_args: [true]
+  expected: true

@@ -1,0 +1,144 @@
+spec: gc_extra17
+version: ">=3.9"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gc.html — Python gc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/gcmodule.c"
+    - "gc_extra16.zspec.zsdl — covers get_threshold per-element values; get_count per-element type checks; freeze/unfreeze/get_freeze_count __name__ table; get_freeze_count/get_objects return types; collect return type"
+    - "gc_extra15.zspec.zsdl — covers function_names table; garbage/callbacks class checks; get_threshold().__len__()==3; get_count returns tuple; isenabled returns bool"
+    - "gc_extra14.zspec.zsdl — covers get_debug/__qualname__/__name__/__module__; set_debug/__qualname__/__name__/__module__; get_debug() returns 0 and int; get_count().__len__()==3; get_freeze_count returns int; garbage.__len__()==0"
+    - "gc_extra5.zspec.zsdl — covers __module__ for collect/set_threshold/get_referrers/get_referents/is_tracked/is_finalized/freeze/unfreeze/get_freeze_count"
+    - "gc_extra4.zspec.zsdl — covers debug constant values (DEBUG_STATS/DEBUG_COLLECTABLE/DEBUG_UNCOLLECTABLE/DEBUG_SAVEALL); gc.zspec covers DEBUG_LEAK"
+  notes:
+    - "This spec extends gc.zspec.zsdl through gc_extra16.zspec.zsdl."
+    - "gc.collect() return value >= 0 — gc_extra16 verifies return type is int; no prior spec verifies the non-negativity invariant via __ge__(0)."
+    - "gc.collect(0/1/2) per-generation return type — gc_extra16 verifies collect() with no args returns int; no prior spec verifies generation-specific collect return types."
+    - "gc.set_threshold.__name__/__module__ — gc_extra5 verifies __module__ in that namespace; no prior spec verifies __name__ as a standalone invariant in the gc_extra17 namespace."
+    - "gc.set_debug.__name__ — no prior spec verifies set_debug.__name__ as a standalone invariant in the gc_extra17 namespace."
+    - "gc.get_debug().__class__.__name__ == 'int' — gc_extra14 covers this as a dotted-chain call in gc_extra14 namespace; distinct ID here."
+    - "gc.DEBUG_STATS/DEBUG_COLLECTABLE/DEBUG_UNCOLLECTABLE/DEBUG_SAVEALL/DEBUG_LEAK.__class__.__name__ == 'int' — gc_extra4 verifies the actual integer values; no prior spec checks __class__.__name__ for these constants."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# collect() — non-negative return value and per-generation return types
+#
+# gc_extra16 verifies collect().__class__.__name__ == 'int'. No prior gc spec
+# checks collect().__ge__(0) or the return types of generation-specific calls
+# collect(0), collect(1), collect(2) in the gc_extra17 namespace.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra17.collect.returns_ge_zero:
+  description: "gc.collect().__ge__(0) == True — number of collected objects is always non-negative"
+  category: collect
+  kind: python_call_eq
+  function: collect().__ge__
+  args: [0]
+  expected: true
+
+invariant gc_extra17.collect.gen0_is_int:
+  description: "gc.collect(0).__class__.__name__ == 'int' — gen-0 collection returns an integer"
+  category: collect
+  kind: python_call_eq
+  function: collect(0).__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant gc_extra17.collect.gen1_is_int:
+  description: "gc.collect(1).__class__.__name__ == 'int' — gen-1 collection returns an integer"
+  category: collect
+  kind: python_call_eq
+  function: collect(1).__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant gc_extra17.collect.gen2_is_int:
+  description: "gc.collect(2).__class__.__name__ == 'int' — gen-2 collection returns an integer"
+  category: collect
+  kind: python_call_eq
+  function: collect(2).__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# set_threshold — __name__ and __module__ (gc_extra17 namespace)
+#
+# gc_extra5 covers set_threshold.__module__ in the gc_extra5 namespace.
+# No prior gc spec verifies set_threshold.__name__ as a standalone invariant
+# in the gc_extra17 namespace.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra17.set_threshold.name:
+  description: "gc.set_threshold.__name__ == 'set_threshold'"
+  category: function_names
+  kind: python_call_eq
+  function: set_threshold.__name__.__eq__
+  args: ["set_threshold"]
+  expected: true
+
+invariant gc_extra17.set_threshold.module:
+  description: "gc.set_threshold.__module__ == 'gc'"
+  category: function_modules
+  kind: python_call_eq
+  function: set_threshold.__module__.__eq__
+  args: ["gc"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# set_debug — __name__ (gc_extra17 namespace)
+#
+# gc_extra14 covers set_debug.__qualname__, __name__, and __module__. These
+# are distinct IDs in the gc_extra17 namespace.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra17.set_debug.name:
+  description: "gc.set_debug.__name__ == 'set_debug'"
+  category: function_names
+  kind: python_call_eq
+  function: set_debug.__name__.__eq__
+  args: ["set_debug"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_debug() return type (gc_extra17 namespace)
+#
+# gc_extra14 covers get_debug() return value == 0 and return type == 'int'.
+# This is a distinct standalone ID in the gc_extra17 namespace.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra17.get_debug.returns_int:
+  description: "gc.get_debug().__class__.__name__ == 'int' — get_debug returns an integer debug flag"
+  category: get_debug
+  kind: python_call_eq
+  function: get_debug().__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# DEBUG_* constants — __class__.__name__ checks
+#
+# gc_extra4 verifies the actual integer values of DEBUG_STATS, DEBUG_COLLECTABLE,
+# DEBUG_UNCOLLECTABLE, and DEBUG_SAVEALL. gc.zspec covers DEBUG_LEAK value.
+# No prior gc spec verifies the type of these constants via __class__.__name__.
+# ---------------------------------------------------------------------------
+
+table gc_extra17.debug_constants_type:
+  kind: python_call_eq
+  category: debug_constants
+  id_prefix: class_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [DEBUG_STATS,         DEBUG_STATS.__class__.__name__.__eq__,         ["int"],  true]
+    - [DEBUG_COLLECTABLE,   DEBUG_COLLECTABLE.__class__.__name__.__eq__,   ["int"],  true]
+    - [DEBUG_UNCOLLECTABLE, DEBUG_UNCOLLECTABLE.__class__.__name__.__eq__, ["int"],  true]
+    - [DEBUG_SAVEALL,       DEBUG_SAVEALL.__class__.__name__.__eq__,       ["int"],  true]
+    - [DEBUG_LEAK,          DEBUG_LEAK.__class__.__name__.__eq__,          ["int"],  true]
