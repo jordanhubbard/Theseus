@@ -1,0 +1,238 @@
+spec: os_extra32
+version: ">=3.9"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.html — Python os module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c"
+    - "os_extra8.zspec.zsdl — covers environ/__class__/__qualname__ == '_Environ' in a table."
+    - "os_extra31.zspec.zsdl — covers __qualname__ equality for POSIX syscall wrappers."
+  notes:
+    - "This spec extends os.zspec.zsdl and all prior os_extra specs through os_extra31.zspec.zsdl."
+    - "Focus: stat_result and DirEntry member descriptor __qualname__; os.error alias identity (__qualname__ and base class); os string path constants (__class__.__name__ and __class__.__qualname__); os.environ __class__.__name__/__module__."
+    - "os.stat_result.__qualname__ == 'stat_result' — top-level type in the os module; not covered as a standalone qualname equality invariant in any prior os spec."
+    - "os.stat_result.__module__ == 'os' — stat_result is attributed to the os module; not covered in any prior os spec."
+    - "os.stat_result.st_size.__qualname__ == 'stat_result.st_size' — member_descriptor for st_size has a dotted qualname; not covered in any prior os spec."
+    - "os.stat_result.st_mode.__qualname__ == 'stat_result.st_mode' — member_descriptor for st_mode; not covered in any prior os spec."
+    - "os.DirEntry.__qualname__ == 'DirEntry' — top-level type; not covered in any prior os spec."
+    - "os.DirEntry.__module__ == 'posix' — DirEntry is a C type from the posix module; not covered in any prior os spec."
+    - "os.DirEntry.name.__qualname__ == 'DirEntry.name' — member_descriptor with dotted qualname; not covered in any prior os spec."
+    - "os.DirEntry.path.__qualname__ == 'DirEntry.path' — member_descriptor with dotted qualname; not covered in any prior os spec."
+    - "os.error.__qualname__ == 'OSError' — os.error is an alias for OSError; its __qualname__ reflects the canonical name; not covered in any prior os spec."
+    - "os.error.__bases__[0].__name__ == 'Exception' — OSError inherits from Exception; not covered in any prior os spec."
+    - "os.sep.__class__.__name__ == 'str' — sep is a plain str; not covered as a standalone invariant in any prior os spec."
+    - "os.linesep.__class__.__name__ == 'str' — linesep is a plain str; not covered in any prior os spec."
+    - "os.environ.__class__.__name__ == '_Environ' — os_extra8 covers __class__.__qualname__ but NOT __class__.__name__; novel."
+    - "os.environ.__class__.__module__ == 'os' — the _Environ class is defined in the os module; not covered in any prior os spec."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# os.stat_result — class identity and member descriptor qualnames
+#
+# stat_result is a C-level type exposed by the os module. No prior os spec
+# checks stat_result.__qualname__, stat_result.__module__, or the __qualname__
+# of any of its member descriptors. Member descriptors for struct fields have
+# dotted qualnames of the form 'ClassName.field_name'.
+# ---------------------------------------------------------------------------
+
+table os_extra32.stat_result_attrs:
+  description: "__qualname__ and __module__ for os.stat_result and selected field member descriptors"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: statres32
+
+  columns: [id, function, args, expected]
+  rows:
+    - [class_qualname, stat_result.__qualname__.__eq__,        ["stat_result"], true]
+    - [class_module,   stat_result.__module__.__eq__,          ["os"],          true]
+    - [st_size_qname,  stat_result.st_size.__qualname__.__eq__, ["stat_result.st_size"], true]
+    - [st_mode_qname,  stat_result.st_mode.__qualname__.__eq__, ["stat_result.st_mode"], true]
+
+# ---------------------------------------------------------------------------
+# os.DirEntry — class identity and member descriptor qualnames
+#
+# DirEntry is the type of objects returned by os.scandir(). No prior os spec
+# covers DirEntry.__qualname__, DirEntry.__module__, or the __qualname__
+# of its name/path member descriptors. DirEntry is a C type from the posix
+# module, so its __module__ is 'posix'.
+# ---------------------------------------------------------------------------
+
+table os_extra32.direntry_attrs:
+  description: "__qualname__, __module__, and member descriptor qualnames for os.DirEntry"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: dirent32
+
+  columns: [id, function, args, expected]
+  rows:
+    - [class_qualname, DirEntry.__qualname__.__eq__,        ["DirEntry"],      true]
+    - [class_module,   DirEntry.__module__.__eq__,          ["posix"],         true]
+    - [name_qname,     DirEntry.name.__qualname__.__eq__,   ["DirEntry.name"], true]
+    - [path_qname,     DirEntry.path.__qualname__.__eq__,   ["DirEntry.path"], true]
+
+# ---------------------------------------------------------------------------
+# os.error alias — __qualname__ and base class
+#
+# os.error is an alias for the built-in OSError. Its __qualname__ is 'OSError'
+# (the canonical class name, not the alias name). Its direct base class is
+# Exception. No prior os spec covers either of these.
+# ---------------------------------------------------------------------------
+
+table os_extra32.error_alias_attrs:
+  description: "os.error is an alias for OSError — its __qualname__ is 'OSError' and base class is Exception"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: errattr32
+
+  columns: [id, function, args, expected]
+  rows:
+    - [error_qualname, error.__qualname__.__eq__,                ["OSError"],   true]
+    - [error_module,   error.__module__.__eq__,                  ["builtins"],  true]
+    - [error_base,     "error.__bases__[0].__name__.__eq__",     ["Exception"], true]
+
+# ---------------------------------------------------------------------------
+# os string path constants — __class__.__name__ and __class__.__qualname__
+#
+# os defines several string constants for path manipulation. No prior os
+# spec covers __class__.__name__ or __class__.__qualname__ for sep, curdir,
+# or linesep. All are plain str instances; both __name__ and __qualname__
+# of str are 'str'.
+# ---------------------------------------------------------------------------
+
+table os_extra32.path_constant_class_names:
+  description: "__class__.__name__ for os path string constants is 'str'"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: pathconst32
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sep_name,     sep.__class__.__name__.__eq__,     ["str"], true]
+    - [curdir_name,  curdir.__class__.__name__.__eq__,  ["str"], true]
+    - [linesep_name, linesep.__class__.__name__.__eq__, ["str"], true]
+    - [pathsep_name, pathsep.__class__.__name__.__eq__, ["str"], true]
+    - [extsep_name,  extsep.__class__.__name__.__eq__,  ["str"], true]
+
+# ---------------------------------------------------------------------------
+# os.environ — __class__.__name__ and __class__.__module__
+#
+# os_extra8 covers os.environ.__class__.__qualname__ == '_Environ'.
+# No prior os spec covers __class__.__name__ (which also equals '_Environ')
+# or __class__.__module__ (which is 'os' — the _Environ class is defined in
+# the os module itself).
+# ---------------------------------------------------------------------------
+
+table os_extra32.environ_class_attrs:
+  description: "__class__.__name__ and __class__.__module__ for os.environ"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: envclass32
+
+  columns: [id, function, args, expected]
+  rows:
+    - [class_name,   environ.__class__.__name__.__eq__,   ["_Environ"], true]
+    - [class_module, environ.__class__.__module__.__eq__, ["os"],       true]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — os.stat_result identity
+# ---------------------------------------------------------------------------
+
+invariant os_extra32.stat_result.qualname:
+  description: "os.stat_result.__qualname__ == 'stat_result' — class qualname equals bare class name"
+  category: type_attrs
+  kind: python_call_eq
+  function: stat_result.__qualname__.__eq__
+  args: ["stat_result"]
+  expected: true
+
+invariant os_extra32.stat_result.module:
+  description: "os.stat_result.__module__ == 'os' — stat_result is attributed to the os module"
+  category: type_attrs
+  kind: python_call_eq
+  function: stat_result.__module__.__eq__
+  args: ["os"]
+  expected: true
+
+invariant os_extra32.stat_result.st_size.qualname:
+  description: "os.stat_result.st_size.__qualname__ == 'stat_result.st_size' — member descriptor has dotted qualname"
+  category: type_attrs
+  kind: python_call_eq
+  function: stat_result.st_size.__qualname__.__eq__
+  args: ["stat_result.st_size"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — os.DirEntry identity
+# ---------------------------------------------------------------------------
+
+invariant os_extra32.DirEntry.qualname:
+  description: "os.DirEntry.__qualname__ == 'DirEntry' — class qualname equals bare class name"
+  category: type_attrs
+  kind: python_call_eq
+  function: DirEntry.__qualname__.__eq__
+  args: ["DirEntry"]
+  expected: true
+
+invariant os_extra32.DirEntry.module:
+  description: "os.DirEntry.__module__ == 'posix' — DirEntry is a C type from the posix module"
+  category: type_attrs
+  kind: python_call_eq
+  function: DirEntry.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+invariant os_extra32.DirEntry.name.qualname:
+  description: "os.DirEntry.name.__qualname__ == 'DirEntry.name' — member descriptor has dotted qualname"
+  category: type_attrs
+  kind: python_call_eq
+  function: DirEntry.name.__qualname__.__eq__
+  args: ["DirEntry.name"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — os.error alias
+# ---------------------------------------------------------------------------
+
+invariant os_extra32.error.qualname:
+  description: "os.error.__qualname__ == 'OSError' — os.error is an alias; __qualname__ uses the canonical class name"
+  category: type_attrs
+  kind: python_call_eq
+  function: error.__qualname__.__eq__
+  args: ["OSError"]
+  expected: true
+
+invariant os_extra32.error.base:
+  description: "os.error.__bases__[0].__name__ == 'Exception' — OSError's direct base class is Exception"
+  category: type_attrs
+  kind: python_call_eq
+  function: "error.__bases__[0].__name__.__eq__"
+  args: ["Exception"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — os.environ type attributes
+# ---------------------------------------------------------------------------
+
+invariant os_extra32.environ.class_name:
+  description: "os.environ.__class__.__name__ == '_Environ' — the mapping type is _Environ"
+  category: type_attrs
+  kind: python_call_eq
+  function: environ.__class__.__name__.__eq__
+  args: ["_Environ"]
+  expected: true
+
+invariant os_extra32.environ.class_module:
+  description: "os.environ.__class__.__module__ == 'os' — _Environ class is defined in the os module"
+  category: type_attrs
+  kind: python_call_eq
+  function: environ.__class__.__module__.__eq__
+  args: ["os"]
+  expected: true

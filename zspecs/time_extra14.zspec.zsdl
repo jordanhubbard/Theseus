@@ -1,0 +1,159 @@
+spec: time_extra14
+version: ">=3.9"
+backend: python_module(time)
+
+docs: https://docs.python.org/3/library/time.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/time.html — Python time module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/timemodule.c"
+    - "time.zspec.zsdl — covers gmtime/strptime/strftime/mktime/sleep __name__ (table), struct_time.__name__, epoch vectors"
+    - "time_extra4.zspec.zsdl — covers __qualname__ table for time/sleep/monotonic/perf_counter/process_time/gmtime/localtime/mktime/strftime/strptime/struct_time"
+    - "time_extra10.zspec.zsdl — covers __qualname__ standalone invariants for sleep/monotonic/perf_counter; struct_time.__bases__[0].__name__; __module__ table"
+    - "time_extra11.zspec.zsdl — covers __qualname__ for time_ns/monotonic_ns/perf_counter_ns; struct_time.__qualname__ standalone; clock_gettime/clock_getres/get_clock_info __qualname__"
+    - "time_extra12.zspec.zsdl — covers __qualname__ standalone invariants for time/sleep/monotonic/perf_counter/process_time/gmtime/localtime/mktime/strftime/strptime"
+    - "time_extra13.zspec.zsdl — covers struct_time.__qualname__/__new__.__qualname__; clock_gettime/clock_settime/clock_gettime_ns/monotonic_ns/perf_counter_ns/process_time_ns/time_ns __qualname__"
+  notes:
+    - "This spec extends time.zspec.zsdl and prior extras through time_extra13.zspec.zsdl."
+    - "NEW in extra14 — Axis 1: struct_time.__module__ == 'time' and struct_time.n_fields == 11 (total field count including tm_gmtoff/tm_zone extras)."
+    - "NEW in extra14 — Axis 2: module-level constants timezone, altzone, daylight — all are plain ints; class names confirm the type."
+    - "NEW in extra14 — Axis 3: tzname.__class__.__name__ == 'tuple' — the timezone name pair is a two-element tuple."
+    - "NEW in extra14 — Axis 4: CLOCK_MONOTONIC and CLOCK_REALTIME — both are plain ints; CLOCK_REALTIME == 0, CLOCK_MONOTONIC == 6 on macOS."
+    - "time.struct_time.__module__ == 'time' — verified Python 3.12."
+    - "time.struct_time.n_fields == 11 — 9 sequence fields (tm_year..tm_isdst) plus tm_gmtoff and tm_zone."
+    - "time.struct_time.n_sequence_fields == 9 — the nine classical POSIX fields."
+    - "time.struct_time.n_unnamed_fields == 0 — no unnamed trailing fields."
+    - "time.timezone.__class__.__name__ == 'int' — UTC offset for non-DST zone in seconds west of UTC."
+    - "time.altzone.__class__.__name__ == 'int' — UTC offset for DST zone in seconds west of UTC."
+    - "time.daylight.__class__.__name__ == 'int' — nonzero when DST zone is defined."
+    - "time.tzname.__class__.__name__ == 'tuple' — pair of (standard, DST) timezone name strings."
+    - "time.CLOCK_REALTIME.__class__.__name__ == 'int' — POSIX clock id; value == 0 on macOS."
+    - "time.CLOCK_MONOTONIC.__class__.__name__ == 'int' — POSIX clock id; value == 6 on macOS."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct_time __module__ and field-count attributes
+#
+# time_extra13 covers struct_time.__qualname__ and struct_time.__new__.__qualname__.
+# No prior spec checks struct_time.__module__ or the n_fields family of
+# attributes, which are integer descriptors on the C struct_time type that
+# record field counts. n_fields == 11 (9 sequence + tm_gmtoff + tm_zone),
+# n_sequence_fields == 9, n_unnamed_fields == 0.
+# ---------------------------------------------------------------------------
+
+invariant time_extra14.struct_time.module:
+  description: "time.struct_time.__module__ == 'time' — C type is registered under the 'time' module"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_time.__module__.__eq__
+  args: ["time"]
+  expected: true
+
+invariant time_extra14.struct_time.n_fields:
+  description: "time.struct_time.n_fields == 11 — total fields including tm_gmtoff and tm_zone extensions"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_time.n_fields.__eq__
+  args: [11]
+  expected: true
+
+invariant time_extra14.struct_time.n_sequence_fields:
+  description: "time.struct_time.n_sequence_fields == 9 — the nine classical POSIX sequence fields (tm_year..tm_isdst)"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_time.n_sequence_fields.__eq__
+  args: [9]
+  expected: true
+
+invariant time_extra14.struct_time.n_unnamed_fields:
+  description: "time.struct_time.n_unnamed_fields == 0 — no unnamed trailing fields"
+  category: class_identity
+  kind: python_call_eq
+  function: struct_time.n_unnamed_fields.__eq__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# timezone, altzone, daylight — module-level integer constants
+#
+# These are C-level int attributes set at import time from the system timezone.
+# Their __class__.__name__ == 'int' in all Python versions. No prior time spec
+# checks the class name of these attributes; prior specs (time_extra10, etc.)
+# only check function __qualname__ and __module__.
+# ---------------------------------------------------------------------------
+
+table time_extra14.timezone_constants_class:
+  description: "__class__.__name__ for module-level timezone integer constants"
+  kind: python_call_eq
+  category: constant_types
+  id_prefix: tcc14
+
+  columns: [id, function, args, expected]
+  rows:
+    - [timezone, "timezone.__class__.__name__.__eq__", ["int"], true]
+    - [altzone,  "altzone.__class__.__name__.__eq__",  ["int"], true]
+    - [daylight, "daylight.__class__.__name__.__eq__", ["int"], true]
+
+# ---------------------------------------------------------------------------
+# tzname — module-level tuple constant
+#
+# time.tzname is a two-element tuple of strings (standard name, DST name).
+# Its __class__.__name__ is 'tuple'. No prior spec checks this attribute.
+# ---------------------------------------------------------------------------
+
+invariant time_extra14.tzname.class:
+  description: "time.tzname.__class__.__name__ == 'tuple' — the timezone name pair is a two-element tuple"
+  category: constant_types
+  kind: python_call_eq
+  function: tzname.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant time_extra14.tzname.len:
+  description: "len(time.tzname) == 2 — exactly two names: standard and DST"
+  category: constant_types
+  kind: python_call_eq
+  function: tzname.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# CLOCK_REALTIME and CLOCK_MONOTONIC — POSIX clock id integer constants
+#
+# These constants are used with clock_gettime/clock_settime. On all POSIX
+# systems they are plain ints. CLOCK_REALTIME is always 0; CLOCK_MONOTONIC
+# is 6 on macOS. No prior time spec checks their class names or values.
+# ---------------------------------------------------------------------------
+
+table time_extra14.clock_id_class:
+  description: "__class__.__name__ for POSIX clock id constants"
+  kind: python_call_eq
+  category: constant_types
+  id_prefix: cic14
+
+  columns: [id, function, args, expected]
+  rows:
+    - [CLOCK_REALTIME,  "CLOCK_REALTIME.__class__.__name__.__eq__",  ["int"], true]
+    - [CLOCK_MONOTONIC, "CLOCK_MONOTONIC.__class__.__name__.__eq__", ["int"], true]
+
+invariant time_extra14.CLOCK_REALTIME.value:
+  description: "time.CLOCK_REALTIME == 0 — POSIX mandates CLOCK_REALTIME == 0 on all conforming systems"
+  category: constant_values
+  kind: python_call_eq
+  function: CLOCK_REALTIME.__eq__
+  args: [0]
+  expected: true
+
+invariant time_extra14.CLOCK_MONOTONIC.value:
+  description: "time.CLOCK_MONOTONIC == 6 — macOS assigns clock id 6 to CLOCK_MONOTONIC"
+  category: constant_values
+  kind: python_call_eq
+  function: CLOCK_MONOTONIC.__eq__
+  args: [6]
+  expected: true

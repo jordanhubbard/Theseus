@@ -1,0 +1,152 @@
+spec: sys_extra26
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sys.html — Python sys module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/sysmodule.c"
+    - "sys_extra7.zspec.zsdl — covers __class__.__qualname__ for float_info/int_info/hash_info/thread_info."
+    - "sys_extra23.zspec.zsdl — covers __class__.__qualname__ for version_info/argv/path/modules/stdout/version."
+    - "sys_extra24.zspec.zsdl — covers byteorder.__class__.__qualname__=='str'; flags.__class__.__qualname__=='flags'."
+    - "sys_extra25.zspec.zsdl — covers __class__.__qualname__ for builtin_module_names/executable/prefix/exec_prefix."
+  notes:
+    - "This spec extends sys.zspec.zsdl through sys_extra25.zspec.zsdl."
+    - "Focus: __class__.__qualname__ for sys.implementation (SimpleNamespace); field types of sys.version_info (major/minor/micro as int, releaselevel as str); and __class__.__name__ for sys.path/sys.modules/sys.builtin_module_names."
+    - "sys.implementation.__class__.__qualname__ == 'SimpleNamespace' — implementation is a types.SimpleNamespace instance; not covered in any prior sys spec."
+    - "sys.implementation.__class__.__name__ == 'SimpleNamespace' — parallel __name__ check; not covered in any prior sys spec."
+    - "sys.version_info.major.__class__.__name__ == 'int' — the major field of version_info is always an int; not covered in any prior sys spec."
+    - "sys.version_info.major.__class__.__qualname__ == 'int' — qualname of int type is 'int'; not covered in any prior sys spec."
+    - "sys.version_info.releaselevel.__class__.__name__ == 'str' — releaselevel is always a str; not covered in any prior sys spec."
+    - "sys.version_info.releaselevel.__class__.__qualname__ == 'str' — qualname of str type is 'str'; not covered in any prior sys spec."
+    - "sys.path.__class__.__name__ == 'list' — confirming sys_extra25/23 gaps: __name__ not __qualname__; verified as novel."
+    - "sys.modules.__class__.__name__ == 'dict' — the modules mapping is always a dict; __name__ not covered in a prior standalone invariant; verified as novel in extra26."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sys.implementation — __class__.__name__ and __class__.__qualname__
+#
+# sys.implementation is a types.SimpleNamespace holding Python interpreter
+# metadata (name, version, cache_tag, etc.). No prior sys spec covers either
+# __class__.__name__ or __class__.__qualname__ for sys.implementation.
+# ---------------------------------------------------------------------------
+
+table sys_extra26.implementation_class_attrs:
+  description: "__class__.__name__ and __class__.__qualname__ for sys.implementation are both 'SimpleNamespace'"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: impl26
+
+  columns: [id, function, args, expected]
+  rows:
+    - [class_name,     implementation.__class__.__name__.__eq__,     ["SimpleNamespace"], true]
+    - [class_qualname, implementation.__class__.__qualname__.__eq__,  ["SimpleNamespace"], true]
+
+# ---------------------------------------------------------------------------
+# sys.version_info field types — __class__.__name__
+#
+# sys.version_info is a named tuple with five fields: major, minor, micro
+# (all ints), releaselevel (a str), and serial (an int). No prior sys spec
+# covers the type of any individual field. This table covers the two field
+# types: int for major/minor/micro/serial, and str for releaselevel.
+# ---------------------------------------------------------------------------
+
+table sys_extra26.version_info_field_class_names:
+  description: "__class__.__name__ for sys.version_info fields — ints are 'int', releaselevel is 'str'"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: vifield26
+
+  columns: [id, function, args, expected]
+  rows:
+    - [major_name,        version_info.major.__class__.__name__.__eq__,        ["int"], true]
+    - [minor_name,        version_info.minor.__class__.__name__.__eq__,        ["int"], true]
+    - [micro_name,        version_info.micro.__class__.__name__.__eq__,        ["int"], true]
+    - [serial_name,       version_info.serial.__class__.__name__.__eq__,       ["int"], true]
+    - [releaselevel_name, version_info.releaselevel.__class__.__name__.__eq__, ["str"], true]
+
+# ---------------------------------------------------------------------------
+# sys.version_info field types — __class__.__qualname__
+#
+# Parallel to the __class__.__name__ table, this table checks __qualname__
+# for the same five version_info fields. Since int and str are top-level
+# builtins, their __qualname__ equals their __name__. No prior sys spec
+# covers __class__.__qualname__ for any version_info field.
+# ---------------------------------------------------------------------------
+
+table sys_extra26.version_info_field_class_qualnames:
+  description: "__class__.__qualname__ for sys.version_info fields — ints are 'int', releaselevel is 'str'"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: viqname26
+
+  columns: [id, function, args, expected]
+  rows:
+    - [major_qualname,        version_info.major.__class__.__qualname__.__eq__,        ["int"], true]
+    - [minor_qualname,        version_info.minor.__class__.__qualname__.__eq__,        ["int"], true]
+    - [micro_qualname,        version_info.micro.__class__.__qualname__.__eq__,        ["int"], true]
+    - [serial_qualname,       version_info.serial.__class__.__qualname__.__eq__,       ["int"], true]
+    - [releaselevel_qualname, version_info.releaselevel.__class__.__qualname__.__eq__, ["str"], true]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — sys.implementation metaclass type
+# ---------------------------------------------------------------------------
+
+invariant sys_extra26.implementation.class_name:
+  description: "sys.implementation.__class__.__name__ == 'SimpleNamespace' — implementation is a SimpleNamespace instance"
+  category: type_attrs
+  kind: python_call_eq
+  function: implementation.__class__.__name__.__eq__
+  args: ["SimpleNamespace"]
+  expected: true
+
+invariant sys_extra26.implementation.class_qualname:
+  description: "sys.implementation.__class__.__qualname__ == 'SimpleNamespace' — qualname of SimpleNamespace is its bare name"
+  category: type_attrs
+  kind: python_call_eq
+  function: implementation.__class__.__qualname__.__eq__
+  args: ["SimpleNamespace"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — sys.version_info integer field class
+# ---------------------------------------------------------------------------
+
+invariant sys_extra26.version_info.major.class_name:
+  description: "sys.version_info.major.__class__.__name__ == 'int' — major version field is always an int"
+  category: type_attrs
+  kind: python_call_eq
+  function: version_info.major.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant sys_extra26.version_info.major.class_qualname:
+  description: "sys.version_info.major.__class__.__qualname__ == 'int' — qualname of int type is 'int'"
+  category: type_attrs
+  kind: python_call_eq
+  function: version_info.major.__class__.__qualname__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant sys_extra26.version_info.releaselevel.class_name:
+  description: "sys.version_info.releaselevel.__class__.__name__ == 'str' — releaselevel field is always a str"
+  category: type_attrs
+  kind: python_call_eq
+  function: version_info.releaselevel.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant sys_extra26.version_info.releaselevel.class_qualname:
+  description: "sys.version_info.releaselevel.__class__.__qualname__ == 'str' — qualname of str type is 'str'"
+  category: type_attrs
+  kind: python_call_eq
+  function: version_info.releaselevel.__class__.__qualname__.__eq__
+  args: ["str"]
+  expected: true
