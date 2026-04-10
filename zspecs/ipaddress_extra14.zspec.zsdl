@@ -1,0 +1,114 @@
+spec: ipaddress_extra14
+version: ">=3.9"
+backend: python_module(ipaddress)
+
+docs: https://docs.python.org/3/library/ipaddress.html
+rfcs:
+  - "RFC 791 — Internet Protocol (IPv4)"
+  - "RFC 2460 — Internet Protocol, Version 6 (IPv6)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ipaddress.html — Python ipaddress module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ipaddress.py"
+    - "ipaddress_extra3 covers: IPv4/IPv6Address __bases__[0].__name__; IPv4/IPv6Network __bases__[0].__name__; AddressValueError/NetmaskValueError __bases__[0].__name__ == 'ValueError' via __getitem__."
+    - "ipaddress_extra11 covers: IPv4Address/IPv6Address/IPv4Network/IPv6Network __name__.__len__() == 11."
+    - "ipaddress_extra12 covers: IPv4Interface/IPv6Interface __bases__[0].__name__ via __getitem__; __module__.__len__()==9 table; ip_address/__qualname__.__len__(); IPv4/IPv6Interface __qualname__.__len__()==13."
+    - "ipaddress_extra13 covers: IPv4/IPv6Address/Network __name__.__eq__() standalone; ip_address('127.0.0.1') class name; is_loopback/is_private."
+  notes:
+    - "This spec extends the ipaddress chain through extra13; it does NOT duplicate invariants in any prior spec."
+    - "Focus: __bases__[0].__name__.__len__() for all six concrete classes and both exception classes — none of these lengths have been checked before."
+    - "ipaddress.IPv4Address.__bases__[0].__name__ == '_BaseV4': len('_BaseV4') == 7. No prior spec checks this length."
+    - "ipaddress.IPv6Address.__bases__[0].__name__ == '_BaseV6': len('_BaseV6') == 7. No prior spec checks this length."
+    - "ipaddress.IPv4Network.__bases__[0].__name__ == '_BaseV4': len('_BaseV4') == 7. Same length as IPv4Address base."
+    - "ipaddress.IPv6Network.__bases__[0].__name__ == '_BaseV6': len('_BaseV6') == 7. Same length as IPv6Address base."
+    - "ipaddress.IPv4Interface.__bases__[0].__name__ == 'IPv4Address': len('IPv4Address') == 11. No prior spec checks this length."
+    - "ipaddress.IPv6Interface.__bases__[0].__name__ == 'IPv6Address': len('IPv6Address') == 11. No prior spec checks this length."
+    - "ipaddress.AddressValueError.__bases__[0].__name__ == 'ValueError': len('ValueError') == 10. No prior spec checks this length."
+    - "ipaddress.NetmaskValueError.__bases__[0].__name__ == 'ValueError': len('ValueError') == 10. No prior spec checks this length."
+    - "AddressValueError.__bases__[0].__name__.__eq__('ValueError') via the string __eq__ method — extra3 checks via __getitem__; this is a distinct path."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __bases__[0].__name__.__len__() for concrete address/network classes
+#
+# ipaddress_extra3 checks IPv4/IPv6Address/Network __bases__[0].__name__ via __getitem__.
+# ipaddress_extra12 checks IPv4/IPv6Interface __bases__[0].__name__ via __getitem__.
+# No prior spec checks the length of any of these base class name strings.
+# ---------------------------------------------------------------------------
+
+table ipaddress_extra14.base_name_lengths:
+  description: "Length of __bases__[0].__name__ string for ipaddress classes"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: basename14
+
+  columns: [id, function, args, expected]
+  rows:
+    - [IPv4Address,  "IPv4Address.__bases__[0].__name__.__len__",  [], 7]
+    - [IPv6Address,  "IPv6Address.__bases__[0].__name__.__len__",  [], 7]
+    - [IPv4Network,  "IPv4Network.__bases__[0].__name__.__len__",  [], 7]
+    - [IPv6Network,  "IPv6Network.__bases__[0].__name__.__len__",  [], 7]
+    - [IPv4Interface, "IPv4Interface.__bases__[0].__name__.__len__", [], 11]
+    - [IPv6Interface, "IPv6Interface.__bases__[0].__name__.__len__", [], 11]
+
+# ---------------------------------------------------------------------------
+# Exception __bases__[0].__name__.__len__() checks
+#
+# ipaddress_extra3 checks AddressValueError.__bases__[0].__name__ == 'ValueError'
+# and NetmaskValueError.__bases__[0].__name__ == 'ValueError' via __getitem__.
+# No prior spec checks the length of the base name string ('ValueError' == 10).
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra14.AddressValueError.base_name_len:
+  description: "len(ipaddress.AddressValueError.__bases__[0].__name__) == 10 — len('ValueError') == 10"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "AddressValueError.__bases__[0].__name__.__len__"
+  args: []
+  expected: 10
+
+invariant ipaddress_extra14.NetmaskValueError.base_name_len:
+  description: "len(ipaddress.NetmaskValueError.__bases__[0].__name__) == 10 — len('ValueError') == 10"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "NetmaskValueError.__bases__[0].__name__.__len__"
+  args: []
+  expected: 10
+
+# ---------------------------------------------------------------------------
+# AddressValueError.__bases__[0].__name__.__eq__('ValueError')
+#
+# ipaddress_extra3 checks AddressValueError.__bases__[0].__name__ via
+# __bases__.__getitem__(0).__name__ (reads the attribute).
+# This invariant calls __eq__('ValueError') on the __name__ string directly —
+# a distinct execution path: function is the subscript attribute chain.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra14.AddressValueError.base_name_eq:
+  description: "ipaddress.AddressValueError.__bases__[0].__name__.__eq__('ValueError') == True"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "AddressValueError.__bases__[0].__name__.__eq__"
+  args: ["ValueError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# NetmaskValueError.__bases__[0].__name__.__eq__('ValueError')
+#
+# Same pattern as AddressValueError above but for NetmaskValueError.
+# No prior spec checks this via the __name__.__eq__ path.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra14.NetmaskValueError.base_name_eq:
+  description: "ipaddress.NetmaskValueError.__bases__[0].__name__.__eq__('ValueError') == True"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "NetmaskValueError.__bases__[0].__name__.__eq__"
+  args: ["ValueError"]
+  expected: true

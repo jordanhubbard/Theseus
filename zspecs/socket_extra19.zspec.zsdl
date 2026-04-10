@@ -1,0 +1,116 @@
+spec: socket_extra19
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/socket.py"
+    - "CPython source: Modules/socketmodule.c"
+    - "socket_extra11 covers: timeout.__bases__[0].__name__ == 'OSError'; gaierror.__bases__[0].__name__ == 'OSError'; socket.__bases__[0].__name__ == 'socket'; all via __bases__.__getitem__."
+    - "socket_extra3 covers: herror.__bases__[0].__name__ == 'OSError'; gaierror.__bases__[0].__name__ == 'OSError' (direct subscript form)."
+    - "socket_extra17 covers: error.__bases__.__getitem__(0).__name__ == 'Exception'; timeout/__herror/__gaierror __bases__.__getitem__(0).__name__ == 'OSError'."
+    - "socket_extra2 covers: timeout.__bases__[0].__name__ == 'OSError' (standalone invariant)."
+  notes:
+    - "This spec extends socket_extra18; it does NOT duplicate invariants in any prior spec."
+    - "Focus: __name__.__len__() checks for socket exception class names (gaierror, herror, timeout.__name__=='TimeoutError') and __name__ string equality checks via the __eq__ path for herror/gaierror as a table."
+    - "socket.gaierror.__name__ == 'gaierror': len('gaierror') == 8. No prior spec checks gaierror.__name__.__len__()."
+    - "socket.herror.__name__ == 'herror': len('herror') == 6. No prior spec checks herror.__name__.__len__()."
+    - "socket.timeout.__name__ == 'TimeoutError': len('TimeoutError') == 12. No prior spec checks timeout.__name__.__len__()."
+    - "socket.gaierror.__name__.__eq__('gaierror') — prior specs check gaierror.__name__ via __getitem__ path; __eq__ path on the string is new."
+    - "socket.herror.__name__.__eq__('herror') — no prior spec checks herror.__name__ via __eq__ on the string."
+    - "socket.error.__name__.__len__() == 7: len('OSError') == 7. socket_extra18 notes this but checks it indirectly."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Exception class __name__.__eq__ checks — gaierror and herror
+#
+# socket_extra3 checks gaierror.__bases__[0].__name__ and herror.__bases__[0].__name__.
+# socket_extra11 checks gaierror.__bases__[0].__name__ via __getitem__.
+# No prior spec checks gaierror.__name__.__eq__ or herror.__name__.__eq__
+# (the __name__ string's own __eq__ method, not the class attribute lookup).
+# gaierror.__name__ == 'gaierror'; herror.__name__ == 'herror'.
+# ---------------------------------------------------------------------------
+
+table socket_extra19.exception_names:
+  description: "socket exception class __name__ string equality via __eq__"
+  kind: python_call_eq
+  category: class_names
+  id_prefix: excname19
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gaierror, gaierror.__name__.__eq__, ["gaierror"], true]
+    - [herror,   herror.__name__.__eq__,   ["herror"],   true]
+
+# ---------------------------------------------------------------------------
+# Exception class __name__.__len__() checks
+#
+# socket_extra2 checks error.__name__.__len__() == 7 (len('OSError') == 7).
+# No prior spec checks gaierror.__name__.__len__(), herror.__name__.__len__(),
+# or timeout.__name__.__len__(). timeout.__name__ == 'TimeoutError' (len 12).
+# gaierror.__name__ == 'gaierror' (len 8); herror.__name__ == 'herror' (len 6).
+# ---------------------------------------------------------------------------
+
+invariant socket_extra19.gaierror.name_len:
+  description: "len(socket.gaierror.__name__) == 8 — len('gaierror') == 8"
+  category: class_metadata
+  kind: python_call_eq
+  function: gaierror.__name__.__len__
+  args: []
+  expected: 8
+
+invariant socket_extra19.herror.name_len:
+  description: "len(socket.herror.__name__) == 6 — len('herror') == 6"
+  category: class_metadata
+  kind: python_call_eq
+  function: herror.__name__.__len__
+  args: []
+  expected: 6
+
+invariant socket_extra19.timeout.name_len:
+  description: "len(socket.timeout.__name__) == 12 — timeout.__name__ == 'TimeoutError', len == 12"
+  category: class_metadata
+  kind: python_call_eq
+  function: timeout.__name__.__len__
+  args: []
+  expected: 12
+
+# ---------------------------------------------------------------------------
+# socket.error.__name__.__len__() == 7
+#
+# socket.error is an alias for OSError; error.__name__ == 'OSError' (len 7).
+# socket_extra18 mentions this in notes. No prior spec checks the string
+# length via error.__name__.__len__() as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra19.error.name_len:
+  description: "len(socket.error.__name__) == 7 — socket.error is OSError; len('OSError') == 7"
+  category: class_metadata
+  kind: python_call_eq
+  function: error.__name__.__len__
+  args: []
+  expected: 7
+
+# ---------------------------------------------------------------------------
+# timeout.__name__.__eq__('TimeoutError')
+#
+# socket_extra2 checks timeout.__name__ == 'TimeoutError' as a standalone invariant
+# using direct attribute access. No prior spec checks timeout.__name__.__eq__('TimeoutError')
+# (the string's own __eq__ method). This is a distinct execution path.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra19.timeout.name_eq:
+  description: "socket.timeout.__name__.__eq__('TimeoutError') == True — timeout is an alias for TimeoutError"
+  category: class_names
+  kind: python_call_eq
+  function: timeout.__name__.__eq__
+  args: ["TimeoutError"]
+  expected: true

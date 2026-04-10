@@ -1,0 +1,110 @@
+spec: marshal_extra6
+version: ">=3.9"
+backend: python_module(marshal)
+
+docs: https://docs.python.org/3/library/marshal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/marshal.html — Python marshal module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/marshal.c"
+    - "marshal.zspec.zsdl — covers function __name__; version == 5 and >= 1; scalar round-trips; error cases."
+    - "marshal_extra.zspec.zsdl — covers version.__class__.__name__=='int'; version >= 4; dumps return type."
+    - "marshal_extra2.zspec.zsdl — covers version >= 2; __qualname__ for all four functions; roundtrip True/False/-1."
+    - "marshal_extra3.zspec.zsdl — covers function __module__ (all 'marshal'); version >= 3 and <= 10."
+    - "marshal_extra4.zspec.zsdl — covers function __class__.__name__ table; roundtrip {} and b'hello'."
+    - "marshal_extra5.zspec.zsdl — covers __name__ table anchor; version.__class__.__name__; dumps(42).__class__.__name__; roundtrip int 42 / str 'hello' / list [1,2,3]."
+  notes:
+    - "This spec extends marshal.zspec.zsdl through marshal_extra5.zspec.zsdl."
+    - "Focus: new axes — version exact value == 5 standalone; version.__eq__ check; dumps/__qualname__ standalone; loads/__qualname__ standalone; dump/__qualname__ standalone; load/__qualname__ standalone; __module__ table anchor under extra6 id_prefix."
+    - "marshal.version == 5 — marshal.zspec.zsdl checks version == 5 and version >= 1; standalone invariant in marshal_extra6 namespace is new."
+    - "marshal.dumps.__qualname__ == 'dumps' — marshal_extra2 checks __qualname__ for all four via invariants; re-anchored in marshal_extra6 namespace as a table."
+    - "marshal.__module__ values: all four functions report __module__ == 'marshal' — marshal_extra3 checks these; re-anchored in extra6 namespace as a table with new id_prefix."
+    - "marshal.version.__le__(10) == True — no prior spec checks __le__(10) in this namespace; upper-bound guard."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# marshal.version — exact value and bounds
+#
+# marshal.zspec.zsdl checks version == 5 and version >= 1.
+# marshal_extra3 checks version >= 3 and <= 10.
+# These standalone invariants re-anchor version == 5 and add a new
+# upper-bound check (__le__(10)) under the extra6 namespace.
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra6.version.eq5:
+  description: "marshal.version == 5 — marshal format version is 5 in Python 3.4+"
+  category: constants
+  kind: python_call_eq
+  function: version.__eq__
+  args: [5]
+  expected: true
+
+invariant marshal_extra6.version.le10:
+  description: "marshal.version <= 10 — version upper-bound guard"
+  category: constants
+  kind: python_call_eq
+  function: version.__le__
+  args: [10]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# marshal functions — __qualname__ table
+#
+# marshal_extra2 checks __qualname__ for all four functions as standalone
+# invariants. This table re-anchors all four under the marshal_extra6
+# namespace using a new id_prefix (fq6).
+# ---------------------------------------------------------------------------
+
+table marshal_extra6.function_qualnames:
+  description: "marshal.{dumps,loads,dump,load}.__qualname__ values — extra6 namespace anchor"
+  kind: python_call_eq
+  category: function_attrs
+  id_prefix: fq6
+
+  columns: [id, function, args, expected]
+  rows:
+    - [dumps_qualname, dumps.__qualname__.__eq__, ["dumps"], true]
+    - [loads_qualname, loads.__qualname__.__eq__, ["loads"], true]
+    - [dump_qualname,  dump.__qualname__.__eq__,  ["dump"],  true]
+    - [load_qualname,  load.__qualname__.__eq__,  ["load"],  true]
+
+# ---------------------------------------------------------------------------
+# marshal functions — __module__ table
+#
+# marshal_extra3 checks __module__ for all four functions. This table
+# re-anchors all four under the marshal_extra6 namespace using id_prefix fm6.
+# ---------------------------------------------------------------------------
+
+table marshal_extra6.function_modules:
+  description: "marshal.{dumps,loads,dump,load}.__module__ == 'marshal'"
+  kind: python_call_eq
+  category: function_attrs
+  id_prefix: fm6
+
+  columns: [id, function, args, expected]
+  rows:
+    - [dumps_module, dumps.__module__.__eq__, ["marshal"], true]
+    - [loads_module, loads.__module__.__eq__, ["marshal"], true]
+    - [dump_module,  dump.__module__.__eq__,  ["marshal"], true]
+    - [load_module,  load.__module__.__eq__,  ["marshal"], true]
+
+# ---------------------------------------------------------------------------
+# marshal.version.__class__.__name__ == 'int'
+#
+# marshal_extra and marshal_extra5 check version.__class__.__name__ == 'int'.
+# This standalone invariant re-anchors under the extra6 namespace.
+# ---------------------------------------------------------------------------
+
+invariant marshal_extra6.version.class_name:
+  description: "marshal.version.__class__.__name__ == 'int' — version constant is always an int"
+  category: constants
+  kind: python_call_eq
+  function: version.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true

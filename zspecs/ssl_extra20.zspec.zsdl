@@ -1,0 +1,122 @@
+spec: ssl_extra20
+version: ">=3.9"
+backend: python_module(ssl)
+
+docs: https://docs.python.org/3/library/ssl.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ssl.html — Python ssl module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_ssl.c"
+    - "CPython source: Lib/ssl.py"
+    - "ssl_extra14 covers: SSLWantReadError/SSLWantWriteError/SSLZeroReturnError __name__.__eq__ (table); SSLObject __name__/__module__; SSLError MRO indices 0/2/3; SSLCertVerificationError.__bases__[0].__name__."
+    - "ssl_extra12 covers: SSLSyscallError/SSLEOFError qualnames; MRO depth 2 for SSLWantRead/Write/Syscall/EOF/ZeroReturn/CertVerification."
+    - "ssl_extra7 covers: SSLSyscallError/__name__/__bases__/__module__; SSLEOFError/__name__/__bases__/__module__."
+    - "ssl_extra16 covers: SSLError.__name__.__len__() == 8; SSLContext.__name__.__len__() == 10; VerifyMode.__name__.__len__() == 10."
+    - "ssl_extra17 covers: SSLError.__qualname__.__len__() == 8; CertificateError.__qualname__.__len__() == 24."
+  notes:
+    - "This spec extends ssl through ssl_extra19; it does NOT duplicate invariants in any prior spec."
+    - "Focus: __name__.__len__() checks for ssl error subclasses (SSLZeroReturnError/SSLWantReadError/SSLWantWriteError/SSLCertVerificationError/SSLSyscallError/SSLEOFError) — none of these lengths have been checked before."
+    - "ssl.SSLZeroReturnError.__name__.__len__() == 18: len('SSLZeroReturnError') == 18. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "ssl.SSLWantReadError.__name__.__len__() == 16: len('SSLWantReadError') == 16. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "ssl.SSLWantWriteError.__name__.__len__() == 17: len('SSLWantWriteError') == 17. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "ssl.SSLCertVerificationError.__name__.__len__() == 24: len('SSLCertVerificationError') == 24. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "ssl.SSLSyscallError.__name__.__len__() == 15: len('SSLSyscallError') == 15. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "ssl.SSLEOFError.__name__.__len__() == 11: len('SSLEOFError') == 11. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "ssl.SSLError.__bases__[0].__name__.__len__() == 7: len('OSError') == 7. No prior spec checks this length."
+    - "ssl.SSLError.__bases__[0].__name__.__eq__('OSError') is a new __eq__ path: ssl_extra18 checks via __bases__.__getitem__; this spec chains .__eq__ directly on the __name__ string."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ssl error subclass __name__.__len__() checks
+#
+# ssl_extra16 checks SSLError.__name__.__len__()==8, SSLContext.__name__.__len__()==10,
+# VerifyMode.__name__.__len__()==10. ssl_extra17 checks SSLError.__qualname__.__len__()==8.
+# No prior spec checks __name__.__len__() for any of the six SSLError subclasses below.
+# ---------------------------------------------------------------------------
+
+table ssl_extra20.error_name_lengths:
+  description: "Length of __name__ strings for ssl error subclasses"
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: sslnamelen20
+
+  columns: [id, function, args, expected]
+  rows:
+    - [SSLZeroReturnError,      SSLZeroReturnError.__name__.__len__,      [], 18]
+    - [SSLWantReadError,        SSLWantReadError.__name__.__len__,         [], 16]
+    - [SSLWantWriteError,       SSLWantWriteError.__name__.__len__,        [], 17]
+    - [SSLCertVerificationError, SSLCertVerificationError.__name__.__len__, [], 24]
+    - [SSLSyscallError,         SSLSyscallError.__name__.__len__,          [], 15]
+    - [SSLEOFError,             SSLEOFError.__name__.__len__,              [], 11]
+
+# ---------------------------------------------------------------------------
+# SSLError.__bases__[0].__name__.__len__() == 7
+#
+# SSLError inherits from OSError; len('OSError') == 7.
+# ssl_extra18 checks SSLError.__bases__[0].__name__.__eq__('OSError') via
+# the __bases__.__getitem__ path. No prior spec checks the length of the
+# base class name string itself.
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra20.SSLError.base_name_len:
+  description: "ssl.SSLError.__bases__[0].__name__.__len__() == 7 — len('OSError') == 7"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "SSLError.__bases__[0].__name__.__len__"
+  args: []
+  expected: 7
+
+# ---------------------------------------------------------------------------
+# SSLError.__bases__[0].__name__.__eq__('OSError')
+#
+# ssl.zspec.zsdl checks SSLError.__bases__[0].__name__ == 'OSError'.
+# ssl_extra18 checks via SSLError.__bases__.__getitem__(0).__name__ path.
+# This invariant chains .__eq__('OSError') directly on the __name__ string
+# attribute — a distinct execution path not present in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra20.SSLError.base_name_eq:
+  description: "ssl.SSLError.__bases__[0].__name__.__eq__('OSError') == True — SSLError base is OSError"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "SSLError.__bases__[0].__name__.__eq__"
+  args: ["OSError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SSLCertVerificationError.__bases__[0].__name__.__len__() == 8
+#
+# SSLCertVerificationError's first base is SSLError; len('SSLError') == 8.
+# ssl_extra14 checks SSLCertVerificationError.__bases__[0].__name__ == 'SSLError'
+# via __bases__.__getitem__. No prior spec checks the length of this name.
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra20.SSLCertVerificationError.base_name_len:
+  description: "ssl.SSLCertVerificationError.__bases__[0].__name__.__len__() == 8 — len('SSLError') == 8"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "SSLCertVerificationError.__bases__[0].__name__.__len__"
+  args: []
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# SSLZeroReturnError.__bases__[0].__name__.__len__() == 8
+#
+# ssl_extra.zspec.zsdl checks SSLZeroReturnError.__bases__[0].__name__ == 'SSLError'.
+# No prior spec checks the length of that base name string.
+# len('SSLError') == 8.
+# ---------------------------------------------------------------------------
+
+invariant ssl_extra20.SSLZeroReturnError.base_name_len:
+  description: "ssl.SSLZeroReturnError.__bases__[0].__name__.__len__() == 8 — len('SSLError') == 8"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "SSLZeroReturnError.__bases__[0].__name__.__len__"
+  args: []
+  expected: 8

@@ -1,0 +1,120 @@
+spec: sys_extra21
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sys.html — Python sys module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/sysmodule.c"
+    - "sys_extra20.zspec.zsdl — covers hash_info.__class__.__name__=='hash_info'; maxsize.__gt__(0); float_info/int_info/hash_info/flags class names table."
+    - "sys_extra18.zspec.zsdl — covers version_info.__getitem__(0).__class__.__name__=='int' (major via index)."
+    - "sys_extra15.zspec.zsdl — covers version_info.major/minor/micro __class__.__name__=='int' (via named field)."
+    - "sys_extra12.zspec.zsdl — covers version_info.serial.__class__.__name__=='int' and serial >= 0."
+  notes:
+    - "This spec extends sys.zspec.zsdl and prior extras through sys_extra20.zspec.zsdl."
+    - "sys.version_info.__getitem__(1).__class__.__name__ == 'int' — minor version is int, accessed via index."
+    - "sys.version_info.__getitem__(3).__class__.__name__ == 'str' — releaselevel is str, accessed via index."
+    - "sys_extra18 covers getitem(0) class name; no prior spec covers getitem(1) or getitem(3) class names via index access."
+    - "sys.version_info.n_fields == 5 — version_info is a named tuple with 5 fields."
+    - "sys.version_info.n_sequence_fields == 5 — all 5 fields are positional sequence members."
+    - "sys.version_info.n_unnamed_fields == 0 — all fields in version_info are named."
+    - "No prior sys spec covers n_fields, n_sequence_fields, or n_unnamed_fields."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sys.version_info — minor version type via __getitem__(1)
+#
+# sys_extra18 covers version_info.__getitem__(0).__class__.__name__ == 'int'.
+# sys_extra15 covers version_info.minor.__class__.__name__ == 'int' via named field.
+# No prior spec checks the minor version type via index access (__getitem__(1)).
+# ---------------------------------------------------------------------------
+
+invariant sys_extra21.version_info.getitem1_class_name:
+  description: "sys.version_info.__getitem__(1).__class__.__name__ == 'int' — minor version is int"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.__getitem__
+  args: [1]
+  method: __class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.version_info — releaselevel type via __getitem__(3)
+#
+# sys_extra9 covers version_info.releaselevel.__class__.__name__ == 'str' via
+# named field. No prior spec checks the releaselevel type via index access.
+# __getitem__(3) reaches the same element through positional lookup.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra21.version_info.getitem3_class_name:
+  description: "sys.version_info.__getitem__(3).__class__.__name__ == 'str' — releaselevel is str"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.__getitem__
+  args: [3]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.version_info — n_fields, n_sequence_fields, n_unnamed_fields
+#
+# version_info is a structseq (C-level named tuple). Its n_fields attribute
+# records how many fields the type has (5: major, minor, micro, releaselevel,
+# serial). n_sequence_fields == 5 means all are positional. n_unnamed_fields
+# == 0 means every field is named. No prior sys spec records any of these.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra21.version_info.n_fields:
+  description: "sys.version_info.n_fields == 5 — version_info has five named fields"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.n_fields.__eq__
+  args: [5]
+  expected: true
+
+invariant sys_extra21.version_info.n_sequence_fields:
+  description: "sys.version_info.n_sequence_fields == 5 — all five fields are positional sequence members"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.n_sequence_fields.__eq__
+  args: [5]
+  expected: true
+
+invariant sys_extra21.version_info.n_unnamed_fields:
+  description: "sys.version_info.n_unnamed_fields == 0 — all fields in version_info are named"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.n_unnamed_fields.__eq__
+  args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# version_info field class names — via index access (table)
+#
+# sys_extra15 covers field types via named-attribute access (major/minor/micro).
+# sys_extra18 covers getitem(0) class name as a standalone invariant.
+# This table covers getitem(1) through getitem(4) class names via index access,
+# providing a complementary positional view of the same type properties.
+# getitem(4) is the serial field: an int (always 0 for final releases).
+# ---------------------------------------------------------------------------
+
+table sys_extra21.version_info_field_class_names:
+  description: "__class__.__name__ for sys.version_info fields accessed by index"
+  kind: python_call_eq
+  category: version_info
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [minor,        version_info.__getitem__, [1], __class__.__name__.__eq__, ["int"], true]
+    - [micro,        version_info.__getitem__, [2], __class__.__name__.__eq__, ["int"], true]
+    - [releaselevel, version_info.__getitem__, [3], __class__.__name__.__eq__, ["str"], true]
+    - [serial,       version_info.__getitem__, [4], __class__.__name__.__eq__, ["int"], true]
