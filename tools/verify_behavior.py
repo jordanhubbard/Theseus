@@ -170,6 +170,9 @@ class LibraryLoader:
                     "rich.style",
                     "rich.color",
                 ],
+                "multiprocessing": [
+                    "multiprocessing.pool",
+                ],
             }
             for sub in _SUBMODULE_PRELOADS.get(module_name, []):
                 try:

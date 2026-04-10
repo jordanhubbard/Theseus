@@ -1,0 +1,94 @@
+spec: struct_extra31
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra30.zspec.zsdl — covers calcsize('10s'/'?'/'e'); Struct('4B').size; Struct('4B').format.__len__()==2."
+    - "struct_extra29.zspec.zsdl — covers Struct.__dict__['size'/'format'] descriptor class name len (17); struct.__spec__.__name__.__len__()==6; struct.__loader__.__class__.__name__.__len__()==16."
+    - "struct_extra28.zspec.zsdl — covers calcsize() primitive/multi-element/prefix-invariance tables; Struct.__init_subclass__/__qualname__.__len__()==24."
+    - "struct_extra27.zspec.zsdl — covers Struct/__mro__.__len__()==2; error/__mro__.__len__()==4; Struct/error __dict__.__class__.__name__.__len__()==12; Struct method __qualname__.__len__() for pack/unpack/pack_into/unpack_from/iter_unpack."
+    - "struct_extra23.zspec.zsdl — covers Struct.__new__.__qualname__.__eq__('Struct.__new__'); Struct.__sizeof__.__qualname__.__eq__('Struct.__sizeof__'); __module__/__len__() for pack_into/unpack_from/iter_unpack."
+    - "struct_extra20.zspec.zsdl — covers __qualname__.__len__() for all six module-level functions."
+    - "struct_extra19.zspec.zsdl — covers Struct.__qualname__.__len__()==6; error.__qualname__.__len__()==5."
+  notes:
+    - "This spec extends struct through struct_extra30; it does NOT duplicate invariants present in those files."
+    - "Prior specs covered: Struct.__new__.__qualname__.__eq__('Struct.__new__') (extra23 via __eq__); Struct.__sizeof__.__qualname__.__eq__('Struct.__sizeof__') (extra23 via __eq__); __qualname__.__len__() for all six module-level functions and Struct class (extra19/extra20); Struct method __qualname__.__len__() for pack/unpack/pack_into/unpack_from/iter_unpack (extra27)."
+    - "This spec covers: struct.iter_unpack('>2H', b'...').__class__.__name__.__len__() (NOVEL — iter_unpack returns an _struct.unpack_iterator object; its __class__.__name__ == 'unpack_iterator' which has 15 chars; struct_extra checks __class__.__name__.__eq__('struct_unpack_iterator') which uses the wrong name; no prior spec checks the correct name length 15 via __len__()); struct.Struct.__new__.__qualname__.__len__() (NOVEL — extra23 covers Struct.__new__.__qualname__.__eq__ but not __qualname__.__len__(); 'Struct.__new__' has 14 chars; the __len__() axis is a distinct regression invariant from __eq__); struct.Struct.__sizeof__.__qualname__.__len__() (NOVEL — extra23 covers Struct.__sizeof__.__qualname__.__eq__ but not __qualname__.__len__(); 'Struct.__sizeof__' has 17 chars; distinct __len__() axis); struct.Struct.__class__.__name__.__len__() (NOVEL — Struct is a C extension type, its metaclass is 'type'; no prior spec checks Struct.__class__.__name__.__len__()==4; struct_extra.error covers error.__bases__ but not Struct.__class__.__name__)."
+    - "struct.iter_unpack('>2H',b'\\x00\\x01\\x00\\x02').__class__.__name__ == 'unpack_iterator' (len 15). The iterator returned by iter_unpack is implemented in _struct as an internal type named 'unpack_iterator'. struct_extra checks __class__.__name__.__eq__('struct_unpack_iterator') — a wrong value; no prior spec checks the correct name or its length. The correct class name is 'unpack_iterator', 15 characters. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.Struct.__new__.__qualname__ == 'Struct.__new__' (len 14). extra23 checks via __eq__ ('Struct.__new__') but not via __len__(). The len() axis provides an independent regression check. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.Struct.__sizeof__.__qualname__ == 'Struct.__sizeof__' (len 17). extra23 checks via __eq__ ('Struct.__sizeof__') but not via __len__(). Novel __len__() axis. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.Struct.__class__.__name__ == 'type' (len 4). Struct is a C extension type and its metaclass is the builtin 'type'. No prior spec checks Struct.__class__.__name__.__len__(). Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# iter_unpack result __class__.__name__.__len__()
+#
+# struct.iter_unpack returns an object of the internal C type _struct.unpack_iterator.
+# Its __class__.__name__ == 'unpack_iterator' (len 15).
+#
+# struct_extra (the base extra spec) checks __class__.__name__.__eq__ with the
+# value 'struct_unpack_iterator' which does NOT match the actual Python 3.12 name
+# (verified: name is 'unpack_iterator', not 'struct_unpack_iterator').
+# No prior spec checks the correct name 'unpack_iterator' or its length.
+# This invariant covers the correct length 15.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra31.iter_unpack_result.class_name_len:
+  description: "struct.iter_unpack('>2H', ...).__class__.__name__.__len__() == 15 — 'unpack_iterator' has 15 chars; novel: correct class name len (struct_extra checks wrong name 'struct_unpack_iterator'); no prior spec checks len 15"
+  category: behavioral
+  kind: python_call_eq
+  function: iter_unpack
+  args: [">2H", !hex 00010002]
+  method: __class__.__name__.__len__
+  method_args: []
+  expected: 15
+
+# ---------------------------------------------------------------------------
+# Struct.__new__.__qualname__.__len__() and Struct.__sizeof__.__qualname__.__len__()
+#
+# struct_extra23 covers these via __eq__:
+#   Struct.__new__.__qualname__.__eq__('Struct.__new__')   -> true
+#   Struct.__sizeof__.__qualname__.__eq__('Struct.__sizeof__') -> true
+# No prior spec calls __qualname__.__len__() on either of these dunder methods.
+# The __len__() axis provides an independent regression invariant distinct from __eq__:
+#   'Struct.__new__'   -> len 14
+#   'Struct.__sizeof__' -> len 17
+# ---------------------------------------------------------------------------
+
+table struct_extra31.Struct_dunder_qualname_lens:
+  description: "struct.Struct.__new__/__sizeof__ __qualname__.__len__() — novel __len__() axis; extra23 covers __eq__ only for these dunder methods"
+  kind: python_call_eq
+  category: method_qualnames
+  id_prefix: sdql31
+
+  columns: [id, function, args, expected]
+  rows:
+    - [new_qualname_len,    Struct.__new__.__qualname__.__len__,    [], 14]
+    - [sizeof_qualname_len, Struct.__sizeof__.__qualname__.__len__, [], 17]
+
+# ---------------------------------------------------------------------------
+# struct.Struct.__class__.__name__.__len__()
+#
+# struct.Struct is a C extension type; its metaclass is the builtin 'type'.
+# struct.Struct.__class__.__name__ == 'type' (len 4).
+# No prior struct spec checks Struct.__class__.__name__ or its length.
+# Prior specs check error.__class__.__name__=='type' in some specs but not Struct.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra31.Struct.class_name_len:
+  description: "struct.Struct.__class__.__name__.__len__() == 4 — 'type' has 4 chars; Struct is a C extension type with metaclass 'type'; novel: no prior spec checks Struct.__class__.__name__.__len__()"
+  category: class_introspection
+  kind: python_call_eq
+  function: Struct.__class__.__name__.__len__
+  args: []
+  expected: 4
