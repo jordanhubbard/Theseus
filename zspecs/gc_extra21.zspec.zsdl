@@ -1,0 +1,124 @@
+spec: gc_extra21
+version: ">=3.9"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gc.html — Python gc module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/gcmodule.c"
+  notes:
+    - "This spec extends gc.zspec.zsdl through gc_extra20.zspec.zsdl."
+    - "gc_extra20 covers: collect/enable/disable __module__ as standalone invariants; collect/enable/disable/set_threshold/get_objects/set_debug/get_debug __qualname__ via table."
+    - "gc_extra17 covers: DEBUG_STATS/DEBUG_COLLECTABLE/DEBUG_UNCOLLECTABLE/DEBUG_SAVEALL/DEBUG_LEAK __class__.__name__ == 'int' via table."
+    - "gc_extra4 covers: DEBUG_STATS/DEBUG_COLLECTABLE/DEBUG_UNCOLLECTABLE/DEBUG_SAVEALL integer values; gc.zspec covers DEBUG_LEAK value."
+    - "NOT yet covered in any prior spec: gc.get_stats/__qualname__ as a standalone invariant."
+    - "NOT yet covered in any prior spec: gc.get_stats/__module__ as a standalone invariant."
+    - "NOT yet covered in any prior spec: gc.get_stats/__class__.__name__ as a standalone invariant."
+    - "NOT yet covered in any prior spec: DEBUG_STATS.__eq__(1) as a standalone invariant."
+    - "NOT yet covered in any prior spec: DEBUG_COLLECTABLE.__eq__(2) as a standalone invariant."
+    - "NOT yet covered in any prior spec: DEBUG_UNCOLLECTABLE.__eq__(4) as a standalone invariant."
+    - "NOT yet covered in any prior spec: DEBUG_SAVEALL.__eq__(32) as a standalone invariant."
+    - "NOT yet covered in any prior spec: DEBUG_LEAK.__eq__(38) as a standalone invariant."
+    - "gc.get_stats() returns a list of three dicts (one per generation); get_stats itself is a C builtin."
+    - "gc.get_stats.__qualname__ == 'get_stats' — C builtins report qualname equal to __name__."
+    - "gc.get_stats.__module__ == 'gc' — defined in the gc C extension."
+    - "gc.get_stats.__class__.__name__ == 'builtin_function_or_method' — C builtin, not a Python function."
+    - "DEBUG_STATS == 1, DEBUG_COLLECTABLE == 2, DEBUG_UNCOLLECTABLE == 4, DEBUG_SAVEALL == 32, DEBUG_LEAK == 38."
+    - "DEBUG_LEAK == DEBUG_COLLECTABLE | DEBUG_UNCOLLECTABLE | DEBUG_SAVEALL == 2 | 4 | 32 == 38."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# gc.get_stats — __qualname__, __module__, __class__.__name__
+#
+# No prior gc spec records any identity attribute for get_stats as a
+# standalone invariant. get_stats is a C builtin in the gc module;
+# its __qualname__ equals its __name__, its __module__ is 'gc', and
+# its __class__.__name__ is 'builtin_function_or_method'.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra21.get_stats.qualname:
+  description: "gc.get_stats.__qualname__ == 'get_stats' — C builtin; qualname equals name"
+  category: function_attrs
+  kind: python_call_eq
+  function: get_stats.__qualname__.__eq__
+  args: ["get_stats"]
+  expected: true
+
+invariant gc_extra21.get_stats.module:
+  description: "gc.get_stats.__module__ == 'gc' — defined in the gc C extension"
+  category: function_attrs
+  kind: python_call_eq
+  function: get_stats.__module__.__eq__
+  args: ["gc"]
+  expected: true
+
+invariant gc_extra21.get_stats.class_name:
+  description: "gc.get_stats.__class__.__name__ == 'builtin_function_or_method'"
+  category: function_attrs
+  kind: python_call_eq
+  function: get_stats.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# DEBUG_* integer values — standalone invariants
+#
+# gc_extra4 records these values in a table. gc_extra17 records their
+# __class__.__name__ == 'int' in a table. No prior spec records any of
+# these values as named standalone invariants via __eq__.
+# DEBUG_STATS=1, DEBUG_COLLECTABLE=2, DEBUG_UNCOLLECTABLE=4,
+# DEBUG_SAVEALL=32, DEBUG_LEAK=38 (= 2|4|32).
+# ---------------------------------------------------------------------------
+
+invariant gc_extra21.DEBUG_STATS.value:
+  description: "gc.DEBUG_STATS == 1 — flag value for stats output on each collection"
+  category: constant_value
+  kind: python_call_eq
+  function: DEBUG_STATS.__eq__
+  args: [1]
+  expected: true
+
+invariant gc_extra21.DEBUG_COLLECTABLE.value:
+  description: "gc.DEBUG_COLLECTABLE == 2 — flag to print collectable objects found"
+  category: constant_value
+  kind: python_call_eq
+  function: DEBUG_COLLECTABLE.__eq__
+  args: [2]
+  expected: true
+
+invariant gc_extra21.DEBUG_UNCOLLECTABLE.value:
+  description: "gc.DEBUG_UNCOLLECTABLE == 4 — flag to print unreachable but uncollectable objects"
+  category: constant_value
+  kind: python_call_eq
+  function: DEBUG_UNCOLLECTABLE.__eq__
+  args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# DEBUG_* integer values — table for DEBUG_SAVEALL and DEBUG_LEAK
+#
+# Extends the standalone invariants above with the two remaining constants.
+# DEBUG_SAVEALL (32) directs all unreachable objects into gc.garbage.
+# DEBUG_LEAK (38) is the combination DEBUG_COLLECTABLE|DEBUG_UNCOLLECTABLE|
+# DEBUG_SAVEALL == 2|4|32 == 38.
+# ---------------------------------------------------------------------------
+
+table gc_extra21.debug_constant_values:
+  description: "Integer values for the five gc.DEBUG_* constants"
+  kind: python_call_eq
+  category: constant_value
+
+  columns: [id, function, args, expected]
+  rows:
+    - [DEBUG_STATS,         DEBUG_STATS.__eq__,         [1],  true]
+    - [DEBUG_COLLECTABLE,   DEBUG_COLLECTABLE.__eq__,   [2],  true]
+    - [DEBUG_UNCOLLECTABLE, DEBUG_UNCOLLECTABLE.__eq__,  [4],  true]
+    - [DEBUG_SAVEALL,       DEBUG_SAVEALL.__eq__,       [32], true]
+    - [DEBUG_LEAK,          DEBUG_LEAK.__eq__,          [38], true]
