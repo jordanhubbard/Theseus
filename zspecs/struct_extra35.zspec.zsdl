@@ -1,0 +1,78 @@
+spec: struct_extra35
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra34.zspec.zsdl — covers pack/__name__=='pack'; unpack/__name__=='unpack'; pack/__module__=='_struct'; calcsize/__name__=='calcsize'; calcsize('>H'/'I'/'Q'/'B') sizes."
+    - "struct_extra33.zspec.zsdl — covers struct.__name__.__len__()==6; error/__module__.__len__()==6; Struct/__module__.__len__()==7; pack('>3B',1,2,3); Struct('!4s').pack(b'test')."
+    - "struct_extra32.zspec.zsdl — covers Struct METHOD __name__.__len__() for pack/unpack/pack_into/unpack_from/iter_unpack; Struct('>I').pack(255)==b'\\x00\\x00\\x00\\xff'."
+    - "struct_extra8.zspec.zsdl — covers calcsize('>Q'); Struct('>Q') format/size."
+    - "struct_extra6.zspec.zsdl — covers Struct('>Q') format/size."
+    - "struct_extra5.zspec.zsdl — covers calcsize('>B'/'<B'/'>5s'); Struct('>I'/'>H') format/size."
+    - "struct_extra12.zspec.zsdl — covers calcsize('<H'/'<I'/'>i'/'>b'/'!H')."
+  notes:
+    - "This spec extends struct through struct_extra34; it does NOT duplicate invariants present in those files."
+    - "Coverage gap: prior specs cover calcsize('>Q')==8 (extra8/extra34) and calcsize('<H')==2/'<I')==4 (extra12) and calcsize('<B')==1 (extra5). But no prior spec checks calcsize('<Q') or calcsize('<q') — the little-endian 64-bit unsigned/signed integer formats. These are symmetric counterparts to the already-covered '>Q' format."
+    - "struct.calcsize('<Q') == 8. Little-endian 64-bit unsigned integer (Q). Size is 8 bytes regardless of byte order. extra8/extra34 cover '>Q' but NOT '<Q'. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize('<q') == 8. Little-endian 64-bit signed integer (q). Size is 8 bytes regardless of byte order. No prior spec checks '<q' as a calcsize argument. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.pack('<Q', 1) == b'\\x01\\x00\\x00\\x00\\x00\\x00\\x00\\x00'. Little-endian encoding of 1 as a 64-bit unsigned integer: least significant byte first. extra8 covers pack('>Q',1) via roundtrip; '<Q' with value 1 is a new vector. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.pack('>Q', 1) == b'\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x01'. Big-endian encoding of 1 as a 64-bit unsigned integer: most significant byte first. extra8 covers Struct('>Q') format/size but not pack('>Q',1) directly. This confirms byte ordering for the Q format. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.calcsize for little-endian 64-bit integer formats '<Q' and '<q'
+#
+# extra8 and extra34 cover calcsize('>Q')==8 (big-endian unsigned 64-bit).
+# extra12 covers calcsize('<H')==2 and calcsize('<I')==4 but NOT '<Q' or '<q'.
+# No prior struct spec checks calcsize('<Q') or calcsize('<q').
+# Both Q (unsigned) and q (signed) are 8 bytes in little-endian byte order,
+# the same as their big-endian counterparts (byte order does not affect size).
+# ---------------------------------------------------------------------------
+
+table struct_extra35.calcsize_little_endian_64bit:
+  description: "struct.calcsize('<Q')==8 and calcsize('<q')==8 — little-endian 64-bit unsigned/signed formats; novel: extra8/extra34 cover '>Q'==8 (big-endian) but no prior spec checks '<Q' or '<q'"
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: scle64_35
+
+  columns: [id, function, args, expected]
+  rows:
+    - [calcsize_le_uint64, calcsize, ["<Q"], 8]
+    - [calcsize_le_int64,  calcsize, ["<q"], 8]
+
+# ---------------------------------------------------------------------------
+# struct.pack('<Q', 1) and pack('>Q', 1) — 64-bit byte-order encoding
+#
+# Demonstrates the byte-order difference for 64-bit integers.
+# pack('<Q', 1): least-significant byte is first -> b'\x01\x00...\x00'
+# pack('>Q', 1): most-significant byte is first  -> b'\x00...\x00\x01'
+#
+# extra8 covers Struct('>Q') format/size via method_chain but does NOT check
+# pack('>Q',1) directly. No prior spec checks pack('<Q',1) at all.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra35.pack_le_uint64_1:
+  description: "struct.pack('<Q', 1) == b'\\x01\\x00\\x00\\x00\\x00\\x00\\x00\\x00' — little-endian 64-bit unsigned integer 1; novel: no prior spec checks pack('<Q',1)"
+  category: behavioral
+  kind: python_call_eq
+  function: pack
+  args: ["<Q", 1]
+  expected: !hex 0100000000000000
+
+invariant struct_extra35.pack_be_uint64_1:
+  description: "struct.pack('>Q', 1) == b'\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x01' — big-endian 64-bit unsigned integer 1; novel: extra8 covers Struct('>Q') size/format but not pack('>Q',1) as a direct module-level call"
+  category: behavioral
+  kind: python_call_eq
+  function: pack
+  args: [">Q", 1]
+  expected: !hex 0000000000000001
