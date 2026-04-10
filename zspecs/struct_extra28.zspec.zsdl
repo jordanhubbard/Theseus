@@ -1,0 +1,130 @@
+spec: struct_extra28
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra27.zspec.zsdl — covers Struct/__mro__.__len__()==2; error/__mro__.__len__()==4; Struct/__bases__[0].__name__.__len__()==6 ('object'); error/__bases__[0].__name__.__len__()==9 ('Exception'); Struct/error __dict__.__class__.__name__.__len__()==12; Struct method __qualname__.__len__() for pack/unpack/pack_into/unpack_from/iter_unpack."
+    - "struct_extra25.zspec.zsdl — covers __module__.__len__()==7 for all six functions and both classes; __name__.__len__() for pack/unpack/calcsize/pack_into."
+    - "struct_extra20.zspec.zsdl — covers __qualname__.__len__() for pack/unpack/pack_into/unpack_from/calcsize/iter_unpack (module-level functions)."
+  notes:
+    - "This spec extends struct_extra27.zspec.zsdl."
+    - "Prior specs covered: all function and class __qualname__/__name__/__module__ strings and lengths; __all__ length (8) and class name; Struct and error MRO lengths, base class names, __dict__ proxy names; Struct instance method qualname lengths for pack/unpack/pack_into/unpack_from/iter_unpack."
+    - "This spec covers NEW angles: struct.Struct.__init_subclass__.__qualname__.__len__()==24 ('Struct.__init_subclass__'); struct.error.__init_subclass__.__qualname__.__len__()==23 ('error.__init_subclass__'); struct.calcsize() behavioral return values for primitive format characters c/h/i/f/d/q/l/H/B; struct.calcsize() for multi-element formats 2i/ii/4s/3I; struct.calcsize() format-prefix invariance (<i/>i/!i/=i/@i all return 4)."
+    - "struct.Struct.__init_subclass__.__qualname__ == 'Struct.__init_subclass__' — len 24. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.error.__init_subclass__.__qualname__ == 'error.__init_subclass__' — len 23. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.calcsize('c')==1, 'h'==2, 'i'==4, 'f'==4, 'd'==8, 'q'==8, 'l'==8, 'H'==2, 'B'==1 on Python 3.12 macOS/Darwin 25.4.0 (native alignment). Verified."
+    - "struct.calcsize('2i')==8 == struct.calcsize('ii')==8. struct.calcsize('4s')==4. struct.calcsize('3I')==12. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "struct.calcsize('<i')==4 == struct.calcsize('>i')==4 == struct.calcsize('!i')==4 == struct.calcsize('=i')==4 == struct.calcsize('@i')==4 — format prefix does not change size of a single int. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.Struct and struct.error __init_subclass__ __qualname__.__len__()
+#
+# No prior struct spec checks __init_subclass__.__qualname__ for any class.
+# Struct.__init_subclass__.__qualname__ == 'Struct.__init_subclass__' (len 24).
+# error.__init_subclass__.__qualname__ == 'error.__init_subclass__' (len 23).
+# ---------------------------------------------------------------------------
+
+invariant struct_extra28.Struct_init_subclass_qualname_len:
+  description: "struct.Struct.__init_subclass__.__qualname__.__len__() == 24 — 'Struct.__init_subclass__' has 24 characters"
+  category: class_introspection
+  kind: python_call_eq
+  function: "Struct.__init_subclass__.__qualname__.__len__"
+  args: []
+  expected: 24
+
+invariant struct_extra28.error_init_subclass_qualname_len:
+  description: "struct.error.__init_subclass__.__qualname__.__len__() == 23 — 'error.__init_subclass__' has 23 characters"
+  category: class_introspection
+  kind: python_call_eq
+  function: "error.__init_subclass__.__qualname__.__len__"
+  args: []
+  expected: 23
+
+# ---------------------------------------------------------------------------
+# struct.calcsize() with primitive format characters
+#
+# struct.calcsize returns the size in bytes for a given format string.
+# No prior struct spec covers calcsize() return values.
+# On Python 3.12 macOS/Darwin 25.4.0 (native/default alignment):
+#   'c' -> 1 (char)
+#   'B' -> 1 (unsigned char)
+#   'h' -> 2 (short)
+#   'H' -> 2 (unsigned short)
+#   'i' -> 4 (int)
+#   'f' -> 4 (float)
+#   'd' -> 8 (double)
+#   'q' -> 8 (long long)
+#   'l' -> 8 (long, 64-bit on macOS/Darwin)
+# ---------------------------------------------------------------------------
+
+table struct_extra28.calcsize_primitives:
+  description: "struct.calcsize() byte sizes for primitive format characters on Python 3.12 macOS/Darwin 25.4.0"
+  kind: python_call_eq
+  category: functional
+  id_prefix: scp28
+
+  columns: [id, function, args, expected]
+  rows:
+    - [char,           calcsize, ["c"], 1]
+    - [unsigned_char,  calcsize, ["B"], 1]
+    - [short,          calcsize, ["h"], 2]
+    - [unsigned_short, calcsize, ["H"], 2]
+    - [int,            calcsize, ["i"], 4]
+    - [float,          calcsize, ["f"], 4]
+    - [double,         calcsize, ["d"], 8]
+    - [long_long,      calcsize, ["q"], 8]
+    - [long,           calcsize, ["l"], 8]
+
+# ---------------------------------------------------------------------------
+# struct.calcsize() with multi-element and string format strings
+#
+# 'ii' and '2i' both represent two ints and return 8. '4s' is a 4-byte string
+# (single bytes object of length 4) returning 4. '3I' is three unsigned ints
+# returning 12. These verify that repeat counts and string formats work correctly.
+# ---------------------------------------------------------------------------
+
+table struct_extra28.calcsize_multi_element:
+  description: "struct.calcsize() for multi-element formats: ii(8)/2i(8)/4s(4)/3I(12)"
+  kind: python_call_eq
+  category: functional
+  id_prefix: scme28
+
+  columns: [id, function, args, expected]
+  rows:
+    - [two_ints_explicit, calcsize, ["ii"],  8]
+    - [two_ints_repeat,   calcsize, ["2i"],  8]
+    - [four_char_string,  calcsize, ["4s"],  4]
+    - [three_uint,        calcsize, ["3I"],  12]
+
+# ---------------------------------------------------------------------------
+# struct.calcsize() format-prefix invariance for a single int
+#
+# The byte-order/size/alignment prefix (<, >, !, =, @) does not change the
+# byte count of a single int 'i' — all return 4. This confirms the prefix
+# affects byte ordering and alignment mode but not the size of standard types.
+# ---------------------------------------------------------------------------
+
+table struct_extra28.calcsize_prefix_invariance:
+  description: "struct.calcsize() byte-order prefix does not change single-int size — all return 4"
+  kind: python_call_eq
+  category: functional
+  id_prefix: scpi28
+
+  columns: [id, function, args, expected]
+  rows:
+    - [little_endian,    calcsize, ["<i"], 4]
+    - [big_endian,       calcsize, [">i"], 4]
+    - [network,          calcsize, ["!i"], 4]
+    - [standard,         calcsize, ["=i"], 4]
+    - [native,           calcsize, ["@i"], 4]
