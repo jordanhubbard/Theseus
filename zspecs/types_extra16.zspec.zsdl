@@ -1,0 +1,145 @@
+spec: types_extra16
+version: ">=3.9"
+backend: python_module(types)
+
+docs: https://docs.python.org/3/library/types.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/types.html — Python types module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/types.py"
+    - "types_extra15.zspec.zsdl — covers __qualname__.__len__ for NoneType/SimpleNamespace/MappingProxyType/DynamicClassAttribute/GeneratorType/CoroutineType; standalone __qualname__.__eq__ for NoneType/GeneratorType/CoroutineType"
+    - "types_extra14.zspec.zsdl — covers __qualname__.__len__ for FunctionType/LambdaType/MethodType/BuiltinFunctionType/ModuleType/TracebackType/FrameType/CodeType/CellType/AsyncGeneratorType; standalone __qualname__.__eq__ for LambdaType/BuiltinFunctionType/AsyncGeneratorType"
+    - "types_extra13.zspec.zsdl — covers __mro__.__len__/__bases__.__len__/__name__.__len__ for GeneratorType/CoroutineType/NoneType/UnionType"
+    - "types_extra12.zspec.zsdl — covers MRO[0] self-identity for MethodType/GeneratorType/CoroutineType/AsyncGeneratorType/CodeType/TracebackType/FrameType/NoneType; __name__.__len__ for AsyncGeneratorType/TracebackType/FrameType/BuiltinFunctionType"
+    - "types_extra11.zspec.zsdl — covers __name__.__len__ for FunctionType/MethodType/ModuleType/GeneratorType/CoroutineType/SimpleNamespace/MappingProxyType; MRO[0] for FunctionType/ModuleType/SimpleNamespace"
+    - "types_extra9.zspec.zsdl — covers __name__.__eq__ for FunctionType/LambdaType/GeneratorType/CoroutineType/CodeType/MethodType/BuiltinFunctionType/ModuleType etc."
+    - "types_extra5.zspec.zsdl — covers __qualname__.__eq__ for FunctionType/MethodType/GeneratorType/CoroutineType/ModuleType (table); BuiltinFunctionType/AsyncGeneratorType/LambdaType/SimpleNamespace/MappingProxyType/DynamicClassAttribute standalone"
+  notes:
+    - "This spec extends types.zspec.zsdl through types_extra15.zspec.zsdl."
+    - "Focus of this spec: (1) __name__.__len__() for LambdaType/CodeType/CellType — no prior spec; (2) __mro__[1].__name__ == 'object' for FunctionType/MethodType/CodeType/CoroutineType — no prior spec checks MRO[1] for any types module type; (3) standalone __qualname__.__eq__ for FunctionType/ModuleType/MethodType — extra5 table, no standalone."
+    - "NOT yet covered (entering this spec): LambdaType.__name__.__len__() == 8; CodeType.__name__.__len__() == 4; CellType.__name__.__len__() == 4; FunctionType.__mro__[1].__name__ == 'object'; MethodType.__mro__[1].__name__ == 'object'; CodeType.__mro__[1].__name__ == 'object'; CoroutineType.__mro__[1].__name__ == 'object'; FunctionType.__qualname__.__eq__('function') standalone; ModuleType.__qualname__.__eq__('module') standalone; MethodType.__qualname__.__eq__('method') standalone."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __name__ string lengths for LambdaType, CodeType, CellType
+#
+# types_extra11 covers FunctionType/MethodType/ModuleType/GeneratorType/CoroutineType/
+# SimpleNamespace/MappingProxyType __name__.__len__().
+# types_extra12 covers AsyncGeneratorType/TracebackType/FrameType/BuiltinFunctionType.
+# types_extra13 covers GeneratorType/CoroutineType/NoneType/UnionType.
+# No prior spec checks LambdaType.__name__.__len__(), CodeType.__name__.__len__(),
+# or CellType.__name__.__len__().
+# LambdaType.__name__ == 'function' (8 chars — same as FunctionType).
+# CodeType.__name__ == 'code' (4 chars). CellType.__name__ == 'cell' (4 chars).
+# ---------------------------------------------------------------------------
+
+table types_extra16.remaining_name_lengths:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: namelen
+
+  columns: [id, function, args, expected]
+  rows:
+    - [LambdaType, LambdaType.__name__.__len__, [], 8]
+    - [CodeType,   CodeType.__name__.__len__,   [], 4]
+    - [CellType,   CellType.__name__.__len__,   [], 4]
+
+# ---------------------------------------------------------------------------
+# MRO[1].__name__ == 'object' for simple C-level types
+#
+# types_extra12 verifies MRO[0] (the class itself) for many types. No prior
+# spec checks MRO[1] for any types module type. For all simple C-level types
+# whose MRO length is 2, the second entry is always 'object'.
+# FunctionType/MethodType/CodeType/CoroutineType all have MRO [type, object].
+# ---------------------------------------------------------------------------
+
+invariant types_extra16.FunctionType.mro_last:
+  description: "types.FunctionType.__mro__[1].__name__ == 'object' — last MRO entry is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: FunctionType.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"
+
+invariant types_extra16.MethodType.mro_last:
+  description: "types.MethodType.__mro__[1].__name__ == 'object' — last MRO entry is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: MethodType.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"
+
+invariant types_extra16.CodeType.mro_last:
+  description: "types.CodeType.__mro__[1].__name__ == 'object' — last MRO entry is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: CodeType.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"
+
+invariant types_extra16.CoroutineType.mro_last:
+  description: "types.CoroutineType.__mro__[1].__name__ == 'object' — last MRO entry is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: CoroutineType.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# __qualname__.__eq__ standalone for FunctionType, ModuleType, MethodType
+#
+# types_extra5 covers FunctionType/MethodType/ModuleType __qualname__.__eq__
+# in a combined table. No prior spec has any of these as standalone boolean
+# invariants for isolated machine-readable indexing.
+# ---------------------------------------------------------------------------
+
+invariant types_extra16.FunctionType.qualname_eq:
+  description: "types.FunctionType.__qualname__ == 'function' — standalone boolean invariant"
+  category: qualnames
+  kind: python_call_eq
+  function: FunctionType.__qualname__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant types_extra16.ModuleType.qualname_eq:
+  description: "types.ModuleType.__qualname__ == 'module' — standalone boolean invariant"
+  category: qualnames
+  kind: python_call_eq
+  function: ModuleType.__qualname__.__eq__
+  args: ["module"]
+  expected: true
+
+invariant types_extra16.MethodType.qualname_eq:
+  description: "types.MethodType.__qualname__ == 'method' — standalone boolean invariant"
+  category: qualnames
+  kind: python_call_eq
+  function: MethodType.__qualname__.__eq__
+  args: ["method"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# CodeType.__qualname__.__eq__ standalone
+#
+# types_extra6 covers CodeType.__qualname__.__eq__ in a combined table.
+# types_extra14 adds CodeType.__qualname__.__len__() == 4 in a table.
+# No prior spec has CodeType.__qualname__.__eq__ as a standalone invariant.
+# CodeType.__qualname__ == 'code' (same as __name__).
+# ---------------------------------------------------------------------------
+
+invariant types_extra16.CodeType.qualname_eq:
+  description: "types.CodeType.__qualname__ == 'code' — standalone boolean invariant"
+  category: qualnames
+  kind: python_call_eq
+  function: CodeType.__qualname__.__eq__
+  args: ["code"]
+  expected: true

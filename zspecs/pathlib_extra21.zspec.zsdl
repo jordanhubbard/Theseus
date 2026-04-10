@@ -1,0 +1,205 @@
+spec: pathlib_extra21
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+  notes:
+    - "This spec extends pathlib.zspec.zsdl through pathlib_extra20.zspec.zsdl."
+    - "pathlib_extra20 covers parts length for '/a/b/c'; parent/__str__ for '/a/b/c'; parents[0] and parents[1] for '/a/b/c'; name/suffix/stem for '/a/b' and '/a/b.txt'; double suffix length; root/anchor table; equality via __eq__; __str__ for '/a/b'."
+    - "pathlib_extra19 covers Path.home/cwd/stat/open/mkdir/exists __qualname__; PurePath/PurePosixPath/PosixPath/PureWindowsPath __module__ and __qualname__ standalone."
+    - "pathlib_extra18 covers PurePath/PosixPath/PurePosixPath MRO[1].__name__; PurePosixPath root parts two-component; name with extension; root/anchor of '/'."
+    - "NOT yet covered: PurePosixPath('/foo/bar').is_absolute() == True — standalone is_absolute invariant."
+    - "NOT yet covered: PurePosixPath('foo/bar').is_absolute() == False — relative path is not absolute."
+    - "NOT yet covered: PurePosixPath('/foo/bar').is_relative_to('/foo') == True — Python 3.9+ method."
+    - "NOT yet covered: PurePosixPath('/foo/bar').is_relative_to('/baz') == False."
+    - "NOT yet covered: PurePosixPath('/foo/bar').with_name('baz.txt').__str__() == '/foo/baz.txt'."
+    - "NOT yet covered: PurePosixPath('/foo/bar.txt').with_suffix('.py').__str__() == '/foo/bar.py'."
+    - "NOT yet covered: PurePosixPath('/foo/bar.txt').with_suffix('').__str__() == '/foo/bar'."
+    - "NOT yet covered: PurePosixPath('/a/b').joinpath('c').__str__() == '/a/b/c'."
+    - "NOT yet covered: PurePosixPath('/a/b').joinpath('c', 'd').__str__() == '/a/b/c/d'."
+    - "NOT yet covered: PurePosixPath('/a/b/c').relative_to('/a').__str__() == 'b/c'."
+    - "NOT yet covered: PurePosixPath('/a/b/c').relative_to('/a/b').__str__() == 'c'."
+    - "is_absolute() returns True for absolute path, False for relative path."
+    - "is_relative_to('/foo') returns True when path starts with '/foo', False otherwise (Python 3.9+)."
+    - "with_name changes the final path component; result __str__ gives expected string."
+    - "with_suffix changes the extension; empty string removes the suffix entirely."
+    - "joinpath appends one or more components; result __str__ gives expected string."
+    - "relative_to strips the given prefix; result __str__ gives the remaining suffix."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.is_absolute() — absolute vs. relative paths
+#
+# No prior pathlib spec covers is_absolute() as a standalone invariant for
+# PurePosixPath. An absolute path (starts with '/') must return True; a
+# relative path (no leading '/') must return False.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra21.is_absolute.absolute_path:
+  description: "pathlib.PurePosixPath('/foo/bar').is_absolute() == True"
+  category: is_absolute
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo/bar"]
+  method: is_absolute
+  method_args: []
+  expected: true
+
+invariant pathlib_extra21.is_absolute.relative_path:
+  description: "pathlib.PurePosixPath('foo/bar').is_absolute() == False — no leading slash"
+  category: is_absolute
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["foo/bar"]
+  method: is_absolute
+  method_args: []
+  expected: false
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.is_relative_to() — Python 3.9+ method
+#
+# No prior pathlib spec covers is_relative_to(). Returns True when the path
+# starts with the given prefix, False otherwise.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra21.is_relative_to.true_case:
+  description: "pathlib.PurePosixPath('/foo/bar').is_relative_to('/foo') == True"
+  category: is_relative_to
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo/bar"]
+  method: is_relative_to
+  method_args: ["/foo"]
+  expected: true
+
+invariant pathlib_extra21.is_relative_to.false_case:
+  description: "pathlib.PurePosixPath('/foo/bar').is_relative_to('/baz') == False"
+  category: is_relative_to
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo/bar"]
+  method: is_relative_to
+  method_args: ["/baz"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.with_name() — rename the final path component
+#
+# No prior pathlib spec covers with_name(). The result is a new PurePosixPath;
+# we verify its __str__() via method_chain inside an invariant block.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra21.with_name.basic:
+  description: "pathlib.PurePosixPath('/foo/bar').with_name('baz.txt').__str__() == '/foo/baz.txt'"
+  category: with_name
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo/bar"]
+  method: with_name
+  method_args: ["baz.txt"]
+  method_chain: __str__.__eq__
+  method_chain_args: ["/foo/baz.txt"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.with_suffix() — change or strip the file extension
+#
+# No prior pathlib spec covers with_suffix(). Verify both replacing and
+# removing the suffix via method_chain on the resulting PurePosixPath.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra21.with_suffix.replace:
+  description: "pathlib.PurePosixPath('/foo/bar.txt').with_suffix('.py').__str__() == '/foo/bar.py'"
+  category: with_suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo/bar.txt"]
+  method: with_suffix
+  method_args: [".py"]
+  method_chain: __str__.__eq__
+  method_chain_args: ["/foo/bar.py"]
+  expected: true
+
+invariant pathlib_extra21.with_suffix.remove:
+  description: "pathlib.PurePosixPath('/foo/bar.txt').with_suffix('').__str__() == '/foo/bar'"
+  category: with_suffix
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo/bar.txt"]
+  method: with_suffix
+  method_args: [""]
+  method_chain: __str__.__eq__
+  method_chain_args: ["/foo/bar"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.joinpath() — append one or more path components
+#
+# No prior pathlib spec covers joinpath() result strings. Single-component
+# and two-component forms are both verified via method_chain.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra21.joinpath.one_component:
+  description: "pathlib.PurePosixPath('/a/b').joinpath('c').__str__() == '/a/b/c'"
+  category: joinpath
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: joinpath
+  method_args: ["c"]
+  method_chain: __str__.__eq__
+  method_chain_args: ["/a/b/c"]
+  expected: true
+
+invariant pathlib_extra21.joinpath.two_components:
+  description: "pathlib.PurePosixPath('/a/b').joinpath('c', 'd').__str__() == '/a/b/c/d'"
+  category: joinpath
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b"]
+  method: joinpath
+  method_args: ["c", "d"]
+  method_chain: __str__.__eq__
+  method_chain_args: ["/a/b/c/d"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.relative_to() — strip a leading prefix
+#
+# No prior pathlib spec covers relative_to() result strings. Verify that
+# stripping one component and two components both produce the correct suffix.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra21.relative_to.strip_one:
+  description: "pathlib.PurePosixPath('/a/b/c').relative_to('/a').__str__() == 'b/c'"
+  category: relative_to
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: relative_to
+  method_args: ["/a"]
+  method_chain: __str__.__eq__
+  method_chain_args: ["b/c"]
+  expected: true
+
+invariant pathlib_extra21.relative_to.strip_two:
+  description: "pathlib.PurePosixPath('/a/b/c').relative_to('/a/b').__str__() == 'c'"
+  category: relative_to
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: relative_to
+  method_args: ["/a/b"]
+  method_chain: __str__.__eq__
+  method_chain_args: ["c"]
+  expected: true

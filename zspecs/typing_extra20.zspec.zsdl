@@ -1,0 +1,176 @@
+spec: typing_extra20
+version: ">=3.9"
+backend: python_module(typing)
+
+docs: https://docs.python.org/3/library/typing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/typing.html — Python typing module documentation"
+    - "PEP 484 — Type Hints"
+    - "PEP 526 — Syntax for Variable Annotations"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/typing.py"
+  notes:
+    - "This spec extends typing.zspec.zsdl through typing_extra19.zspec.zsdl."
+    - "typing_extra19 covers: Generic/NamedTuple/TypedDict __name__.__len__ and __qualname__.__len__; cast/__name__.__len__; get_type_hints/__name__.__len__; NamedTuple/__qualname__.__eq__; TypedDict/__qualname__.__eq__; get_type_hints/__qualname__.__eq__."
+    - "typing_extra18 covers: __qualname__.__len__ for no_type_check/no_type_check_decorator/final/assert_never/assert_type/is_typeddict/get_overloads/overload/cast/runtime_checkable; standalone no_type_check_decorator/__qualname__.__eq__; get_overloads/__qualname__.__eq__."
+    - "typing_extra17 covers: TypeVar/ParamSpec/TypeVarTuple/Protocol __name__.__len__; TypeVarTuple MRO/bases; ParamSpec MRO; Protocol.__bases__[0]; get_type_hints/__qualname__.__len__."
+    - "typing_extra16 covers: Literal/Final/Annotated/TypeGuard __name__; special form __module__ table; special form __qualname__ table; runtime_checkable/__qualname__."
+    - "typing_extra15 covers: TypeVar/__bases__; Protocol __name__/__module__/__qualname__; NamedTuple/__name__; TypedDict/__name__; get_args/__qualname__; get_origin/__qualname__; cast/__qualname__."
+    - "typing_extra13 covers: overload/__module__/__qualname__; get_type_hints/__module__; get_args/__module__; get_origin/__module__; runtime_checkable/__module__; TypeVar/__module__."
+    - "Focus of this spec: TypeVar('T') instance introspection — __class__.__name__, __module__, .name attribute, .constraints.__len__(); __qualname__.__len__() for get_origin/get_args/overload/final/runtime_checkable as standalone invariants filling table-only gaps; __name__.__len__() for get_origin/get_args as standalone invariants."
+    - "NOT yet covered (entering this spec): TypeVar('T').__class__.__name__ == 'TypeVar'; TypeVar('T').__module__ == 'typing'; TypeVar('T').name == 'T'; TypeVar('T').constraints.__len__() == 0; get_origin/__qualname__.__len__() standalone; get_args/__qualname__.__len__() standalone; overload/__qualname__.__len__() standalone; final/__qualname__.__len__() standalone; runtime_checkable/__qualname__.__len__() standalone; get_origin/__name__.__len__(); get_args/__name__.__len__()."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# TypeVar('T') instance — class name and module
+#
+# typing_extra13 covers TypeVar/__module__ as a class attribute; typing_extra15
+# covers TypeVar.__bases__. No prior spec introspects a TypeVar *instance*
+# created with TypeVar('T'). The instance's __class__.__name__ is 'TypeVar'
+# and its __module__ is 'typing'.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra20.TypeVar_T.class_name:
+  description: "typing.TypeVar('T').__class__.__name__ == 'TypeVar' — instance class name"
+  category: typevar_instance
+  kind: python_call_eq
+  function: TypeVar
+  args: ["T"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["TypeVar"]
+  expected: true
+
+invariant typing_extra20.TypeVar_T.module:
+  description: "typing.TypeVar('T').__module__ == 'typing' — instance module attribute"
+  category: typevar_instance
+  kind: python_call_eq
+  function: TypeVar
+  args: ["T"]
+  method: __module__
+  expected: "typing"
+
+# ---------------------------------------------------------------------------
+# TypeVar('T') instance — .name and .constraints
+#
+# A TypeVar instance exposes the given name via the .name attribute (not
+# .__name__). typing.TypeVar('T').name == 'T'. The .constraints attribute
+# is a tuple of allowed types; without constraints it is empty (length 0).
+# No prior spec checks TypeVar instance .name or .constraints.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra20.TypeVar_T.name_attr:
+  description: "typing.TypeVar('T').name == 'T' — TypeVar instance .name attribute"
+  category: typevar_instance
+  kind: python_call_eq
+  function: TypeVar
+  args: ["T"]
+  method: name.__eq__
+  method_args: ["T"]
+  expected: true
+
+invariant typing_extra20.TypeVar_T.constraints_len:
+  description: "typing.TypeVar('T').constraints.__len__() == 0 — no constraints by default"
+  category: typevar_instance
+  kind: python_call_eq
+  function: TypeVar
+  args: ["T"]
+  method: constraints
+  method_chain: __len__
+  method_chain_args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# __qualname__.__len__() standalone for get_origin and get_args
+#
+# typing_extra18 table covers these for other functions. typing_extra15 covers
+# get_origin/__qualname__.__eq__ and get_args/__qualname__.__eq__ as standalone
+# invariants. No prior spec has get_origin or get_args __qualname__.__len__()
+# as standalone invariants (only in tables). Lengths: get_origin=10, get_args=8.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra20.get_origin.qualname_len:
+  description: "typing.get_origin.__qualname__.__len__() == 10 — 'get_origin' is 10 characters (standalone)"
+  category: qualnames
+  kind: python_call_eq
+  function: get_origin.__qualname__.__len__
+  args: []
+  expected: 10
+
+invariant typing_extra20.get_args.qualname_len:
+  description: "typing.get_args.__qualname__.__len__() == 8 — 'get_args' is 8 characters (standalone)"
+  category: qualnames
+  kind: python_call_eq
+  function: get_args.__qualname__.__len__
+  args: []
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# __name__.__len__() standalone for get_origin and get_args
+#
+# No prior spec checks __name__.__len__() for get_origin or get_args.
+# For module-level functions __name__ == __qualname__, so lengths match.
+# get_origin=10, get_args=8.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra20.get_origin.name_len:
+  description: "typing.get_origin.__name__.__len__() == 10 — 'get_origin' is 10 characters"
+  category: function_names
+  kind: python_call_eq
+  function: get_origin.__name__.__len__
+  args: []
+  expected: 10
+
+invariant typing_extra20.get_args.name_len:
+  description: "typing.get_args.__name__.__len__() == 8 — 'get_args' is 8 characters"
+  category: function_names
+  kind: python_call_eq
+  function: get_args.__name__.__len__
+  args: []
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# overload and final __qualname__.__len__() standalone
+#
+# typing_extra18 covers overload/__qualname__.__len__() == 8 and
+# final/__qualname__.__len__() == 5 in a combined table. No prior spec has
+# either as a standalone invariant for isolated machine-readable indexing.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra20.overload.qualname_len:
+  description: "typing.overload.__qualname__.__len__() == 8 — 'overload' is 8 characters (standalone)"
+  category: qualnames
+  kind: python_call_eq
+  function: overload.__qualname__.__len__
+  args: []
+  expected: 8
+
+invariant typing_extra20.final.qualname_len:
+  description: "typing.final.__qualname__.__len__() == 5 — 'final' is 5 characters (standalone)"
+  category: qualnames
+  kind: python_call_eq
+  function: final.__qualname__.__len__
+  args: []
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# runtime_checkable.__qualname__.__len__() standalone
+#
+# typing_extra18 covers runtime_checkable/__qualname__.__len__() == 17 in a
+# table. No prior spec has it as a standalone invariant.
+# 'runtime_checkable' is 17 characters.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra20.runtime_checkable.qualname_len:
+  description: "typing.runtime_checkable.__qualname__.__len__() == 17 — 'runtime_checkable' is 17 characters (standalone)"
+  category: qualnames
+  kind: python_call_eq
+  function: runtime_checkable.__qualname__.__len__
+  args: []
+  expected: 17

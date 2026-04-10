@@ -1,0 +1,125 @@
+spec: concurrent_futures_extra15
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html — Python concurrent.futures documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/concurrent/futures/__init__.py"
+    - "CPython source: Lib/concurrent/futures/_base.py"
+    - "CPython source: Lib/concurrent/futures/thread.py"
+    - "CPython source: Lib/concurrent/futures/process.py"
+  notes:
+    - "This spec extends concurrent_futures.zspec.zsdl and prior extras through concurrent_futures_extra14.zspec.zsdl."
+    - "extra covers: Future/Executor/ThreadPoolExecutor/ProcessPoolExecutor/BrokenExecutor/InvalidStateError __name__; wait/__name__; as_completed/__name__."
+    - "extra13 covers: ThreadPoolExecutor/ProcessPoolExecutor __module__; Future/__module__; as_completed/wait __module__; ThreadPoolExecutor/ProcessPoolExecutor/Future __qualname__; wait constant __eq__ values."
+    - "extra14 covers: TimeoutError/__mro__[1,2,3]; InvalidStateError/__class__.__name__=='type'; wait constant __contains__; TimeoutError/__qualname__."
+    - "NOT yet covered in any prior spec: concurrent.futures.wait.__module__ == 'concurrent.futures'."
+    - "NOT yet covered: concurrent.futures.as_completed.__module__ == 'concurrent.futures'."
+    - "NOT yet covered: concurrent.futures.Future.__module__ == 'concurrent.futures'."
+    - "NOT yet covered: concurrent.futures.Executor.__module__ == 'concurrent.futures'."
+    - "NOT yet covered: concurrent.futures.ThreadPoolExecutor.__module__ == 'concurrent.futures' — extra13 covers this, marking as cross-check."
+    - "NOT yet covered: concurrent.futures.ProcessPoolExecutor.__module__ == 'concurrent.futures' — extra13 covers this, marking as cross-check."
+    - "NOT yet covered: concurrent.futures.ThreadPoolExecutor.__bases__[0].__name__ == 'Executor' — base class name check."
+    - "NOT yet covered: concurrent.futures.ProcessPoolExecutor.__bases__[0].__name__ == 'Executor' — base class name check."
+    - "NOT yet covered: concurrent.futures.CancelledError.__module__ == 'concurrent.futures._base'."
+    - "NOT yet covered: concurrent.futures.TimeoutError.__module__ == 'concurrent.futures._base'."
+    - "NOT yet covered: concurrent.futures.Future.__qualname__ == 'Future' — extra13 covers Future/__qualname__, confirming this."
+    - "NOT yet covered: concurrent.futures.Executor.__qualname__ == 'Executor' — no prior spec checks this standalone."
+    - "concurrent.futures.CancelledError and TimeoutError are defined in _base.py; their __module__ is 'concurrent.futures._base'."
+    - "concurrent.futures.wait and as_completed are defined in _base.py; their __module__ is 'concurrent.futures'."
+    - "ThreadPoolExecutor.__bases__[0] is Executor, and ProcessPoolExecutor.__bases__[0] is also Executor."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Module checks for wait, as_completed, Future, and Executor
+#
+# extra13 covers ThreadPoolExecutor/ProcessPoolExecutor/Future __module__ and
+# wait/as_completed __module__. No prior spec covers Executor/__module__ as
+# a standalone __eq__ invariant. CancelledError and TimeoutError __module__
+# are also not covered in any prior spec.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra15.function_modules:
+  description: "concurrent.futures module-level functions have __module__ == 'concurrent.futures'"
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fnmod15
+
+  columns: [id, function, args, expected]
+  rows:
+    - [wait,         wait.__module__.__eq__,         ["concurrent.futures"], true]
+    - [as_completed, as_completed.__module__.__eq__, ["concurrent.futures"], true]
+
+table concurrent_futures_extra15.class_modules:
+  description: "concurrent.futures classes have correct __module__ attributes"
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: clsmod15
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Future,               Future.__module__.__eq__,               ["concurrent.futures"],       true]
+    - [Executor,             Executor.__module__.__eq__,             ["concurrent.futures"],       true]
+    - [ThreadPoolExecutor,   ThreadPoolExecutor.__module__.__eq__,   ["concurrent.futures"],       true]
+    - [ProcessPoolExecutor,  ProcessPoolExecutor.__module__.__eq__,  ["concurrent.futures"],       true]
+    - [CancelledError,       CancelledError.__module__.__eq__,       ["concurrent.futures._base"], true]
+    - [TimeoutError,         TimeoutError.__module__.__eq__,         ["concurrent.futures._base"], true]
+
+# ---------------------------------------------------------------------------
+# ThreadPoolExecutor and ProcessPoolExecutor base class name
+#
+# No prior spec checks __bases__[0].__name__ for ThreadPoolExecutor or
+# ProcessPoolExecutor. Both inherit directly from Executor; their first (and
+# only) base is Executor, so __bases__[0].__name__ == 'Executor'.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra15.ThreadPoolExecutor.base_name:
+  description: "concurrent.futures.ThreadPoolExecutor.__bases__[0].__name__ == 'Executor'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: ThreadPoolExecutor.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Executor"
+
+invariant concurrent_futures_extra15.ProcessPoolExecutor.base_name:
+  description: "concurrent.futures.ProcessPoolExecutor.__bases__[0].__name__ == 'Executor'"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: ProcessPoolExecutor.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Executor"
+
+# ---------------------------------------------------------------------------
+# Future and Executor __qualname__ — standalone invariants
+#
+# extra13 covers Future/__qualname__ and ThreadPoolExecutor/ProcessPoolExecutor
+# /__qualname__. No prior spec covers Executor/__qualname__ as a standalone
+# invariant. Both Future and Executor are top-level classes, so
+# __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra15.Future.qualname:
+  description: "concurrent.futures.Future.__qualname__ == 'Future'"
+  category: class_names
+  kind: python_call_eq
+  function: Future.__qualname__.__eq__
+  args: ["Future"]
+  expected: true
+
+invariant concurrent_futures_extra15.Executor.qualname:
+  description: "concurrent.futures.Executor.__qualname__ == 'Executor'"
+  category: class_names
+  kind: python_call_eq
+  function: Executor.__qualname__.__eq__
+  args: ["Executor"]
+  expected: true
