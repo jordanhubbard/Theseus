@@ -1,0 +1,153 @@
+spec: typing_extra33
+version: ">=3.9"
+backend: python_module(typing)
+
+docs: https://docs.python.org/3/library/typing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/typing.html — Python typing module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/typing.py"
+  notes:
+    - "This spec extends typing_extra32.zspec.zsdl."
+    - "Prior specs covered: TypeVar/__name__/__module__/__qualname__/__init__.__name__, Protocol/__module__/__qualname__/__bases__[0].__name__, Generic/__module__/__qualname__/__bases__[0].__name__, NamedTuple/__name__/__module__, TypedDict/__name__/__module__, get_type_hints/__name__, overload/__name__, cast/__name__, TYPE_CHECKING value, TypeVar/Protocol/Generic __module__.__len__() and __name__.__len__(), __qualname__.__len__() for overload/cast/get_type_hints/no_type_check/get_args/get_origin, __module__.__len__() and __name__.__len__() for Any/Union/Optional/Callable/ClassVar/Final/Literal."
+    - "This spec covers: __mro__.__len__() for Protocol/Generic/TypeVar; __bases__[0].__name__.__len__() for Generic and TypeVar; Protocol.__slots__ type check; Protocol.__abstractmethods__.__len__(); TYPE_CHECKING.__class__.__name__.__len__(); AnyStr.__class__.__name__.__len__()."
+    - "typing.Protocol.__mro__ == (Protocol, Generic, object) — length 3."
+    - "typing.Generic.__mro__ == (Generic, object) — length 2."
+    - "typing.TypeVar.__mro__ == (TypeVar, object) — length 2."
+    - "typing.Protocol.__slots__ == () — empty tuple; Protocol defines __slots__ to prevent instance __dict__."
+    - "typing.Protocol.__abstractmethods__ == frozenset() — empty; Protocol base class itself has no abstract methods."
+    - "typing.TYPE_CHECKING.__class__.__name__ == 'bool' — length 4."
+    - "typing.AnyStr.__class__.__name__ == 'TypeVar' — length 7."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __mro__.__len__() for Protocol/Generic/TypeVar
+#
+# Protocol's MRO is (Protocol, Generic, object), length 3. Generic and TypeVar
+# each subclass object directly, giving MRO length 2. No prior typing spec
+# records __mro__.__len__() for any of these three classes.
+# ---------------------------------------------------------------------------
+
+table typing_extra33.class_mro_lens:
+  description: "__mro__.__len__() for Protocol/Generic/TypeVar — Protocol depth 3 (via Generic), Generic/TypeVar depth 2 (direct object subclass)"
+  kind: python_call_eq
+  category: mro_lengths
+  id_prefix: mro_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Protocol, Protocol.__mro__.__len__, [], 3]
+    - [Generic,  Generic.__mro__.__len__,  [], 2]
+    - [TypeVar,  TypeVar.__mro__.__len__,  [], 2]
+
+# ---------------------------------------------------------------------------
+# __bases__[0].__name__.__len__() for Generic and TypeVar
+#
+# Both Generic and TypeVar have object as their sole direct base class.
+# __bases__[0].__name__ == 'object' for both, giving __len__() == 6.
+# extra32 and prior recorded Protocol.__bases__[0].__name__ == 'Generic'.
+# This table records the base class name length for Generic and TypeVar.
+# ---------------------------------------------------------------------------
+
+table typing_extra33.class_bases0_name_lens:
+  description: "__bases__[0].__name__.__len__() for Generic and TypeVar — both inherit from 'object' (6)"
+  kind: python_call_eq
+  category: base_class_names
+  id_prefix: bases0_name_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Generic, "Generic.__bases__[0].__name__.__len__", [], 6]
+    - [TypeVar,  "TypeVar.__bases__[0].__name__.__len__",  [], 6]
+
+# ---------------------------------------------------------------------------
+# AnyStr.__constraints__ length and constraint type __name__ lengths
+#
+# typing.AnyStr is a TypeVar with two constraints: bytes and str.
+# __constraints__.__len__() == 2. The constraint type names 'bytes' (5) and
+# 'str' (3) can be accessed via __constraints__[0] and __constraints__[1].
+# No prior typing spec records __constraints__.__len__() or constraint name
+# lengths for AnyStr.
+# ---------------------------------------------------------------------------
+
+table typing_extra33.anystr_constraints:
+  description: "AnyStr.__constraints__ length and constraint type __name__ lengths — bytes (5) and str (3)"
+  kind: python_call_eq
+  category: typevar_constraints
+  id_prefix: anystr_constraint
+
+  columns: [id, function, args, expected]
+  rows:
+    - [constraints_len,   AnyStr.__constraints__.__len__,                     [], 2]
+    - [bytes_name_len,    "AnyStr.__constraints__[0].__name__.__len__",        [], 5]
+    - [str_name_len,      "AnyStr.__constraints__[1].__name__.__len__",        [], 3]
+
+# ---------------------------------------------------------------------------
+# typing.Protocol.__slots__.__class__.__name__.__len__() == 5 — standalone
+#
+# typing.Protocol declares __slots__ = () to suppress per-instance __dict__.
+# The slot tuple's class is 'tuple' (length 5). No prior typing spec records
+# the type of Protocol.__slots__.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra33.Protocol.slots_class_name_len:
+  description: "typing.Protocol.__slots__.__class__.__name__.__len__() == 5 — __slots__ is a tuple (length 5); Protocol explicitly declares empty __slots__"
+  category: slot_checks
+  kind: python_call_eq
+  function: Protocol.__slots__.__class__.__name__.__len__
+  args: []
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# typing.Protocol.__abstractmethods__.__len__() == 0 — standalone
+#
+# Protocol itself defines no abstract methods; __abstractmethods__ is an empty
+# frozenset with length 0. This confirms Protocol has no required interface
+# obligations of its own.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra33.Protocol.abstractmethods_len:
+  description: "typing.Protocol.__abstractmethods__.__len__() == 0 — Protocol base class has no abstract methods of its own"
+  category: abstractmethods_checks
+  kind: python_call_eq
+  function: Protocol.__abstractmethods__.__len__
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# typing.TYPE_CHECKING.__class__.__name__.__len__() == 4 — standalone
+#
+# typing.TYPE_CHECKING is False at runtime. Its class is bool (length 4).
+# extra32 recorded TYPE_CHECKING.__class__.__name__ == 'bool' but not the
+# string length. This invariant anchors the length as 4.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra33.TYPE_CHECKING.class_name_len:
+  description: "typing.TYPE_CHECKING.__class__.__name__.__len__() == 4 — class name 'bool' has length 4; TYPE_CHECKING is a plain bool at runtime"
+  category: type_checks
+  kind: python_call_eq
+  function: TYPE_CHECKING.__class__.__name__.__len__
+  args: []
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# typing.AnyStr.__class__.__name__.__len__() == 7 — standalone
+#
+# typing.AnyStr is a TypeVar instance; its __class__.__name__ is 'TypeVar'
+# (length 7). This confirms AnyStr's runtime type through the length of its
+# class name.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra33.AnyStr.class_name_len:
+  description: "typing.AnyStr.__class__.__name__.__len__() == 7 — AnyStr is a TypeVar instance; class name 'TypeVar' has length 7"
+  category: type_checks
+  kind: python_call_eq
+  function: AnyStr.__class__.__name__.__len__
+  args: []
+  expected: 7
