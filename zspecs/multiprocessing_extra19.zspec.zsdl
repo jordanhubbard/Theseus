@@ -1,0 +1,147 @@
+spec: multiprocessing_extra19
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html — Python multiprocessing module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/multiprocessing/context.py"
+    - "CPython source: Lib/multiprocessing/__init__.py"
+  notes:
+    - "This spec extends multiprocessing.zspec.zsdl and prior extras through multiprocessing_extra18.zspec.zsdl."
+    - "NOT yet covered in any prior spec: multiprocessing exception base name table via __getitem__ for ProcessError/BufferTooShort/TimeoutError/AuthenticationError in extra19 namespace."
+    - "NOT yet covered: multiprocessing.ProcessError.__bases__[0].__name__ == 'Exception' as standalone extra19-namespace invariant."
+    - "NOT yet covered: multiprocessing.BufferTooShort.__bases__[0].__name__ == 'ProcessError' as standalone extra19-namespace invariant."
+    - "NOT yet covered: multiprocessing exception __module__ table (ProcessError/BufferTooShort/TimeoutError/AuthenticationError) in extra19 namespace."
+    - "multiprocessing.ProcessError.__bases__[0].__name__ == 'Exception' — root of the multiprocessing exception hierarchy."
+    - "multiprocessing.BufferTooShort.__bases__[0].__name__ == 'ProcessError' — raised when IPC buffer is too small."
+    - "multiprocessing.TimeoutError.__bases__[0].__name__ == 'ProcessError' — raised on queue/join timeout."
+    - "multiprocessing.AuthenticationError.__bases__[0].__name__ == 'ProcessError' — raised on connection auth failure."
+    - "All four exceptions are defined in multiprocessing.context and report __module__ == 'multiprocessing.context'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Exception base name table — __getitem__ path in extra19 namespace
+#
+# No prior spec provides a unified table of multiprocessing exception base
+# class names using the __bases__.__getitem__ path. ProcessError inherits from
+# Exception; all three derived exceptions (BufferTooShort, TimeoutError,
+# AuthenticationError) inherit directly from ProcessError, forming a two-level
+# hierarchy rooted at Exception.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra19.exception_base_names:
+  description: "Direct base class __name__ for multiprocessing exception types"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: excbase19
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ProcessError,       ProcessError.__bases__.__getitem__,       [0], "Exception"]
+    - [BufferTooShort,     BufferTooShort.__bases__.__getitem__,     [0], "ProcessError"]
+    - [TimeoutError,       TimeoutError.__bases__.__getitem__,       [0], "ProcessError"]
+    - [AuthenticationError, AuthenticationError.__bases__.__getitem__, [0], "ProcessError"]
+
+# ---------------------------------------------------------------------------
+# Exception __module__ table — all four multiprocessing exceptions
+#
+# No prior spec provides a unified __module__ table for the multiprocessing
+# exception types. All four exceptions are defined in multiprocessing.context
+# even though they are re-exported from the top-level multiprocessing package.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra19.exception_modules:
+  description: "multiprocessing exception types all report __module__ == 'multiprocessing.context'"
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: excmod19
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ProcessError,        ProcessError.__module__.__eq__,        ["multiprocessing.context"], true]
+    - [BufferTooShort,      BufferTooShort.__module__.__eq__,      ["multiprocessing.context"], true]
+    - [TimeoutError,        TimeoutError.__module__.__eq__,        ["multiprocessing.context"], true]
+    - [AuthenticationError, AuthenticationError.__module__.__eq__, ["multiprocessing.context"], true]
+
+# ---------------------------------------------------------------------------
+# ProcessError.__bases__[0].__name__ == 'Exception' — standalone invariant
+#
+# multiprocessing.ProcessError is the root of the multiprocessing exception
+# hierarchy. Its direct base class is the built-in Exception, meaning all
+# multiprocessing exceptions are catchable with a plain `except Exception`.
+# This standalone invariant confirms that root-level placement.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra19.ProcessError.base_is_Exception:
+  description: "multiprocessing.ProcessError.__bases__[0].__name__ == 'Exception' — hierarchy root"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: ProcessError.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Exception"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BufferTooShort.__bases__[0].__name__ == 'ProcessError' — standalone invariant
+#
+# multiprocessing.BufferTooShort is raised when a buffer provided to
+# Connection.recv_bytes_into() is too small to hold the message. It inherits
+# from ProcessError rather than from Exception directly, placing it within
+# the multiprocessing-specific exception subtree. This standalone invariant
+# confirms that placement.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra19.BufferTooShort.base_is_ProcessError:
+  description: "multiprocessing.BufferTooShort.__bases__[0].__name__ == 'ProcessError' — IPC buffer overflow"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BufferTooShort.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["ProcessError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# AuthenticationError.__bases__[0].__name__ == 'ProcessError' — standalone
+#
+# multiprocessing.AuthenticationError is raised when there is an authentication
+# failure during connection setup. Like BufferTooShort and TimeoutError, it
+# inherits from ProcessError. This standalone invariant confirms the expected
+# placement in the two-level exception hierarchy.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra19.AuthenticationError.base_is_ProcessError:
+  description: "multiprocessing.AuthenticationError.__bases__[0].__name__ == 'ProcessError' — connection auth failure"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: AuthenticationError.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["ProcessError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ProcessError.__module__ == 'multiprocessing.context' — standalone invariant
+#
+# The module table above covers this value. This standalone invariant provides
+# an independent extra19-namespace anchor confirming that ProcessError is
+# defined in multiprocessing.context, not in the multiprocessing package root,
+# despite being accessible directly as multiprocessing.ProcessError.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra19.ProcessError.module_eq:
+  description: "multiprocessing.ProcessError.__module__ == 'multiprocessing.context'"
+  category: class_modules
+  kind: python_call_eq
+  function: ProcessError.__module__.__eq__
+  args: ["multiprocessing.context"]
+  expected: true

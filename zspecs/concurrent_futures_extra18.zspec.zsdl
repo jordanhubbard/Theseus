@@ -1,0 +1,146 @@
+spec: concurrent_futures_extra18
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html — Python concurrent.futures documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/concurrent/futures/__init__.py"
+    - "CPython source: Lib/concurrent/futures/_base.py"
+    - "CPython source: Lib/concurrent/futures/thread.py"
+    - "CPython source: Lib/concurrent/futures/process.py"
+  notes:
+    - "This spec extends concurrent_futures.zspec.zsdl and prior extras through concurrent_futures_extra17.zspec.zsdl."
+    - "extra17 covers: executor class __name__ table; CancelledError/__name__; TimeoutError/__name__; Future/__module__; CancelledError/__module__; BrokenExecutor/__name__ and base class."
+    - "NOT yet covered in any prior spec: class base name table via __getitem__ for Future/Executor/ThreadPoolExecutor/ProcessPoolExecutor in extra18 namespace."
+    - "NOT yet covered: concurrent.futures.InvalidStateError.__bases__[0].__name__ == 'Error' as standalone extra18-namespace invariant."
+    - "NOT yet covered: concurrent.futures.BrokenExecutor.__module__ == 'concurrent.futures._base' as standalone extra18-namespace invariant."
+    - "NOT yet covered: concurrent.futures.InvalidStateError.__module__ == 'concurrent.futures._base' as standalone extra18-namespace invariant."
+    - "NOT yet covered: concurrent.futures.TimeoutError.__bases__[0].__name__ == 'OSError' as standalone extra18-namespace invariant."
+    - "concurrent.futures.Future.__bases__[0].__name__ == 'object' — Future inherits directly from object."
+    - "concurrent.futures.Executor.__bases__[0].__name__ == 'object' — Executor inherits directly from object."
+    - "concurrent.futures.ThreadPoolExecutor.__bases__[0].__name__ == 'Executor' — specialises Executor for threads."
+    - "concurrent.futures.ProcessPoolExecutor.__bases__[0].__name__ == 'Executor' — specialises Executor for processes."
+    - "concurrent.futures.CancelledError.__bases__[0].__name__ == 'Error' — inherits from the internal _base.Error class."
+    - "concurrent.futures.TimeoutError.__bases__[0].__name__ == 'OSError' — TimeoutError is a built-in OSError subclass."
+    - "concurrent.futures.BrokenExecutor.__module__ == 'concurrent.futures._base' — defined in _base alongside Future."
+    - "concurrent.futures.InvalidStateError.__bases__[0].__name__ == 'Error' — same internal Error ancestor as CancelledError."
+    - "concurrent.futures.InvalidStateError.__module__ == 'concurrent.futures._base' — defined in _base."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __bases__[0].__name__ table — class hierarchy via __getitem__ path
+#
+# extra17 checks BrokenExecutor/__bases__ as a standalone invariant. No prior
+# spec provides a unified table of all executor and future class base names
+# using the __bases__.__getitem__ path. Future and Executor both inherit from
+# object; ThreadPoolExecutor and ProcessPoolExecutor both inherit from Executor.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra18.class_base_names:
+  description: "Direct base class __name__ for concurrent.futures executor and future classes"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: clsbase18
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Future,              Future.__bases__.__getitem__,              [0], "object"]
+    - [Executor,            Executor.__bases__.__getitem__,            [0], "object"]
+    - [ThreadPoolExecutor,  ThreadPoolExecutor.__bases__.__getitem__,  [0], "Executor"]
+    - [ProcessPoolExecutor, ProcessPoolExecutor.__bases__.__getitem__, [0], "Executor"]
+    - [CancelledError,      CancelledError.__bases__.__getitem__,      [0], "Error"]
+    - [BrokenExecutor,      BrokenExecutor.__bases__.__getitem__,      [0], "RuntimeError"]
+
+# ---------------------------------------------------------------------------
+# InvalidStateError.__bases__[0].__name__ == 'Error' — standalone invariant
+#
+# concurrent.futures.InvalidStateError is raised when a Future is set to a
+# value or exception when it is already done. Like CancelledError, it inherits
+# from the internal concurrent.futures._base.Error class. No prior spec checks
+# InvalidStateError's base class name as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra18.InvalidStateError.base_is_Error:
+  description: "concurrent.futures.InvalidStateError.__bases__[0].__name__ == 'Error' — inherits from internal _base.Error"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: InvalidStateError.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Error"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# TimeoutError.__bases__[0].__name__ == 'OSError' — standalone invariant
+#
+# concurrent.futures.TimeoutError is an alias for the built-in TimeoutError,
+# which is a subclass of OSError. This makes it distinct from CancelledError
+# and InvalidStateError which inherit from the internal _base.Error class.
+# No prior spec confirms TimeoutError's base class name as a standalone
+# invariant in the extra18 namespace.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra18.TimeoutError.base_is_OSError:
+  description: "concurrent.futures.TimeoutError.__bases__[0].__name__ == 'OSError' — built-in alias, base is OSError"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TimeoutError.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["OSError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BrokenExecutor.__module__ — standalone extra18-namespace invariant
+#
+# extra17 confirms BrokenExecutor's base class name. This standalone invariant
+# confirms BrokenExecutor is defined in concurrent.futures._base alongside
+# Future and Executor, not in the thread or process submodules.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra18.BrokenExecutor.module_eq:
+  description: "concurrent.futures.BrokenExecutor.__module__ == 'concurrent.futures._base'"
+  category: class_modules
+  kind: python_call_eq
+  function: BrokenExecutor.__module__.__eq__
+  args: ["concurrent.futures._base"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# InvalidStateError.__module__ — standalone extra18-namespace invariant
+#
+# concurrent.futures.InvalidStateError is defined in concurrent.futures._base.
+# No prior spec checks InvalidStateError/__module__ as a standalone invariant
+# in the extra18 namespace.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra18.InvalidStateError.module_eq:
+  description: "concurrent.futures.InvalidStateError.__module__ == 'concurrent.futures._base'"
+  category: class_modules
+  kind: python_call_eq
+  function: InvalidStateError.__module__.__eq__
+  args: ["concurrent.futures._base"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# InvalidStateError.__name__ — standalone extra18-namespace invariant
+#
+# Confirms the public class name is 'InvalidStateError', consistent with
+# the naming convention used by concurrent.futures for its exception types.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra18.InvalidStateError.name_eq:
+  description: "concurrent.futures.InvalidStateError.__name__ == 'InvalidStateError'"
+  category: class_names
+  kind: python_call_eq
+  function: InvalidStateError.__name__.__eq__
+  args: ["InvalidStateError"]
+  expected: true

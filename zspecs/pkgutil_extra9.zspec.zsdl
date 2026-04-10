@@ -1,0 +1,114 @@
+spec: pkgutil_extra9
+version: ">=3.9"
+backend: python_module(pkgutil)
+
+docs: https://docs.python.org/3/library/pkgutil.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pkgutil.html — Python pkgutil documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pkgutil.py"
+  notes:
+    - "This spec extends pkgutil.zspec.zsdl through pkgutil_extra8.zspec.zsdl."
+    - "pkgutil.get_loader and pkgutil.find_loader do not exist in Python 3.12 (removed); this spec skips them."
+    - "pkgutil.ImpImporter does not exist in Python 3.12 (removed); this spec skips it."
+    - "pkgutil_extra7 covers: __module__ for iter_modules/extend_path/get_importer/get_data in a table; standalone __name__ invariants for iter_modules/get_importer/extend_path/walk_packages/resolve_name/get_data."
+    - "pkgutil_extra8 covers: function_names table (__name__ for iter_modules/walk_packages/get_data/extend_path); ModuleInfo.__name__ standalone; ModuleInfo._fields.__class__.__name__ standalone; iter_modules().__class__.__name__ == 'generator' standalone."
+    - "This spec adds new axes: __qualname__ for iter_modules/walk_packages/get_importer/resolve_name in a consolidated table; ModuleInfo.__bases__[0].__name__ == 'tuple' standalone; ModuleInfo._fields len == 3 standalone; iter_importers/__module__ standalone."
+    - "pkgutil.iter_modules.__qualname__ == 'iter_modules' — verified at runtime."
+    - "pkgutil.walk_packages.__qualname__ == 'walk_packages' — verified at runtime."
+    - "pkgutil.get_importer.__qualname__ == 'get_importer' — verified at runtime."
+    - "pkgutil.resolve_name.__qualname__ == 'resolve_name' — verified at runtime."
+    - "pkgutil.ModuleInfo.__bases__[0].__name__ == 'tuple' — ModuleInfo is a namedtuple, __bases__[0] is tuple; verified at runtime."
+    - "pkgutil.ModuleInfo._fields len == 3 — fields are module_finder/name/ispkg; verified at runtime."
+    - "pkgutil.iter_importers.__module__ == 'pkgutil' — verified at runtime."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Function __qualname__ attributes — consolidated table
+#
+# pkgutil_extra7 and pkgutil_extra8 cover __name__ for these functions across
+# their namespaces. This table covers __qualname__ for iter_modules,
+# walk_packages, get_importer, and resolve_name in the extra9 namespace.
+# ---------------------------------------------------------------------------
+
+table pkgutil_extra9.function_qualnames:
+  description: "__qualname__ for iter_modules, walk_packages, get_importer, resolve_name"
+  kind: python_call_eq
+  category: function_attrs
+  id_prefix: fqname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [iter_modules,  iter_modules.__qualname__.__eq__,  ["iter_modules"],  true]
+    - [walk_packages, walk_packages.__qualname__.__eq__,  ["walk_packages"], true]
+    - [get_importer,  get_importer.__qualname__.__eq__,   ["get_importer"],  true]
+    - [resolve_name,  resolve_name.__qualname__.__eq__,   ["resolve_name"],  true]
+
+# ---------------------------------------------------------------------------
+# pkgutil.ModuleInfo — base class name
+#
+# ModuleInfo is a namedtuple, which means its first base class is tuple.
+# pkgutil_extra8 covers ModuleInfo.__name__ and ModuleInfo._fields type.
+# No prior pkgutil spec checks ModuleInfo.__bases__[0].__name__.
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra9.ModuleInfo.base_class_name:
+  description: "pkgutil.ModuleInfo.__bases__[0].__name__ == 'tuple' — ModuleInfo extends tuple"
+  category: class_attrs
+  kind: python_call_eq
+  function: "ModuleInfo.__bases__[0].__name__.__eq__"
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pkgutil.ModuleInfo._fields — length
+#
+# pkgutil_extra8 confirms _fields is a tuple. This invariant checks the length
+# of _fields (3: module_finder, name, ispkg) as a distinct coverage axis.
+# No prior pkgutil spec checks len(ModuleInfo._fields).
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra9.ModuleInfo.fields_len:
+  description: "pkgutil.ModuleInfo._fields has 3 elements — module_finder, name, ispkg"
+  category: class_attrs
+  kind: python_call_eq
+  function: ModuleInfo._fields.__len__
+  args: []
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# pkgutil.iter_importers — __module__ standalone
+#
+# pkgutil_extra7 covers __module__ for iter_modules/extend_path/get_importer/get_data
+# in a table. iter_importers.__module__ has not been checked in any prior spec.
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra9.iter_importers.module:
+  description: "pkgutil.iter_importers.__module__ == 'pkgutil'"
+  category: function_attrs
+  kind: python_call_eq
+  function: iter_importers.__module__.__eq__
+  args: ["pkgutil"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pkgutil.resolve_name — __module__ standalone
+#
+# pkgutil_extra7 covers __module__ for four functions; resolve_name is not among
+# them. This invariant anchors resolve_name.__module__ == 'pkgutil' in the
+# extra9 namespace as a new coverage axis.
+# ---------------------------------------------------------------------------
+
+invariant pkgutil_extra9.resolve_name.module:
+  description: "pkgutil.resolve_name.__module__ == 'pkgutil'"
+  category: function_attrs
+  kind: python_call_eq
+  function: resolve_name.__module__.__eq__
+  args: ["pkgutil"]
+  expected: true
