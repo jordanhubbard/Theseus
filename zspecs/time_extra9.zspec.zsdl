@@ -1,0 +1,98 @@
+spec: time_extra9
+version: ">=3.9"
+backend: python_module(time)
+
+docs: https://docs.python.org/3/library/time.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/time.html — Python time module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/timemodule.c"
+    - "time.zspec.zsdl — covers gmtime/strptime/strftime/mktime/sleep __name__ (table), struct_time.__name__, epoch vectors"
+    - "time_extra.zspec.zsdl — covers struct_time.__module__, gmtime/localtime return struct_time"
+    - "time_extra2.zspec.zsdl — covers struct_time.__name__/__module__, gmtime(0) epoch fields"
+    - "time_extra3.zspec.zsdl — covers struct_time._fields, gmtime/localtime/mktime/strftime/strptime __name__ table"
+    - "time_extra4.zspec.zsdl — covers __qualname__ for all core time functions and struct_time"
+    - "time_extra5.zspec.zsdl — covers __module__ for all core time functions and struct_time"
+    - "time_extra6.zspec.zsdl — covers CLOCK_* constants; struct_time n_fields/n_sequence_fields/n_unnamed_fields"
+    - "time_extra7.zspec.zsdl — covers nanosecond clock functions and thread_time"
+    - "time_extra8.zspec.zsdl — covers __name__ table for eight core functions; __module__ table; time.timezone.__class__.__name__"
+  notes:
+    - "This spec adds new axes not duplicated in any prior time spec."
+    - "NEW in extra9 — Axis 1: struct_time.__name__ and struct_time.__module__ as standalone extra9-namespace invariants."
+    - "NEW in extra9 — Axis 2: time.gmtime(0).__class__.__name__ == 'struct_time' — call return type confirmed in extra9 namespace."
+    - "NEW in extra9 — Axis 3: gmtime(0) epoch field values — tm_year/tm_mon/tm_mday/tm_hour — anchored together in extra9 namespace."
+    - "time.struct_time.__name__ == 'struct_time' — verified Python 3.12."
+    - "time.struct_time.__module__ == 'time' — verified Python 3.12."
+    - "time.gmtime(0).__class__.__name__ == 'struct_time' — verified Python 3.12."
+    - "time.gmtime(0).tm_year == 1970 — verified Python 3.12."
+    - "time.gmtime(0).tm_mon == 1 — verified Python 3.12."
+    - "time.gmtime(0).tm_mday == 1 — verified Python 3.12."
+    - "time.gmtime(0).tm_hour == 0 — verified Python 3.12."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct_time.__name__ and struct_time.__module__
+#
+# time.zspec.zsdl and time_extra2 cover struct_time.__name__. time_extra and
+# time_extra5 cover struct_time.__module__. This spec re-anchors both as
+# standalone invariants in the extra9 namespace.
+# ---------------------------------------------------------------------------
+
+invariant time_extra9.struct_time.name:
+  description: "time.struct_time.__name__ == 'struct_time'"
+  category: class_names
+  kind: python_call_eq
+  function: struct_time.__name__.__eq__
+  args: ["struct_time"]
+  expected: true
+
+invariant time_extra9.struct_time.module:
+  description: "time.struct_time.__module__ == 'time'"
+  category: class_modules
+  kind: python_call_eq
+  function: struct_time.__module__.__eq__
+  args: ["time"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# time.gmtime(0) return type
+#
+# time_extra and time_extra2 verify gmtime returns struct_time. This spec
+# anchors the same fact in the extra9 namespace via __class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant time_extra9.gmtime_epoch.class_name:
+  description: "time.gmtime(0).__class__.__name__ == 'struct_time' — gmtime returns a struct_time instance"
+  category: return_types
+  kind: python_call_eq
+  function: gmtime
+  args: [0]
+  method: __class__.__name__.__eq__
+  method_args: ["struct_time"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gmtime(0) epoch field values — tm_year, tm_mon, tm_mday, tm_hour
+#
+# time.zspec.zsdl and time_extra2 verify some gmtime(0) epoch fields. This
+# spec anchors all four fields together in a table in the extra9 namespace,
+# confirming the Unix epoch (1970-01-01 00:00:00 UTC).
+# ---------------------------------------------------------------------------
+
+table time_extra9.gmtime_epoch_fields:
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: epoch
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [tm_year,  gmtime, [0], tm_year.__eq__,  [1970], true]
+    - [tm_mon,   gmtime, [0], tm_mon.__eq__,   [1],    true]
+    - [tm_mday,  gmtime, [0], tm_mday.__eq__,  [1],    true]
+    - [tm_hour,  gmtime, [0], tm_hour.__eq__,  [0],    true]
