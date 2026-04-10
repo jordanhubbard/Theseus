@@ -1,0 +1,202 @@
+spec: importlib_extra17
+version: ">=3.9"
+backend: python_module(importlib)
+
+docs: https://docs.python.org/3/library/importlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/importlib.html — Python importlib module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/importlib/__init__.py"
+    - "importlib_extra5.zspec.zsdl — covers __qualname__ for util.find_spec/util.module_from_spec/util.spec_from_file_location and abc.Loader.__qualname__; NOT __module__ for spec_from_file_location."
+    - "importlib_extra8.zspec.zsdl — covers util.cache_from_source __name__/__module__; NOT util.source_from_cache.__module__ or cache_from_source.__module__ as a separate equality invariant."
+    - "importlib_extra14.zspec.zsdl — covers util.cache_from_source/__qualname__ and util.source_from_cache/__qualname__; NOT their __module__ attributes."
+    - "importlib_extra15.zspec.zsdl — covers __class__.__name__ and __class__.__qualname__ (the metaclass type, ABCMeta) for abc.Loader/MetaPathFinder/PathEntryFinder."
+    - "importlib_extra16.zspec.zsdl — covers __module__ for abc.Loader/MetaPathFinder/PathEntryFinder and util.find_spec/util.module_from_spec."
+  notes:
+    - "This spec extends importlib.zspec.zsdl through importlib_extra16.zspec.zsdl."
+    - "Focus: __qualname__ for importlib.abc.MetaPathFinder and abc.PathEntryFinder (not covered by extra5 or extra16); __bases__[0].__name__ for abc.Loader/MetaPathFinder/PathEntryFinder (all inherit from object); machinery.ModuleSpec __qualname__/__module__/__name__; __module__ for util.spec_from_file_location, util.source_from_cache, and util.cache_from_source."
+    - "importlib.abc.MetaPathFinder.__qualname__ == 'MetaPathFinder' — extra5 covers abc.Loader.__qualname__ but NOT MetaPathFinder or PathEntryFinder __qualname__; novel."
+    - "importlib.abc.PathEntryFinder.__qualname__ == 'PathEntryFinder' — not covered in any prior importlib spec."
+    - "importlib.abc.Loader.__bases__[0].__name__ == 'object' — Loader inherits directly from object; not covered in any prior importlib spec."
+    - "importlib.abc.MetaPathFinder.__bases__[0].__name__ == 'object' — MetaPathFinder inherits directly from object; not covered in any prior importlib spec."
+    - "importlib.abc.PathEntryFinder.__bases__[0].__name__ == 'object' — PathEntryFinder inherits directly from object; not covered in any prior importlib spec."
+    - "importlib.machinery.ModuleSpec.__qualname__ == 'ModuleSpec' — extra8 and extra16 cover __spec__.__class__.__qualname__ but NOT machinery.ModuleSpec.__qualname__ directly."
+    - "importlib.machinery.ModuleSpec.__module__ == '_frozen_importlib' — ModuleSpec is defined in the frozen bootstrap; not covered in any prior importlib spec as a direct attribute check."
+    - "importlib.machinery.ModuleSpec.__name__ == 'ModuleSpec' — class name attribute; not covered in any prior importlib spec."
+    - "importlib.util.spec_from_file_location.__module__ == '_frozen_importlib_external' — extra5 covers __qualname__ only; __module__ not covered in any prior spec."
+    - "importlib.util.source_from_cache.__module__ == '_frozen_importlib_external' — extra14 covers __qualname__ only; __module__ not covered in any prior spec."
+    - "importlib.util.cache_from_source.__module__ == '_frozen_importlib_external' — extra8 covers cache_from_source.__module__ via a note but extra14 adds standalone __qualname__; a direct table equality row covering __module__ is novel in extra17."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# importlib.abc class __qualname__ — MetaPathFinder and PathEntryFinder
+#
+# importlib_extra5 covers abc.Loader.__qualname__ == 'Loader'. No prior
+# importlib spec covers __qualname__ for MetaPathFinder or PathEntryFinder.
+# Both are top-level abstract base classes in importlib.abc, so their
+# __qualname__ equals their bare class name.
+# ---------------------------------------------------------------------------
+
+table importlib_extra17.abc_class_qualnames:
+  description: "__qualname__ for importlib.abc abstract base classes"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: abcqn17
+
+  columns: [id, function, args, expected]
+  rows:
+    - [MetaPathFinder,  abc.MetaPathFinder.__qualname__.__eq__,  ["MetaPathFinder"],  true]
+    - [PathEntryFinder, abc.PathEntryFinder.__qualname__.__eq__, ["PathEntryFinder"], true]
+
+# ---------------------------------------------------------------------------
+# importlib.abc class __bases__[0].__name__ — all three inherit from object
+#
+# No prior importlib spec checks the base class for any of the three abc
+# abstract base classes. Loader, MetaPathFinder, and PathEntryFinder all
+# inherit directly from object (they are abstract base classes without any
+# concrete intermediate base). Their __bases__[0].__name__ is 'object'.
+# ---------------------------------------------------------------------------
+
+table importlib_extra17.abc_class_bases:
+  description: "__bases__[0].__name__ for importlib.abc abstract classes is 'object'"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: abcbase17
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Loader,          "abc.Loader.__bases__[0].__name__.__eq__",          ["object"], true]
+    - [MetaPathFinder,  "abc.MetaPathFinder.__bases__[0].__name__.__eq__",  ["object"], true]
+    - [PathEntryFinder, "abc.PathEntryFinder.__bases__[0].__name__.__eq__", ["object"], true]
+
+# ---------------------------------------------------------------------------
+# importlib.machinery.ModuleSpec — __qualname__, __module__, __name__
+#
+# importlib_extra8 and extra16 verify __spec__.__class__.__name__/qualname
+# ('ModuleSpec') on the importlib module's own __spec__ object. No prior
+# importlib spec checks the class attributes directly on
+# importlib.machinery.ModuleSpec itself. ModuleSpec is defined in the
+# frozen bootstrap module _frozen_importlib, so its __module__ is
+# '_frozen_importlib'.
+# ---------------------------------------------------------------------------
+
+table importlib_extra17.machinery_ModuleSpec_attrs:
+  description: "__qualname__, __module__, and __name__ for importlib.machinery.ModuleSpec"
+  kind: python_call_eq
+  category: type_attrs
+  id_prefix: mspec17
+
+  columns: [id, function, args, expected]
+  rows:
+    - [qualname, machinery.ModuleSpec.__qualname__.__eq__, ["ModuleSpec"],          true]
+    - [module,   machinery.ModuleSpec.__module__.__eq__,  ["_frozen_importlib"],    true]
+    - [name,     machinery.ModuleSpec.__name__.__eq__,    ["ModuleSpec"],           true]
+
+# ---------------------------------------------------------------------------
+# importlib.util frozen-bootstrap function __module__ attributes
+#
+# importlib_extra5 covers __qualname__ for spec_from_file_location.
+# importlib_extra14 covers __qualname__ for source_from_cache and
+# cache_from_source. No prior spec covers the __module__ attribute for any
+# of these three functions. All three are defined in the frozen external
+# bootstrap (_frozen_importlib_external), so their __module__ is
+# '_frozen_importlib_external'.
+# ---------------------------------------------------------------------------
+
+table importlib_extra17.util_frozen_function_modules:
+  description: "__module__ for importlib.util frozen-bootstrap functions is '_frozen_importlib_external'"
+  kind: python_call_eq
+  category: function_attrs
+  id_prefix: ufnmod17
+
+  columns: [id, function, args, expected]
+  rows:
+    - [spec_from_file_location, util.spec_from_file_location.__module__.__eq__, ["_frozen_importlib_external"], true]
+    - [source_from_cache,       util.source_from_cache.__module__.__eq__,       ["_frozen_importlib_external"], true]
+    - [cache_from_source,       util.cache_from_source.__module__.__eq__,       ["_frozen_importlib_external"], true]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — abc class __qualname__
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra17.abc_MetaPathFinder.qualname:
+  description: "importlib.abc.MetaPathFinder.__qualname__ == 'MetaPathFinder' — class qualname equals bare class name"
+  category: type_attrs
+  kind: python_call_eq
+  function: abc.MetaPathFinder.__qualname__.__eq__
+  args: ["MetaPathFinder"]
+  expected: true
+
+invariant importlib_extra17.abc_PathEntryFinder.qualname:
+  description: "importlib.abc.PathEntryFinder.__qualname__ == 'PathEntryFinder' — class qualname equals bare class name"
+  category: type_attrs
+  kind: python_call_eq
+  function: abc.PathEntryFinder.__qualname__.__eq__
+  args: ["PathEntryFinder"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — abc class base class name
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra17.abc_Loader.base:
+  description: "importlib.abc.Loader.__bases__[0].__name__ == 'object' — Loader inherits directly from object"
+  category: type_attrs
+  kind: python_call_eq
+  function: "abc.Loader.__bases__[0].__name__.__eq__"
+  args: ["object"]
+  expected: true
+
+invariant importlib_extra17.abc_MetaPathFinder.base:
+  description: "importlib.abc.MetaPathFinder.__bases__[0].__name__ == 'object' — MetaPathFinder inherits directly from object"
+  category: type_attrs
+  kind: python_call_eq
+  function: "abc.MetaPathFinder.__bases__[0].__name__.__eq__"
+  args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — machinery.ModuleSpec attributes
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra17.machinery_ModuleSpec.qualname:
+  description: "importlib.machinery.ModuleSpec.__qualname__ == 'ModuleSpec' — class qualname equals bare class name"
+  category: type_attrs
+  kind: python_call_eq
+  function: machinery.ModuleSpec.__qualname__.__eq__
+  args: ["ModuleSpec"]
+  expected: true
+
+invariant importlib_extra17.machinery_ModuleSpec.module:
+  description: "importlib.machinery.ModuleSpec.__module__ == '_frozen_importlib' — ModuleSpec is defined in the frozen bootstrap"
+  category: type_attrs
+  kind: python_call_eq
+  function: machinery.ModuleSpec.__module__.__eq__
+  args: ["_frozen_importlib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — util frozen-bootstrap function modules
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra17.util_spec_from_file_location.module:
+  description: "importlib.util.spec_from_file_location.__module__ == '_frozen_importlib_external' — defined in the frozen external bootstrap"
+  category: function_attrs
+  kind: python_call_eq
+  function: util.spec_from_file_location.__module__.__eq__
+  args: ["_frozen_importlib_external"]
+  expected: true
+
+invariant importlib_extra17.util_source_from_cache.module:
+  description: "importlib.util.source_from_cache.__module__ == '_frozen_importlib_external' — defined in the frozen external bootstrap"
+  category: function_attrs
+  kind: python_call_eq
+  function: util.source_from_cache.__module__.__eq__
+  args: ["_frozen_importlib_external"]
+  expected: true

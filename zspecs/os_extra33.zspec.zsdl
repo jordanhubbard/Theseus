@@ -1,0 +1,149 @@
+spec: os_extra33
+version: ">=3.9"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.html — Python os module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c"
+    - "os_extra8.zspec.zsdl — covers __qualname__ equality for getpid/getcwd/listdir/makedirs/getenv in a table; NOT their __module__ attributes."
+    - "os_extra27.zspec.zsdl — covers __qualname__ equality in a table for getcwd/listdir/makedirs/remove/rename; NOT their __module__ attributes."
+    - "os_extra29.zspec.zsdl — covers qualname length invariants for getpid/cpu_count; NOT their __module__ attributes."
+    - "os_extra30.zspec.zsdl — covers standalone __qualname__ equality for getcwd/listdir/makedirs/remove/rename/mkdir/getpid; NOT __module__."
+    - "os_extra31.zspec.zsdl — covers __qualname__ equality for POSIX syscall wrappers (abort/access/getegid/geteuid/getgid/getgroups/getpgrp/kill/readlink/pipe/fork)."
+    - "os_extra32.zspec.zsdl — covers stat_result/DirEntry __qualname__/__module__; os.error alias; path constant class names; environ __class__.__name__/__module__."
+  notes:
+    - "This spec extends os.zspec.zsdl and all prior os_extra specs through os_extra32.zspec.zsdl."
+    - "Focus: __module__ attributes for os functions — C-level posix wrappers have __module__ == 'posix', while pure-Python wrappers defined in os.py have __module__ == 'os'; and os.path.__name__ == 'posixpath' on POSIX systems."
+    - "os.getcwd.__module__ == 'posix' — getcwd is a C-level builtin from the posix module; os_extra30 covers __qualname__ but not __module__."
+    - "os.listdir.__module__ == 'posix' — listdir is a C-level builtin from the posix module; os_extra30 covers __qualname__ but not __module__."
+    - "os.remove.__module__ == 'posix' — remove is a C-level builtin from the posix module; not covered in any prior os spec."
+    - "os.rename.__module__ == 'posix' — rename is a C-level builtin from the posix module; not covered in any prior os spec."
+    - "os.getpid.__module__ == 'posix' — getpid is a C-level builtin from the posix module; os_extra30 covers __qualname__ but not __module__."
+    - "os.cpu_count.__module__ == 'posix' — cpu_count is a C-level builtin from the posix module; os_extra29 covers length but not __module__."
+    - "os.makedirs.__module__ == 'os' — makedirs is a pure-Python function defined in os.py; not covered in any prior os spec."
+    - "os.getenv.__module__ == 'os' — getenv is a pure-Python function defined in os.py; os_extra8 covers __qualname__ in a table but not __module__."
+    - "os.path.__name__ == 'posixpath' — on POSIX systems os.path is the posixpath module; its __name__ is 'posixpath'; not covered in any prior os spec."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# C-level posix function __module__ attributes
+#
+# The POSIX system call wrappers getcwd, listdir, remove, rename, getpid, and
+# cpu_count are implemented in C (Modules/posixmodule.c) and attributed to the
+# 'posix' module. Their __qualname__ is covered by prior specs; no prior os
+# spec covers their __module__ attribute.
+# ---------------------------------------------------------------------------
+
+table os_extra33.posix_function_modules:
+  description: "__module__ for C-level posix function wrappers is 'posix'"
+  kind: python_call_eq
+  category: function_attrs
+  id_prefix: posixmod33
+
+  columns: [id, function, args, expected]
+  rows:
+    - [getcwd,    getcwd.__module__.__eq__,    ["posix"], true]
+    - [listdir,   listdir.__module__.__eq__,   ["posix"], true]
+    - [remove,    remove.__module__.__eq__,    ["posix"], true]
+    - [rename,    rename.__module__.__eq__,    ["posix"], true]
+    - [getpid,    getpid.__module__.__eq__,    ["posix"], true]
+    - [cpu_count, cpu_count.__module__.__eq__, ["posix"], true]
+
+# ---------------------------------------------------------------------------
+# Pure-Python os function __module__ attributes
+#
+# makedirs and getenv are pure-Python functions defined directly in os.py.
+# Their __module__ is therefore 'os'. os_extra8 covers getenv.__qualname__
+# in a table. os_extra30 covers makedirs.__qualname__ as a standalone
+# invariant. No prior os spec covers the __module__ for either function.
+# ---------------------------------------------------------------------------
+
+table os_extra33.os_function_modules:
+  description: "__module__ for pure-Python os functions is 'os'"
+  kind: python_call_eq
+  category: function_attrs
+  id_prefix: osmod33
+
+  columns: [id, function, args, expected]
+  rows:
+    - [makedirs, makedirs.__module__.__eq__, ["os"], true]
+    - [getenv,   getenv.__module__.__eq__,   ["os"], true]
+
+# ---------------------------------------------------------------------------
+# os.path.__name__ — the path submodule identity
+#
+# os.path is the posixpath module on POSIX platforms (Linux, macOS, etc.).
+# Its __name__ attribute is 'posixpath'. No prior os spec checks os.path.__name__.
+# ---------------------------------------------------------------------------
+
+invariant os_extra33.path.name:
+  description: "os.path.__name__ == 'posixpath' — on POSIX platforms os.path is the posixpath module"
+  category: submodule_attrs
+  kind: python_call_eq
+  function: path.__name__.__eq__
+  args: ["posixpath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — posix function __module__
+# ---------------------------------------------------------------------------
+
+invariant os_extra33.getcwd.module:
+  description: "os.getcwd.__module__ == 'posix' — C-level builtin attributed to the posix module"
+  category: function_attrs
+  kind: python_call_eq
+  function: getcwd.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+invariant os_extra33.listdir.module:
+  description: "os.listdir.__module__ == 'posix' — C-level builtin attributed to the posix module"
+  category: function_attrs
+  kind: python_call_eq
+  function: listdir.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+invariant os_extra33.getpid.module:
+  description: "os.getpid.__module__ == 'posix' — C-level builtin attributed to the posix module"
+  category: function_attrs
+  kind: python_call_eq
+  function: getpid.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+invariant os_extra33.cpu_count.module:
+  description: "os.cpu_count.__module__ == 'posix' — C-level builtin attributed to the posix module"
+  category: function_attrs
+  kind: python_call_eq
+  function: cpu_count.__module__.__eq__
+  args: ["posix"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — pure-Python os function __module__
+# ---------------------------------------------------------------------------
+
+invariant os_extra33.makedirs.module:
+  description: "os.makedirs.__module__ == 'os' — pure-Python function defined in os.py"
+  category: function_attrs
+  kind: python_call_eq
+  function: makedirs.__module__.__eq__
+  args: ["os"]
+  expected: true
+
+invariant os_extra33.getenv.module:
+  description: "os.getenv.__module__ == 'os' — pure-Python function defined in os.py"
+  category: function_attrs
+  kind: python_call_eq
+  function: getenv.__module__.__eq__
+  args: ["os"]
+  expected: true
