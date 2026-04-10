@@ -1,0 +1,133 @@
+spec: decimal_extra16
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+rfcs:
+  - "IBM General Decimal Arithmetic specification"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "This spec extends decimal.zspec.zsdl and prior extras (decimal_extra through decimal_extra15)."
+    - "decimal_extra7 covers comparison operators __lt__/__gt__/__le__/__ge__/__eq__ with inputs '1'/'3'/'2'/'5' vs integer 2 or 5."
+    - "decimal_extra8 covers is_zero/is_signed with simple numeric strings."
+    - "decimal_extra11 covers is_nan('NaN'), is_snan('sNaN'), is_normal/is_finite value vectors."
+    - "decimal_extra13 covers is_infinite('Infinity') and is_nan('NaN') with capital strings."
+    - "decimal_extra14 covers is_zero, is_signed, adjusted, normalize, getcontext."
+    - "decimal_extra15 covers Decimal('inf').is_normal()==False; copy_abs/copy_negate."
+    - "No prior spec covers Decimal('0.5').__lt__(1) == True (fractional less-than comparison)."
+    - "No prior spec covers Decimal('1.5').__gt__(1) == True (fractional greater-than comparison)."
+    - "No prior spec covers Decimal('0').__le__(0) == True (zero equal-or-less comparison)."
+    - "No prior spec covers Decimal('0').__ge__(0) == True (zero equal-or-greater comparison)."
+    - "No prior spec covers Decimal('-1').__lt__(0) == True (negative less-than zero)."
+    - "No prior spec covers Decimal('100').__eq__(100) == True (large integer equality)."
+    - "No prior spec covers Decimal('nan').is_nan() == True with lowercase 'nan' string."
+    - "No prior spec covers Decimal('-inf').is_signed() == True (negative infinity has sign bit)."
+    - "No prior spec covers Decimal('nan').is_signed() == False (NaN has no sign bit)."
+    - "No prior spec covers Decimal('1e-999999').__class__.__name__ == 'Decimal' (subnormal value type)."
+    - "No prior spec covers Decimal('inf').is_signed() == False (positive infinity has no sign bit)."
+    - "Decimal('0.5').__lt__(1) == True — fractional Decimal is less than integer 1."
+    - "Decimal('1.5').__gt__(1) == True — fractional Decimal is greater than integer 1."
+    - "Decimal('0').__le__(0) == True — zero is equal-to-or-less-than zero."
+    - "Decimal('0').__ge__(0) == True — zero is equal-to-or-greater-than zero."
+    - "Decimal('-1').__lt__(0) == True — negative integer Decimal is less than zero."
+    - "Decimal('100').__eq__(100) == True — large integer Decimal equals Python int 100."
+    - "Decimal('nan').is_nan() == True — lowercase 'nan' string constructs a NaN value."
+    - "Decimal('-inf').is_signed() == True — negative infinity has the sign bit set."
+    - "Decimal('nan').is_signed() == False — NaN is unsigned (sign bit is 0 for quiet NaN)."
+    - "Decimal('1e-999999').__class__.__name__ == 'Decimal' — even subnormal is a Decimal instance."
+    - "Decimal('inf').is_signed() == False — positive infinity has no sign bit."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Comparison operators — new input vectors with fractional and boundary values
+#
+# decimal_extra7 covers integer strings '1'/'3'/'2'/'5' vs integer 2 or 5.
+# This table adds fractional inputs ('0.5', '1.5'), zero ('0'), negative ('-1'),
+# and a larger integer ('100') to extend coverage.
+# ---------------------------------------------------------------------------
+
+table decimal_extra16.comparison_operators:
+  kind: python_call_eq
+  category: comparison
+  id_prefix: cmp
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [lt_frac,     Decimal, ["0.5"],  __lt__, [1],    true]
+    - [gt_frac,     Decimal, ["1.5"],  __gt__, [1],    true]
+    - [le_zero,     Decimal, ["0"],    __le__, [0],    true]
+    - [ge_zero,     Decimal, ["0"],    __ge__, [0],    true]
+    - [lt_neg,      Decimal, ["-1"],   __lt__, [0],    true]
+    - [eq_hundred,  Decimal, ["100"],  __eq__, [100],  true]
+
+# ---------------------------------------------------------------------------
+# Predicate vectors with new input strings
+#
+# Prior specs use 'NaN', 'sNaN', 'Infinity' (mixed case) or standard numeric strings.
+# New: lowercase 'nan' and '-inf' string forms, which Decimal also accepts.
+# Also: Decimal('nan').is_signed() == False — NaN has no sign bit set.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra16.Decimal.nan_lower_is_nan:
+  description: "Decimal('nan').is_nan() == True — lowercase 'nan' string constructs a NaN"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["nan"]
+  method: is_nan
+  expected: true
+
+invariant decimal_extra16.Decimal.nan_lower_is_signed:
+  description: "Decimal('nan').is_signed() == False — quiet NaN has no sign bit set"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["nan"]
+  method: is_signed
+  expected: false
+
+invariant decimal_extra16.Decimal.neg_inf_is_signed:
+  description: "Decimal('-inf').is_signed() == True — negative infinity has the sign bit set"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["-inf"]
+  method: is_signed
+  expected: true
+
+invariant decimal_extra16.Decimal.pos_inf_is_signed:
+  description: "Decimal('inf').is_signed() == False — positive infinity has no sign bit"
+  category: predicates
+  kind: python_call_eq
+  function: Decimal
+  args: ["inf"]
+  method: is_signed
+  expected: false
+
+# ---------------------------------------------------------------------------
+# Subnormal value — type identity
+#
+# Decimal('1e-999999') represents a value with an exponent far below Emin,
+# making it a subnormal (tiny) number in any reasonable context.
+# No prior spec checks the type of a subnormal Decimal.
+# The result is still a Decimal instance — the class identity is preserved.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra16.Decimal.subnormal_class_name:
+  description: "Decimal('1e-999999').__class__.__name__ == 'Decimal' — subnormal is still a Decimal"
+  category: class_identity
+  kind: python_call_eq
+  function: Decimal
+  args: ["1e-999999"]
+  method: __class__
+  method_chain: __name__
+  expected: "Decimal"

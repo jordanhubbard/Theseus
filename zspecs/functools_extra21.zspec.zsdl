@@ -1,0 +1,176 @@
+spec: functools_extra21
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec extends functools.zspec.zsdl and prior extras through functools_extra20.zspec.zsdl."
+    - "functools_extra20 covers: __module__.__len__ for wraps/total_ordering/singledispatch/cached_property/lru_cache/singledispatchmethod/partialmethod (all 9); reduce/cmp_to_key __module__.__len__ (10); partialmethod __module__.__eq__; wraps/cached_property __qualname__.__len__."
+    - "functools_extra14 covers: __name__.__len__ and __qualname__.__len__ for cmp_to_key/total_ordering/lru_cache/singledispatch/singledispatchmethod (in tables)."
+    - "functools_extra13 covers: __name__.__len__ and __qualname__.__len__ for reduce/partial/wraps/cached_property (in table and invariants)."
+    - "functools_extra15 covers: partialmethod.__name__.__len__() == 13."
+    - "No prior functools spec records cache.__name__.__len__() == 5 as a standalone invariant."
+    - "No prior functools spec records __mro__.__len__() for partial, cached_property, or singledispatch."
+    - "No prior functools spec records partial.__mro__.__len__() — partial is a C type; its MRO is (partial, object), length 2."
+    - "No prior functools spec records cached_property.__mro__.__len__() — cached_property is a Python class; MRO is (cached_property, object), length 2."
+    - "No prior functools spec records singledispatch.__mro__.__len__() — singledispatch is a function, not a type; it has no __mro__."
+    - "functools.partial.__mro__.__len__() == 2 — (partial, object)."
+    - "functools.cached_property.__mro__.__len__() == 2 — (cached_property, object)."
+    - "functools.partialmethod.__mro__.__len__() == 2 — (partialmethod, object)."
+    - "functools.cache.__name__.__len__() == 5 — len('cache')."
+    - "functools.partial.__mro__[1].__name__ == 'object' — second MRO entry via index 1."
+    - "functools.cached_property.__mro__[-1].__name__ == 'object' — last MRO entry via index -1."
+    - "functools.partialmethod.__mro__[0].__name__ == 'partialmethod' — first MRO entry self-reference."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# cache.__name__.__len__() — name length for functools.cache
+#
+# functools_extra18 covers cache.__name__.__eq__('cache') and
+# cache.__qualname__.__len__() == 5. No prior spec records cache.__name__.__len__()
+# == 5 as a standalone invariant. (Extra13 and extra14 cover other members in
+# tables; cache is not in any __name__.__len__ table.)
+# ---------------------------------------------------------------------------
+
+invariant functools_extra21.cache.name_len:
+  description: "functools.cache.__name__.__len__() == 5 — len('cache')"
+  category: name_lengths
+  kind: python_call_eq
+  function: cache.__name__.__len__
+  args: []
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# __mro__.__len__() for C-level and Python-level functools types
+#
+# No prior functools spec records __mro__.__len__() for partial, cached_property,
+# or partialmethod. functools_extra11 covers TopologicalSorter.__mro__.__len__() == 2
+# (TopologicalSorter), and functools_extra10 covers singledispatchmethod.__bases__.__len__().
+# partial, cached_property, and partialmethod all have single-level inheritance
+# from object, so their MRO tuples are (Type, object) with length 2.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra21.partial.mro_len:
+  description: "functools.partial.__mro__.__len__() == 2 — (partial, object)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: partial.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant functools_extra21.cached_property.mro_len:
+  description: "functools.cached_property.__mro__.__len__() == 2 — (cached_property, object)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: cached_property.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant functools_extra21.partialmethod.mro_len:
+  description: "functools.partialmethod.__mro__.__len__() == 2 — (partialmethod, object)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: partialmethod.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# __mro__[0].__name__ for partial and cached_property — self-reference check
+#
+# The first element of any type's MRO is the type itself. No prior spec verifies
+# that partial.__mro__[0].__name__ == 'partial' or that
+# cached_property.__mro__[0].__name__ == 'cached_property'. These structural
+# checks confirm MRO ordering and type identity simultaneously.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra21.partial.mro_first_name:
+  description: "functools.partial.__mro__[0].__name__ == 'partial' — first MRO entry is the type itself"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: partial.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "partial"
+
+invariant functools_extra21.cached_property.mro_first_name:
+  description: "functools.cached_property.__mro__[0].__name__ == 'cached_property' — first MRO entry is the type itself"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: cached_property.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "cached_property"
+
+# ---------------------------------------------------------------------------
+# __mro__[-1].__name__ for partial — last entry is object
+#
+# The last element of any type's MRO is always object. No prior spec verifies
+# partial.__mro__[-1].__name__ == 'object' as a standalone invariant.
+# functools_extra13 covers partial.__bases__[0].__name__ == 'object' but not
+# the MRO index path.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra21.partial.mro_last_name:
+  description: "functools.partial.__mro__[-1].__name__ == 'object' — last MRO entry is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: partial.__mro__.__getitem__
+  args: [-1]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# partialmethod.__mro__[0].__name__ — self-reference check
+# ---------------------------------------------------------------------------
+
+invariant functools_extra21.partialmethod.mro_first_name:
+  description: "functools.partialmethod.__mro__[0].__name__ == 'partialmethod' — first MRO entry is the type itself"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: partialmethod.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "partialmethod"
+
+# ---------------------------------------------------------------------------
+# partial.__mro__[1].__name__ — second MRO entry is object
+#
+# No prior functools spec records partial.__mro__[1].__name__ == 'object'.
+# functools_extra13 covers partial.__bases__[0].__name__ via __getitem__ on
+# __bases__; here we access the same fact via __mro__ at index 1.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra21.partial.mro_second_name:
+  description: "functools.partial.__mro__[1].__name__ == 'object' — second MRO entry is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: partial.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"
+
+# ---------------------------------------------------------------------------
+# cached_property.__mro__[-1].__name__ — last MRO entry is object
+#
+# No prior functools spec records cached_property.__mro__[-1].__name__ == 'object'.
+# ---------------------------------------------------------------------------
+
+invariant functools_extra21.cached_property.mro_last_name:
+  description: "functools.cached_property.__mro__[-1].__name__ == 'object' — last MRO entry is object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: cached_property.__mro__.__getitem__
+  args: [-1]
+  method: __name__
+  expected: "object"

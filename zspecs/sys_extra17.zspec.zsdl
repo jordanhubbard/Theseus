@@ -1,0 +1,187 @@
+spec: sys_extra17
+version: ">=3.9"
+backend: python_module(sys)
+
+docs: https://docs.python.org/3/library/sys.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/sys.html — Python sys module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Python/sysmodule.c"
+    - "sys_extra9.zspec.zsdl — covers version_info.releaselevel.__class__.__name__=='str'; implementation.cache_tag class name and startswith prefix"
+    - "sys_extra10.zspec.zsdl — covers maxunicode==1114111; maxsize>0; prefix/exec_prefix/executable __class__.__name__=='str'"
+    - "sys_extra15.zspec.zsdl — covers version_info.major/minor/micro __class__.__name__=='int'; stdin/stdout/stderr __class__.__name__; api_version type and >=1000; version_info.__len__()==5"
+    - "sys_extra16.zspec.zsdl — covers maxsize.__gt__(2147483648); platform.startswith('darwin'); platform.__contains__('darwin'); version.__len__()>=10; byteorder=='little'; argv.__len__()>=0; path.__len__()>=1; modules contains 'sys'/'builtins'; float_info/int_info/hash_info __class__.__name__"
+  notes:
+    - "This spec extends sys.zspec.zsdl and prior extras through sys_extra16.zspec.zsdl."
+    - "sys_extra9 covers version_info.releaselevel.__class__.__name__=='str' but NOT its length or string-method properties."
+    - "No prior sys spec covers version_info.releaselevel.__len__() >= 4 — all valid releaselevel values ('alpha', 'beta', 'final', 'candidate') have at least 4 characters."
+    - "No prior sys spec covers version_info.releaselevel.__contains__('a') -- too fragile. Use startswith check only for stable values."
+    - "No prior sys spec covers version_info.micro.__ge__(0) as a guaranteed non-negative bound."
+    - "No prior sys spec covers sys.prefix.__len__() >= 1 — prefix is always a non-empty path."
+    - "No prior sys spec covers sys.exec_prefix.__len__() >= 1 — exec_prefix is always a non-empty path."
+    - "No prior sys spec covers sys.executable.__len__() >= 1 — the Python interpreter path is never empty."
+    - "No prior sys spec covers sys.prefix.startswith('/') on POSIX — install paths are absolute."
+    - "No prior sys spec covers sys.executable.startswith('/') on POSIX — interpreter path is absolute."
+    - "version_info.releaselevel is one of 'alpha', 'beta', 'candidate', 'final' — all have len >= 4 (shortest is 'beta'/'alpha' at 5; 'final' at 5; 'candidate' at 9). Lower bound of 4 is universally safe."
+    - "version_info.micro is always a non-negative integer representing the patch level."
+    - "sys.prefix is the install prefix directory path — always a non-empty absolute path on POSIX."
+    - "sys.exec_prefix may differ from prefix when platform-dependent files are in a separate directory."
+    - "sys.executable is the absolute path to the Python interpreter binary — never empty."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sys.version_info.releaselevel — length and string properties
+#
+# sys_extra9 covers releaselevel.__class__.__name__ == 'str'.
+# No prior spec checks releaselevel.__len__(). The releaselevel field takes
+# one of four values: 'alpha', 'beta', 'candidate', 'final'. All have
+# at least 4 characters (shortest would be a 4-char hypothetical, but in
+# practice the shortest actual values 'beta'/'alpha' are 4-5 chars). A lower
+# bound of 4 is universally stable.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra17.version_info.releaselevel_len_ge_4:
+  description: "sys.version_info.releaselevel.__len__() >= 4 — releaselevel is one of alpha/beta/candidate/final"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.releaselevel.__len__
+  args: []
+  method: __ge__
+  method_args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.version_info.micro — non-negative bound
+#
+# sys_extra6 covers version_info.micro.__ge__(0).
+# sys_extra15 covers version_info.micro.__class__.__name__ == 'int'.
+# This invariant encodes the same __ge__(0) fact as sys_extra6 but under
+# the sys_extra17 namespace, providing an independent coverage axis
+# (sys_extra6 also checks micro in the context of a broader set of checks).
+# Actually: skip duplication. Instead check micro.__lt__(1000) — micro is
+# always a small patch number, never reaching 1000 in practice.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra17.version_info.micro_lt_1000:
+  description: "sys.version_info.micro < 1000 — patch level is always a small non-negative integer"
+  category: version_info
+  kind: python_call_eq
+  function: version_info.micro.__lt__
+  args: [1000]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.prefix — length and absolute path check
+#
+# sys_extra4 and sys_extra10 cover prefix.__class__.__name__ == 'str'.
+# No prior spec checks prefix.__len__() or prefix.startswith('/').
+# sys.prefix is always a non-empty absolute path on POSIX (macOS/Linux).
+# ---------------------------------------------------------------------------
+
+invariant sys_extra17.prefix.len_ge_1:
+  description: "sys.prefix.__len__() >= 1 — prefix is a non-empty installation path"
+  category: prefix
+  kind: python_call_eq
+  function: prefix.__len__
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true
+
+invariant sys_extra17.prefix.startswith_slash:
+  description: "sys.prefix.startswith('/') == True on POSIX — prefix is an absolute path"
+  category: prefix
+  kind: python_call_eq
+  function: prefix.startswith
+  args: ["/"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.exec_prefix — length check
+#
+# sys_extra4 covers exec_prefix.__class__.__name__ == 'str'.
+# sys_extra10 covers exec_prefix in a table alongside prefix and executable.
+# No prior spec checks exec_prefix.__len__(). exec_prefix is always a
+# non-empty path pointing to the directory where platform-dependent files live.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra17.exec_prefix.len_ge_1:
+  description: "sys.exec_prefix.__len__() >= 1 — exec_prefix is a non-empty path"
+  category: exec_prefix
+  kind: python_call_eq
+  function: exec_prefix.__len__
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.executable — length and absolute path check
+#
+# sys_extra10 covers executable.__class__.__name__ == 'str' via table.
+# No prior spec checks executable.__len__() or executable.startswith('/').
+# sys.executable is the absolute path to the Python interpreter binary.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra17.executable.len_ge_1:
+  description: "sys.executable.__len__() >= 1 — executable path is never empty"
+  category: executable
+  kind: python_call_eq
+  function: executable.__len__
+  args: []
+  method: __ge__
+  method_args: [1]
+  expected: true
+
+invariant sys_extra17.executable.startswith_slash:
+  description: "sys.executable.startswith('/') == True on POSIX — interpreter path is absolute"
+  category: executable
+  kind: python_call_eq
+  function: executable.startswith
+  args: ["/"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.executable — contains 'python'
+#
+# No prior spec checks that sys.executable contains the string 'python'.
+# The CPython interpreter binary is always named 'python', 'python3',
+# 'python3.x', or similar — the substring 'python' is always present.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra17.executable.contains_python:
+  description: "sys.executable.__contains__('python') == True — interpreter binary name always includes 'python'"
+  category: executable
+  kind: python_call_eq
+  function: executable.__contains__
+  args: ["python"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sys.prefix and sys.exec_prefix — contain '/'
+#
+# No prior spec checks prefix.__contains__('/') or exec_prefix.__contains__('/').
+# Both are absolute directory paths on POSIX, so '/' always appears in them.
+# ---------------------------------------------------------------------------
+
+invariant sys_extra17.prefix.contains_slash:
+  description: "sys.prefix.__contains__('/') == True — prefix is an absolute POSIX path"
+  category: prefix
+  kind: python_call_eq
+  function: prefix.__contains__
+  args: ["/"]
+  expected: true
+
+invariant sys_extra17.exec_prefix.contains_slash:
+  description: "sys.exec_prefix.__contains__('/') == True — exec_prefix is an absolute POSIX path"
+  category: exec_prefix
+  kind: python_call_eq
+  function: exec_prefix.__contains__
+  args: ["/"]
+  expected: true

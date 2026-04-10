@@ -1,0 +1,122 @@
+spec: os_extra20
+version: ">=3.9"
+backend: python_module(os)
+
+docs: https://docs.python.org/3/library/os.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.html — Python os module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/posixmodule.c"
+    - "CPython source: Lib/os.py"
+    - "os_extra11.zspec.zsdl — covers os.error.__name__=='OSError', __module__=='builtins', __qualname__=='OSError'"
+    - "os_extra13.zspec.zsdl — covers strerror(0).__len__()>0 and strerror.__module__; cpu_count/__module__; listdir/__module__; makedirs/__module__"
+    - "os_extra18.zspec.zsdl — covers stat/__name__/__qualname__/__class__.__name__; getuid/__name__/__qualname__; getgid/__name__/__qualname__; getenv/__qualname__"
+    - "os_extra19.zspec.zsdl — covers curdir/pardir/extsep __class__.__name__; curdir/__len__; pardir/__len__; name/__len__; sep/__contains__; extsep/__contains__; devnull/__contains__; curdir.startswith; pardir.startswith; linesep.strip; pathsep.strip"
+  notes:
+    - "This spec extends os.zspec.zsdl and prior extras through os_extra19.zspec.zsdl."
+    - "os_extra11 covers os.error.__name__=='OSError' but NOT os.error.__bases__[0].__name__."
+    - "No prior os spec covers os.strerror(2) == 'No such file or directory' (ENOENT, always consistent across platforms)."
+    - "No prior os spec covers os.strerror(1).__class__.__name__ == 'str' as a named invariant."
+    - "No prior os spec covers os.putenv.__name__ == 'putenv'."
+    - "No prior os spec covers os.removedirs.__name__ == 'removedirs'."
+    - "No prior os spec covers os.rename.__name__ == 'rename' as a named invariant (os_extra5 covers it in a table)."
+    - "No prior os spec covers os.lstat.__name__ == 'lstat'."
+    - "No prior os spec covers os.chmod.__name__ == 'chmod'."
+    - "No prior os spec covers os.error.__bases__[0].__name__ as a named invariant."
+    - "os.strerror(2) == 'No such file or directory' — ENOENT is errno 2 on all POSIX platforms."
+    - "os.error is an alias for OSError; its primary base class is Exception."
+    - "os.putenv, os.removedirs, os.lstat, os.chmod are standard POSIX functions available on macOS."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# os.strerror(2) — ENOENT: always 'No such file or directory'
+#
+# os_extra13 covers strerror(0).__len__() > 0 and strerror.__module__.
+# os.zspec.zsdl covers strerror.__name__ in a function_names table row.
+# No prior spec checks the return value of strerror(2) == 'No such file or directory'.
+# ENOENT is always errno 2 on POSIX (macOS, Linux, FreeBSD) — this is stable.
+# ---------------------------------------------------------------------------
+
+invariant os_extra20.strerror.enoent:
+  description: "os.strerror(2) == 'No such file or directory' — ENOENT on all POSIX platforms"
+  category: strerror
+  kind: python_call_eq
+  function: strerror
+  args: [2]
+  expected: "No such file or directory"
+
+invariant os_extra20.strerror.return_type:
+  description: "os.strerror(1).__class__.__name__ == 'str' — strerror always returns a str"
+  category: strerror
+  kind: python_call_eq
+  function: strerror
+  args: [1]
+  method: __class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os.error — primary base class
+#
+# os_extra11 covers os.error.__name__=='OSError', __module__=='builtins',
+# __qualname__=='OSError'. No prior spec checks os.error.__bases__[0].__name__.
+# os.error is OSError, which inherits from Exception as its primary base.
+# ---------------------------------------------------------------------------
+
+invariant os_extra20.error.base0_name:
+  description: "os.error.__bases__[0].__name__ == 'Exception' — OSError's primary base is Exception"
+  category: error_class
+  kind: python_call_eq
+  function: error.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Exception"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# os function __name__ attributes — putenv, removedirs, lstat, chmod
+#
+# os_extra5 covers listdir/__name__, makedirs/__name__, rename/__name__,
+# remove/__name__, getcwd/__name__ via table.
+# os_extra7 covers cpu_count/__name__, getpid/__name__.
+# os_extra6 covers getenv/__name__ and other function names.
+# No prior spec covers putenv/__name__, removedirs/__name__,
+# lstat/__name__, or chmod/__name__.
+# ---------------------------------------------------------------------------
+
+table os_extra20.function_names:
+  description: "__name__ attribute for os module functions not yet covered by prior specs"
+  kind: python_call_eq
+  category: function_names
+
+  columns: [id, function, args, expected]
+  rows:
+    - [putenv,     putenv.__name__.__eq__,     ["putenv"],     true]
+    - [removedirs, removedirs.__name__.__eq__,  ["removedirs"], true]
+    - [lstat,      lstat.__name__.__eq__,       ["lstat"],      true]
+    - [chmod,      chmod.__name__.__eq__,       ["chmod"],      true]
+
+# ---------------------------------------------------------------------------
+# os.putenv, os.removedirs, os.lstat, os.chmod — __qualname__
+#
+# Module-level built-in functions have __qualname__ equal to __name__.
+# No prior os spec covers __qualname__ for putenv, removedirs, lstat, or chmod.
+# ---------------------------------------------------------------------------
+
+table os_extra20.function_qualnames:
+  description: "__qualname__ attribute for os module functions — equals __name__ for module-level builtins"
+  kind: python_call_eq
+  category: function_qualnames
+
+  columns: [id, function, args, expected]
+  rows:
+    - [putenv,     putenv.__qualname__.__eq__,     ["putenv"],     true]
+    - [removedirs, removedirs.__qualname__.__eq__,  ["removedirs"], true]
+    - [lstat,      lstat.__qualname__.__eq__,       ["lstat"],      true]
+    - [chmod,      chmod.__qualname__.__eq__,       ["chmod"],      true]

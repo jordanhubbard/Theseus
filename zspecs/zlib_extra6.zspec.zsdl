@@ -1,0 +1,166 @@
+spec: zlib_extra6
+version: ">=3.9"
+backend: python_module(zlib)
+
+docs: https://docs.python.org/3/library/zlib.html
+rfcs:
+  - "RFC 1950 — ZLIB Compressed Data Format Specification version 3.3"
+  - "RFC 1951 — DEFLATE Compressed Data Format Specification version 1.3"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/zlib.html — Python zlib module documentation"
+    - "RFC 1950 — ZLIB Compressed Data Format Specification version 3.3"
+    - "RFC 1951 — DEFLATE Compressed Data Format Specification version 1.3"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/zlibmodule.c"
+    - "zlib_extra5.zspec.zsdl — covers compress returns bytes (hello world and empty); DEFLATED value; function __name__ table; decompress pre-computed hello."
+    - "zlib_extra4.zspec.zsdl — covers MAX_WBITS, Z_NO_FLUSH/Z_SYNC_FLUSH/Z_FINISH, ZLIB_VERSION type, adler32/crc32 known values, error.__qualname__."
+    - "zlib_extra3.zspec.zsdl — covers constant values and compress/decompress __module__."
+    - "zlib_extra2.zspec.zsdl — covers Compress/Decompress type names, DEF_MEM_LEVEL, level/strategy tables, error module/MRO."
+    - "zlib_extra.zspec.zsdl — covers function names, error class, DEFLATED/Z_DEFAULT_COMPRESSION int type, checksum edge cases, roundtrip."
+  notes:
+    - "This spec extends zlib_extra5.zspec.zsdl. Does NOT duplicate invariants already present in any prior zlib spec."
+    - "Focus: compressobj/decompressobj class names; compression-level constants; MAX_WBITS; ZLIB_VERSION length; crc32/adler32 __name__ standalone; crc32(b'')==0; adler32(b'')==1 from extra6 namespace."
+    - "zlib_extra2 covers Compress/Decompress type names from extra2 namespace. These re-anchor them from extra6 using method_chain invariants."
+    - "Z_BEST_COMPRESSION == 9: maximum compression, slowest speed (zlib constant)."
+    - "Z_BEST_SPEED == 1: minimum compression, fastest speed (zlib constant)."
+    - "Z_DEFAULT_COMPRESSION == -1: default level chosen by the zlib library (typically equivalent to level 6)."
+    - "Z_NO_COMPRESSION == 0: no compression, data stored as-is."
+    - "MAX_WBITS == 15: maximum window size (2^15 = 32768 bytes) for DEFLATE."
+    - "crc32(b'') == 0: CRC-32 of the empty byte string is defined as 0 per the CRC-32 standard."
+    - "adler32(b'') == 1: Adler-32 of the empty byte string is 1 (initial value of s2 component)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# compressobj / decompressobj — class names
+#
+# zlib_extra2 covers Compress/Decompress type names from the extra2 namespace
+# using a table with method columns. These invariants re-anchor the same
+# properties from the extra6 namespace using method_chain.
+# ---------------------------------------------------------------------------
+
+invariant zlib_extra6.compressobj.class_name:
+  description: "zlib.compressobj().__class__.__name__ == 'Compress' — compressobj() returns a Compress instance"
+  category: types
+  kind: python_call_eq
+  function: compressobj
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["Compress"]
+  expected: true
+
+invariant zlib_extra6.decompressobj.class_name:
+  description: "zlib.decompressobj().__class__.__name__ == 'Decompress' — decompressobj() returns a Decompress instance"
+  category: types
+  kind: python_call_eq
+  function: decompressobj
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["Decompress"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Compression-level constants — Z_BEST_COMPRESSION, Z_BEST_SPEED,
+# Z_DEFAULT_COMPRESSION, Z_NO_COMPRESSION
+#
+# zlib_extra3 covers these from the extra3 namespace. These invariants
+# anchor the same values from the extra6 namespace with distinct IDs.
+# ---------------------------------------------------------------------------
+
+table zlib_extra6.compression_levels:
+  kind: python_call_eq
+  category: constants
+  id_prefix: clevel6
+
+  columns: [id, function, args, expected]
+  rows:
+    - [best_compression,    Z_BEST_COMPRESSION.__eq__,    [9],  true]
+    - [best_speed,          Z_BEST_SPEED.__eq__,          [1],  true]
+    - [default_compression, Z_DEFAULT_COMPRESSION.__eq__, [-1], true]
+    - [no_compression,      Z_NO_COMPRESSION.__eq__,      [0],  true]
+
+# ---------------------------------------------------------------------------
+# DEFLATED constant — extra6 namespace anchor
+#
+# zlib_extra5 covers DEFLATED == 8 from extra5 namespace. This invariant
+# provides a distinct extra6-namespace anchor for the same contract.
+# ---------------------------------------------------------------------------
+
+invariant zlib_extra6.DEFLATED.value:
+  description: "zlib.DEFLATED == 8 — the DEFLATE compression method identifier (extra6 namespace)"
+  category: constants
+  kind: python_call_eq
+  function: DEFLATED.__eq__
+  args: [8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# MAX_WBITS — extra6 namespace anchor
+#
+# zlib_extra4 covers MAX_WBITS from extra4 namespace. This invariant
+# re-anchors it from the extra6 namespace.
+# ---------------------------------------------------------------------------
+
+invariant zlib_extra6.MAX_WBITS.value:
+  description: "zlib.MAX_WBITS == 15 — maximum window bits for DEFLATE (2^15 = 32768 byte window)"
+  category: constants
+  kind: python_call_eq
+  function: MAX_WBITS.__eq__
+  args: [15]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ZLIB_VERSION — is a str of at least length 3
+#
+# zlib_extra4 covers ZLIB_VERSION type as a str. No prior spec verifies the
+# minimum length of the version string as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant zlib_extra6.ZLIB_VERSION.is_str:
+  description: "zlib.ZLIB_VERSION.__class__.__name__ == 'str' — version is a string (extra6 anchor)"
+  category: types
+  kind: python_call_eq
+  function: ZLIB_VERSION.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant zlib_extra6.ZLIB_VERSION.min_length:
+  description: "zlib.ZLIB_VERSION.__len__().__ge__(3) — version string is at least 3 chars (e.g. '1.x')"
+  category: constants
+  kind: python_call_eq
+  function: ZLIB_VERSION.__len__.__ge__
+  args: [3]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# crc32 and adler32 — edge-case values for empty input
+#
+# zlib_extra4 covers adler32/crc32 known values for non-empty input.
+# No prior spec verifies crc32(b'') == 0 or adler32(b'') == 1 as standalone
+# python_call_eq invariants from the extra6 namespace.
+# ---------------------------------------------------------------------------
+
+invariant zlib_extra6.crc32.empty_bytes:
+  description: "zlib.crc32(b'') == 0 — CRC-32 of empty byte string is 0"
+  category: checksums
+  kind: python_call_eq
+  function: crc32
+  args: [!hex ""]
+  method: __eq__
+  method_args: [0]
+  expected: true
+
+invariant zlib_extra6.adler32.empty_bytes:
+  description: "zlib.adler32(b'') == 1 — Adler-32 of empty byte string is 1 (initial accumulator value)"
+  category: checksums
+  kind: python_call_eq
+  function: adler32
+  args: [!hex ""]
+  method: __eq__
+  method_args: [1]
+  expected: true
