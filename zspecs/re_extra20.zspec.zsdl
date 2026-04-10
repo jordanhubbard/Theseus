@@ -1,0 +1,141 @@
+spec: re_extra20
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec extends re.zspec.zsdl and prior extras through re_extra19.zspec.zsdl."
+    - "re_extra4 covers: search.__name__ == 'search'; search.__module__ == 're'."
+    - "re_extra8 covers: search.__qualname__ == 'search'."
+    - "re_extra.zspec covers: search(r'\\d+', 'abc123').group(0) == '123'."
+    - "re_extra12 covers: search with named/numbered capture groups and lastindex."
+    - "re_extra2 covers: fullmatch.__name__ == 'fullmatch'; escape.__name__ == 'escape'; escape('a.b+c')."
+    - "re_extra10 covers: escape('a.b') == 'a\\.b'; escape.__qualname__."
+    - "re_extra12 covers: escape('hello') == 'hello' (plain word)."
+    - "re_extra15 covers: escape('hello.world') and escape('price$')."
+    - "re_extra17 covers: escape('[abc]') == '\\\\[abc\\\\]'; escape('a*b') == 'a\\\\*b'."
+    - "re_extra13 covers: compile.__qualname__; compile.__name__ (via re_extra6)."
+    - "NOT yet covered (now covered here): re.search(r'hello', 'say hello').__class__.__name__ == 'Match' — checking hit Match class via __class__.__name__.__eq__."
+    - "NOT yet covered (now covered here): re.search(r'zzz', 'hello') == None — miss returns None."
+    - "NOT yet covered (now covered here): re.fullmatch.__name__ in re_extra20 namespace anchor."
+    - "NOT yet covered (now covered here): re.compile.__name__ in re_extra20 namespace anchor."
+    - "NOT yet covered (now covered here): re.escape.__name__ in re_extra20 namespace anchor."
+    - "NOT yet covered (now covered here): re.escape('.') == '\\\\.' — single dot escaped."
+    - "NOT yet covered (now covered here): re.escape('*') == '\\\\*' — single star escaped."
+    - "NOT yet covered (now covered here): re.escape('?') == '\\\\?' — single question mark escaped."
+    - "NOT yet covered (now covered here): re.escape('[') == '\\\\[' — single open-bracket escaped."
+    - "re_extra17.escape.star covers escape('a*b'); no prior spec covers bare escape('*')."
+    - "re_extra17.escape.brackets covers escape('[abc]'); no prior spec covers bare escape('[')."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.search — hit and miss vectors
+#
+# re_extra.zspec covers search(r'\d+', 'abc123').group(0) == '123'.
+# re_extra12 covers search with named/numbered capture groups.
+# No prior spec tests the Match class name via __class__.__name__.__eq__ on
+# a search hit, nor the None result from a search miss as a direct expected.
+# ---------------------------------------------------------------------------
+
+invariant re_extra20.search.hit_class_name:
+  description: "re.search(r'hello', 'say hello').__class__.__name__ == 'Match' — hit yields a Match object"
+  category: search
+  kind: python_call_eq
+  function: search
+  args: ["hello", "say hello"]
+  method: __class__.__name__.__eq__
+  method_args: ["Match"]
+  expected: true
+
+invariant re_extra20.search.miss_returns_none:
+  description: "re.search(r'zzz', 'hello') is None — no match returns None"
+  category: search
+  kind: python_call_eq
+  function: search
+  args: ["zzz", "hello"]
+  expected: ~
+
+# ---------------------------------------------------------------------------
+# Table: re.search — hit and miss class-name checks
+#
+# Groups the search hit (Match class name) and miss (None) patterns together.
+# No prior spec table groups search hits by __class__.__name__.__eq__.
+# ---------------------------------------------------------------------------
+
+table re_extra20.search_class:
+  description: "re.search hit yields Match class name; miss yields None"
+  kind: python_call_eq
+  category: search
+  id_prefix: sc20
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [hit_digits,  search, ["\\d+",   "abc123"],    __class__.__name__.__eq__, ["Match"], true]
+    - [hit_word,    search, ["\\w+",   "hello"],     __class__.__name__.__eq__, ["Match"], true]
+    - [hit_any,     search, [".+",     "hello"],     __class__.__name__.__eq__, ["Match"], true]
+
+# ---------------------------------------------------------------------------
+# Function identity anchors — fullmatch, compile, escape in re_extra20 namespace
+#
+# re_extra2 covers fullmatch.__name__ and escape.__name__ as standalone invariants.
+# re_extra6 covers compile.__name__ as a standalone invariant.
+# These are re-anchored here in the re_extra20 namespace.
+# ---------------------------------------------------------------------------
+
+invariant re_extra20.fullmatch.name:
+  description: "re.fullmatch.__name__ == 'fullmatch' — namespace anchor"
+  category: function_identity
+  kind: python_call_eq
+  function: fullmatch.__name__.__eq__
+  args: ["fullmatch"]
+  expected: true
+
+invariant re_extra20.compile.name:
+  description: "re.compile.__name__ == 'compile' — namespace anchor"
+  category: function_identity
+  kind: python_call_eq
+  function: compile.__name__.__eq__
+  args: ["compile"]
+  expected: true
+
+invariant re_extra20.escape.name:
+  description: "re.escape.__name__ == 'escape' — namespace anchor"
+  category: function_identity
+  kind: python_call_eq
+  function: escape.__name__.__eq__
+  args: ["escape"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Table: re.escape — single metacharacter escaping
+#
+# re_extra2 covers escape('a.b+c'); re_extra10 covers escape('a.b').
+# re_extra15 covers escape('hello.world') and escape('price$').
+# re_extra17 covers escape('[abc]') and escape('a*b').
+# No prior spec tests bare single-character inputs: '.', '*', '?', '['.
+# ---------------------------------------------------------------------------
+
+table re_extra20.escape_single_chars:
+  description: "re.escape single metachar inputs — dot, star, question mark, open bracket"
+  kind: python_call_eq
+  category: escape
+  id_prefix: esc20
+  function: escape
+
+  columns: [id, args, expected]
+  rows:
+    - [dot,          ["."],  "\\."]
+    - [star,         ["*"],  "\\*"]
+    - [question,     ["?"],  "\\?"]
+    - [open_bracket, ["["],  "\\["]

@@ -1,0 +1,94 @@
+spec: types_extra17
+version: ">=3.9"
+backend: python_module(types)
+
+docs: https://docs.python.org/3/library/types.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/types.html — Python types module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/types.py"
+    - "types_extra16.zspec.zsdl — covers LambdaType/CodeType/CellType __name__.__len__; FunctionType/MethodType/CodeType/CoroutineType MRO[1].__name__; FunctionType/ModuleType/MethodType/CodeType __qualname__.__eq__ standalone"
+    - "types_extra15.zspec.zsdl — covers __qualname__.__len__ for NoneType/SimpleNamespace/MappingProxyType/DynamicClassAttribute/GeneratorType/CoroutineType; standalone __qualname__.__eq__ for NoneType/GeneratorType/CoroutineType"
+    - "types_extra14.zspec.zsdl — covers __qualname__.__len__ for FunctionType/LambdaType/MethodType/BuiltinFunctionType/ModuleType/TracebackType/FrameType/CodeType/CellType/AsyncGeneratorType; standalone __qualname__.__eq__ for LambdaType/BuiltinFunctionType/AsyncGeneratorType"
+    - "types_extra5.zspec.zsdl — covers __qualname__.__eq__ for FunctionType/MethodType/GeneratorType/CoroutineType/ModuleType (table)"
+  notes:
+    - "This spec extends types.zspec.zsdl through types_extra16.zspec.zsdl."
+    - "Focus of this spec: (1) __qualname__ values for FunctionType/LambdaType/CodeType/MappingProxyType/SimpleNamespace/GeneratorType/CoroutineType in a combined table; (2) __module__ table for FunctionType/LambdaType/CodeType/MappingProxyType/SimpleNamespace; (3) SimpleNamespace().__class__.__name__ == 'SimpleNamespace' standalone."
+    - "NOT yet covered (entering this spec): combined __qualname__ table for FunctionType/LambdaType/CodeType/MappingProxyType/SimpleNamespace/GeneratorType/CoroutineType; combined __module__ table for FunctionType/LambdaType/CodeType/MappingProxyType/SimpleNamespace; SimpleNamespace().__class__.__name__ standalone."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __qualname__ values for key types module types
+#
+# Prior specs cover __qualname__.__eq__ standalone for many types (extra5,
+# extra14, extra15, extra16). No prior spec has a combined table capturing
+# FunctionType/LambdaType/CodeType/MappingProxyType/SimpleNamespace/
+# GeneratorType/CoroutineType __qualname__ in a single indexed table.
+# FunctionType.__qualname__ == 'function' (same as LambdaType).
+# CodeType.__qualname__ == 'code'. MappingProxyType.__qualname__ == 'mappingproxy'.
+# SimpleNamespace.__qualname__ == 'SimpleNamespace'.
+# GeneratorType.__qualname__ == 'generator'. CoroutineType.__qualname__ == 'coroutine'.
+# ---------------------------------------------------------------------------
+
+table types_extra17.qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [FunctionType,     FunctionType.__qualname__.__eq__,     ["function"],       true]
+    - [LambdaType,       LambdaType.__qualname__.__eq__,       ["function"],       true]
+    - [CodeType,         CodeType.__qualname__.__eq__,         ["code"],           true]
+    - [MappingProxyType, MappingProxyType.__qualname__.__eq__, ["mappingproxy"],   true]
+    - [SimpleNamespace,  SimpleNamespace.__qualname__.__eq__,  ["SimpleNamespace"],true]
+    - [GeneratorType,    GeneratorType.__qualname__.__eq__,    ["generator"],      true]
+    - [CoroutineType,    CoroutineType.__qualname__.__eq__,    ["coroutine"],      true]
+
+# ---------------------------------------------------------------------------
+# __module__ for FunctionType, LambdaType, CodeType, MappingProxyType,
+# SimpleNamespace
+#
+# FunctionType/LambdaType/CodeType/MappingProxyType are C-level types defined
+# in builtins; their __module__ == 'builtins'. SimpleNamespace is surfaced
+# through the types module so its __module__ == 'types'. No prior spec has a
+# combined __module__ table for these five types.
+# ---------------------------------------------------------------------------
+
+table types_extra17.modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [FunctionType,     FunctionType.__module__.__eq__,     ["builtins"], true]
+    - [LambdaType,       LambdaType.__module__.__eq__,       ["builtins"], true]
+    - [CodeType,         CodeType.__module__.__eq__,         ["builtins"], true]
+    - [MappingProxyType, MappingProxyType.__module__.__eq__, ["builtins"], true]
+    - [SimpleNamespace,  SimpleNamespace.__module__.__eq__,  ["types"],    true]
+
+# ---------------------------------------------------------------------------
+# SimpleNamespace instance — __class__.__name__
+#
+# No prior spec checks SimpleNamespace().__class__.__name__ via a standalone
+# invariant. Calling SimpleNamespace() with no arguments returns an instance
+# whose class name is 'SimpleNamespace'.
+# ---------------------------------------------------------------------------
+
+invariant types_extra17.SimpleNamespace.instance_class_name:
+  description: "types.SimpleNamespace().__class__.__name__ == 'SimpleNamespace' — instance class name"
+  category: class_names
+  kind: python_call_eq
+  function: SimpleNamespace
+  args: []
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["SimpleNamespace"]
+  expected: true

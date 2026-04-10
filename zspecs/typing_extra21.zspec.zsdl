@@ -1,0 +1,112 @@
+spec: typing_extra21
+version: ">=3.9"
+backend: python_module(typing)
+
+docs: https://docs.python.org/3/library/typing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/typing.html — Python typing module documentation"
+    - "PEP 484 — Type Hints"
+    - "PEP 526 — Syntax for Variable Annotations"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/typing.py"
+  notes:
+    - "This spec extends typing.zspec.zsdl through typing_extra20.zspec.zsdl."
+    - "typing_extra20 covers: TypeVar('T') instance introspection; __qualname__.__len__() standalone for get_origin/get_args/overload/final/runtime_checkable; __name__.__len__() for get_origin/get_args."
+    - "typing_extra19 covers: Generic/NamedTuple/TypedDict __name__.__len__ and __qualname__.__len__; cast/__name__.__len__; get_type_hints/__name__.__len__; NamedTuple/__qualname__.__eq__; TypedDict/__qualname__.__eq__; get_type_hints/__qualname__.__eq__."
+    - "typing_extra16 covers: Literal/Final/Annotated/TypeGuard __name__; special form __module__ table; special form __qualname__ table."
+    - "typing_extra13 covers: overload/__module__/__qualname__; get_type_hints/__module__; cast/__module__ etc."
+    - "Focus of this spec: (1) __class__.__name__ for Any/Union/Optional/ClassVar in a combined table; (2) __name__ for cast/overload/get_type_hints in a combined table; (3) __module__ table for cast/overload/get_type_hints; (4) TYPE_CHECKING standalone class name and value checks."
+    - "NOT yet covered (entering this spec): combined __class__.__name__ table for Any/Union/Optional/ClassVar; combined __name__ table for cast/overload/get_type_hints; combined __module__ table for cast/overload/get_type_hints; TYPE_CHECKING.__class__.__name__ == 'bool' standalone; TYPE_CHECKING == False standalone."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __class__.__name__ for Any, Union, Optional, ClassVar
+#
+# typing.Any is a special metaclass-based form whose class name is '_AnyMeta'
+# on Python 3.11+. typing.Union is an alias defined as a class with __class__
+# name 'type'. Optional and ClassVar are _SpecialForm instances.
+# No prior spec has a combined table for these four __class__.__name__ values.
+# ---------------------------------------------------------------------------
+
+table typing_extra21.special_form_class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Any,      Any.__class__.__name__.__eq__,      ["_AnyMeta"],     true]
+    - [Union,    Union.__class__.__name__.__eq__,    ["type"],         true]
+    - [Optional, Optional.__class__.__name__.__eq__, ["_SpecialForm"], true]
+    - [ClassVar, ClassVar.__class__.__name__.__eq__, ["_SpecialForm"], true]
+
+# ---------------------------------------------------------------------------
+# __name__ for cast, overload, get_type_hints
+#
+# These are module-level functions; their __name__ matches the function name.
+# No prior spec has a combined table for these three __name__ values.
+# cast.__name__ == 'cast' (4), overload.__name__ == 'overload' (8),
+# get_type_hints.__name__ == 'get_type_hints' (14).
+# ---------------------------------------------------------------------------
+
+table typing_extra21.function_names:
+  kind: python_call_eq
+  category: function_names
+  id_prefix: fname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cast,           cast.__name__.__eq__,           ["cast"],           true]
+    - [overload,       overload.__name__.__eq__,       ["overload"],       true]
+    - [get_type_hints, get_type_hints.__name__.__eq__, ["get_type_hints"], true]
+
+# ---------------------------------------------------------------------------
+# __module__ for cast, overload, get_type_hints
+#
+# All three are defined in the typing module; __module__ == 'typing'.
+# typing_extra13 covers overload/__module__, get_type_hints/__module__, and
+# cast/__module__ as standalone invariants. No prior spec has all three
+# together in a single combined table.
+# ---------------------------------------------------------------------------
+
+table typing_extra21.function_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: fmodule
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cast,           cast.__module__.__eq__,           ["typing"], true]
+    - [overload,       overload.__module__.__eq__,       ["typing"], true]
+    - [get_type_hints, get_type_hints.__module__.__eq__, ["typing"], true]
+
+# ---------------------------------------------------------------------------
+# TYPE_CHECKING — class name and value
+#
+# typing.TYPE_CHECKING is a bool constant set to False at runtime (it is only
+# True inside type checkers). As a bool instance its __class__.__name__ == 'bool'.
+# No prior spec checks TYPE_CHECKING.__class__.__name__ or TYPE_CHECKING == False
+# as standalone invariants.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra21.TYPE_CHECKING.class_name:
+  description: "typing.TYPE_CHECKING.__class__.__name__ == 'bool' — TYPE_CHECKING is a bool constant"
+  category: class_names
+  kind: python_call_eq
+  function: TYPE_CHECKING.__class__.__name__.__eq__
+  args: ["bool"]
+  expected: true
+
+invariant typing_extra21.TYPE_CHECKING.value_false:
+  description: "typing.TYPE_CHECKING == False — always False at runtime"
+  category: type_checking
+  kind: python_call_eq
+  function: TYPE_CHECKING.__eq__
+  args: [false]
+  expected: true
