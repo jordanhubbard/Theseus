@@ -1,0 +1,136 @@
+spec: socket_extra17
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/socket.py"
+    - "CPython source: Modules/socketmodule.c"
+  notes:
+    - "This spec extends socket.zspec.zsdl and prior extras through socket_extra16.zspec.zsdl."
+    - "socket_extra2 covers: AF_INET.__class__.__name__ == 'AddressFamily'; SOCK_STREAM.__class__.__name__ == 'SocketKind'; SOCK_DGRAM.__class__.__name__ == 'SocketKind'; error.__name__ == 'OSError'; timeout.__name__ == 'TimeoutError'; timeout.__bases__[0].__name__ == 'OSError'."
+    - "socket_extra13 covers: AF_UNIX.__class__.__name__ == 'AddressFamily'."
+    - "socket_extra8 covers: error/__qualname__ == 'OSError'; timeout/__qualname__ == 'TimeoutError'; gaierror/__qualname__ == 'gaierror'; herror/__qualname__ == 'herror'."
+    - "socket_extra3 covers: herror/__bases__[0].__name__ == 'OSError'; gaierror/__bases__[0].__name__ == 'OSError' (via direct subscript, not __getitem__)."
+    - "socket_extra11 covers: timeout/__bases__[0].__name__ == 'OSError'; gaierror/__bases__[0].__name__ == 'OSError' (standalone invariants)."
+    - "socket_extra5 covers: herror/__module__ == 'socket'; gaierror/__module__ == 'socket'; timeout/__module__ == 'builtins'."
+    - "socket_extra4 covers: error/__module__ == 'builtins' (in a module table)."
+    - "No prior spec covers: error/__bases__.__getitem__(0).__name__ == 'Exception' — the __getitem__ invocation path on error.__bases__ returning 'Exception'."
+    - "No prior spec covers: __mro__.__len__() for herror/gaierror/timeout — MRO depth has never been checked for any socket exception type."
+    - "No prior spec covers: herror.__class__.__name__ == 'type' — the metaclass of herror."
+    - "No prior spec covers: gaierror.__class__.__name__ == 'type' — the metaclass of gaierror."
+    - "socket.error.__bases__[0].__name__ == 'Exception' — socket.error is an alias for OSError; OSError's direct base is Exception."
+    - "socket.herror.__mro__: [herror, OSError, Exception, BaseException, object] — length 5."
+    - "socket.gaierror.__mro__: [gaierror, OSError, Exception, BaseException, object] — length 5."
+    - "socket.timeout.__mro__: [TimeoutError, OSError, Exception, BaseException, object] — length 5."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# socket.error.__bases__.__getitem__(0).__name__ == 'Exception'
+#
+# socket.error is an alias for OSError. OSError's direct base is Exception.
+# socket_extra2 checks socket.error.__name__ == 'OSError' and
+# timeout.__bases__[0].__name__ == 'OSError'. No prior spec checks
+# error.__bases__[0].__name__ via __getitem__ or any other path.
+# 'Exception' (not 'OSError') because this is socket.error == OSError,
+# and OSError.__bases__[0] is Exception.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra17.error.base_name:
+  description: "socket.error.__bases__.__getitem__(0).__name__ == 'Exception' — socket.error is OSError whose base is Exception"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: error.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Exception"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __bases__.__getitem__(0).__name__ for timeout/herror/gaierror
+#
+# Prior specs cover these via direct subscript notation in notes and some
+# standalone invariants, but the __getitem__ invocation form on a table is new.
+# timeout.__bases__[0].__name__ == 'OSError' (covered standalone by extra2/extra11)
+# herror.__bases__[0].__name__ == 'OSError' (covered standalone by extra3)
+# gaierror.__bases__[0].__name__ == 'OSError' (covered standalone by extra3/extra11)
+#
+# These table rows use the __getitem__ path, which is a distinct execution
+# route from direct subscript. Combined with error above they form a complete
+# table of the four socket exception aliases.
+# ---------------------------------------------------------------------------
+
+table socket_extra17.exception_bases_getitem:
+  description: "Direct base class names for socket exception types via __bases__.__getitem__(0)"
+  category: class_hierarchy
+  id_prefix: base_getitem
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [timeout,  timeout.__bases__.__getitem__,  [0], __name__.__eq__, ["OSError"], true]
+    - [herror,   herror.__bases__.__getitem__,   [0], __name__.__eq__, ["OSError"], true]
+    - [gaierror, gaierror.__bases__.__getitem__, [0], __name__.__eq__, ["OSError"], true]
+
+# ---------------------------------------------------------------------------
+# MRO lengths for socket exception types
+#
+# No prior spec (socket or ssl) checks .__mro__.__len__() on any type.
+# MRO is a tuple; its length reflects the full inheritance chain.
+# herror/gaierror/timeout all have MRO: [self, OSError, Exception, BaseException, object]
+# => length 5.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra17.herror.mro_len:
+  description: "socket.herror.__mro__.__len__() == 5 — herror MRO: herror->OSError->Exception->BaseException->object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: herror.__mro__.__len__
+  args: []
+  expected: 5
+
+invariant socket_extra17.gaierror.mro_len:
+  description: "socket.gaierror.__mro__.__len__() == 5 — gaierror MRO: gaierror->OSError->Exception->BaseException->object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: gaierror.__mro__.__len__
+  args: []
+  expected: 5
+
+invariant socket_extra17.timeout.mro_len:
+  description: "socket.timeout.__mro__.__len__() == 5 — timeout MRO: TimeoutError->OSError->Exception->BaseException->object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: timeout.__mro__.__len__
+  args: []
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# herror and gaierror metaclass: __class__.__name__ == 'type'
+#
+# No prior spec checks the metaclass of any socket exception class.
+# Both herror and gaierror are plain Python classes whose metaclass is 'type'.
+# This verifies the reflection chain: cls.__class__.__name__ == 'type'.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra17.herror.metaclass_name:
+  description: "socket.herror.__class__.__name__ == 'type' — herror is an ordinary class with metaclass type"
+  category: class_metadata
+  kind: python_call_eq
+  function: herror.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant socket_extra17.gaierror.metaclass_name:
+  description: "socket.gaierror.__class__.__name__ == 'type' — gaierror is an ordinary class with metaclass type"
+  category: class_metadata
+  kind: python_call_eq
+  function: gaierror.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true

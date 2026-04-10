@@ -1,0 +1,145 @@
+spec: ipaddress_extra12
+version: ">=3.9"
+backend: python_module(ipaddress)
+
+docs: https://docs.python.org/3/library/ipaddress.html
+rfcs:
+  - "RFC 791 — Internet Protocol (IPv4)"
+  - "RFC 2460 — Internet Protocol, Version 6 (IPv6)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ipaddress.html — Python ipaddress module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ipaddress.py"
+    - "ipaddress.zspec.zsdl — covers IPv4/IPv6 address/network attributes and error cases"
+    - "ipaddress_extra.zspec.zsdl — covers __name__/__module__ for 6 public classes (tables); factory return types; packed_is_bytes; is_private"
+    - "ipaddress_extra2.zspec.zsdl — covers class __name__ tables; ip_address/ip_network/ip_interface __name__ (table); loopback class name; packed_is_bytes"
+    - "ipaddress_extra3.zspec.zsdl — covers ip_address/ip_network/ip_interface __module__; IPv4/IPv6Address __bases__[0].__name__; IPv4/IPv6Network __bases__[0].__name__; AddressValueError/NetmaskValueError"
+    - "ipaddress_extra4.zspec.zsdl — covers IPv4Address is_private/is_loopback/is_unspecified/packed type/len; IPv6Address is_loopback/packed len; IPv4Network num_addresses/prefixlen/network_address class; ip_network returns IPv4Network"
+    - "ipaddress_extra5.zspec.zsdl — covers __qualname__ for all 6 classes, 3 factories, 2 exception classes"
+    - "ipaddress_extra6.zspec.zsdl — covers .version and .max_prefixlen for IPv4/IPv6 Address/Network; IPv6Address.compressed; IPv4Network(10.0.0.0/8).version==4"
+    - "ipaddress_extra7.zspec.zsdl — covers class __name__ table (8 symbols); exception __bases__; IPv4/IPv6Address/IPv4Network __module__"
+    - "ipaddress_extra8.zspec.zsdl — covers bases_count table; IPv4Address.is_global; IPv6Address.is_unspecified; IPv4Address.is_multicast; IPv6Address.is_link_local"
+    - "ipaddress_extra9.zspec.zsdl — covers IPv4Address.compressed; IPv4Network/IPv6Network.max_prefixlen; IPv6Network.prefixlen(128)/num_addresses(1); IPv4Network(192.168.0.0/16).num_addresses==65536; IPv4Address.is_reserved; IPv6Address.is_multicast"
+    - "ipaddress_extra10.zspec.zsdl — covers ip_address factory class name (method_chain); IPv6Network.__module__; various boolean attributes"
+    - "ipaddress_extra11.zspec.zsdl — covers packed byte value equality (!hex); IPv4Network('0.0.0.0/0').prefixlen==0; prefixlen==10 for /10; num_addresses for /0 and /10; IPv4/IPv6Address/Network __name__.__len__()==11"
+  notes:
+    - "This spec extends the ipaddress chain; it does NOT duplicate invariants already present in any prior spec."
+    - "Focus: IPv4Interface and IPv6Interface __bases__[0].__name__ (neither class hierarchy has appeared as a standalone invariant); __module__ table for the __module__ attribute of all six classes verifying the string length (9 for 'ipaddress'); ip_address/__qualname__.__len__()==10; ip_interface/__qualname__.__len__()==12."
+    - "ipaddress.IPv4Interface.__bases__[0].__name__ == 'IPv4Address' — Interface inherits from Address. No prior spec checks Interface bases."
+    - "ipaddress.IPv6Interface.__bases__[0].__name__ == 'IPv6Address' — same pattern for IPv6. No prior spec checks Interface bases."
+    - "ipaddress.IPv4Address.__module__.__len__() == 9 — len('ipaddress') == 9. No prior spec checks __module__ string length."
+    - "ipaddress.ip_address.__qualname__.__len__() == 10 — len('ip_address') == 10. Prior spec checks ip_address.__qualname__ == 'ip_address' via __eq__; length is new."
+    - "ipaddress.ip_interface.__qualname__.__len__() == 12 — len('ip_interface') == 12. Same rationale."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# IPv4Interface and IPv6Interface __bases__[0].__name__
+#
+# ipaddress_extra3 checks IPv4Address and IPv6Address bases (both 'object' or
+# '_BaseAddress') and IPv4Network/IPv6Network bases. No prior spec checks the
+# base class of IPv4Interface or IPv6Interface. IPv4Interface inherits directly
+# from IPv4Address; IPv6Interface inherits directly from IPv6Address.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra12.IPv4Interface.base_name:
+  description: "ipaddress.IPv4Interface.__bases__[0].__name__ == 'IPv4Address' — Interface inherits from Address"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: IPv4Interface.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["IPv4Address"]
+  expected: true
+
+invariant ipaddress_extra12.IPv6Interface.base_name:
+  description: "ipaddress.IPv6Interface.__bases__[0].__name__ == 'IPv6Address' — Interface inherits from Address"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: IPv6Interface.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["IPv6Address"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __module__ string length for the six public ipaddress classes
+#
+# All six classes have __module__ == 'ipaddress' (9 characters).
+# Prior specs verify the string value via __eq__ in tables.
+# No prior spec checks the length of any __module__ string in this module.
+# ---------------------------------------------------------------------------
+
+table ipaddress_extra12.class_module_len:
+  category: class_metadata
+  id_prefix: module_len
+  columns: [id, function, args, expected]
+  rows:
+    - [IPv4Address,   IPv4Address.__module__.__len__,   [], 9]
+    - [IPv6Address,   IPv6Address.__module__.__len__,   [], 9]
+    - [IPv4Network,   IPv4Network.__module__.__len__,   [], 9]
+    - [IPv6Network,   IPv6Network.__module__.__len__,   [], 9]
+    - [IPv4Interface, IPv4Interface.__module__.__len__, [], 9]
+    - [IPv6Interface, IPv6Interface.__module__.__len__, [], 9]
+
+# ---------------------------------------------------------------------------
+# ip_address, ip_network, ip_interface __qualname__ string lengths
+#
+# ipaddress_extra5 covers __qualname__ == 'ip_address'/'ip_network'/'ip_interface'
+# via table __eq__ checks. No prior spec checks the length of these strings.
+# len('ip_address') == 10; len('ip_network') == 10; len('ip_interface') == 12.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra12.ip_address.qualname_len:
+  description: "ipaddress.ip_address.__qualname__.__len__() == 10 — len('ip_address') == 10"
+  category: factory_metadata
+  kind: python_call_eq
+  function: ip_address.__qualname__.__len__
+  args: []
+  expected: 10
+
+invariant ipaddress_extra12.ip_network.qualname_len:
+  description: "ipaddress.ip_network.__qualname__.__len__() == 10 — len('ip_network') == 10"
+  category: factory_metadata
+  kind: python_call_eq
+  function: ip_network.__qualname__.__len__
+  args: []
+  expected: 10
+
+invariant ipaddress_extra12.ip_interface.qualname_len:
+  description: "ipaddress.ip_interface.__qualname__.__len__() == 12 — len('ip_interface') == 12"
+  category: factory_metadata
+  kind: python_call_eq
+  function: ip_interface.__qualname__.__len__
+  args: []
+  expected: 12
+
+# ---------------------------------------------------------------------------
+# IPv4Interface and IPv6Interface __qualname__ string lengths
+#
+# ipaddress_extra5 verifies the __qualname__ values via __eq__ (table).
+# ipaddress_extra11 checks __name__.__len__() for IPv4/IPv6Address and Network.
+# No prior spec checks __qualname__.__len__() for IPv4Interface or IPv6Interface.
+# len('IPv4Interface') == 13; len('IPv6Interface') == 13.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra12.IPv4Interface.qualname_len:
+  description: "ipaddress.IPv4Interface.__qualname__.__len__() == 13 — len('IPv4Interface') == 13"
+  category: class_metadata
+  kind: python_call_eq
+  function: IPv4Interface.__qualname__.__len__
+  args: []
+  expected: 13
+
+invariant ipaddress_extra12.IPv6Interface.qualname_len:
+  description: "ipaddress.IPv6Interface.__qualname__.__len__() == 13 — len('IPv6Interface') == 13"
+  category: class_metadata
+  kind: python_call_eq
+  function: IPv6Interface.__qualname__.__len__
+  args: []
+  expected: 13
