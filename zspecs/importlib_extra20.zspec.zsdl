@@ -1,0 +1,185 @@
+spec: importlib_extra20
+version: ">=3.9"
+backend: python_module(importlib)
+
+docs: https://docs.python.org/3/library/importlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/importlib.html — Python importlib module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/importlib/__init__.py"
+    - "importlib_extra19.zspec.zsdl — covers __name__.__len__() and __module__.__len__() for import_module/reload in tables; __name__.__len__()/__package__.__len__()==9 for module; submodule __name__.__class__.__name__=='str' checks."
+    - "importlib_extra18.zspec.zsdl — covers import_module/__name__.__len__()==13, reload/__name__.__len__()==6; import_module/__module__.__len__()==9, reload/__module__.__len__()==9."
+  notes:
+    - "This spec extends importlib_extra19.zspec.zsdl."
+    - "Prior specs covered: import_module/reload __name__/__module__/__qualname__ equality and lengths; util/resources/abc/machinery __name__ and lengths and __class__.__name__=='str'; module __name__/__package__ equality and lengths."
+    - "This spec covers: importlib.__all__.__len__()==4; importlib.__all__.__class__.__name__=='list'; importlib.__spec__.__class__.__name__=='ModuleSpec' (len 10); importlib.__loader__.__class__.__name__=='SourceFileLoader' (len 16); import_module/__qualname__.__eq__() and reload/__qualname__.__eq__(); machinery/util/abc/resources __class__.__name__=='module'; __all__.__contains__ membership checks."
+    - "importlib.__all__ == ['__import__', 'import_module', 'invalidate_caches', 'reload'] — 4 entries."
+    - "importlib.__spec__.__class__.__name__ == 'ModuleSpec' (len 10). Verified."
+    - "importlib.__loader__.__class__.__name__ == 'SourceFileLoader' (len 16). Verified."
+    - "importlib.import_module.__qualname__ == 'import_module' (len 13, same as __name__). Verified."
+    - "importlib.reload.__qualname__ == 'reload' (len 6, same as __name__). Verified."
+    - "importlib.machinery.__class__.__name__ == 'module'. importlib.util.__class__.__name__ == 'module'. Both confirmed."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table: __all__ membership checks for importlib
+#
+# importlib.__all__ == ['__import__', 'import_module', 'invalidate_caches', 'reload'].
+# No prior importlib spec covers __all__.__contains__() checks.
+# Verified: all four return True.
+# ---------------------------------------------------------------------------
+
+table importlib_extra20.all_contains:
+  description: "__all__.__contains__() confirms key names are in importlib.__all__"
+  kind: python_call_eq
+  category: all_membership
+  id_prefix: allc20
+
+  columns: [id, function, args, expected]
+  rows:
+    - [import_module,      "__all__.__contains__", ["import_module"],      true]
+    - [reload,             "__all__.__contains__", ["reload"],             true]
+    - [invalidate_caches,  "__all__.__contains__", ["invalidate_caches"],  true]
+
+# ---------------------------------------------------------------------------
+# Table: submodule __class__.__name__ == 'module'
+#
+# importlib.machinery/util/abc/resources are all module objects.
+# importlib_extra19 confirms their __name__.__class__.__name__ == 'str'.
+# This table checks the submodules themselves are 'module' instances.
+# Verified: all four return 'module'.
+# ---------------------------------------------------------------------------
+
+table importlib_extra20.submodule_class_names:
+  description: "__class__.__name__ == 'module' for importlib submodules machinery/util/abc/resources"
+  kind: python_call_eq
+  category: submodule_attrs
+  id_prefix: subcn20
+
+  columns: [id, function, args, expected]
+  rows:
+    - [machinery,  "machinery.__class__.__name__.__eq__",  ["module"], true]
+    - [util,       "util.__class__.__name__.__eq__",       ["module"], true]
+    - [abc,        "abc.__class__.__name__.__eq__",        ["module"], true]
+    - [resources,  "resources.__class__.__name__.__eq__",  ["module"], true]
+
+# ---------------------------------------------------------------------------
+# Table: __spec__ and __loader__ class name lengths
+#
+# importlib.__spec__.__class__.__name__ == 'ModuleSpec' (len 10).
+# importlib.__loader__.__class__.__name__ == 'SourceFileLoader' (len 16).
+# No prior importlib spec covers these __len__() checks.
+# Verified: 10 and 16.
+# ---------------------------------------------------------------------------
+
+table importlib_extra20.spec_loader_class_name_lengths:
+  description: "__spec__ and __loader__ class name lengths for the importlib module"
+  kind: python_call_eq
+  category: module_identity
+  id_prefix: slcnl20
+
+  columns: [id, function, args, expected]
+  rows:
+    - [spec_class_name_len,   "__spec__.__class__.__name__.__len__",   [], 10]
+    - [loader_class_name_len, "__loader__.__class__.__name__.__len__", [], 16]
+
+# ---------------------------------------------------------------------------
+# Standalone: importlib.__all__.__len__() == 4
+#
+# importlib exports exactly 4 names: __import__, import_module,
+# invalidate_caches, reload. No prior importlib spec checks __all__.__len__().
+# Verified: 4.
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra20.all.len:
+  description: "importlib.__all__.__len__() == 4 — exactly 4 public names are exported"
+  category: all_membership
+  kind: python_call_eq
+  function: "__all__.__len__"
+  args: []
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# Standalone: importlib.__all__.__class__.__name__ == 'list'
+#
+# __all__ is a plain Python list. No prior importlib spec checks
+# __all__.__class__.__name__. Verified: 'list'.
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra20.all.class_name:
+  description: "importlib.__all__.__class__.__name__.__eq__('list') == True — __all__ is a list"
+  category: all_membership
+  kind: python_call_eq
+  function: "__all__.__class__.__name__.__eq__"
+  args: ["list"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone: importlib.__spec__.__class__.__name__.__eq__('ModuleSpec')
+#
+# Confirms by equality that the spec class is exactly 'ModuleSpec'.
+# No prior importlib spec checks __spec__.__class__.__name__ via __eq__.
+# Verified: True.
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra20.spec.class_name_eq:
+  description: "importlib.__spec__.__class__.__name__.__eq__('ModuleSpec') == True — spec class is ModuleSpec"
+  category: module_identity
+  kind: python_call_eq
+  function: "__spec__.__class__.__name__.__eq__"
+  args: ["ModuleSpec"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone: importlib.__loader__.__class__.__name__.__eq__('SourceFileLoader')
+#
+# Confirms the loader class is exactly 'SourceFileLoader' by equality.
+# No prior importlib spec checks __loader__.__class__.__name__ via __eq__.
+# Verified: True.
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra20.loader.class_name_eq:
+  description: "importlib.__loader__.__class__.__name__.__eq__('SourceFileLoader') == True — loader class is SourceFileLoader"
+  category: module_identity
+  kind: python_call_eq
+  function: "__loader__.__class__.__name__.__eq__"
+  args: ["SourceFileLoader"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone: importlib.import_module.__qualname__.__eq__('import_module')
+#
+# For a top-level function, __qualname__ equals __name__. No prior importlib
+# spec checks __qualname__ via __eq__ for import_module.
+# Verified: True.
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra20.import_module.qualname_eq:
+  description: "importlib.import_module.__qualname__.__eq__('import_module') == True — top-level function qualname equals name"
+  category: function_attrs
+  kind: python_call_eq
+  function: "import_module.__qualname__.__eq__"
+  args: ["import_module"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone: importlib.reload.__qualname__.__eq__('reload')
+#
+# For a top-level function, __qualname__ equals __name__. No prior importlib
+# spec checks __qualname__ via __eq__ for reload.
+# Verified: True.
+# ---------------------------------------------------------------------------
+
+invariant importlib_extra20.reload.qualname_eq:
+  description: "importlib.reload.__qualname__.__eq__('reload') == True — top-level function qualname equals name"
+  category: function_attrs
+  kind: python_call_eq
+  function: "reload.__qualname__.__eq__"
+  args: ["reload"]
+  expected: true
