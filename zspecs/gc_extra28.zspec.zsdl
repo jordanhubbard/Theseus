@@ -1,0 +1,134 @@
+spec: gc_extra28
+version: ">=3.9"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gc.html — Python gc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/gcmodule.c"
+  notes:
+    - "This spec extends prior gc specs through gc_extra27.zspec.zsdl."
+    - "gc_extra24 covers: __qualname__ for collect/enable/disable/isenabled/get_count/get_threshold/set_threshold/get_objects and garbage.__class__.__name__."
+    - "gc_extra25 covers: __qualname__ for get_freeze_count/freeze/unfreeze/is_tracked/is_finalized/get_referrers/get_referents."
+    - "gc_extra27 covers: len(gc.garbage)==0, get_threshold() return type (tuple), get_count() return type (tuple), get_freeze_count() return type (int)."
+    - "gc_extra23 covers: get_stats() return length (3), get_stats()[0] class name ('dict')."
+    - "Focus: get_stats()[1] and get_stats()[2] are dict (gen1 and gen2 entries); gc.__name__ == 'gc'; gc.__package__ == ''; get_stats() has 'collected', 'collections', and 'uncollectable' keys in gen0."
+    - "gc.get_stats().__getitem__(1).__class__.__name__ == 'dict' — gen-1 entry is a plain dict. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "gc.get_stats().__getitem__(2).__class__.__name__ == 'dict' — gen-2 entry is a plain dict. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "gc.__name__ == 'gc' — module self-identifies by its own name. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "gc.__package__ == '' — built-in C extension; __package__ is empty string. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "'collected' in gc.get_stats()[0] == True — standard key in per-generation stat dict. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "'collections' in gc.get_stats()[0] == True — standard key in per-generation stat dict. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "'uncollectable' in gc.get_stats()[0] == True — standard key in per-generation stat dict. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# gc.get_stats() generation-1 and generation-2 entry types
+#
+# gc_extra23 records that get_stats()[0] is a dict. No prior gc spec records
+# the class name of get_stats()[1] or get_stats()[2]. All three generation
+# entries are plain dicts; this spec anchors gens 1 and 2.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra28.get_stats.gen1_is_dict:
+  description: "gc.get_stats()[1].__class__.__name__ == 'dict' — gen-1 statistics entry is a plain dict"
+  category: get_stats_structure
+  kind: python_call_eq
+  function: "get_stats().__getitem__(1).__class__.__name__.__eq__"
+  args: ["dict"]
+  expected: true
+
+invariant gc_extra28.get_stats.gen2_is_dict:
+  description: "gc.get_stats()[2].__class__.__name__ == 'dict' — gen-2 statistics entry is a plain dict"
+  category: get_stats_structure
+  kind: python_call_eq
+  function: "get_stats().__getitem__(2).__class__.__name__.__eq__"
+  args: ["dict"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gc module identity attributes
+#
+# gc.__name__ and gc.__package__ describe the module itself. gc is a built-in
+# C extension; __package__ is an empty string. No prior gc spec records
+# gc.__name__ as a standalone invariant in the extra28 namespace, and
+# gc.__package__ has not been recorded in any prior gc spec.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra28.module.name:
+  description: "gc.__name__ == 'gc' — module self-identifies by its own name"
+  category: module_identity
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["gc"]
+  expected: true
+
+invariant gc_extra28.module.package:
+  description: "gc.__package__ == '' — built-in C extension has empty __package__"
+  category: module_identity
+  kind: python_call_eq
+  function: __package__.__eq__
+  args: [""]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gc.get_stats()[0] key membership
+#
+# Each per-generation statistics dict contains three standard keys:
+# 'collected', 'collections', and 'uncollectable'. gc_extra23 records that
+# get_stats()[0] is a dict and checks its length. No prior gc spec records
+# __contains__ (key membership) checks for the standard stat keys.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra28.get_stats.gen0_key_collected:
+  description: "'collected' in gc.get_stats()[0] — standard stat key present in gen-0 dict"
+  category: get_stats_structure
+  kind: python_call_eq
+  function: "get_stats().__getitem__(0).__contains__"
+  args: ["collected"]
+  expected: true
+
+invariant gc_extra28.get_stats.gen0_key_collections:
+  description: "'collections' in gc.get_stats()[0] — standard stat key present in gen-0 dict"
+  category: get_stats_structure
+  kind: python_call_eq
+  function: "get_stats().__getitem__(0).__contains__"
+  args: ["collections"]
+  expected: true
+
+invariant gc_extra28.get_stats.gen0_key_uncollectable:
+  description: "'uncollectable' in gc.get_stats()[0] — standard stat key present in gen-0 dict"
+  category: get_stats_structure
+  kind: python_call_eq
+  function: "get_stats().__getitem__(0).__contains__"
+  args: ["uncollectable"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Consolidated table — all seven structural and identity checks
+#
+# Covers get_stats()[1] and get_stats()[2] dict type (2), gc.__name__ and
+# gc.__package__ module identity (2), and get_stats()[0] key membership (3).
+# ---------------------------------------------------------------------------
+
+table gc_extra28.stats_structure_and_module_identity:
+  description: "get_stats() gen1/gen2 dict type, module identity attrs, and get_stats()[0] key membership"
+  kind: python_call_eq
+  category: get_stats_structure
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gen1_is_dict,            "get_stats().__getitem__(1).__class__.__name__.__eq__", ["dict"],           true]
+    - [gen2_is_dict,            "get_stats().__getitem__(2).__class__.__name__.__eq__", ["dict"],           true]
+    - [module_name,             __name__.__eq__,                                        ["gc"],             true]
+    - [module_package,          __package__.__eq__,                                     [""],               true]
+    - [gen0_key_collected,      "get_stats().__getitem__(0).__contains__",              ["collected"],      true]
+    - [gen0_key_collections,    "get_stats().__getitem__(0).__contains__",              ["collections"],    true]
+    - [gen0_key_uncollectable,  "get_stats().__getitem__(0).__contains__",              ["uncollectable"],  true]
