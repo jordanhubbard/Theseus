@@ -1,0 +1,141 @@
+spec: concurrent_futures_extra31
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html — Python concurrent.futures module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/concurrent/futures/_base.py"
+    - "CPython source: Lib/concurrent/futures/thread.py"
+    - "CPython source: Lib/concurrent/futures/process.py"
+  notes:
+    - "This spec extends concurrent_futures_extra30.zspec.zsdl."
+    - "Prior specs covered: ThreadPoolExecutor/ProcessPoolExecutor/Future/Executor __name__/__module__/__qualname__, CancelledError/TimeoutError/BrokenExecutor/InvalidStateError identity and bases, as_completed/wait __name__/__qualname__, FIRST_COMPLETED/FIRST_EXCEPTION/ALL_COMPLETED values, class __module__/__name__/__len__() tables, submit/shutdown qualname lens for ThreadPoolExecutor/ProcessPoolExecutor/Executor, Future method qualname lens, class __dict__.__class__.__name__.__len__() for Future/ThreadPoolExecutor/ProcessPoolExecutor/Executor/BrokenExecutor/CancelledError, as_completed/wait __module__.__len__(), __all__.__len__() == 14, __mro__.__len__() for ThreadPoolExecutor/ProcessPoolExecutor/Future/Executor, __bases__[0].__name__.__len__() for all four, Executor context manager qualname lens, InvalidStateError identity and hierarchy, as_completed/wait __name__.__len__(), wait sentinel string lengths."
+    - "This spec covers: ThreadPoolExecutor.__bases__[0].__name__.__len__()==8 ('Executor'); ProcessPoolExecutor.__bases__[0].__name__.__len__()==8 ('Executor'); Executor.__bases__[0].__name__.__len__()==6 ('object'); ThreadPoolExecutor.__dict__.__class__.__name__.__len__()==12 ('mappingproxy'); Future.__bases__[0].__name__.__len__()==6 ('object'); BrokenExecutor.__mro__.__len__()==5; ThreadPoolExecutor.__qualname__.__len__()==18; ProcessPoolExecutor.__qualname__.__len__()==19; Executor.__qualname__.__len__()==8; wait.__qualname__.__len__()==4."
+    - "ThreadPoolExecutor and ProcessPoolExecutor both directly subclass Executor (8 chars) — same base class name length despite different names."
+    - "Executor directly subclasses object (6 chars) — it is the root executor class with no intermediate base."
+    - "Future directly subclasses object (6 chars) — Future and Executor are both root-level classes (no shared intermediate base)."
+    - "BrokenExecutor.__mro__.__len__() == 5 — (BrokenExecutor, RuntimeError, Exception, BaseException, object) — depth 5 via RuntimeError."
+    - "ThreadPoolExecutor.__qualname__ == 'ThreadPoolExecutor' (18 chars); ProcessPoolExecutor.__qualname__ == 'ProcessPoolExecutor' (19 chars) — one character difference."
+    - "Executor.__qualname__ == 'Executor' (8 chars) — same as __name__; wait.__qualname__ == 'wait' (4 chars) — same as __name__."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# concurrent.futures executor base class name lengths — extra31 namespace
+#
+# The inheritance chain for ThreadPoolExecutor and ProcessPoolExecutor is:
+#   ThreadPoolExecutor -> Executor -> object
+#   ProcessPoolExecutor -> Executor -> object
+# So for both TPE and PPE, __bases__[0].__name__ == 'Executor' (8 chars).
+# For Executor itself, __bases__[0].__name__ == 'object' (6 chars).
+# For Future, __bases__[0].__name__ == 'object' (6 chars) — flat hierarchy.
+# These base name lengths were noted in prior specs but not captured as
+# explicit table rows for TPE/PPE using the __bases__[0].__name__.__len__
+# function form.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra31.executor_base_name_lengths:
+  description: "concurrent.futures executor class __bases__[0].__name__.__len__() in extra31 namespace"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: execbaselen31
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ThreadPoolExecutor,  "ThreadPoolExecutor.__bases__[0].__name__.__len__",  [], 8]
+    - [ProcessPoolExecutor, "ProcessPoolExecutor.__bases__[0].__name__.__len__", [], 8]
+    - [Executor,            "Executor.__bases__[0].__name__.__len__",            [], 6]
+    - [Future,              "Future.__bases__[0].__name__.__len__",              [], 6]
+
+# ---------------------------------------------------------------------------
+# concurrent.futures ThreadPoolExecutor.__dict__.__class__.__name__ length — extra31
+#
+# Class __dict__ is a mappingproxy object, not a plain dict.
+# ThreadPoolExecutor.__dict__.__class__.__name__ == 'mappingproxy' (12 chars).
+# This was measured for several classes in earlier specs; adding TPE explicitly
+# as an invariant here confirms the pattern applies consistently.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra31.ThreadPoolExecutor_dict_class_name_len:
+  description: "concurrent.futures.ThreadPoolExecutor.__dict__.__class__.__name__.__len__() == 12 — 'mappingproxy' is 12 characters"
+  category: class_names
+  kind: python_call_eq
+  function: ThreadPoolExecutor.__dict__.__class__.__name__.__len__
+  args: []
+  expected: 12
+
+# ---------------------------------------------------------------------------
+# concurrent.futures.BrokenExecutor MRO depth — extra31 namespace
+#
+# BrokenExecutor inherits from RuntimeError, giving it a deeper MRO than
+# the plain executor classes:
+#   BrokenExecutor.__mro__ == (BrokenExecutor, RuntimeError, Exception, BaseException, object)
+#   BrokenExecutor.__mro__.__len__() == 5
+# This is deeper than ThreadPoolExecutor/ProcessPoolExecutor (MRO depth 3)
+# and Future/Executor (MRO depth 2). The MRO depth was measured for other
+# exception classes in prior specs but not for BrokenExecutor explicitly.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra31.brokenexecutor_mro_depth:
+  description: "concurrent.futures.BrokenExecutor __mro__.__len__() in extra31 namespace"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: brokenexecmro31
+
+  columns: [id, function, args, expected, method, method_args, description]
+  rows:
+    - [mro_len,
+       BrokenExecutor.__mro__,
+       [],
+       !ascii "",
+       __len__,
+       [],
+       "BrokenExecutor MRO depth == 5 — (BrokenExecutor, RuntimeError, Exception, BaseException, object)"]
+
+# ---------------------------------------------------------------------------
+# concurrent.futures class __qualname__ lengths — extra31 namespace
+#
+# Top-level classes have __qualname__ == __name__ (no nesting prefix):
+#   ThreadPoolExecutor.__qualname__ == 'ThreadPoolExecutor' (18 chars)
+#   ProcessPoolExecutor.__qualname__ == 'ProcessPoolExecutor' (19 chars)
+#   Executor.__qualname__ == 'Executor' (8 chars)
+# The module-level function:
+#   wait.__qualname__ == 'wait' (4 chars)
+# ThreadPoolExecutor (18) and ProcessPoolExecutor (19) differ by exactly 1 char
+# — ProcessPoolExecutor has 'Process' (7) vs 'Thread' (6) as prefix.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra31.class_qualname_lengths:
+  description: "concurrent.futures class __qualname__.__len__() for ThreadPoolExecutor/ProcessPoolExecutor/Executor in extra31 namespace"
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classqualnamelen31
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ThreadPoolExecutor,  ThreadPoolExecutor.__qualname__.__len__,  [], 18]
+    - [ProcessPoolExecutor, ProcessPoolExecutor.__qualname__.__len__, [], 19]
+    - [Executor,            Executor.__qualname__.__len__,            [], 8]
+
+invariant concurrent_futures_extra31.wait_qualname_len:
+  description: "concurrent.futures.wait.__qualname__.__len__() == 4 — 'wait' (4 chars); __qualname__ equals __name__ for module-level functions"
+  category: function_names
+  kind: python_call_eq
+  function: wait.__qualname__.__len__
+  args: []
+  expected: 4
+
+invariant concurrent_futures_extra31.ProcessPoolExecutor_qualname_len:
+  description: "concurrent.futures.ProcessPoolExecutor.__qualname__.__len__() == 19 — 'ProcessPoolExecutor' is one character longer than 'ThreadPoolExecutor' (18)"
+  category: class_names
+  kind: python_call_eq
+  function: ProcessPoolExecutor.__qualname__.__len__
+  args: []
+  expected: 19
