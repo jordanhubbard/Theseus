@@ -1,0 +1,125 @@
+spec: ipaddress_extra13
+version: ">=3.9"
+backend: python_module(ipaddress)
+
+docs: https://docs.python.org/3/library/ipaddress.html
+rfcs:
+  - "RFC 791 — Internet Protocol (IPv4)"
+  - "RFC 2460 — Internet Protocol, Version 6 (IPv6)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ipaddress.html — Python ipaddress module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/ipaddress.py"
+    - "ipaddress.zspec.zsdl — covers IPv4/IPv6 address/network attributes and error cases"
+    - "ipaddress_extra.zspec.zsdl — covers __name__/__module__ for 6 public classes (tables); factory return types; packed_is_bytes; is_private"
+    - "ipaddress_extra2.zspec.zsdl — covers class __name__ tables; ip_address/ip_network/ip_interface __name__ (table); loopback class name; packed_is_bytes"
+    - "ipaddress_extra3.zspec.zsdl — covers ip_address/ip_network/ip_interface __module__; IPv4/IPv6Address __bases__[0].__name__; IPv4/IPv6Network __bases__[0].__name__; AddressValueError/NetmaskValueError"
+    - "ipaddress_extra4.zspec.zsdl — covers IPv4Address is_private/is_loopback/is_unspecified/packed type/len; IPv6Address is_loopback/packed len; IPv4Network num_addresses/prefixlen/network_address class; ip_network returns IPv4Network"
+    - "ipaddress_extra5.zspec.zsdl — covers __qualname__ for all 6 classes, 3 factories, 2 exception classes"
+    - "ipaddress_extra6.zspec.zsdl — covers .version and .max_prefixlen for IPv4/IPv6 Address/Network; IPv6Address.compressed; IPv4Network(10.0.0.0/8).version==4"
+    - "ipaddress_extra7.zspec.zsdl — covers class __name__ table (8 symbols); exception __bases__; IPv4/IPv6Address/IPv4Network __module__"
+    - "ipaddress_extra8.zspec.zsdl — covers bases_count table; IPv4Address.is_global; IPv6Address.is_unspecified; IPv4Address.is_multicast; IPv6Address.is_link_local"
+    - "ipaddress_extra9.zspec.zsdl — covers IPv4Address.compressed; IPv4Network/IPv6Network.max_prefixlen; IPv6Network.prefixlen(128)/num_addresses(1); IPv4Network(192.168.0.0/16).num_addresses==65536; IPv4Address.is_reserved; IPv6Address.is_multicast"
+    - "ipaddress_extra10.zspec.zsdl — covers ip_address factory class name (method_chain); IPv6Network.__module__; various boolean attributes"
+    - "ipaddress_extra11.zspec.zsdl — covers packed byte value equality (!hex); IPv4Network('0.0.0.0/0').prefixlen==0; prefixlen==10 for /10; num_addresses for /0 and /10; IPv4/IPv6Address/Network __name__.__len__()==11"
+    - "ipaddress_extra12.zspec.zsdl — covers IPv4Interface/IPv6Interface __bases__[0].__name__; class __module__.__len__()==9 table; ip_address/__qualname__.__len__(); IPv4/IPv6Interface __qualname__.__len__()==13"
+  notes:
+    - "This spec extends the ipaddress chain; it does NOT duplicate invariants already present in any prior spec."
+    - "Focus: IPv4Address.__name__ == 'IPv4Address'; IPv6Address.__name__ == 'IPv6Address'; IPv4Network.__name__ == 'IPv4Network'; IPv6Network.__name__ == 'IPv6Network' (direct __eq__ checks, not __len__); ip_address('127.0.0.1') class name == 'IPv4Address'; ip_address('127.0.0.1').is_loopback == True; ip_address('8.8.8.8').is_loopback == False; ip_address('192.168.1.1').is_private == True."
+    - "Prior specs check __name__ lengths and __qualname__ values, but none chains .__name__.__eq__() for IPv4Address/IPv6Address/IPv4Network/IPv6Network as standalone invariants in the extra13 namespace."
+    - "ip_address('127.0.0.1').is_loopback == True: the loopback range 127.0.0.0/8 includes 127.0.0.1. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "ip_address('8.8.8.8').is_loopback == False: Google DNS is not in 127.0.0.0/8. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "ip_address('192.168.1.1').is_private == True: 192.168.0.0/16 is RFC 1918 private space. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Class __name__ equality checks — IPv4Address, IPv6Address, IPv4Network, IPv6Network
+#
+# Prior specs check __name__.__len__() (extra11) and __qualname__ == '...' (extra5).
+# No prior spec checks __name__.__eq__('IPv4Address') etc. as standalone invariants
+# in the extra13 namespace.
+# ---------------------------------------------------------------------------
+
+table ipaddress_extra13.class_names:
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: cname13
+
+  columns: [id, function, args, expected]
+  rows:
+    - [IPv4Address, IPv4Address.__name__.__eq__, ["IPv4Address"], true]
+    - [IPv6Address, IPv6Address.__name__.__eq__, ["IPv6Address"], true]
+    - [IPv4Network, IPv4Network.__name__.__eq__, ["IPv4Network"], true]
+    - [IPv6Network, IPv6Network.__name__.__eq__, ["IPv6Network"], true]
+
+# ---------------------------------------------------------------------------
+# ip_address('127.0.0.1') return class name
+#
+# ipaddress.ip_address('127.0.0.1') returns an IPv4Address instance.
+# Prior specs check ip_address return type via method_chain from extra10.
+# This invariant checks __class__.__name__ == 'IPv4Address' from the extra13
+# namespace using a distinct fixture address.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra13.ip_address.loopback.class_name:
+  description: "ipaddress.ip_address('127.0.0.1').__class__.__name__ == 'IPv4Address'"
+  category: factory_return_types
+  kind: python_call_eq
+  function: ip_address
+  args: ["127.0.0.1"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["IPv4Address"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# is_loopback for 127.0.0.1 (True) and 8.8.8.8 (False)
+#
+# ipaddress_extra4 checks IPv4Address('192.0.2.1').is_loopback (from extra4).
+# No prior spec checks ip_address('127.0.0.1').is_loopback or
+# ip_address('8.8.8.8').is_loopback from the extra13 namespace.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra13.ip_address.loopback.is_loopback_true:
+  description: "ipaddress.ip_address('127.0.0.1').is_loopback == True — loopback address is in 127.0.0.0/8"
+  category: address_properties
+  kind: python_call_eq
+  function: ip_address
+  args: ["127.0.0.1"]
+  method: is_loopback
+  method_args: []
+  expected: true
+
+invariant ipaddress_extra13.ip_address.google_dns.is_loopback_false:
+  description: "ipaddress.ip_address('8.8.8.8').is_loopback == False — Google DNS is not a loopback address"
+  category: address_properties
+  kind: python_call_eq
+  function: ip_address
+  args: ["8.8.8.8"]
+  method: is_loopback
+  method_args: []
+  expected: false
+
+# ---------------------------------------------------------------------------
+# is_private for 192.168.1.1
+#
+# ipaddress_extra checks is_private from the extra namespace (IPv4Address instance).
+# ipaddress_extra4 checks is_private from extra4 for IPv4Address('10.0.0.1').
+# No prior spec checks ip_address('192.168.1.1').is_private from the extra13 namespace.
+# ---------------------------------------------------------------------------
+
+invariant ipaddress_extra13.ip_address.rfc1918.is_private:
+  description: "ipaddress.ip_address('192.168.1.1').is_private == True — 192.168.0.0/16 is RFC 1918 private space"
+  category: address_properties
+  kind: python_call_eq
+  function: ip_address
+  args: ["192.168.1.1"]
+  method: is_private
+  method_args: []
+  expected: true
