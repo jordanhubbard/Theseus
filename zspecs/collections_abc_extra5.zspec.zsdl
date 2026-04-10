@@ -1,0 +1,230 @@
+spec: collections_abc_extra5
+version: ">=3.9"
+backend: python_module(collections.abc)
+
+docs: https://docs.python.org/3/library/collections.abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.abc.html — Python collections.abc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/_collections_abc.py"
+  notes:
+    - "This spec extends collections_abc_extra4.zspec.zsdl."
+    - "Prior specs cover: __name__, __module__, __qualname__ for all major ABCs; hierarchy checks; __abstractmethods__ membership for Mapping/Sized/Iterable/Container/Hashable; MappingView/KeysView/ItemsView/ValuesView qualnames and base class chains."
+    - "This spec covers: collections.abc.__all__.__len__() (26) and __class__.__name__.__len__() (4); __dict__.__class__.__name__.__len__() (12) for Sequence/MutableSequence/Mapping/MutableMapping/Set/MutableSet; __mro__.__len__() for those 6 ABCs; __abstractmethods__.__len__() for those 6 ABCs; __qualname__.__len__() for Sequence/MutableSequence/Mapping/MutableMapping/Set/MutableSet."
+    - "SURPRISE: Sequence.__bases__ == (Reversible, Collection) — two direct bases, NOT just Reversible. Sequence.__bases__[0].__name__ == 'Reversible' (10 chars, not 8)."
+    - "SURPRISE: Mapping.__bases__[0].__name__ == 'Collection' (10 chars) — not a stand-alone base; inherits from Collection directly."
+    - "Sequence.__mro__ length is 7: [Sequence, Reversible, Collection, Sized, Iterable, Container, object]."
+    - "MutableSequence.__mro__ length is 8: adds itself at the head."
+    - "Mapping.__mro__ length is 6: [Mapping, Collection, Sized, Iterable, Container, object]."
+    - "MutableMapping.__mro__ length is 7: [MutableMapping, Mapping, Collection, Sized, Iterable, Container, object]."
+    - "Set.__mro__ length is 6: [Set, Collection, Sized, Iterable, Container, object]."
+    - "Sequence.__abstractmethods__ == frozenset({'__getitem__', '__len__'}) — length 2."
+    - "MutableSequence.__abstractmethods__ == frozenset({'__delitem__', '__getitem__', '__len__', '__setitem__', 'insert'}) — length 5."
+    - "Mapping.__abstractmethods__ == frozenset({'__getitem__', '__iter__', '__len__'}) — length 3."
+    - "MutableMapping.__abstractmethods__ == frozenset({'__delitem__', '__getitem__', '__iter__', '__len__', '__setitem__'}) — length 5."
+    - "Set.__abstractmethods__ == frozenset({'__contains__', '__iter__', '__len__'}) — length 3."
+    - "MutableSet.__abstractmethods__ == frozenset({'__contains__', '__iter__', '__len__', 'add', 'discard'}) — length 5."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# collections.abc.__all__ — length and container type
+#
+# collections.abc.__all__ lists all 26 exported ABC names. It is a plain
+# list (class name 'list', 4 chars). No prior collections.abc spec records
+# __all__.__len__() or __all__.__class__.__name__.__len__().
+# ---------------------------------------------------------------------------
+
+invariant collections_abc_extra5.module.all_len:
+  description: "len(collections.abc.__all__) == 26 — exports 26 ABC names"
+  category: module_identity
+  kind: python_call_eq
+  function: __all__.__len__
+  args: []
+  expected: 26
+
+invariant collections_abc_extra5.module.all_class_name_len:
+  description: "len(collections.abc.__all__.__class__.__name__) == 4 — __all__ is a 'list'"
+  category: module_identity
+  kind: python_call_eq
+  function: __all__.__class__.__name__.__len__
+  args: []
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# __dict__.__class__.__name__.__len__() == 12 for 6 sequence/mapping/set ABCs
+#
+# Every class's __dict__ is a mappingproxy. The string 'mappingproxy' is 12
+# chars. No prior collections.abc spec records __dict__.__class__.__name__.__len__()
+# for any of these ABCs.
+# ---------------------------------------------------------------------------
+
+table collections_abc_extra5.abc_dict_class_name_lens:
+  description: "__dict__.__class__.__name__.__len__() == 12 for core sequence/mapping/set ABCs"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: dict_cls_len
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Sequence,
+       Sequence.__dict__.__class__.__name__.__len__,
+       [],
+       12,
+       "collections.abc.Sequence.__dict__ is a 'mappingproxy' (12 chars)"]
+    - [MutableSequence,
+       MutableSequence.__dict__.__class__.__name__.__len__,
+       [],
+       12,
+       "collections.abc.MutableSequence.__dict__ is a 'mappingproxy' (12 chars)"]
+    - [Mapping,
+       Mapping.__dict__.__class__.__name__.__len__,
+       [],
+       12,
+       "collections.abc.Mapping.__dict__ is a 'mappingproxy' (12 chars)"]
+    - [MutableMapping,
+       MutableMapping.__dict__.__class__.__name__.__len__,
+       [],
+       12,
+       "collections.abc.MutableMapping.__dict__ is a 'mappingproxy' (12 chars)"]
+    - [Set,
+       Set.__dict__.__class__.__name__.__len__,
+       [],
+       12,
+       "collections.abc.Set.__dict__ is a 'mappingproxy' (12 chars)"]
+    - [MutableSet,
+       MutableSet.__dict__.__class__.__name__.__len__,
+       [],
+       12,
+       "collections.abc.MutableSet.__dict__ is a 'mappingproxy' (12 chars)"]
+
+# ---------------------------------------------------------------------------
+# __mro__.__len__() for 6 core ABCs
+#
+# Sequence has 7 entries in its MRO: Sequence, Reversible, Collection, Sized,
+# Iterable, Container, object. MutableSequence has 8. Mapping and Set each
+# have 6 (Collection, Sized, Iterable, Container, object plus self). MutableMapping
+# has 7. No prior collections.abc spec records __mro__.__len__() for any of these.
+# ---------------------------------------------------------------------------
+
+table collections_abc_extra5.abc_mro_lens:
+  description: "__mro__.__len__() for core sequence/mapping/set ABCs"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: mro_len
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Sequence,
+       Sequence.__mro__.__len__,
+       [],
+       7,
+       "Sequence MRO: [Sequence, Reversible, Collection, Sized, Iterable, Container, object] (7)"]
+    - [MutableSequence,
+       MutableSequence.__mro__.__len__,
+       [],
+       8,
+       "MutableSequence MRO adds itself at head of Sequence's MRO (8)"]
+    - [Mapping,
+       Mapping.__mro__.__len__,
+       [],
+       6,
+       "Mapping MRO: [Mapping, Collection, Sized, Iterable, Container, object] (6)"]
+    - [MutableMapping,
+       MutableMapping.__mro__.__len__,
+       [],
+       7,
+       "MutableMapping MRO adds itself at head of Mapping's MRO (7)"]
+    - [Set,
+       Set.__mro__.__len__,
+       [],
+       6,
+       "Set MRO: [Set, Collection, Sized, Iterable, Container, object] (6)"]
+
+# ---------------------------------------------------------------------------
+# __abstractmethods__.__len__() for 6 core ABCs
+#
+# The abstract method counts encode the minimum contract for each ABC:
+# Sequence=2 (__getitem__, __len__); MutableSequence=5 (adds __setitem__,
+# __delitem__, insert); Mapping=3 (__getitem__, __iter__, __len__);
+# MutableMapping=5 (adds __setitem__, __delitem__); Set=3 (__contains__,
+# __iter__, __len__); MutableSet=5 (adds add, discard). No prior spec records
+# __abstractmethods__.__len__() for any of these 6 ABCs.
+# ---------------------------------------------------------------------------
+
+table collections_abc_extra5.abc_abstractmethods_lens:
+  description: "__abstractmethods__.__len__() for core sequence/mapping/set ABCs"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: absmeth_len
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Sequence,
+       Sequence.__abstractmethods__.__len__,
+       [],
+       2,
+       "Sequence requires __getitem__ and __len__ (2 abstract methods)"]
+    - [MutableSequence,
+       MutableSequence.__abstractmethods__.__len__,
+       [],
+       5,
+       "MutableSequence requires __getitem__/__len__/__setitem__/__delitem__/insert (5)"]
+    - [Mapping,
+       Mapping.__abstractmethods__.__len__,
+       [],
+       3,
+       "Mapping requires __getitem__, __iter__, __len__ (3 abstract methods)"]
+    - [MutableMapping,
+       MutableMapping.__abstractmethods__.__len__,
+       [],
+       5,
+       "MutableMapping requires __getitem__/__iter__/__len__/__setitem__/__delitem__ (5)"]
+    - [Set,
+       Set.__abstractmethods__.__len__,
+       [],
+       3,
+       "Set requires __contains__, __iter__, __len__ (3 abstract methods)"]
+    - [MutableSet,
+       MutableSet.__abstractmethods__.__len__,
+       [],
+       5,
+       "MutableSet requires __contains__/__iter__/__len__/add/discard (5)"]
+
+# ---------------------------------------------------------------------------
+# __qualname__.__len__() for 6 core ABCs — standalone spotlight invariants
+#
+# All are top-level classes so __qualname__ == __name__. Lengths:
+# Sequence=8, MutableSequence=15, Mapping=7, MutableMapping=14, Set=3,
+# MutableSet=10. No prior collections.abc spec records __qualname__.__len__()
+# for any of these 6 ABCs.
+# ---------------------------------------------------------------------------
+
+invariant collections_abc_extra5.Sequence.qualname_len:
+  description: "len(collections.abc.Sequence.__qualname__) == 8 — 'Sequence' is 8 chars"
+  category: class_identity
+  kind: python_call_eq
+  function: Sequence.__qualname__.__len__
+  args: []
+  expected: 8
+
+invariant collections_abc_extra5.MutableSequence.qualname_len:
+  description: "len(collections.abc.MutableSequence.__qualname__) == 15 — 'MutableSequence' is 15 chars"
+  category: class_identity
+  kind: python_call_eq
+  function: MutableSequence.__qualname__.__len__
+  args: []
+  expected: 15
+
+invariant collections_abc_extra5.MutableMapping.qualname_len:
+  description: "len(collections.abc.MutableMapping.__qualname__) == 14 — 'MutableMapping' is 14 chars"
+  category: class_identity
+  kind: python_call_eq
+  function: MutableMapping.__qualname__.__len__
+  args: []
+  expected: 14
