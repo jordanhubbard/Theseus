@@ -1,0 +1,158 @@
+spec: asyncio_extra20
+version: ">=3.9"
+backend: python_module(asyncio)
+
+docs: https://docs.python.org/3/library/asyncio.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio.html — Python asyncio module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/asyncio/tasks.py"
+    - "CPython source: Lib/asyncio/futures.py"
+    - "CPython source: Lib/asyncio/queues.py"
+    - "CPython source: Lib/asyncio/locks.py"
+    - "CPython source: Lib/asyncio/events.py"
+    - "CPython source: Lib/asyncio/runners.py"
+  notes:
+    - "This spec extends asyncio.zspec.zsdl through asyncio_extra19.zspec.zsdl."
+    - "asyncio_extra covers: Queue/Lock/Event/Semaphore/CancelledError/TimeoutError __name__ via __eq__."
+    - "asyncio_extra15 covers: Lock/Event/Semaphore __qualname__ and __module__."
+    - "asyncio_extra18 covers: Queue/Lock/Event/Semaphore __qualname__ and __module__ tables; Task/Future __module__."
+    - "asyncio_extra19 covers: class __name__ length table; exception base class __getitem__ path; exception __module__ table."
+    - "NOT yet covered in any prior spec: asyncio coroutine function __module__ table (sleep/gather/ensure_future/run/get_event_loop) in extra20 namespace."
+    - "NOT yet covered: asyncio.AbstractEventLoop.__bases__[0].__name__ == 'object' as standalone extra20-namespace invariant."
+    - "NOT yet covered: asyncio.Task.__bases__[0].__name__ == 'Future' as standalone extra20-namespace invariant."
+    - "NOT yet covered: asyncio.BoundedSemaphore.__bases__[0].__name__ == 'Semaphore' as standalone extra20-namespace invariant."
+    - "NOT yet covered: asyncio synchronisation class __module__ table (Lock/Event/Semaphore/Condition/BoundedSemaphore) in extra20 namespace."
+    - "asyncio.Future.__module__ == '_asyncio' — Future is implemented in C (_asyncio extension)."
+    - "asyncio.Task.__module__ == '_asyncio' — Task is also implemented in C."
+    - "asyncio.get_event_loop.__module__ == '_asyncio' — get_event_loop dispatches to C implementation."
+    - "asyncio.sleep/gather/ensure_future.__module__ == 'asyncio.tasks' — pure-Python coroutines."
+    - "asyncio.run.__module__ == 'asyncio.runners' — defined in Lib/asyncio/runners.py."
+    - "asyncio.Lock/Event/Semaphore/Condition/BoundedSemaphore.__module__ == 'asyncio.locks'."
+    - "asyncio.AbstractEventLoop.__module__ == 'asyncio.events' — abstract base defined in events.py."
+    - "asyncio.BoundedSemaphore.__bases__[0].__name__ == 'Semaphore' — mirrors threading pattern."
+    - "asyncio.Task.__bases__[0].__name__ == 'Future' — Task is a specialised Future."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Coroutine function __module__ table — new extra20-namespace table
+#
+# asyncio_extra18 covers Task/__module__ and Future/__module__. asyncio_extra19
+# covers exception __module__. No prior spec provides a unified table of
+# coroutine/utility function __module__ values. These five functions span
+# three implementation locations: _asyncio (C extension), asyncio.tasks
+# (Python), and asyncio.runners (Python).
+# ---------------------------------------------------------------------------
+
+table asyncio_extra20.function_modules:
+  description: "asyncio coroutine and utility function __module__ attributes"
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fnmod20
+
+  columns: [id, function, args, expected]
+  rows:
+    - [get_event_loop,  get_event_loop.__module__.__eq__,  ["_asyncio"],        true]
+    - [sleep,           sleep.__module__.__eq__,           ["asyncio.tasks"],   true]
+    - [gather,          gather.__module__.__eq__,          ["asyncio.tasks"],   true]
+    - [ensure_future,   ensure_future.__module__.__eq__,   ["asyncio.tasks"],   true]
+    - [run,             run.__module__.__eq__,             ["asyncio.runners"], true]
+
+# ---------------------------------------------------------------------------
+# Synchronisation class __module__ table — new extra20-namespace table
+#
+# asyncio_extra15 and asyncio_extra18 check __module__ for Lock/Event/Semaphore
+# in different combinations. This table collects all five locks-module classes
+# together in the extra20 namespace, adding Condition and BoundedSemaphore.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra20.sync_class_modules:
+  description: "asyncio synchronisation classes all report __module__ == 'asyncio.locks'"
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: syncmod20
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Lock,             Lock.__module__.__eq__,             ["asyncio.locks"], true]
+    - [Event,            Event.__module__.__eq__,            ["asyncio.locks"], true]
+    - [Semaphore,        Semaphore.__module__.__eq__,        ["asyncio.locks"], true]
+    - [Condition,        Condition.__module__.__eq__,        ["asyncio.locks"], true]
+    - [BoundedSemaphore, BoundedSemaphore.__module__.__eq__, ["asyncio.locks"], true]
+
+# ---------------------------------------------------------------------------
+# Task.__bases__[0].__name__ == 'Future' — standalone extra20 invariant
+#
+# asyncio_extra18 covers Task/__module__. No prior spec provides a standalone
+# invariant confirming Task's direct parent class name. Task is the primary
+# way coroutines are scheduled and it inherits from Future.
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra20.Task.base_is_Future:
+  description: "asyncio.Task.__bases__[0].__name__ == 'Future' — Task is a specialised Future"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Task.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Future"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BoundedSemaphore.__bases__[0].__name__ == 'Semaphore' — standalone extra20
+#
+# No prior spec provides a standalone invariant for asyncio.BoundedSemaphore's
+# base class. This confirms the same pattern as threading.BoundedSemaphore:
+# BoundedSemaphore extends Semaphore rather than inheriting from object.
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra20.BoundedSemaphore.base_is_Semaphore:
+  description: "asyncio.BoundedSemaphore.__bases__[0].__name__ == 'Semaphore' — mirrors threading pattern"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BoundedSemaphore.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Semaphore"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# AbstractEventLoop.__bases__[0].__name__ == 'object' — standalone extra20
+#
+# No prior spec checks AbstractEventLoop's base class name. AbstractEventLoop
+# is the abstract base for all event loop implementations and inherits
+# directly from object (it is not itself a subclass of any concrete class).
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra20.AbstractEventLoop.base_is_object:
+  description: "asyncio.AbstractEventLoop.__bases__[0].__name__ == 'object' — abstract base inherits from object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: AbstractEventLoop.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_event_loop.__module__ == '_asyncio' — standalone extra20
+#
+# The function table above covers this value. This standalone invariant
+# provides an independent extra20-namespace anchor for the surprising fact
+# that get_event_loop is implemented in the C extension _asyncio rather
+# than in a pure-Python asyncio sub-module.
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra20.get_event_loop.module_eq:
+  description: "asyncio.get_event_loop.__module__ == '_asyncio' — implemented in C extension"
+  category: function_modules
+  kind: python_call_eq
+  function: get_event_loop.__module__.__eq__
+  args: ["_asyncio"]
+  expected: true

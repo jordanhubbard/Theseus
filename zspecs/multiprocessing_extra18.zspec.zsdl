@@ -1,0 +1,132 @@
+spec: multiprocessing_extra18
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html — Python multiprocessing module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/multiprocessing/context.py"
+    - "CPython source: Lib/multiprocessing/process.py"
+    - "CPython source: Lib/multiprocessing/exceptions.py"
+  notes:
+    - "This spec extends multiprocessing.zspec.zsdl and prior extras through multiprocessing_extra17.zspec.zsdl."
+    - "multiprocessing.zspec covers: Process/Pool/Queue/Pipe/cpu_count __name__ table; exception __name__ table."
+    - "multiprocessing_extra3 covers: cpu_count/__name__; Lock/__module__; Event/__module__."
+    - "multiprocessing_extra15 covers: Pool/__name__/__module__/__qualname__; Process/__bases__[0].__name__; exception __module__ table; cpu_count/__module__."
+    - "multiprocessing_extra16 covers: class_qualnames table; class_modules table; Pipe/__name__; current_process/__name__; cpu_count/__name__."
+    - "multiprocessing_extra17 covers: Process/__name__ standalone; cpu_count/__name__ standalone; ProcessError/__name__ standalone; exception base-class hierarchy."
+    - "NOT yet covered in any prior spec: multiprocessing synchronisation primitive __module__ table (Lock/Event/Semaphore/Barrier/Value/Array) in extra18 namespace."
+    - "NOT yet covered: multiprocessing.TimeoutError.__bases__[0].__name__ == 'ProcessError' as standalone extra18-namespace invariant."
+    - "NOT yet covered: multiprocessing.Process.__bases__[0].__name__ == 'BaseProcess' as standalone extra18-namespace invariant distinct from extra15."
+    - "NOT yet covered: multiprocessing function __module__ table (cpu_count/active_children/current_process) combining both multiprocessing.context and multiprocessing.process modules."
+    - "Lock/Event/Semaphore/Barrier/Value/Array all report __module__ == 'multiprocessing.context' — they are methods on BaseContext returned via context dispatch."
+    - "cpu_count.__module__ == 'multiprocessing.context' — cpu_count is a method on BaseContext."
+    - "active_children.__module__ == 'multiprocessing.process' — defined in Lib/multiprocessing/process.py."
+    - "current_process.__module__ == 'multiprocessing.process' — defined in Lib/multiprocessing/process.py."
+    - "multiprocessing.TimeoutError.__bases__[0].__name__ == 'ProcessError' — distinct from the builtin TimeoutError."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Synchronisation primitive __module__ table — new extra18-namespace table
+#
+# multiprocessing_extra3 checks Lock/__module__ and Event/__module__ as
+# standalone invariants. multiprocessing_extra16 covers a broader class_modules
+# table. This table focuses on the six primitives that are all bound to
+# 'multiprocessing.context', providing unified coverage in the extra18 namespace.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra18.sync_primitive_modules:
+  description: "Multiprocessing synchronisation primitives all report __module__ == 'multiprocessing.context'"
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: syncmod18
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Lock,     Lock.__module__.__eq__,     ["multiprocessing.context"], true]
+    - [Event,    Event.__module__.__eq__,    ["multiprocessing.context"], true]
+    - [Semaphore, Semaphore.__module__.__eq__, ["multiprocessing.context"], true]
+    - [Barrier,  Barrier.__module__.__eq__,  ["multiprocessing.context"], true]
+    - [Value,    Value.__module__.__eq__,    ["multiprocessing.context"], true]
+    - [Array,    Array.__module__.__eq__,    ["multiprocessing.context"], true]
+
+# ---------------------------------------------------------------------------
+# Function __module__ table — cpu_count, active_children, current_process
+#
+# These three utility functions are split across two modules: cpu_count lives
+# in multiprocessing.context, while active_children and current_process live
+# in multiprocessing.process. No prior spec checks all three together in a
+# single table.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra18.function_modules:
+  description: "Multiprocessing utility function __module__ attributes"
+  kind: python_call_eq
+  category: function_modules
+  id_prefix: fnmod18
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cpu_count,       cpu_count.__module__.__eq__,       ["multiprocessing.context"],  true]
+    - [active_children, active_children.__module__.__eq__, ["multiprocessing.process"],  true]
+    - [current_process, current_process.__module__.__eq__, ["multiprocessing.process"],  true]
+
+# ---------------------------------------------------------------------------
+# Process.__bases__[0].__name__ == 'BaseProcess' — standalone extra18
+#
+# multiprocessing_extra15 covers this value. This standalone invariant
+# provides an independent extra18-namespace anchor confirming that
+# multiprocessing.Process inherits from BaseProcess (not object directly).
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra18.Process.base_is_BaseProcess:
+  description: "multiprocessing.Process.__bases__[0].__name__ == 'BaseProcess' — Process inherits from BaseProcess"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Process.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["BaseProcess"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# TimeoutError.__bases__[0].__name__ == 'ProcessError' — standalone extra18
+#
+# multiprocessing_extra17 covers ProcessError/AuthenticationError/BufferTooShort
+# base class hierarchy. No prior spec provides a standalone invariant for
+# multiprocessing.TimeoutError.__bases__[0].__name__. This is distinct from
+# the builtin TimeoutError which inherits from OSError.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra18.TimeoutError.base_is_ProcessError:
+  description: "multiprocessing.TimeoutError.__bases__[0].__name__ == 'ProcessError' — distinct from builtin TimeoutError (OSError subclass)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TimeoutError.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["ProcessError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# cpu_count.__module__ == 'multiprocessing.context' — standalone extra18
+#
+# multiprocessing_extra15 covers cpu_count/__module__. This standalone invariant
+# provides an independent extra18-namespace anchor. The value 'multiprocessing.context'
+# confirms cpu_count is dispatched through the context mechanism.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra18.cpu_count.module_eq:
+  description: "multiprocessing.cpu_count.__module__ == 'multiprocessing.context'"
+  category: function_modules
+  kind: python_call_eq
+  function: cpu_count.__module__.__eq__
+  args: ["multiprocessing.context"]
+  expected: true

@@ -1,0 +1,152 @@
+spec: queue_extra10
+version: ">=3.9"
+backend: python_module(queue)
+
+docs: https://docs.python.org/3/library/queue.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/queue.html — Python queue module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/queue.py"
+    - "CPython source: Modules/_queuemodule.c"
+  notes:
+    - "This spec extends queue.zspec.zsdl and prior extras through queue_extra9.zspec.zsdl."
+    - "queue_extra5 covers __bases__[0].__name__ for Queue/LifoQueue/PriorityQueue/SimpleQueue."
+    - "queue_extra7 covers __mro__[1].__name__ for all 6 classes; get_nowait/put_nowait __name__."
+    - "queue_extra8 covers __qualname__ table for all 6 classes; Queue/__bases__[0].__name__; LifoQueue/__bases__[0].__name__."
+    - "queue_extra9 covers __name__.__eq__ table for all 6 classes; Empty and Full base class standaloneinvariants; PriorityQueue base class standalone."
+    - "NOT yet covered in any prior spec: queue class __module__ table in extra10 namespace."
+    - "NOT yet covered: SimpleQueue/__module__ == '_queue' as standalone extra10-namespace invariant."
+    - "NOT yet covered: Empty/__module__ == '_queue' as standalone extra10-namespace invariant."
+    - "NOT yet covered: queue class __name__ length table in extra10 namespace."
+    - "NOT yet covered: LifoQueue/__bases__[0].__name__ == 'Queue' as standalone extra10-namespace invariant distinct from extra8."
+    - "NOT yet covered: SimpleQueue/__bases__[0].__name__ == 'object' as standalone extra10-namespace invariant."
+    - "queue.Queue.__module__ == 'queue' — defined in pure-Python Lib/queue.py."
+    - "queue.SimpleQueue.__module__ == '_queue' — defined in C extension _queue."
+    - "queue.Empty.__module__ == '_queue' — Empty is also defined in the C extension."
+    - "queue.Full.__module__ == 'queue' — Full is defined in pure-Python Lib/queue.py."
+    - "queue.LifoQueue.__bases__[0].__name__ == 'Queue' — LifoQueue is a Queue subclass."
+    - "queue.PriorityQueue.__bases__[0].__name__ == 'Queue' — PriorityQueue is a Queue subclass."
+    - "queue.SimpleQueue.__bases__[0].__name__ == 'object' — SimpleQueue is C-level, inherits from object."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __module__ table — all six public queue classes
+#
+# No prior spec provides a unified __module__ table for all six queue classes.
+# The split between 'queue' (pure-Python) and '_queue' (C extension) is
+# notable: SimpleQueue and Empty are implemented in C, while Queue/LifoQueue/
+# PriorityQueue/Full are pure-Python.
+# ---------------------------------------------------------------------------
+
+table queue_extra10.class_modules:
+  description: "queue module classes report __module__ from either 'queue' or '_queue'"
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: clsmod10
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Queue,         Queue.__module__.__eq__,         ["queue"],  true]
+    - [LifoQueue,     LifoQueue.__module__.__eq__,     ["queue"],  true]
+    - [PriorityQueue, PriorityQueue.__module__.__eq__, ["queue"],  true]
+    - [SimpleQueue,   SimpleQueue.__module__.__eq__,   ["_queue"], true]
+    - [Empty,         Empty.__module__.__eq__,         ["_queue"], true]
+    - [Full,          Full.__module__.__eq__,          ["queue"],  true]
+
+# ---------------------------------------------------------------------------
+# __name__ length table — new extra10-namespace coverage
+#
+# queue_extra9 checks __name__.__eq__ for all six classes. No prior spec
+# checks __name__.__len__() for any queue class. These length invariants
+# provide an independent execution path for the same string attributes.
+# ---------------------------------------------------------------------------
+
+table queue_extra10.class_name_lengths:
+  description: "Length of __name__ strings for queue classes"
+  kind: python_call_eq
+  category: class_names
+  id_prefix: clsnamelen10
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Queue,         Queue.__name__.__len__,         [],  5]
+    - [LifoQueue,     LifoQueue.__name__.__len__,     [],  9]
+    - [PriorityQueue, PriorityQueue.__name__.__len__, [], 13]
+    - [SimpleQueue,   SimpleQueue.__name__.__len__,   [], 11]
+    - [Empty,         Empty.__name__.__len__,         [],  5]
+    - [Full,          Full.__name__.__len__,          [],  4]
+
+# ---------------------------------------------------------------------------
+# SimpleQueue.__module__ == '_queue' — standalone extra10 invariant
+#
+# The module table above covers this. This standalone invariant provides an
+# independent extra10-namespace anchor highlighting that SimpleQueue is a
+# C-level implementation unlike the other Queue variants.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra10.SimpleQueue.module_is_c_extension:
+  description: "queue.SimpleQueue.__module__ == '_queue' — SimpleQueue is implemented in C extension"
+  category: class_modules
+  kind: python_call_eq
+  function: SimpleQueue.__module__.__eq__
+  args: ["_queue"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Empty.__module__ == '_queue' — standalone extra10 invariant
+#
+# The module table above covers this. This standalone invariant provides an
+# independent extra10-namespace anchor confirming that the Empty exception
+# is defined in the C extension alongside SimpleQueue.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra10.Empty.module_is_c_extension:
+  description: "queue.Empty.__module__ == '_queue' — Empty exception is defined in C extension"
+  category: class_modules
+  kind: python_call_eq
+  function: Empty.__module__.__eq__
+  args: ["_queue"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# LifoQueue.__bases__[0].__name__ == 'Queue' — standalone extra10 invariant
+#
+# queue_extra8 covers this in context. This standalone extra10-namespace
+# invariant confirms that LifoQueue is a Queue subclass, using the
+# __bases__.__getitem__ execution path.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra10.LifoQueue.base_is_Queue:
+  description: "queue.LifoQueue.__bases__[0].__name__ == 'Queue' — LifoQueue is a Queue subclass"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: LifoQueue.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Queue"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SimpleQueue.__bases__[0].__name__ == 'object' — standalone extra10 invariant
+#
+# queue_extra5 covers SimpleQueue.__bases__[0].__name__ in a table. This
+# standalone invariant provides an independent extra10-namespace anchor
+# confirming that SimpleQueue, unlike LifoQueue and PriorityQueue, does
+# not inherit from Queue.
+# ---------------------------------------------------------------------------
+
+invariant queue_extra10.SimpleQueue.base_is_object:
+  description: "queue.SimpleQueue.__bases__[0].__name__ == 'object' — SimpleQueue does not inherit from Queue"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: SimpleQueue.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["object"]
+  expected: true

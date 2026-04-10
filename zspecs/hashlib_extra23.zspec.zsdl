@@ -1,0 +1,149 @@
+spec: hashlib_extra23
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "FIPS 202 — SHA-3 Standard"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), August 2015"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "hashlib_extra22.zspec.zsdl — covers sha512 empty hexdigest; sha256(b'abc') hexdigest; md5/sha1 block_size/digest_size; sha256 digest() return type."
+    - "hashlib_extra20.zspec.zsdl — covers md5/sha1/sha256/sha512/new __name__; algorithms_available/guaranteed class name; algorithms_guaranteed membership."
+    - "hashlib_extra17.zspec.zsdl — covers sha256 block_size/name via direct constructor; algorithms_guaranteed contains md5/sha256."
+    - "hashlib_extra16.zspec.zsdl — covers new() block_sizes (md5/sha256/sha512); new() digest_sizes; new() names."
+    - "hashlib_extra15.zspec.zsdl — covers new('sha3_512'/'blake2b'/'shake_128') block_size/name; pbkdf2_hmac __name__/__module__."
+    - "hashlib_extra14.zspec.zsdl — covers algorithms_guaranteed/available class_name=='set'; new('md5'/'sha1'/'sha512'/'sha3_256') block_size."
+  notes:
+    - "This spec extends hashlib through hashlib_extra22; it does NOT duplicate invariants present in those files."
+    - "Focus: sha384/sha224 direct-constructor block_size and digest_size (not covered as standalone invariants); new('sha224'/'sha384') __class__.__name__; new('sha256') digest_size as standalone invariant; algorithms_guaranteed __contains__ table for sha224/sha384/sha3_256/sha3_512."
+    - "hashlib.sha384(b'').block_size == 128: SHA-384 uses the same 1024-bit (128-byte) block as SHA-512. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.sha224(b'').block_size == 64: SHA-224 uses the same 512-bit (64-byte) block as SHA-256. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.sha384(b'').digest_size == 48: SHA-384 produces a 384-bit (48-byte) digest. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.sha224(b'').digest_size == 28: SHA-224 produces a 224-bit (28-byte) digest. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.new('sha224').__class__.__name__ == 'HASH': the new() factory returns HASH objects for standard algorithms. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.new('sha384').__class__.__name__ == 'HASH': the new() factory returns HASH objects for standard algorithms. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.new('sha256').digest_size == 32: SHA-256 produces a 256-bit (32-byte) digest (verified via new() factory path). Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sha384 block_size and digest_size via direct constructor
+#
+# hashlib_extra17 covers sha256 block_size via direct constructor.
+# hashlib_extra16 covers sha512 block_size via new() factory.
+# No prior spec covers sha384(b'').block_size or sha384(b'').digest_size
+# as standalone invariants using the direct constructor.
+# SHA-384 uses the same 1024-bit (128-byte) block structure as SHA-512.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra23.sha384.block_size:
+  description: "hashlib.sha384(b'').block_size == 128 — SHA-384 uses 1024-bit (128-byte) blocks"
+  category: block_sizes
+  kind: python_call_eq
+  function: sha384
+  args: [!ascii ""]
+  method: block_size
+  method_args: []
+  expected: 128
+
+invariant hashlib_extra23.sha384.digest_size:
+  description: "hashlib.sha384(b'').digest_size == 48 — SHA-384 produces a 384-bit (48-byte) digest"
+  category: digest_sizes
+  kind: python_call_eq
+  function: sha384
+  args: [!ascii ""]
+  method: digest_size
+  method_args: []
+  expected: 48
+
+# ---------------------------------------------------------------------------
+# sha224 block_size and digest_size via direct constructor
+#
+# hashlib_extra7 covers sha224 digest_size via new() factory.
+# hashlib_extra16 covers new('sha1') block_size.
+# No prior spec covers sha224(b'').block_size or sha224(b'').digest_size
+# as standalone invariants using the direct constructor.
+# SHA-224 shares the 512-bit (64-byte) block structure with SHA-256.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra23.sha224.block_size:
+  description: "hashlib.sha224(b'').block_size == 64 — SHA-224 uses 512-bit (64-byte) blocks"
+  category: block_sizes
+  kind: python_call_eq
+  function: sha224
+  args: [!ascii ""]
+  method: block_size
+  method_args: []
+  expected: 64
+
+invariant hashlib_extra23.sha224.digest_size:
+  description: "hashlib.sha224(b'').digest_size == 28 — SHA-224 produces a 224-bit (28-byte) digest"
+  category: digest_sizes
+  kind: python_call_eq
+  function: sha224
+  args: [!ascii ""]
+  method: digest_size
+  method_args: []
+  expected: 28
+
+# ---------------------------------------------------------------------------
+# new() factory — HASH class name for sha224 and sha384
+#
+# hashlib_extra14 covers new('sha256').__class__.__name__ == 'HASH'.
+# No prior spec covers new('sha224') or new('sha384') __class__.__name__.
+# The new() factory always returns HASH objects for built-in algorithms.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra23.new.sha224.class_name:
+  description: "hashlib.new('sha224').__class__.__name__ == 'HASH' — new() returns a HASH object"
+  category: types
+  kind: python_call_eq
+  function: new
+  args: ["sha224"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["HASH"]
+  expected: true
+
+invariant hashlib_extra23.new.sha384.class_name:
+  description: "hashlib.new('sha384').__class__.__name__ == 'HASH' — new() returns a HASH object"
+  category: types
+  kind: python_call_eq
+  function: new
+  args: ["sha384"]
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["HASH"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed membership — sha224, sha384, sha3_256, sha3_512 table
+#
+# Prior specs check sha256, md5, sha512, sha1, blake2b, blake2s, shake_256,
+# shake_128, sha3_224, sha3_384 in algorithms_guaranteed.
+# No prior spec groups sha224 + sha384 + sha3_256 + sha3_512 in a single table
+# from the extra23 namespace.
+# All four are guaranteed members on Python 3.6+ per the CPython docs.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra23.algorithms_guaranteed.sha_family_membership:
+  description: "SHA family algorithms present in hashlib.algorithms_guaranteed"
+  kind: python_call_eq
+  category: algorithm_sets
+  id_prefix: ag_sha23
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sha224,   algorithms_guaranteed.__contains__, ["sha224"],   true]
+    - [sha384,   algorithms_guaranteed.__contains__, ["sha384"],   true]
+    - [sha3_256, algorithms_guaranteed.__contains__, ["sha3_256"], true]
+    - [sha3_512, algorithms_guaranteed.__contains__, ["sha3_512"], true]

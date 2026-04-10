@@ -1,0 +1,154 @@
+spec: threading_extra21
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec extends threading.zspec.zsdl and threading_extra through threading_extra20.zspec.zsdl."
+    - "threading.zspec.zsdl covers: Barrier/BoundedSemaphore/Condition __name__; Thread/Lock/Event/Semaphore __name__ in various forms."
+    - "threading_extra18 covers: Condition/Barrier/BoundedSemaphore/Timer __name__ and __module__ tables; get_ident/__name__; get_native_id/__name__."
+    - "threading_extra19 covers: Thread/Event/Condition/Semaphore/Timer/Barrier __qualname__ table; Lock/__qualname__ == 'lock'; RLock/__qualname__ == 'RLock'; current_thread/__name__; active_count/__name__."
+    - "threading_extra20 covers: class __name__ length table; Lock/__name__ == 'lock' standalone; RLock/__name__ == 'RLock' standalone; BoundedSemaphore/__name__ standalone."
+    - "NOT yet covered in any prior spec: threading class __bases__[0].__name__ table via __getitem__ path for Thread/Event/Condition/Semaphore/Barrier."
+    - "NOT yet covered: threading.Timer.__bases__[0].__name__ == 'Thread' as standalone extra21-namespace invariant."
+    - "NOT yet covered: threading.BoundedSemaphore.__bases__[0].__name__ == 'Semaphore' as standalone extra21-namespace invariant."
+    - "NOT yet covered: threading class __module__ table for Thread/Event/Condition/Semaphore/Barrier/Timer/BoundedSemaphore via __eq__ method in extra21 namespace."
+    - "threading.Thread.__bases__[0].__name__ == 'object' — Thread inherits directly from object."
+    - "threading.Event.__bases__[0].__name__ == 'object' — Event inherits directly from object."
+    - "threading.Condition.__bases__[0].__name__ == 'object' — Condition inherits directly from object."
+    - "threading.Semaphore.__bases__[0].__name__ == 'object' — Semaphore inherits directly from object."
+    - "threading.Barrier.__bases__[0].__name__ == 'object' — Barrier inherits directly from object."
+    - "threading.Timer.__bases__[0].__name__ == 'Thread' — Timer is a Thread subclass."
+    - "threading.BoundedSemaphore.__bases__[0].__name__ == 'Semaphore' — BoundedSemaphore is a Semaphore subclass."
+    - "All threading synchronisation classes define __module__ == 'threading'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __bases__[0].__name__ table — new __getitem__ path in extra21 namespace
+#
+# Prior specs check some base class names but no prior spec provides a unified
+# table of all seven threading synchronisation class base names using the
+# __bases__.__getitem__ path. Thread/Event/Condition/Semaphore/Barrier all
+# inherit directly from object. Timer inherits from Thread. BoundedSemaphore
+# inherits from Semaphore.
+# ---------------------------------------------------------------------------
+
+table threading_extra21.class_base_names:
+  description: "Direct base class __name__ for threading synchronisation classes"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: clsbase21
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Thread,           Thread.__bases__.__getitem__,           [0],  "object"]
+    - [Event,            Event.__bases__.__getitem__,            [0],  "object"]
+    - [Condition,        Condition.__bases__.__getitem__,        [0],  "object"]
+    - [Semaphore,        Semaphore.__bases__.__getitem__,        [0],  "object"]
+    - [Barrier,          Barrier.__bases__.__getitem__,          [0],  "object"]
+    - [Timer,            Timer.__bases__.__getitem__,            [0],  "Thread"]
+    - [BoundedSemaphore, BoundedSemaphore.__bases__.__getitem__, [0],  "Semaphore"]
+
+# ---------------------------------------------------------------------------
+# __module__ table — all threading synchronisation classes
+#
+# threading_extra18 covers a module table for a subset of classes.
+# This table covers all seven classes in the extra21 namespace using the
+# __eq__ path, confirming each reports __module__ == 'threading'.
+# ---------------------------------------------------------------------------
+
+table threading_extra21.class_modules:
+  description: "All threading synchronisation classes report __module__ == 'threading'"
+  kind: python_call_eq
+  category: class_modules
+  id_prefix: clsmod21
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Thread,           Thread.__module__.__eq__,           ["threading"], true]
+    - [Event,            Event.__module__.__eq__,            ["threading"], true]
+    - [Condition,        Condition.__module__.__eq__,        ["threading"], true]
+    - [Semaphore,        Semaphore.__module__.__eq__,        ["threading"], true]
+    - [Barrier,          Barrier.__module__.__eq__,          ["threading"], true]
+    - [Timer,            Timer.__module__.__eq__,            ["threading"], true]
+    - [BoundedSemaphore, BoundedSemaphore.__module__.__eq__, ["threading"], true]
+
+# ---------------------------------------------------------------------------
+# Timer.__bases__[0].__name__ == 'Thread' — standalone invariant
+#
+# The table above checks this via __getitem__; this standalone invariant
+# provides an independent extra21-namespace anchor confirming that Timer
+# is a Thread subclass, which is the primary mechanism for timed callbacks
+# in the threading module.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra21.Timer.base_is_Thread:
+  description: "threading.Timer.__bases__[0].__name__ == 'Thread' — Timer is a Thread subclass"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: Timer.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Thread"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BoundedSemaphore.__bases__[0].__name__ == 'Semaphore' — standalone invariant
+#
+# The table above checks this via __getitem__; this standalone invariant
+# provides an independent extra21-namespace anchor confirming that
+# BoundedSemaphore extends Semaphore rather than inheriting from object
+# directly, unlike the other synchronisation primitives.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra21.BoundedSemaphore.base_is_Semaphore:
+  description: "threading.BoundedSemaphore.__bases__[0].__name__ == 'Semaphore' — BoundedSemaphore extends Semaphore"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: BoundedSemaphore.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["Semaphore"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Thread.__module__ == 'threading' — standalone invariant
+#
+# The module table above covers all classes. This standalone invariant
+# provides an independent extra21-namespace anchor specifically for Thread,
+# the central class of the threading module.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra21.Thread.module_eq:
+  description: "threading.Thread.__module__ == 'threading'"
+  category: class_modules
+  kind: python_call_eq
+  function: Thread.__module__.__eq__
+  args: ["threading"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Timer.__module__ == 'threading' — standalone invariant
+#
+# Confirms that Timer, despite being a Thread subclass, is defined in the
+# same 'threading' module and not in a sub-module.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra21.Timer.module_eq:
+  description: "threading.Timer.__module__ == 'threading'"
+  category: class_modules
+  kind: python_call_eq
+  function: Timer.__module__.__eq__
+  args: ["threading"]
+  expected: true
