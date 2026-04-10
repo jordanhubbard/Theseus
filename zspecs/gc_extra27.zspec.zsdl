@@ -1,0 +1,110 @@
+spec: gc_extra27
+version: ">=3.9"
+backend: python_module(gc)
+
+docs: https://docs.python.org/3/library/gc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/gc.html — Python gc module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/gcmodule.c"
+  notes:
+    - "This spec extends prior gc specs through gc_extra26.zspec.zsdl."
+    - "gc_extra24 covers: __qualname__ for collect/enable/disable/isenabled/get_count/get_threshold/set_threshold/get_objects and garbage.__class__.__name__."
+    - "gc_extra25 covers: __qualname__ for get_freeze_count/freeze/unfreeze/is_tracked/is_finalized/get_referrers/get_referents."
+    - "gc_extra26 covers: callbacks.__class__.__name__ == 'list' and DEBUG_* __class__.__name__ == 'int'."
+    - "Focus: gc.garbage initial emptiness (len == 0), gc.get_threshold() return type, gc.get_count() return type, and gc.get_freeze_count() return type."
+    - "gc.garbage.__class__.__name__ == 'list' was covered in gc_extra24/gc_extra26; this spec records len(gc.garbage) == 0 at interpreter start."
+    - "len(gc.garbage) == 0 — garbage list is empty at start. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "gc.get_threshold().__class__.__name__ == 'tuple' — get_threshold() returns a tuple of three thresholds. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "gc.get_count().__class__.__name__ == 'tuple' — get_count() returns a tuple of three generation counts. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "gc.get_freeze_count().__class__.__name__ == 'int' — get_freeze_count() returns an integer count. Verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# gc.garbage initial length
+#
+# gc.garbage is the list of unreachable objects detected by the collector that
+# could not be freed. At interpreter startup (before any cycles are created),
+# the list is empty. No prior gc spec records len(gc.garbage) == 0.
+# ---------------------------------------------------------------------------
+
+invariant gc_extra27.garbage.len_zero:
+  description: "len(gc.garbage) == 0 — garbage list is empty at interpreter start"
+  category: module_attrs
+  kind: python_call_eq
+  function: garbage.__len__
+  args: []
+  expected: 0
+
+# ---------------------------------------------------------------------------
+# gc.get_threshold() return type
+#
+# gc.get_threshold() returns a 3-tuple of (threshold0, threshold1, threshold2)
+# representing the collection thresholds for each generation. No prior gc
+# spec records __class__.__name__ for the return value of get_threshold().
+# ---------------------------------------------------------------------------
+
+invariant gc_extra27.get_threshold.result_class_name:
+  description: "gc.get_threshold().__class__.__name__ == 'tuple' — get_threshold() return value is a tuple"
+  category: return_type
+  kind: python_call_eq
+  function: "get_threshold().__class__.__name__.__eq__"
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gc.get_count() return type
+#
+# gc.get_count() returns a 3-tuple of (count0, count1, count2) representing
+# the current collection counts for each generation. No prior gc spec records
+# __class__.__name__ for the return value of get_count().
+# ---------------------------------------------------------------------------
+
+invariant gc_extra27.get_count.result_class_name:
+  description: "gc.get_count().__class__.__name__ == 'tuple' — get_count() return value is a tuple"
+  category: return_type
+  kind: python_call_eq
+  function: "get_count().__class__.__name__.__eq__"
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# gc.get_freeze_count() return type
+#
+# gc.get_freeze_count() returns an integer count of frozen objects.
+# gc_extra25 records get_freeze_count.__qualname__. No prior gc spec records
+# __class__.__name__ for the return value of get_freeze_count().
+# ---------------------------------------------------------------------------
+
+invariant gc_extra27.get_freeze_count.result_class_name:
+  description: "gc.get_freeze_count().__class__.__name__ == 'int' — get_freeze_count() return value is an integer"
+  category: return_type
+  kind: python_call_eq
+  function: "get_freeze_count().__class__.__name__.__eq__"
+  args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Consolidated table — all four runtime return-type and length checks
+#
+# Covers gc.garbage length (0), get_threshold() return type (tuple),
+# get_count() return type (tuple), and get_freeze_count() return type (int).
+# ---------------------------------------------------------------------------
+
+table gc_extra27.return_types:
+  description: "gc function return types and garbage initial length"
+  kind: python_call_eq
+  category: return_type
+
+  columns: [id, function, args, expected]
+  rows:
+    - [garbage_len,              garbage.__len__,                        [],       0]
+    - [get_threshold_result,     "get_threshold().__class__.__name__.__eq__", ["tuple"], true]
+    - [get_count_result,         "get_count().__class__.__name__.__eq__",    ["tuple"], true]
+    - [get_freeze_count_result,  "get_freeze_count().__class__.__name__.__eq__", ["int"], true]
