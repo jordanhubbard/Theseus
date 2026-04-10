@@ -1,0 +1,169 @@
+spec: functools_extra66
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec extends functools_extra65.zspec.zsdl."
+    - "Wave 227 theme: class method __qualname__ equality checks — full string equality for methods not yet covered."
+    - "partial is a C extension type (from Modules/_functoolsmodule.c). partial.__init__ is a wrapper_descriptor whose __qualname__ is 'object.__init__' — not 'partial.__init__'. This is because the partial C type does not define its own __init__ slot; it inherits __init__ from object. By contrast, partial.__new__ and partial.__call__ are builtin_function_or_method / wrapper_descriptor objects that ARE defined directly on partial, so their qualnames are 'partial.__new__' and 'partial.__call__' respectively. Prior specs covered the __eq__ checks for partial.__new__ (extra28) and partial.__call__ (extra28). The unique new fact is partial.__init__.__qualname__ == 'object.__init__'."
+    - "Wave 227 also adds __qualname__.__class__.__name__ checks as depth-2 chains for functools method qualname strings. Every method qualname is a str, so __qualname__.__class__.__name__ == 'str' for all of them. These are new checks not in any prior functools spec."
+    - "cached_property is a pure-Python class (Lib/functools.py). Its __set_name__ and __get__ methods are plain Python functions. Their qualnames follow the 'ClassName.method_name' pattern: 'cached_property.__set_name__' and 'cached_property.__get__'. Prior specs covered the __eq__ checks for these (extra28) and their __len__ values (extra54). Wave 227 adds __qualname__.__class__.__name__ checks for these."
+    - "update_wrapper and reduce are both covered by __qualname__.__eq__ in many prior specs (extra8/9/11/18/23/24/26/31/45/47). Wave 227 adds __qualname__.__class__.__name__.__eq__('str') as a new depth-2 chain not in any prior functools spec."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# partial.__init__.__qualname__ — 'object.__init__' — extra66
+#
+# Wave 227 theme: class method __qualname__ equality checks.
+#
+# partial is a C extension type. partial.__init__ does not define its own
+# __init__ slot — instead it inherits from object. As a result:
+#   partial.__init__.__qualname__ == 'object.__init__'
+# This is different from partial.__new__ and partial.__call__, which are
+# defined directly on partial and have qualnames 'partial.__new__' and
+# 'partial.__call__'. The qualname 'object.__init__' reveals the inheritance
+# structure: the descriptor was defined on object, not on partial.
+#
+# Prior specs covered partial.__new__.__qualname__.__eq__ (extra28) and
+# partial.__call__.__qualname__.__eq__ (extra28), but NOT
+# partial.__init__.__qualname__.__eq__('object.__init__').
+# New to extra66.
+# ---------------------------------------------------------------------------
+
+table functools_extra66.partial_init_qualname:
+  description: "partial.__init__.__qualname__.__eq__('object.__init__')==true — partial C type inherits __init__ from object, so the descriptor qualname is 'object.__init__' not 'partial.__init__'; wave 227 method qualname equality; new to extra66"
+  kind: python_call_eq
+  category: qualname_equality
+  id_prefix: functoolsqual66
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [partial_init_qualname_eq_object_init,
+       partial.__init__.__qualname__.__eq__,
+       ["object.__init__"],
+       true,
+       "functools.partial.__init__.__qualname__.__eq__('object.__init__') == True — partial is a C extension type (Modules/_functoolsmodule.c); it does not define its own __init__ slot, so partial.__init__ is the inherited wrapper_descriptor from object; the qualname of an inherited descriptor reflects the class that DEFINED it, not the class it is accessed from; therefore partial.__init__.__qualname__ is 'object.__init__' rather than 'partial.__init__'; contrast with partial.__new__ and partial.__call__ which ARE defined on partial and have qualnames 'partial.__new__' and 'partial.__call__' respectively; prior specs covered partial.__new__.__qualname__.__eq__ and partial.__call__.__qualname__.__eq__ (extra28) but not partial.__init__.__qualname__.__eq__; this reveals the C type inheritance structure; new to extra66"]
+
+# ---------------------------------------------------------------------------
+# partial method __qualname__.__class__.__name__ == 'str' — extra66
+#
+# Wave 227 theme: class method __qualname__ equality checks (depth-2 chain).
+#
+# Every method qualname is a Python str object. Therefore for any method m:
+#   m.__qualname__.__class__.__name__ == 'str'
+#
+# This is a depth-2 chain beyond the __eq__ check: from __qualname__ (which
+# is a str), we go to its __class__ (which is the str type), then to
+# __name__ (which is 'str'), then call __eq__.
+#
+# Prior specs for partial methods (extra28, extra40, extra54) covered:
+# - __qualname__.__eq__ (the string equality check)
+# - __qualname__.__len__ (the length check)
+# But NO prior functools spec has a table row checking
+# __qualname__.__class__.__name__.__eq__('str') for these methods.
+# New to extra66.
+# ---------------------------------------------------------------------------
+
+table functools_extra66.method_qualname_class_name:
+  description: "partial/cached_property method __qualname__.__class__.__name__.__eq__('str')==true — every method qualname is a str; depth-2 chain beyond prior __eq__ and __len__ checks; wave 227 method qualname equality; new to extra66"
+  kind: python_call_eq
+  category: qualname_type
+  id_prefix: functoolsqual66
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [partial_call_qualname_class_name_eq_str,
+       partial.__call__.__qualname__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "functools.partial.__call__.__qualname__.__class__.__name__.__eq__('str') == True — partial.__call__ is a wrapper_descriptor defined directly on the partial C extension type; its __qualname__ is the string 'partial.__call__' (16 chars); as a Python str object, __qualname__.__class__ is the str type and str.__name__ == 'str' (3 chars); this depth-2 chain checks the type of the qualname value itself; prior specs covered __qualname__.__eq__ (extra28) and __qualname__.__len__ (extra54) but not __qualname__.__class__.__name__; new to extra66"]
+    - [partial_new_qualname_class_name_eq_str,
+       partial.__new__.__qualname__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "functools.partial.__new__.__qualname__.__class__.__name__.__eq__('str') == True — partial.__new__ is a builtin_function_or_method that serves as the C extension type constructor; its __qualname__ is the string 'partial.__new__' (15 chars); as a Python str object, __qualname__.__class__ is the str type and str.__name__ == 'str' (3 chars); this depth-2 chain checks the type of the qualname value; prior specs covered __qualname__.__eq__ (extra28) and __qualname__.__len__ (extra40) but not __qualname__.__class__.__name__; new to extra66"]
+    - [cached_property_set_name_qualname_class_name_eq_str,
+       cached_property.__set_name__.__qualname__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "functools.cached_property.__set_name__.__qualname__.__class__.__name__.__eq__('str') == True — cached_property.__set_name__ is a pure-Python function defined in Lib/functools.py; its __qualname__ is the string 'cached_property.__set_name__' (28 chars); as a Python str object, __qualname__.__class__ is the str type and str.__name__ == 'str' (3 chars); this depth-2 chain checks the type of the qualname value; prior specs covered __qualname__.__eq__ (extra28) and __qualname__.__len__ (extra54) but not __qualname__.__class__.__name__; new to extra66"]
+    - [cached_property_get_qualname_class_name_eq_str,
+       cached_property.__get__.__qualname__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "functools.cached_property.__get__.__qualname__.__class__.__name__.__eq__('str') == True — cached_property.__get__ is the non-data descriptor method that computes and caches the property value on first access; its __qualname__ is the string 'cached_property.__get__' (23 chars); as a Python str object, __qualname__.__class__ is the str type and str.__name__ == 'str' (3 chars); this depth-2 chain checks the type of the qualname value; prior specs covered __qualname__.__eq__ (extra28) and __qualname__.__len__ (extra54) but not __qualname__.__class__.__name__; new to extra66"]
+
+# ---------------------------------------------------------------------------
+# update_wrapper / reduce __qualname__.__class__.__name__ == 'str' — extra66
+#
+# Wave 227 theme: class method __qualname__ equality (depth-2 chain).
+#
+# update_wrapper and reduce are module-level functions with qualnames
+# 'update_wrapper' (14 chars) and 'reduce' (6 chars). Both have been
+# confirmed by __qualname__.__eq__ in many prior specs. Wave 227 adds the
+# depth-2 chain: __qualname__.__class__.__name__.__eq__('str').
+#
+# update_wrapper: qualname == 'update_wrapper' (pure-Python function,
+# Lib/functools.py). reduce: qualname == 'reduce' (C builtin function from
+# Modules/_functoolsmodule.c). Both are top-level names so their qualnames
+# equal their names.
+#
+# No prior functools spec records __qualname__.__class__.__name__.__eq__('str')
+# for update_wrapper or reduce. New to extra66.
+# ---------------------------------------------------------------------------
+
+table functools_extra66.function_qualname_class_name:
+  description: "update_wrapper/reduce __qualname__.__class__.__name__.__eq__('str')==true — top-level function qualnames are str objects; depth-2 chain beyond prior __eq__ checks; wave 227; new to extra66"
+  kind: python_call_eq
+  category: qualname_type
+  id_prefix: functoolsqual66
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [update_wrapper_qualname_class_name_eq_str,
+       update_wrapper.__qualname__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "functools.update_wrapper.__qualname__.__class__.__name__.__eq__('str') == True — update_wrapper is a pure-Python module-level function defined in Lib/functools.py; its __qualname__ is the string 'update_wrapper' (14 chars); as a Python str object, __qualname__.__class__ is the str type and str.__name__ == 'str' (3 chars); this depth-2 chain (qualname → __class__ → __name__ → __eq__) checks the type of the qualname value; prior specs covered __qualname__.__eq__('update_wrapper') in extra9/31/47 and __qualname__.__len__()==14 in other specs, but no prior functools spec checks __qualname__.__class__.__name__ for update_wrapper; new to extra66"]
+    - [reduce_qualname_class_name_eq_str,
+       reduce.__qualname__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "functools.reduce.__qualname__.__class__.__name__.__eq__('str') == True — reduce is a C builtin function (from Modules/_functoolsmodule.c); its __qualname__ is the string 'reduce' (6 chars); as a Python str object, __qualname__.__class__ is the str type and str.__name__ == 'str' (3 chars); this depth-2 chain checks the type of the qualname value; prior specs covered __qualname__.__eq__('reduce') in many specs (extra8/11/18/23/24/26/31/45) and __qualname__.__len__()==6 in extra36, but no prior functools spec checks __qualname__.__class__.__name__ for reduce; new to extra66"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra66
+# ---------------------------------------------------------------------------
+
+invariant functools_extra66.partial_init_qualname_is_object_init:
+  description: "functools.partial.__init__.__qualname__.__eq__('object.__init__') == True — partial C type inherits __init__ from object; the descriptor qualname reflects the defining class (object), not the accessing class (partial); wave 227 method qualname equality; new to extra66"
+  kind: python_call_eq
+  function: partial.__init__.__qualname__.__eq__
+  args: ["object.__init__"]
+  expected: true
+
+invariant functools_extra66.partial_call_qualname_is_str:
+  description: "functools.partial.__call__.__qualname__.__class__.__name__.__eq__('str') == True — the qualname of a method is always a str object; depth-2 chain beyond prior __eq__/__len__ checks; wave 227; new to extra66"
+  kind: python_call_eq
+  function: partial.__call__.__qualname__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant functools_extra66.reduce_qualname_is_str:
+  description: "functools.reduce.__qualname__.__class__.__name__.__eq__('str') == True — the qualname of a builtin function is a str; depth-2 chain; wave 227; new to extra66"
+  kind: python_call_eq
+  function: reduce.__qualname__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
