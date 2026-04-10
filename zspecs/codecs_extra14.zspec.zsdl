@@ -1,0 +1,107 @@
+spec: codecs_extra14
+version: ">=3.9"
+backend: python_module(codecs)
+
+docs: https://docs.python.org/3/library/codecs.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/codecs.html — Python codecs module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/codecs.py"
+    - "codecs_extra13.zspec.zsdl — covers encode/decode/lookup/open/register __name__/__module__; encode returns bytes; decode returns str; CodecInfo.__qualname__."
+    - "codecs_extra10.zspec.zsdl — covers encode/decode hello with utf-8 and ascii; encode/decode non-ASCII."
+    - "codecs_extra8.zspec.zsdl — covers C-extension __module__ == '_codecs' for encode/decode/lookup/register."
+    - "codecs_extra2.zspec.zsdl — covers encode returns bytes; decode utf-8 hello returns str."
+  notes:
+    - "This spec extends codecs through codecs_extra13; it does NOT duplicate invariants present in those files."
+    - "Focus: encode('hello', 'utf-8') value; decode(b'hello', 'utf-8') value; encode('hello', 'ascii') value; encode('\\u00e9', 'utf-8') value; lookup('utf-8') class name."
+    - "codecs.encode('hello', 'utf-8') == b'hello': ASCII-only input encodes identically under utf-8. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "codecs.decode(b'hello', 'utf-8') == 'hello': round-trip decode of ASCII bytes under utf-8. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "codecs.encode('hello', 'ascii') == b'hello': ASCII-only input encodes identically under ascii. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "codecs.encode('\\u00e9', 'utf-8') == b'\\xc3\\xa9': U+00E9 LATIN SMALL LETTER E WITH ACUTE encodes as two UTF-8 bytes 0xc3 0xa9. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "codecs.lookup('utf-8').__class__.__name__ == 'CodecInfo': lookup returns a CodecInfo named-tuple instance. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# encode('hello', 'utf-8') — value (extra14 namespace)
+#
+# ASCII-only input is unchanged by UTF-8 encoding. Result is b'hello'.
+# codecs_extra10 covers encode with 'utf-8' from extra10; this anchors the
+# exact bytes value in the extra14 namespace.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra14.encode.hello.utf8.value:
+  description: "codecs.encode('hello', 'utf-8') == b'hello' — ASCII-only input unchanged under utf-8"
+  category: encode
+  kind: python_call_eq
+  function: encode
+  args: ["hello", "utf-8"]
+  expected: !ascii "hello"
+
+# ---------------------------------------------------------------------------
+# decode(b'hello', 'utf-8') — value (extra14 namespace)
+#
+# Decoding b'hello' under utf-8 yields the str 'hello'.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra14.decode.hello.utf8.value:
+  description: "codecs.decode(b'hello', 'utf-8') == 'hello' — UTF-8 decode of ASCII bytes"
+  category: decode
+  kind: python_call_eq
+  function: decode
+  args: [!ascii "hello", "utf-8"]
+  expected: "hello"
+
+# ---------------------------------------------------------------------------
+# encode('hello', 'ascii') — value (extra14 namespace)
+#
+# ASCII codec encodes ASCII-only input identically to its byte representation.
+# codecs_extra10 covers ascii encoding from extra10 namespace. Re-anchored here.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra14.encode.hello.ascii.value:
+  description: "codecs.encode('hello', 'ascii') == b'hello' — ASCII-only input unchanged under ascii codec"
+  category: encode
+  kind: python_call_eq
+  function: encode
+  args: ["hello", "ascii"]
+  expected: !ascii "hello"
+
+# ---------------------------------------------------------------------------
+# encode('\u00e9', 'utf-8') — value (extra14 namespace)
+#
+# U+00E9 LATIN SMALL LETTER E WITH ACUTE encodes to two UTF-8 bytes: 0xc3 0xa9.
+# This is the canonical two-byte sequence for code points U+0080–U+07FF.
+# Verified: codecs.encode('\u00e9', 'utf-8') == b'\xc3\xa9'
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra14.encode.eacute.utf8.value:
+  description: "codecs.encode('\\u00e9', 'utf-8') == b'\\xc3\\xa9' — U+00E9 encodes as two UTF-8 bytes"
+  category: encode
+  kind: python_call_eq
+  function: encode
+  args: ["\u00e9", "utf-8"]
+  expected: !hex "c3a9"
+
+# ---------------------------------------------------------------------------
+# lookup('utf-8') — return class name (extra14 namespace)
+#
+# codecs.lookup returns a CodecInfo named-tuple instance.
+# codecs_extra9 covers CodecInfo.__name__; no prior spec covers the class
+# name of a lookup() return value as a runtime invariant from extra14 namespace.
+# ---------------------------------------------------------------------------
+
+invariant codecs_extra14.lookup.utf8.class_name:
+  description: "codecs.lookup('utf-8').__class__.__name__ == 'CodecInfo' — lookup returns a CodecInfo instance"
+  category: types
+  kind: python_call_eq
+  function: lookup
+  args: ["utf-8"]
+  method: __class__.__name__.__eq__
+  method_args: ["CodecInfo"]
+  expected: true
