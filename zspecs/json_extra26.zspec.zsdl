@@ -1,0 +1,160 @@
+spec: json_extra26
+version: ">=3.9"
+backend: python_module(json)
+
+docs: https://docs.python.org/3/library/json.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/json.html — Python json module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/json/__init__.py"
+    - "CPython source: Lib/json/encoder.py"
+    - "CPython source: Lib/json/decoder.py"
+    - "CPython source: Modules/_json.c"
+    - "json_extra25.zspec.zsdl — covers __mro__.__len__() for JSONDecodeError/JSONDecoder/JSONEncoder; __bases__[0].__name__.__len__() for same; __init__.__qualname__.__len__() for same; json.scanner.__name__.__len__()"
+  notes:
+    - "This spec extends json_extra25.zspec.zsdl."
+    - "Prior specs covered: JSONDecoder/JSONEncoder/JSONDecodeError __name__/__module__/__qualname__/__bases__[0].__name__, loads/dumps/load/dump function attributes, method qualname lengths, class MRO depths, base-name lengths, __init__ qualname lengths, json.scanner.__name__.__len__()."
+    - "This spec covers: json.__all__.__len__() and json.__all__.__class__.__name__; json.JSONDecoder.__dict__.__class__.__name__.__len__() (mappingproxy=12) for JSONDecoder/JSONEncoder/JSONDecodeError; json.JSONDecodeError.__reduce__.__name__.__len__() for all three json classes; json.JSONDecoder.__init_subclass__.__qualname__.__len__() for all three json classes; json.decoder.__class__.__name__.__len__() and json.encoder.__class__.__name__.__len__()."
+    - "json.__all__ == ['dump', 'dumps', 'load', 'loads', 'JSONDecoder', 'JSONDecodeError', 'JSONEncoder'] — len 7, class 'list'. Verified Python 3.12."
+    - "json.__all__.__class__.__name__ == 'list' — len('list') == 4. Verified Python 3.12."
+    - "json.JSONDecoder.__dict__.__class__.__name__ == 'mappingproxy' — len 12. Same for JSONEncoder and JSONDecodeError. Verified Python 3.12."
+    - "json.JSONDecodeError.__reduce__.__name__ == '__reduce__' — len 10. Same for JSONDecoder and JSONEncoder (inherited slot wrapper). Verified Python 3.12."
+    - "json.JSONDecoder.__init_subclass__.__qualname__ == 'JSONDecoder.__init_subclass__' — len 29. Verified Python 3.12."
+    - "json.JSONEncoder.__init_subclass__.__qualname__ == 'JSONEncoder.__init_subclass__' — len 29. Verified Python 3.12."
+    - "json.JSONDecodeError.__init_subclass__.__qualname__ == 'JSONDecodeError.__init_subclass__' — len 33. Verified Python 3.12."
+    - "json.decoder.__class__.__name__ == 'module' — len('module') == 6. Same for json.encoder. Verified Python 3.12."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# json.__all__.__len__() and __all__.__class__.__name__.__len__()
+#
+# json.__all__ is a list of 7 public names:
+#   ['dump', 'dumps', 'load', 'loads', 'JSONDecoder', 'JSONDecodeError',
+#    'JSONEncoder']
+# __all__.__class__.__name__ == 'list' (len 4).
+# No prior json spec checks __all__.__len__() or __all__.__class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant json_extra26.all.len:
+  description: "json.__all__.__len__() == 7 — seven public names exported: dump, dumps, load, loads, JSONDecoder, JSONDecodeError, JSONEncoder"
+  category: module_identity
+  kind: python_call_eq
+  function: __all__.__len__
+  args: []
+  expected: 7
+
+invariant json_extra26.all.class_name_len:
+  description: "json.__all__.__class__.__name__.__len__() == 4 — __all__ is a list; len('list') == 4"
+  category: module_identity
+  kind: python_call_eq
+  function: __all__.__class__.__name__.__len__
+  args: []
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# SomeClass.__dict__.__class__.__name__.__len__() == 12 for all three json
+# classes — 'mappingproxy' always has 12 characters
+#
+# Every Python class exposes its namespace as a types.MappingProxyType whose
+# __class__.__name__ is 'mappingproxy' (len 12).
+# No prior json spec checks __dict__.__class__.__name__.__len__() for any
+# json class.
+# ---------------------------------------------------------------------------
+
+table json_extra26.class_dict_proxy_name_len:
+  description: "SomeClass.__dict__.__class__.__name__.__len__() == 12 for JSONDecoder, JSONEncoder, JSONDecodeError — 'mappingproxy' has 12 characters"
+  kind: python_call_eq
+  category: class_introspection
+  id_prefix: jmp26
+
+  columns: [id, function, args, expected]
+  rows:
+    - [JSONDecoder,    JSONDecoder.__dict__.__class__.__name__.__len__,    [], 12]
+    - [JSONEncoder,    JSONEncoder.__dict__.__class__.__name__.__len__,    [], 12]
+    - [JSONDecodeError, JSONDecodeError.__dict__.__class__.__name__.__len__, [], 12]
+
+# ---------------------------------------------------------------------------
+# SomeClass.__reduce__.__name__.__len__() == 10 for all three json classes
+#
+# '__reduce__' is 10 characters (2+6+2). This is the inherited slot wrapper
+# from object (or BaseException for JSONDecodeError). The __name__ attribute
+# of the slot wrapper is always the literal string '__reduce__'.
+# No prior json spec checks __reduce__.__name__ for any json class.
+# ---------------------------------------------------------------------------
+
+table json_extra26.class_reduce_name_len:
+  description: "SomeClass.__reduce__.__name__.__len__() == 10 for JSONDecoder, JSONEncoder, JSONDecodeError — '__reduce__' has 10 characters"
+  kind: python_call_eq
+  category: class_introspection
+  id_prefix: jrn26
+
+  columns: [id, function, args, expected]
+  rows:
+    - [JSONDecoder,    JSONDecoder.__reduce__.__name__.__len__,    [], 10]
+    - [JSONEncoder,    JSONEncoder.__reduce__.__name__.__len__,    [], 10]
+    - [JSONDecodeError, JSONDecodeError.__reduce__.__name__.__len__, [], 10]
+
+# ---------------------------------------------------------------------------
+# SomeClass.__init_subclass__.__qualname__.__len__() for all three json classes
+#
+# __init_subclass__ qualname takes the form 'ClassName.__init_subclass__':
+#   JSONDecoder.__init_subclass__     -> 11 + 18 = 29
+#   JSONEncoder.__init_subclass__     -> 11 + 18 = 29
+#   JSONDecodeError.__init_subclass__ -> 15 + 18 = 33
+# No prior json spec checks __init_subclass__.__qualname__.__len__() for any
+# json class.
+# ---------------------------------------------------------------------------
+
+invariant json_extra26.JSONDecoder.init_subclass_qualname_len:
+  description: "json.JSONDecoder.__init_subclass__.__qualname__.__len__() == 29 — 'JSONDecoder.__init_subclass__' has 29 characters"
+  category: class_introspection
+  kind: python_call_eq
+  function: JSONDecoder.__init_subclass__.__qualname__.__len__
+  args: []
+  expected: 29
+
+invariant json_extra26.JSONEncoder.init_subclass_qualname_len:
+  description: "json.JSONEncoder.__init_subclass__.__qualname__.__len__() == 29 — 'JSONEncoder.__init_subclass__' has 29 characters"
+  category: class_introspection
+  kind: python_call_eq
+  function: JSONEncoder.__init_subclass__.__qualname__.__len__
+  args: []
+  expected: 29
+
+invariant json_extra26.JSONDecodeError.init_subclass_qualname_len:
+  description: "json.JSONDecodeError.__init_subclass__.__qualname__.__len__() == 33 — 'JSONDecodeError.__init_subclass__' has 33 characters"
+  category: class_introspection
+  kind: python_call_eq
+  function: JSONDecodeError.__init_subclass__.__qualname__.__len__
+  args: []
+  expected: 33
+
+# ---------------------------------------------------------------------------
+# json.decoder and json.encoder submodule __class__.__name__.__len__()
+#
+# Both json.decoder and json.encoder are module objects. Their __class__.__name__
+# is 'module' (len 6). json.decoder.__class__.__name__ was noted in prior specs
+# as 'module' but no prior spec checks the string length of that class name.
+# ---------------------------------------------------------------------------
+
+invariant json_extra26.decoder.class_name_len:
+  description: "json.decoder.__class__.__name__.__len__() == 6 — json.decoder is a module; len('module') == 6"
+  category: module_identity
+  kind: python_call_eq
+  function: decoder.__class__.__name__.__len__
+  args: []
+  expected: 6
+
+invariant json_extra26.encoder.class_name_len:
+  description: "json.encoder.__class__.__name__.__len__() == 6 — json.encoder is a module; len('module') == 6"
+  category: module_identity
+  kind: python_call_eq
+  function: encoder.__class__.__name__.__len__
+  args: []
+  expected: 6

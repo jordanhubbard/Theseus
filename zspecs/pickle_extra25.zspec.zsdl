@@ -1,0 +1,184 @@
+spec: pickle_extra25
+version: ">=3.9"
+backend: python_module(pickle)
+
+docs: https://docs.python.org/3/library/pickle.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pickle.html — Python pickle module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/pickle.py"
+    - "CPython source: Modules/_pickle.c"
+    - "pickle_extra24.zspec.zsdl — covers __mro__.__len__() for Pickler/Unpickler/PickleError/PicklingError/UnpicklingError; __bases__[0].__name__.__len__() for exception classes; Pickler.clear_memo/Unpickler.find_class __qualname__.__len__(); DEFAULT_PROTOCOL.__class__.__name__.__len__()"
+  notes:
+    - "This spec extends pickle_extra24.zspec.zsdl."
+    - "Prior specs covered: Pickler/Unpickler __name__/__module__/__qualname__/__bases__[0].__name__, PickleError/PicklingError/UnpicklingError __name__/__module__/__bases__, pickle.dumps/loads/dump/load __name__/__module__/__qualname__, class MRO depths, exception base name lengths, Pickler.clear_memo/Unpickler.find_class __qualname__.__len__(), DEFAULT_PROTOCOL.__class__.__name__.__len__()."
+    - "This spec covers: pickle.__all__.__len__() and __class__.__name__; pickle.__all__.__class__.__name__.__len__(); HIGHEST_PROTOCOL value and class name; DEFAULT_PROTOCOL value; PickleBuffer.__dict__.__class__.__name__.__len__(); PickleBuffer.__reduce__.__qualname__.__len__(); PickleBuffer.__bases__[0].__name__.__len__(); PickleError.__reduce__.__qualname__.__len__(); Pickler/Unpickler/PickleError __dict__.__class__.__name__.__len__()."
+    - "No prior pickle spec checks pickle.__all__.__len__()."
+    - "No prior pickle spec checks pickle.__all__.__class__.__name__.__len__()."
+    - "No prior pickle spec checks pickle.HIGHEST_PROTOCOL (value 5)."
+    - "No prior pickle spec checks pickle.DEFAULT_PROTOCOL (value 5)."
+    - "No prior pickle spec checks pickle.HIGHEST_PROTOCOL.__class__.__name__.__len__()."
+    - "No prior pickle spec checks pickle.PickleBuffer.__dict__.__class__.__name__.__len__()."
+    - "No prior pickle spec checks pickle.PickleBuffer.__reduce__.__qualname__.__len__()."
+    - "No prior pickle spec checks pickle.PickleBuffer.__bases__[0].__name__.__len__()."
+    - "No prior pickle spec checks pickle.PickleError.__reduce__.__qualname__.__len__()."
+    - "No prior pickle spec checks pickle.Pickler.__dict__.__class__.__name__.__len__()."
+    - "No prior pickle spec checks pickle.Unpickler.__dict__.__class__.__name__.__len__()."
+    - "No prior pickle spec checks pickle.PickleError.__dict__.__class__.__name__.__len__()."
+    - "pickle.__all__ is a list with 82 elements (opcode constants dominate). __class__.__name__ is 'list' — len 4."
+    - "pickle.HIGHEST_PROTOCOL == 5 (Python 3.8+). pickle.DEFAULT_PROTOCOL == 5 (Python 3.8+). Both are int (len 3)."
+    - "pickle.PickleBuffer.__mro__ == [PickleBuffer, object] — len 2; __bases__[0].__name__ == 'object' — len 6."
+    - "pickle.PickleBuffer.__reduce__.__qualname__ == 'object.__reduce__' — len 17 (inherits from object)."
+    - "pickle.PickleError.__reduce__.__qualname__ == 'BaseException.__reduce__' — len 24 (inherits from exception hierarchy)."
+    - "pickle.Pickler.__dict__.__class__.__name__ == 'mappingproxy' — len 12."
+    - "pickle.Unpickler.__dict__.__class__.__name__ == 'mappingproxy' — len 12."
+    - "pickle.PickleError.__dict__.__class__.__name__ == 'mappingproxy' — len 12."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pickle.__all__ membership and type
+#
+# pickle.__all__ is a list with 82 elements: the 10 public API names plus
+# 72 opcode constants (ADDITEMS, APPEND, ..., UNICODE). Its __class__.__name__
+# is 'list' (len 4). No prior pickle spec checks __all__.__len__().
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra25.all_len:
+  description: "pickle.__all__.__len__() == 82 — 10 public API names plus 72 opcode constants"
+  category: module_structure
+  kind: python_call_eq
+  function: __all__.__len__
+  args: []
+  expected: 82
+
+invariant pickle_extra25.all_class_name_len:
+  description: "pickle.__all__.__class__.__name__.__len__() == 4 — __all__ is a 'list' (4 chars)"
+  category: module_structure
+  kind: python_call_eq
+  function: __all__.__class__.__name__.__len__
+  args: []
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# Module-level integer constants: HIGHEST_PROTOCOL and DEFAULT_PROTOCOL
+#
+# Both constants equal 5 in Python 3.8+ and are plain int objects.
+# The class name 'int' has length 3.
+# No prior pickle spec checks the actual values of these constants.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra25.HIGHEST_PROTOCOL_value:
+  description: "pickle.HIGHEST_PROTOCOL == 5 — highest supported pickle protocol version in Python 3.8+"
+  category: module_constants
+  kind: python_call_eq
+  function: HIGHEST_PROTOCOL.__eq__
+  args: [5]
+  expected: true
+
+invariant pickle_extra25.DEFAULT_PROTOCOL_value:
+  description: "pickle.DEFAULT_PROTOCOL == 5 — default protocol version equals HIGHEST_PROTOCOL in Python 3.8+"
+  category: module_constants
+  kind: python_call_eq
+  function: DEFAULT_PROTOCOL.__eq__
+  args: [5]
+  expected: true
+
+invariant pickle_extra25.HIGHEST_PROTOCOL_class_name_len:
+  description: "pickle.HIGHEST_PROTOCOL.__class__.__name__.__len__() == 3 — class name 'int' has 3 characters"
+  category: module_constants
+  kind: python_call_eq
+  function: HIGHEST_PROTOCOL.__class__.__name__.__len__
+  args: []
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# PickleBuffer introspection: __dict__, __reduce__, __bases__
+#
+# PickleBuffer is a thin C-extension wrapper introduced in Python 3.8 to
+# support out-of-band buffer protocols. It inherits directly from object:
+#   __mro__ == [PickleBuffer, object] — len 2
+#   __bases__[0].__name__ == 'object' — len 6
+#   __reduce__ is inherited from object — qualname 'object.__reduce__' (len 17)
+#   __dict__.__class__.__name__ == 'mappingproxy' — len 12
+# No prior pickle spec checks any of these PickleBuffer properties.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra25.PickleBuffer.dict_class_name_len:
+  description: "pickle.PickleBuffer.__dict__.__class__.__name__.__len__() == 12 — class __dict__ is 'mappingproxy' (12 chars)"
+  category: class_introspection
+  kind: python_call_eq
+  function: PickleBuffer.__dict__.__class__.__name__.__len__
+  args: []
+  expected: 12
+
+invariant pickle_extra25.PickleBuffer.reduce_qualname_len:
+  description: "pickle.PickleBuffer.__reduce__.__qualname__.__len__() == 17 — inherits 'object.__reduce__' (17 chars) from object"
+  category: function_identity
+  kind: python_call_eq
+  function: "PickleBuffer.__reduce__.__qualname__.__len__"
+  args: []
+  expected: 17
+
+# ---------------------------------------------------------------------------
+# PickleError.__reduce__.__qualname__.__len__()
+#
+# PickleError inherits from Exception, which in turn inherits __reduce__ from
+# BaseException. The qualname is 'BaseException.__reduce__' (24 characters).
+# This is distinct from the object-level __reduce__ used by PickleBuffer/
+# Pickler/Unpickler. No prior pickle spec checks PickleError.__reduce__.
+# ---------------------------------------------------------------------------
+
+invariant pickle_extra25.PickleError.reduce_qualname_len:
+  description: "pickle.PickleError.__reduce__.__qualname__.__len__() == 24 — inherits 'BaseException.__reduce__' (24 chars)"
+  category: function_identity
+  kind: python_call_eq
+  function: "PickleError.__reduce__.__qualname__.__len__"
+  args: []
+  expected: 24
+
+# ---------------------------------------------------------------------------
+# Consolidated table — __all__ structure and protocol constant properties
+#
+# Groups the module-level constant and __all__ type checks.
+# ---------------------------------------------------------------------------
+
+table pickle_extra25.module_constants:
+  description: "pickle module constants and __all__ structure — HIGHEST_PROTOCOL (5), DEFAULT_PROTOCOL (5), __all__ len (82), class name lengths"
+  kind: python_call_eq
+  category: module_constants
+  id_prefix: pfa25a
+
+  columns: [id, function, args, expected]
+  rows:
+    - [all_len,                      __all__.__len__,                             [],    82]
+    - [all_class_name_len,           __all__.__class__.__name__.__len__,          [],     4]
+    - [HIGHEST_PROTOCOL_class_len,   HIGHEST_PROTOCOL.__class__.__name__.__len__, [],     3]
+    - [DEFAULT_PROTOCOL_class_len,   DEFAULT_PROTOCOL.__class__.__name__.__len__, [],     3]
+
+# ---------------------------------------------------------------------------
+# Consolidated table — mappingproxy name length for Pickler, Unpickler,
+# PickleError and __bases__[0].__name__ length for PickleBuffer
+#
+# All class __dict__ objects are mappingproxy instances with type name len 12.
+# PickleBuffer's sole base is object (len 6).
+# ---------------------------------------------------------------------------
+
+table pickle_extra25.dict_and_bases_lengths:
+  description: "pickle class __dict__.__class__.__name__.__len__() (always 12) and PickleBuffer __bases__[0].__name__.__len__() (6)"
+  kind: python_call_eq
+  category: class_introspection
+  id_prefix: pfa25b
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Pickler_dict_cls_name_len,     Pickler.__dict__.__class__.__name__.__len__,     [], 12]
+    - [Unpickler_dict_cls_name_len,   Unpickler.__dict__.__class__.__name__.__len__,   [], 12]
+    - [PickleError_dict_cls_name_len, PickleError.__dict__.__class__.__name__.__len__, [], 12]
+    - [PickleBuffer_dict_cls_name_len, PickleBuffer.__dict__.__class__.__name__.__len__, [], 12]
+    - [PickleBuffer_bases0_name_len,  "PickleBuffer.__bases__[0].__name__.__len__",    [],  6]
