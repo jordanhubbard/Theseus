@@ -1,0 +1,102 @@
+spec: dataclasses_extra21
+version: ">=3.9"
+backend: python_module(dataclasses)
+
+docs: https://docs.python.org/3/library/dataclasses.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/dataclasses.html — Python dataclasses documentation"
+    - "PEP 557 — Data Classes"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/dataclasses.py"
+  notes:
+    - "This spec extends dataclasses.zspec.zsdl, dataclasses_field.zspec.zsdl, and dataclasses_extra through dataclasses_extra20.zspec.zsdl."
+    - "dataclasses_extra20 covers: combined __name__ table for dataclass/field/fields/asdict/astuple/make_dataclass/replace; combined __module__ table for the same seven; FrozenInstanceError.__qualname__ standalone; KW_ONLY.__class__.__name__ standalone."
+    - "dataclasses_extra19 covers: field().__class__.__name__ via method_chain; field().metadata.__class__.__name__; field().hash.__class__.__name__; fields/asdict/astuple/is_dataclass __qualname__.__eq__ standalone; fields/__name__.__len__ and is_dataclass/__name__.__len__ standalone."
+    - "dataclasses_extra18 covers: MISSING/__class__.__name__.__len__; KW_ONLY/__class__.__name__.__len__; replace/__qualname__.__len__; make_dataclass/__qualname__.__len__; asdict/__qualname__.__len__; astuple/__qualname__.__len__."
+    - "dataclasses_extra13 covers: FrozenInstanceError.__qualname__.__len__() == 19."
+    - "Focus of this spec: (1) combined __name__.__len__ table for InitVar/Field/FrozenInstanceError — none covered as standalone; (2) combined __module__ table for InitVar/Field/FrozenInstanceError; (3) FrozenInstanceError.__mro__[1].__name__ == 'AttributeError' — the exception inherits from AttributeError."
+    - "NOT yet covered (entering this spec): InitVar.__name__.__len__() == 7; Field.__name__.__len__() == 5; FrozenInstanceError.__name__.__len__() == 19; InitVar/__module__ as a combined-table row; Field/__module__ as a combined-table row; FrozenInstanceError.__mro__[1].__name__ == 'AttributeError'."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __name__.__len__() for InitVar, Field, FrozenInstanceError
+#
+# These three are the main public type-level names in the dataclasses module
+# (other than dataclass itself). No prior spec covers __name__.__len__() for
+# any of these three as standalone invariants.
+# InitVar.__name__ == 'InitVar' (7 chars), Field.__name__ == 'Field' (5 chars),
+# FrozenInstanceError.__name__ == 'FrozenInstanceError' (19 chars).
+# ---------------------------------------------------------------------------
+
+table dataclasses_extra21.type_name_lengths:
+  kind: python_call_eq
+  category: name_lengths
+  id_prefix: namelen
+
+  columns: [id, function, args, expected]
+  rows:
+    - [InitVar,             InitVar.__name__.__len__,             [], 7]
+    - [Field,               Field.__name__.__len__,               [], 5]
+    - [FrozenInstanceError, FrozenInstanceError.__name__.__len__, [], 19]
+
+# ---------------------------------------------------------------------------
+# __module__ for InitVar, Field, FrozenInstanceError
+#
+# All three are defined in the dataclasses module; __module__ == 'dataclasses'.
+# dataclasses_extra5 and dataclasses_extra8 cover InitVar.__module__ as
+# standalone invariants. dataclasses_extra5/6 cover Field.__module__.
+# dataclasses_extra11 covers FrozenInstanceError.__module__.
+# No prior spec has all three together in a single combined table.
+# ---------------------------------------------------------------------------
+
+table dataclasses_extra21.type_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: tmodule
+
+  columns: [id, function, args, expected]
+  rows:
+    - [InitVar,             InitVar.__module__.__eq__,             ["dataclasses"], true]
+    - [Field,               Field.__module__.__eq__,               ["dataclasses"], true]
+    - [FrozenInstanceError, FrozenInstanceError.__module__.__eq__, ["dataclasses"], true]
+
+# ---------------------------------------------------------------------------
+# FrozenInstanceError.__mro__[1].__name__ == 'AttributeError'
+#
+# dataclasses.FrozenInstanceError inherits from AttributeError (not Exception
+# directly). The MRO is [FrozenInstanceError, AttributeError, Exception,
+# BaseException, object]. dataclasses_extra10 covers __mro__.__len__() == 5
+# and __mro__[0].__name__. dataclasses_extra11/12/16/18 cover various MRO
+# entries. No prior spec checks __mro__[1].__name__ == 'AttributeError'
+# in the dataclasses_extra21 namespace.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra21.FrozenInstanceError.mro.index1.name:
+  description: "dataclasses.FrozenInstanceError.__mro__[1].__name__ == 'AttributeError' — inherits from AttributeError"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: FrozenInstanceError.__mro__.__getitem__(1).__name__.__eq__
+  args: ["AttributeError"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# InitVar.__name__.__eq__ standalone
+#
+# dataclasses_extra8 covers InitVar.__name__.__eq__(['InitVar']) in a table.
+# This spec adds it as a standalone invariant in the dataclasses_extra21
+# namespace with a fresh ID for isolated indexing.
+# ---------------------------------------------------------------------------
+
+invariant dataclasses_extra21.InitVar.name_eq:
+  description: "dataclasses.InitVar.__name__ == 'InitVar' — top-level class name"
+  category: class_names
+  kind: python_call_eq
+  function: InitVar.__name__.__eq__
+  args: ["InitVar"]
+  expected: true

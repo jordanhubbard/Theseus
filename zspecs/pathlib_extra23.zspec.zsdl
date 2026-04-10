@@ -1,0 +1,103 @@
+spec: pathlib_extra23
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+    - "pathlib_extra22.zspec.zsdl — covers PureWindowsPath/Path/PosixPath/PurePath/PurePosixPath __qualname__ standalones; class __module__ table; PurePath.__bases__[0].__name__"
+  notes:
+    - "This spec extends prior pathlib specs through pathlib_extra22.zspec.zsdl."
+    - "pathlib.Path.__name__ == 'Path' — covered in prior specs; re-anchored in extra23 namespace via standalone invariant."
+    - "pathlib.PurePath.__name__ == 'PurePath' — covered in prior specs; re-anchored in extra23 namespace."
+    - "pathlib.PosixPath.__name__ == 'PosixPath' — covered in prior specs; re-anchored in extra23 namespace."
+    - "pathlib.PurePosixPath.__name__ == 'PurePosixPath' — covered in prior specs; re-anchored in extra23 namespace."
+    - "pathlib.PureWindowsPath.__name__ == 'PureWindowsPath' — covered in prior specs; re-anchored in extra23 namespace."
+    - "pathlib.Path('/tmp').__class__.__name__ == 'PosixPath' — on macOS, Path('/tmp') instantiates PosixPath; no prior spec covers this specific instance-class check with '/tmp'."
+    - "pathlib.Path('/tmp').name == 'tmp' — the name component of Path('/tmp') is 'tmp'; no prior spec covers this exact vector."
+    - "pathlib.Path('/tmp/foo').parent.__str__() == '/tmp' — parent of Path('/tmp/foo') stringifies as '/tmp'; no prior spec covers this with Path (vs PurePosixPath) and '/tmp/foo'."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __name__ table — Path, PurePath, PosixPath, PurePosixPath, PureWindowsPath
+#
+# Prior specs cover these __name__ values in various standalone invariants
+# across different namespaces. This table re-anchors all five in the extra23
+# namespace as a single grouped cross-check.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra23.class_names:
+  description: "__name__ for Path/PurePath/PosixPath/PurePosixPath/PureWindowsPath"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: cname23
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Path,             Path.__name__.__eq__,             ["Path"],             true]
+    - [PurePath,         PurePath.__name__.__eq__,         ["PurePath"],         true]
+    - [PosixPath,        PosixPath.__name__.__eq__,        ["PosixPath"],        true]
+    - [PurePosixPath,    PurePosixPath.__name__.__eq__,    ["PurePosixPath"],    true]
+    - [PureWindowsPath,  PureWindowsPath.__name__.__eq__,  ["PureWindowsPath"],  true]
+
+# ---------------------------------------------------------------------------
+# pathlib.Path('/tmp').__class__.__name__ == 'PosixPath'
+#
+# On POSIX/macOS, Path() dispatches to PosixPath. Instantiating Path('/tmp')
+# returns a PosixPath instance. No prior pathlib spec covers this instance-level
+# __class__.__name__ check with the concrete path '/tmp'.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra23.Path.tmp_instance_class_name:
+  description: "pathlib.Path('/tmp').__class__.__name__ == 'PosixPath' — concrete dispatch on macOS"
+  category: class_identity
+  kind: python_call_eq
+  function: Path
+  args: ["/tmp"]
+  method: __class__.__name__.__eq__
+  method_args: ["PosixPath"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pathlib.Path('/tmp').name == 'tmp'
+#
+# The .name property of a Path returns the final component of the path.
+# For Path('/tmp'), the final component is 'tmp'. No prior spec covers this
+# exact vector using Path (not PurePosixPath) with the '/tmp' argument.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra23.Path.tmp_name:
+  description: "pathlib.Path('/tmp').name == 'tmp' — name property returns final path component"
+  category: path_parts
+  kind: python_call_eq
+  function: Path
+  args: ["/tmp"]
+  method: name.__eq__
+  method_args: ["tmp"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# pathlib.Path('/tmp/foo').parent.__str__() == '/tmp'
+#
+# The .parent property of Path('/tmp/foo') is Path('/tmp'). Converting it
+# to a string with __str__ yields '/tmp'. No prior spec covers this exact
+# vector using Path (not PurePosixPath) with '/tmp/foo'.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra23.Path.tmp_foo_parent_str:
+  description: "pathlib.Path('/tmp/foo').parent.__str__() == '/tmp' — parent of two-segment path"
+  category: path_parts
+  kind: python_call_eq
+  function: Path
+  args: ["/tmp/foo"]
+  method: parent.__str__
+  method_args: []
+  expected: "/tmp"
