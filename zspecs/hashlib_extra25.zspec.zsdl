@@ -1,0 +1,102 @@
+spec: hashlib_extra25
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "hashlib_extra24.zspec.zsdl — covers __qualname__.__eq__ and __qualname__.__len__ for md5/sha1/sha256/sha512/sha224/sha384/new/pbkdf2_hmac constructors."
+    - "hashlib_extra20.zspec.zsdl — covers md5/sha1/sha256/sha512/new/pbkdf2_hmac __name__; algorithms_available/guaranteed __class__.__name__.__eq__."
+    - "hashlib_extra9.zspec.zsdl — covers algorithms_guaranteed len >= 8; blake2s/blake2b/sha3_512 membership."
+    - "hashlib_extra.zspec.zsdl — covers algorithms_available.__class__.__name__.__eq__ == 'set'; algorithms_available.__contains__('sha256')."
+  notes:
+    - "This spec extends hashlib through hashlib_extra24; it does NOT duplicate invariants present in those files."
+    - "Focus: algorithms_available and algorithms_guaranteed __class__.__qualname__; algorithms_guaranteed.__len__() exact value; sha3_256 membership in algorithms_guaranteed; algorithms_guaranteed isdisjoint(empty set)."
+    - "hashlib.algorithms_guaranteed.__class__.__qualname__ == 'set': qualname of the set type. No prior spec checks __qualname__ (only __name__) for the algorithms_* attributes. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.algorithms_available.__class__.__qualname__ == 'set': same qualname. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.algorithms_guaranteed.__len__() == 14: CPython 3.12/macOS includes blake2b, blake2s, md5, sha1, sha224, sha256, sha384, sha3_224, sha3_256, sha3_384, sha3_512, sha512, shake_128, shake_256. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.algorithms_guaranteed.__contains__('sha3_256') == True: sha3_256 guaranteed since Python 3.6+. No prior hashlib spec covers sha3_256 membership directly. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "hashlib.algorithms_guaranteed.isdisjoint(set()) == True: disjoint with the empty set always holds. No prior spec invokes isdisjoint. Verified Python 3.12 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# algorithms_available and algorithms_guaranteed — __class__.__qualname__
+#
+# Prior specs cover __class__.__name__.__eq__ == 'set' for both attributes
+# (hashlib_extra, hashlib_extra20, and others).
+# No prior spec checks __class__.__qualname__ for either attribute.
+# On CPython, type(set()).__qualname__ == 'set' (equals __name__ for builtins).
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra25.algorithms_guaranteed.class_qualname:
+  description: "hashlib.algorithms_guaranteed.__class__.__qualname__ == 'set'"
+  category: type_metadata
+  kind: python_call_eq
+  function: algorithms_guaranteed.__class__.__qualname__.__eq__
+  args: ["set"]
+  expected: true
+
+invariant hashlib_extra25.algorithms_available.class_qualname:
+  description: "hashlib.algorithms_available.__class__.__qualname__ == 'set'"
+  category: type_metadata
+  kind: python_call_eq
+  function: algorithms_available.__class__.__qualname__.__eq__
+  args: ["set"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed.__len__() exact value
+#
+# Prior specs cover __len__() >= 5 (hashlib_extra_init), >= 8 (hashlib_extra9/extra20).
+# No prior spec asserts the exact count of 14 on Python 3.12/macOS.
+# CPython 3.12 guarantees: blake2b, blake2s, md5, sha1, sha224, sha256, sha384,
+# sha3_224, sha3_256, sha3_384, sha3_512, sha512, shake_128, shake_256 (14 total).
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra25.algorithms_guaranteed.len_exact:
+  description: "hashlib.algorithms_guaranteed.__len__() == 14 — CPython 3.12/macOS exact count"
+  category: module_metadata
+  kind: python_call_eq
+  function: algorithms_guaranteed.__len__
+  args: []
+  expected: 14
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed membership — sha3_256
+#
+# Prior specs cover sha3_224 (hashlib_extra), sha3_384 (hashlib_extra11),
+# sha3_512 (hashlib_extra9), shake_256 (hashlib_extra11), shake_128 (hashlib_extra12).
+# No prior spec covers sha3_256 membership in algorithms_guaranteed directly.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra25.algorithms_guaranteed.contains_sha3_256:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha3_256') == True"
+  category: module_metadata
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha3_256"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed.isdisjoint(set()) — empty-set disjointness
+#
+# algorithms_guaranteed is a non-empty set; it is disjoint with the empty set.
+# No prior spec invokes .isdisjoint() on algorithms_guaranteed.
+# This exercises a distinct set method call path.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra25.algorithms_guaranteed.isdisjoint_empty:
+  description: "hashlib.algorithms_guaranteed.isdisjoint(set()) == True — disjoint with empty set"
+  category: module_metadata
+  kind: python_call_eq
+  function: algorithms_guaranteed.isdisjoint
+  args: [[]]
+  expected: true
