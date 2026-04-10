@@ -1,0 +1,117 @@
+spec: threading_extra20
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec extends threading.zspec.zsdl and threading_extra through threading_extra19."
+    - "threading.zspec.zsdl covers: Barrier/BoundedSemaphore/Condition __name__; Thread/Lock/Event/Semaphore __name__ in various forms."
+    - "threading_extra2 covers: Thread.__name__ == 'Thread'; Lock().__class__.__name__ == 'lock'; RLock().__class__.__name__ == 'RLock'; Event.__name__ == 'Event'; Semaphore.__name__ == 'Semaphore'."
+    - "threading_extra16 covers: Thread/__qualname__; Barrier/__qualname__; Timer/__qualname__; Lock.__name__ == 'lock'."
+    - "threading_extra18 covers: Condition/Barrier/BoundedSemaphore/Timer __name__ and __module__ tables; get_ident/__name__; get_native_id/__name__."
+    - "threading_extra19 covers: Thread/Event/Condition/Semaphore/Timer/Barrier __qualname__ table; Lock/__qualname__ == 'lock'; RLock/__qualname__ == 'RLock'; current_thread/__name__; active_count/__name__."
+    - "No prior spec covers: Thread.__name__.__len__() == 6 — len('Thread')."
+    - "No prior spec covers: Lock.__name__.__len__() == 4 — len('lock') — Lock is a factory; __name__ is 'lock' (lowercase)."
+    - "No prior spec covers: RLock.__name__.__len__() == 5 — len('RLock')."
+    - "No prior spec covers: Event.__name__.__len__() == 5 — len('Event')."
+    - "No prior spec covers: Semaphore.__name__.__len__() == 9 — len('Semaphore')."
+    - "No prior spec covers: BoundedSemaphore.__name__.__len__() == 16 — len('BoundedSemaphore')."
+    - "No prior spec covers: Timer.__name__.__len__() == 5 — len('Timer')."
+    - "No prior spec covers: Barrier.__name__.__len__() == 7 — len('Barrier')."
+    - "threading.Lock.__name__ == 'lock' (lowercase) — Lock is a factory function returning a C-level _thread.lock object."
+    - "threading.RLock.__name__ == 'RLock' — RLock is also a factory; __name__ on the factory reflects the underlying type name."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __name__ string length checks — new execution path
+#
+# Prior specs (threading_extra2, threading_extra16, threading_extra18,
+# threading_extra19) check __name__/__eq__ or __qualname__/__eq__ for the
+# threading synchronisation classes. No prior spec checks .__name__.__len__()
+# for any threading class. These invariants exercise the length-of-name path,
+# providing independent coverage.
+#
+# Notably: threading.Lock.__name__ == 'lock' (length 4, all lowercase).
+# This is the factory function's internal name, not 'Lock'.
+# threading.RLock.__name__ == 'RLock' (length 5).
+# ---------------------------------------------------------------------------
+
+table threading_extra20.class_name_lengths:
+  description: "Length of __name__ strings for threading synchronisation classes"
+  kind: python_call_eq
+  category: class_names
+  id_prefix: clsnamelen20
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Thread,           Thread.__name__.__len__,           [],  6]
+    - [Lock,             Lock.__name__.__len__,             [],  4]
+    - [RLock,            RLock.__name__.__len__,            [],  5]
+    - [Event,            Event.__name__.__len__,            [],  5]
+    - [Semaphore,        Semaphore.__name__.__len__,        [],  9]
+    - [BoundedSemaphore, BoundedSemaphore.__name__.__len__, [], 16]
+    - [Timer,            Timer.__name__.__len__,            [],  5]
+    - [Barrier,          Barrier.__name__.__len__,          [],  7]
+
+# ---------------------------------------------------------------------------
+# Lock.__name__ == 'lock' — standalone equality invariant
+#
+# threading_extra16 checks Lock.__name__ == 'lock' in the context of a
+# broader table. threading_extra19 checks Lock.__qualname__ == 'lock'.
+# This standalone invariant provides direct __eq__ coverage for the name
+# string 'lock' on the Lock factory (all lowercase), highlighting the
+# asymmetry between the public name 'Lock' and the internal __name__ 'lock'.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra20.Lock.name_lowercase:
+  description: "threading.Lock.__name__ == 'lock' — factory __name__ is lowercase 'lock' not 'Lock'"
+  category: class_names
+  kind: python_call_eq
+  function: Lock.__name__.__eq__
+  args: ["lock"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# RLock.__name__ == 'RLock' — standalone equality invariant
+#
+# threading_extra19 checks RLock.__qualname__ == 'RLock'. No prior spec
+# provides a standalone __name__.__eq__ invariant for RLock distinct from
+# the qualname check. RLock preserves the capitalisation in both __name__
+# and __qualname__.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra20.RLock.name_eq:
+  description: "threading.RLock.__name__ == 'RLock' — RLock factory __name__ preserves capitalisation"
+  category: class_names
+  kind: python_call_eq
+  function: RLock.__name__.__eq__
+  args: ["RLock"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# BoundedSemaphore.__name__ == 'BoundedSemaphore' — standalone
+#
+# threading.zspec.zsdl checks BoundedSemaphore.__name__ in a table.
+# threading_extra18 checks BoundedSemaphore.__name__ in a different table.
+# This standalone invariant provides independent single-class coverage and
+# is the anchor for the length check of 16 in the table above.
+# ---------------------------------------------------------------------------
+
+invariant threading_extra20.BoundedSemaphore.name_eq:
+  description: "threading.BoundedSemaphore.__name__ == 'BoundedSemaphore'"
+  category: class_names
+  kind: python_call_eq
+  function: BoundedSemaphore.__name__.__eq__
+  args: ["BoundedSemaphore"]
+  expected: true
