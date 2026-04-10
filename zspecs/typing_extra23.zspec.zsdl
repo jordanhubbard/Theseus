@@ -1,0 +1,115 @@
+spec: typing_extra23
+version: ">=3.9"
+backend: python_module(typing)
+
+docs: https://docs.python.org/3/library/typing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/typing.html — Python typing module documentation"
+    - "PEP 484 — Type Hints"
+    - "PEP 586 — Literal Types"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/typing.py"
+  notes:
+    - "This spec extends typing.zspec.zsdl through typing_extra22.zspec.zsdl."
+    - "typing_extra22 covers: combined __qualname__ table for Generic/TypeVar/ParamSpec/TypeVarTuple; Protocol/__mro__[1].__name__ and [2].__name__; Generic/__qualname__.__eq__ standalone."
+    - "typing_extra21 covers: combined __class__.__name__ table for Any/Union/Optional/ClassVar; combined __name__ and __module__ tables for cast/overload/get_type_hints; TYPE_CHECKING class name and value."
+    - "typing_extra20 covers: __qualname__.__len__ for overload/final/runtime_checkable; __name__.__len__ for get_origin/get_args."
+    - "typing_extra16 covers: Literal/Final/Annotated/TypeGuard __name__; special form __module__ and __qualname__ tables."
+    - "Focus of this spec: (1) combined __class__.__name__ table for Literal/ClassVar/Final — these three were not covered together in extra21; (2) combined __qualname__.__eq__ table for overload/final/no_type_check/cast; (3) TypeVar/__bases__[0].__name__ standalone; (4) ParamSpec/__bases__[0].__name__ standalone."
+    - "NOT yet covered (entering this spec): Literal/__class__.__name__ == '_TypedCacheSpecialForm' in any combined table; ClassVar/__class__.__name__ == '_SpecialForm' as a row in a Literal/ClassVar/Final table; Final/__class__.__name__ == '_SpecialForm' in this namespace; combined __qualname__.__eq__ table for overload/final/no_type_check/cast; TypeVar/__bases__[0].__name__ == 'object' standalone; ParamSpec/__bases__[0].__name__ == 'object' standalone."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __class__.__name__ for Literal, ClassVar, Final
+#
+# typing.Literal uses the private _TypedCacheSpecialForm metaclass; ClassVar and
+# Final are plain _SpecialForm instances. typing_extra21 covers Any/Union/Optional/
+# ClassVar in a combined table but does not include Literal or Final.
+# No prior spec has Literal/ClassVar/Final together in a combined table.
+# ---------------------------------------------------------------------------
+
+table typing_extra23.special_form_class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: classname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [Literal, Literal.__class__.__name__.__eq__, ["_TypedCacheSpecialForm"], true]
+    - [ClassVar, ClassVar.__class__.__name__.__eq__, ["_SpecialForm"],          true]
+    - [Final,   Final.__class__.__name__.__eq__,   ["_SpecialForm"],           true]
+
+# ---------------------------------------------------------------------------
+# __qualname__.__eq__ for overload, final, no_type_check, cast
+#
+# These are module-level functions whose __qualname__ matches their simple name.
+# typing_extra20 covers __qualname__.__len__ for overload/final/runtime_checkable
+# but not __qualname__.__eq__. typing_extra22 covers Generic/__qualname__.__eq__
+# and get_type_hints/__qualname__.__eq__ but not overload/final/no_type_check/cast.
+# No prior spec has all four of these together in a combined table.
+# ---------------------------------------------------------------------------
+
+table typing_extra23.function_qualnames:
+  kind: python_call_eq
+  category: qualnames
+  id_prefix: qualname
+
+  columns: [id, function, args, expected]
+  rows:
+    - [overload,      overload.__qualname__.__eq__,      ["overload"],      true]
+    - [final,         final.__qualname__.__eq__,         ["final"],         true]
+    - [no_type_check, no_type_check.__qualname__.__eq__, ["no_type_check"], true]
+    - [cast,          cast.__qualname__.__eq__,          ["cast"],          true]
+
+# ---------------------------------------------------------------------------
+# TypeVar.__bases__[0].__name__ standalone
+#
+# typing.TypeVar directly subclasses object on Python 3.12+; its MRO is
+# [TypeVar, object] (length 2). No prior spec covers TypeVar.__bases__[0].__name__
+# as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra23.TypeVar.bases0.name_eq:
+  description: "typing.TypeVar.__bases__[0].__name__ == 'object' — TypeVar directly subclasses object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "TypeVar.__bases__.__getitem__(0).__name__.__eq__"
+  args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ParamSpec.__bases__[0].__name__ standalone
+#
+# typing.ParamSpec also directly subclasses object; its MRO is [ParamSpec, object].
+# No prior spec covers ParamSpec.__bases__[0].__name__ as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra23.ParamSpec.bases0.name_eq:
+  description: "typing.ParamSpec.__bases__[0].__name__ == 'object' — ParamSpec directly subclasses object"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "ParamSpec.__bases__.__getitem__(0).__name__.__eq__"
+  args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# TypeVarTuple.__mro__.__len__() == 2
+#
+# typing.TypeVarTuple has MRO [TypeVarTuple, object] of length 2.
+# typing_extra22 covers TypeVarTuple/__qualname__ in a combined table but
+# not the MRO length.
+# ---------------------------------------------------------------------------
+
+invariant typing_extra23.TypeVarTuple.mro.len:
+  description: "typing.TypeVarTuple.__mro__.__len__() == 2 — TypeVarTuple MRO is [TypeVarTuple, object]"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: TypeVarTuple.__mro__.__len__
+  args: []
+  expected: 2

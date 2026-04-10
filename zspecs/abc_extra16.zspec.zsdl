@@ -1,0 +1,112 @@
+spec: abc_extra16
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — Python abc module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/abc.py"
+    - "CPython source: Modules/_abc.c"
+  notes:
+    - "This spec extends abc.zspec.zsdl through abc_extra15.zspec.zsdl."
+    - "abc_extra15 covers: combined __mro__.__len__ and __bases__.__len__ tables for abstractclassmethod/abstractstaticmethod/abstractproperty; combined __bases__[0].__name__ table for those three; ABCMeta/__doc__.__class__.__name__ standalone."
+    - "abc_extra14 covers: abstractmethod/__qualname__; ABC/__qualname__; ABCMeta/__qualname__; ABC/__mro__.__len__ == 2 and [1].__name__; ABCMeta/__mro__.__len__ == 3 and [1].__name__ and [2].__name__; get_cache_token/__qualname__; abstractmethod/__doc__.__class__.__name__; ABC/__doc__.__class__.__name__."
+    - "abc_extra12 covers: abstractclassmethod/__qualname__/__module__; abstractstaticmethod/__qualname__/__module__; abstractproperty/__qualname__/__module__."
+    - "Focus of this spec: (1) combined __module__ table for ABCMeta/ABC/abstractmethod — these three modules not yet tested together; (2) combined __bases__[0].__name__ table for ABCMeta/ABC — ABCMeta->type, ABC->object; (3) abstractmethod.__name__ standalone; (4) get_cache_token.__module__ standalone ('_abc' not 'abc'); (5) ABC.__class__.__name__ standalone ('ABCMeta')."
+    - "NOT yet covered (entering this spec): combined __module__ table for ABCMeta/ABC/abstractmethod in the abc_extra16 namespace; ABCMeta/__bases__[0].__name__ == 'type' in a combined table; ABC/__bases__[0].__name__ == 'object' in a combined table; abstractmethod/__name__.__eq__('abstractmethod') as a standalone invariant; get_cache_token.__module__ == '_abc' standalone; ABC.__class__.__name__ == 'ABCMeta' standalone."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __module__ for ABCMeta, ABC, abstractmethod
+#
+# All three are defined in the abc module; __module__ == 'abc'.
+# abc_extra14 covers ABCMeta/__module__, ABC/__module__, and abstractmethod/__module__
+# as standalone invariants but not in a single combined table.
+# No prior spec has all three together in one combined table.
+# ---------------------------------------------------------------------------
+
+table abc_extra16.core_modules:
+  kind: python_call_eq
+  category: modules
+  id_prefix: cmodule
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ABCMeta,         ABCMeta.__module__.__eq__,         ["abc"], true]
+    - [ABC,             ABC.__module__.__eq__,             ["abc"], true]
+    - [abstractmethod,  abstractmethod.__module__.__eq__,  ["abc"], true]
+
+# ---------------------------------------------------------------------------
+# __bases__[0].__name__ for ABCMeta and ABC
+#
+# ABCMeta is a metaclass that inherits from type; ABC is a plain class that
+# directly inherits from object. No prior spec covers ABCMeta/__bases__[0].__name__
+# or ABC/__bases__[0].__name__ in a combined table.
+# ---------------------------------------------------------------------------
+
+table abc_extra16.bases0_names:
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: base0_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ABCMeta, "ABCMeta.__bases__.__getitem__(0).__name__.__eq__", ["type"],   true]
+    - [ABC,     "ABC.__bases__.__getitem__(0).__name__.__eq__",     ["object"], true]
+
+# ---------------------------------------------------------------------------
+# abstractmethod.__name__ standalone
+#
+# abc.abstractmethod is a function/decorator; its __name__ attribute equals
+# 'abstractmethod'. abc_extra14 covers abstractmethod/__qualname__.__eq__ and
+# abstractmethod/__doc__.__class__.__name__ but not abstractmethod/__name__.__eq__
+# as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra16.abstractmethod.name_eq:
+  description: "abc.abstractmethod.__name__ == 'abstractmethod' — function name matches module-level identifier"
+  category: function_names
+  kind: python_call_eq
+  function: abstractmethod.__name__.__eq__
+  args: ["abstractmethod"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# get_cache_token.__module__ standalone
+#
+# abc.get_cache_token is implemented in the C extension _abc, so its __module__
+# is '_abc' rather than 'abc'. This is distinct from the Python-level wrappers
+# ABCMeta and ABC which report __module__ == 'abc'. abc_extra14 covers
+# get_cache_token/__qualname__ but not get_cache_token/__module__.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra16.get_cache_token.module_eq:
+  description: "abc.get_cache_token.__module__ == '_abc' — implemented in C extension _abc"
+  category: modules
+  kind: python_call_eq
+  function: get_cache_token.__module__.__eq__
+  args: ["_abc"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ABC.__class__.__name__ standalone
+#
+# abc.ABC is an instance of the ABCMeta metaclass, so ABC.__class__.__name__
+# reports 'ABCMeta'. No prior spec checks ABC.__class__.__name__ as a
+# standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra16.ABC.class_name_eq:
+  description: "abc.ABC.__class__.__name__ == 'ABCMeta' — ABC is an instance of the ABCMeta metaclass"
+  category: class_names
+  kind: python_call_eq
+  function: ABC.__class__.__name__.__eq__
+  args: ["ABCMeta"]
+  expected: true

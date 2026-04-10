@@ -1,0 +1,134 @@
+spec: enum_extra23
+version: ">=3.9"
+backend: python_module(enum)
+
+docs: https://docs.python.org/3/library/enum.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/enum.html — Python enum documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/enum.py"
+  notes:
+    - "This spec extends enum.zspec.zsdl through enum_extra22.zspec.zsdl."
+    - "enum_extra22 covers: combined __name__ table for Enum/IntEnum/Flag/IntFlag; FlagBoundary/__qualname__ standalone; FlagBoundary/__mro__.__len__() == 6; FlagBoundary/__mro__[1].__name__ == 'StrEnum'; FlagBoundary/__mro__[5].__name__ == 'object'; ReprEnum/__mro__.__len__() == 3; ReprEnum/__mro__[1].__name__ == 'Enum'."
+    - "enum_extra21 covers: combined __qualname__ table for Enum/IntEnum/Flag/IntFlag/StrEnum/auto/unique; EnumMeta/__qualname__ standalone; combined __module__ table for all seven."
+    - "enum_extra16 covers: Enum/__bases__.__len__/__bases__[0]; Flag/__bases__.__len__/__bases__[0]; EnumMeta/__bases__.__len__/__bases__[0]; auto/__bases__[0]; Enum/__mro__[0]; EnumMeta/__mro__[0]."
+    - "enum_extra14 covers: IntEnum/__bases__[0].__name__ == 'int'; IntFlag/__bases__[0].__name__ == 'int'."
+    - "Focus of this spec: (1) combined __bases__[0].__name__ table for EnumType/Flag/StrEnum/auto — EnumType->'type', Flag->'Enum', StrEnum->'str', auto->'object'; (2) combined __mro__.__len__ table for IntEnum/StrEnum/IntFlag; (3) EnumType.__bases__[0].__name__ standalone; (4) auto.__mro__.__len__ == 2 standalone."
+    - "NOT yet covered (entering this spec): EnumType.__bases__[0].__name__ == 'type' as a standalone invariant; StrEnum.__bases__[0].__name__ == 'str' in a combined table; combined __mro__.__len__ table for IntEnum/StrEnum/IntFlag; auto.__mro__.__len__() == 2 standalone."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __bases__[0].__name__ for EnumType, Flag, StrEnum, auto
+#
+# EnumType is a metaclass subclassing 'type'; Flag subclasses 'Enum';
+# StrEnum subclasses 'str'; auto (Python 3.12+) subclasses 'object'.
+# enum_extra16 covers Enum.__bases__[0].__name__ == 'object' and
+# Flag.__bases__[0].__name__ == 'Enum' as standalone invariants.
+# enum_extra14 covers IntEnum and IntFlag bases[0]. No prior spec
+# has EnumType/Flag/StrEnum/auto together in a single combined table.
+# ---------------------------------------------------------------------------
+
+table enum_extra23.bases0_names:
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: base0_name
+
+  columns: [id, function, args, expected]
+  rows:
+    - [EnumType, "EnumType.__bases__.__getitem__(0).__name__.__eq__", ["type"],   true]
+    - [Flag,     "Flag.__bases__.__getitem__(0).__name__.__eq__",     ["Enum"],   true]
+    - [StrEnum,  "StrEnum.__bases__.__getitem__(0).__name__.__eq__",  ["str"],    true]
+    - [auto,     "auto.__bases__.__getitem__(0).__name__.__eq__",     ["object"], true]
+
+# ---------------------------------------------------------------------------
+# __mro__.__len__() for IntEnum, StrEnum, IntFlag
+#
+# enum_extra13 covers IntEnum/__mro__.__len__() == 5 and IntFlag/__mro__.__len__()
+# as standalone invariants. No prior spec has all three in a combined table
+# in the enum_extra23 namespace.
+# IntEnum.__mro__ == [IntEnum, int, ReprEnum, Enum, object] (len 5)
+# StrEnum.__mro__ == [StrEnum, str, ReprEnum, Enum, object] (len 5)
+# IntFlag.__mro__ == [IntFlag, int, ReprEnum, Flag, Enum, object] (len 6)
+# ---------------------------------------------------------------------------
+
+table enum_extra23.mro_lengths:
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: mro_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [IntEnum, IntEnum.__mro__.__len__, [], 5]
+    - [StrEnum, StrEnum.__mro__.__len__, [], 5]
+    - [IntFlag, IntFlag.__mro__.__len__, [], 6]
+
+# ---------------------------------------------------------------------------
+# EnumType.__bases__[0].__name__ standalone
+#
+# EnumType is the enum metaclass (alias of EnumMeta). Its only base class is
+# 'type', as it is a metaclass inheriting from the built-in type.
+# No prior spec encodes EnumType.__bases__[0].__name__.__eq__ as a standalone
+# callable invariant in any spec namespace.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra23.EnumType.bases0.name_eq:
+  description: "enum.EnumType.__bases__[0].__name__ == 'type' — EnumType metaclass inherits from type"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "EnumType.__bases__.__getitem__(0).__name__.__eq__"
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# auto.__mro__.__len__() == 2
+#
+# enum.auto has a minimal MRO of [auto, object] on Python 3.12+.
+# enum_extra13 covers IntEnum/StrEnum/IntFlag MRO lengths.
+# No prior spec encodes auto.__mro__.__len__() == 2 as a standalone invariant.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra23.auto.mro.len:
+  description: "enum.auto.__mro__.__len__() == 2 — auto MRO is [auto, object]"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: auto.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# StrEnum.__mro__[1].__name__ == 'str'
+#
+# StrEnum inherits from str; its MRO is [StrEnum, str, ReprEnum, Enum, object].
+# enum_extra13 covers StrEnum/__mro__.__len__ as a standalone invariant.
+# No prior spec accesses StrEnum.__mro__[1].__name__ via __getitem__.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra23.StrEnum.mro.index1.name:
+  description: "enum.StrEnum.__mro__[1].__name__ == 'str' — second entry in StrEnum MRO is str"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: StrEnum.__mro__.__getitem__(1).__name__.__eq__
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IntFlag.__mro__[1].__name__ == 'int'
+#
+# IntFlag inherits from int; its MRO is [IntFlag, int, ReprEnum, Flag, Enum, object].
+# No prior spec accesses IntFlag.__mro__[1].__name__ via __getitem__ to verify
+# that int is the second element.
+# ---------------------------------------------------------------------------
+
+invariant enum_extra23.IntFlag.mro.index1.name:
+  description: "enum.IntFlag.__mro__[1].__name__ == 'int' — second entry in IntFlag MRO is int"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: IntFlag.__mro__.__getitem__(1).__name__.__eq__
+  args: ["int"]
+  expected: true
