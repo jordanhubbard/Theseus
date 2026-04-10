@@ -1,0 +1,117 @@
+spec: hashlib_extra58
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/hashlib.py"
+    - "CPython source: Modules/_hashopenssl.c"
+    - "hashlib_extra57.zspec.zsdl — covers blake2b/blake2s __init__.__class__.__name__/__module__.__eq__('wrapper_descriptor'/'builtins'); md5/sha1/sha3_256/blake2s __class__.__module__.__eq__('builtins')."
+    - "hashlib_extra56.zspec.zsdl — covers blake2b/blake2s __dict__.__class__.__name__/__qualname__.__eq__('mappingproxy'); hashlib module __dict__.__class__.__name__/__qualname__.__eq__('mappingproxy')."
+    - "hashlib_extra55.zspec.zsdl — covers algorithms_guaranteed.__contains__ for sha224/sha384/blake2b/blake2s/sha3_256/sha3_512; hashlib.__name__.__eq__('hashlib') and __name__.__len__()==7."
+    - "hashlib_extra50.zspec.zsdl — covers sha256/new/blake2b __class__.__module__.__eq__('builtins') (3 representative rows)."
+    - "hashlib_extra40.zspec.zsdl — covers blake2b/__init__/__qualname__.__eq__ and related dunder descriptors."
+  notes:
+    - "This spec extends hashlib through hashlib_extra57; it does NOT duplicate invariants present in those files."
+    - "Wave 222 theme: __repr__.__class__.__name__ checks + __weakref__ descriptor checks + __hash__ class name checks."
+    - "Coverage gap 1: No prior hashlib spec checks __repr__.__class__.__name__ for blake2b or blake2s. blake2b and blake2s are C extension types; their __repr__ is inherited from object and exposed as a 'wrapper_descriptor' (the C slot wrapper for tp_repr). Prior specs (extra40, extra57) check __init__.__class__.__name__/__module__ but not __repr__.__class__.__name__. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "hashlib.blake2b.__repr__.__class__.__name__ == 'wrapper_descriptor'. blake2b is a C extension type; its __repr__ slot is inherited from object and exposed as a wrapper_descriptor. No prior hashlib spec checks blake2b.__repr__.__class__.__name__.__eq__('wrapper_descriptor'). Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "hashlib.blake2s.__repr__.__class__.__name__ == 'wrapper_descriptor'. Same pattern as blake2b; both are C extension types with inherited slot-wrapped __repr__. No prior hashlib spec checks blake2s.__repr__.__class__.__name__.__eq__('wrapper_descriptor'). Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "Coverage gap 2: No prior hashlib spec checks __hash__.__class__.__name__ for blake2b or blake2s at the TYPE level. blake2b and blake2s do not define __eq__, so they inherit __hash__ from object as a wrapper_descriptor. blake2b instances are hashable (hash() succeeds). The TYPE-level __hash__ attribute is a wrapper_descriptor (C slot wrapper); the instance-level __hash__ would be a method-wrapper. Checking the TYPE's __hash__.__class__.__name__ is a novel regression vector. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "hashlib.blake2b.__hash__.__class__.__name__ == 'wrapper_descriptor'. blake2b inherits __hash__ from object; the TYPE's __hash__ is a wrapper_descriptor (C slot wrapper for tp_hash). blake2b does not define __eq__, so hash inheritance is preserved. No prior hashlib spec checks blake2b.__hash__.__class__.__name__. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "hashlib.blake2s.__hash__.__class__.__name__ == 'wrapper_descriptor'. Same inherited __hash__ pattern as blake2b. No prior hashlib spec checks blake2s.__hash__.__class__.__name__. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "Coverage gap 3: No prior hashlib spec checks hashlib.__spec__.name.__eq__('hashlib') or __spec__.name.__len__(). hashlib_extra55 checks hashlib.__name__.__eq__('hashlib') and __name__.__len__()==7 (the module __name__ attribute). The __spec__.name attribute is a distinct path: it accesses the ModuleSpec object's .name attribute (not a dunder). ModuleSpec.name == 'hashlib' for the hashlib module; len('hashlib') == 7. This is independent from __name__ because __spec__.name goes through the ModuleSpec object. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "hashlib.__spec__.name == 'hashlib'. The ModuleSpec for the hashlib module stores the module's fully-qualified name. hashlib_extra55 covers hashlib.__name__.__eq__('hashlib') (the direct __name__ attribute), but NOT hashlib.__spec__.name.__eq__('hashlib') (the ModuleSpec path). No prior hashlib spec checks hashlib.__spec__.name.__eq__('hashlib'). Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "hashlib.__spec__.name.__len__() == 7. len('hashlib') == 7. Independent length regression vector for the ModuleSpec name. No prior hashlib spec checks hashlib.__spec__.name.__len__(). Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# hashlib.blake2b and blake2s __repr__.__class__.__name__.__eq__('wrapper_descriptor')
+#
+# No prior hashlib spec checks __repr__.__class__.__name__ for blake2b or blake2s.
+# blake2b and blake2s are C extension types; their __repr__ is inherited from
+# object (tp_repr slot) and exposed in Python as a 'wrapper_descriptor'.
+# hashlib_extra57 covers __init__.__class__.__name__.__eq__('wrapper_descriptor')
+# for both blake2b and blake2s, but that is the __init__ slot, not __repr__.
+# The __repr__.__class__.__name__ check is a distinct regression vector on the
+# __repr__ slot axis.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra58.blake_repr_class_name_eq:
+  description: "hashlib.blake2b/__repr__/__class__/__name__.__eq__('wrapper_descriptor') and blake2s same — C extension types inherit __repr__ from object as a slot wrapper; __repr__.__class__.__name__ == 'wrapper_descriptor'; hashlib_extra57 covers __init__.__class__.__name__.__eq__('wrapper_descriptor') for blake2b/blake2s but NOT __repr__; no prior hashlib spec checks __repr__.__class__.__name__.__eq__ for any hashlib type"
+  kind: python_call_eq
+  category: type_structure
+  id_prefix: hashlibr58
+
+  columns: [id, function, args, expected]
+  rows:
+    - [blake2b_repr_class_name_eq, blake2b.__repr__.__class__.__name__.__eq__, ["wrapper_descriptor"], true]
+    - [blake2s_repr_class_name_eq, blake2s.__repr__.__class__.__name__.__eq__, ["wrapper_descriptor"], true]
+
+# ---------------------------------------------------------------------------
+# hashlib.blake2b and blake2s TYPE-level __hash__.__class__.__name__
+#
+# No prior hashlib spec checks __hash__.__class__.__name__ for blake2b or blake2s.
+# blake2b and blake2s do not define __eq__, so they inherit __hash__ from object.
+# At the TYPE level, blake2b.__hash__ is the wrapper_descriptor (slot wrapper for
+# tp_hash) inherited from object. blake2b instances ARE hashable — hash() succeeds
+# on instances. The TYPE-level __hash__ attribute being a wrapper_descriptor is
+# independent from the instance-level behavior (where __hash__ would be a
+# method-wrapper bound to the specific instance).
+# ---------------------------------------------------------------------------
+
+table hashlib_extra58.blake_hash_class_name_eq:
+  description: "hashlib.blake2b/__hash__/__class__/__name__.__eq__('wrapper_descriptor') and blake2s same — C extension types inherit __hash__ from object as a slot wrapper; blake2b/blake2s do not define __eq__ so __hash__ inheritance is preserved; TYPE-level __hash__.__class__.__name__ == 'wrapper_descriptor'; no prior hashlib spec checks __hash__.__class__.__name__ for any hashlib type"
+  kind: python_call_eq
+  category: type_structure
+  id_prefix: hashlibr58
+
+  columns: [id, function, args, expected]
+  rows:
+    - [blake2b_hash_class_name_eq, blake2b.__hash__.__class__.__name__.__eq__, ["wrapper_descriptor"], true]
+    - [blake2s_hash_class_name_eq, blake2s.__hash__.__class__.__name__.__eq__, ["wrapper_descriptor"], true]
+
+# ---------------------------------------------------------------------------
+# hashlib.__spec__.name.__eq__('hashlib')
+#
+# hashlib_extra55 covers hashlib.__name__.__eq__('hashlib') — the direct module
+# __name__ attribute. No prior hashlib spec checks hashlib.__spec__.name (the
+# ModuleSpec object's .name attribute). The ModuleSpec.name stores the module's
+# fully-qualified name and is a distinct access path from __name__. Both yield
+# 'hashlib', but they are independent regression vectors: __spec__.name is
+# authoritative for the import system's view of the module identity.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra58.spec_name_eq:
+  description: "hashlib.__spec__.name == 'hashlib' — ModuleSpec stores the fully-qualified module name; distinct from hashlib.__name__ (covered by hashlib_extra55); no prior hashlib spec checks hashlib.__spec__.name.__eq__('hashlib')"
+  category: type_structure
+  kind: python_call_eq
+  function: __spec__.name.__eq__
+  args: ["hashlib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hashlib.__spec__.name.__len__() == 7
+#
+# len('hashlib') == 7. Independent length regression vector for the ModuleSpec
+# name. hashlib_extra55 covers hashlib.__name__.__len__()==7 (the direct __name__
+# attribute's length), but NOT hashlib.__spec__.name.__len__(). The __spec__.name
+# path is independent: if the module were renamed, __spec__.name.__len__() would
+# change even if __name__ were somehow preserved, and vice versa.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra58.spec_name_len:
+  description: "hashlib.__spec__.name.__len__() == 7 — len('hashlib') == 7; independent length regression vector for the ModuleSpec name; hashlib_extra55 covers hashlib.__name__.__len__()==7 (__name__ axis) but NOT hashlib.__spec__.name.__len__(); no prior hashlib spec checks __spec__.name.__len__()"
+  category: type_structure
+  kind: python_call_eq
+  function: __spec__.name.__len__
+  args: []
+  expected: 7

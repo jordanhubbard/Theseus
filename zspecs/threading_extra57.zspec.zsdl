@@ -1,0 +1,183 @@
+spec: threading_extra57
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec extends threading_extra56.zspec.zsdl."
+    - "No prior threading spec records __repr__.__class__.__name__ for Thread/Event/Semaphore/Condition at the class level."
+    - "No prior threading spec records __hash__.__class__.__name__ for Thread/Event/Semaphore/Condition."
+    - "No prior threading spec records __weakref__.__class__.__name__ from the class __dict__ for any threading class."
+    - "This spec covers: threading.Thread/__repr__.__class__.__name__.__eq__('function')==true; threading.Event/__repr__.__class__.__name__.__eq__('function')==true; threading.Semaphore/__repr__.__class__.__name__.__eq__('function')==true; threading.Condition/__repr__.__class__.__name__.__eq__('function')==true; threading.Thread/__hash__.__class__.__name__.__eq__('wrapper_descriptor')==true; threading.Event/__hash__.__class__.__name__.__eq__('wrapper_descriptor')==true; threading.Semaphore/__hash__.__class__.__name__.__eq__('wrapper_descriptor')==true; threading.Thread __dict__['__weakref__'].__class__.__name__.__eq__('getset_descriptor')==true; threading.Event __dict__['__weakref__'].__class__.__name__.__eq__('getset_descriptor')==true."
+    - "Key findings: Thread, Event, Semaphore, and Condition are pure-Python classes in Lib/threading.py. Their class-level __repr__ is a Python function (defined in the class body), so __repr__.__class__.__name__ == 'function'. These classes do not define __eq__ and therefore inherit the default identity hash from object; the inherited __hash__ is a C-level slot descriptor exposed as 'wrapper_descriptor' at the class level. Because these classes do not define __slots__, each has a '__weakref__' entry in its __dict__ automatically added by the type machinery; this entry is a 'getset_descriptor' that provides the weak reference list storage. All nine invariants are new to extra57."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# threading pure-Python class __repr__ is a function — extra57
+#
+# Thread, Event, Semaphore, and Condition are pure-Python classes in
+# Lib/threading.py. Each defines a __repr__ method as a Python function in
+# the class body. When __repr__ is accessed at the class level (not on an
+# instance), Python returns the underlying function object. Therefore
+# __repr__.__class__.__name__ == 'function' (8 chars) for all four classes.
+#
+# This is the expected pattern for all pure-Python classes and contrasts with
+# C-extension types (threading.Lock) whose class-level __repr__ is a
+# 'wrapper_descriptor'.
+#
+# No prior threading spec records __repr__.__class__.__name__ for any threading
+# class. All four checks below are new to extra57.
+# ---------------------------------------------------------------------------
+
+table threading_extra57.class_repr_is_function:
+  description: "threading pure-Python class __repr__.__class__.__name__ == 'function' — class-level __repr__ of pure-Python classes is a function object; contrasts with Lock (C type) whose __repr__ is wrapper_descriptor; not recorded in any prior threading spec; new to extra57"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: thrdrep57
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Thread_repr_class_name,
+       Thread.__repr__.__class__.__name__.__eq__,
+       ["function"],
+       true,
+       "threading.Thread.__repr__.__class__.__name__ == 'function' — Thread is a pure-Python class in Lib/threading.py that represents an activity run in a separate thread of control; its __repr__ is defined in the class body as a Python function; when accessed at the class level, __repr__ is the underlying function object (not a bound method); function.__name__ == 'function' (8 chars); contrasts with threading.Lock whose class-level __repr__ is 'wrapper_descriptor' (C type); no prior threading spec records __repr__.__class__.__name__ for Thread; new to extra57"]
+    - [Event_repr_class_name,
+       Event.__repr__.__class__.__name__.__eq__,
+       ["function"],
+       true,
+       "threading.Event.__repr__.__class__.__name__ == 'function' — Event is a pure-Python class in Lib/threading.py implementing a flag-based thread synchronization primitive; its __repr__ is a Python function defined in the class body; function.__name__ == 'function' (8 chars); no prior threading spec records __repr__.__class__.__name__ for Event; new to extra57"]
+    - [Semaphore_repr_class_name,
+       Semaphore.__repr__.__class__.__name__.__eq__,
+       ["function"],
+       true,
+       "threading.Semaphore.__repr__.__class__.__name__ == 'function' — Semaphore is a pure-Python class in Lib/threading.py implementing a counting semaphore for thread synchronization; its __repr__ is a Python function defined in the class body; function.__name__ == 'function' (8 chars); no prior threading spec records __repr__.__class__.__name__ for Semaphore; new to extra57"]
+    - [Condition_repr_class_name,
+       Condition.__repr__.__class__.__name__.__eq__,
+       ["function"],
+       true,
+       "threading.Condition.__repr__.__class__.__name__ == 'function' — Condition is a pure-Python class in Lib/threading.py implementing a condition variable for thread synchronization; its __repr__ is a Python function defined in the class body; function.__name__ == 'function' (8 chars); no prior threading spec records __repr__.__class__.__name__ for Condition; new to extra57"]
+
+# ---------------------------------------------------------------------------
+# threading pure-Python class __hash__ is a wrapper_descriptor — extra57
+#
+# Thread, Event, Semaphore, and Condition are pure-Python classes that do NOT
+# define __eq__. In Python 3, a class that does not define __eq__ inherits
+# the default identity-based __hash__ from object. The class-level __hash__
+# is therefore the tp_hash slot descriptor from the object base type, which
+# Python exposes as a 'wrapper_descriptor'.
+#
+# This contrasts with inspect.Parameter and inspect.Signature, which explicitly
+# define __hash__ as a Python function (because they define __eq__).
+# It also contrasts with classes that define __eq__ without __hash__, which
+# would have __hash__ == None.
+#
+# No prior threading spec records __hash__.__class__.__name__ for any threading
+# class. Thread, Event, and Semaphore are new to extra57.
+# ---------------------------------------------------------------------------
+
+table threading_extra57.class_hash_is_wrapper_descriptor:
+  description: "threading pure-Python class __hash__.__class__.__name__ == 'wrapper_descriptor' — Thread/Event/Semaphore do not define __eq__, so they inherit identity hash from object; inherited __hash__ is a C-slot wrapper_descriptor; contrasts with inspect.Parameter (explicitly defined __hash__ is 'function'); not recorded in any prior threading spec; new to extra57"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: thrdrep57
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Thread_hash_class_name,
+       Thread.__hash__.__class__.__name__.__eq__,
+       ["wrapper_descriptor"],
+       true,
+       "threading.Thread.__hash__.__class__.__name__ == 'wrapper_descriptor' — Thread does not define __eq__, so it inherits the default identity-based hash from object; the class-level __hash__ is the tp_hash slot descriptor from object, exposed as a 'wrapper_descriptor'; contrasts with inspect.Parameter which explicitly defines __hash__ as a Python function; no prior threading spec records __hash__.__class__.__name__ for Thread; new to extra57"]
+    - [Event_hash_class_name,
+       Event.__hash__.__class__.__name__.__eq__,
+       ["wrapper_descriptor"],
+       true,
+       "threading.Event.__hash__.__class__.__name__ == 'wrapper_descriptor' — Event does not define __eq__, so it inherits the default identity hash from object; the inherited class-level __hash__ is the tp_hash C-slot descriptor exposed as 'wrapper_descriptor'; no prior threading spec records __hash__.__class__.__name__ for Event; new to extra57"]
+    - [Semaphore_hash_class_name,
+       Semaphore.__hash__.__class__.__name__.__eq__,
+       ["wrapper_descriptor"],
+       true,
+       "threading.Semaphore.__hash__.__class__.__name__ == 'wrapper_descriptor' — Semaphore does not define __eq__, so it inherits the default identity hash from object; the inherited class-level __hash__ is the tp_hash C-slot descriptor exposed as 'wrapper_descriptor'; no prior threading spec records __hash__.__class__.__name__ for Semaphore; new to extra57"]
+
+# ---------------------------------------------------------------------------
+# threading class __dict__ __weakref__ is a getset_descriptor — extra57
+#
+# Thread and Event (and Semaphore and Condition) are pure-Python classes that
+# do NOT define __slots__. For any Python class that does not define __slots__,
+# the type machinery automatically adds a '__weakref__' entry to the class's
+# __dict__. This entry is a 'getset_descriptor' — a C-level descriptor that
+# manages the per-instance weak reference list.
+#
+# Accessing Thread.__dict__['__weakref__'] returns this getset_descriptor object,
+# and its __class__.__name__ == 'getset_descriptor' (16 chars). This confirms that
+# instances of Thread and Event support weak references (i.e., can be passed to
+# weakref.ref()). This contrasts with inspect.Parameter and inspect.Signature,
+# which define __slots__ without '__weakref__' and therefore do NOT support
+# weak references.
+#
+# No prior threading spec records the __weakref__ descriptor from the class
+# __dict__. Thread and Event are new to extra57.
+# ---------------------------------------------------------------------------
+
+table threading_extra57.class_weakref_descriptor:
+  description: "threading.Thread/Event __dict__['__weakref__'].__class__.__name__ == 'getset_descriptor' — pure-Python classes without __slots__ have a getset_descriptor for __weakref__ enabling instance weak references; contrasts with inspect.Parameter (has __slots__, no weakref support); not recorded in any prior threading spec; new to extra57"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: thrdrep57
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [Thread_weakref_descriptor_class_name,
+       "Thread.__dict__['__weakref__'].__class__.__name__.__eq__",
+       ["getset_descriptor"],
+       true,
+       "threading.Thread.__dict__['__weakref__'].__class__.__name__ == 'getset_descriptor' — Thread is a pure-Python class without __slots__; the type machinery automatically adds a '__weakref__' entry to the class __dict__ to support per-instance weak reference lists; this entry is a 'getset_descriptor' (a C-level get/set descriptor managing the weakref list storage); its presence means Thread instances can be passed to weakref.ref(); contrasts with inspect.Parameter which has __slots__ without '__weakref__' and cannot be weakly referenced; no prior threading spec records this; new to extra57"]
+    - [Event_weakref_descriptor_class_name,
+       "Event.__dict__['__weakref__'].__class__.__name__.__eq__",
+       ["getset_descriptor"],
+       true,
+       "threading.Event.__dict__['__weakref__'].__class__.__name__ == 'getset_descriptor' — Event is a pure-Python class without __slots__; the type machinery adds a '__weakref__' entry to the class __dict__; this getset_descriptor manages per-instance weak reference list storage and enables weak references to Event instances; no prior threading spec records the __weakref__ descriptor for Event; new to extra57"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra57
+# ---------------------------------------------------------------------------
+
+invariant threading_extra57.Thread_repr_is_python_function:
+  description: "Thread.__repr__.__class__.__name__ == 'function' — pure-Python class method is a function object at class level; contrasts with threading.Lock (C type) whose class-level __repr__ is wrapper_descriptor; new to extra57"
+  kind: python_call_eq
+  function: Thread.__repr__.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant threading_extra57.Event_repr_is_python_function:
+  description: "Event.__repr__.__class__.__name__ == 'function' — pure-Python class method is a function object; consistent with Thread and Semaphore above; new to extra57"
+  kind: python_call_eq
+  function: Event.__repr__.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant threading_extra57.Thread_hash_inherited_from_object:
+  description: "Thread.__hash__.__class__.__name__ == 'wrapper_descriptor' — Thread does not define __eq__, so it inherits the C-level tp_hash slot from object; class-level inherited hash is wrapper_descriptor, not 'function'; new to extra57"
+  kind: python_call_eq
+  function: Thread.__hash__.__class__.__name__.__eq__
+  args: ["wrapper_descriptor"]
+  expected: true
+
+invariant threading_extra57.Thread_has_weakref_getset_descriptor:
+  description: "Thread.__dict__['__weakref__'].__class__.__name__ == 'getset_descriptor' — pure-Python class without __slots__ gets automatic __weakref__ support; the descriptor is getset_descriptor; Thread instances are weakly referenceable; new to extra57"
+  kind: python_call_eq
+  function: "Thread.__dict__['__weakref__'].__class__.__name__.__eq__"
+  args: ["getset_descriptor"]
+  expected: true
