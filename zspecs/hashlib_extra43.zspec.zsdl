@@ -1,0 +1,88 @@
+spec: hashlib_extra43
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "hashlib_extra42.zspec.zsdl — covers sha224/sha384/sha3_256/pbkdf2_hmac __module__.__eq__('_hashlib') string eq values."
+    - "hashlib_extra41.zspec.zsdl — covers algorithms_guaranteed.__contains__ for sha256/md5/sha1/sha512; algorithms_guaranteed.__class__.__name__.__eq__('set'); new.__name__.__eq__('__hash_new'); new.__module__.__eq__('hashlib')."
+    - "hashlib_extra40.zspec.zsdl — covers sha3_512.__module__.__len__()==8; scrypt.__qualname__.__len__()==6 and scrypt.__module__.__len__()==8 (length checks only, NOT string eq values for these axes)."
+    - "hashlib_extra39.zspec.zsdl — covers scrypt.__name__.__len__()==6."
+    - "hashlib_extra34.zspec.zsdl — covers pbkdf2_hmac.__qualname__.__len__()==11 (length only, NOT eq value); algorithms_available.__len__()==19."
+    - "hashlib_extra24.zspec.zsdl — covers md5/sha1/sha256/sha512/sha224/sha384/new/pbkdf2_hmac __qualname__.__len__() (lengths only); md5/sha1/sha256/sha512/sha224/sha384 __qualname__.__eq__ as eq string values."
+    - "hashlib_extra20.zspec.zsdl — covers md5/sha1/sha256/sha512/new/pbkdf2_hmac __name__.__eq__; algorithms_available/__class__/__name__.__eq__; algorithms_guaranteed membership for sha256/sha1/md5."
+    - "hashlib_extra16.zspec.zsdl — covers algorithms_available.__contains__('sha256') and ('sha1') and algorithms_available/__class__/__name__.__eq__."
+    - "hashlib_extra12.zspec.zsdl — covers algorithms_available.__contains__('sha512')."
+    - "hashlib_extra6.zspec.zsdl — covers scrypt.__name__.__eq__('scrypt') and scrypt.__module__.__eq__('_hashlib')."
+  notes:
+    - "This spec extends hashlib through hashlib_extra42; it does NOT duplicate invariants present in those files."
+    - "Coverage gap 1: hashlib_extra40 covers scrypt.__qualname__.__len__()==6 (length check) and hashlib_extra6 covers scrypt.__name__.__eq__('scrypt'), but NO prior spec checks scrypt.__qualname__.__eq__('scrypt') as a string eq value. For C-level builtin functions, __qualname__ equals __name__ (both are 'scrypt'). The __qualname__.__eq__ axis is an independent regression vector from __name__.__eq__ and __qualname__.__len__. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "Coverage gap 2: hashlib_extra16 covers algorithms_available.__contains__('sha256') and ('sha1'); hashlib_extra12 covers algorithms_available.__contains__('sha512'). But NO prior spec checks algorithms_available.__contains__('sha224') or ('sha384'). Both sha224 and sha384 are in algorithms_available on OpenSSL-backed CPython. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "Coverage gap 3: hashlib_extra34 covers pbkdf2_hmac.__qualname__.__len__()==11 (length only); hashlib_extra20/extra15 cover pbkdf2_hmac.__name__.__eq__('pbkdf2_hmac') via __name__ axis. But NO prior spec checks pbkdf2_hmac.__qualname__.__eq__('pbkdf2_hmac') as a string eq value. For C builtin functions __qualname__==__name__, so the eq check captures the same string but via a distinct attribute chain. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# hashlib.scrypt.__qualname__ string eq check
+#
+# hashlib_extra6 covers scrypt.__name__.__eq__('scrypt').
+# hashlib_extra40 covers scrypt.__qualname__.__len__()==6 (length only).
+# No prior spec checks scrypt.__qualname__.__eq__('scrypt') as a string eq.
+# For C-level builtin functions __qualname__ == __name__ == 'scrypt'.
+# The __qualname__.__eq__ axis is an independent regression vector.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra43.scrypt.qualname_eq:
+  description: "hashlib.scrypt.__qualname__ == 'scrypt' — C builtin __qualname__ equals __name__; novel: extra40 covers __qualname__.__len__()==6 but NOT __qualname__.__eq__ as string value"
+  category: function_names
+  kind: python_call_eq
+  function: scrypt.__qualname__.__eq__
+  args: ["scrypt"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hashlib.algorithms_available.__contains__ for sha224 and sha384
+#
+# hashlib_extra16 covers algorithms_available.__contains__ for 'sha256' and 'sha1'.
+# hashlib_extra12 covers algorithms_available.__contains__ for 'sha512'.
+# No prior spec checks algorithms_available.__contains__ for 'sha224' or 'sha384'.
+# Both algorithms are present in algorithms_available on OpenSSL-backed CPython
+# because sha224 and sha384 are supported by the OpenSSL backend.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra43.algorithms_available_contains_sha224_sha384:
+  description: "hashlib.algorithms_available.__contains__ for 'sha224' and 'sha384' — novel: extra16 covers sha256/sha1; extra12 covers sha512; no prior spec checks sha224 or sha384 in algorithms_available"
+  kind: python_call_eq
+  category: set_membership
+  id_prefix: haacs43
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sha224_in_available, algorithms_available.__contains__, ["sha224"], true]
+    - [sha384_in_available, algorithms_available.__contains__, ["sha384"], true]
+
+# ---------------------------------------------------------------------------
+# hashlib.pbkdf2_hmac.__qualname__ string eq check
+#
+# hashlib_extra34 covers pbkdf2_hmac.__qualname__.__len__()==11 (length only).
+# hashlib_extra20/extra15 cover pbkdf2_hmac.__name__.__eq__('pbkdf2_hmac').
+# No prior spec checks pbkdf2_hmac.__qualname__.__eq__('pbkdf2_hmac').
+# For C builtin functions __qualname__ == __name__ == 'pbkdf2_hmac'.
+# The __qualname__.__eq__ axis is distinct from __name__.__eq__ and __qualname__.__len__.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra43.pbkdf2_hmac.qualname_eq:
+  description: "hashlib.pbkdf2_hmac.__qualname__ == 'pbkdf2_hmac' — C builtin; novel: extra34 covers __qualname__.__len__()==11; extra20 covers __name__.__eq__; no prior spec checks __qualname__.__eq__ as string value"
+  category: function_names
+  kind: python_call_eq
+  function: pbkdf2_hmac.__qualname__.__eq__
+  args: ["pbkdf2_hmac"]
+  expected: true

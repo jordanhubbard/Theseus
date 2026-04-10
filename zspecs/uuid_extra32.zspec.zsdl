@@ -1,0 +1,76 @@
+spec: uuid_extra32
+version: ">=3.9"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/uuid.html — Python uuid module documentation"
+    - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+    - "uuid_extra31.zspec.zsdl — covers RESERVED_NCS/MICROSOFT/FUTURE __len__(); getnode __name__/__qualname__.__eq__."
+    - "uuid_extra30.zspec.zsdl — covers UUID.__name__/__module__ string eq; UUID.__bases__[0].__name__.__eq__('object'); uuid1/3/4/5 __name__ string eq; uuid4.__module__.__eq__('uuid'); NAMESPACE_DNS.__class__.__name__.__eq__('UUID')."
+    - "uuid_extra23.zspec.zsdl — covers RFC_4122.__class__.__name__.__len__()==3 and RFC_4122.__len__()==21."
+    - "uuid_extra22.zspec.zsdl — covers UUID.__str__.__qualname__.__len__()==12."
+    - "uuid_extra21.zspec.zsdl — covers UUID.__init__.__qualname__.__len__()==13 and UUID.__init__.__module__.__len__()==4."
+    - "uuid_extra20.zspec.zsdl — covers uuid3/4/5/1 __qualname__.__eq__; UUID.__init__.__qualname__.__eq__('UUID.__init__')."
+    - "uuid_extra16.zspec.zsdl — covers UUID.__str__.__qualname__.__eq__('UUID.__str__') and __qualname__.__len__()==12; UUID.__init__.__qualname__.__eq__('UUID.__init__') and __qualname__.__len__()==13."
+    - "uuid_extra6.zspec.zsdl — covers RESERVED_NCS/__class__/__name__.__eq__('str'); RFC_4122/__class__/__name__.__eq__('str')."
+    - "uuid_extra2.zspec.zsdl — covers RESERVED_NCS/__class__/__name__.__eq__('str') and __eq__ (value check); RFC_4122/__eq__ (value check)."
+  notes:
+    - "This spec extends uuid through uuid_extra31; it does NOT duplicate invariants present in those files."
+    - "Coverage gap 1: uuid_extra16 covers UUID.__str__.__qualname__.__eq__('UUID.__str__') and uuid_extra22 covers __qualname__.__len__()==12. But NO prior spec checks UUID.__str__.__name__.__eq__('__str__') (the bare unqualified name) or UUID.__str__.__module__.__eq__('uuid'). For Python methods, __name__ gives the unqualified method name ('__str__') while __qualname__ gives the class-prefixed form ('UUID.__str__'). The __name__ axis is a distinct regression vector. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "uuid.UUID.__str__.__name__ == '__str__'. __name__ is the bare method name; __qualname__ is 'UUID.__str__'. No prior uuid spec checks UUID.__str__.__name__ at all. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "uuid.UUID.__str__.__module__ == 'uuid'. UUID is defined in Lib/uuid.py; its methods report __module__ == 'uuid'. No prior uuid spec checks UUID.__str__.__module__. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "Coverage gap 2: uuid_extra6/extra2 cover RFC_4122.__class__.__name__.__eq__('str'); uuid_extra23 covers RFC_4122.__class__.__name__.__len__()==3. But NO prior spec checks RFC_4122.__class__.__module__.__eq__('builtins'). RFC_4122 is a plain str instance; str's __module__ is 'builtins'. This is a distinct attribute chain not covered by any prior uuid spec. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "uuid.RFC_4122.__class__.__module__ == 'builtins'. str is a builtin type; its __module__ is 'builtins'. RFC_4122 is a str instance so its __class__.__module__ is 'builtins'. No prior uuid spec checks RFC_4122.__class__.__module__. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# uuid.UUID.__str__ __name__ and __module__ checks
+#
+# uuid_extra16 covers UUID.__str__.__qualname__.__eq__('UUID.__str__').
+# uuid_extra22 covers UUID.__str__.__qualname__.__len__()==12.
+# No prior uuid spec checks UUID.__str__.__name__ (bare name, '__str__')
+# or UUID.__str__.__module__ ('uuid').
+#
+# __name__ gives the unqualified method name; __qualname__ gives the class-
+# prefixed form. These are distinct attributes and independent regression checks.
+# ---------------------------------------------------------------------------
+
+table uuid_extra32.UUID_str_name_module:
+  description: "uuid.UUID.__str__.__name__=='__str__' and __module__=='uuid' — novel: extra16 covers __qualname__.__eq__; extra22 covers __qualname__.__len__; no prior spec checks __name__ or __module__ for UUID.__str__"
+  kind: python_call_eq
+  category: function_names
+  id_prefix: usnm32
+
+  columns: [id, function, args, expected]
+  rows:
+    - [str_name_eq,   "UUID.__str__.__name__.__eq__",   ["__str__"], true]
+    - [str_module_eq, "UUID.__str__.__module__.__eq__",  ["uuid"],   true]
+
+# ---------------------------------------------------------------------------
+# uuid.RFC_4122.__class__.__module__ check
+#
+# uuid_extra6/extra2 cover RFC_4122.__class__.__name__.__eq__('str').
+# uuid_extra23 covers RFC_4122.__class__.__name__.__len__()==3 and
+#   RFC_4122.__len__()==21.
+# No prior uuid spec checks RFC_4122.__class__.__module__.
+# RFC_4122 is a plain str instance; str's __module__ is 'builtins'.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra32.RFC_4122.class_module_eq:
+  description: "uuid.RFC_4122.__class__.__module__ == 'builtins' — RFC_4122 is a str; str.__module__ == 'builtins'; novel: extra6/extra2 cover __class__.__name__.__eq__('str'); no prior spec checks __class__.__module__"
+  category: module_metadata
+  kind: python_call_eq
+  function: RFC_4122.__class__.__module__.__eq__
+  args: ["builtins"]
+  expected: true

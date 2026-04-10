@@ -1,0 +1,72 @@
+spec: struct_extra36
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra35.zspec.zsdl — covers calcsize('<Q'/'<q')==8; pack('<Q',1) and pack('>Q',1) byte encoding."
+    - "struct_extra34.zspec.zsdl — covers pack/__name__=='pack'; unpack/__name__=='unpack'; pack/__module__=='_struct'; calcsize/__name__=='calcsize'; calcsize('>H'/'I'/'Q'/'B') sizes."
+    - "struct_extra32.zspec.zsdl — covers Struct METHOD __name__.__len__() for pack/unpack/pack_into/unpack_from/iter_unpack."
+    - "struct_extra30.zspec.zsdl — covers calcsize('10s'/'?'/'e'); Struct('4B').size; Struct('4B').format.__len__()==2."
+    - "struct_extra27.zspec.zsdl — covers Struct/__mro__.__len__()==2; error/__mro__.__len__()==4; Struct/__bases__[0].__name__.__len__()==6; error/__bases__[0].__name__.__len__()==9; Struct method __qualname__.__len__() for pack/unpack/pack_into/unpack_from/iter_unpack."
+    - "struct_extra25.zspec.zsdl — covers __module__.__len__() for pack/unpack/calcsize/pack_into/unpack_from/iter_unpack; __name__.__len__() for pack/unpack/calcsize/pack_into."
+    - "struct_extra22.zspec.zsdl — covers pack/unpack/calcsize __module__.__eq__('_struct'); Struct/__module__.__len__()==7; error/__module__.__len__()==6."
+    - "struct_extra21.zspec.zsdl — covers Struct.pack/unpack/pack_into/unpack_from/iter_unpack __qualname__.__len__()."
+    - "struct_extra18.zspec.zsdl — covers unpack/calcsize/iter_unpack __module__.__eq__('_struct') in a table."
+    - "struct_extra12.zspec.zsdl — covers calcsize('<H'/'<I'/'>i'/'>b'/'!H')."
+    - "struct_extra10.zspec.zsdl — covers calcsize('<f'/'<d')."
+    - "struct_extra9.zspec.zsdl — covers Struct.pack/unpack/pack_into/unpack_from/iter_unpack __name__.__eq__ and __qualname__.__eq__."
+    - "struct_extra7.zspec.zsdl — covers calcsize('>l'/'>L'/'=H'/'>2B')."
+  notes:
+    - "This spec extends struct through struct_extra35; it does NOT duplicate invariants present in those files."
+    - "Coverage gap 1: struct_extra10 covers calcsize('<f')==4 and calcsize('<d')==8 (little-endian). struct_extra7 covers calcsize('>l'/'=H') but NOT calcsize('>d') or calcsize('>f') as standalone big-endian invariants. Prior specs cover '<h'/'!?' but not '>d'/'>f' in any form. calcsize('>d')==8 and calcsize('>f')==4 complete the big-endian counterparts. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize('>d') == 8. IEEE 754 double is 8 bytes regardless of byte order. struct_extra10 covers '<d' but NOT '>d'. The big-endian form is a distinct regression test. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize('>f') == 4. IEEE 754 single-precision float is 4 bytes regardless of byte order. struct_extra10 covers '<f' but NOT '>f' as a standalone invariant. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "Coverage gap 2: No prior struct spec checks calcsize('>4H'). The '4H' format specifies four consecutive big-endian unsigned shorts; each H is 2 bytes so 4*2==8. struct_extra12 covers calcsize('!H')==2 (single H) but no spec checks a repeated format specifier like '4H'. This tests the repetition syntax in calcsize. Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "struct.calcsize('>4H') == 8. Four big-endian unsigned shorts (H), each 2 bytes: 4*2 == 8. No prior spec checks calcsize for any repeated-format string of this form (extra30 covers '4B' for Struct.size but not calcsize). Verified Python 3.14 macOS/Darwin 25.4.0."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.calcsize for big-endian float ('>f') and double ('>d')
+#
+# struct_extra10 covers calcsize('<f')==4 and calcsize('<d')==8 (little-endian).
+# No prior struct spec checks calcsize('>f') or calcsize('>d') as standalone
+# big-endian invariants. Size is determined by type, not byte order.
+# ---------------------------------------------------------------------------
+
+table struct_extra36.calcsize_be_float_double:
+  description: "struct.calcsize('>f')==4 and calcsize('>d')==8 — big-endian float/double; novel: extra10 covers '<f'/< 'd' (little-endian); no prior spec checks '>f' or '>d' standalone"
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: scbfd36
+
+  columns: [id, function, args, expected]
+  rows:
+    - [calcsize_be_float,  calcsize, [">f"], 4]
+    - [calcsize_be_double, calcsize, [">d"], 8]
+
+# ---------------------------------------------------------------------------
+# struct.calcsize('>4H') — repeated format specifier
+#
+# struct_extra12 covers calcsize('!H')==2 (single unsigned short).
+# struct_extra30 covers Struct('4B').size==4 (via method_chain on Struct instance).
+# No prior spec calls struct.calcsize() directly with a repeated format like '4H'.
+# '>4H' means four big-endian unsigned shorts, total size 4*2 == 8 bytes.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra36.calcsize_be_4H:
+  description: "struct.calcsize('>4H') == 8 — four big-endian unsigned shorts, 4*2==8; novel: extra12 covers calcsize('!H')==2 (single); extra30 covers Struct('4B').size via method_chain; no prior spec checks calcsize with a repeated format like '4H'"
+  category: behavioral
+  kind: python_call_eq
+  function: calcsize
+  args: [">4H"]
+  expected: 8
