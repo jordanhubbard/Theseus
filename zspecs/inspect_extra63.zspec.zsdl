@@ -1,0 +1,203 @@
+spec: inspect_extra63
+version: ">=3.9"
+backend: python_module(inspect)
+
+docs: https://docs.python.org/3/library/inspect.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/inspect.html — Python inspect module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/inspect.py"
+  notes:
+    - "This spec extends inspect_extra62.zspec.zsdl."
+    - "Wave 229 theme: __defaults__ and __kwdefaults__ checks for function parameters + __code__ attribute identity + __closure__ checks."
+    - "inspect.isfunction is a pure-Python function (Lib/inspect.py) with signature isfunction(object). It has no positional defaults: isfunction.__defaults__ is None. None.__class__.__name__ == 'NoneType'. No prior inspect spec checks isfunction.__defaults__."
+    - "inspect.signature is a pure-Python function (Lib/inspect.py) with signature signature(obj, *, follow_wrapped=True, globals=None, locals=None, eval_str=False, annotation_format=...). The * means all parameters after obj are keyword-only. Keyword-only parameters with defaults go into __kwdefaults__, not __defaults__. Therefore signature.__defaults__ is None (no positional defaults after obj; obj itself has no default). signature.__kwdefaults__ is a dict containing 'follow_wrapped', 'globals', 'locals', 'eval_str', 'annotation_format'. signature.__kwdefaults__.__class__.__name__ == 'dict'."
+    - "inspect.isfunction.__code__.__class__.__name__ == 'code' — isfunction is a pure-Python function; its __code__ is a PyCodeObject."
+    - "inspect.signature.__code__.__class__.__name__ == 'code' — same reasoning."
+    - "inspect.isfunction.__closure__ is None — isfunction is a module-level function, not a nested function. No captured free variables. __closure__ is None. None.__class__.__name__ == 'NoneType'."
+    - "inspect.isfunction.__kwdefaults__ is None — isfunction has no keyword-only parameters. __kwdefaults__ is None for functions without kw-only defaults."
+    - "inspect.signature.__kwdefaults__.__contains__('follow_wrapped') == True — follow_wrapped is one of the keyword-only parameters with a default value of True."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "No prior inspect spec checks __defaults__, __kwdefaults__, __code__.__class__.__name__, or __closure__ for any function. All checks in this spec are new to extra63."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# isfunction.__defaults__ and signature.__defaults__ — extra63
+#
+# Wave 229 theme: __defaults__ checks for function parameters.
+#
+# inspect.isfunction(object) — one positional parameter with no default.
+# Therefore isfunction.__defaults__ is None.
+#
+# inspect.signature(obj, *, ...) — one positional parameter (obj) with no
+# default, all remaining are keyword-only. Therefore signature.__defaults__
+# is None (the * keyword-only barrier means nothing goes into __defaults__).
+#
+# None.__class__.__name__ == 'NoneType'.
+#
+# No prior inspect spec checks __defaults__ for any function. New to extra63.
+# ---------------------------------------------------------------------------
+
+table inspect_extra63.defaults_class_name:
+  description: "isfunction/signature __defaults__.__class__.__name__.__eq__('NoneType')==true — neither function has positional defaults; wave 229 __defaults__ checks; new to extra63"
+  kind: python_call_eq
+  category: defaults_type
+  id_prefix: inspcode63
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [isfunction_defaults_class_name_eq_NoneType,
+       isfunction.__defaults__.__class__.__name__.__eq__,
+       ["NoneType"],
+       true,
+       "inspect.isfunction.__defaults__.__class__.__name__.__eq__('NoneType') == True — isfunction is a pure-Python function (Lib/inspect.py) with signature isfunction(object); the single parameter 'object' has no default value, so no defaults exist; Python sets __defaults__ to None (not an empty tuple) when there are no positional defaults; None.__class__ is the NoneType type and NoneType.__name__ == 'NoneType' (8 chars); no prior inspect spec checks __defaults__ for isfunction; new to extra63"]
+    - [signature_defaults_class_name_eq_NoneType,
+       signature.__defaults__.__class__.__name__.__eq__,
+       ["NoneType"],
+       true,
+       "inspect.signature.__defaults__.__class__.__name__.__eq__('NoneType') == True — signature is a pure-Python function (Lib/inspect.py) with signature signature(obj, *, follow_wrapped=True, globals=None, locals=None, eval_str=False, annotation_format=...); the single positional parameter 'obj' has no default, and all parameters after the '*' are keyword-only (their defaults go into __kwdefaults__, not __defaults__); therefore signature.__defaults__ is None; None.__class__.__name__ == 'NoneType'; no prior inspect spec checks __defaults__ for signature; new to extra63"]
+
+# ---------------------------------------------------------------------------
+# signature.__kwdefaults__ checks — extra63
+#
+# Wave 229 theme: __kwdefaults__ checks for keyword-only parameters.
+#
+# inspect.signature has keyword-only parameters with defaults:
+#   follow_wrapped=True, globals=None, locals=None, eval_str=False,
+#   annotation_format=<Format.VALUE: 1>
+#
+# These go into __kwdefaults__ (a dict). Therefore:
+#   signature.__kwdefaults__.__class__.__name__ == 'dict'
+#   signature.__kwdefaults__.__contains__('follow_wrapped') == True
+#
+# inspect.isfunction has no keyword-only parameters:
+#   isfunction.__kwdefaults__ is None
+#   isfunction.__kwdefaults__.__class__.__name__ == 'NoneType'
+#
+# No prior inspect spec checks __kwdefaults__ for any function. New to extra63.
+# ---------------------------------------------------------------------------
+
+table inspect_extra63.kwdefaults_checks:
+  description: "signature.__kwdefaults__.__class__.__name__.__eq__('dict') and isfunction.__kwdefaults__.__class__.__name__.__eq__('NoneType') — kw-only defaults vs none; wave 229 __kwdefaults__ checks; new to extra63"
+  kind: python_call_eq
+  category: kwdefaults_type
+  id_prefix: inspcode63
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [signature_kwdefaults_class_name_eq_dict,
+       signature.__kwdefaults__.__class__.__name__.__eq__,
+       ["dict"],
+       true,
+       "inspect.signature.__kwdefaults__.__class__.__name__.__eq__('dict') == True — signature is a pure-Python function (Lib/inspect.py) with keyword-only parameters follow_wrapped=True, globals=None, locals=None, eval_str=False, and annotation_format=<Format.VALUE: 1>; Python stores keyword-only parameter defaults in the __kwdefaults__ dict (one key per kw-only parameter that has a default); therefore signature.__kwdefaults__ is a dict with 5 keys; __kwdefaults__.__class__.__name__ == 'dict'; no prior inspect spec checks __kwdefaults__ for any function; new to extra63"]
+    - [signature_kwdefaults_contains_follow_wrapped,
+       signature.__kwdefaults__.__contains__,
+       ["follow_wrapped"],
+       true,
+       "inspect.signature.__kwdefaults__.__contains__('follow_wrapped') == True — signature.__kwdefaults__ is a dict of keyword-only parameter defaults; 'follow_wrapped' is one of the keyword-only parameters of signature(obj, *, follow_wrapped=True, ...); it appears as a key in __kwdefaults__ with value True; __contains__ on a dict returns True when the key exists; no prior inspect spec checks __kwdefaults__.__contains__ for any function; new to extra63"]
+    - [isfunction_kwdefaults_class_name_eq_NoneType,
+       isfunction.__kwdefaults__.__class__.__name__.__eq__,
+       ["NoneType"],
+       true,
+       "inspect.isfunction.__kwdefaults__.__class__.__name__.__eq__('NoneType') == True — isfunction is a pure-Python function (Lib/inspect.py) with signature isfunction(object); it has no keyword-only parameters at all; Python sets __kwdefaults__ to None when a function has no keyword-only parameters with defaults; None.__class__.__name__ == 'NoneType'; this contrasts with signature which has a dict __kwdefaults__; no prior inspect spec checks __kwdefaults__ for isfunction; new to extra63"]
+
+# ---------------------------------------------------------------------------
+# isfunction.__code__ and signature.__code__ class names — extra63
+#
+# Wave 229 theme: __code__ attribute identity.
+#
+# Both isfunction and signature are pure-Python functions in Lib/inspect.py.
+# Each carries a __code__ attribute pointing to a code object (PyCodeObject).
+# code.__class__.__name__ == 'code'.
+#
+# No prior inspect spec checks __code__.__class__.__name__. New to extra63.
+# ---------------------------------------------------------------------------
+
+table inspect_extra63.code_class_name:
+  description: "isfunction/signature __code__.__class__.__name__.__eq__('code')==true — pure-Python functions have a code object; wave 229 __code__ identity; new to extra63"
+  kind: python_call_eq
+  category: code_type
+  id_prefix: inspcode63
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [isfunction_code_class_name_eq_code,
+       isfunction.__code__.__class__.__name__.__eq__,
+       ["code"],
+       true,
+       "inspect.isfunction.__code__.__class__.__name__.__eq__('code') == True — isfunction is a pure-Python function (Lib/inspect.py); every Python function object (PyFunctionObject) carries a __code__ attribute pointing to its associated code object (PyCodeObject); the built-in code type has __name__ == 'code' (4 chars); this chain verifies the type identity of the code object for isfunction; no prior inspect spec checks __code__.__class__.__name__ for isfunction; new to extra63"]
+    - [signature_code_class_name_eq_code,
+       signature.__code__.__class__.__name__.__eq__,
+       ["code"],
+       true,
+       "inspect.signature.__code__.__class__.__name__.__eq__('code') == True — signature is a pure-Python function (Lib/inspect.py) that returns a Signature object for a callable; its __code__ is a PyCodeObject; __code__.__class__.__name__ == 'code'; no prior inspect spec checks __code__.__class__.__name__ for signature; new to extra63"]
+
+# ---------------------------------------------------------------------------
+# isfunction.__closure__ — extra63
+#
+# Wave 229 theme: __closure__ checks.
+#
+# inspect.isfunction is a module-level function, not a nested function.
+# It does not capture any free variables from an enclosing scope.
+# Therefore isfunction.__closure__ is None.
+#
+# None.__class__.__name__ == 'NoneType'.
+#
+# No prior inspect spec checks __closure__ for any function. New to extra63.
+# ---------------------------------------------------------------------------
+
+table inspect_extra63.closure_class_name:
+  description: "isfunction/signature __closure__.__class__.__name__.__eq__('NoneType')==true — module-level functions have no closure; wave 229 __closure__ checks; new to extra63"
+  kind: python_call_eq
+  category: closure_type
+  id_prefix: inspcode63
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [isfunction_closure_class_name_eq_NoneType,
+       isfunction.__closure__.__class__.__name__.__eq__,
+       ["NoneType"],
+       true,
+       "inspect.isfunction.__closure__.__class__.__name__.__eq__('NoneType') == True — isfunction is defined at module scope in Lib/inspect.py; module-level functions are not closures and do not capture free variables from an enclosing scope; therefore isfunction.__closure__ is None; None.__class__ is the NoneType type and NoneType.__name__ == 'NoneType' (8 chars); this chain verifies that isfunction has no closure cells; no prior inspect spec checks __closure__ for any inspect function; new to extra63"]
+    - [signature_closure_class_name_eq_NoneType,
+       signature.__closure__.__class__.__name__.__eq__,
+       ["NoneType"],
+       true,
+       "inspect.signature.__closure__.__class__.__name__.__eq__('NoneType') == True — signature is defined at module scope in Lib/inspect.py; it is not a nested function and captures no free variables from an enclosing function scope; therefore signature.__closure__ is None; None.__class__.__name__ == 'NoneType'; no prior inspect spec checks __closure__ for signature; new to extra63"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra63
+# ---------------------------------------------------------------------------
+
+invariant inspect_extra63.isfunction_defaults_is_None:
+  description: "inspect.isfunction.__defaults__.__class__.__name__.__eq__('NoneType') == True — isfunction has no positional defaults; __defaults__ is None; wave 229 __defaults__ checks; new to extra63"
+  kind: python_call_eq
+  function: isfunction.__defaults__.__class__.__name__.__eq__
+  args: ["NoneType"]
+  expected: true
+
+invariant inspect_extra63.signature_kwdefaults_is_dict:
+  description: "inspect.signature.__kwdefaults__.__class__.__name__.__eq__('dict') == True — signature has keyword-only parameters with defaults stored in __kwdefaults__ dict; wave 229 __kwdefaults__ checks; new to extra63"
+  kind: python_call_eq
+  function: signature.__kwdefaults__.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+invariant inspect_extra63.isfunction_code_is_code:
+  description: "inspect.isfunction.__code__.__class__.__name__.__eq__('code') == True — isfunction is a pure-Python function; its __code__ is a PyCodeObject; wave 229 __code__ identity; new to extra63"
+  kind: python_call_eq
+  function: isfunction.__code__.__class__.__name__.__eq__
+  args: ["code"]
+  expected: true
+
+invariant inspect_extra63.isfunction_closure_is_None:
+  description: "inspect.isfunction.__closure__.__class__.__name__.__eq__('NoneType') == True — isfunction is a module-level function with no closure; __closure__ is None; wave 229 __closure__ checks; new to extra63"
+  kind: python_call_eq
+  function: isfunction.__closure__.__class__.__name__.__eq__
+  args: ["NoneType"]
+  expected: true
