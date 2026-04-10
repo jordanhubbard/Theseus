@@ -1,0 +1,135 @@
+spec: struct_extra17
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct.zspec.zsdl — pack/unpack for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize; roundtrip; error cases."
+    - "struct_extra.zspec.zsdl — Struct format/size; calcsize extras; pack_into; unpack_from; iter_unpack; error name/bases."
+    - "struct_extra2.zspec.zsdl — function __name__/__module__; pack(>H,256); unpack(>H); calcsize(>HHH)."
+    - "struct_extra3.zspec.zsdl — pack/unpack/calcsize for !f/!d/!?; calcsize for !5s/!3p/!x/!5x."
+    - "struct_extra4.zspec.zsdl — Struct.__name__; pack_into.__name__; function __qualname__ table; error.__qualname__."
+    - "struct_extra5.zspec.zsdl — Struct.__qualname__; Struct('>I'/'>H') format/size; pack('>B',255)."
+    - "struct_extra6.zspec.zsdl — pack/unpack('>b',127/-128); Struct('>b'/'>Q') format/size."
+    - "struct_extra7.zspec.zsdl — pack/unpack/calcsize for '>l'/'>L'/'=H'/'>2B'; Struct('>l') format/size."
+    - "struct_extra8.zspec.zsdl — function __module__ ('_struct'/'struct'); pack return type/length for '>I'/'>H'."
+    - "struct_extra9.zspec.zsdl — calcsize('c'/'P'); Struct method descriptor __qualname__/__name__ tables."
+    - "struct_extra10.zspec.zsdl — pack/unpack('>BB',0,255); pack/unpack('<I',1); calcsize('<f'/'<d')."
+    - "struct_extra11.zspec.zsdl — pack('>I',305419896); pack('<H',256); pack('!f',1.0) length."
+    - "struct_extra12.zspec.zsdl — pack/unpack('<H' 1/65535/256); unpack('>i',FFFFFFFF); calcsize extras."
+    - "struct_extra13.zspec.zsdl — calcsize('=H'/'=I'/'=c'/'3s'); pack/unpack('=H',1) etc."
+    - "struct_extra14.zspec.zsdl — pack('>I',0)/('>I',1)/('>H',256) exact bytes; unpack exact values."
+    - "struct_extra15.zspec.zsdl — calcsize('!BHI'/'!BHIQ'); pack('!B',255)/('!I',16909060)."
+    - "struct_extra16.zspec.zsdl — function __name__ table for all 8 callables; __name__ length table."
+  notes:
+    - "This spec extends struct.zspec.zsdl through struct_extra16.zspec.zsdl."
+    - "struct.pack('>I', 256) == b'\\x00\\x00\\x01\\x00' (AAABAA== in base64) — big-endian unsigned 32-bit 256. Verified Python 3.12 macOS."
+    - "struct.pack('>H', 1) == b'\\x00\\x01' — big-endian unsigned 16-bit 1. Verified."
+    - "struct.unpack('>I', b'\\x00\\x00\\x01\\x00') == (256,) — roundtrip for big-endian 32-bit. Verified."
+    - "struct.unpack('>H', b'\\x00\\x01') == (1,) — roundtrip for big-endian 16-bit. Verified."
+    - "struct.calcsize('>IH') == 6 — unsigned int (4) + unsigned short (2) = 6 bytes. Verified."
+    - "struct.error.__module__ == 'struct' — error class is defined at the Python struct level. Verified."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.pack('>I', 256) == b'\x00\x00\x01\x00'
+#
+# Big-endian unsigned 32-bit pack of 256. struct_extra14 covers pack('>I',0)
+# and pack('>I',1) exact bytes; struct_extra11 covers pack('>I',305419896).
+# 256 == 0x00000100 is not yet covered as an exact-bytes invariant.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra17.pack.be_uint32_256:
+  description: "struct.pack('>I', 256) == b'\\x00\\x00\\x01\\x00' — big-endian unsigned 32-bit 256"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: [">I", 256]
+  expected: !b64 AAABAA==
+
+# ---------------------------------------------------------------------------
+# struct.pack('>H', 1) == b'\x00\x01'
+#
+# Big-endian unsigned 16-bit pack of 1. struct_extra14 covers pack('>H',256)
+# exact bytes; struct_extra2 covers pack('>H',256) return value via length.
+# 1 == 0x0001 as a 2-byte big-endian value is not yet covered.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra17.pack.be_uint16_1:
+  description: "struct.pack('>H', 1) == b'\\x00\\x01' — big-endian unsigned 16-bit 1"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: [">H", 1]
+  expected: !b64 AAE=
+
+# ---------------------------------------------------------------------------
+# struct.unpack('>I', b'\x00\x00\x01\x00') == (256,)
+#
+# Roundtrip of the pack above. struct_extra14 covers unpack('>I',00000000)
+# and unpack('>H',0100). unpack('>I', 0x00000100) == (256,) is new.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra17.unpack.be_uint32_256:
+  description: "struct.unpack('>I', b'\\x00\\x00\\x01\\x00') == (256,) — big-endian 32-bit decode"
+  category: unpack
+  kind: python_call_eq
+  function: unpack
+  args: [">I", !b64 AAABAA==]
+  expected: [256]
+
+# ---------------------------------------------------------------------------
+# struct.unpack('>H', b'\x00\x01') == (1,)
+#
+# Roundtrip of the uint16 pack above. struct_extra12 covers unpack('>H',
+# various values) but not 0x0001 as an exact-bytes-in invariant.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra17.unpack.be_uint16_1:
+  description: "struct.unpack('>H', b'\\x00\\x01') == (1,) — big-endian 16-bit decode"
+  category: unpack
+  kind: python_call_eq
+  function: unpack
+  args: [">H", !b64 AAE=]
+  expected: [1]
+
+# ---------------------------------------------------------------------------
+# struct.calcsize('>IH') == 6
+#
+# unsigned int (4 bytes) + unsigned short (2 bytes) = 6 bytes total.
+# struct_extra2 covers calcsize('>HHH')==6; struct_extra10 covers
+# calcsize('<f'/'<d'). The '>IH' mixed-width format is not yet covered.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra17.calcsize.be_IH:
+  description: "struct.calcsize('>IH') == 6 — unsigned int (4) + unsigned short (2)"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: [">IH"]
+  expected: 6
+
+# ---------------------------------------------------------------------------
+# struct.error.__module__ == 'struct'
+#
+# struct_extra8 covers struct.error.__module__ indirectly (error is
+# listed among callables whose __module__ == 'struct'). This standalone
+# invariant anchors the check explicitly from the extra17 namespace.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra17.error.module:
+  description: "struct.error.__module__ == 'struct' — error exception defined at struct level"
+  category: class_modules
+  kind: python_call_eq
+  function: error.__module__.__eq__
+  args: ["struct"]
+  expected: true
