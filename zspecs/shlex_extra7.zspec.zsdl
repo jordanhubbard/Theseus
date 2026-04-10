@@ -1,0 +1,91 @@
+spec: shlex_extra7
+version: ">=3.8"
+backend: python_module(shlex)
+
+docs: https://docs.python.org/3/library/shlex.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/shlex.html — Python shlex module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09"
+  not_derived_from:
+    - "CPython source: Lib/shlex.py"
+  notes:
+    - "This spec extends shlex.zspec.zsdl and shlex_extra through shlex_extra6.zspec.zsdl."
+    - "shlex_extra6 covers: shlex instance attrs (quotes, commenters, escape, token, eof, debug, whitespace_split, punctuation_chars); split backslash-escaped space; quote forward-slash; quote underscore+dot."
+    - "NEW in this spec: shlex.split('hello world') == ['hello', 'world']; shlex.split('hello \"world foo\"') == ['hello', 'world foo']; shlex.split(\"it's fine\") raises ValueError (unclosed single-quote — verified on Python 3.14/macOS); shlex.quote('hello') == 'hello'; shlex.quote('hello world') == \"'hello world'\"; shlex.quote(\"it's\") == \"'it'\\\"'\\\"'s'\" (verified)."
+    - "shlex.split(\"it's fine\") raises ValueError: the apostrophe opens a single-quoted string with no closing quote."
+    - "shlex.quote(\"it's\") produces 'it'\"'\"'s' — the shell-safe encoding of a string containing an apostrophe."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-09."
+  created_at: "2026-04-09T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# shlex.split — basic split behavioral table
+#
+# Covers the two-token simple split and the double-quoted multi-word token.
+# Not previously covered in the extra12 namespace (these are in shlex.zspec.zsdl
+# but this table establishes them in the extra7 namespace).
+# ---------------------------------------------------------------------------
+
+table shlex_extra7.split_basic:
+  description: "shlex.split basic behavioral vectors"
+  kind: python_call_eq
+  category: split
+  id_prefix: sbasic7
+
+  columns: [id, function, args, expected]
+  rows:
+    - [two_words,        split, ["hello world"],       ["hello", "world"]]
+    - [double_quoted,    split, ["hello \"world foo\""], ["hello", "world foo"]]
+
+# ---------------------------------------------------------------------------
+# shlex.split("it's fine") — raises ValueError
+#
+# The apostrophe in "it's" opens a single-quoted string that is never closed.
+# shlex.split raises ValueError: "No closing quotation"
+# Verified on Python 3.14.3 on macOS Darwin 25.4.0.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra7.split.apostrophe_raises:
+  description: "shlex.split(\"it's fine\") raises ValueError — unclosed single-quote"
+  category: split
+  kind: python_call_raises
+  function: split
+  args: ["it's fine"]
+  expected: ValueError
+
+# ---------------------------------------------------------------------------
+# shlex.quote — basic quoting behavioral table
+#
+# shlex.quote('hello') == 'hello'           — no special chars, returned as-is
+# shlex.quote('hello world') == "'hello world'"  — space requires quoting
+# Verified on Python 3.12 on macOS Darwin 25.4.0.
+# ---------------------------------------------------------------------------
+
+table shlex_extra7.quote_basic:
+  description: "shlex.quote basic quoting vectors"
+  kind: python_call_eq
+  category: quote
+  id_prefix: qbasic7
+
+  columns: [id, function, args, expected]
+  rows:
+    - [safe_word,    quote, ["hello"],       "hello"]
+    - [space_word,   quote, ["hello world"], "'hello world'"]
+
+# ---------------------------------------------------------------------------
+# shlex.quote("it's") — apostrophe in input
+#
+# shlex.quote("it's") == "'it'\"'\"'s'" — the shell-safe single-quote encoding.
+# Bytes: [39,105,116,39,34,39,34,39,115,39] — verified on Python 3.12.
+# ---------------------------------------------------------------------------
+
+invariant shlex_extra7.quote.apostrophe:
+  description: "shlex.quote(\"it's\") == \"'it'\\\"'\\\"'s'\" — shell-safe encoding for apostrophe"
+  category: quote
+  kind: python_call_eq
+  function: quote
+  args: ["it's"]
+  expected: "'it'\"'\"'s'"
