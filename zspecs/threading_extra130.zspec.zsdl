@@ -1,0 +1,225 @@
+spec: threading_extra130
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec covers: threading.Condition class method co_varnames and co_argcount for __init__, wait, wait_for, and notify (Wave 261)."
+    - "threading.Condition.__init__.__code__.co_varnames[0] == 'self'. Verified with Python 3.14.3."
+    - "threading.Condition.__init__.__code__.co_argcount == 2 — self, lock. Verified with Python 3.14.3."
+    - "len(threading.Condition.__init__.__code__.co_varnames) == 2 — only the 2 parameters, no additional locals. Verified with Python 3.14.3."
+    - "threading.Condition.wait.__code__.co_varnames[0] == 'self'. Verified with Python 3.14.3."
+    - "threading.Condition.wait.__code__.co_argcount == 2 — self, timeout. Verified with Python 3.14.3."
+    - "len(threading.Condition.wait.__code__.co_varnames) == 5 — self, timeout, waiter, saved_state, gotit. Verified with Python 3.14.3."
+    - "threading.Condition.wait_for.__code__.co_varnames[0] == 'self'. Verified with Python 3.14.3."
+    - "threading.Condition.wait_for.__code__.co_argcount == 3 — self, predicate, timeout. Verified with Python 3.14.3."
+    - "len(threading.Condition.wait_for.__code__.co_varnames) == 6 — self, predicate, timeout, endtime, waittime, result. Verified with Python 3.14.3."
+    - "threading.Condition.notify.__code__.co_varnames[0] == 'self'. Verified with Python 3.14.3."
+    - "threading.Condition.notify.__code__.co_argcount == 2 — self, n. Verified with Python 3.14.3."
+    - "len(threading.Condition.notify.__code__.co_varnames) == 4 — self, n, waiters, waiter. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: threading.Condition.__init__ and wait code object attributes
+#
+# Wave 261 theme: threading.Condition.__init__ and wait co_varnames/co_argcount.
+#
+# threading.Condition.__init__.__code__.co_varnames[0].__eq__('self') == True
+# threading.Condition.__init__.__code__.co_argcount.__eq__(2) == True
+# threading.Condition.__init__.__code__.co_varnames.__len__() == 2
+# threading.Condition.wait.__code__.co_varnames[0].__eq__('self') == True
+# threading.Condition.wait.__code__.co_argcount.__eq__(2) == True
+# threading.Condition.wait.__code__.co_varnames.__len__() == 5
+#
+# Condition.__init__ takes self and lock (co_argcount 2, no extra locals).
+# Condition.wait takes self and timeout (co_argcount 2) but has 3 extra
+# local variables: waiter, saved_state, gotit (total co_varnames 5).
+# New to extra130.
+# ---------------------------------------------------------------------------
+
+table threading_extra130.condition_init_wait_code_attrs:
+  description: "threading.Condition.__init__ co_varnames[0]=='self', co_argcount==2, len==2; wait co_varnames[0]=='self', co_argcount==2, len==5 (self/timeout + 3 locals); wave 261; new to extra130"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: threadingcondition130
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [condition_init_co_varnames_0_eq_self,
+       "Condition.__init__.__code__.co_varnames[0].__eq__",
+       ["self"],
+       true,
+       "threading.Condition.__init__.__code__.co_varnames[0].__eq__('self') == True — Condition.__init__ is defined in Lib/threading.py with 'def __init__(self, lock=None):'; the first parameter is 'self'; co_varnames[0] is 'self'; str.__eq__('self') returns True; new to extra130"]
+    - [condition_init_co_argcount_eq_2,
+       "Condition.__init__.__code__.co_argcount.__eq__",
+       [2],
+       true,
+       "threading.Condition.__init__.__code__.co_argcount.__eq__(2) == True — Condition.__init__ takes 2 arguments: self and lock; co_argcount is 2; int.__eq__(2) returns True; new to extra130"]
+    - [condition_init_co_varnames_len_eq_2,
+       "Condition.__init__.__code__.co_varnames.__len__",
+       [],
+       2,
+       "threading.Condition.__init__.__code__.co_varnames.__len__() == 2 — co_varnames contains exactly the 2 parameters: self and lock; there are no additional local variables; len(co_varnames) is 2; new to extra130"]
+    - [condition_wait_co_varnames_0_eq_self,
+       "Condition.wait.__code__.co_varnames[0].__eq__",
+       ["self"],
+       true,
+       "threading.Condition.wait.__code__.co_varnames[0].__eq__('self') == True — Condition.wait is defined in Lib/threading.py with 'def wait(self, timeout=None):'; the first parameter is 'self'; co_varnames[0] is 'self'; str.__eq__('self') returns True; new to extra130"]
+    - [condition_wait_co_argcount_eq_2,
+       "Condition.wait.__code__.co_argcount.__eq__",
+       [2],
+       true,
+       "threading.Condition.wait.__code__.co_argcount.__eq__(2) == True — Condition.wait takes 2 arguments: self and timeout; co_argcount is 2; int.__eq__(2) returns True; new to extra130"]
+    - [condition_wait_co_varnames_len_eq_5,
+       "Condition.wait.__code__.co_varnames.__len__",
+       [],
+       5,
+       "threading.Condition.wait.__code__.co_varnames.__len__() == 5 — co_varnames has 5 entries: self and timeout (parameters) plus the local variables waiter, saved_state, and gotit; len(co_varnames) is 5; new to extra130"]
+
+# ---------------------------------------------------------------------------
+# Table 2: threading.Condition.wait_for code object attributes
+#
+# Wave 261 theme: threading.Condition.wait_for co_varnames/co_argcount.
+#
+# threading.Condition.wait_for.__code__.co_varnames[0].__eq__('self') == True
+# threading.Condition.wait_for.__code__.co_argcount.__eq__(3) == True
+# threading.Condition.wait_for.__code__.co_varnames.__len__() == 6
+# threading.Condition.wait_for.__code__.co_varnames[1].__eq__('predicate') == True
+# threading.Condition.wait_for.__code__.co_varnames[2].__eq__('timeout') == True
+#
+# wait_for takes self, predicate, and timeout (co_argcount 3). It has 3
+# additional local variables: endtime, waittime, result (total co_varnames 6).
+# New to extra130.
+# ---------------------------------------------------------------------------
+
+table threading_extra130.condition_wait_for_code_attrs:
+  description: "threading.Condition.wait_for co_varnames[0]=='self', co_varnames[1]=='predicate', co_varnames[2]=='timeout', co_argcount==3, len==6; wave 261; new to extra130"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: threadingcondition130
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [condition_wait_for_co_varnames_0_eq_self,
+       "Condition.wait_for.__code__.co_varnames[0].__eq__",
+       ["self"],
+       true,
+       "threading.Condition.wait_for.__code__.co_varnames[0].__eq__('self') == True — Condition.wait_for is defined in Lib/threading.py with 'def wait_for(self, predicate, timeout=None):'; the first parameter is 'self'; co_varnames[0] is 'self'; str.__eq__('self') returns True; new to extra130"]
+    - [condition_wait_for_co_varnames_1_eq_predicate,
+       "Condition.wait_for.__code__.co_varnames[1].__eq__",
+       ["predicate"],
+       true,
+       "threading.Condition.wait_for.__code__.co_varnames[1].__eq__('predicate') == True — the second parameter of wait_for is 'predicate', a callable that must return True for the wait to terminate; co_varnames[1] is 'predicate'; str.__eq__('predicate') returns True; new to extra130"]
+    - [condition_wait_for_co_varnames_2_eq_timeout,
+       "Condition.wait_for.__code__.co_varnames[2].__eq__",
+       ["timeout"],
+       true,
+       "threading.Condition.wait_for.__code__.co_varnames[2].__eq__('timeout') == True — the third parameter of wait_for is 'timeout'; co_varnames[2] is 'timeout'; str.__eq__('timeout') returns True; new to extra130"]
+    - [condition_wait_for_co_argcount_eq_3,
+       "Condition.wait_for.__code__.co_argcount.__eq__",
+       [3],
+       true,
+       "threading.Condition.wait_for.__code__.co_argcount.__eq__(3) == True — Condition.wait_for takes 3 arguments: self, predicate, and timeout; co_argcount is 3; int.__eq__(3) returns True; new to extra130"]
+    - [condition_wait_for_co_varnames_len_eq_6,
+       "Condition.wait_for.__code__.co_varnames.__len__",
+       [],
+       6,
+       "threading.Condition.wait_for.__code__.co_varnames.__len__() == 6 — co_varnames has 6 entries: self, predicate, timeout (parameters) plus the local variables endtime, waittime, and result; len(co_varnames) is 6; new to extra130"]
+
+# ---------------------------------------------------------------------------
+# Table 3: threading.Condition.notify code object attributes
+#
+# Wave 261 theme: threading.Condition.notify co_varnames/co_argcount.
+#
+# threading.Condition.notify.__code__.co_varnames[0].__eq__('self') == True
+# threading.Condition.notify.__code__.co_argcount.__eq__(2) == True
+# threading.Condition.notify.__code__.co_varnames.__len__() == 4
+# threading.Condition.notify.__code__.co_varnames[1].__eq__('n') == True
+#
+# notify takes self and n (co_argcount 2). It has 2 additional local
+# variables: waiters and waiter (total co_varnames 4). New to extra130.
+# ---------------------------------------------------------------------------
+
+table threading_extra130.condition_notify_code_attrs:
+  description: "threading.Condition.notify co_varnames[0]=='self', co_varnames[1]=='n', co_argcount==2, co_varnames len==4 (self/n + waiters/waiter locals); wave 261; new to extra130"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: threadingcondition130
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [condition_notify_co_varnames_0_eq_self,
+       "Condition.notify.__code__.co_varnames[0].__eq__",
+       ["self"],
+       true,
+       "threading.Condition.notify.__code__.co_varnames[0].__eq__('self') == True — Condition.notify is defined in Lib/threading.py with 'def notify(self, n=1):'; the first parameter is 'self'; co_varnames[0] is 'self'; str.__eq__('self') returns True; new to extra130"]
+    - [condition_notify_co_varnames_1_eq_n,
+       "Condition.notify.__code__.co_varnames[1].__eq__",
+       ["n"],
+       true,
+       "threading.Condition.notify.__code__.co_varnames[1].__eq__('n') == True — the second parameter of notify is 'n', the number of waiting threads to notify (defaults to 1); co_varnames[1] is 'n'; str.__eq__('n') returns True; new to extra130"]
+    - [condition_notify_co_argcount_eq_2,
+       "Condition.notify.__code__.co_argcount.__eq__",
+       [2],
+       true,
+       "threading.Condition.notify.__code__.co_argcount.__eq__(2) == True — Condition.notify takes 2 arguments: self and n; co_argcount is 2; int.__eq__(2) returns True; new to extra130"]
+    - [condition_notify_co_varnames_len_eq_4,
+       "Condition.notify.__code__.co_varnames.__len__",
+       [],
+       4,
+       "threading.Condition.notify.__code__.co_varnames.__len__() == 4 — co_varnames has 4 entries: self and n (parameters) plus the local variables waiters and waiter; len(co_varnames) is 4; new to extra130"]
+    - [condition_notify_code_class_eq_code,
+       "Condition.notify.__code__.__class__.__name__.__eq__",
+       ["code"],
+       true,
+       "threading.Condition.notify.__code__.__class__.__name__.__eq__('code') == True — the __code__ attribute of any Python function is a code object; __class__.__name__ is 'code'; str.__eq__('code') returns True; new to extra130"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra130
+# ---------------------------------------------------------------------------
+
+invariant threading_extra130.condition_init_co_varnames_0:
+  description: "threading.Condition.__init__.__code__.co_varnames[0] == 'self' — first parameter of __init__; wave 261; new to extra130"
+  kind: python_call_eq
+  function: Condition.__init__.__code__.co_varnames[0].__eq__
+  args: ["self"]
+  expected: true
+
+invariant threading_extra130.condition_init_co_argcount:
+  description: "threading.Condition.__init__.__code__.co_argcount == 2 — self and lock; wave 261; new to extra130"
+  kind: python_call_eq
+  function: Condition.__init__.__code__.co_argcount.__eq__
+  args: [2]
+  expected: true
+
+invariant threading_extra130.condition_wait_co_argcount:
+  description: "threading.Condition.wait.__code__.co_argcount == 2 — self and timeout; wave 261; new to extra130"
+  kind: python_call_eq
+  function: Condition.wait.__code__.co_argcount.__eq__
+  args: [2]
+  expected: true
+
+invariant threading_extra130.condition_wait_for_co_argcount:
+  description: "threading.Condition.wait_for.__code__.co_argcount == 3 — self, predicate, timeout; wave 261; new to extra130"
+  kind: python_call_eq
+  function: Condition.wait_for.__code__.co_argcount.__eq__
+  args: [3]
+  expected: true
+
+invariant threading_extra130.condition_notify_co_varnames_1:
+  description: "threading.Condition.notify.__code__.co_varnames[1] == 'n' — second parameter is the notification count; wave 261; new to extra130"
+  kind: python_call_eq
+  function: Condition.notify.__code__.co_varnames[1].__eq__
+  args: ["n"]
+  expected: true
