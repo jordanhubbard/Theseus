@@ -1,0 +1,108 @@
+spec: pathlib_extra162
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/_abc.py"
+    - "CPython source: Lib/pathlib/_local.py"
+  notes:
+    - "This spec covers: pathlib class __dict__ sizes — how many entries are in Path.__dict__, PurePath.__dict__, PosixPath.__dict__, PureWindowsPath.__dict__, PurePosixPath.__dict__, and WindowsPath.__dict__."
+    - "pathlib.Path.__dict__.__len__() == 62 (Path defines 62 attributes/methods in its own __dict__; this large count reflects the many filesystem methods: open, read_text, write_text, iterdir, glob, rglob, stat, chmod, touch, mkdir, unlink, rmdir, rename, replace, symlink_to, hardlink_to, etc.)."
+    - "pathlib.PurePath.__dict__.__len__() == 61 (PurePath defines 61 entries; almost as large as Path, reflecting the many pure path manipulation methods: parts, drive, root, anchor, name, stem, suffix, suffixes, parent, parents, joinpath, with_name, with_stem, with_suffix, match, relative_to, is_relative_to, etc.)."
+    - "pathlib.PosixPath.__dict__.__len__() == 5 (PosixPath's own __dict__ is very small — only 5 entries; most methods are inherited from Path and PurePosixPath; the concrete subclasses add only platform-specific overrides)."
+    - "pathlib.PureWindowsPath.__dict__.__len__() == 6; pathlib.PurePosixPath.__dict__.__len__() == 6; pathlib.WindowsPath.__dict__.__len__() == 6 (the concrete platform subclasses all have tiny __dict__ sizes of 5-6 entries)."
+    - "Key comparison: Path.__dict__ (62) > PurePath.__dict__ (61) > PureWindowsPath.__dict__ (6) == PurePosixPath.__dict__ (6) == WindowsPath.__dict__ (6) > PosixPath.__dict__ (5)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pathlib class __dict__ sizes: Path and PurePath
+# Path.__dict__.__len__() == 62
+# PurePath.__dict__.__len__() == 61
+# These two base classes define nearly all pathlib functionality.
+# Path (62) slightly larger than PurePath (61) — adds filesystem-access methods.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra162.Path_PurePath_dict_sizes:
+  description: "pathlib.Path and PurePath __dict__ sizes: Path.__dict__ has 62 entries, PurePath.__dict__ has 61 entries; Path is slightly larger because it adds filesystem-access methods on top of PurePath's pure path manipulation API"
+  kind: python_call_eq
+  category: identity
+  id_prefix: pathlibdictsize162
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [path_dict_len,      "Path.__dict__.__len__",      [], 62, "pathlib.Path.__dict__.__len__() == 62 (Path defines 62 attributes/methods in its own __dict__; this includes all filesystem-access methods: open, read_text, write_text, read_bytes, write_bytes, iterdir, glob, rglob, walk, stat, lstat, exists, is_file, is_dir, is_symlink, is_mount, is_absolute, chmod, lchmod, touch, mkdir, unlink, rmdir, rename, replace, symlink_to, hardlink_to, expanduser, home, cwd, owner, group, and others plus special methods and class-level attributes)"]
+    - [purepath_dict_len,  "PurePath.__dict__.__len__",  [], 61, "pathlib.PurePath.__dict__.__len__() == 61 (PurePath defines 61 entries in its __dict__; nearly as large as Path because PurePath contains the bulk of the path manipulation API: parts, drive, root, anchor, name, stem, suffix, suffixes, parent, parents, is_absolute, is_relative_to, relative_to, joinpath, with_name, with_stem, with_suffix, with_segments, match, full_match, plus __slots__, __str__, __fspath__, __repr__, __hash__, __eq__, __lt__, __le__, __gt__, __ge__, __truediv__, __rtruediv__, and more)"]
+    - [path_gt_purepath,   "Path.__dict__.__len__.__gt__", [61], true, "pathlib.Path.__dict__.__len__() > pathlib.PurePath.__dict__.__len__() (Path (62) is strictly greater than PurePath (61); Path adds exactly 1 more entry than PurePath in its __dict__; this small difference reflects that most of pathlib's API lives in PurePath and Path adds the filesystem-access layer; Path inherits from PurePosixPath or PureWindowsPath which inherit from PurePath)"]
+    - [path_dict_len_eq,   "Path.__dict__.__len__.__eq__", [62], true, "pathlib.Path.__dict__.__len__() == 62 confirmed via __eq__; Path is a concrete class that adds filesystem-access methods (open, stat, exists, iterdir, glob, etc.) to the pure path manipulation API inherited from PurePath; the 62-entry __dict__ makes Path one of the largest standard library class __dict__s covered in the pathlib specs"]
+
+# ---------------------------------------------------------------------------
+# pathlib concrete subclass __dict__ sizes: PosixPath, PureWindowsPath,
+# PurePosixPath, WindowsPath
+# All are very small (5-6 entries) — most functionality inherited from base classes.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra162.concrete_subclass_dict_sizes:
+  description: "pathlib concrete subclass __dict__ sizes: PosixPath=5, PureWindowsPath=6, PurePosixPath=6, WindowsPath=6; all tiny compared to Path (62) and PurePath (61) because the concrete subclasses inherit nearly everything"
+  kind: python_call_eq
+  category: identity
+  id_prefix: pathlibdictsize162
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [posixpath_dict_len,       "PosixPath.__dict__.__len__",       [], 5, "pathlib.PosixPath.__dict__.__len__() == 5 (PosixPath defines only 5 entries in its own __dict__; the concrete platform class for POSIX systems (Linux, macOS) adds only minimal platform-specific overrides on top of the full API inherited from Path and PurePosixPath; the small size confirms that PosixPath is essentially a thin concrete subclass with almost all functionality in the base classes)"]
+    - [purewinpath_dict_len,     "PureWindowsPath.__dict__.__len__", [], 6, "pathlib.PureWindowsPath.__dict__.__len__() == 6 (PureWindowsPath defines only 6 entries in its own __dict__; PureWindowsPath is the pure path flavor for Windows path syntax (backslash separators, drive letters like 'C:'); it inherits the full PurePath API (61 entries) and adds 6 entries for Windows-specific behavior; usable on any platform for Windows path manipulation)"]
+    - [purepposixpath_dict_len,  "PurePosixPath.__dict__.__len__",   [], 6, "pathlib.PurePosixPath.__dict__.__len__() == 6 (PurePosixPath defines only 6 entries in its own __dict__; it is the pure path flavor for POSIX path syntax (forward slashes, no drive letters); like PureWindowsPath, it inherits almost everything from PurePath and adds 6 platform-specific entries; tied with PureWindowsPath at __dict__ size 6)"]
+    - [windowspath_dict_len,     "WindowsPath.__dict__.__len__",     [], 6, "pathlib.WindowsPath.__dict__.__len__() == 6 (WindowsPath defines only 6 entries in its own __dict__; it is the concrete platform class for Windows, adding 6 entries on top of the full API inherited from Path and PureWindowsPath; tied with PureWindowsPath and PurePosixPath at __dict__ size 6, and slightly larger than PosixPath (5))"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra162.Path_dict_len_is_62:
+  description: "pathlib.Path.__dict__.__len__() == 62 — Path's own __dict__ contains 62 entries, making it the largest class __dict__ in pathlib; Path defines ALL filesystem-access methods (open, stat, exists, iterdir, glob, rglob, walk, is_file, is_dir, mkdir, unlink, rmdir, touch, chmod, rename, replace, read_text, write_text, read_bytes, write_bytes, symlink_to, hardlink_to, etc.) plus classmethods (cwd, home) and all inherited special methods; 62 entries verified Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__len__"
+  args: []
+  expected: 62
+
+invariant pathlib_extra162.PurePath_dict_len_is_61:
+  description: "pathlib.PurePath.__dict__.__len__() == 61 — PurePath's own __dict__ contains 61 entries, only 1 fewer than Path (62); PurePath is the abstract base for pure path manipulation without filesystem access; it defines the bulk of pathlib's API including all path component properties (parts, drive, root, name, stem, suffix, suffixes, parent, parents), path operations (joinpath, with_name, with_stem, with_suffix, with_segments), comparison and hashing (__eq__, __hash__, __lt__, etc.), and string conversion (__str__, __fspath__, __repr__); 61 entries verified Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "PurePath.__dict__.__len__"
+  args: []
+  expected: 61
+
+invariant pathlib_extra162.PosixPath_dict_len_is_5:
+  description: "pathlib.PosixPath.__dict__.__len__() == 5 — PosixPath's own __dict__ is the smallest of the pathlib public classes at 5 entries; PosixPath is the concrete Path subclass on POSIX systems; it inherits virtually all functionality from Path (62 entries) and PurePosixPath (6 entries) and PurePath (61 entries); the tiny __dict__ of 5 reflects that PosixPath exists mainly to select the POSIX path flavor and add a few platform-specific items; contrasts sharply with Path.__dict__ (62) and PurePath.__dict__ (61)"
+  category: identity
+  kind: python_call_eq
+  function: "PosixPath.__dict__.__len__"
+  args: []
+  expected: 5
+
+invariant pathlib_extra162.concrete_subclasses_smaller_than_base_classes:
+  description: "pathlib.PosixPath.__dict__.__len__() < pathlib.Path.__dict__.__len__() — PosixPath's __dict__ (5) is strictly less than Path's __dict__ (62); this is the fundamental architecture of pathlib: base classes (Path, PurePath) define the full API with large __dict__s, while concrete platform subclasses (PosixPath, WindowsPath, PurePosixPath, PureWindowsPath) have tiny __dict__s (5-6 entries) because they inherit nearly everything; this design allows cross-platform code to use Path/PurePath directly"
+  category: identity
+  kind: python_call_eq
+  function: "PosixPath.__dict__.__len__.__lt__"
+  args: [62]
+  expected: true
+
+invariant pathlib_extra162.PureWindowsPath_dict_len_is_6:
+  description: "pathlib.PureWindowsPath.__dict__.__len__() == 6 — PureWindowsPath's own __dict__ has 6 entries; it is usable on any platform (not just Windows) for manipulating Windows path syntax (backslash separators, drive letters like 'C:', UNC paths); the 6-entry __dict__ (vs PurePath's 61) confirms PureWindowsPath adds minimal Windows-specific logic on top of the PurePath base; PureWindowsPath.__dict__ is tied with PurePosixPath.__dict__ (also 6) and WindowsPath.__dict__ (also 6)"
+  category: identity
+  kind: python_call_eq
+  function: "PureWindowsPath.__dict__.__len__"
+  args: []
+  expected: 6
