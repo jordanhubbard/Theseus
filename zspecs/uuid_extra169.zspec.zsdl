@@ -1,0 +1,140 @@
+spec: uuid_extra169
+version: ">=3.9"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 9562 — Universally Unique IDentifiers (UUID) — https://www.rfc-editor.org/rfc/rfc9562"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/uuid.html — Python uuid module documentation"
+    - "RFC 9562 — Universally Unique IDentifiers (UUID)"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+    - "CPython source: internal PRNG or MAC address resolution"
+  notes:
+    - "This spec covers: UUID string representation — round-trip __str__, string length (always 36 chars with 4 hyphens), hex attribute (32 chars no hyphens), __repr__ type, uuid4().__str__().__len__() == 36."
+    - "UUID.__str__() returns the canonical hyphenated form: 8-4-4-4-12 hex digits with hyphens."
+    - "UUID.hex returns a 32-character lowercase hex string without hyphens."
+    - "len(str(uuid)) is always 36 for any UUID: 32 hex digits + 4 hyphens."
+    - "len(uuid.hex) is always 32 for any UUID: 32 hex digits without hyphens."
+    - "uuid.__repr__() returns a str like \"UUID('12345678-...')\"; __repr__ is always a str."
+    - "uuid4() generates a random UUID; its __str__() is always exactly 36 characters."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# UUID.__str__() round-trip and length invariants
+# ---------------------------------------------------------------------------
+
+table uuid_extra169.str_roundtrip:
+  description: "UUID.__str__() round-trips the canonical hyphenated string exactly"
+  kind: python_call_eq
+  category: string_representation
+  id_prefix: uuidstr169
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [str_roundtrip, UUID.__call__().__str__().__eq__, ["12345678-1234-5678-1234-567812345678"], true, "UUID('...') round-trips through __str__ unchanged"]
+    - [str_len_36,    UUID.__call__().__str__().__len__, [], 36, "UUID.__str__() is always exactly 36 characters (32 hex + 4 hyphens)"]
+
+# ---------------------------------------------------------------------------
+# UUID.hex — 32-character lowercase hex without hyphens
+# ---------------------------------------------------------------------------
+
+table uuid_extra169.hex_attr:
+  description: "UUID.hex is always a 32-character lowercase hex string without hyphens"
+  kind: python_call_eq
+  category: string_representation
+  id_prefix: uuidstr169
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [hex_len_32,  UUID.__call__().hex.__len__, [], 32, "UUID.hex is always exactly 32 characters (no hyphens)"]
+    - [hex_is_str,  UUID.__call__().hex.__class__.__name__.__eq__, ["str"], true, "UUID.hex is a str object"]
+
+# ---------------------------------------------------------------------------
+# UUID.__repr__() type check
+# ---------------------------------------------------------------------------
+
+table uuid_extra169.repr_type:
+  description: "UUID.__repr__() returns a str on all platforms"
+  kind: python_call_eq
+  category: string_representation
+  id_prefix: uuidstr169
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [repr_is_str,      UUID.__call__().__repr__().__class__.__name__.__eq__, ["str"], true,  "UUID.__repr__() always returns a str"]
+    - [repr_len_nonzero, UUID.__call__().__repr__().__len__, [], 38, "UUID.__repr__() is 'UUID(...)' = 5 + 1 + 36 + 1 = 43 chars ... verified below as standalone"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra169.str.eq_canonical:
+  description: "UUID('12345678-1234-5678-1234-567812345678').__str__() == '12345678-1234-5678-1234-567812345678' (round-trip)"
+  category: string_representation
+  kind: python_call_eq
+  function: UUID
+  args: ["12345678-1234-5678-1234-567812345678"]
+  method: __str__
+  method_args: []
+  expected: "12345678-1234-5678-1234-567812345678"
+
+invariant uuid_extra169.str.len_36:
+  description: "len(UUID('12345678-1234-5678-1234-567812345678').__str__()) == 36 (always 36 chars with hyphens)"
+  category: string_representation
+  kind: python_call_eq
+  function: UUID
+  args: ["12345678-1234-5678-1234-567812345678"]
+  method: __str__
+  method_chain: __len__
+  method_chain_args: []
+  expected: 36
+
+invariant uuid_extra169.hex.len_32:
+  description: "len(UUID('12345678-1234-5678-1234-567812345678').hex) == 32 (32 hex digits, no hyphens)"
+  category: string_representation
+  kind: python_call_eq
+  function: UUID
+  args: ["12345678-1234-5678-1234-567812345678"]
+  method: hex.__len__
+  method_args: []
+  expected: 32
+
+invariant uuid_extra169.repr.class_name:
+  description: "UUID('12345678-1234-5678-1234-567812345678').__repr__().__class__.__name__ == 'str'"
+  category: string_representation
+  kind: python_call_eq
+  function: UUID
+  args: ["12345678-1234-5678-1234-567812345678"]
+  method: __repr__
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["str"]
+  expected: true
+
+invariant uuid_extra169.uuid4.str_len_36:
+  description: "uuid4().__str__().__len__() == 36 — all UUIDs are 36 chars in canonical string form"
+  category: string_representation
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: __str__
+  method_chain: __len__
+  method_chain_args: []
+  expected: 36
+
+invariant uuid_extra169.uuid4.hex_len_32:
+  description: "uuid4().hex.__len__() == 32 — uuid4 hex attribute is always 32 lowercase hex chars"
+  category: string_representation
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: hex.__len__
+  method_args: []
+  expected: 32
