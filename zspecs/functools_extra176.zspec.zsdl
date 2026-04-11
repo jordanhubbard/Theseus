@@ -1,0 +1,318 @@
+spec: functools_extra176
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec covers: functools.partial.__dict__.__class__.__name__ 'mappingproxy'; functools.partialmethod.__dict__.__class__.__name__ 'mappingproxy'; functools.partial.__dict__.__contains__('__new__') True; functools.partial.__dict__.__contains__('func') True; functools.partial.__dict__.__contains__('args') True; functools.partial.__dict__.__contains__('keywords') True; functools.partial.__dict__.__len__() 17 (Wave 300)."
+    - "functools.partial.__dict__.__class__.__name__ == 'mappingproxy' — functools.partial is a C extension type defined in Modules/_functoolsmodule.c; like all C extension types, its class namespace is exposed as a read-only mappingproxy; its __dict__.__class__.__name__ is 'mappingproxy'. Verified with Python 3.14.3."
+    - "functools.partialmethod.__dict__.__class__.__name__ == 'mappingproxy' — functools.partialmethod is a Python class defined in Lib/functools.py; like all Python classes, its class namespace is exposed as a read-only mappingproxy; its __dict__.__class__.__name__ is 'mappingproxy'. Verified with Python 3.14.3."
+    - "functools.partial.__dict__.__contains__('__new__') == True — partial defines its own __new__ method (a C-level slot) so '__new__' is a key in partial.__dict__. Verified with Python 3.14.3."
+    - "functools.partial.__dict__.__contains__('func') == True — 'func' is a property descriptor in partial.__dict__ exposing the wrapped callable. Verified with Python 3.14.3."
+    - "functools.partial.__dict__.__contains__('args') == True — 'args' is a property descriptor in partial.__dict__ exposing the frozen positional arguments tuple. Verified with Python 3.14.3."
+    - "functools.partial.__dict__.__contains__('keywords') == True — 'keywords' is a property descriptor in partial.__dict__ exposing the frozen keyword arguments dict. Verified with Python 3.14.3."
+    - "functools.partial.__dict__.__len__() == 17 — partial.__dict__ has exactly 17 keys: '__new__', '__repr__', '__call__', '__getattribute__', '__setattr__', '__delattr__', '__get__', '__reduce__', '__setstate__', '__class_getitem__', 'func', 'args', 'keywords', '__vectorcalloffset__', '__dict__', '__doc__', '__module__'. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: functools.partial.__dict__.__class__.__name__ == 'mappingproxy'
+#
+# Wave 300 theme: functools.partial and functools.partialmethod class __dict__
+# type — both are mappingproxy, not plain dict.
+#
+# functools.partial.__dict__.__class__.__name__ == 'mappingproxy'
+# functools.partial.__dict__.__class__.__name__ != 'dict'
+# functools.partialmethod.__dict__.__class__.__name__ == 'mappingproxy'
+# functools.partialmethod.__dict__.__class__.__name__ != 'dict'
+#
+# functools.partial is a C extension type in Modules/_functoolsmodule.c.
+# functools.partialmethod is a Python class in Lib/functools.py.
+# Both are classes, and Python exposes the class namespace as a read-only
+# mappingproxy (not a plain mutable dict). New to extra176.
+# ---------------------------------------------------------------------------
+
+table functools_extra176.partial_partialmethod_dict_mappingproxy:
+  description: "functools: partial.__dict__ and partialmethod.__dict__ are mappingproxy, not dict; wave 300; new to extra176"
+  kind: python_call_eq
+  category: identity
+  id_prefix: functoolspdmp176
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [partial_dict_class_mappingproxy,
+       "partial.__dict__.__class__.__name__.__eq__",
+       ["mappingproxy"],
+       true,
+       "functools.partial.__dict__.__class__.__name__.__eq__('mappingproxy') == True — functools.partial is a C extension type defined in Modules/_functoolsmodule.c; like all class objects, its namespace is exposed as a read-only mappingproxy (not a plain mutable dict); __dict__.__class__.__name__ is 'mappingproxy'; str.__eq__('mappingproxy') returns True; new to extra176"]
+    - [partial_dict_not_dict,
+       "partial.__dict__.__class__.__name__.__eq__",
+       ["dict"],
+       false,
+       "functools.partial.__dict__.__class__.__name__.__eq__('dict') == False — partial.__dict__ is a mappingproxy, NOT a plain dict; Python makes class __dict__ a read-only mappingproxy to prevent direct mutation; str.__eq__('dict') returns False; new to extra176"]
+    - [partialmethod_dict_class_mappingproxy,
+       "partialmethod.__dict__.__class__.__name__.__eq__",
+       ["mappingproxy"],
+       true,
+       "functools.partialmethod.__dict__.__class__.__name__.__eq__('mappingproxy') == True — functools.partialmethod is a Python class defined in Lib/functools.py; like all Python classes, its namespace is exposed as a read-only mappingproxy; __dict__.__class__.__name__ is 'mappingproxy'; str.__eq__('mappingproxy') returns True; new to extra176"]
+    - [partialmethod_dict_not_dict,
+       "partialmethod.__dict__.__class__.__name__.__eq__",
+       ["dict"],
+       false,
+       "functools.partialmethod.__dict__.__class__.__name__.__eq__('dict') == False — partialmethod.__dict__ is a mappingproxy, NOT a plain dict; Python exposes class namespaces as read-only mappingproxy objects; str.__eq__('dict') returns False; new to extra176"]
+
+# ---------------------------------------------------------------------------
+# Table 2: functools.partial.__dict__.__contains__ for 'func', 'args',
+# 'keywords' — the three key descriptor properties
+#
+# Wave 300 theme: functools.partial defines 'func', 'args', and 'keywords'
+# as property descriptors in its class __dict__.
+#
+# functools.partial.__dict__.__contains__('func') == True
+# functools.partial.__dict__.__contains__('args') == True
+# functools.partial.__dict__.__contains__('keywords') == True
+# functools.partial.__dict__.__contains__('__new__') == True
+#
+# functools.partial is the C extension type that wraps a callable with frozen
+# positional and keyword arguments. Its class __dict__ contains three named
+# property descriptors: 'func' (the wrapped callable), 'args' (frozen positional
+# arguments tuple), and 'keywords' (frozen keyword arguments dict). It also defines
+# '__new__' because it controls its own construction. New to extra176.
+# ---------------------------------------------------------------------------
+
+table functools_extra176.partial_dict_descriptor_contains:
+  description: "functools.partial.__dict__: contains 'func', 'args', 'keywords', '__new__'; wave 300; new to extra176"
+  kind: python_call_eq
+  category: identity
+  id_prefix: functoolspddc176
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [partial_dict_has_func,
+       "partial.__dict__.__contains__",
+       ["func"],
+       true,
+       "functools.partial.__dict__.__contains__('func') == True — 'func' is a property descriptor in the partial C extension type's class dict that exposes the wrapped callable (the function that partial was applied to); it is a key in partial.__dict__; __contains__('func') returns True; new to extra176"]
+    - [partial_dict_has_args,
+       "partial.__dict__.__contains__",
+       ["args"],
+       true,
+       "functools.partial.__dict__.__contains__('args') == True — 'args' is a property descriptor in the partial C extension type's class dict that exposes the frozen positional arguments tuple; when calling the partial object, these args are prepended to any new positional args; __contains__('args') returns True; new to extra176"]
+    - [partial_dict_has_keywords,
+       "partial.__dict__.__contains__",
+       ["keywords"],
+       true,
+       "functools.partial.__dict__.__contains__('keywords') == True — 'keywords' is a property descriptor in the partial C extension type's class dict that exposes the frozen keyword arguments dict; when calling the partial object, these keywords are merged with any new keyword args; __contains__('keywords') returns True; new to extra176"]
+    - [partial_dict_has_new,
+       "partial.__dict__.__contains__",
+       ["__new__"],
+       true,
+       "functools.partial.__dict__.__contains__('__new__') == True — partial defines its own '__new__' C-level slot that controls construction of partial instances; '__new__' is present as a key in partial.__dict__; __contains__('__new__') returns True; new to extra176"]
+
+# ---------------------------------------------------------------------------
+# Table 3: functools.partial.__dict__.__len__() == 17
+#
+# Wave 300 theme: functools.partial.__dict__ has exactly 17 keys — the complete
+# set of slots and descriptors defined on the partial C extension type.
+#
+# functools.partial.__dict__.__len__() == 17
+# functools.partial.__dict__.__len__() != 3
+# functools.partial.__dict__.__contains__('__doc__') == True
+# functools.partial.__dict__.__contains__('__module__') == True
+#
+# The 17 keys in partial.__dict__ are: '__new__', '__repr__', '__call__',
+# '__getattribute__', '__setattr__', '__delattr__', '__get__', '__reduce__',
+# '__setstate__', '__class_getitem__', 'func', 'args', 'keywords',
+# '__vectorcalloffset__', '__dict__', '__doc__', '__module__'.
+# New to extra176.
+# ---------------------------------------------------------------------------
+
+table functools_extra176.partial_dict_len:
+  description: "functools.partial.__dict__.__len__() == 17; also contains '__doc__', '__module__'; wave 300; new to extra176"
+  kind: python_call_eq
+  category: identity
+  id_prefix: functoolspdl176
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [partial_dict_len_17,
+       "partial.__dict__.__len__",
+       [],
+       17,
+       "functools.partial.__dict__.__len__() == 17 — partial.__dict__ has exactly 17 keys: '__new__', '__repr__', '__call__', '__getattribute__', '__setattr__', '__delattr__', '__get__', '__reduce__', '__setstate__', '__class_getitem__', 'func', 'args', 'keywords', '__vectorcalloffset__', '__dict__', '__doc__', '__module__'; mappingproxy.__len__() returns 17; new to extra176"]
+    - [partial_dict_len_not_3,
+       "partial.__dict__.__len__",
+       [],
+       17,
+       "functools.partial.__dict__.__len__() == 17 (not 3) — although the three most notable descriptors are 'func', 'args', and 'keywords', the full class dict contains 17 entries including dunder methods, C-level slots, and other infrastructure; mappingproxy.__len__() returns 17; new to extra176"]
+    - [partial_dict_has_doc,
+       "partial.__dict__.__contains__",
+       ["__doc__"],
+       true,
+       "functools.partial.__dict__.__contains__('__doc__') == True — partial defines a '__doc__' entry in its class dict; this is part of the 17 keys in partial.__dict__; __contains__('__doc__') returns True; new to extra176"]
+    - [partial_dict_has_module,
+       "partial.__dict__.__contains__",
+       ["__module__"],
+       true,
+       "functools.partial.__dict__.__contains__('__module__') == True — partial defines a '__module__' entry in its class dict recording which module defines it; this is one of the 17 keys in partial.__dict__; __contains__('__module__') returns True; new to extra176"]
+
+# ---------------------------------------------------------------------------
+# Table 4: functools.partial.__dict__ negative contains checks
+#
+# Wave 300 theme: functools.partial.__dict__ does NOT contain names that
+# belong to instances (not the class), or names unrelated to partial.
+#
+# functools.partial.__dict__.__contains__('append') == False
+# functools.partial.__dict__.__contains__('items') == False
+# functools.partial.__dict__.__contains__('nonexistent') == False
+# functools.partial.__dict__.__contains__('func') == True  (cross-check)
+#
+# 'append' is a list method. 'items' is a dict method. Neither belongs on
+# functools.partial. 'nonexistent' is simply made up. These negative checks
+# confirm that partial.__dict__.__contains__() correctly returns False for
+# absent keys. New to extra176.
+# ---------------------------------------------------------------------------
+
+table functools_extra176.partial_dict_negative_contains:
+  description: "functools.partial.__dict__: does not contain 'append', 'items', 'nonexistent'; func cross-check; wave 300; new to extra176"
+  kind: python_call_eq
+  category: identity
+  id_prefix: functoolspdnc176
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [partial_dict_no_append,
+       "partial.__dict__.__contains__",
+       ["append"],
+       false,
+       "functools.partial.__dict__.__contains__('append') == False — 'append' is a list method and has no relation to functools.partial; partial.__dict__ does not contain 'append'; __contains__('append') returns False; new to extra176"]
+    - [partial_dict_no_items,
+       "partial.__dict__.__contains__",
+       ["items"],
+       false,
+       "functools.partial.__dict__.__contains__('items') == False — 'items' is a dict method and has no relation to functools.partial; partial.__dict__ does not contain 'items'; __contains__('items') returns False; new to extra176"]
+    - [partial_dict_no_nonexistent,
+       "partial.__dict__.__contains__",
+       ["nonexistent"],
+       false,
+       "functools.partial.__dict__.__contains__('nonexistent') == False — 'nonexistent' is not defined anywhere on functools.partial; __contains__('nonexistent') returns False; new to extra176"]
+    - [partial_dict_has_func_xcheck,
+       "partial.__dict__.__contains__",
+       ["func"],
+       true,
+       "functools.partial.__dict__.__contains__('func') == True — cross-check confirming 'func' is present in partial.__dict__; 'func' is the property descriptor exposing the wrapped callable; __contains__('func') returns True; new to extra176"]
+
+# ---------------------------------------------------------------------------
+# Table 5: functools.partialmethod.__dict__.__len__() == 12
+#
+# Wave 300 theme: functools.partialmethod.__dict__ has exactly 12 keys.
+#
+# functools.partialmethod.__dict__.__len__() == 12
+# functools.partialmethod.__dict__.__class__.__name__ == 'mappingproxy'
+# functools.partialmethod.__dict__.__contains__('__get__') == True
+# functools.partial.__dict__.__len__() != functools.partialmethod.__dict__.__len__()
+#
+# functools.partialmethod is a Python class defined in Lib/functools.py. Unlike
+# functools.partial (a C extension type with 17 dict entries), partialmethod is
+# a pure Python class. Its __dict__ has 12 entries. Both partial and partialmethod
+# are classes, but they have different dict sizes. New to extra176.
+# ---------------------------------------------------------------------------
+
+table functools_extra176.partialmethod_dict_len:
+  description: "functools.partialmethod.__dict__.__len__() == 12; dict class 'mappingproxy'; partial len 17 != partialmethod len 12; wave 300; new to extra176"
+  kind: python_call_eq
+  category: identity
+  id_prefix: functoolspmdl176
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [partialmethod_dict_len_12,
+       "partialmethod.__dict__.__len__",
+       [],
+       12,
+       "functools.partialmethod.__dict__.__len__() == 12 — functools.partialmethod is a pure Python class defined in Lib/functools.py; its class __dict__ (mappingproxy) has exactly 12 keys; this differs from functools.partial (a C extension type) which has 17 dict entries; mappingproxy.__len__() returns 12; new to extra176"]
+    - [partialmethod_dict_class_eq,
+       "partialmethod.__dict__.__class__.__name__.__eq__",
+       ["mappingproxy"],
+       true,
+       "functools.partialmethod.__dict__.__class__.__name__.__eq__('mappingproxy') == True — partialmethod is a Python class and its namespace is exposed as a mappingproxy, just like partial; both are mappingproxy even though partial is a C extension type and partialmethod is a Python class; str.__eq__('mappingproxy') returns True; new to extra176"]
+    - [partialmethod_dict_has_get,
+       "partialmethod.__dict__.__contains__",
+       ["__get__"],
+       true,
+       "functools.partialmethod.__dict__.__contains__('__get__') == True — partialmethod defines a '__get__' descriptor method in Lib/functools.py that makes partialmethod a descriptor (allowing it to work as a method descriptor on classes); '__get__' is present as a key in partialmethod.__dict__; __contains__('__get__') returns True; new to extra176"]
+    - [partial_len_ne_partialmethod_len,
+       "partial.__dict__.__len__",
+       [],
+       17,
+       "functools.partial.__dict__.__len__() == 17 (not 12 like partialmethod) — partial is a C extension type with 17 keys in its class dict while partialmethod is a Python class with 12 keys; the two classes have different namespace sizes; mappingproxy.__len__() returns 17 for partial; new to extra176"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra176
+# ---------------------------------------------------------------------------
+
+invariant functools_extra176.partial_dict_mappingproxy:
+  description: "functools.partial.__dict__.__class__.__name__ == 'mappingproxy' — partial is a C extension type whose class namespace is a read-only mappingproxy; wave 300; new to extra176"
+  kind: python_call_eq
+  function: partial.__dict__.__class__.__name__.__eq__
+  args: ["mappingproxy"]
+  expected: true
+
+invariant functools_extra176.partialmethod_dict_mappingproxy:
+  description: "functools.partialmethod.__dict__.__class__.__name__ == 'mappingproxy' — partialmethod is a Python class whose class namespace is a read-only mappingproxy; wave 300; new to extra176"
+  kind: python_call_eq
+  function: partialmethod.__dict__.__class__.__name__.__eq__
+  args: ["mappingproxy"]
+  expected: true
+
+invariant functools_extra176.partial_dict_has_new:
+  description: "functools.partial.__dict__.__contains__('__new__') == True — partial defines its own __new__ C-level slot; wave 300; new to extra176"
+  kind: python_call_eq
+  function: partial.__dict__.__contains__
+  args: ["__new__"]
+  expected: true
+
+invariant functools_extra176.partial_dict_has_func:
+  description: "functools.partial.__dict__.__contains__('func') == True — 'func' is a property descriptor exposing the wrapped callable; wave 300; new to extra176"
+  kind: python_call_eq
+  function: partial.__dict__.__contains__
+  args: ["func"]
+  expected: true
+
+invariant functools_extra176.partial_dict_has_args:
+  description: "functools.partial.__dict__.__contains__('args') == True — 'args' is a property descriptor exposing the frozen positional arguments tuple; wave 300; new to extra176"
+  kind: python_call_eq
+  function: partial.__dict__.__contains__
+  args: ["args"]
+  expected: true
+
+invariant functools_extra176.partial_dict_has_keywords:
+  description: "functools.partial.__dict__.__contains__('keywords') == True — 'keywords' is a property descriptor exposing the frozen keyword arguments dict; wave 300; new to extra176"
+  kind: python_call_eq
+  function: partial.__dict__.__contains__
+  args: ["keywords"]
+  expected: true
+
+invariant functools_extra176.partial_dict_len_17:
+  description: "functools.partial.__dict__.__len__() == 17 — partial's class dict has exactly 17 entries including dunder methods, C slots, and the func/args/keywords descriptors; wave 300; new to extra176"
+  kind: python_call_eq
+  function: partial.__dict__.__len__
+  args: []
+  expected: 17
+
+invariant functools_extra176.partialmethod_dict_len_12:
+  description: "functools.partialmethod.__dict__.__len__() == 12 — partialmethod's class dict (Python class) has exactly 12 entries; differs from partial's 17; wave 300; new to extra176"
+  kind: python_call_eq
+  function: partialmethod.__dict__.__len__
+  args: []
+  expected: 12
