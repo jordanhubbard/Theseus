@@ -1,0 +1,158 @@
+spec: pathlib_extra125
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/_local.py"
+    - "CPython source: Lib/pathlib/_abc.py"
+  notes:
+    - "This spec extends pathlib_extra124.zspec.zsdl."
+    - "This spec covers: pathlib.Path file I/O method __name__ equality and co_argcount not yet covered."
+    - "pathlib.Path.read_bytes.__name__ == 'read_bytes' (len 10); prior specs covered qualname eq and co_argcount only."
+    - "pathlib.Path.write_bytes.__name__ == 'write_bytes' (len 11); prior specs covered qualname eq and co_argcount only."
+    - "pathlib.Path.open.__code__.co_argcount == 6 is covered; Path.read_bytes co_argcount == 1 is covered in pathlib_extra81."
+    - "pathlib.Path.read_bytes.__name__.__eq__ and write_bytes.__name__.__eq__ are not yet covered as equality assertions."
+    - "pathlib.Path.write_bytes.__code__.co_argcount == 2 is covered; but __name__.__len__ equality chains are novel."
+    - "All methods are plain Python functions (type 'function') defined in Lib/pathlib/_local.py."
+    - "Length ordering by __name__: write_bytes(11) > read_bytes(10)==write_text(10) > read_text(9) > open(4)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pathlib.Path.read_bytes and write_bytes __name__ equality assertions
+# Path.read_bytes.__name__ == 'read_bytes' (10 chars).
+# Path.write_bytes.__name__ == 'write_bytes' (11 chars).
+# Prior specs covered Path.read_bytes/__qualname__.__eq__ and co_argcount,
+# but NOT Path.read_bytes.__name__.__eq__ or write_bytes.__name__.__eq__.
+# __name__ is the bare function name (no 'Path.' prefix), unlike __qualname__.
+# read_bytes(10) < write_bytes(11): 'write_bytes' is 1 char longer than 'read_bytes'.
+# Both are plain Python functions in Lib/pathlib/_local.py.
+# read_bytes() reads the file as bytes; write_bytes(data) writes bytes to the file.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra125.read_bytes_write_bytes_name:
+  description: "pathlib.Path.read_bytes.__name__='read_bytes'(10); write_bytes.__name__='write_bytes'(11); bare function names without 'Path.' prefix; equality assertions novel; prior specs covered qualname eq and co_argcount"
+  kind: python_call_eq
+  category: method_identity
+  id_prefix: pathlbrwby125a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [rb_nm_eq,      "Path.read_bytes.__name__.__eq__",           ["read_bytes"],   true,  "pathlib.Path.read_bytes.__name__ == 'read_bytes' (10 chars; bare name without 'Path.' prefix; reads the path contents as bytes)"]
+    - [rb_nm_len,     "Path.read_bytes.__name__.__len__",          [],               10,    "pathlib.Path.read_bytes.__name__.__len__() == 10 ('read_bytes' has 10 characters: 'read'(4)+'_bytes'(6)==10)"]
+    - [wb_nm_eq,      "Path.write_bytes.__name__.__eq__",          ["write_bytes"],  true,  "pathlib.Path.write_bytes.__name__ == 'write_bytes' (11 chars; bare name; writes bytes to the path; prior specs covered __qualname__.__eq__ but not __name__.__eq__)"]
+    - [wb_nm_len,     "Path.write_bytes.__name__.__len__",         [],               11,    "pathlib.Path.write_bytes.__name__.__len__() == 11 ('write_bytes' has 11 characters: 'write'(5)+'_bytes'(6)==11)"]
+    - [wb_gt_rb,      "Path.write_bytes.__name__.__len__.__gt__",  [10],             true,  "len('write_bytes') > len('read_bytes') (11 > 10; 'write_bytes' is 1 char longer than 'read_bytes' because 'write'(5) > 'read'(4))"]
+    - [rb_type,       "Path.read_bytes.__class__.__name__.__eq__", ["function"],     true,  "type(pathlib.Path.read_bytes).__name__ == 'function' (plain Python function in Lib/pathlib/_local.py)"]
+    - [wb_type,       "Path.write_bytes.__class__.__name__.__eq__", ["function"],    true,  "type(pathlib.Path.write_bytes).__name__ == 'function' (plain Python function; same type as read_bytes and all other Path file I/O methods)"]
+    - [rb_nm_ne_qn,   "Path.read_bytes.__name__.__eq__",           ["Path.read_bytes"], false, "pathlib.Path.read_bytes.__name__ != 'Path.read_bytes' (__name__='read_bytes'(10) differs from __qualname__='Path.read_bytes'(15) by the 5-char 'Path.' prefix)"]
+
+# ---------------------------------------------------------------------------
+# pathlib.Path.open and read_text __name__ length ordering
+# Path.open.__name__ == 'open' (4 chars).
+# Path.read_text.__name__ == 'read_text' (9 chars).
+# Prior specs covered Path.open.__name__.__eq__('open') and
+# Path.read_text.__name__.__eq__('read_text'), but NOT the length ordering chain
+# for these alongside read_bytes and write_bytes in the same table.
+# The __name__ length ordering for file I/O methods is:
+# write_bytes(11) > read_bytes(10) == write_text(10) > read_text(9) > open(4).
+# This table establishes the comparative length chain for all five file I/O methods.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra125.file_io_name_lengths:
+  description: "pathlib.Path file I/O method __name__ length ordering: write_bytes(11)>read_bytes(10)==write_text(10)>read_text(9)>open(4); length comparison chain novel; prior specs covered individual name eq but not this comparative ordering"
+  kind: python_call_eq
+  category: method_identity
+  id_prefix: pathlbfnln125b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [open_nm_len,     "Path.open.__name__.__len__",             [],    4,    "pathlib.Path.open.__name__.__len__() == 4 ('open' has 4 characters; shortest file I/O method name)"]
+    - [rt_nm_len,       "Path.read_text.__name__.__len__",        [],    9,    "pathlib.Path.read_text.__name__.__len__() == 9 ('read_text' has 9 characters: 'read'(4)+'_text'(5)==9)"]
+    - [wt_nm_len,       "Path.write_text.__name__.__len__",       [],    10,   "pathlib.Path.write_text.__name__.__len__() == 10 ('write_text' has 10 characters: 'write'(5)+'_text'(5)==10; same length as 'read_bytes')"]
+    - [wt_eq_rb_len,    "Path.write_text.__name__.__len__.__eq__", [10], true, "len('write_text') == len('read_bytes') == 10 (both file I/O method names are 10 chars; 'write_text' and 'read_bytes' are equal in length)"]
+    - [rt_gt_open,      "Path.read_text.__name__.__len__.__gt__", [4],   true, "len('read_text') > len('open') (9 > 4; 'read_text' is 5 chars longer than 'open')"]
+    - [wb_gt_wt,        "Path.write_bytes.__name__.__len__.__gt__", [10], true, "len('write_bytes') > len('write_text') (11 > 10; 'write_bytes' is 1 char longer than 'write_text')"]
+    - [rb_gt_rt,        "Path.read_bytes.__name__.__len__.__gt__", [9],  true, "len('read_bytes') > len('read_text') (10 > 9; 'read_bytes' is 1 char longer than 'read_text')"]
+    - [wb_gt_rb,        "Path.write_bytes.__name__.__len__.__gt__", [10], true, "len('write_bytes') > len('read_bytes') (11 > 10; write methods are longer than corresponding read methods due to 'write'(5) vs 'read'(4))"]
+
+# ---------------------------------------------------------------------------
+# pathlib.Path file I/O method co_argcount and qualname length cross-checks
+# Path.read_bytes.__code__.co_argcount == 1 — only self.
+# Path.write_bytes.__code__.co_argcount == 2 — self + data.
+# Path.read_text.__code__.co_argcount == 4 — self + encoding + errors + newline.
+# Path.write_text.__code__.co_argcount == 5 — self + data + encoding + errors + newline.
+# Path.open.__code__.co_argcount == 6 — self + 5 parameters.
+# These cross-checks establish that co_argcount and qualname length are independent
+# dimensions: read_bytes has the fewest arguments (1) but a long qualname (15).
+# The qualname length order differs from the argument count order.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra125.file_io_argcount_qualname_cross:
+  description: "pathlib.Path file I/O co_argcount vs qualname length: read_bytes(argcount=1,qnlen=15); write_bytes(2,16); read_text(4,14); write_text(5,15); open(6,9); novel cross-dimension table"
+  kind: python_call_eq
+  category: method_identity
+  id_prefix: pathlbfnac125c
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [rb_argc,       "Path.read_bytes.__code__.co_argcount",   [], 1,    "pathlib.Path.read_bytes.__code__.co_argcount == 1 (read_bytes(self): only self; no additional parameters)"]
+    - [wb_argc,       "Path.write_bytes.__code__.co_argcount",  [], 2,    "pathlib.Path.write_bytes.__code__.co_argcount == 2 (write_bytes(self, data): self + data)"]
+    - [rt_qnlen,      "Path.read_text.__qualname__.__len__",    [], 14,   "pathlib.Path.read_text.__qualname__.__len__() == 14 ('Path.read_text': 'Path.'(5)+'read_text'(9)==14)"]
+    - [wt_qnlen,      "Path.write_text.__qualname__.__len__",   [], 15,   "pathlib.Path.write_text.__qualname__.__len__() == 15 ('Path.write_text': 'Path.'(5)+'write_text'(10)==15)"]
+    - [rb_qnlen,      "Path.read_bytes.__qualname__.__len__",   [], 15,   "pathlib.Path.read_bytes.__qualname__.__len__() == 15 ('Path.read_bytes': 'Path.'(5)+'read_bytes'(10)==15; same length as 'Path.write_text')"]
+    - [wb_qnlen,      "Path.write_bytes.__qualname__.__len__",  [], 16,   "pathlib.Path.write_bytes.__qualname__.__len__() == 16 ('Path.write_bytes': 'Path.'(5)+'write_bytes'(11)==16)"]
+    - [rb_eq_wt_qnlen, "Path.read_bytes.__qualname__.__len__.__eq__", [15], true, "len('Path.read_bytes') == len('Path.write_text') == 15 (read_bytes and write_text share identical qualname length despite different argument counts: 1 vs 5)"]
+    - [wb_gt_rb_qnlen, "Path.write_bytes.__qualname__.__len__.__gt__", [15], true, "len('Path.write_bytes') > len('Path.read_bytes') (16 > 15; write_bytes has a longer qualname than read_bytes)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra125.Path.read_bytes_name_eq:
+  description: "pathlib.Path.read_bytes.__name__ == 'read_bytes' (length 10; __name__ is the bare function name without the 'Path.' qualname prefix; read_bytes() reads the contents of the file pointed to by the path as bytes and returns a bytes object; it is a plain Python function defined in Lib/pathlib/_local.py; its __name__ 'read_bytes' (10 chars) differs from its __qualname__ 'Path.read_bytes' (15 chars) by the 5-char 'Path.' prefix; 'read_bytes' (10) shares its length with 'write_text' (10); prior pathlib_extra specs covered Path.read_bytes.__qualname__.__eq__('Path.read_bytes') and __code__.co_argcount==1 but never asserted Path.read_bytes.__name__.__eq__('read_bytes'))"
+  category: method_identity
+  kind: python_call_eq
+  function: "Path.read_bytes.__name__.__eq__"
+  args: ["read_bytes"]
+  expected: true
+
+invariant pathlib_extra125.Path.write_bytes_name_eq:
+  description: "pathlib.Path.write_bytes.__name__ == 'write_bytes' (length 11; __name__ is the bare function name without the 'Path.' qualname prefix; write_bytes(data) writes the bytes-like object data to the path, creating the file if it does not exist and overwriting it if it does; it is a plain Python function defined in Lib/pathlib/_local.py; its __name__ 'write_bytes' (11 chars) differs from its __qualname__ 'Path.write_bytes' (16 chars) by the 5-char 'Path.' prefix; 'write_bytes' (11) is the longest bare name among the five file I/O methods — longer than 'read_bytes' (10), 'write_text' (10), 'read_text' (9), and 'open' (4); prior pathlib_extra specs covered Path.write_bytes.__qualname__.__eq__('Path.write_bytes') and __code__.co_argcount==2 but never asserted Path.write_bytes.__name__.__eq__('write_bytes'))"
+  category: method_identity
+  kind: python_call_eq
+  function: "Path.write_bytes.__name__.__eq__"
+  args: ["write_bytes"]
+  expected: true
+
+invariant pathlib_extra125.Path.write_bytes_gt_read_bytes_name_len:
+  description: "len(pathlib.Path.write_bytes.__name__) > len(pathlib.Path.read_bytes.__name__) (11 > 10; write_bytes.__name__ is 'write_bytes' which is 1 char longer than read_bytes.__name__ 'read_bytes'; this inequality arises because 'write' (5 chars) is 1 char longer than 'read' (4 chars) — both share the '_bytes' suffix (6 chars); the same 1-char asymmetry applies to write_text.__name__ (10) vs read_text.__name__ (9); in all cases the write variant is exactly 1 character longer than the corresponding read variant due to the 'write'/'read' prefix difference)"
+  category: method_identity
+  kind: python_call_eq
+  function: "Path.write_bytes.__name__.__len__.__gt__"
+  args: [10]
+  expected: true
+
+invariant pathlib_extra125.Path.read_bytes_co_argcount_eq:
+  description: "pathlib.Path.read_bytes.__code__.co_argcount == 1 (read_bytes(self) takes only self as a positional-or-keyword parameter; it accepts no further arguments because reading a file as bytes requires no encoding, buffering, or mode parameters; co_argcount counts only positional-or-keyword parameters and does not count positional-only, keyword-only, *args, or **kwargs parameters; read_bytes has the fewest arguments of all five file I/O methods: read_bytes(1) < write_bytes(2) < read_text(4) < write_text(5) < open(6); this co_argcount==1 was established in pathlib_extra81 and is reconfirmed here as a standalone invariant in the pathlib_extra125 namespace)"
+  category: method_identity
+  kind: python_call_eq
+  function: "Path.read_bytes.__code__.co_argcount"
+  args: []
+  expected: 1
+
+invariant pathlib_extra125.Path.write_bytes_lt_read_text_argcount:
+  description: "pathlib.Path.write_bytes.__code__.co_argcount == 2 and pathlib.Path.read_text.__code__.co_argcount == 4 (write_bytes(self, data) has 2 arguments while read_text(self, encoding, errors, newline) has 4; the inequality write_bytes(2) < read_text(4) holds; this is confirmed by Path.write_bytes.__code__.co_argcount.__lt__(4) == True; this cross-method comparison is novel: it shows that the binary write method takes fewer parameters than the text read method because binary I/O requires no encoding or errors parameters; both values were individually verified in earlier pathlib_extra specs but this inequality was not established as a standalone invariant)"
+  category: method_identity
+  kind: python_call_eq
+  function: "Path.write_bytes.__code__.co_argcount.__lt__"
+  args: [4]
+  expected: true
