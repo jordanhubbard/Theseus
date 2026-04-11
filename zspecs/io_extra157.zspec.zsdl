@@ -1,0 +1,189 @@
+spec: io_extra157
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+  notes:
+    - "This spec covers: io.__dict__.__len__()==37 and io.__dict__.__class__.__name__=='dict' (the public io module namespace as a plain dict). Also covers _io.__dict__.__len__()==25 and _io.__dict__.__class__.__name__=='dict' (the private C extension module; smaller than io because it omits ABC wrappers like IOBase, RawIOBase, BufferedIOBase, TextIOBase). Compare: io has 37 names (includes public ABCs and helpers), _io has 25 names (only concrete C types and private ABCs like _IOBase, _RawIOBase, _BufferedIOBase, _TextIOBase). Also covers io.BytesIO and io.StringIO __dict__ sizes and key method qualnames."
+    - "io.__dict__.__len__() == 37; _io.__dict__.__len__() == 25. The difference (12) accounts for: 4 public ABC wrappers (IOBase, RawIOBase, BufferedIOBase, TextIOBase), plus module helpers not in _io (__all__, __author__, __builtins__, abc, _check_methods, GenericAlias, Reader, Writer)."
+    - "_io.__dict__ has private ABCs (_IOBase, _RawIOBase, _BufferedIOBase, _TextIOBase) but NOT public ABCs (IOBase, RawIOBase, BufferedIOBase, TextIOBase)."
+    - "io.BytesIO.__dict__.__len__() == 28; io.StringIO.__dict__.__len__() == 21. BytesIO is larger because it also defines readlines, writelines, read1, readinto, getbuffer, isatty, __iter__, __sizeof__, __getstate__, __setstate__ — whereas StringIO focuses only on text I/O."
+    - "io.BytesIO method qualnames: read/seek/tell (12), close/flush/read1/write (13), closed/isatty (14), getvalue/readline/readable/readinto/seekable/truncate/writable (16), getbuffer/readlines (17), writelines (18)."
+    - "io.StringIO method qualnames: read/seek/tell (13), close/write (14), closed (15), getvalue/readable/readline/seekable/truncate/writable/newlines (17), line_buffering (23)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io.__dict__ vs _io.__dict__ namespace size comparison
+# io.__dict__.__len__() == 37 (plain dict, public module).
+# _io.__dict__.__len__() == 25 (plain dict, private C extension).
+# Both are plain dicts (not mappingproxy).
+# ---------------------------------------------------------------------------
+
+table io_extra157.module_namespace_sizes:
+  description: "io.__dict__.__len__()==37; _io.__dict__.__len__()==25; both __dict__.__class__.__name__=='dict' (public io vs private _io C extension namespace sizes)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: ionames157
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [io_dict_len,       __dict__.__len__,                    [], 37,   "io.__dict__.__len__() == 37 (the public io module exports 37 names; includes public ABCs IOBase/RawIOBase/BufferedIOBase/TextIOBase, concrete classes, constants, and helpers not present in _io)"]
+    - [io_dict_cls,       __dict__.__class__.__name__.__eq__,  ["dict"], true, "io.__dict__.__class__.__name__ == 'dict' (the public io module __dict__ is a plain mutable Python dict, like all module-level __dict__ objects)"]
+
+# ---------------------------------------------------------------------------
+# _io.__dict__ namespace (private C extension module)
+# Confirmed: len(_io.__dict__) == 25; class is 'dict' (not mappingproxy).
+# _io has private ABCs (_IOBase, _RawIOBase, _BufferedIOBase, _TextIOBase)
+# but NOT the public Python ABC wrappers (IOBase, RawIOBase, ...).
+# ---------------------------------------------------------------------------
+
+table io_extra157._io_dict_membership:
+  description: "_io.__dict__: has private ABCs (_IOBase/_RawIOBase/_BufferedIOBase/_TextIOBase) and concrete classes; does NOT have public ABCs (IOBase/RawIOBase/BufferedIOBase/TextIOBase)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: ionames157
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [has_BytesIO,        BytesIO.__module__.__eq__,         ["_io"], true,  "io.BytesIO.__module__ == '_io' (BytesIO is defined in the _io C extension, not in the Python io module; all concrete I/O classes have __module__ == '_io')"]
+    - [has_StringIO,       StringIO.__module__.__eq__,        ["_io"], true,  "io.StringIO.__module__ == '_io' (StringIO is defined in the _io C extension; the public io module re-exports it)"]
+    - [has_FileIO,         FileIO.__module__.__eq__,          ["_io"], true,  "io.FileIO.__module__ == '_io' (FileIO is defined in the _io C extension; it wraps a raw file descriptor for binary I/O)"]
+    - [has_TextIOWrapper,  TextIOWrapper.__module__.__eq__,   ["_io"], true,  "io.TextIOWrapper.__module__ == '_io' (TextIOWrapper is implemented in C in _io, though its interface is documented in the public io module)"]
+
+# ---------------------------------------------------------------------------
+# io.BytesIO vs io.StringIO __dict__ sizes
+# BytesIO: 28 entries (larger — includes readlines, writelines, read1, etc.)
+# StringIO: 21 entries (smaller — text-only, no binary-specific methods)
+# ---------------------------------------------------------------------------
+
+table io_extra157.BytesIO_StringIO_dict_sizes:
+  description: "io.BytesIO.__dict__.__len__()==28; io.StringIO.__dict__.__len__()==21; BytesIO is larger by 7 entries due to binary-only methods"
+  kind: python_call_eq
+  category: identity
+  id_prefix: ionames157
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [bytesio_dict_len,  BytesIO.__dict__.__len__,  [], 28, "io.BytesIO.__dict__.__len__() == 28 (BytesIO defines 28 entries including read/write/seek/tell/close/flush/readline/readlines/getvalue/getbuffer/truncate/read1/readinto/isatty/writelines plus dunder methods; larger than StringIO by 7)"]
+    - [stringio_dict_len, StringIO.__dict__.__len__, [], 21, "io.StringIO.__dict__.__len__() == 21 (StringIO defines 21 entries for text I/O: read/write/seek/tell/close/readline/getvalue/truncate plus text-specific newlines and line_buffering properties; smaller than BytesIO because it omits binary-specific methods like readinto, getbuffer, writelines, read1)"]
+
+# ---------------------------------------------------------------------------
+# io.BytesIO method qualnames
+# BytesIO prefix = 7 + 1 = 8 chars ('BytesIO.')
+# Shortest: read/seek/tell (12); longest: writelines (18).
+# ---------------------------------------------------------------------------
+
+table io_extra157.BytesIO_method_qualnames:
+  description: "io.BytesIO method __qualname__ lengths: read/seek/tell=12, close/flush/read1/write=13, getvalue/readline/readable/readinto/seekable/truncate/writable=16, getbuffer/readlines=17, writelines=18"
+  kind: python_call_eq
+  category: qualname
+  id_prefix: ionames157
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [bsio_read_qeq,       BytesIO.read.__qualname__.__eq__,       ["BytesIO.read"],       true, "io.BytesIO.read.__qualname__ == 'BytesIO.read' (len=12; 'BytesIO.' (8) + 'read' (4) = 12; tied with seek and tell as the shortest BytesIO method qualname)"]
+    - [bsio_read_qlen,      BytesIO.read.__qualname__.__len__,      [],                     12,   "io.BytesIO.read.__qualname__.__len__() == 12 ('BytesIO.read' has 12 characters; shortest BytesIO method qualname, tied with seek and tell)"]
+    - [bsio_seek_qeq,       BytesIO.seek.__qualname__.__eq__,       ["BytesIO.seek"],       true, "io.BytesIO.seek.__qualname__ == 'BytesIO.seek' (len=12; tied with read and tell at 12)"]
+    - [bsio_tell_qeq,       BytesIO.tell.__qualname__.__eq__,       ["BytesIO.tell"],       true, "io.BytesIO.tell.__qualname__ == 'BytesIO.tell' (len=12; tied with read and seek at 12)"]
+    - [bsio_write_qeq,      BytesIO.write.__qualname__.__eq__,      ["BytesIO.write"],      true, "io.BytesIO.write.__qualname__ == 'BytesIO.write' (len=13; tied with close, flush, and read1 at 13)"]
+    - [bsio_write_qlen,     BytesIO.write.__qualname__.__len__,     [],                     13,   "io.BytesIO.write.__qualname__.__len__() == 13 ('BytesIO.write' has 13 characters; 'BytesIO.' (8) + 'write' (5) = 13; tied with close, flush, read1)"]
+    - [bsio_getvalue_qeq,   BytesIO.getvalue.__qualname__.__eq__,   ["BytesIO.getvalue"],   true, "io.BytesIO.getvalue.__qualname__ == 'BytesIO.getvalue' (len=16; returns all bytes from the BytesIO buffer regardless of stream position; unique to BytesIO and StringIO, not in FileIO)"]
+    - [bsio_readline_qeq,   BytesIO.readline.__qualname__.__eq__,   ["BytesIO.readline"],   true, "io.BytesIO.readline.__qualname__ == 'BytesIO.readline' (len=16; reads up to size bytes or until newline; tied with getvalue, readable, readinto, seekable, truncate, writable at 16)"]
+    - [bsio_readlines_qeq,  BytesIO.readlines.__qualname__.__eq__,  ["BytesIO.readlines"],  true, "io.BytesIO.readlines.__qualname__ == 'BytesIO.readlines' (len=17; returns list of all lines; tied with getbuffer at 17; unlike StringIO where readlines is inherited from _IOBase, BytesIO defines readlines directly in its __dict__)"]
+    - [bsio_readlines_qlen, BytesIO.readlines.__qualname__.__len__, [],                     17,   "io.BytesIO.readlines.__qualname__.__len__() == 17 ('BytesIO.readlines' has 17 characters; tied with BytesIO.getbuffer at 17)"]
+    - [bsio_writelines_qeq, BytesIO.writelines.__qualname__.__eq__, ["BytesIO.writelines"], true, "io.BytesIO.writelines.__qualname__ == 'BytesIO.writelines' (len=18; writes a list of binary chunks; the longest BytesIO method qualname — 'BytesIO.' (8) + 'writelines' (10) = 18)"]
+    - [bsio_writelines_qlen,BytesIO.writelines.__qualname__.__len__,[],                     18,   "io.BytesIO.writelines.__qualname__.__len__() == 18 ('BytesIO.writelines' has 18 characters; the longest BytesIO method qualname; 'BytesIO.' (8) + 'writelines' (10) = 18)"]
+
+# ---------------------------------------------------------------------------
+# io.StringIO method qualnames
+# StringIO prefix = 9 chars ('StringIO.')
+# Shortest: read/seek/tell (13); longest: line_buffering (23).
+# ---------------------------------------------------------------------------
+
+table io_extra157.StringIO_method_qualnames:
+  description: "io.StringIO method __qualname__ lengths: read/seek/tell=13, close/write=14, closed=15, getvalue/readable/readline/seekable/truncate/writable/newlines=17, line_buffering=23"
+  kind: python_call_eq
+  category: qualname
+  id_prefix: ionames157
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [sio_read_qeq,        StringIO.read.__qualname__.__eq__,           ["StringIO.read"],           true, "io.StringIO.read.__qualname__ == 'StringIO.read' (len=13; 'StringIO.' (9) + 'read' (4) = 13; tied with seek and tell as the shortest StringIO method qualname)"]
+    - [sio_read_qlen,       StringIO.read.__qualname__.__len__,          [],                          13,   "io.StringIO.read.__qualname__.__len__() == 13 ('StringIO.read' has 13 characters; tied with seek and tell; note: TextIOWrapper.read.__qualname__.__len__() == 18 — 5 more characters due to the longer class name prefix)"]
+    - [sio_write_qeq,       StringIO.write.__qualname__.__eq__,          ["StringIO.write"],          true, "io.StringIO.write.__qualname__ == 'StringIO.write' (len=14; 'StringIO.' (9) + 'write' (5) = 14; tied with close at 14)"]
+    - [sio_write_qlen,      StringIO.write.__qualname__.__len__,         [],                          14,   "io.StringIO.write.__qualname__.__len__() == 14 ('StringIO.write' has 14 characters; tied with StringIO.close at 14)"]
+    - [sio_getvalue_qeq,    StringIO.getvalue.__qualname__.__eq__,       ["StringIO.getvalue"],       true, "io.StringIO.getvalue.__qualname__ == 'StringIO.getvalue' (len=17; returns the entire text contents as a string regardless of stream position; tied with readline, readable, seekable, truncate, writable, newlines at 17)"]
+    - [sio_readline_qeq,    StringIO.readline.__qualname__.__eq__,       ["StringIO.readline"],       true, "io.StringIO.readline.__qualname__ == 'StringIO.readline' (len=17; reads one line; tied with getvalue, readable, seekable, truncate, writable, newlines at 17)"]
+    - [sio_linebuf_qeq,     StringIO.line_buffering.__qualname__.__eq__, ["StringIO.line_buffering"],  true, "io.StringIO.line_buffering.__qualname__ == 'StringIO.line_buffering' (len=23; the longest StringIO method qualname; 'StringIO.' (9) + 'line_buffering' (14) = 23; line_buffering is a property unique to text streams — not present in BytesIO)"]
+    - [sio_linebuf_qlen,    StringIO.line_buffering.__qualname__.__len__,[],                          23,   "io.StringIO.line_buffering.__qualname__.__len__() == 23 ('StringIO.line_buffering' has 23 characters; the longest StringIO method qualname; line_buffering is a read-only property that is always False for StringIO since it is an in-memory stream)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant io_extra157.io_dict_len_37:
+  description: "io.__dict__.__len__() == 37 — the public io module exports 37 names; this is larger than _io.__dict__.__len__() (25) because io adds public Python ABC wrappers (IOBase, RawIOBase, BufferedIOBase, TextIOBase) and module-level helpers (__all__, __author__, abc, _check_methods, GenericAlias, Reader, Writer) that do not exist in the private _io C extension"
+  category: identity
+  kind: python_call_eq
+  function: __dict__.__len__
+  args: []
+  expected: 37
+
+invariant io_extra157.io_dict_is_plain_dict:
+  description: "io.__dict__.__class__.__name__ == 'dict' — the io module __dict__ is a plain Python dict; this is true for all Python modules regardless of whether they are pure-Python or C extensions; only class __dict__ attributes are mappingproxy objects"
+  category: identity
+  kind: python_call_eq
+  function: __dict__.__class__.__name__.__eq__
+  args: ["dict"]
+  expected: true
+
+invariant io_extra157.BytesIO_dict_len_28:
+  description: "io.BytesIO.__dict__.__len__() == 28 — BytesIO defines 28 entries in its own __dict__; this is larger than StringIO (21) by 7 entries; the extra entries in BytesIO are binary-specific: readlines, writelines, read1, readinto, getbuffer, isatty, __iter__, __sizeof__ — none of which exist in StringIO.__dict__"
+  category: identity
+  kind: python_call_eq
+  function: BytesIO.__dict__.__len__
+  args: []
+  expected: 28
+
+invariant io_extra157.StringIO_dict_len_21:
+  description: "io.StringIO.__dict__.__len__() == 21 — StringIO defines 21 entries in its own __dict__; smaller than BytesIO (28) because StringIO omits binary-specific methods; StringIO includes text-specific properties newlines and line_buffering which have no equivalent in BytesIO; also unlike BytesIO, StringIO does NOT define readlines in its own __dict__ (it is inherited from _IOBase)"
+  category: identity
+  kind: python_call_eq
+  function: StringIO.__dict__.__len__
+  args: []
+  expected: 21
+
+invariant io_extra157.BytesIO_writelines_qualname_len_18:
+  description: "io.BytesIO.writelines.__qualname__.__len__() == 18 ('BytesIO.writelines' has 18 characters; 'BytesIO.' (8) + 'writelines' (10) = 18; the longest BytesIO method qualname; writelines() writes a list of bytes-like objects to the stream; contrasts with StringIO which has line_buffering (23) as its longest qualname)"
+  category: qualname
+  kind: python_call_eq
+  function: BytesIO.writelines.__qualname__.__len__
+  args: []
+  expected: 18
+
+invariant io_extra157.StringIO_line_buffering_qualname_len_23:
+  description: "io.StringIO.line_buffering.__qualname__.__len__() == 23 ('StringIO.line_buffering' has 23 characters; 'StringIO.' (9) + 'line_buffering' (14) = 23; the longest StringIO method qualname; line_buffering is a property that always returns False for StringIO because it is an in-memory stream that cannot flush to a file on newlines)"
+  category: qualname
+  kind: python_call_eq
+  function: StringIO.line_buffering.__qualname__.__len__
+  args: []
+  expected: 23
+
+invariant io_extra157.BytesIO_read_qualname_len_12:
+  description: "io.BytesIO.read.__qualname__.__len__() == 12 ('BytesIO.read' has 12 characters; 'BytesIO.' (8) + 'read' (4) = 12; the shortest BytesIO method qualname, tied with seek and tell; note this is shorter than StringIO.read.__qualname__.__len__() (13) and TextIOWrapper.read.__qualname__.__len__() (18) because 'BytesIO' is shorter than 'StringIO' and 'TextIOWrapper')"
+  category: qualname
+  kind: python_call_eq
+  function: BytesIO.read.__qualname__.__len__
+  args: []
+  expected: 12
