@@ -1,0 +1,195 @@
+spec: re_extra150
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec covers: re.__spec__ and loader identity — re.__loader__.__class__.__name__ == 'SourceFileLoader', re.__spec__.parent == 're' (re is itself a package), re.__package__ == 're'. Also covers re.Pattern.__dict__ and re.Match.__dict__ mappingproxy lengths and MRO depths. Also covers re.Pattern and re.Match method __qualname__ values not covered in re_extra147/148."
+    - "re.__loader__.__class__.__name__ == 'SourceFileLoader' (len=16) — same as pathlib; re is a Python source package at Lib/re/__init__.py."
+    - "re.__package__ == 're' (len=2); re.__spec__.parent == 're' — re is a package, so its parent is itself."
+    - "re.Pattern.__dict__.__len__() == 26; re.Match.__dict__.__len__() == 21; both have MRO length 2 ([Pattern/Match, object])."
+    - "re.Pattern.__dict__.__class__.__name__ == 'mappingproxy' (len=12)."
+    - "re.Pattern method qualnames not in re_extra147/148: sub='Pattern.sub' (11), subn='Pattern.subn' (12), split='Pattern.split' (13), findall='Pattern.findall' (15), scanner='Pattern.scanner' (15), __class_getitem__='Pattern.__class_getitem__' (25)."
+    - "re.Match method qualnames: end='Match.end' (9), re='Match.re' (8 — the shortest), span='Match.span' (10), regs='Match.regs' (10), pos='Match.pos' (9), endpos='Match.endpos' (12)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.__spec__ and loader identity
+# re.__loader__.__class__.__name__ == 'SourceFileLoader' (len=16).
+# re.__spec__.parent == 're' (re is a package; parent is itself).
+# re.__package__ == 're' (len=2).
+# ---------------------------------------------------------------------------
+
+table re_extra150.spec_and_loader_identity:
+  description: "re.__spec__ and loader identity: __loader__.__class__.__name__=='SourceFileLoader' (16), __spec__.parent=='re', __package__=='re' (2)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: respec150
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [spec_cls_eq,     __spec__.__class__.__name__.__eq__,   ["ModuleSpec"],      true, "re.__spec__.__class__.__name__ == 'ModuleSpec' (all module specs are ModuleSpec instances, same as io, pathlib, and decimal)"]
+    - [loader_cls_eq,   __loader__.__class__.__name__.__eq__,  ["SourceFileLoader"],true, "re.__loader__.__class__.__name__ == 'SourceFileLoader' (len=16) — re is a source Python package at Lib/re/__init__.py; its loader is a SourceFileLoader instance like pathlib and decimal"]
+    - [loader_cls_len,  __loader__.__class__.__name__.__len__, [],                  16,   "re.__loader__.__class__.__name__.__len__() == 16 ('SourceFileLoader' has 16 characters; the same as pathlib.__loader__.__class__.__name__)"]
+    - [pkg_eq,          __package__.__eq__,                   ["re"],              true, "re.__package__ == 're' (len=2; re is a package at Lib/re/__init__.py, so __package__ equals the module name 're'; differs from decimal whose __package__ == '')"]
+    - [pkg_len,         __package__.__len__,                  [],                  2,    "re.__package__.__len__() == 2 ('re' has 2 characters; same as re.__spec__.name and re.__version__.__len__() is 5 — different from the 2-char package name)"]
+    - [spec_parent_eq,  __spec__.parent.__eq__,               ["re"],              true, "re.__spec__.parent == 're' (len=2; re is a package so its spec parent is 're' itself; this is the same pattern as pathlib.__spec__.parent == 'pathlib')"]
+    - [spec_name_eq,    __spec__.name.__eq__,                  ["re"],             true, "re.__spec__.name == 're' (the module spec name; len=2)"]
+
+# ---------------------------------------------------------------------------
+# re.Pattern.__dict__ mappingproxy identity and size
+# re.Pattern.__dict__.__len__() == 26.
+# re.Match.__dict__.__len__() == 21.
+# re.Pattern.__mro__ len == 2 ([Pattern, object]).
+# re.Match.__mro__ len == 2 ([Match, object]).
+# ---------------------------------------------------------------------------
+
+table re_extra150.Pattern_Match_dict_identity:
+  description: "re.Pattern.__dict__ identity: __class__.__name__=='mappingproxy', __len__()==26; re.Match.__dict__.__len__()==21; both have MRO len==2"
+  kind: python_call_eq
+  category: identity
+  id_prefix: respec150
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pat_dict_cls_eq,   Pattern.__dict__.__class__.__name__.__eq__,  ["mappingproxy"], true, "re.Pattern.__dict__.__class__.__name__ == 'mappingproxy' (Pattern.__dict__ is a read-only mappingproxy like all class __dict__ attributes)"]
+    - [pat_dict_len,      Pattern.__dict__.__len__,                     [],               26,   "re.Pattern.__dict__.__len__() == 26 (Pattern has 26 entries: comparison dunders, match/fullmatch/search/sub/subn/split/findall/finditer/scanner methods, __copy__/__deepcopy__/__class_getitem__, and pattern/flags/groups/groupindex descriptors, plus __doc__ and __module__)"]
+    - [match_dict_cls_eq, Match.__dict__.__class__.__name__.__eq__,     ["mappingproxy"], true, "re.Match.__dict__.__class__.__name__ == 'mappingproxy' (Match.__dict__ is also a mappingproxy)"]
+    - [match_dict_len,    Match.__dict__.__len__,                       [],               21,   "re.Match.__dict__.__len__() == 21 (Match has 21 entries: __repr__, __getitem__, group/start/end/span/groups/groupdict/expand methods, __copy__/__deepcopy__/__class_getitem__, and string/re/pos/endpos/lastindex/lastgroup/regs descriptors, plus __doc__ and __module__)"]
+    - [pat_mro_len,       "Pattern.__mro__.__len__",                    [],               2,    "re.Pattern.__mro__.__len__() == 2 (MRO: [Pattern, object]; Pattern directly subclasses object — no intermediate ABC; the same flat 2-entry MRO as decimal.Decimal and decimal.Context)"]
+    - [match_mro_len,     "Match.__mro__.__len__",                      [],               2,    "re.Match.__mro__.__len__() == 2 (MRO: [Match, object]; same flat 2-entry MRO as Pattern)"]
+    - [pat_module_eq,     Pattern.__module__.__eq__,                    ["re"],           true, "re.Pattern.__module__ == 're' (Pattern is exposed via the public 're' module name, even though the C implementation is in _sre)"]
+    - [match_module_eq,   Match.__module__.__eq__,                      ["re"],           true, "re.Match.__module__ == 're' (same as Pattern; both are exposed via the public re module)"]
+
+# ---------------------------------------------------------------------------
+# re.Pattern method __qualname__ values not covered in prior specs
+# sub=11, subn=12, split=13, findall/scanner=15, __class_getitem__=25.
+# Prior specs covered: re_extra147 (match/fullmatch/search=14-16, group methods).
+# ---------------------------------------------------------------------------
+
+table re_extra150.Pattern_new_method_qualnames:
+  description: "re.Pattern method __qualname__ values not in prior specs: sub=11, subn=12, split=13, findall/scanner=15, __class_getitem__=25"
+  kind: python_call_eq
+  category: qualname
+  id_prefix: respec150
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [sub_qeq,    Pattern.sub.__qualname__.__eq__,             ["Pattern.sub"],             true, "re.Pattern.sub.__qualname__ == 'Pattern.sub' (len=11; the shortest Pattern method qualname — 'Pattern.' (8) + 'sub' (3) = 11; replaces pattern matches in the string)"]
+    - [sub_qlen,   Pattern.sub.__qualname__.__len__,            [],                          11,   "re.Pattern.sub.__qualname__.__len__() == 11 ('Pattern.sub' has 11 characters; the shortest Pattern method qualname)"]
+    - [subn_qeq,   Pattern.subn.__qualname__.__eq__,            ["Pattern.subn"],            true, "re.Pattern.subn.__qualname__ == 'Pattern.subn' (len=12; like sub() but also returns count of substitutions)"]
+    - [subn_qlen,  Pattern.subn.__qualname__.__len__,           [],                          12,   "re.Pattern.subn.__qualname__.__len__() == 12 ('Pattern.subn' has 12 characters)"]
+    - [split_qeq,  Pattern.split.__qualname__.__eq__,           ["Pattern.split"],           true, "re.Pattern.split.__qualname__ == 'Pattern.split' (len=13; splits string by occurrences of the pattern; tied with match)"]
+    - [split_qlen, Pattern.split.__qualname__.__len__,          [],                          13,   "re.Pattern.split.__qualname__.__len__() == 13 ('Pattern.split' has 13 characters; tied with Pattern.match)"]
+    - [fall_qeq,   Pattern.findall.__qualname__.__eq__,         ["Pattern.findall"],         true, "re.Pattern.findall.__qualname__ == 'Pattern.findall' (len=15; returns all non-overlapping matches as a list of strings; tied with scanner)"]
+    - [fall_qlen,  Pattern.findall.__qualname__.__len__,        [],                          15,   "re.Pattern.findall.__qualname__.__len__() == 15 ('Pattern.findall' has 15 characters; tied with Pattern.scanner at 15)"]
+    - [scan_qeq,   Pattern.scanner.__qualname__.__eq__,         ["Pattern.scanner"],         true, "re.Pattern.scanner.__qualname__ == 'Pattern.scanner' (len=15; returns a scanner object for iterative matching; tied with findall)"]
+    - [cgi_qeq,    Pattern.__class_getitem__.__qualname__.__eq__,["Pattern.__class_getitem__"],true,"re.Pattern.__class_getitem__.__qualname__ == 'Pattern.__class_getitem__' (len=25; supports Pattern[str] generic syntax via PEP 585; the longest Pattern method qualname)"]
+    - [cgi_qlen,   Pattern.__class_getitem__.__qualname__.__len__,[],                        25,   "re.Pattern.__class_getitem__.__qualname__.__len__() == 25 ('Pattern.__class_getitem__' has 25 characters; 'Pattern.' (8) + '__class_getitem__' (17) = 25; the longest)"]
+
+# ---------------------------------------------------------------------------
+# re.Match method __qualname__ values
+# Shortest: re='Match.re' (8). Also: end/pos=9, span/regs=10, group/start=11,
+# groups/expand/string/endpos=12, groupdict/lastindex/lastgroup=15,
+# __getitem__=17, __deepcopy__=18, __class_getitem__=23.
+# ---------------------------------------------------------------------------
+
+table re_extra150.Match_method_qualnames:
+  description: "re.Match method __qualname__ values: re=8 (shortest), end/pos=9, span/regs=10, group/start=11, groups/expand/string/endpos=12, groupdict/lastindex/lastgroup=15, __class_getitem__=23 (longest)"
+  kind: python_call_eq
+  category: qualname
+  id_prefix: respec150
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [mre_qeq,    Match.re.__qualname__.__eq__,               ["Match.re"],               true, "re.Match.re.__qualname__ == 'Match.re' (len=8; the shortest Match attribute qualname — 'Match.' (6) + 're' (2) = 8; the 're' attribute holds the Pattern object that produced this match)"]
+    - [mre_qlen,   Match.re.__qualname__.__len__,              [],                          8,    "re.Match.re.__qualname__.__len__() == 8 ('Match.re' has 8 characters; the shortest qualname in both Pattern and Match; 're' is a 2-character attribute name)"]
+    - [end_qeq,    Match.end.__qualname__.__eq__,              ["Match.end"],               true, "re.Match.end.__qualname__ == 'Match.end' (len=9; returns the end index of the match or group; tied with pos)"]
+    - [end_qlen,   Match.end.__qualname__.__len__,             [],                          9,    "re.Match.end.__qualname__.__len__() == 9 ('Match.end' has 9 characters; tied with Match.pos)"]
+    - [pos_qeq,    Match.pos.__qualname__.__eq__,              ["Match.pos"],               true, "re.Match.pos.__qualname__ == 'Match.pos' (len=9; the position in the string where the search started; tied with end)"]
+    - [span_qeq,   Match.span.__qualname__.__eq__,             ["Match.span"],              true, "re.Match.span.__qualname__ == 'Match.span' (len=10; returns a tuple (start, end) of the match; tied with regs)"]
+    - [regs_qeq,   Match.regs.__qualname__.__eq__,             ["Match.regs"],              true, "re.Match.regs.__qualname__ == 'Match.regs' (len=10; a tuple of (start, end) pairs for all groups; tied with span)"]
+    - [grp_qeq,    Match.group.__qualname__.__eq__,            ["Match.group"],             true, "re.Match.group.__qualname__ == 'Match.group' (len=11; returns one or more subgroups of the match; tied with start)"]
+    - [endpos_qeq, Match.endpos.__qualname__.__eq__,           ["Match.endpos"],            true, "re.Match.endpos.__qualname__ == 'Match.endpos' (len=12; the position in the string past which no searching occurs; tied with groups, expand, string)"]
+    - [gdict_qeq,  Match.groupdict.__qualname__.__eq__,        ["Match.groupdict"],         true, "re.Match.groupdict.__qualname__ == 'Match.groupdict' (len=15; returns a dict of all named subgroups; tied with lastindex and lastgroup)"]
+    - [mcgi_qeq,   Match.__class_getitem__.__qualname__.__eq__,["Match.__class_getitem__"], true, "re.Match.__class_getitem__.__qualname__ == 'Match.__class_getitem__' (len=23; supports Match[str] generic syntax; the longest Match method qualname; 2 chars shorter than Pattern.__class_getitem__ (25) because 'Match' is 5 chars vs 'Pattern' 7)"]
+    - [mcgi_qlen,  Match.__class_getitem__.__qualname__.__len__,[],                         23,   "re.Match.__class_getitem__.__qualname__.__len__() == 23 ('Match.__class_getitem__' has 23 characters; 'Match.' (6) + '__class_getitem__' (17) = 23)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant re_extra150.loader.class_is_SourceFileLoader:
+  description: "re.__loader__.__class__.__name__ == 'SourceFileLoader' (len=16) — re is a Python source package (Lib/re/__init__.py); its loader is a SourceFileLoader instance; same as pathlib and decimal; contrasts with io whose __loader__.__class__.__name__ == 'type' (FrozenImporter)"
+  category: identity
+  kind: python_call_eq
+  function: __loader__.__class__.__name__.__eq__
+  args: ["SourceFileLoader"]
+  expected: true
+
+invariant re_extra150.package_eq_re:
+  description: "re.__package__ == 're' (len=2) — re is a package (lives at Lib/re/__init__.py), so __package__ equals 're'; this is the same pattern as pathlib.__package__ == 'pathlib'; decimal.__package__ == '' and io.__package__ == '' because they are single-file modules, not packages"
+  category: identity
+  kind: python_call_eq
+  function: __package__.__eq__
+  args: ["re"]
+  expected: true
+
+invariant re_extra150.Pattern.dict_len_26:
+  description: "re.Pattern.__dict__.__len__() == 26 — Pattern has 26 entries: 8 comparison dunders (__repr__, __hash__, __lt__, __le__, __eq__, __ne__, __gt__, __ge__), 9 regex methods (match, fullmatch, search, sub, subn, findall, split, finditer, scanner), 3 utility dunders (__copy__, __deepcopy__, __class_getitem__), 4 attribute descriptors (pattern, flags, groups, groupindex), plus __doc__ and __module__"
+  category: identity
+  kind: python_call_eq
+  function: Pattern.__dict__.__len__
+  args: []
+  expected: 26
+
+invariant re_extra150.Match.dict_len_21:
+  description: "re.Match.__dict__.__len__() == 21 — Match has 21 entries: fewer than Pattern (26) because Match has no search/replace methods; instead it has result accessors (group, start, end, span, groups, groupdict, expand, __getitem__) and positional/group metadata (string, re, pos, endpos, lastindex, lastgroup, regs), plus 3 utility dunders (__copy__, __deepcopy__, __class_getitem__), __repr__, __doc__, __module__"
+  category: identity
+  kind: python_call_eq
+  function: Match.__dict__.__len__
+  args: []
+  expected: 21
+
+invariant re_extra150.Pattern.mro_len_2:
+  description: "re.Pattern.__mro__.__len__() == 2 (MRO: [Pattern, object]) — Pattern directly subclasses object with no intermediate ABC; the same flat 2-entry MRO as re.Match, decimal.Decimal, decimal.Context, and pathlib.PurePath"
+  category: identity
+  kind: python_call_eq
+  function: "Pattern.__mro__.__len__"
+  args: []
+  expected: 2
+
+invariant re_extra150.Pattern.sub_qualname_len_11:
+  description: "re.Pattern.sub.__qualname__.__len__() == 11 ('Pattern.sub' has 11 characters; the shortest Pattern method qualname; 'Pattern.' (8) + 'sub' (3) = 11; sub() replaces all occurrences of the pattern in the string with the replacement string or function result)"
+  category: qualname
+  kind: python_call_eq
+  function: Pattern.sub.__qualname__.__len__
+  args: []
+  expected: 11
+
+invariant re_extra150.Match.re_qualname_len_8:
+  description: "re.Match.re.__qualname__.__len__() == 8 ('Match.re' has 8 characters; the shortest qualname across all re.Pattern and re.Match attributes; 'Match.' (6) + 're' (2) = 8; the 're' attribute holds the Pattern object that generated this match object)"
+  category: qualname
+  kind: python_call_eq
+  function: Match.re.__qualname__.__len__
+  args: []
+  expected: 8
+
+invariant re_extra150.Pattern.__class_getitem__qualname_len_25:
+  description: "re.Pattern.__class_getitem__.__qualname__.__len__() == 25 ('Pattern.__class_getitem__' has 25 characters; the longest Pattern method qualname; '__class_getitem__' (17 chars) plus 'Pattern.' (8 chars) = 25; __class_getitem__ enables the Pattern[str] generic alias syntax introduced in Python 3.9 via PEP 585)"
+  category: qualname
+  kind: python_call_eq
+  function: Pattern.__class_getitem__.__qualname__.__len__
+  args: []
+  expected: 25
