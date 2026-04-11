@@ -1,0 +1,149 @@
+spec: asyncio_extra121
+version: ">=3.9"
+backend: python_module(asyncio)
+
+docs: https://docs.python.org/3/library/asyncio-sync.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio-sync.html — Python asyncio synchronization primitives documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/asyncio/locks.py"
+  notes:
+    - "This spec extends asyncio_extra120.zspec.zsdl."
+    - "This spec covers: wave 260 theme — asyncio.Lock and asyncio.Semaphore method co_varnames element equality not previously covered. Prior specs covered (extra65): Lock.__init__.__code__.co_varnames[0]=='self' and Lock.acquire/Semaphore.acquire co_varnames type identity. NOT previously covered: Lock.acquire.__code__.co_varnames[1].__eq__('fut'); Semaphore.acquire.__code__.co_varnames[1].__eq__('fut'); Semaphore.__init__.__code__.co_varnames[1].__eq__('value'); Lock.acquire/Semaphore.acquire co_varnames.__len__()==2; Lock.__init__/Lock.release/Semaphore.release co_varnames.__len__()==1; Semaphore.__init__ co_varnames.__len__()==2; Lock.acquire/__code__.co_qualname length; Semaphore.acquire/__code__.co_qualname length; Semaphore.__init__/__code__.co_qualname length. All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.Lock.acquire.__code__.co_varnames == ('self', 'fut'): len=2. co_varnames[0]='self', co_varnames[1]='fut' (len=3: fut is the asyncio.Future used to wait when the lock is contended). co_qualname='Lock.acquire' (len=12). co_argcount=1 (only self; acquire takes no extra params). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.Semaphore.acquire.__code__.co_varnames == ('self', 'fut'): len=2 (same structure as Lock.acquire; fut used when semaphore counter is 0). co_qualname='Semaphore.acquire' (len=17). asyncio.Semaphore.__init__.__code__.co_varnames == ('self', 'value'): len=2. co_varnames[1]='value' (len=5: the initial semaphore counter; default=1). co_qualname='Semaphore.__init__' (len=18). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.Lock.__init__.__code__.co_varnames == ('self',): len=1. asyncio.Lock.release.__code__.co_varnames == ('self',): len=1. asyncio.Semaphore.release.__code__.co_varnames == ('self',): len=1. All three no-extra-param methods have co_varnames.__len__()==1. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# asyncio.Lock method co_varnames element equality — extra121
+#
+# Wave 260 theme: Lock.acquire co_varnames[1]='fut' and co_varnames lengths.
+#
+# Lock.__init__.__code__.co_varnames  == ('self',)        len=1
+# Lock.acquire.__code__.co_varnames   == ('self', 'fut')  len=2
+# Lock.release.__code__.co_varnames   == ('self',)        len=1
+# Lock.acquire.__code__.co_varnames[1] == 'fut'           len=3
+# ---------------------------------------------------------------------------
+
+table asyncio_extra121.lock_co_varnames:
+  description: "asyncio.Lock method co_varnames element equality and length checks in lock121 namespace — wave 260 theme: Lock acquire/release/__init__ co_varnames; Lock.__init__.__code__.co_varnames.__len__()==1 (('self',): Lock.__init__ takes no parameters beyond self; the lock starts unlocked; co_argcount==1); Lock.release.__code__.co_varnames.__len__()==1 (('self',): release() takes no parameters; it wakes the next waiter or sets locked=False; tied with __init__=1); Lock.acquire.__code__.co_varnames.__len__()==2 (('self','fut'): acquire() has one local variable 'fut' which is the asyncio.Future created to wait when the lock is already held by another coroutine; co_argcount==1 because fut is a local not a parameter); Lock.acquire.__code__.co_varnames[1].__eq__('fut')==True (len=3: 'fut' is short for future; it holds the pending Future object that gets resolved when the lock is released; len=3 is shorter than 'self'=4); Lock.acquire.__code__.co_qualname.__eq__('Lock.acquire')==True (len=12: 'Lock.'=5+'acquire'=7=12); Lock.acquire.__code__.co_qualname.__len__()==12; element length ordering: fut=3 < self=4 (fut is shorter than self); co_varnames length ordering: __init__==release=1 (tied, self only) < acquire=2 (has 'fut' local); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code_attrs
+  id_prefix: lock121
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [init_vlen,   Lock.__init__.__code__.co_varnames.__len__,      [],             1,    "Lock.__init__ co_varnames.__len__() == 1 (('self',); no extra params); verified with Python 3.14.3"]
+    - [rel_vlen,    Lock.release.__code__.co_varnames.__len__,       [],             1,    "Lock.release co_varnames.__len__() == 1 (('self',); tied with __init__=1); verified with Python 3.14.3"]
+    - [acq_vlen,    Lock.acquire.__code__.co_varnames.__len__,       [],             2,    "Lock.acquire co_varnames.__len__() == 2 (('self','fut'); fut is a local Future); verified with Python 3.14.3"]
+    - [acq_v1_eq,   "Lock.acquire.__code__.co_varnames[1].__eq__",   ["fut"],        true, "Lock.acquire co_varnames[1] == 'fut' (len=3; the pending Future when lock is contended); verified with Python 3.14.3"]
+    - [acq_v1_len,  "Lock.acquire.__code__.co_varnames[1].__len__",  [],             3,    "Lock.acquire co_varnames[1].__len__() == 3 ('fut'=3; shorter than 'self'=4); verified with Python 3.14.3"]
+    - [acq_qn_eq,   Lock.acquire.__code__.co_qualname.__eq__,        ["Lock.acquire"], true, "Lock.acquire.__code__.co_qualname == 'Lock.acquire' (len=12); verified with Python 3.14.3"]
+    - [acq_qn_len,  Lock.acquire.__code__.co_qualname.__len__,       [],             12,   "Lock.acquire.__code__.co_qualname.__len__() == 12 ('Lock.'=5+'acquire'=7=12); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# asyncio.Semaphore method co_varnames element equality — extra121
+#
+# Wave 260 theme: Semaphore acquire co_varnames[1]='fut', __init__ co_varnames[1]='value'.
+#
+# Semaphore.__init__.__code__.co_varnames  == ('self', 'value')  len=2
+# Semaphore.acquire.__code__.co_varnames   == ('self', 'fut')    len=2
+# Semaphore.release.__code__.co_varnames   == ('self',)          len=1
+# Semaphore.__init__.__code__.co_varnames[1] == 'value'          len=5
+# Semaphore.acquire.__code__.co_varnames[1] == 'fut'             len=3
+# ---------------------------------------------------------------------------
+
+table asyncio_extra121.semaphore_co_varnames:
+  description: "asyncio.Semaphore method co_varnames element equality and length checks in sem121 namespace — wave 260 theme: Semaphore __init__/acquire/release co_varnames; Semaphore.__init__.__code__.co_varnames.__len__()==2 (('self','value'): value is the initial semaphore counter; Semaphore(value=1) is the default; co_argcount==2 because value is a real parameter with default=1); Semaphore.__init__.__code__.co_varnames[1].__eq__('value')==True (len=5: 'value' is the integer counter controlling how many concurrent acquires are allowed; when value==0 the semaphore blocks new acquires); Semaphore.acquire.__code__.co_varnames.__len__()==2 (('self','fut'): same structure as Lock.acquire; fut is a local Future created to park when value==0; co_argcount==1 because fut is local not a param); Semaphore.acquire.__code__.co_varnames[1].__eq__('fut')==True (len=3: tied with Lock.acquire co_varnames[1]='fut'; both Lock and Semaphore use the same local variable name 'fut' in their acquire methods); Semaphore.release.__code__.co_varnames.__len__()==1 (('self',): release() takes no parameters; it increments the counter or wakes the next waiter; compare: Lock.release also has co_varnames.__len__()==1); Semaphore.__init__.__code__.co_qualname.__eq__('Semaphore.__init__')==True (len=18: 'Semaphore.'=10+'__init__'=8=18; compare Lock.__init__ co_qualname='Lock.__init__' len=13: 'Lock.'=5+'__init__'=8=13; Semaphore prefix is 5 longer: 'Semaphore'=9 vs 'Lock'=4, diff=5); Semaphore.acquire.__code__.co_qualname.__len__()==17 ('Semaphore.'=10+'acquire'=7=17; compare Lock.acquire=12: 5 more than Lock; both have 'acquire'=7 suffix but 'Semaphore.'=10 vs 'Lock.'=5, diff=5); element length ordering in spec: fut=3 < self=4 < value=5; co_varnames length ordering: release=1 < __init__==acquire=2 (tied); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code_attrs
+  id_prefix: sem121
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [init_vlen,   Semaphore.__init__.__code__.co_varnames.__len__,       [],                     2,    "Semaphore.__init__ co_varnames.__len__() == 2 (('self','value')); verified with Python 3.14.3"]
+    - [init_v1_eq,  "Semaphore.__init__.__code__.co_varnames[1].__eq__",   ["value"],              true, "Semaphore.__init__ co_varnames[1] == 'value' (len=5; initial semaphore counter); verified with Python 3.14.3"]
+    - [init_v1_len, "Semaphore.__init__.__code__.co_varnames[1].__len__",  [],                     5,    "Semaphore.__init__ co_varnames[1].__len__() == 5 ('value'=5); verified with Python 3.14.3"]
+    - [acq_vlen,    Semaphore.acquire.__code__.co_varnames.__len__,        [],                     2,    "Semaphore.acquire co_varnames.__len__() == 2 (('self','fut'); tied with __init__=2); verified with Python 3.14.3"]
+    - [acq_v1_eq,   "Semaphore.acquire.__code__.co_varnames[1].__eq__",    ["fut"],                true, "Semaphore.acquire co_varnames[1] == 'fut' (len=3; tied with Lock.acquire co_varnames[1]='fut'); verified with Python 3.14.3"]
+    - [rel_vlen,    Semaphore.release.__code__.co_varnames.__len__,        [],                     1,    "Semaphore.release co_varnames.__len__() == 1 (('self',); tied with Lock.release=1); verified with Python 3.14.3"]
+    - [init_qn_eq,  Semaphore.__init__.__code__.co_qualname.__eq__,        ["Semaphore.__init__"], true, "Semaphore.__init__.__code__.co_qualname == 'Semaphore.__init__' (len=18); verified with Python 3.14.3"]
+    - [init_qn_len, Semaphore.__init__.__code__.co_qualname.__len__,       [],                     18,   "Semaphore.__init__.__code__.co_qualname.__len__() == 18 ('Semaphore.'=10+'__init__'=8=18); verified with Python 3.14.3"]
+    - [acq_qn_len,  Semaphore.acquire.__code__.co_qualname.__len__,        [],                     17,   "Semaphore.acquire.__code__.co_qualname.__len__() == 17 ('Semaphore.'=10+'acquire'=7=17); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# asyncio Lock vs Semaphore co_varnames cross-comparison — extra121
+#
+# Wave 260 theme: compare Lock and Semaphore co_varnames element lengths.
+#
+# Both Lock.acquire and Semaphore.acquire share co_varnames[1]=='fut' (len=3).
+# Semaphore.__init__ co_varnames[1]=='value' (len=5) vs Lock.__init__ len=1.
+# Qualname length comparison: Semaphore > Lock by 5 chars across all methods.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra121.lock_semaphore_cross_compare:
+  description: "asyncio Lock vs Semaphore co_varnames cross-comparison in lockvsem121 namespace — wave 260 theme: Lock and Semaphore co_varnames element length comparisons; Lock.acquire.__code__.co_varnames[0].__eq__('self')==True (len=4: first param of Lock.acquire; co_varnames[0] is always 'self' for bound methods); Semaphore.acquire.__code__.co_varnames[0].__eq__('self')==True (len=4: tied with Lock.acquire co_varnames[0]='self'; both primitives use 'self' at index 0 in all methods); Lock.acquire co_varnames[1]='fut' (len=3) == Semaphore.acquire co_varnames[1]='fut' (len=3: both use identical local variable name 'fut' at index 1 in acquire; this symmetry is expected as both Lock and Semaphore use the same Future-based waiting mechanism in their acquire implementations); Semaphore.__init__ co_varnames[1]='value' (len=5) has no Lock.__init__ counterpart (Lock.__init__ has co_varnames.__len__()==1, only 'self'; Lock takes no constructor arguments; Semaphore.__init__ has co_varnames.__len__()==2 because 'value' is a real parameter); qualname len comparison: Lock.acquire=12 vs Semaphore.acquire=17 (diff=5: 'Semaphore'=9 vs 'Lock'=4, diff=5, carries through to all qualnames); Lock.__init__ qualname='Lock.__init__' (len=13: 'Lock.'=5+'__init__'=8=13); Semaphore.__init__ qualname='Semaphore.__init__' (len=18: 'Semaphore.'=10+'__init__'=8=18; 5 more than Lock.__init__=13 as expected); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code_attrs
+  id_prefix: lockvsem121
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [lock_acq_v0_eq,   "Lock.acquire.__code__.co_varnames[0].__eq__",      ["self"], true, "Lock.acquire co_varnames[0] == 'self' (len=4; first param); verified with Python 3.14.3"]
+    - [sem_acq_v0_eq,    "Semaphore.acquire.__code__.co_varnames[0].__eq__", ["self"], true, "Semaphore.acquire co_varnames[0] == 'self' (len=4; tied with Lock.acquire); verified with Python 3.14.3"]
+    - [sem_init_v0_eq,   "Semaphore.__init__.__code__.co_varnames[0].__eq__", ["self"], true, "Semaphore.__init__ co_varnames[0] == 'self' (len=4; all Lock/Semaphore methods start with self); verified with Python 3.14.3"]
+    - [lock_init_qn_len, Lock.__init__.__code__.co_qualname.__len__,          [],       13,   "Lock.__init__.__code__.co_qualname.__len__() == 13 ('Lock.__init__': 'Lock.'=5+'__init__'=8=13); verified with Python 3.14.3"]
+    - [sem_init_qn_5more, Semaphore.__init__.__code__.co_qualname.__len__,   [],       18,   "Semaphore.__init__ qualname len==18 (5 more than Lock.__init__=13: 'Semaphore'=9 vs 'Lock'=4, diff=5); verified with Python 3.14.3"]
+    - [lock_acq_qn_12,   Lock.acquire.__code__.co_qualname.__len__,          [],       12,   "Lock.acquire qualname len==12 ('Lock.acquire': 'Lock.'=5+'acquire'=7=12); verified with Python 3.14.3"]
+    - [sem_acq_qn_17,    Semaphore.acquire.__code__.co_qualname.__len__,     [],       17,   "Semaphore.acquire qualname len==17 (5 more than Lock.acquire=12); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra121
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra121.lock_acquire_v1_fut:
+  description: "asyncio.Lock.acquire.__code__.co_varnames[1].__eq__('fut') returns True — Lock.acquire co_varnames[1]='fut' (len=3); Lock.acquire.__code__.co_varnames==('self','fut') len=2; 'fut' is a local variable (not a parameter: co_argcount==1, only self) that holds an asyncio.Future object created to park the calling coroutine when the lock is already held; when the lock is released, it resolves 'fut' to wake the waiting coroutine; 'fut'=3 chars is the shortest element in Lock co_varnames (shorter than 'self'=4); this same local name 'fut' appears in Semaphore.acquire (symmetric design); Lock.acquire.__code__.co_qualname=='Lock.acquire' (len=12: 'Lock.'=5+'acquire'=7=12); Lock.acquire.__code__.co_argcount==1 (self only; no blocking parameter needed because acquire() is always blocking in the async context); Lock.__init__.__code__.co_varnames.__len__()==1 (only 'self': Lock takes no constructor arguments); Lock.release.__code__.co_varnames.__len__()==1 (only 'self': release takes no arguments); first standalone Lock.acquire co_varnames[1] equality invariant in lock121 namespace; wave 260; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: "Lock.acquire.__code__.co_varnames[1].__eq__"
+  args: ["fut"]
+  expected: true
+
+invariant asyncio_extra121.semaphore_acquire_v1_fut:
+  description: "asyncio.Semaphore.acquire.__code__.co_varnames[1].__eq__('fut') returns True — Semaphore.acquire co_varnames[1]='fut' (len=3); Semaphore.acquire.__code__.co_varnames==('self','fut') len=2; 'fut' is identical to Lock.acquire co_varnames[1]='fut' (same name, same index, same length — Lock and Semaphore use the same Future-parking mechanism in their acquire implementations); Semaphore.acquire.__code__.co_argcount==1 (self only; the semaphore counter check happens inside the method, not via parameters); Semaphore.acquire.__code__.co_qualname=='Semaphore.acquire' (len=17: 'Semaphore.'=10+'acquire'=7=17; compare Lock.acquire=12: 5 more because 'Semaphore'=9 vs 'Lock'=4, diff=5); Semaphore.__init__ has co_varnames[1]='value' (a real parameter at len=5, distinct from 'fut'=3 which is a local in acquire); Semaphore.release.__code__.co_varnames.__len__()==1 (only 'self'; tied with Lock.release=1); Semaphore.__init__.__code__.co_varnames.__len__()==2 (('self','value')); first standalone Semaphore.acquire co_varnames[1] equality invariant in sem121 namespace; wave 260; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: "Semaphore.acquire.__code__.co_varnames[1].__eq__"
+  args: ["fut"]
+  expected: true
+
+invariant asyncio_extra121.semaphore_init_v1_value:
+  description: "asyncio.Semaphore.__init__.__code__.co_varnames[1].__eq__('value') returns True — Semaphore.__init__ co_varnames[1]='value' (len=5); Semaphore.__init__.__code__.co_varnames==('self','value') len=2; 'value' is the initial semaphore counter (default=1); when value==1 the semaphore behaves like a mutex; when value>1 it allows multiple concurrent acquires; when value==0 all acquires block immediately; Semaphore.__init__.__code__.co_argcount==2 (self and value are both real parameters: value has a default but is still counted in co_argcount); compare: Lock.__init__.__code__.co_varnames.__len__()==1 (only 'self': Lock takes no constructor arguments — it starts unlocked with no configuration needed); 'value'=5 is longer than 'fut'=3 (the local in acquire) and longer than 'self'=4; Semaphore.__init__.__code__.co_qualname=='Semaphore.__init__' (len=18); BoundedSemaphore.__init__.__code__.co_varnames[1] is also 'value' (BoundedSemaphore is a subclass of Semaphore with an upper bound check in release()); first standalone Semaphore.__init__ co_varnames[1] equality invariant in sem121 namespace; wave 260; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: "Semaphore.__init__.__code__.co_varnames[1].__eq__"
+  args: ["value"]
+  expected: true
+
+invariant asyncio_extra121.lock_acquire_co_varnames_len_2:
+  description: "asyncio.Lock.acquire.__code__.co_varnames.__len__() == 2 — co_varnames==('self','fut'); 2 is more than Lock.__init__ and Lock.release (both ==1) but equal to Semaphore.acquire==2 and Semaphore.__init__==2; the extra element 'fut' (len=3) is a local variable not a parameter (co_argcount==1); Lock.acquire.__code__.co_qualname=='Lock.acquire' (len=12); compare: Semaphore.acquire.__code__.co_varnames.__len__()==2 (both Lock.acquire and Semaphore.acquire have the same co_varnames structure: ('self','fut')); Lock.__init__.__code__.co_varnames.__len__()==1 (1 fewer than acquire=2: Lock.__init__ has no parameters beyond self and no locals); Lock.release.__code__.co_varnames.__len__()==1 (tied with __init__=1); the pattern 'fut' as the only local in acquire() is consistent across all asyncio lock primitives that use the Future-based waiting mechanism; first standalone Lock.acquire co_varnames length invariant in lock121 namespace; wave 260; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: Lock.acquire.__code__.co_varnames.__len__
+  args: []
+  expected: 2
+
+invariant asyncio_extra121.semaphore_init_co_qualname_len_18:
+  description: "asyncio.Semaphore.__init__.__code__.co_qualname.__len__() == 18 — 'Semaphore.__init__' = 'Semaphore.'=10+'__init__'=8=18; compare Lock.__init__ co_qualname='Lock.__init__' len=13 ('Lock.'=5+'__init__'=8=13; 5 shorter: 'Semaphore'=9 vs 'Lock'=4, diff=5); this 5-char difference propagates to all pairs of Semaphore vs Lock qualnames: Semaphore.acquire=17 vs Lock.acquire=12 (diff=5), Semaphore.release=17 vs Lock.release=12 (diff=5); Semaphore.__init__.__code__.co_qualname.__eq__('Semaphore.__init__')==True; Semaphore.__init__.__code__.co_varnames.__len__()==2 (('self','value')); 'Semaphore.__init__'=18 chars > 'Lock.acquire'=12 chars (6 more); 'Semaphore.__init__'=18 chars > 'Semaphore.acquire'=17 chars (1 more: '__init__'=8 vs 'acquire'=7, diff=1); first standalone Semaphore.__init__ co_qualname length invariant in lockvsem121 namespace; wave 260; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: Semaphore.__init__.__code__.co_qualname.__len__
+  args: []
+  expected: 18
