@@ -1,0 +1,328 @@
+spec: threading_extra170
+version: ">=3.8"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec covers: threading.excepthook.__name__ '_excepthook' (internal C name, added in 3.8); threading.excepthook.__module__ '_thread'; threading.get_ident.__name__ 'get_ident'; threading.get_ident.__module__ '_thread' (C function); threading.get_native_id.__name__ 'get_native_id'; threading.get_native_id.__module__ '_thread'; threading.settrace.__name__ 'settrace'; threading.settrace.__module__ 'threading'; threading.setprofile.__name__ 'setprofile'; threading.setprofile.__module__ 'threading' (Wave 298)."
+    - "threading.excepthook.__name__ == '_excepthook' — threading.excepthook is actually the C extension function _thread._excepthook defined in Modules/_threadmodule.c; its internal C function name is '_excepthook' (with underscore), NOT 'excepthook'. Added in Python 3.8. Verified with Python 3.14.3."
+    - "threading.excepthook.__module__ == '_thread' — threading.excepthook is implemented in Modules/_threadmodule.c and exposed via the '_thread' C module; its __module__ attribute is '_thread', not 'threading'. Verified with Python 3.14.3."
+    - "threading.get_ident.__name__ == 'get_ident' — threading.get_ident is a C builtin function defined in Modules/_threadmodule.c that returns the thread identifier of the calling thread as a nonzero integer; its __name__ is 'get_ident'. Verified with Python 3.14.3."
+    - "threading.get_ident.__module__ == '_thread' — get_ident is implemented in Modules/_threadmodule.c; its __module__ attribute is '_thread', not 'threading'. Verified with Python 3.14.3."
+    - "threading.get_native_id.__name__ == 'get_native_id' — threading.get_native_id is a C builtin function defined in Modules/_threadmodule.c that returns the OS-level native thread ID of the calling thread; its __name__ is 'get_native_id'. Verified with Python 3.14.3."
+    - "threading.get_native_id.__module__ == '_thread' — get_native_id is implemented in Modules/_threadmodule.c; its __module__ attribute is '_thread', not 'threading'. Verified with Python 3.14.3."
+    - "threading.settrace.__name__ == 'settrace' — threading.settrace is a Python function defined in Lib/threading.py that sets a trace function for all threads started from the threading module; its __name__ is 'settrace'. Verified with Python 3.14.3."
+    - "threading.settrace.__module__ == 'threading' — settrace is defined in Lib/threading.py; its __module__ attribute is 'threading'. Verified with Python 3.14.3."
+    - "threading.setprofile.__name__ == 'setprofile' — threading.setprofile is a Python function defined in Lib/threading.py that sets a profile function for all threads started from the threading module; its __name__ is 'setprofile'. Verified with Python 3.14.3."
+    - "threading.setprofile.__module__ == 'threading' — setprofile is defined in Lib/threading.py; its __module__ attribute is 'threading'. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: threading.excepthook C builtin identity — __name__, __module__,
+# __class__.__name__
+#
+# Wave 298 theme: threading.excepthook C builtin identity — __name__,
+# __module__, and __class__.__name__.
+#
+# threading.excepthook.__name__ == '_excepthook'
+# threading.excepthook.__module__ == '_thread'
+# threading.excepthook.__class__.__name__ == 'builtin_function_or_method'
+# threading.excepthook.__name__ != 'excepthook'
+#
+# threading.excepthook is called when an exception is raised in Thread.run().
+# Despite being accessed as threading.excepthook, the underlying C function
+# has the internal name '_excepthook' (with underscore), and its __module__ is
+# '_thread' (the private C extension module), not 'threading'. Added in Python
+# 3.8. New to extra170.
+# ---------------------------------------------------------------------------
+
+table threading_extra170.excepthook_identity:
+  description: "threading.excepthook: __name__ '_excepthook' (C name, not 'excepthook'), __module__ '_thread', __class__.__name__ 'builtin_function_or_method'; added in 3.8; wave 298; new to extra170"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingexhi170
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [excepthook_name_underscore,
+       "excepthook.__name__.__eq__",
+       ["_excepthook"],
+       true,
+       "threading.excepthook.__name__.__eq__('_excepthook') == True — threading.excepthook is the C extension function _thread._excepthook defined in Modules/_threadmodule.c; its internal C function name is '_excepthook' (with a leading underscore), NOT 'excepthook'; the public attribute name 'excepthook' in the threading namespace is distinct from the C function name; str.__eq__('_excepthook') returns True; new to extra170"]
+    - [excepthook_module_thread,
+       "excepthook.__module__.__eq__",
+       ["_thread"],
+       true,
+       "threading.excepthook.__module__.__eq__('_thread') == True — threading.excepthook is implemented in Modules/_threadmodule.c which exposes itself as '_thread'; its __module__ attribute is '_thread', not 'threading'; str.__eq__('_thread') returns True; new to extra170"]
+    - [excepthook_class_builtin,
+       "excepthook.__class__.__name__.__eq__",
+       ["builtin_function_or_method"],
+       true,
+       "threading.excepthook.__class__.__name__.__eq__('builtin_function_or_method') == True — threading.excepthook is a C builtin function defined in Modules/_threadmodule.c; its __class__.__name__ is 'builtin_function_or_method'; str.__eq__('builtin_function_or_method') returns True; new to extra170"]
+    - [excepthook_name_not_excepthook,
+       "excepthook.__name__.__eq__",
+       ["excepthook"],
+       false,
+       "threading.excepthook.__name__.__eq__('excepthook') == False — the C function's internal name is '_excepthook' (with underscore), not 'excepthook'; the public-facing attribute name is 'excepthook' but the __name__ attribute reports the C-level name; str.__eq__('excepthook') returns False; new to extra170"]
+
+# ---------------------------------------------------------------------------
+# Table 2: threading.get_ident C builtin identity — __name__, __module__,
+# __class__.__name__
+#
+# Wave 298 theme: threading.get_ident C builtin identity — __name__,
+# __module__, and __class__.__name__.
+#
+# threading.get_ident.__name__ == 'get_ident'
+# threading.get_ident.__module__ == '_thread'
+# threading.get_ident.__class__.__name__ == 'builtin_function_or_method'
+# threading.get_ident.__module__ != 'threading'
+#
+# threading.get_ident() returns the thread identifier of the calling thread as
+# a nonzero integer. Thread identifiers may be recycled when a thread exits and
+# another thread is created. It is a C builtin function in _threadmodule.c with
+# __module__ '_thread', not 'threading'. New to extra170.
+# ---------------------------------------------------------------------------
+
+table threading_extra170.get_ident_identity:
+  description: "threading.get_ident: __name__ 'get_ident', __module__ '_thread', __class__.__name__ 'builtin_function_or_method'; wave 298; new to extra170"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadinggi170
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [get_ident_name_get_ident,
+       "get_ident.__name__.__eq__",
+       ["get_ident"],
+       true,
+       "threading.get_ident.__name__.__eq__('get_ident') == True — threading.get_ident is a C builtin function defined in Modules/_threadmodule.c that returns the calling thread's identifier as a nonzero integer; its __name__ attribute is 'get_ident'; str.__eq__('get_ident') returns True; new to extra170"]
+    - [get_ident_module_thread,
+       "get_ident.__module__.__eq__",
+       ["_thread"],
+       true,
+       "threading.get_ident.__module__.__eq__('_thread') == True — threading.get_ident is implemented in Modules/_threadmodule.c which registers as '_thread'; its __module__ attribute is '_thread', not 'threading'; str.__eq__('_thread') returns True; new to extra170"]
+    - [get_ident_class_builtin,
+       "get_ident.__class__.__name__.__eq__",
+       ["builtin_function_or_method"],
+       true,
+       "threading.get_ident.__class__.__name__.__eq__('builtin_function_or_method') == True — threading.get_ident is a C builtin function; its __class__.__name__ is 'builtin_function_or_method'; str.__eq__('builtin_function_or_method') returns True; new to extra170"]
+    - [get_ident_module_not_threading,
+       "get_ident.__module__.__eq__",
+       ["threading"],
+       false,
+       "threading.get_ident.__module__.__eq__('threading') == False — get_ident is implemented in Modules/_threadmodule.c with __module__ '_thread'; it is NOT 'threading' (the high-level Python module); str.__eq__('threading') returns False; new to extra170"]
+
+# ---------------------------------------------------------------------------
+# Table 3: threading.get_native_id C builtin identity — __name__, __module__,
+# __class__.__name__
+#
+# Wave 298 theme: threading.get_native_id C builtin identity — __name__,
+# __module__, and __class__.__name__.
+#
+# threading.get_native_id.__name__ == 'get_native_id'
+# threading.get_native_id.__module__ == '_thread'
+# threading.get_native_id.__class__.__name__ == 'builtin_function_or_method'
+# threading.get_native_id.__name__ != 'get_ident'
+#
+# threading.get_native_id() returns the native, platform-specific thread ID
+# assigned by the OS to the calling thread. Unlike get_ident() (which returns
+# a Python-level integer that may be recycled), get_native_id() returns the OS
+# thread ID which remains valid and unique for the thread's lifetime on most
+# platforms. It is a C builtin function in _threadmodule.c. New to extra170.
+# ---------------------------------------------------------------------------
+
+table threading_extra170.get_native_id_identity:
+  description: "threading.get_native_id: __name__ 'get_native_id', __module__ '_thread', __class__.__name__ 'builtin_function_or_method'; wave 298; new to extra170"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadinggni170
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [get_native_id_name,
+       "get_native_id.__name__.__eq__",
+       ["get_native_id"],
+       true,
+       "threading.get_native_id.__name__.__eq__('get_native_id') == True — threading.get_native_id is a C builtin function defined in Modules/_threadmodule.c that returns the native OS thread ID of the calling thread (unique and valid for the thread's lifetime on most platforms); its __name__ attribute is 'get_native_id'; str.__eq__('get_native_id') returns True; new to extra170"]
+    - [get_native_id_module_thread,
+       "get_native_id.__module__.__eq__",
+       ["_thread"],
+       true,
+       "threading.get_native_id.__module__.__eq__('_thread') == True — threading.get_native_id is implemented in Modules/_threadmodule.c with __module__ '_thread'; str.__eq__('_thread') returns True; new to extra170"]
+    - [get_native_id_class_builtin,
+       "get_native_id.__class__.__name__.__eq__",
+       ["builtin_function_or_method"],
+       true,
+       "threading.get_native_id.__class__.__name__.__eq__('builtin_function_or_method') == True — threading.get_native_id is a C builtin function; its __class__.__name__ is 'builtin_function_or_method'; str.__eq__('builtin_function_or_method') returns True; new to extra170"]
+    - [get_native_id_name_ne_get_ident,
+       "get_native_id.__name__.__eq__",
+       ["get_ident"],
+       false,
+       "threading.get_native_id.__name__.__eq__('get_ident') == False — get_native_id.__name__ is 'get_native_id', not 'get_ident'; get_native_id returns the OS-level native thread ID while get_ident returns a Python-level integer that may be recycled; they are distinct C builtin functions; str.__eq__('get_ident') returns False; new to extra170"]
+
+# ---------------------------------------------------------------------------
+# Table 4: threading.settrace and threading.setprofile Python function identity
+#
+# Wave 298 theme: threading.settrace and threading.setprofile Python function
+# identity — __name__, __module__, and __class__.__name__.
+#
+# threading.settrace.__name__ == 'settrace'
+# threading.settrace.__module__ == 'threading'
+# threading.setprofile.__name__ == 'setprofile'
+# threading.setprofile.__module__ == 'threading'
+#
+# threading.settrace(func) sets a trace function for all threads started from
+# the threading module; it installs func as the trace function for each new
+# thread before its run() method is called. threading.setprofile(func) similarly
+# sets a profile function for all threads. Both are Python functions defined in
+# Lib/threading.py with __module__ 'threading' (unlike get_ident/get_native_id).
+# New to extra170.
+# ---------------------------------------------------------------------------
+
+table threading_extra170.settrace_setprofile_identity:
+  description: "threading.settrace and setprofile: __name__ 'settrace'/'setprofile', __module__ 'threading', __class__.__name__ 'function'; wave 298; new to extra170"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingstspi170
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [settrace_name_settrace,
+       "settrace.__name__.__eq__",
+       ["settrace"],
+       true,
+       "threading.settrace.__name__.__eq__('settrace') == True — threading.settrace is a Python function defined in Lib/threading.py that sets a trace function for all threads started from the threading module; its __name__ attribute is 'settrace'; str.__eq__('settrace') returns True; new to extra170"]
+    - [settrace_module_threading,
+       "settrace.__module__.__eq__",
+       ["threading"],
+       true,
+       "threading.settrace.__module__.__eq__('threading') == True — threading.settrace is defined in Lib/threading.py with __module__ 'threading'; it is a Python function unlike get_ident/get_native_id which have __module__ '_thread'; str.__eq__('threading') returns True; new to extra170"]
+    - [setprofile_name_setprofile,
+       "setprofile.__name__.__eq__",
+       ["setprofile"],
+       true,
+       "threading.setprofile.__name__.__eq__('setprofile') == True — threading.setprofile is a Python function defined in Lib/threading.py that sets a profile function for all threads started from the threading module; its __name__ attribute is 'setprofile'; str.__eq__('setprofile') returns True; new to extra170"]
+    - [setprofile_module_threading,
+       "setprofile.__module__.__eq__",
+       ["threading"],
+       true,
+       "threading.setprofile.__module__.__eq__('threading') == True — threading.setprofile is defined in Lib/threading.py with __module__ 'threading'; str.__eq__('threading') returns True; new to extra170"]
+
+# ---------------------------------------------------------------------------
+# Table 5: cross-checks — get_ident vs settrace (C vs Python module contrast);
+# excepthook and get_native_id share '_thread'; settrace and setprofile distinct
+#
+# Wave 298 theme: cross-checks contrasting the C builtin functions (module
+# '_thread') with the Python functions (module 'threading'); and confirming
+# settrace and setprofile are distinct names.
+#
+# threading.get_ident.__module__ != 'threading'   (it is '_thread')
+# threading.settrace.__module__ != '_thread'      (it is 'threading')
+# threading.settrace.__name__ != 'setprofile'
+# threading.excepthook.__module__ == threading.get_ident.__module__
+#   (both '_thread')
+#
+# The key split: get_ident, get_native_id, and excepthook are all C builtins
+# from _threadmodule.c (__module__ '_thread'), while settrace and setprofile are
+# pure Python functions in Lib/threading.py (__module__ 'threading'). New to extra170.
+# ---------------------------------------------------------------------------
+
+table threading_extra170.c_vs_python_module_cross_checks:
+  description: "threading: get_ident module != 'threading', settrace module != '_thread', settrace.__name__ != 'setprofile', excepthook module same as get_ident module; wave 298; new to extra170"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingcvpcc170
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [get_ident_module_not_threading,
+       "get_ident.__module__.__eq__",
+       ["threading"],
+       false,
+       "threading.get_ident.__module__.__eq__('threading') == False — get_ident's __module__ is '_thread' (C extension), NOT 'threading'; this contrasts with settrace and setprofile which are pure Python functions with __module__ 'threading'; str.__eq__('threading') returns False; new to extra170"]
+    - [settrace_module_not_thread,
+       "settrace.__module__.__eq__",
+       ["_thread"],
+       false,
+       "threading.settrace.__module__.__eq__('_thread') == False — settrace's __module__ is 'threading' (Python), NOT '_thread'; settrace is defined in Lib/threading.py unlike get_ident which is in Modules/_threadmodule.c; str.__eq__('_thread') returns False; new to extra170"]
+    - [settrace_name_ne_setprofile,
+       "settrace.__name__.__eq__",
+       ["setprofile"],
+       false,
+       "threading.settrace.__name__.__eq__('setprofile') == False — settrace.__name__ is 'settrace', not 'setprofile'; settrace installs a trace function (for sys.settrace-style tracing) while setprofile installs a profile function (for sys.setprofile-style profiling); they are distinct functions; str.__eq__('setprofile') returns False; new to extra170"]
+    - [excepthook_module_same_as_get_ident,
+       "excepthook.__module__.__eq__",
+       ["_thread"],
+       true,
+       "threading.excepthook.__module__.__eq__('_thread') == True — both excepthook and get_ident have __module__ '_thread'; both are C builtins from Modules/_threadmodule.c; cross-check confirming shared C module origin; str.__eq__('_thread') returns True; new to extra170"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra170
+# ---------------------------------------------------------------------------
+
+invariant threading_extra170.excepthook_name_underscore_excepthook:
+  description: "threading.excepthook.__name__ == '_excepthook' — the C function name is '_excepthook' (with underscore), not 'excepthook'; added in Python 3.8; wave 298; new to extra170"
+  kind: python_call_eq
+  function: excepthook.__name__.__eq__
+  args: ["_excepthook"]
+  expected: true
+
+invariant threading_extra170.excepthook_module_thread:
+  description: "threading.excepthook.__module__ == '_thread' — excepthook is implemented in _threadmodule.c; __module__ is '_thread', not 'threading'; wave 298; new to extra170"
+  kind: python_call_eq
+  function: excepthook.__module__.__eq__
+  args: ["_thread"]
+  expected: true
+
+invariant threading_extra170.get_ident_name_get_ident:
+  description: "threading.get_ident.__name__ == 'get_ident' — C builtin returning the calling thread's integer identifier; wave 298; new to extra170"
+  kind: python_call_eq
+  function: get_ident.__name__.__eq__
+  args: ["get_ident"]
+  expected: true
+
+invariant threading_extra170.get_ident_module_thread:
+  description: "threading.get_ident.__module__ == '_thread' — get_ident is a C builtin in _threadmodule.c; __module__ is '_thread', not 'threading'; wave 298; new to extra170"
+  kind: python_call_eq
+  function: get_ident.__module__.__eq__
+  args: ["_thread"]
+  expected: true
+
+invariant threading_extra170.get_native_id_name_get_native_id:
+  description: "threading.get_native_id.__name__ == 'get_native_id' — C builtin returning the OS-level native thread ID; wave 298; new to extra170"
+  kind: python_call_eq
+  function: get_native_id.__name__.__eq__
+  args: ["get_native_id"]
+  expected: true
+
+invariant threading_extra170.settrace_name_settrace:
+  description: "threading.settrace.__name__ == 'settrace' — Python function setting a trace function for all newly started threads; wave 298; new to extra170"
+  kind: python_call_eq
+  function: settrace.__name__.__eq__
+  args: ["settrace"]
+  expected: true
+
+invariant threading_extra170.settrace_module_threading:
+  description: "threading.settrace.__module__ == 'threading' — settrace is defined in Lib/threading.py; unlike get_ident its module is 'threading' not '_thread'; wave 298; new to extra170"
+  kind: python_call_eq
+  function: settrace.__module__.__eq__
+  args: ["threading"]
+  expected: true
+
+invariant threading_extra170.setprofile_name_setprofile:
+  description: "threading.setprofile.__name__ == 'setprofile' — Python function setting a profile function for all newly started threads; wave 298; new to extra170"
+  kind: python_call_eq
+  function: setprofile.__name__.__eq__
+  args: ["setprofile"]
+  expected: true

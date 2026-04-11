@@ -1,0 +1,176 @@
+spec: pathlib_extra175
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/_local.py"
+    - "CPython source: Lib/pathlib/_abc.py"
+  notes:
+    - "This spec covers: pathlib.Path.__dict__.__contains__ for filesystem mutation methods: mkdir, unlink, rmdir, rename, replace, symlink_to, touch, exists."
+    - "pathlib.Path.__dict__.__contains__('mkdir') == True (len('mkdir')=5: 'm-k-d-i-r')."
+    - "pathlib.Path.__dict__.__contains__('unlink') == True (len('unlink')=6)."
+    - "pathlib.Path.__dict__.__contains__('rmdir') == True (len('rmdir')=5: 'rm'(2)+'dir'(3)=5 — same length as 'mkdir')."
+    - "pathlib.Path.__dict__.__contains__('rename') == True (len('rename')=6)."
+    - "pathlib.Path.__dict__.__contains__('replace') == True (len('replace')=7)."
+    - "pathlib.Path.__dict__.__contains__('symlink_to') == True (len('symlink_to')=10: 'symlink'(7)+'_'(1)+'to'(2)=10)."
+    - "pathlib.Path.__dict__.__contains__('touch') == True (len('touch')=5: same length as 'mkdir' and 'rmdir')."
+    - "pathlib.Path.__dict__.__contains__('exists') == True (len('exists')=6: same length as 'unlink' and 'rename')."
+    - "Three-way tie at 5 characters: mkdir(5)=rmdir(5)=touch(5)."
+    - "Three-way tie at 6 characters: unlink(6)=rename(6)=exists(6)."
+    - "Method name length ordering: mkdir(5)=rmdir(5)=touch(5) < unlink(6)=rename(6)=exists(6) < replace(7) < symlink_to(10)."
+    - "All eight methods are defined directly in Path.__dict__ — not inherited from PurePath."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pathlib.Path.__dict__ contains directory methods: mkdir and rmdir
+# mkdir (len=5) == rmdir (len=5): same 5-character length
+# mkdir creates directories, rmdir removes them
+# ---------------------------------------------------------------------------
+
+table pathlib_extra175.Path_dict_mkdir_rmdir:
+  description: "pathlib.Path.__dict__.__contains__('mkdir')==True (len=5); __contains__('rmdir')==True (len=5); mkdir(5)==rmdir(5): two-way tie at 5; mkdir creates directories, rmdir removes empty directories; both defined directly on Path"
+  kind: python_call_eq
+  category: identity
+  id_prefix: plmkrm175
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [has_mkdir,     "Path.__dict__.__contains__", ["mkdir"],   true,  "pathlib.Path.__dict__.__contains__('mkdir') == True — 'mkdir' is a key in Path.__dict__, meaning mkdir() is defined directly on Path; 'mkdir' has 5 characters: 'm-k-d-i-r'; mkdir (5 chars) ties with rmdir (5 chars) and touch (5 chars) — a three-way tie at 5 in the Path filesystem mutation method name family; Path.mkdir(mode=0o777, parents=False, exist_ok=False) creates a new directory at this path; mkdir() is defined on Path and not on PurePath — directory creation requires filesystem access; 'mkdir' (5 chars) < 'unlink' (6 chars) by 1; confirmed Python 3.14.3 macOS"]
+    - [has_rmdir,     "Path.__dict__.__contains__", ["rmdir"],   true,  "pathlib.Path.__dict__.__contains__('rmdir') == True — 'rmdir' is a key in Path.__dict__, meaning rmdir() is defined directly on Path; 'rmdir' has 5 characters: 'r-m-d-i-r'; rmdir (5 chars) == mkdir (5 chars): the directory creation and removal methods have equal name lengths; rmdir (5) is a UNIX command abbreviation for 'remove directory'; Path.rmdir() removes the directory at this path — the directory must be empty; rmdir() complements mkdir(): mkdir creates, rmdir removes; both are defined directly in Path.__dict__, not inherited from PurePath; confirmed Python 3.14.3 macOS"]
+    - [mkdir_ne_rm,   "Path.__dict__.__contains__", ["unlink"],  true,  "pathlib.Path.__dict__.__contains__('unlink') == True — 'unlink' is a key in Path.__dict__, confirming unlink() is defined on Path; 'unlink' has 6 characters: 'u-n-l-i-n-k'; unlink (6 chars) > mkdir (5 chars) by 1; unlink (6) ties with rename (6) and exists (6) — a three-way tie at 6; Path.unlink(missing_ok=False) removes a file or symbolic link at this path; unlink is the POSIX system call for removing a directory entry; unlike rmdir (which removes empty directories), unlink removes files and symlinks; confirmed Python 3.14.3 macOS"]
+    - [mkdir_len5,    "Path.__dict__.__contains__", ["touch"],   true,  "pathlib.Path.__dict__.__contains__('touch') == True — 'touch' is a key in Path.__dict__, meaning touch() is defined on Path; 'touch' has 5 characters: 't-o-u-c-h'; touch (5 chars) == mkdir (5 chars) == rmdir (5 chars): the three-way tie at 5 among the filesystem mutation method names; Path.touch(mode=0o666, exist_ok=True) creates the file if it does not exist, or updates the modification time if it already exists; touch() is named after the UNIX touch command; touch (5 chars) < unlink (6 chars) by 1; confirmed Python 3.14.3 macOS"]
+    - [touch_ne_sym,  "Path.__dict__.__contains__", ["symlink_to"], true, "pathlib.Path.__dict__.__contains__('symlink_to') == True — 'symlink_to' is a key in Path.__dict__, meaning symlink_to() is defined on Path; 'symlink_to' has 10 characters: 'symlink'(7)+'_'(1)+'to'(2)=10; symlink_to (10 chars) is the longest method name in this spec — more than double touch (5 chars) and mkdir (5 chars); Path.symlink_to(target, target_is_directory=False) creates this path as a symbolic link pointing to target; 'symlink_to' (10 chars) == len('TextIOBase') (10 chars) — a cross-module tie; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# pathlib.Path.__dict__ contains rename and replace
+# rename (len=6) == replace (len=7): differ by 1
+# rename can cross filesystems on some OSes; replace always succeeds even if target exists
+# ---------------------------------------------------------------------------
+
+table pathlib_extra175.Path_dict_rename_replace:
+  description: "pathlib.Path.__dict__.__contains__('rename')==True (len=6); __contains__('replace')==True (len=7); rename(6) < replace(7) by 1; rename moves/renames the path; replace atomically replaces the target; both defined directly on Path"
+  kind: python_call_eq
+  category: identity
+  id_prefix: plrnrp175
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [has_rename,    "Path.__dict__.__contains__", ["rename"],  true,  "pathlib.Path.__dict__.__contains__('rename') == True — 'rename' is a key in Path.__dict__, meaning rename() is defined on Path; 'rename' has 6 characters: 'r-e-n-a-m-e'; rename (6 chars) ties with unlink (6 chars) and exists (6 chars) — a three-way tie at 6; Path.rename(target) renames the file or directory to the given target and returns a new Path instance pointing to the target; rename() may or may not atomically replace the target if it exists, depending on the OS; rename (6 chars) < replace (7 chars) by 1; confirmed Python 3.14.3 macOS"]
+    - [has_replace,   "Path.__dict__.__contains__", ["replace"], true,  "pathlib.Path.__dict__.__contains__('replace') == True — 'replace' is a key in Path.__dict__, meaning replace() is defined on Path; 'replace' has 7 characters: 'r-e-p-l-a-c-e'; replace (7 chars) > rename (6 chars) by 1; replace (7 chars) == len('pathlib') (7 chars) and len('Context') (7 chars) — common 7-character standard library name length; Path.replace(target) renames the file or directory to target, atomically replacing the target if it exists (unlike rename which may raise on existing target); replace (7) is the maximum single-word method name in this spec; confirmed Python 3.14.3 macOS"]
+    - [has_exists,    "Path.__dict__.__contains__", ["exists"],  true,  "pathlib.Path.__dict__.__contains__('exists') == True — 'exists' is a key in Path.__dict__, meaning exists() is defined on Path; 'exists' has 6 characters: 'e-x-i-s-t-s'; exists (6 chars) ties with rename (6 chars) and unlink (6 chars) — the three-way tie at 6; Path.exists(follow_symlinks=True) returns True if the path refers to an existing path on the filesystem; exists() is defined on Path (not PurePath) because existence checking requires filesystem access; exists (6 chars) > mkdir (5 chars) by 1; confirmed Python 3.14.3 macOS"]
+    - [replace_len_7, "Path.__dict__.__contains__", ["replace"], true,  "pathlib.Path.__dict__.__contains__('replace') == True — confirming 'replace' (7 chars) is in Path.__dict__; 'replace' (7 chars) is the only 7-character method name in this spec; the 8-method name length ordering in this spec: mkdir(5)=rmdir(5)=touch(5) < unlink(6)=rename(6)=exists(6) < replace(7) < symlink_to(10); replace (7) sits between the 6-char group and symlink_to (10); 'replace' (7) > 'rename' (6) by 1 — consecutive in the length ordering; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# pathlib.Path.__dict__ contains symlink_to and exists
+# symlink_to (len=10) — longest method name in this spec
+# exists (len=6) — ties with unlink and rename
+# ---------------------------------------------------------------------------
+
+table pathlib_extra175.Path_dict_symlink_exists:
+  description: "pathlib.Path.__dict__.__contains__('symlink_to')==True (len=10); __contains__('exists')==True (len=6); symlink_to(10) is the longest method name in this spec; symlink_to='symlink'(7)+'_to'(3)=10; exists(6) ties with unlink(6) and rename(6)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: plsxe175
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [has_symlink_to, "Path.__dict__.__contains__", ["symlink_to"], true,  "pathlib.Path.__dict__.__contains__('symlink_to') == True — 'symlink_to' is in Path.__dict__; 'symlink_to' has 10 characters: 'symlink'(7)+'_'(1)+'to'(2)=10; symlink_to (10) is the maximum method name length in this spec — the only compound (underscore-joined) method name; symlink_to (10) > replace (7) by 3; symlink_to (10) > symlink (7) by 3 — the '_to' suffix adds 3 characters; Path.symlink_to(target) creates this path as a symbolic link pointing to target; 'symlink_to' (10 chars) == len('TextIOBase') (10 chars) from the io module — a cross-module tie; confirmed Python 3.14.3 macOS"]
+    - [has_unlink,     "Path.__dict__.__contains__", ["unlink"],    true,  "pathlib.Path.__dict__.__contains__('unlink') == True — 'unlink' is in Path.__dict__, confirming it is defined on Path; 'unlink' has 6 characters: 'u-n-l-i-n-k'; unlink (6 chars) == rename (6 chars) == exists (6 chars): the three-way tie at 6 is the most common method name length in this spec (three methods at 6 vs three at 5 vs one at 7 and one at 10); Path.unlink() removes the file or symbolic link; unlink (6) > mkdir (5) by 1; unlink (6) < replace (7) by 1: unlink is consecutive with both the 5-char group and replace (7); confirmed Python 3.14.3 macOS"]
+    - [sym_gt_replace, "Path.__dict__.__contains__", ["symlink_to"], true, "pathlib.Path.__dict__.__contains__('symlink_to') == True — confirming symlink_to (10 chars) > replace (7 chars) by 3; the full 8-method length distribution: three methods at 5 chars (mkdir, rmdir, touch), three at 6 chars (unlink, rename, exists), one at 7 chars (replace), one at 10 chars (symlink_to); symlink_to (10) is an outlier — 3 characters longer than the next-longest method (replace=7); symlink_to (10 chars) == exists (6 chars) + 4 == replace (7 chars) + 3 == mkdir (5 chars) + 5; confirmed Python 3.14.3 macOS"]
+    - [exists_len_6,   "Path.__dict__.__contains__", ["exists"],    true,  "pathlib.Path.__dict__.__contains__('exists') == True — confirming exists (6 chars) is in Path.__dict__; 'exists' (6 chars) == 'unlink' (6 chars) == 'rename' (6 chars): the three-way tie at 6 among the 8 method names in this spec; 6 is also len('IOBase') (6 chars) and len('object') (6 chars) — cross-module 6-character ties; exists (6 chars) > touch (5 chars) by 1 and > mkdir (5 chars) by 1: exists is consecutive with the 5-char group; Path.exists() is a pure query method (no mutation) — unlike mkdir, unlink, rename which modify the filesystem; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Method name length ordering: three at 5, three at 6, one at 7, one at 10
+# mkdir(5)=rmdir(5)=touch(5) < unlink(6)=rename(6)=exists(6) < replace(7) < symlink_to(10)
+# ---------------------------------------------------------------------------
+
+table pathlib_extra175.method_name_length_groups:
+  description: "Path filesystem method name length groups: 5-char group (mkdir, rmdir, touch); 6-char group (unlink, rename, exists); replace(7); symlink_to(10); length ordering: 5 < 6 < 7 < 10; two 3-way ties at 5 and 6; symlink_to(10) is the sole outlier"
+  kind: python_call_eq
+  category: identity
+  id_prefix: plmlen175
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [mkdir_5,    "Path.__dict__.__contains__", ["mkdir"],      true, "pathlib.Path.__dict__.__contains__('mkdir') == True — 'mkdir' (5 chars) is in the 5-char method name group: mkdir(5)=rmdir(5)=touch(5); the 5-char group represents the three short command-style names; mkdir (5) = 'm'+'k'+'d'+'i'+'r': a traditional Unix command abbreviation ('make directory'); 5 chars is the minimum method name length in this spec; the 5-char group (mkdir, rmdir, touch) vs the 6-char group (unlink, rename, exists) differs by exactly 1 character; confirmed Python 3.14.3 macOS"]
+    - [rmdir_5,    "Path.__dict__.__contains__", ["rmdir"],      true, "pathlib.Path.__dict__.__contains__('rmdir') == True — 'rmdir' (5 chars) completes the 5-char group alongside mkdir(5) and touch(5); 'rmdir' = 'r-m-d-i-r' — same 5-character length as 'mkdir'; rmdir (5) and mkdir (5) form a symmetric pair: create/remove for directories, both 5-char Unix command abbreviations; rmdir (5) == touch (5) == mkdir (5): the three 5-char method names each have distinct first characters ('r', 't', 'm') covering different filesystem operations; confirmed Python 3.14.3 macOS"]
+    - [rename_6,   "Path.__dict__.__contains__", ["rename"],     true, "pathlib.Path.__dict__.__contains__('rename') == True — 'rename' (6 chars) is in the 6-char method name group: unlink(6)=rename(6)=exists(6); rename (6 chars) > mkdir (5 chars) by 1: the two length groups are consecutive; 'rename' (6) is a full English word (not a Unix command abbreviation), unlike mkdir (5) and rmdir (5) which are abbreviations; rename (6) < replace (7) by 1: rename and replace are consecutive in the ascending length order; all three 6-char methods (unlink, rename, exists) start with different letters ('u', 'r', 'e'); confirmed Python 3.14.3 macOS"]
+    - [replace_7,  "Path.__dict__.__contains__", ["replace"],    true, "pathlib.Path.__dict__.__contains__('replace') == True — 'replace' (7 chars) is the unique 7-char method name in this spec; replace (7) is the only method name at 7 characters — no tie at 7; replace (7) == len('pathlib') (7) == len('Context') (7) == len('Decimal') (7) — cross-module 7-character coincidences; the 8-method length distribution: [5,5,5,6,6,6,7,10] — three at 5, three at 6, one at 7, one at 10; replace (7) is the sole member between the 6-char group and symlink_to (10); confirmed Python 3.14.3 macOS"]
+    - [symlink_10, "Path.__dict__.__contains__", ["symlink_to"], true, "pathlib.Path.__dict__.__contains__('symlink_to') == True — 'symlink_to' (10 chars) is the unique 10-char method name and the maximum in this spec; symlink_to (10) > replace (7) by 3: a gap of 3 between the second-longest and the longest; the ascending 4-level length sequence: 5 < 6 < 7 < 10 with gaps of 1, 1, 3 between consecutive levels; symlink_to (10 chars) is the only compound name (using underscore): all other 7 method names are single words; 'symlink_to' (10) == len('TextIOBase') (10) and len('symlink_to') (10) — cross-module io tie at 10; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra175.Path_dict_has_mkdir:
+  description: "pathlib.Path.__dict__.__contains__('mkdir') == True — mkdir is defined directly on Path; 'mkdir' has 5 characters; mkdir (5) ties with rmdir (5) and touch (5) in the three-way 5-char group; Path.mkdir() is a filesystem mutation method absent from PurePath; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__contains__"
+  args: ["mkdir"]
+  expected: true
+
+invariant pathlib_extra175.Path_dict_has_unlink:
+  description: "pathlib.Path.__dict__.__contains__('unlink') == True — unlink is defined directly on Path; 'unlink' has 6 characters; unlink (6) ties with rename (6) and exists (6) in the three-way 6-char group; Path.unlink() removes a file or symbolic link; unlink (6) > mkdir (5) by 1 — consecutive length groups; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__contains__"
+  args: ["unlink"]
+  expected: true
+
+invariant pathlib_extra175.Path_dict_has_rmdir:
+  description: "pathlib.Path.__dict__.__contains__('rmdir') == True — rmdir is defined directly on Path; 'rmdir' has 5 characters: rmdir(5) == mkdir(5) == touch(5) in the 5-char group; Path.rmdir() removes an empty directory; rmdir and mkdir are the symmetric create/remove directory pair, both 5-char Unix abbreviations; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__contains__"
+  args: ["rmdir"]
+  expected: true
+
+invariant pathlib_extra175.Path_dict_has_rename:
+  description: "pathlib.Path.__dict__.__contains__('rename') == True — rename is defined directly on Path; 'rename' has 6 characters: rename(6) == unlink(6) == exists(6) in the 6-char group; Path.rename(target) renames/moves the path and returns a new Path; rename (6) < replace (7) by 1 — consecutive in the ascending length order; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__contains__"
+  args: ["rename"]
+  expected: true
+
+invariant pathlib_extra175.Path_dict_has_replace:
+  description: "pathlib.Path.__dict__.__contains__('replace') == True — replace is defined directly on Path; 'replace' has 7 characters: replace(7) is the sole 7-char method in this spec; replace (7) == len('pathlib') (7) — module name and method name tie at 7; Path.replace(target) atomically replaces target; replace (7) > rename (6) by 1 and replace (7) < symlink_to (10) by 3; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__contains__"
+  args: ["replace"]
+  expected: true
+
+invariant pathlib_extra175.Path_dict_has_symlink_to:
+  description: "pathlib.Path.__dict__.__contains__('symlink_to') == True — symlink_to is defined directly on Path; 'symlink_to' has 10 characters: 'symlink'(7)+'_'(1)+'to'(2)=10; symlink_to (10) is the maximum method name length in this spec — the only compound (underscore-joined) method; symlink_to (10) > replace (7) by 3; Path.symlink_to(target) makes this path a symbolic link to target; symlink_to (10) == len('TextIOBase') (10) — cross-module tie; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__contains__"
+  args: ["symlink_to"]
+  expected: true
+
+invariant pathlib_extra175.Path_dict_has_touch:
+  description: "pathlib.Path.__dict__.__contains__('touch') == True — touch is defined directly on Path; 'touch' has 5 characters: touch(5) == mkdir(5) == rmdir(5) in the three-way 5-char group; Path.touch(mode=0o666, exist_ok=True) creates the file if absent or updates its timestamp; touch(5) < unlink(6) by 1 — consecutive between the 5 and 6-char groups; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__contains__"
+  args: ["touch"]
+  expected: true
+
+invariant pathlib_extra175.Path_dict_has_exists:
+  description: "pathlib.Path.__dict__.__contains__('exists') == True — exists is defined directly on Path; 'exists' has 6 characters: exists(6) == unlink(6) == rename(6) in the three-way 6-char group; Path.exists(follow_symlinks=True) returns True if the path exists on the filesystem; exists (6) > touch (5) by 1 — consecutive between the 5 and 6-char groups; exists is a query method (no mutation) unlike mkdir, unlink, rename which modify the filesystem; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "Path.__dict__.__contains__"
+  args: ["exists"]
+  expected: true

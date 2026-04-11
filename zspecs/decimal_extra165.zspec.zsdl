@@ -1,0 +1,189 @@
+spec: decimal_extra165
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+    - "CPython source: Modules/_decimal/_decimal.c"
+  notes:
+    - "This spec covers: decimal.getcontext, decimal.setcontext, decimal.localcontext function identity, and decimal.DefaultContext, decimal.BasicContext, decimal.ExtendedContext class identity."
+    - "decimal.getcontext.__name__ == 'getcontext' (len=10: 'get'(3)+'context'(7)=10)."
+    - "decimal.getcontext.__module__ == '_decimal' (len=8) — implemented in the C extension '_decimal', not the public 'decimal'."
+    - "decimal.setcontext.__name__ == 'setcontext' (len=10: 'set'(3)+'context'(7)=10)."
+    - "decimal.setcontext.__module__ == '_decimal' (len=8)."
+    - "decimal.localcontext.__name__ == 'localcontext' (len=12: 'local'(5)+'context'(7)=12)."
+    - "decimal.localcontext.__module__ == '_decimal' (len=8)."
+    - "decimal.DefaultContext.__class__.__name__ == 'Context' (len=7)."
+    - "decimal.BasicContext.__class__.__name__ == 'Context' (len=7)."
+    - "decimal.ExtendedContext.__class__.__name__ == 'Context' (len=7)."
+    - "Two-way tie: getcontext(10) == setcontext(10) in function name length; both = 'get/set'(3)+'context'(7)=10."
+    - "localcontext (12) > getcontext (10) = setcontext (10) by 2: 'local' (5) > 'get'(3)/'set'(3) by 2."
+    - "All three context functions share __module__ == '_decimal' (8 chars), not 'decimal' (7 chars)."
+    - "'_decimal' (8 chars) > 'decimal' (7 chars) by 1: the C extension module name is 1 character longer."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# decimal.getcontext and decimal.setcontext function identity
+# getcontext.__name__ == 'getcontext' (len=10), __module__ == '_decimal' (len=8)
+# setcontext.__name__ == 'setcontext' (len=10), __module__ == '_decimal' (len=8)
+# Two-way tie: getcontext (10) == setcontext (10) in name length
+# ---------------------------------------------------------------------------
+
+table decimal_extra165.getcontext_setcontext_identity:
+  description: "decimal.getcontext.__name__=='getcontext' (len=10), __module__=='_decimal' (len=8); decimal.setcontext.__name__=='setcontext' (len=10), __module__=='_decimal' (len=8); getcontext(10)==setcontext(10): two-way tie; both='get/set'(3)+'context'(7)=10"
+  kind: python_call_eq
+  category: identity
+  id_prefix: decgsc165
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [gc_name,     decimal.getcontext.__name__.__eq__,   ["getcontext"], true, "decimal.getcontext.__name__ == 'getcontext' — the function that returns the current thread's decimal arithmetic context; 'getcontext' has 10 characters: 'get'(3)+'context'(7)=10; getcontext (10 chars) == setcontext (10 chars): a two-way tie at 10 — the get/set accessor pair for the decimal context; the 'context' component (7 chars) is shared between getcontext (10) and setcontext (10) and localcontext (12); decimal.getcontext() returns a copy of the current Context; getcontext (10 chars) == len('symlink_to') (10 chars) and len('TextIOBase') (10 chars) — cross-module ties at 10; confirmed Python 3.14.3 macOS"]
+    - [gc_module,   decimal.getcontext.__module__.__eq__, ["_decimal"],   true, "decimal.getcontext.__module__ == '_decimal' — getcontext is implemented in the '_decimal' C extension module; '_decimal' has 8 characters: '_'(1)+'decimal'(7)=8; '_decimal' (8 chars) > 'decimal' (7 chars) by 1: the C extension module name is 1 character longer than the public module name due to the underscore prefix; decimal.getcontext.__module__ (8: '_decimal') != decimal.Decimal.__module__ (7: 'decimal'): the context access function lives in '_decimal' while the Decimal class lives in 'decimal'; all three context functions (getcontext, setcontext, localcontext) share __module__ == '_decimal' (8 chars); confirmed Python 3.14.3 macOS"]
+    - [sc_name,     decimal.setcontext.__name__.__eq__,   ["setcontext"], true, "decimal.setcontext.__name__ == 'setcontext' — the function that sets the current thread's decimal arithmetic context; 'setcontext' has 10 characters: 'set'(3)+'context'(7)=10; setcontext (10 chars) == getcontext (10 chars): the two-way tie at 10 — getcontext and setcontext are the getter/setter pair for the thread-local decimal context; setcontext (10 chars) > localcontext (12 chars)? No: setcontext (10) < localcontext (12) by 2; 'set' (3 chars) == 'get' (3 chars) in length: the prefixes are equal in length, contributing to the name-length tie at 10; decimal.setcontext(ctx) sets the current context to ctx; confirmed Python 3.14.3 macOS"]
+    - [sc_module,   decimal.setcontext.__module__.__eq__, ["_decimal"],   true, "decimal.setcontext.__module__ == '_decimal' — setcontext is implemented in the '_decimal' C extension; '_decimal' has 8 characters; setcontext.__module__ (8: '_decimal') == getcontext.__module__ (8: '_decimal') == localcontext.__module__ (8: '_decimal'): all three context functions share the 8-character C extension module name '_decimal'; '_decimal' (8 chars) is the C-optimized implementation of the decimal module; the public 'decimal' (7 chars) module re-exports getcontext, setcontext, and localcontext from '_decimal'; confirmed Python 3.14.3 macOS"]
+    - [gc_eq_sc,    decimal.getcontext.__name__.__eq__,   ["setcontext"], false, "decimal.getcontext.__name__.__eq__('setcontext') == False — 'getcontext' (10 chars) != 'setcontext' (10 chars); getcontext and setcontext have equal length (10 chars each) but different names: 'get' vs 'set' prefix; getcontext() returns the current context while setcontext() replaces it — opposite operations; getcontext.__name__ (10) != setcontext.__name__ (10) in content despite equal length: the equal-length pair differs in their 3-character prefixes ('get' vs 'set'); confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# decimal.localcontext function identity
+# localcontext.__name__ == 'localcontext' (len=12), __module__ == '_decimal' (len=8)
+# localcontext (12) > getcontext (10) == setcontext (10) by 2
+# 'local' (5) > 'get'/'set' (3) by 2: accounts for the full 2-char difference
+# ---------------------------------------------------------------------------
+
+table decimal_extra165.localcontext_identity:
+  description: "decimal.localcontext.__name__=='localcontext' (len=12), __module__=='_decimal' (len=8); localcontext (12) > getcontext (10) = setcontext (10) by 2; 'local'(5)+'context'(7)=12; localcontext is a context manager for temporary context changes"
+  kind: python_call_eq
+  category: identity
+  id_prefix: declc165
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [lc_name,     decimal.localcontext.__name__.__eq__,   ["localcontext"], true, "decimal.localcontext.__name__ == 'localcontext' — the context manager function that provides a temporary local decimal context; 'localcontext' has 12 characters: 'local'(5)+'context'(7)=12; localcontext (12) > getcontext (10) by 2 == len('local') - len('get') = 5 - 3 = 2: the 'local' prefix (5 chars) is 2 characters longer than the 'get'/'set' prefix (3 chars); decimal.localcontext() is used as 'with decimal.localcontext() as ctx:' to make temporary context changes that revert on exit; localcontext (12 chars) == len('mappingproxy') (12 chars) from pathlib_extra174 — a cross-module 12-character tie; confirmed Python 3.14.3 macOS"]
+    - [lc_module,   decimal.localcontext.__module__.__eq__, ["_decimal"],     true, "decimal.localcontext.__module__ == '_decimal' — localcontext is implemented in the '_decimal' C extension; '_decimal' has 8 characters: '_'(1)+'decimal'(7)=8; localcontext.__module__ (8: '_decimal') == getcontext.__module__ (8: '_decimal') == setcontext.__module__ (8: '_decimal'): all three context functions share the '_decimal' C extension module; '_decimal' (8 chars) > 'decimal' (7 chars) by 1; '_decimal' (8 chars) < 'localcontext' (12 chars) by 4; the fact that localcontext is in '_decimal' (not 'decimal') confirms that even the context manager protocol for decimal is implemented at the C level; confirmed Python 3.14.3 macOS"]
+    - [lc_name_len, decimal.localcontext.__name__.__len__, [],               12,   "decimal.localcontext.__name__.__len__() == 12 — 'localcontext' has 12 characters: 'local'(5)+'context'(7)=12; localcontext (12) is the maximum function name length in this spec: getcontext(10) = setcontext(10) < localcontext(12); the gap: localcontext (12) - getcontext (10) == 2 == len('local') - len('get') == 5 - 3 == 2; 'context' (7 chars) is the shared suffix in all three function names: get+context, set+context, local+context; localcontext (12 chars) == len('mappingproxy') (12 chars) — cross-module coincidence with the Python class namespace proxy type name; confirmed Python 3.14.3 macOS"]
+    - [lc_ne_gc,    decimal.localcontext.__name__.__eq__,   ["getcontext"],  false, "decimal.localcontext.__name__.__eq__('getcontext') == False — 'localcontext' (12 chars) != 'getcontext' (10 chars); localcontext (12) > getcontext (10) by 2: the 'local' prefix (5 chars) is 2 characters longer than the 'get' prefix (3 chars); localcontext is a context manager (used with 'with') while getcontext is a simple accessor (returns the current context); the operational difference between localcontext and getcontext mirrors their name length difference: localcontext provides thread-local scoping while getcontext provides thread-local access; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# decimal.DefaultContext, BasicContext, ExtendedContext class identity
+# All three.__class__.__name__ == 'Context' (len=7)
+# These are pre-built Context instances, not classes
+# ---------------------------------------------------------------------------
+
+table decimal_extra165.named_contexts_class_identity:
+  description: "decimal.DefaultContext.__class__.__name__=='Context' (len=7); decimal.BasicContext.__class__.__name__=='Context' (len=7); decimal.ExtendedContext.__class__.__name__=='Context' (len=7); all three are pre-built Context instances"
+  kind: python_call_eq
+  category: identity
+  id_prefix: decnctx165
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [def_cls,     decimal.DefaultContext.__class__.__name__.__eq__,   ["Context"], true, "decimal.DefaultContext.__class__.__name__ == 'Context' — DefaultContext is a pre-built instance of the decimal.Context class; 'Context' has 7 characters; DefaultContext.__class__.__name__ (7: 'Context') confirms that DefaultContext is an instance (not a subclass) of Context; decimal.DefaultContext provides the default arithmetic context used when no context has been explicitly set for a thread; 'Context' (7 chars) == len('Decimal') (7 chars) == len('decimal') (7 chars): the three primary 7-character names in the decimal module; DefaultContext has prec=28, rounding=ROUND_HALF_EVEN, and standard exception traps; confirmed Python 3.14.3 macOS"]
+    - [bas_cls,     decimal.BasicContext.__class__.__name__.__eq__,     ["Context"], true, "decimal.BasicContext.__class__.__name__ == 'Context' — BasicContext is a pre-built instance of decimal.Context; 'Context' has 7 characters; BasicContext.__class__.__name__ (7: 'Context') == DefaultContext.__class__.__name__ (7: 'Context'): all three named context instances are of type Context; decimal.BasicContext provides a context that closely matches the General Decimal Arithmetic specification's basic arithmetic: prec=9, rounding=ROUND_HALF_UP, with additional traps enabled; BasicContext (12 chars including 'Context') corresponds to an IEEE 754 compliant context; confirmed Python 3.14.3 macOS"]
+    - [ext_cls,     decimal.ExtendedContext.__class__.__name__.__eq__,  ["Context"], true, "decimal.ExtendedContext.__class__.__name__ == 'Context' — ExtendedContext is a pre-built instance of decimal.Context; 'Context' has 7 characters; ExtendedContext.__class__.__name__ (7: 'Context') == BasicContext.__class__.__name__ (7: 'Context') == DefaultContext.__class__.__name__ (7: 'Context'): the three-way tie at 'Context' for all three named contexts; decimal.ExtendedContext is the extended precision context from the General Decimal Arithmetic specification; ExtendedContext has no traps enabled — all signals are silently noted rather than raising exceptions; confirmed Python 3.14.3 macOS"]
+    - [def_ne_bas,  decimal.DefaultContext.__class__.__name__.__eq__,   ["BasicContext"], false, "decimal.DefaultContext.__class__.__name__.__eq__('BasicContext') == False — DefaultContext.__class__.__name__ is 'Context' (7 chars), not 'BasicContext' (12 chars); DefaultContext is an instance of Context (not BasicContext); DefaultContext, BasicContext, and ExtendedContext are all instances of the same 7-character class 'Context' — they differ in their settings (prec, rounding, traps) but not in their type; 'BasicContext' (12 chars) is the name of the constant, not the class of DefaultContext; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# context function module: '_decimal' (8) vs 'decimal' (7)
+# getcontext, setcontext, localcontext all report __module__ == '_decimal'
+# Decimal, Context, DecimalException report __module__ == 'decimal'
+# C functions in '_decimal' (8 chars) vs Python classes in 'decimal' (7 chars)
+# ---------------------------------------------------------------------------
+
+table decimal_extra165.context_function_module_comparison:
+  description: "getcontext, setcontext, localcontext all have __module__=='_decimal' (len=8); Decimal class has __module__=='decimal' (len=7); '_decimal'(8) vs 'decimal'(7): C extension module(8) vs public module(7) differ by 1 (underscore prefix)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: decmod165
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [gc_mod_dec,   decimal.getcontext.__module__.__eq__,   ["_decimal"], true, "decimal.getcontext.__module__ == '_decimal' — getcontext is a C-implemented function in the '_decimal' extension; '_decimal' has 8 characters: '_'(1)+'decimal'(7)=8; '_decimal' (8 chars) > 'decimal' (7 chars) by 1: the C extension name is exactly 1 character longer than the public module name — the underscore prefix is the sole difference; decimal.getcontext.__module__ (8: '_decimal') != decimal.Decimal.__module__ (7: 'decimal'): the context function and the Decimal class are in different modules; confirmed Python 3.14.3 macOS"]
+    - [sc_mod_dec,   decimal.setcontext.__module__.__eq__,   ["_decimal"], true, "decimal.setcontext.__module__ == '_decimal' — setcontext is a C-implemented function in the '_decimal' extension; '_decimal' has 8 characters; setcontext.__module__ (8: '_decimal') == getcontext.__module__ (8: '_decimal'): the getter/setter pair for the decimal context share the same C extension module; '_decimal' (8 chars) is 1 character longer than the public 'decimal' (7 chars) due to the underscore prefix convention for C extension modules; confirmed Python 3.14.3 macOS"]
+    - [lc_mod_dec,   decimal.localcontext.__module__.__eq__, ["_decimal"], true, "decimal.localcontext.__module__ == '_decimal' — localcontext is a C-implemented context manager in the '_decimal' extension; '_decimal' has 8 characters; localcontext.__module__ (8: '_decimal') == getcontext.__module__ (8: '_decimal') == setcontext.__module__ (8: '_decimal'): all three context functions are co-located in the C extension '_decimal' (8 chars); '_decimal' (8 chars) > 'decimal' (7 chars) by 1: the underscore adds 1 character to the module name; confirmed Python 3.14.3 macOS"]
+    - [mod_len_8,    decimal.getcontext.__module__.__len__, [],            8,    "decimal.getcontext.__module__.__len__() == 8 — '_decimal' has 8 characters: '_'(1)+'decimal'(7)=8; '_decimal' (8 chars) > 'decimal' (7 chars) by 1: the C extension module name is 1 character longer; the module name '_decimal' (8 chars) < function name 'getcontext' (10 chars) by 2; '_decimal' (8 chars) < 'localcontext' (12 chars) by 4; the three context function names (getcontext=10, setcontext=10, localcontext=12) are all longer than their module name '_decimal' (8 chars): getcontext(10)-_decimal(8)=2, setcontext(10)-_decimal(8)=2, localcontext(12)-_decimal(8)=4; confirmed Python 3.14.3 macOS"]
+    - [mod_ne_pub,   decimal.getcontext.__module__.__eq__,  ["decimal"],  false, "decimal.getcontext.__module__.__eq__('decimal') == False — getcontext's module is '_decimal' (8 chars), NOT 'decimal' (7 chars); the public 'decimal' (7 chars) module re-exports getcontext from '_decimal' (8 chars); '_decimal' (8) != 'decimal' (7) — they differ in both content (the leading underscore) and length (8 vs 7); this contrasts with decimal.Decimal.__module__ == 'decimal' (7 chars, no underscore): the Decimal class is in the public module while getcontext is in the C extension; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra165.getcontext_name_is_getcontext:
+  description: "decimal.getcontext.__name__ == 'getcontext' — the function that returns the current thread's decimal context; 'getcontext' has 10 characters: 'get'(3)+'context'(7)=10; getcontext (10) == setcontext (10) — a two-way tie at 10 for the getter/setter pair; getcontext (10) < localcontext (12) by 2; decimal.getcontext.__module__ == '_decimal' (8 chars) — C extension; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.getcontext.__name__.__eq__
+  args: ["getcontext"]
+  expected: true
+
+invariant decimal_extra165.getcontext_module_is__decimal:
+  description: "decimal.getcontext.__module__ == '_decimal' — getcontext is implemented in the '_decimal' C extension; '_decimal' has 8 characters: '_'(1)+'decimal'(7)=8; '_decimal' (8) > 'decimal' (7) by 1: C extension module is 1 character longer; all three context functions (getcontext, setcontext, localcontext) share __module__ == '_decimal' (8 chars); this differs from Decimal.__module__ == 'decimal' (7 chars); confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.getcontext.__module__.__eq__
+  args: ["_decimal"]
+  expected: true
+
+invariant decimal_extra165.setcontext_name_is_setcontext:
+  description: "decimal.setcontext.__name__ == 'setcontext' — the function that sets the current thread's decimal context; 'setcontext' has 10 characters: 'set'(3)+'context'(7)=10; setcontext (10) == getcontext (10) — the two-way tie at 10 for the getter/setter pair; 'set' (3 chars) == 'get' (3 chars): equal-length prefixes cause equal-length function names; setcontext (10) < localcontext (12) by 2; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.setcontext.__name__.__eq__
+  args: ["setcontext"]
+  expected: true
+
+invariant decimal_extra165.setcontext_module_is__decimal:
+  description: "decimal.setcontext.__module__ == '_decimal' — setcontext is implemented in the '_decimal' C extension; '_decimal' has 8 characters; setcontext.__module__ (8: '_decimal') == getcontext.__module__ (8: '_decimal'): the getter/setter pair shares the same C extension module; '_decimal' (8 chars) > 'decimal' (7 chars) by 1; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.setcontext.__module__.__eq__
+  args: ["_decimal"]
+  expected: true
+
+invariant decimal_extra165.localcontext_name_is_localcontext:
+  description: "decimal.localcontext.__name__ == 'localcontext' — the context manager that provides a temporary local decimal context; 'localcontext' has 12 characters: 'local'(5)+'context'(7)=12; localcontext (12) > getcontext (10) == setcontext (10) by 2: 'local' (5) > 'get'/'set' (3) by 2; localcontext (12 chars) == len('mappingproxy') (12 chars): cross-module tie at 12; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.localcontext.__name__.__eq__
+  args: ["localcontext"]
+  expected: true
+
+invariant decimal_extra165.localcontext_module_is__decimal:
+  description: "decimal.localcontext.__module__ == '_decimal' — localcontext is implemented in the '_decimal' C extension; '_decimal' has 8 characters; localcontext.__module__ (8: '_decimal') == getcontext.__module__ (8) == setcontext.__module__ (8): all three context functions are co-located in '_decimal'; '_decimal' (8) > 'decimal' (7) by 1; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.localcontext.__module__.__eq__
+  args: ["_decimal"]
+  expected: true
+
+invariant decimal_extra165.DefaultContext_class_is_Context:
+  description: "decimal.DefaultContext.__class__.__name__ == 'Context' — DefaultContext is an instance of the decimal.Context class; 'Context' has 7 characters; DefaultContext.__class__.__name__ (7: 'Context') == BasicContext.__class__.__name__ (7: 'Context') == ExtendedContext.__class__.__name__ (7: 'Context'): all three named contexts are instances of the same 7-character class; Context (7 chars) == len('Decimal') (7) == len('decimal') (7) — the primary decimal module names all have 7 characters; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.DefaultContext.__class__.__name__.__eq__
+  args: ["Context"]
+  expected: true
+
+invariant decimal_extra165.BasicContext_class_is_Context:
+  description: "decimal.BasicContext.__class__.__name__ == 'Context' — BasicContext is an instance of decimal.Context; 'Context' has 7 characters; BasicContext is the pre-built General Decimal Arithmetic basic context: prec=9, rounding=ROUND_HALF_UP, with all standard traps enabled; BasicContext.__class__.__name__ (7: 'Context') == DefaultContext.__class__.__name__ (7: 'Context'): same class for both named context instances; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.BasicContext.__class__.__name__.__eq__
+  args: ["Context"]
+  expected: true
+
+invariant decimal_extra165.ExtendedContext_class_is_Context:
+  description: "decimal.ExtendedContext.__class__.__name__ == 'Context' — ExtendedContext is an instance of decimal.Context; 'Context' has 7 characters; ExtendedContext is the pre-built General Decimal Arithmetic extended context with no traps; ExtendedContext.__class__.__name__ (7: 'Context') == BasicContext.__class__.__name__ (7: 'Context') == DefaultContext.__class__.__name__ (7: 'Context'): a three-way identity at 'Context' (7 chars) for all three named decimal context instances; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: decimal.ExtendedContext.__class__.__name__.__eq__
+  args: ["Context"]
+  expected: true
