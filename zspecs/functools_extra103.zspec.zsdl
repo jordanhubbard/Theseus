@@ -1,0 +1,245 @@
+spec: functools_extra103
+version: ">=3.9"
+backend: python_module(functools)
+extends: functools_extra99
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec extends functools_extra99.zspec.zsdl."
+    - "This spec covers: functools.lru_cache code-object attrs; functools.reduce C-builtin identity; functools.partial C-extension type identity; functools.wraps code-object attrs; functools.cached_property class identity (Wave 255)."
+    - "functools.lru_cache.__class__.__name__ == 'function' — lru_cache is a pure-Python decorator factory in Lib/functools.py, not a C builtin. Verified with Python 3.14.3."
+    - "functools.lru_cache.__code__.co_name == 'lru_cache' — the code object name matches the def statement. Verified with Python 3.14.3."
+    - "functools.lru_cache.__code__.co_argcount == 2 — lru_cache(maxsize=128, typed=False) has two positional args. Verified with Python 3.14.3."
+    - "functools.lru_cache.__module__ == 'functools'. Verified with Python 3.14.3."
+    - "functools.reduce.__class__.__name__ == 'builtin_function_or_method' — reduce is implemented in C (_functoolsmodule.c). Verified with Python 3.14.3."
+    - "functools.reduce.__module__ == '_functools' — the underlying C module. Verified with Python 3.14.3."
+    - "functools.partial.__class__.__name__ == 'type' — partial is a C-extension type, not a Python class or function. Verified with Python 3.14.3."
+    - "functools.partial.__module__ == 'functools' — partial is exposed via functools even though it is backed by _functools C module. Verified with Python 3.14.3."
+    - "functools.partial.__bases__[0].__name__ == 'object' — partial inherits directly from object. Verified with Python 3.14.3."
+    - "len(functools.partial.__mro__) == 2 — [partial, object]. Verified with Python 3.14.3."
+    - "functools.wraps.__class__.__name__ == 'function' — wraps is a pure-Python function defined in Lib/functools.py. Verified with Python 3.14.3."
+    - "functools.wraps.__code__.co_argcount == 3 — wraps(wrapped, assigned=..., updated=...) takes three positional args. Verified with Python 3.14.3."
+    - "functools.cached_property.__class__.__name__ == 'type' — cached_property is a Python descriptor class. Verified with Python 3.14.3."
+    - "functools.cached_property.__module__ == 'functools'. Verified with Python 3.14.3."
+    - "len(functools.cached_property.__mro__) == 2 — [cached_property, object]. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: lru_cache code-object attributes
+#
+# Wave 255 theme: functools.lru_cache and functools.reduce internals.
+#
+# functools.lru_cache.__class__.__name__ == 'function'
+# functools.lru_cache.__code__.co_name == 'lru_cache'
+# functools.lru_cache.__code__.co_argcount == 2
+# functools.lru_cache.__module__ == 'functools'
+#
+# lru_cache is a pure-Python decorator factory defined as def lru_cache in
+# Lib/functools.py; it takes two positional args: maxsize and typed.
+# New to extra103.
+# ---------------------------------------------------------------------------
+
+table functools_extra103.lru_cache_code_attrs:
+  description: "functools.lru_cache __class__.__name__/co_name/co_argcount/__module__; pure-Python decorator factory; wave 255; new to extra103"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: functoolslrucache103
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [lru_cache_class_name_eq_function,
+       "lru_cache.__class__.__name__.__eq__",
+       ["function"],
+       true,
+       "functools.lru_cache.__class__.__name__.__eq__('function') == True — lru_cache is a plain Python function defined with 'def lru_cache(maxsize=128, typed=False)' in Lib/functools.py; not a C builtin; __class__.__name__ is 'function'; str.__eq__('function') returns True; new to extra103"]
+    - [lru_cache_co_name_eq,
+       "lru_cache.__code__.co_name.__eq__",
+       ["lru_cache"],
+       true,
+       "functools.lru_cache.__code__.co_name.__eq__('lru_cache') == True — co_name reflects the function name from the def statement in Lib/functools.py; str.__eq__('lru_cache') returns True; new to extra103"]
+    - [lru_cache_co_argcount_eq_2,
+       "lru_cache.__code__.co_argcount.__eq__",
+       [2],
+       true,
+       "functools.lru_cache.__code__.co_argcount.__eq__(2) == True — lru_cache(maxsize=128, typed=False) has two positional parameters; co_argcount counts all positional args including those with defaults; int.__eq__(2) returns True; new to extra103"]
+    - [lru_cache_module_eq_functools,
+       "lru_cache.__module__.__eq__",
+       ["functools"],
+       true,
+       "functools.lru_cache.__module__.__eq__('functools') == True — lru_cache is defined in Lib/functools.py; its __module__ is 'functools'; str.__eq__('functools') returns True; new to extra103"]
+    - [lru_cache_qualname_len_9,
+       "lru_cache.__qualname__.__len__",
+       [],
+       9,
+       "functools.lru_cache.__qualname__.__len__() == 9 — __qualname__ is 'lru_cache' which has 9 characters; lru_cache is defined at module scope so its qualname equals the def name; len('lru_cache') == 9; new to extra103"]
+
+# ---------------------------------------------------------------------------
+# Table 2: reduce and partial C-extension identity
+#
+# Wave 255 theme: functools.reduce C builtin and functools.partial C-extension type.
+#
+# functools.reduce.__class__.__name__ == 'builtin_function_or_method'
+# functools.reduce.__module__ == '_functools'
+# functools.partial.__class__.__name__ == 'type'
+# functools.partial.__module__ == 'functools'
+# functools.partial.__bases__[0].__name__ == 'object'
+# len(functools.partial.__mro__) == 2
+#
+# reduce is a C builtin from _functoolsmodule.c exposed via functools.
+# partial is a C-extension type with a single base class: object.
+# New to extra103.
+# ---------------------------------------------------------------------------
+
+table functools_extra103.reduce_partial_identity:
+  description: "functools.reduce C builtin identity; functools.partial C-extension type identity; __module__/__bases__/__mro__; wave 255; new to extra103"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: functoolslrucache103
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [reduce_class_name_eq_builtin_function_or_method,
+       "reduce.__class__.__name__.__eq__",
+       ["builtin_function_or_method"],
+       true,
+       "functools.reduce.__class__.__name__.__eq__('builtin_function_or_method') == True — reduce is implemented in C (Modules/_functoolsmodule.c) and exposed as a C builtin function; __class__.__name__ is 'builtin_function_or_method'; str.__eq__('builtin_function_or_method') returns True; new to extra103"]
+    - [reduce_module_eq_functools_c,
+       "reduce.__module__.__eq__",
+       ["_functools"],
+       true,
+       "functools.reduce.__module__.__eq__('_functools') == True — reduce lives in the C extension module _functools (Modules/_functoolsmodule.c) and is re-exported by functools; its __module__ attribute reflects the C origin; str.__eq__('_functools') returns True; new to extra103"]
+    - [partial_class_name_eq_type,
+       "partial.__class__.__name__.__eq__",
+       ["type"],
+       true,
+       "functools.partial.__class__.__name__.__eq__('type') == True — partial is a C-extension type (class) defined in Modules/_functoolsmodule.c; its metaclass is the built-in <class 'type'>; __class__.__name__ is 'type'; str.__eq__('type') returns True; new to extra103"]
+    - [partial_module_eq_functools,
+       "partial.__module__.__eq__",
+       ["functools"],
+       true,
+       "functools.partial.__module__.__eq__('functools') == True — functools.partial is exposed as part of the functools public API; the C-extension type has its __module__ set to 'functools'; str.__eq__('functools') returns True; new to extra103"]
+    - [partial_bases_first_eq_object,
+       "partial.__bases__[0].__name__.__eq__",
+       ["object"],
+       true,
+       "functools.partial.__bases__[0].__name__.__eq__('object') == True — partial is a C-extension type that inherits directly from object and has no other base class; __bases__[0].__name__ is 'object'; str.__eq__('object') returns True; new to extra103"]
+    - [partial_mro_len_eq_2,
+       "partial.__mro__.__len__",
+       [],
+       2,
+       "functools.partial.__mro__.__len__() == 2 — the MRO of partial is [partial, object]; since partial inherits only from object the MRO has exactly 2 entries; int.__eq__(2) returns True; new to extra103"]
+
+# ---------------------------------------------------------------------------
+# Table 3: wraps and cached_property identity
+#
+# Wave 255 theme: functools.wraps and functools.cached_property class identity.
+#
+# functools.wraps.__class__.__name__ == 'function'
+# functools.wraps.__module__ == 'functools'
+# functools.wraps.__code__.co_argcount == 3
+# functools.cached_property.__class__.__name__ == 'type'
+# functools.cached_property.__module__ == 'functools'
+# len(functools.cached_property.__mro__) == 2
+#
+# wraps is a plain Python function; cached_property is a Python descriptor class.
+# New to extra103.
+# ---------------------------------------------------------------------------
+
+table functools_extra103.wraps_cached_property_identity:
+  description: "functools.wraps __class__/__module__/co_argcount; functools.cached_property class identity; wave 255; new to extra103"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: functoolslrucache103
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [wraps_class_name_eq_function,
+       "wraps.__class__.__name__.__eq__",
+       ["function"],
+       true,
+       "functools.wraps.__class__.__name__.__eq__('function') == True — wraps is a plain Python function defined in Lib/functools.py using 'def wraps(wrapped, ...)'; it is not a class or builtin; __class__.__name__ is 'function'; str.__eq__('function') returns True; new to extra103"]
+    - [wraps_module_eq_functools,
+       "wraps.__module__.__eq__",
+       ["functools"],
+       true,
+       "functools.wraps.__module__.__eq__('functools') == True — wraps is defined in Lib/functools.py so its __module__ is 'functools'; str.__eq__('functools') returns True; new to extra103"]
+    - [wraps_co_argcount_eq_3,
+       "wraps.__code__.co_argcount.__eq__",
+       [3],
+       true,
+       "functools.wraps.__code__.co_argcount.__eq__(3) == True — wraps(wrapped, assigned=WRAPPER_ASSIGNMENTS, updated=WRAPPER_UPDATES) has three positional parameters; co_argcount counts all positional args including those with defaults; int.__eq__(3) returns True; new to extra103"]
+    - [wraps_co_name_eq,
+       "wraps.__code__.co_name.__eq__",
+       ["wraps"],
+       true,
+       "functools.wraps.__code__.co_name.__eq__('wraps') == True — the code object name matches the 'def wraps' statement in Lib/functools.py; str.__eq__('wraps') returns True; new to extra103"]
+    - [cached_property_class_name_eq_type,
+       "cached_property.__class__.__name__.__eq__",
+       ["type"],
+       true,
+       "functools.cached_property.__class__.__name__.__eq__('type') == True — cached_property is a Python descriptor class defined with 'class cached_property:' in Lib/functools.py; its metaclass is <class 'type'>; __class__.__name__ is 'type'; str.__eq__('type') returns True; new to extra103"]
+    - [cached_property_module_eq_functools,
+       "cached_property.__module__.__eq__",
+       ["functools"],
+       true,
+       "functools.cached_property.__module__.__eq__('functools') == True — cached_property is defined in Lib/functools.py; its __module__ is 'functools'; str.__eq__('functools') returns True; new to extra103"]
+    - [cached_property_bases_first_eq_object,
+       "cached_property.__bases__[0].__name__.__eq__",
+       ["object"],
+       true,
+       "functools.cached_property.__bases__[0].__name__.__eq__('object') == True — cached_property inherits directly from object with no other base classes; __bases__[0].__name__ is 'object'; str.__eq__('object') returns True; new to extra103"]
+    - [cached_property_mro_len_eq_2,
+       "cached_property.__mro__.__len__",
+       [],
+       2,
+       "functools.cached_property.__mro__.__len__() == 2 — the MRO of cached_property is [cached_property, object]; it inherits only from object so the MRO has exactly 2 entries; len() == 2; new to extra103"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra103
+# ---------------------------------------------------------------------------
+
+invariant functools_extra103.lru_cache_class_name:
+  description: "functools.lru_cache.__class__.__name__ == 'function' — pure-Python decorator factory taking maxsize and typed args; wave 255; new to extra103"
+  kind: python_call_eq
+  function: lru_cache.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant functools_extra103.lru_cache_co_argcount:
+  description: "functools.lru_cache.__code__.co_argcount == 2 — lru_cache(maxsize=128, typed=False) has two positional parameters; wave 255; new to extra103"
+  kind: python_call_eq
+  function: lru_cache.__code__.co_argcount.__eq__
+  args: [2]
+  expected: true
+
+invariant functools_extra103.reduce_class_name:
+  description: "functools.reduce.__class__.__name__ == 'builtin_function_or_method' — reduce is a C builtin from _functoolsmodule.c; wave 255; new to extra103"
+  kind: python_call_eq
+  function: reduce.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant functools_extra103.partial_mro_len:
+  description: "len(functools.partial.__mro__) == 2 — partial inherits only from object; MRO is [partial, object]; wave 255; new to extra103"
+  kind: python_call_eq
+  function: partial.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant functools_extra103.cached_property_class_name:
+  description: "functools.cached_property.__class__.__name__ == 'type' — cached_property is a Python descriptor class; wave 255; new to extra103"
+  kind: python_call_eq
+  function: cached_property.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
