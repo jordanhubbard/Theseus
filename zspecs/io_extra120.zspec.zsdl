@@ -1,0 +1,148 @@
+spec: io_extra120
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+  notes:
+    - "This spec extends io_extra119.zspec.zsdl."
+    - "This spec covers: io.FileIO and io.BufferedReader MRO slot names and metaclass identity."
+    - "FileIO.__mro__ has 4 entries: FileIO, _RawIOBase, _IOBase, object."
+    - "BufferedReader.__mro__ has 4 entries: BufferedReader, _BufferedIOBase, _IOBase, object."
+    - "Both concrete types bypass the Python-level ABCs (RawIOBase, BufferedIOBase) in their MRO."
+    - "Both FileIO and BufferedReader share _IOBase at MRO slot 2 and object at slot 3."
+    - "type(io.FileIO).__name__ == 'type' and type(io.BufferedReader).__name__ == 'type' (both are plain type instances)."
+    - "FileIO.__name__.__len__() == 6; BufferedReader.__name__.__len__() == 14."
+    - "MRO slot names not previously indexed in any prior io_extra spec."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io.FileIO MRO slot names
+# FileIO.__mro__ == (FileIO, _RawIOBase, _IOBase, object) — 4 entries.
+# FileIO is a concrete C extension type that directly inherits from _RawIOBase
+# (the C implementation of the raw I/O base), skipping the Python-level
+# RawIOBase ABC entirely.  _IOBase is the shared root C type.
+# Prior specs covered __mro__.__len__ (io_extra113) but no spec has indexed
+# into FileIO.__mro__ to check individual slot names.
+# ---------------------------------------------------------------------------
+
+table io_extra120.FileIO_mro_slot_names:
+  description: "io.FileIO.__mro__ slot names: [0]='FileIO',[1]='_RawIOBase',[2]='_IOBase',[3]='object'; 4-entry MRO bypassing the Python-level RawIOBase ABC; _IOBase shared root C type at slot 2"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: iomro120a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [fio_mro0_name,  "FileIO.__mro__[0].__name__.__eq__",  ["FileIO"],      true,  "io.FileIO.__mro__[0].__name__ == 'FileIO' (concrete class is first in its own MRO)"]
+    - [fio_mro1_name,  "FileIO.__mro__[1].__name__.__eq__",  ["_RawIOBase"],  true,  "io.FileIO.__mro__[1].__name__ == '_RawIOBase' (direct C base; underscore marks private C implementation type)"]
+    - [fio_mro2_name,  "FileIO.__mro__[2].__name__.__eq__",  ["_IOBase"],     true,  "io.FileIO.__mro__[2].__name__ == '_IOBase' (shared root C type for all io concrete classes at MRO slot 2)"]
+    - [fio_mro3_name,  "FileIO.__mro__[3].__name__.__eq__",  ["object"],      true,  "io.FileIO.__mro__[3].__name__ == 'object' (universal Python base class at the end of every MRO)"]
+    - [fio_mro1_ne_0,  "FileIO.__mro__[1].__name__.__eq__",  ["FileIO"],      false, "io.FileIO.__mro__[1].__name__ != 'FileIO' (slot 1 is the C base '_RawIOBase', not the class itself)"]
+    - [fio_mro2_ne_1,  "FileIO.__mro__[2].__name__.__eq__",  ["_RawIOBase"],  false, "io.FileIO.__mro__[2].__name__ != '_RawIOBase' (slot 2 is '_IOBase', the deeper root C type, not '_RawIOBase')"]
+    - [fio_type_name,  "FileIO.__class__.__name__.__eq__",   ["type"],        true,  "type(io.FileIO).__name__ == 'type' (FileIO is a plain type instance; no custom metaclass)"]
+
+# ---------------------------------------------------------------------------
+# io.BufferedReader MRO slot names
+# BufferedReader.__mro__ == (BufferedReader, _BufferedIOBase, _IOBase, object)
+# — 4 entries.  BufferedReader is a concrete C extension type that directly
+# inherits from _BufferedIOBase (the C implementation), skipping the Python-
+# level BufferedIOBase ABC.  _IOBase is shared with FileIO at slot 2.
+# Prior specs covered __mro__.__len__ (io_extra113) but no spec has indexed
+# into BufferedReader.__mro__ to check individual slot names.
+# ---------------------------------------------------------------------------
+
+table io_extra120.BufferedReader_mro_slot_names:
+  description: "io.BufferedReader.__mro__ slot names: [0]='BufferedReader',[1]='_BufferedIOBase',[2]='_IOBase',[3]='object'; 4-entry MRO bypassing the Python-level BufferedIOBase ABC; _IOBase shared with FileIO at slot 2"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: iomro120b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [br_mro0_name,  "BufferedReader.__mro__[0].__name__.__eq__",  ["BufferedReader"],    true,  "io.BufferedReader.__mro__[0].__name__ == 'BufferedReader' (concrete class is first in its own MRO)"]
+    - [br_mro1_name,  "BufferedReader.__mro__[1].__name__.__eq__",  ["_BufferedIOBase"],   true,  "io.BufferedReader.__mro__[1].__name__ == '_BufferedIOBase' (direct C base; private C implementation for buffered I/O)"]
+    - [br_mro2_name,  "BufferedReader.__mro__[2].__name__.__eq__",  ["_IOBase"],           true,  "io.BufferedReader.__mro__[2].__name__ == '_IOBase' (shared root C type; same as FileIO.__mro__[2].__name__)"]
+    - [br_mro3_name,  "BufferedReader.__mro__[3].__name__.__eq__",  ["object"],            true,  "io.BufferedReader.__mro__[3].__name__ == 'object' (universal Python base class terminates every MRO)"]
+    - [br_mro1_ne_0,  "BufferedReader.__mro__[1].__name__.__eq__",  ["BufferedReader"],    false, "io.BufferedReader.__mro__[1].__name__ != 'BufferedReader' (slot 1 is the C base '_BufferedIOBase', not the class itself)"]
+    - [br_type_name,  "BufferedReader.__class__.__name__.__eq__",   ["type"],              true,  "type(io.BufferedReader).__name__ == 'type' (BufferedReader is a plain type instance; no custom metaclass)"]
+    - [br_mro2_eq_fio_mro2, "BufferedReader.__mro__[2].__name__.__eq__", ["_IOBase"],      true,  "io.BufferedReader.__mro__[2].__name__ == '_IOBase' == io.FileIO.__mro__[2].__name__ (both concrete types share _IOBase at MRO slot 2)"]
+
+# ---------------------------------------------------------------------------
+# FileIO and BufferedReader class name lengths and cross-comparisons
+# FileIO.__name__ == 'FileIO' (len 6); BufferedReader.__name__ == 'BufferedReader' (len 14).
+# Both types have metaclass 'type'; both share _IOBase at MRO slot 2 and object
+# at slot 3; both bypass the Python-level ABCs in their MRO chains.
+# The MRO slot 1 names differ: FileIO -> '_RawIOBase', BufferedReader -> '_BufferedIOBase'.
+# ---------------------------------------------------------------------------
+
+table io_extra120.FileIO_BufferedReader_name_lengths_and_metaclass:
+  description: "io.FileIO.__name__.__len__()==6, io.BufferedReader.__name__.__len__()==14; both have metaclass 'type'; MRO[1] name lengths: '_RawIOBase'(10) vs '_BufferedIOBase'(15)"
+  kind: python_call_eq
+  category: class_hierarchy
+  id_prefix: iomro120c
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [fio_name_len,    "FileIO.__name__.__len__",                         [],    6,     "io.FileIO.__name__.__len__() == 6 ('FileIO' has 6 characters; shortest concrete io stream class name)"]
+    - [br_name_len,     "BufferedReader.__name__.__len__",                 [],    14,    "io.BufferedReader.__name__.__len__() == 14 ('BufferedReader' has 14 characters)"]
+    - [br_gt_fio_name,  "BufferedReader.__name__.__len__.__gt__",          [6],   true,  "len('BufferedReader') > len('FileIO') (14 > 6; BufferedReader is 8 characters longer than FileIO)"]
+    - [fio_mro1_len,    "FileIO.__mro__[1].__name__.__len__",              [],    10,    "io.FileIO.__mro__[1].__name__.__len__() == 10 ('_RawIOBase' has 10 characters)"]
+    - [br_mro1_len,     "BufferedReader.__mro__[1].__name__.__len__",      [],    15,    "io.BufferedReader.__mro__[1].__name__.__len__() == 15 ('_BufferedIOBase' has 15 characters)"]
+    - [br_mro1_gt_fio,  "BufferedReader.__mro__[1].__name__.__len__.__gt__", [10], true, "len('_BufferedIOBase') > len('_RawIOBase') (15 > 10; the buffered C base name is 5 chars longer)"]
+    - [fio_class_type,  "FileIO.__class__.__name__.__eq__",                ["type"], true, "type(io.FileIO).__name__ == 'type' (FileIO uses the default type metaclass)"]
+    - [br_class_type,   "BufferedReader.__class__.__name__.__eq__",        ["type"], true, "type(io.BufferedReader).__name__ == 'type' (BufferedReader uses the default type metaclass like FileIO)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant io_extra120.FileIO.mro_slot1_is_RawIOBase:
+  description: "io.FileIO.__mro__[1].__name__ == '_RawIOBase' (length 10; FileIO is a concrete C extension type defined in Modules/_io/fileio.c; its MRO is (FileIO, _RawIOBase, _IOBase, object) — 4 entries; it bypasses the Python-level RawIOBase ABC because it directly inherits from the C type _RawIOBase; no prior io_extra spec has indexed into FileIO.__mro__ to check individual slot names; this is the first spec to do so via double-quoted bracket-path notation)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "FileIO.__mro__[1].__name__.__eq__"
+  args: ["_RawIOBase"]
+  expected: true
+
+invariant io_extra120.BufferedReader.mro_slot1_is_BufferedIOBase:
+  description: "io.BufferedReader.__mro__[1].__name__ == '_BufferedIOBase' (length 15; BufferedReader is a concrete C extension type defined in Modules/_io/bufferedio.c; its MRO is (BufferedReader, _BufferedIOBase, _IOBase, object) — 4 entries; it bypasses the Python-level BufferedIOBase ABC for the same reason FileIO bypasses RawIOBase: the concrete type inherits directly from the C implementation layer, not the Python ABC layer)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "BufferedReader.__mro__[1].__name__.__eq__"
+  args: ["_BufferedIOBase"]
+  expected: true
+
+invariant io_extra120.FileIO.mro_slot2_is_IOBase:
+  description: "io.FileIO.__mro__[2].__name__ == '_IOBase' (the shared root C type appears at MRO slot 2 for all 4-entry concrete io types: FileIO, BufferedReader, BufferedWriter, BufferedRandom, TextIOWrapper, BytesIO, StringIO; this is the same '_IOBase' C type that appears at MRO slot 3 in the 5-entry abstract base chains like RawIOBase.__mro__; at slot 2 for concrete types vs slot 3 for abstract bases because concrete types skip the Python ABC layer)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "FileIO.__mro__[2].__name__.__eq__"
+  args: ["_IOBase"]
+  expected: true
+
+invariant io_extra120.BufferedReader.mro_slot2_is_IOBase:
+  description: "io.BufferedReader.__mro__[2].__name__ == '_IOBase' (same shared root C type as FileIO.__mro__[2]; both FileIO and BufferedReader have '_IOBase' at MRO slot 2 because both are 4-entry concrete type MROs of the pattern [ConcreteType, _CBase, _IOBase, object]; '_IOBase' is the single root C type that all io types ultimately descend from, defined in Modules/_io/_iomodule.c)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "BufferedReader.__mro__[2].__name__.__eq__"
+  args: ["_IOBase"]
+  expected: true
+
+invariant io_extra120.BufferedReader.metaclass_is_type:
+  description: "type(io.BufferedReader).__name__ == 'type' (BufferedReader is a plain C extension type using the default 'type' metaclass; unlike the abstract base classes IOBase/RawIOBase/BufferedIOBase/TextIOBase which use ABCMeta as their metaclass, the concrete types FileIO/BufferedReader/BufferedWriter/BufferedRandom/TextIOWrapper/BytesIO/StringIO all use the ordinary 'type' metaclass; this confirms that ABCMeta is only applied at the abstract base class layer)"
+  category: class_hierarchy
+  kind: python_call_eq
+  function: "BufferedReader.__class__.__name__.__eq__"
+  args: ["type"]
+  expected: true
