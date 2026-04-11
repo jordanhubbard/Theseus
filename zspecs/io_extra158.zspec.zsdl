@@ -1,0 +1,137 @@
+spec: io_extra158
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+  notes:
+    - "This spec covers: io module-level integer constants DEFAULT_BUFFER_SIZE (131072 == 128 KiB, not 8192 as some older docs imply), SEEK_SET (0), SEEK_CUR (1), SEEK_END (2) — all of type int. Also covers io.UnsupportedOperation: its __name__ (len=20), __module__ ('io'), and dual inheritance from both OSError and ValueError (len(__bases__)==2)."
+    - "io.DEFAULT_BUFFER_SIZE == 131072 (128 KiB). This is the system-preferred buffer size used by open() and BufferedReader/BufferedWriter when no explicit buffer_size is specified. It is NOT 8192 — the value 8192 is sometimes cited from older CPython versions but the current C extension uses 131072."
+    - "io.UnsupportedOperation inherits from both OSError and ValueError (multiple inheritance). This means except OSError and except ValueError both catch it. len(io.UnsupportedOperation.__bases__) == 2."
+    - "io.UnsupportedOperation.__name__ == 'UnsupportedOperation' (20 characters). io.UnsupportedOperation.__module__ == 'io' (the public module, not '_io' — unlike concrete I/O classes like BytesIO whose __module__ is '_io')."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io module-level integer constants: DEFAULT_BUFFER_SIZE, SEEK_SET, SEEK_CUR, SEEK_END
+# All are plain int values.
+# DEFAULT_BUFFER_SIZE == 131072 (128 KiB)
+# SEEK_SET == 0, SEEK_CUR == 1, SEEK_END == 2
+# ---------------------------------------------------------------------------
+
+table io_extra158.seek_constants:
+  description: "io seek constants: SEEK_SET==0, SEEK_CUR==1, SEEK_END==2; all of type int; these mirror POSIX lseek() whence values"
+  kind: python_call_eq
+  category: identity
+  id_prefix: ioconsts158
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [seek_set_val,    SEEK_SET.__eq__,                    [0],    true,  "io.SEEK_SET == 0 (seek relative to the start of stream; the most common seek mode; mirrors POSIX SEEK_SET; combined with io.SEEK_CUR (1) and io.SEEK_END (2) these three constants cover all POSIX seek whence values)"]
+    - [seek_set_cls,    SEEK_SET.__class__.__name__.__eq__, ["int"], true,  "io.SEEK_SET.__class__.__name__ == 'int' (SEEK_SET is a plain Python int; not an enum member or IntFlag like re flags; all three seek constants are plain ints)"]
+    - [seek_cur_val,    SEEK_CUR.__eq__,                    [1],    true,  "io.SEEK_CUR == 1 (seek relative to the current stream position; used to move forward or backward by a relative offset; io.SEEK_CUR is the same value as os.SEEK_CUR)"]
+    - [seek_end_val,    SEEK_END.__eq__,                    [2],    true,  "io.SEEK_END == 2 (seek relative to the end of stream; negative offsets move backward from the end; io.SEEK_END == os.SEEK_END == 2; all three seek constants are re-exported from _io for convenience)"]
+    - [seek_cur_cls,    SEEK_CUR.__class__.__name__.__eq__, ["int"], true,  "io.SEEK_CUR.__class__.__name__ == 'int' (SEEK_CUR is a plain int, not an enum; io seek constants differ from re flags which are RegexFlag enum members)"]
+    - [seek_end_cls,    SEEK_END.__class__.__name__.__eq__, ["int"], true,  "io.SEEK_END.__class__.__name__ == 'int' (SEEK_END is a plain int; the three io seek constants — 0, 1, 2 — are the minimum set needed to cover all POSIX seek modes)"]
+
+# ---------------------------------------------------------------------------
+# io.DEFAULT_BUFFER_SIZE — the default I/O buffer size
+# DEFAULT_BUFFER_SIZE == 131072 (128 KiB == 2^17 bytes)
+# It is a plain int.
+# ---------------------------------------------------------------------------
+
+table io_extra158.default_buffer_size:
+  description: "io.DEFAULT_BUFFER_SIZE==131072 (128 KiB); is of type int; used by open() and BufferedReader/BufferedWriter as the default buffer size when the OS does not report a preferred block size"
+  kind: python_call_eq
+  category: identity
+  id_prefix: ioconsts158
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dbs_val,         DEFAULT_BUFFER_SIZE.__eq__,                    [131072], true, "io.DEFAULT_BUFFER_SIZE == 131072 (128 KiB; equal to 2**17; the default buffer size for buffered I/O classes; NOT 8192 — the system-preferred block size is used when available, which on modern systems is 131072)"]
+    - [dbs_cls,         DEFAULT_BUFFER_SIZE.__class__.__name__.__eq__, ["int"],  true, "io.DEFAULT_BUFFER_SIZE.__class__.__name__ == 'int' (DEFAULT_BUFFER_SIZE is a plain Python int constant; it is exported by both io and _io; its value (131072 == 128 KiB) is the default used when os.fstat() does not report a meaningful block size)"]
+    - [dbs_not_8192,    DEFAULT_BUFFER_SIZE.__eq__,                    [8192],   false,"io.DEFAULT_BUFFER_SIZE.__eq__(8192) == False (DEFAULT_BUFFER_SIZE is 131072, not 8192; some older documentation or implementations cited 8192 but the current Python 3.14.3 C extension uses 131072 == 128 KiB)"]
+    - [dbs_gt_seek_end, DEFAULT_BUFFER_SIZE.__gt__,                    [2],      true, "io.DEFAULT_BUFFER_SIZE.__gt__(2) == True (DEFAULT_BUFFER_SIZE (131072) is much larger than SEEK_END (2); both are module-level int constants but serve very different roles)"]
+
+# ---------------------------------------------------------------------------
+# io.UnsupportedOperation — the exception for unsupported I/O operations
+# __name__ == 'UnsupportedOperation' (len=20)
+# __module__ == 'io' (unlike BytesIO which has __module__ == '_io')
+# __bases__ == (OSError, ValueError) — multiple inheritance, len==2
+# ---------------------------------------------------------------------------
+
+table io_extra158.UnsupportedOperation_identity:
+  description: "io.UnsupportedOperation: __name__=='UnsupportedOperation' (len=20), __module__=='io', inherits from OSError and ValueError (len(__bases__)==2)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: ioconsts158
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [unsup_name_eq,       UnsupportedOperation.__name__.__eq__,   ["UnsupportedOperation"], true, "io.UnsupportedOperation.__name__ == 'UnsupportedOperation' (the exception class for I/O operations not supported by a stream; raised e.g. when calling seek() on a non-seekable stream or write() on a read-only stream)"]
+    - [unsup_name_len,      UnsupportedOperation.__name__.__len__,  [],                       20,   "io.UnsupportedOperation.__name__.__len__() == 20 ('UnsupportedOperation' has 20 characters; one of the longer class names in the io module — longer than all concrete I/O class names like TextIOWrapper (13) or BufferedReader (14))"]
+    - [unsup_module_eq,     UnsupportedOperation.__module__.__eq__, ["io"],                   true, "io.UnsupportedOperation.__module__ == 'io' (unlike BytesIO and other concrete I/O classes whose __module__ is '_io', UnsupportedOperation has __module__ == 'io'; it is defined in the Python-level io module, not the C extension)"]
+    - [unsup_bases_len,     UnsupportedOperation.__bases__.__len__, [],                       2,    "io.UnsupportedOperation.__bases__.__len__() == 2 (UnsupportedOperation has two direct base classes: OSError and ValueError; multiple inheritance means it can be caught with either 'except OSError' or 'except ValueError')"]
+    - [unsup_base0_eq,      "UnsupportedOperation.__bases__[0].__name__.__eq__", ["OSError"],   true, "io.UnsupportedOperation.__bases__[0].__name__ == 'OSError' (the first base class is OSError; this allows UnsupportedOperation to be caught alongside other OS-level I/O errors; OSError is the primary base)"]
+    - [unsup_base1_eq,      "UnsupportedOperation.__bases__[1].__name__.__eq__", ["ValueError"],true, "io.UnsupportedOperation.__bases__[1].__name__ == 'ValueError' (the second base class is ValueError; this dual inheritance reflects that an unsupported operation is both an OS-level error and an invalid argument error)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant io_extra158.DEFAULT_BUFFER_SIZE_is_131072:
+  description: "io.DEFAULT_BUFFER_SIZE == 131072 — the default buffer size for buffered I/O is 131072 bytes (128 KiB == 2**17); used by open() and BufferedReader/BufferedWriter when no explicit buffering argument is given and os.fstat() does not report a meaningful preferred block size; this value (131072) is larger than the commonly cited 8192 and reflects current Python 3.14.3 behavior"
+  category: identity
+  kind: python_call_eq
+  function: DEFAULT_BUFFER_SIZE.__eq__
+  args: [131072]
+  expected: true
+
+invariant io_extra158.SEEK_SET_is_zero:
+  description: "io.SEEK_SET == 0 — the seek constant for seeking relative to the start of the stream; this mirrors POSIX SEEK_SET (0); io.SEEK_SET == os.SEEK_SET == 0; using SEEK_SET makes code self-documenting compared to using the bare integer 0; all three io seek constants (SEEK_SET=0, SEEK_CUR=1, SEEK_END=2) are plain Python ints"
+  category: identity
+  kind: python_call_eq
+  function: SEEK_SET.__eq__
+  args: [0]
+  expected: true
+
+invariant io_extra158.SEEK_CUR_is_one:
+  description: "io.SEEK_CUR == 1 — the seek constant for seeking relative to the current stream position; SEEK_CUR (1) lies between SEEK_SET (0) and SEEK_END (2); used with positive offsets to advance forward or negative offsets to move backward from the current position; stream.seek(0, io.SEEK_CUR) is a common idiom to get the current position without moving"
+  category: identity
+  kind: python_call_eq
+  function: SEEK_CUR.__eq__
+  args: [1]
+  expected: true
+
+invariant io_extra158.SEEK_END_is_two:
+  description: "io.SEEK_END == 2 — the seek constant for seeking relative to the end of the stream; stream.seek(0, io.SEEK_END) moves to the very end; stream.seek(-n, io.SEEK_END) moves n bytes from the end; SEEK_END is useful for appending operations and for measuring file size (seek to end, then tell)"
+  category: identity
+  kind: python_call_eq
+  function: SEEK_END.__eq__
+  args: [2]
+  expected: true
+
+invariant io_extra158.UnsupportedOperation_module_is_io:
+  description: "io.UnsupportedOperation.__module__ == 'io' — unlike the concrete I/O classes (BytesIO, StringIO, FileIO, TextIOWrapper etc.) whose __module__ is '_io' (the C extension), UnsupportedOperation has __module__ == 'io' because it is defined in the Python-level Lib/io.py wrapper module; this is an unusual exception to the pattern that most io module types originate from _io"
+  category: identity
+  kind: python_call_eq
+  function: UnsupportedOperation.__module__.__eq__
+  args: ["io"]
+  expected: true
+
+invariant io_extra158.UnsupportedOperation_bases_len_2:
+  description: "io.UnsupportedOperation.__bases__.__len__() == 2 — UnsupportedOperation inherits from exactly two classes: OSError and ValueError; this multiple inheritance (OSError, ValueError) means code using 'except OSError' or 'except ValueError' will both catch UnsupportedOperation; the dual inheritance reflects the dual nature of the error: it is both an OS-level I/O failure and an invalid value for the operation"
+  category: identity
+  kind: python_call_eq
+  function: UnsupportedOperation.__bases__.__len__
+  args: []
+  expected: 2

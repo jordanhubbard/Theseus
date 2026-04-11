@@ -1,0 +1,137 @@
+spec: pathlib_extra158
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/_abc.py"
+    - "CPython source: Lib/pathlib/_local.py"
+  notes:
+    - "This spec covers: pathlib class MRO depths and base class names. Path.__mro__.__len__()==3 (Path, PurePath, object). PosixPath.__mro__.__len__()==5 (PosixPath, Path, PurePosixPath, PurePath, object). PurePosixPath.__mro__.__len__()==3 (PurePosixPath, PurePath, object). PureWindowsPath.__mro__.__len__()==3 (PureWindowsPath, PurePath, object). PurePath.__mro__.__len__()==2 (PurePath, object)."
+    - "PurePath.__bases__[0].__name__ == 'object' — PurePath directly inherits from object with no intermediate classes; this makes PurePath the root of the pathlib hierarchy (not inheriting from any other pathlib class)."
+    - "PurePosixPath.__bases__[0].__name__ == 'PurePath' and PureWindowsPath.__bases__[0].__name__ == 'PurePath' — both pure path OS-specific subclasses share PurePath as their sole base."
+    - "PurePosixPath.__name__ == 'PurePosixPath' (len=13), PurePosixPath.__module__ == 'pathlib'. PurePath.__name__ == 'PurePath' (len=8), PurePath.__module__ == 'pathlib'."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pathlib class MRO lengths
+# Path.__mro__: [Path, PurePath, object] — len==3
+# PurePath.__mro__: [PurePath, object] — len==2 (shortest)
+# PurePosixPath.__mro__: [PurePosixPath, PurePath, object] — len==3
+# PureWindowsPath.__mro__: [PureWindowsPath, PurePath, object] — len==3
+# PosixPath.__mro__: [PosixPath, Path, PurePosixPath, PurePath, object] — len==5
+# ---------------------------------------------------------------------------
+
+table pathlib_extra158.mro_depths:
+  description: "pathlib class MRO depths: PurePath=2 (shortest), Path/PurePosixPath/PureWindowsPath=3, PosixPath=5 (longest due to MI)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: pathlibmro158
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [purepath_mro_len,      PurePath.__mro__.__len__,          [], 2, "pathlib.PurePath.__mro__.__len__() == 2 (PurePath's MRO is [PurePath, object]; the shortest MRO of any pathlib class; PurePath directly inherits from object with no intermediate classes, making it the root of the pathlib hierarchy)"]
+    - [path_mro_len,          Path.__mro__.__len__,              [], 3, "pathlib.Path.__mro__.__len__() == 3 (Path's MRO is [Path, PurePath, object]; depth 3; Path inherits from PurePath which inherits from object; the single-inheritance chain is short because Path's filesystem-access methods are defined in Path.__dict__ directly)"]
+    - [pureposix_mro_len,     PurePosixPath.__mro__.__len__,     [], 3, "pathlib.PurePosixPath.__mro__.__len__() == 3 (PurePosixPath's MRO is [PurePosixPath, PurePath, object]; depth 3; same depth as Path despite being a pure path class; both have PurePath as the second element and object as the third)"]
+    - [purewin_mro_len,       PureWindowsPath.__mro__.__len__,   [], 3, "pathlib.PureWindowsPath.__mro__.__len__() == 3 (PureWindowsPath's MRO is [PureWindowsPath, PurePath, object]; depth 3; identical structure to PurePosixPath's MRO — both are direct PurePath subclasses)"]
+    - [posixpath_mro_len,     PosixPath.__mro__.__len__,         [], 5, "pathlib.PosixPath.__mro__.__len__() == 5 (PosixPath's MRO is [PosixPath, Path, PurePosixPath, PurePath, object]; depth 5; the deepest MRO in pathlib due to multiple inheritance — PosixPath inherits from both Path and PurePosixPath, which are then linearized by C3 into a 5-element MRO)"]
+
+# ---------------------------------------------------------------------------
+# PurePosixPath and PureWindowsPath class identity
+# Both have __module__ == 'pathlib' and __bases__[0].__name__ == 'PurePath'
+# ---------------------------------------------------------------------------
+
+table pathlib_extra158.pure_path_subclass_identity:
+  description: "PurePosixPath and PureWindowsPath identity: __name__, __module__, and __bases__[0].__name__ (both inherit directly from PurePath)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: pathlibmro158
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pureposix_name_eq,    PurePosixPath.__name__.__eq__,                          ["PurePosixPath"], true, "pathlib.PurePosixPath.__name__ == 'PurePosixPath' (the class name for the POSIX-specific pure path; can be used on any OS for POSIX-style path manipulation without filesystem access; name length == 13)"]
+    - [pureposix_module_eq,  PurePosixPath.__module__.__eq__,                        ["pathlib"],       true, "pathlib.PurePosixPath.__module__ == 'pathlib' (PurePosixPath is defined in the public pathlib module; all six public pathlib path classes share __module__ == 'pathlib')"]
+    - [pureposix_base0_eq,   "PurePosixPath.__bases__[0].__name__.__eq__",           ["PurePath"],      true, "pathlib.PurePosixPath.__bases__[0].__name__ == 'PurePath' (PurePosixPath's only direct base is PurePath; it specializes PurePath with POSIX-specific behavior: case-sensitive comparison, forward slash separator, no drive letter support)"]
+    - [purewin_name_eq,      PureWindowsPath.__name__.__eq__,                        ["PureWindowsPath"],true,"pathlib.PureWindowsPath.__name__ == 'PureWindowsPath' (the class name for the Windows-specific pure path; name length == 15, the longest of the six public pathlib class names)"]
+    - [purewin_module_eq,    PureWindowsPath.__module__.__eq__,                      ["pathlib"],       true, "pathlib.PureWindowsPath.__module__ == 'pathlib' (all six public pathlib path classes have __module__ == 'pathlib'; none have __module__ pointing to a private submodule)"]
+    - [purewin_base0_eq,     "PureWindowsPath.__bases__[0].__name__.__eq__",         ["PurePath"],      true, "pathlib.PureWindowsPath.__bases__[0].__name__ == 'PurePath' (PureWindowsPath's only direct base is PurePath; it specializes PurePath with Windows-specific behavior: case-insensitive comparison, backslash/forward slash separators, drive letter and UNC path support)"]
+
+# ---------------------------------------------------------------------------
+# PurePath class identity and its base
+# PurePath.__bases__[0].__name__ == 'object' — inherits directly from object
+# PurePath.__name__ == 'PurePath' (len=8)
+# PurePath.__module__ == 'pathlib'
+# ---------------------------------------------------------------------------
+
+table pathlib_extra158.PurePath_identity:
+  description: "pathlib.PurePath identity: __name__=='PurePath' (len=8), __module__=='pathlib', __bases__[0].__name__=='object' (PurePath is the root of the pathlib hierarchy, inheriting directly from object)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: pathlibmro158
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [purepath_name_eq,    PurePath.__name__.__eq__,                        ["PurePath"], true, "pathlib.PurePath.__name__ == 'PurePath' (the abstract base for all pathlib path classes; 'PurePath' has 8 characters; shorter than 'PurePosixPath' (13) and 'PureWindowsPath' (15))"]
+    - [purepath_name_len,   PurePath.__name__.__len__,                       [],           8,    "pathlib.PurePath.__name__.__len__() == 8 ('PurePath' has 8 characters; the shortest 'Pure' prefixed pathlib class name; note that 'Path' itself (4 chars) is shorter but lacks the 'Pure' prefix)"]
+    - [purepath_module_eq,  PurePath.__module__.__eq__,                      ["pathlib"],  true, "pathlib.PurePath.__module__ == 'pathlib' (PurePath is defined in the public pathlib module; as the base class of the entire hierarchy, its module attribution is the canonical public pathlib module)"]
+    - [purepath_base0_eq,   "PurePath.__bases__[0].__name__.__eq__",         ["object"],   true, "pathlib.PurePath.__bases__[0].__name__ == 'object' (PurePath inherits directly from object; it is the ultimate root of the pathlib hierarchy, sitting just one level above object; there is no intermediate base between PurePath and object)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra158.PurePath_mro_len_2:
+  description: "pathlib.PurePath.__mro__.__len__() == 2 — PurePath's MRO is [PurePath, object]; depth 2 is the minimum possible for any non-trivial class (since all classes ultimately inherit from object); PurePath is the shortest MRO in pathlib because it directly subclasses object without any intermediate classes; this makes PurePath the hierarchy root"
+  category: identity
+  kind: python_call_eq
+  function: PurePath.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant pathlib_extra158.Path_mro_len_3:
+  description: "pathlib.Path.__mro__.__len__() == 3 — Path's MRO is [Path, PurePath, object]; depth 3 reflects the simple single-inheritance chain from Path through PurePath to object; despite Path having many more methods than PurePath (62 vs 61 dict entries), the MRO is still minimal because Path only adds filesystem operations over PurePath's pure path operations"
+  category: identity
+  kind: python_call_eq
+  function: Path.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant pathlib_extra158.PosixPath_mro_len_5:
+  description: "pathlib.PosixPath.__mro__.__len__() == 5 — PosixPath's MRO is [PosixPath, Path, PurePosixPath, PurePath, object]; depth 5 is the deepest in pathlib; this results from PosixPath's multiple inheritance (bases are Path and PurePosixPath), which Python's C3 linearization merges into a 5-element chain; Path itself has MRO depth 3 and PurePosixPath has depth 3, but their combination via MI produces depth 5"
+  category: identity
+  kind: python_call_eq
+  function: PosixPath.__mro__.__len__
+  args: []
+  expected: 5
+
+invariant pathlib_extra158.PurePath_base_is_object:
+  description: "pathlib.PurePath.__bases__[0].__name__ == 'object' — PurePath directly inherits from object with no intermediate classes; this is significant because PurePath is the root of the entire pathlib class hierarchy yet it has no pathlib-specific ancestor; it defines the complete pure path interface (parts, parent, name, suffix, joinpath, etc.) from scratch on top of object"
+  category: identity
+  kind: python_call_eq
+  function: "PurePath.__bases__[0].__name__.__eq__"
+  args: ["object"]
+  expected: true
+
+invariant pathlib_extra158.PurePosixPath_base_is_PurePath:
+  description: "pathlib.PurePosixPath.__bases__[0].__name__ == 'PurePath' — PurePosixPath's sole direct base is PurePath; it specializes PurePath with POSIX-specific path behavior (case-sensitive, forward-slash separator, no drive letter); PurePosixPath can be used on Windows to manipulate POSIX-style paths without any filesystem access"
+  category: identity
+  kind: python_call_eq
+  function: "PurePosixPath.__bases__[0].__name__.__eq__"
+  args: ["PurePath"]
+  expected: true
+
+invariant pathlib_extra158.PureWindowsPath_base_is_PurePath:
+  description: "pathlib.PureWindowsPath.__bases__[0].__name__ == 'PurePath' — PureWindowsPath's sole direct base is PurePath; it specializes PurePath with Windows-specific path behavior (case-insensitive, backslash or forward-slash separator, drive letter and UNC path support); PureWindowsPath can be used on Linux/macOS to manipulate Windows-style paths without filesystem access"
+  category: identity
+  kind: python_call_eq
+  function: "PureWindowsPath.__bases__[0].__name__.__eq__"
+  args: ["PurePath"]
+  expected: true
