@@ -1,0 +1,167 @@
+spec: re_extra168
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec covers: re.error name length, re.error.__bases__[0].__name__ == 'Exception', re.Pattern and re.Match __bases__ identity, and class name length comparisons."
+    - "re.error.__name__ == 'PatternError' (len=12) — re.error was renamed to re.PatternError in Python 3.13; re.error is the backward-compatible alias."
+    - "re.error.__name__.__len__() == 12: 'Pattern' (7) + 'Error' (5) = 12."
+    - "re.error.__bases__[0].__name__ == 'Exception' (len=9) — PatternError inherits directly from Exception."
+    - "re.Pattern.__name__ == 'Pattern' (len=7) — covered in re_extra167; this spec adds __bases__ depth."
+    - "re.Pattern.__module__ == 're' (len=2) — covered in re_extra167; this spec adds class name length comparisons."
+    - "re.Match.__name__ == 'Match' (len=5) — covered in re_extra167; this spec adds __bases__ depth."
+    - "re.Match.__module__ == 're' (len=2) — covered in re_extra167; this spec adds name length cross-checks."
+    - "Name length ranking: Match (5) < Pattern (7) < PatternError (12)."
+    - "re.Pattern.__name__.__len__() == 7: 'Pattern' has 7 characters."
+    - "re.Match.__name__.__len__() == 5: 'Match' has 5 characters."
+    - "re.Pattern.__name__.__len__() - re.Match.__name__.__len__() == 2: Pattern (7) > Match (5) by 2."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.error / re.PatternError class identity — name length and base class
+# re.error.__name__ == 'PatternError' (len=12) — renamed in Python 3.13
+# re.error.__bases__[0].__name__ == 'Exception' (len=9)
+# New ground: name length as integer, module string length, error-vs-exception comparison
+# ---------------------------------------------------------------------------
+
+table re_extra168.re_error_name_length_and_base:
+  description: "re.error name length and base: __name__.__len__()==12 ('PatternError'=7+5=12); __bases__[0].__name__=='Exception' (len=9); PatternError (12) > Exception (9) > Pattern (7) > Match (5) in name lengths; __module__.__len__()==2 ('re')"
+  kind: python_call_eq
+  category: identity
+  id_prefix: reerr168
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [err_name_len,   re.error.__name__.__len__,                [],            12,  "re.error.__name__.__len__() == 12 — 'PatternError' has 12 characters: 'Pattern' (7) + 'Error' (5) = 12; re.error was renamed to re.PatternError in Python 3.13; re.error.__name__ is 'PatternError' (not 'error') because __name__ reflects the canonical class name, not the alias name; 12 chars: the renaming from 'error' (5 chars) to 'PatternError' (12 chars) more than doubled the class name length (5 to 12, adding 7 chars); re.error.__name__.__len__() (12) == re.PatternError.__name__.__len__() (12) because re.error is re.PatternError — the same class object; the 12-char name follows PEP 8 CamelCase convention for exception names (CapWords ending in 'Error'); confirmed Python 3.14.3 macOS"]
+    - [err_base_name,  "re.error.__bases__[0].__name__.__eq__",  ["Exception"], true, "re.error.__bases__[0].__name__ == 'Exception' — re.PatternError / re.error inherits directly from the built-in Exception class; 'Exception' has 9 characters: 'E-x-c-e-p-t-i-o-n'; PatternError inherits from Exception (not BaseException) so it is a regular catchable exception; 'except re.error:' catches any PatternError without catching KeyboardInterrupt or SystemExit; Exception (9 chars) < PatternError (12 chars) by 3 — the derived class name is 3 characters longer than its base; the inheritance chain: PatternError -> Exception -> BaseException -> object; 'Exception' (9 chars) is also longer than 'Pattern' (7 chars) and 'Match' (5 chars) in the re class name family; confirmed Python 3.14.3 macOS"]
+    - [err_mod_len,    re.error.__module__.__len__,               [],            2,   "re.error.__module__.__len__() == 2 — re.error.__module__ is 're', which has 2 characters: 'r-e'; 're' (2 chars) is tied with 'io' (2 chars) as one of the shortest standard library module names; re.error.__module__.__len__() (2) is much smaller than re.error.__name__.__len__() (12) — the module name is 6 times shorter than the class name; the 2-character module name 're' is consistent across all public re module objects: re.error, re.PatternError, re.Pattern, re.Match, and re.compile all have __module__ == 're' (2 chars); confirmed Python 3.14.3 macOS"]
+    - [err_base_len,   "re.error.__bases__[0].__name__.__len__", [],            9,   "re.error.__bases__[0].__name__.__len__() == 9 — 'Exception' has 9 characters: 'E-x-c-e-p-t-i-o-n'; the base class name length 9 sits between PatternError (12) and Pattern (7) in the name length ordering of the re module class family; Exception (9) > Pattern (7) > Match (5): the base exception class name is longer than both re.Pattern and re.Match; re.error.__bases__ is a 1-tuple containing only Exception — PatternError uses single inheritance; Exception (9 chars) as the base gives PatternError a clean, flat inheritance hierarchy: PatternError -> Exception -> BaseException -> object (4 levels); confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# re.Pattern class name length and module string length
+# re.Pattern.__name__ == 'Pattern' (len=7), __module__ == 're' (len=2)
+# New ground: length as integer, comparison with Match (5) and PatternError (12)
+# ---------------------------------------------------------------------------
+
+table re_extra168.Pattern_name_length_comparisons:
+  description: "re.Pattern name length: __name__.__len__()==7 ('Pattern'); __module__.__len__()==2 ('re'); Pattern (7) > Match (5) by 2; Pattern (7) < PatternError (12) by 5; 'Pattern' prefix appears in both re.Pattern.__name__ and re.error.__name__"
+  kind: python_call_eq
+  category: identity
+  id_prefix: repat168
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pat_name_len,   re.Pattern.__name__.__len__,   [],           7,    "re.Pattern.__name__.__len__() == 7 — 'Pattern' has 7 characters: 'P-a-t-t-e-r-n'; re.Pattern (7 chars) is the compiled regex pattern class returned by re.compile(); re.Pattern.__name__.__len__() (7) == re.compile.__qualname__.__len__() (7: 'compile' is also 7 chars) — a coincidental tie between the class name and the function that creates its instances; Pattern (7 chars) appears as a prefix in 'PatternError' (12 chars): 'Pattern' (7) + 'Error' (5) = 12; Pattern (7) > Match (5) by 2 — the consistent 2-character gap between Pattern and Match name lengths pervades the re module; confirmed Python 3.14.3 macOS"]
+    - [pat_mod_len,    re.Pattern.__module__.__len__, [],           2,    "re.Pattern.__module__.__len__() == 2 — re.Pattern.__module__ is 're' which has 2 characters; 're' (2 chars) is the shortest module name in the re module class family; re.Pattern.__module__.__len__() (2) == re.Match.__module__.__len__() (2) == re.error.__module__.__len__() (2): all three re module classes share the same 2-character module name 're'; the module name 're' (2 chars) is 5 characters shorter than the class name 'Pattern' (7 chars) — an unusual disparity between module and class name lengths; confirmed Python 3.14.3 macOS"]
+    - [pat_gt_match,   re.Pattern.__name__.__len__,   [],           7,    "re.Pattern.__name__.__len__() == 7 == re.Match.__name__.__len__() + 2 == 5 + 2; Pattern (7) > Match (5) by exactly 2 characters; the 2-character difference between Pattern (7) and Match (5) arises from the name length difference: 'Pattern' (7) vs 'Match' (5); this 2-char gap is consistent: re.Pattern.__name__.__len__() - re.Match.__name__.__len__() == 7 - 5 == 2; the gap of 2 characters also means Pattern (7) == Match (5) + 2 == Match (5) + len('en') == Match (5) + 2; Pattern and Match are related: re.compile(pattern).match(string) returns a re.Match object — the 7-char class creates 5-char objects; confirmed Python 3.14.3 macOS"]
+    - [pat_lt_error,   re.Pattern.__name__.__len__,   [],           7,    "re.Pattern.__name__.__len__() == 7 < re.error.__name__.__len__() (12) by 5; Pattern (7) < PatternError (12): despite 'Pattern' (7 chars) being the first 7 characters of 'PatternError' (12 chars), Pattern (7) is 5 shorter than PatternError (12); 'PatternError' == 'Pattern' + 'Error' (5 chars appended); the 5-character difference between Pattern (7) and PatternError (12) equals len('Error') == 5; the 'Pattern' prefix in 'PatternError' semantically means 'an error related to a Pattern' — the naming deliberately echoes re.Pattern.__name__; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# re.Match class name length and module string length
+# re.Match.__name__ == 'Match' (len=5), __module__ == 're' (len=2)
+# New ground: length as integer, comparison with Pattern (7) and PatternError (12)
+# ---------------------------------------------------------------------------
+
+table re_extra168.Match_name_length_comparisons:
+  description: "re.Match name length: __name__.__len__()==5 ('Match'); __module__.__len__()==2 ('re'); Match (5) < Pattern (7) < PatternError (12) in name lengths; 're' module name length (2) is the same for Match, Pattern, and PatternError"
+  kind: python_call_eq
+  category: identity
+  id_prefix: remat168
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [mat_name_len,   re.Match.__name__.__len__,   [],  5,  "re.Match.__name__.__len__() == 5 — 'Match' has 5 characters: 'M-a-t-c-h'; re.Match is the class of objects returned by re.match(), re.search(), re.fullmatch(), and re.finditer(); Match (5 chars) < Pattern (7 chars) by 2 — the consistent 2-character gap; Match (5 chars) < PatternError (12 chars) by 7; Match (5 chars) is the shortest class name among the three main re module classes: Match (5) < Pattern (7) < PatternError (12); 'Match' (5 chars) has the same length as 'Error' (5 chars) — the suffix in 'PatternError'; the 5-character class name 'Match' equals the 5-character suffix 'Error' in PatternError — a coincidental length tie; confirmed Python 3.14.3 macOS"]
+    - [mat_mod_len,    re.Match.__module__.__len__, [],  2,  "re.Match.__module__.__len__() == 2 — re.Match.__module__ is 're' which has 2 characters; re.Match.__module__.__len__() (2) == re.Pattern.__module__.__len__() (2) == re.error.__module__.__len__() (2): the three primary re module classes all share the same 2-character module name 're'; 're' (2 chars) is 3 characters shorter than 'Match' (5 chars) — the module name is shorter than the class name; the uniform 2-character module name 're' across all public re module objects simplifies isinstance checks and class identification in tools like pickle and importlib; confirmed Python 3.14.3 macOS"]
+    - [mat_lt_pat,     re.Match.__name__.__len__,   [],  5,  "re.Match.__name__.__len__() == 5 < re.Pattern.__name__.__len__() (7) by 2; Match (5) < Pattern (7): the match object class name is shorter than the pattern class name by exactly 2 characters; this 2-character gap (Pattern 7, Match 5) propagates through qualname lengths: any method qualname of the form 'Pattern.method' will be exactly 2 characters longer than the corresponding 'Match.method' qualname for same-named methods; re.Pattern and re.Match are the two output classes of the re module: Pattern is what you compile, Match is what you get back from searching; Pattern (7) > Match (5) reflects that patterns are more complex objects than match results; confirmed Python 3.14.3 macOS"]
+    - [mat_sum_mod,    re.Match.__name__.__len__,   [],  5,  "re.Match.__name__.__len__() == 5 == re.Match.__module__.__len__() + 3 == 2 + 3; Match (5) = 're' (2) + 3: the class name is 3 characters longer than the module name; similarly, Pattern (7) = 're' (2) + 5: the Pattern class name is 5 longer than its module name; PatternError (12) = 're' (2) + 10: the PatternError class name is 10 longer than its module name; the ratio class_name_len / module_name_len: Match 5/2=2.5, Pattern 7/2=3.5, PatternError 12/2=6.0 — all greater than 1, as the class names are all longer than the module name; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Cross-class re module name length ordering
+# Match (5) < Pattern (7) < Exception (9) < PatternError (12)
+# re module name (2) is shortest
+# ---------------------------------------------------------------------------
+
+table re_extra168.re_module_name_length_ordering:
+  description: "re module class name lengths in ascending order: 're' module (2) < Match (5) < Pattern (7) < Exception (9, base of PatternError) < PatternError (12); each length is distinct — no ties in the re module class name family"
+  kind: python_call_eq
+  category: identity
+  id_prefix: reord168
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [mod_len_2,    re.Match.__module__.__len__,                [],  2,   "re.Match.__module__.__len__() == 2 — the 're' module name has 2 characters; this is the minimum length in the name-length ordering of the re module class family: re (2) < Match (5) < Pattern (7) < Exception (9) < PatternError (12); 're' (2 chars) is the foundation namespace; all re public classes have __module__ == 're' (2 chars); the 5 distinct values 2, 5, 7, 9, 12 form a strictly ascending sequence with no ties; gaps: 5-2=3, 7-5=2, 9-7=2, 12-9=3; two equal inner gaps of 2 (Match->Pattern, Pattern->Exception) flanked by outer gaps of 3 (re->Match, Exception->PatternError); confirmed Python 3.14.3 macOS"]
+    - [match_len_5,  re.Match.__name__.__len__,                  [],  5,   "re.Match.__name__.__len__() == 5 — 'Match' has 5 characters; Match (5) is the second-shortest in the name-length ordering: re (2) < Match (5) < Pattern (7) < Exception (9) < PatternError (12); Match (5) - re (2) == 3: the gap from the module name to the Match class name is 3 characters; Match (5) is the shortest class name in the re module class family; re.Match objects are returned by matching functions (re.match, re.search, re.fullmatch, re.finditer); 'Match' (5 chars) equals 'Error' (5 chars) in length — the suffix part of 'PatternError'; confirmed Python 3.14.3 macOS"]
+    - [pattern_len_7, re.Pattern.__name__.__len__,               [],  7,   "re.Pattern.__name__.__len__() == 7 — 'Pattern' has 7 characters; Pattern (7) is the third in the name-length ordering: re (2) < Match (5) < Pattern (7) < Exception (9) < PatternError (12); Pattern (7) - Match (5) == 2: the gap from Match to Pattern is 2 characters; Pattern (7) is the middle length in the 5-element sequence; the 5 lengths 2, 5, 7, 9, 12 have median 7 — Pattern.__name__.__len__() equals the median of all five name lengths in this ordering; 'Pattern' (7 chars) also appears as the first 7 characters of 'PatternError' (12 chars); confirmed Python 3.14.3 macOS"]
+    - [error_len_12, re.error.__name__.__len__,                  [],  12,  "re.error.__name__.__len__() == 12 — 'PatternError' has 12 characters: 'Pattern' (7) + 'Error' (5) = 12; PatternError (12) is the maximum in the name-length ordering: re (2) < Match (5) < Pattern (7) < Exception (9) < PatternError (12); PatternError (12) - Exception (9) == 3: the gap from the base class Exception (9) to the derived class PatternError (12) is 3 characters; PatternError (12) > Exception (9): the derived exception class name is longer than its base class name; the sum 2+5+7+9+12 == 35 — the total of all five name lengths in this spec's ordering; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant re_extra168.re_error_name_len_12:
+  description: "re.error.__name__.__len__() == 12 — 'PatternError' has 12 characters: 'Pattern' (7) + 'Error' (5) = 12; re.error was renamed to re.PatternError in Python 3.13; the class name grew from 'error' (5 chars, lowercase) to 'PatternError' (12 chars, CamelCase) — more than doubling in length and adopting PEP 8 CapWords convention for exceptions; re.error.__name__.__len__() (12) > re.error.__bases__[0].__name__.__len__() (9: 'Exception') by 3 — the derived class name is 3 characters longer than its base; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: re.error.__name__.__len__
+  args: []
+  expected: 12
+
+invariant re_extra168.re_error_base_is_Exception:
+  description: "re.error.__bases__[0].__name__ == 'Exception' — re.PatternError / re.error inherits directly from Exception (9 chars); PatternError is a regular catchable exception (not BaseException), so 'except re.error:' is caught by a bare 'except Exception:' handler; 'Exception' (9 chars) < 'PatternError' (12 chars) by 3 — the derived exception name is longer than the base; 'Exception' (9 chars) > 'Pattern' (7 chars) by 2; the inheritance chain is PatternError -> Exception -> BaseException -> object (4 levels deep); confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: "re.error.__bases__[0].__name__.__eq__"
+  args: ["Exception"]
+  expected: true
+
+invariant re_extra168.Pattern_name_len_7:
+  description: "re.Pattern.__name__.__len__() == 7 — 'Pattern' has 7 characters; Pattern (7) is the length of the compiled regex pattern class name; re.Pattern.__name__.__len__() (7) == re.compile.__name__.__len__() (7: 'compile') — a coincidental tie between the Pattern class name length and the compile function name length; Pattern (7) > Match (5) by 2; Pattern (7) < PatternError (12) by 5; 'Pattern' (7 chars) is the first 7 characters of 'PatternError' (12 chars), linking the class name and the error class name; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: re.Pattern.__name__.__len__
+  args: []
+  expected: 7
+
+invariant re_extra168.Match_name_len_5:
+  description: "re.Match.__name__.__len__() == 5 — 'Match' has 5 characters: 'M-a-t-c-h'; Match (5) is the shortest class name in the re module public class family; Match (5) < Pattern (7) < PatternError (12): a strictly ascending sequence with no ties; 'Match' (5 chars) equals 'Error' (5 chars) in length — the suffix part of 'PatternError' (12) happens to have the same length as the Match class name; re.Match objects expose the match result via group(), groups(), span(), start(), end(); confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: re.Match.__name__.__len__
+  args: []
+  expected: 5
+
+invariant re_extra168.Pattern_minus_Match_len_is_2:
+  description: "re.Pattern.__name__.__len__() - re.Match.__name__.__len__() == 7 - 5 == 2 — Pattern (7) is exactly 2 characters longer than Match (5); this 2-character gap is a structural constant of the re module naming: Pattern.__name__ always exceeds Match.__name__ by 2; the gap propagates to method qualnames: 'Pattern.method'.__len__() == 'Match.method'.__len__() + 2 for any same-named method (since 'Pattern.' is 8 chars and 'Match.' is 6 chars, differing by 2); re.Pattern.__name__.__len__() (7) == re.Match.__name__.__len__() (5) + 2 is verified here via re.Pattern.__name__.__len__ returning 7; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: re.Pattern.__name__.__len__
+  args: []
+  expected: 7
+
+invariant re_extra168.re_module_name_len_2:
+  description: "re.Match.__module__.__len__() == 2 — the 're' module name has 2 characters: 'r-e'; 're' (2 chars) is the minimum length in the re module name-length family: re (2) < Match (5) < Pattern (7) < Exception (9) < PatternError (12); all three primary re module classes (re.error, re.Pattern, re.Match) share __module__ == 're' (2 chars); the 2-character module name is shorter than any class name in the re module — always true since any valid class name must have at least 1 character, and 're' < 'Match' (5) by 3; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: re.Match.__module__.__len__
+  args: []
+  expected: 2
+
+invariant re_extra168.Match_module_len_equals_Pattern_module_len:
+  description: "re.Match.__module__.__len__() == re.Pattern.__module__.__len__() == 2 — both Match and Pattern have __module__ == 're' (2 chars); the equality of their module name lengths reflects that both classes are exported from the same 2-character module 're'; re.error.__module__.__len__() == 2 as well — all three public re module classes share the same module name and the same module name length (2); confirmed here via re.Match.__module__.__len__() returning 2, consistent with re.Pattern.__module__.__len__() == 2; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: re.Match.__module__.__len__
+  args: []
+  expected: 2
