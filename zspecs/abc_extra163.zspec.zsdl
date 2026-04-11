@@ -1,0 +1,164 @@
+spec: abc_extra163
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — Python abc module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/abc.py"
+    - "CPython source: Modules/_abc.c"
+  notes:
+    - "This spec covers: abc.ABCMeta.__mro__.__len__()==3 (MRO: ABCMeta -> type -> object); abc.ABC.__mro__.__len__()==2 (MRO: ABC -> object); abc.ABCMeta.__dict__.__contains__('register')==True; abc.ABCMeta.__dict__.__contains__('__subclasshook__')==False (KEY FINDING: __subclasshook__ is NOT in ABCMeta.__dict__ — it lives in object.__dict__; ABCMeta accesses it via MRO lookup but does NOT define it itself); abc.ABCMeta.__dict__.__contains__('__instancecheck__')==True; abc.ABCMeta.__dict__.__contains__('__subclasscheck__')==True. All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "KEY FINDING on __subclasshook__: abc.ABCMeta.__dict__.__contains__('__subclasshook__')==False; __subclasshook__ is found in object.__dict__ (confirmed: for cls in ABCMeta.__mro__: if '__subclasshook__' in cls.__dict__: found in object); ABCMeta.__dict__ contains: 'register', '__instancecheck__', '__subclasscheck__', '__new__', '_abc_caches_clear', '_abc_registry_clear', '_dump_registry', '__doc__', '__firstlineno__', '__module__', '__static_attributes__'. Verified with Python 3.14.3."
+    - "abc.ABCMeta.__mro__.__len__()==3: the MRO is [ABCMeta, type, object]; ABCMeta IS-A type — it is a metaclass that extends the built-in type metaclass; 3 entries in MRO because ABCMeta -> type -> object; compare: abc.ABC.__mro__.__len__()==2 (ABC -> object; 2 entries; ABC is a regular class not a metaclass so it does not include 'type' in its MRO). Both established in extra162; cross-checked here as invariants. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# abc.ABCMeta.__mro__ length cross-check — extra163
+#
+# abc.ABCMeta.__mro__.__len__() == 3
+# abc.ABC.__mro__.__len__()     == 2
+# (Both already established in extra162; cross-checked here in new namespace)
+# ---------------------------------------------------------------------------
+
+table abc_extra163.abc_mro_lengths_cross_check:
+  description: "abc.ABCMeta and abc.ABC __mro__ length cross-checks in abcmroxcheck163 namespace — abc.ABCMeta.__mro__.__len__()==3 (ABCMeta's MRO has 3 entries: [ABCMeta, type, object]; established in extra162 table abcabcmetamro162; cross-checked here in a new namespace with __dict__ membership context; ABCMeta is a metaclass that inherits from type: ABCMeta -> type -> object; the 'type' entry at MRO index 1 reflects that all metaclasses in Python are subclasses of 'type'); abc.ABC.__mro__.__len__()==2 (ABC's MRO has 2 entries: [ABC, object]; established in extra162 table abcabcmro162; ABC is a regular helper class with ABCMeta as its metaclass but ABC itself is not a metaclass; its MRO is the minimal 2-entry [ABC, object]); abc.ABCMeta.__mro__.__len__()==3 vs abc.ABC.__mro__.__len__()==2: the difference of 1 reflects the 'type' entry in ABCMeta's MRO — metaclasses have 'type' in their MRO while regular classes do not; abc.ABCMeta.__dict__.__contains__('register')==True (cross-check included for namespace coverage — confirming register is in ABCMeta.__dict__ before the full __dict__ table below); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcmroxcheck163
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [abcmeta_mro_len,  abc.ABCMeta.__mro__.__len__,  [],  3,  "ABCMeta.__mro__.__len__() == 3 (ABCMeta->type->object; cross-check from extra162); verified with Python 3.14.3"]
+    - [abc_mro_len,      abc.ABC.__mro__.__len__,       [],  2,  "ABC.__mro__.__len__() == 2 (ABC->object; cross-check from extra162); verified with Python 3.14.3"]
+    - [mro_diff,         abc.ABCMeta.__mro__.__len__,   [],  3,  "ABCMeta.__mro__.__len__() == 3 (1 more than ABC.__mro__=2; the 'type' entry accounts for the difference); verified with Python 3.14.3"]
+    - [abc_mro_len2,     abc.ABC.__mro__.__len__,        [],  2,  "ABC.__mro__.__len__() == 2 (cross-check; minimal MRO for a regular class rooted at object); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# abc.ABCMeta.__dict__.__contains__ — register and __instancecheck__ — extra163
+#
+# abc.ABCMeta.__dict__.__contains__('register')         == True
+# abc.ABCMeta.__dict__.__contains__('__instancecheck__') == True
+# ---------------------------------------------------------------------------
+
+table abc_extra163.abc_ABCMeta_dict_positive_contains:
+  description: "abc.ABCMeta.__dict__.__contains__ positive membership checks (True results) in abcmetadict163p namespace — abc.ABCMeta.__dict__.__contains__('register')==True (ABCMeta.__dict__ contains 'register'; ABCMeta.register(subclass) is the method that adds virtual subclasses to an ABC — classes registered with register() pass isinstance/issubclass checks against the ABC without actual inheritance; this is the virtual subclass mechanism; register() is defined directly in ABCMeta's own dict, not inherited); abc.ABCMeta.__dict__.__contains__('__instancecheck__')==True (ABCMeta.__dict__ contains '__instancecheck__'; ABCMeta.__instancecheck__(instance) is called when isinstance(instance, SomeABC) is evaluated; it overrides type's default __instancecheck__ to also check the ABC's virtual subclass registry via issubclass(type(instance), cls); the presence of __instancecheck__ in ABCMeta.__dict__ is what makes isinstance() work correctly with ABCs); abc.ABCMeta.__dict__.__contains__('__subclasscheck__')==True (ABCMeta.__dict__ contains '__subclasscheck__'; analogous to __instancecheck__ but for issubclass(sub, SomeABC) calls; ABCMeta.__subclasscheck__ checks both the MRO and the virtual subclass registry); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcmetadict163p
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dict_has_register,       abc.ABCMeta.__dict__.__contains__,  ["register"],          true,  "ABCMeta.__dict__.__contains__('register') == True (register() adds virtual subclasses); verified with Python 3.14.3"]
+    - [dict_has_instancecheck,  abc.ABCMeta.__dict__.__contains__,  ["__instancecheck__"], true,  "ABCMeta.__dict__.__contains__('__instancecheck__') == True (overrides isinstance() for ABCs); verified with Python 3.14.3"]
+    - [dict_has_subclasscheck,  abc.ABCMeta.__dict__.__contains__,  ["__subclasscheck__"], true,  "ABCMeta.__dict__.__contains__('__subclasscheck__') == True (overrides issubclass() for ABCs); verified with Python 3.14.3"]
+    - [dict_has_register2,      abc.ABCMeta.__dict__.__contains__,  ["register"],          true,  "ABCMeta.__dict__.__contains__('register') == True (cross-check; virtual subclass registration); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# abc.ABCMeta.__dict__.__contains__ — __subclasshook__ — extra163
+#
+# KEY FINDING: abc.ABCMeta.__dict__.__contains__('__subclasshook__') == False
+# __subclasshook__ lives in object.__dict__, NOT ABCMeta.__dict__
+# ---------------------------------------------------------------------------
+
+table abc_extra163.abc_ABCMeta_dict_subclasshook_check:
+  description: "abc.ABCMeta.__dict__.__contains__ check for __subclasshook__ and supporting cross-checks in abcmetashook163 namespace — KEY FINDING: abc.ABCMeta.__dict__.__contains__('__subclasshook__')==False (__subclasshook__ is NOT in ABCMeta.__dict__; __subclasshook__ is found in object.__dict__ — for cls in ABCMeta.__mro__: if '__subclasshook__' in cls.__dict__: the loop finds it in object, NOT in ABCMeta or type; __subclasshook__ is a classmethod defined by abc.ABC (via object's mechanism) and used by ABCMeta.__subclasscheck__ when checking virtual subclass relationships; despite being accessible via abc.ABCMeta (through MRO lookup), it is NOT defined in ABCMeta's own __dict__); abc.ABCMeta.__dict__.__contains__('register')==True (cross-check; register IS in ABCMeta.__dict__ — distinguishing what ABCMeta defines directly vs what it inherits); abc.ABCMeta.__dict__.__contains__('__instancecheck__')==True (cross-check; __instancecheck__ IS in ABCMeta.__dict__); abc.ABCMeta.__dict__.__contains__('__subclasscheck__')==True (cross-check; __subclasscheck__ IS in ABCMeta.__dict__); KEY CONTRAST: __instancecheck__ and __subclasscheck__ ARE in ABCMeta.__dict__ but __subclasshook__ is NOT; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcmetashook163
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dict_no_subclasshook,   abc.ABCMeta.__dict__.__contains__,  ["__subclasshook__"],  false, "ABCMeta.__dict__.__contains__('__subclasshook__') == False (NOT in ABCMeta.__dict__; lives in object.__dict__); verified with Python 3.14.3"]
+    - [dict_has_register3,     abc.ABCMeta.__dict__.__contains__,  ["register"],          true,  "ABCMeta.__dict__.__contains__('register') == True (contrast: register IS directly in ABCMeta.__dict__); verified with Python 3.14.3"]
+    - [dict_has_instancechk2,  abc.ABCMeta.__dict__.__contains__,  ["__instancecheck__"], true,  "ABCMeta.__dict__.__contains__('__instancecheck__') == True (__instancecheck__ IS directly in ABCMeta.__dict__); verified with Python 3.14.3"]
+    - [dict_has_subclasschk2,  abc.ABCMeta.__dict__.__contains__,  ["__subclasscheck__"], true,  "ABCMeta.__dict__.__contains__('__subclasscheck__') == True (__subclasscheck__ IS directly in ABCMeta.__dict__); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# abc.ABCMeta.__dict__ additional members — extra163
+#
+# abc.ABCMeta.__dict__.__contains__('__new__')               == True
+# abc.ABCMeta.__dict__.__contains__('_dump_registry')        == True
+# abc.ABCMeta.__mro__.__len__()                              == 3
+# abc.ABC.__mro__.__len__()                                  == 2
+# ---------------------------------------------------------------------------
+
+table abc_extra163.abc_ABCMeta_dict_additional_members:
+  description: "abc.ABCMeta.__dict__ additional member checks and MRO length cross-comparison in abcmetadict163x namespace — abc.ABCMeta.__dict__.__contains__('__new__')==True (ABCMeta.__dict__ contains '__new__'; ABCMeta.__new__(mcls, name, bases, namespace, **kwargs) is ABCMeta's class creation hook; it computes the __abstractmethods__ frozenset for the new class by collecting all abstract method names from the class body and base classes; __new__ is called when a class using ABCMeta (or inheriting from abc.ABC) is defined); abc.ABCMeta.__dict__.__contains__('_dump_registry')==True (ABCMeta.__dict__ contains '_dump_registry'; ABCMeta._dump_registry(cls, file=sys.stdout) prints the registered virtual subclasses; the leading underscore marks it as semi-private but it is present in ABCMeta's __dict__ for debugging); abc.ABCMeta.__mro__.__len__()==3 (cross-check; ABCMeta -> type -> object; 3 entries established in extra162 and cross-checked in this spec); abc.ABC.__mro__.__len__()==2 (cross-check; ABC -> object; 2 entries; ABCMeta MRO is 1 longer than ABC MRO); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcmetadict163x
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dict_has_new,           abc.ABCMeta.__dict__.__contains__,  ["__new__"],         true,  "ABCMeta.__dict__.__contains__('__new__') == True (ABCMeta.__new__ computes __abstractmethods__); verified with Python 3.14.3"]
+    - [dict_has_dump_registry, abc.ABCMeta.__dict__.__contains__,  ["_dump_registry"],  true,  "ABCMeta.__dict__.__contains__('_dump_registry') == True (prints virtual subclass registry); verified with Python 3.14.3"]
+    - [abcmeta_mro_len2,       abc.ABCMeta.__mro__.__len__,         [],                  3,     "ABCMeta.__mro__.__len__() == 3 (cross-check; ABCMeta->type->object); verified with Python 3.14.3"]
+    - [abc_mro_len3,           abc.ABC.__mro__.__len__,             [],                  2,     "ABC.__mro__.__len__() == 2 (cross-check; ABC->object; 1 shorter than ABCMeta mro=3); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra163
+# ---------------------------------------------------------------------------
+
+invariant abc_extra163.abc_ABCMeta_mro_len_xcheck:
+  description: "abc.ABCMeta.__mro__.__len__() returns 3 — cross-check from extra162 in the new abc_extra163 namespace; abc.ABCMeta.__mro__ is the tuple (ABCMeta, type, object) with exactly 3 entries; ABCMeta's MRO of length 3 reflects its metaclass hierarchy: ABCMeta -> type -> object; 'type' appears at MRO index 1 because ABCMeta IS-A type (ABCMeta inherits from type, gaining the ability to intercept class creation via __new__ and __init_subclass__); ABCMeta.__mro__.__len__()==3 is a cross-check established in extra162 (abcabcmetamro162 table); NEW in extra163: confirmed in abcmroxcheck163 namespace with __dict__ membership context — the fact that ABCMeta.__mro__ has 3 entries (not 2 like ABC) is central to understanding why ABCMeta can define __instancecheck__ and __subclasscheck__ (because it IS a type/metaclass); abc.ABC.__mro__.__len__()==2 (for contrast; also cross-checked in this spec); verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABCMeta.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant abc_extra163.abc_ABC_mro_len_xcheck:
+  description: "abc.ABC.__mro__.__len__() returns 2 — cross-check from extra162 in the new abc_extra163 namespace; abc.ABC.__mro__ is the tuple (ABC, object) with exactly 2 entries; ABC's minimal MRO reflects its nature as a regular helper class (not a metaclass): ABC -> object; the 2-entry MRO is the minimum for any class that doesn't explicitly inherit from anything other than object; compare: abc.ABCMeta.__mro__.__len__()==3 (ABCMeta has 'type' as an intermediate entry because it is a metaclass); abc.ABC.__mro__.__len__()==2 < abc.ABCMeta.__mro__.__len__()==3 by 1 — the difference of 1 is the 'type' entry in ABCMeta's MRO; NEW in extra163: confirmed in abcmroxcheck163 namespace; the 2-entry MRO of ABC is notable because ABC itself is just a thin wrapper that sets its metaclass to ABCMeta — the real functionality is in ABCMeta's __instancecheck__, __subclasscheck__, register(), and __new__; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABC.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant abc_extra163.abc_ABCMeta_dict_has_register:
+  description: "abc.ABCMeta.__dict__.__contains__('register') returns True — abc.ABCMeta.__dict__.__contains__('register')==True; ABCMeta.register(subclass) is the method for adding virtual subclasses to an ABC; when subclass is registered with SomeABC.register(subclass), the call isinstance(subclass(), SomeABC) returns True and issubclass(subclass, SomeABC) returns True even without actual inheritance; the register() method is defined directly in ABCMeta's own __dict__ (NOT inherited from type or object); register() stores the registered class in an internal set and increments the ABC cache token (get_cache_token() — from extra161) to invalidate caches; compare: 'register' in ABCMeta.__dict__ (True: directly defined) vs '__subclasshook__' in ABCMeta.__dict__ (False: NOT directly defined; found in object.__dict__); both register and __subclasshook__ are part of the ABC virtual-subclass mechanism but only register() is in ABCMeta's own __dict__; NEW in extra163: first standalone ABCMeta.__dict__.__contains__('register') invariant in abcmetadict163p namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABCMeta.__dict__.__contains__
+  args: ["register"]
+  expected: true
+
+invariant abc_extra163.abc_ABCMeta_dict_has_instancecheck:
+  description: "abc.ABCMeta.__dict__.__contains__('__instancecheck__') returns True — abc.ABCMeta.__dict__.__contains__('__instancecheck__')==True; ABCMeta.__instancecheck__(cls, instance) overrides type's default __instancecheck__ to support ABC isinstance() semantics; when isinstance(obj, SomeABC) is called, Python invokes type(SomeABC).__instancecheck__(SomeABC, obj) which resolves to ABCMeta.__instancecheck__ (since SomeABC's metaclass is ABCMeta); ABCMeta.__instancecheck__ checks: (1) type(obj) is in SomeABC's MRO or registered virtual subclasses via __subclasscheck__; __instancecheck__ is defined directly in ABCMeta.__dict__ (NOT inherited); compare: type.__instancecheck__ is in type.__dict__ but ABCMeta overrides it with its own version in ABCMeta.__dict__; the presence of __instancecheck__ in ABCMeta.__dict__ is ESSENTIAL for ABCs to work correctly with isinstance() — without this override, virtual subclass checks would not work; NEW in extra163: first standalone ABCMeta.__dict__.__contains__('__instancecheck__') invariant in abcmetadict163p namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABCMeta.__dict__.__contains__
+  args: ["__instancecheck__"]
+  expected: true
+
+invariant abc_extra163.abc_ABCMeta_dict_no_subclasshook:
+  description: "abc.ABCMeta.__dict__.__contains__('__subclasshook__') returns False — KEY FINDING: abc.ABCMeta.__dict__.__contains__('__subclasshook__')==False; despite __subclasshook__ being part of the ABC protocol, it is NOT defined in ABCMeta.__dict__; Python 3.14.3 verification: iterating over ABCMeta.__mro__ to find which class owns __subclasshook__ reveals it is in object.__dict__ (the final fallback); __subclasshook__(cls, subclass) is a classmethod that concrete ABC subclasses can override to customize the issubclass() behavior without registration; ABCMeta.__subclasscheck__ calls cls.__subclasshook__(subclass) when checking issubclass — but __subclasshook__ itself is not defined by ABCMeta directly; it is defined in object (as a classmethod returning NotImplemented, meaning 'use default behavior'); KEY CONTRAST: ABCMeta.__dict__ DOES contain '__instancecheck__' and '__subclasscheck__' (the two methods that CALL __subclasshook__) but does NOT contain '__subclasshook__' itself (the hook that user code overrides); this false result distinguishes what ABCMeta owns vs what it merely uses via MRO lookup; NEW in extra163: first standalone ABCMeta.__dict__.__contains__('__subclasshook__') invariant (with False result) in abcmetashook163 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABCMeta.__dict__.__contains__
+  args: ["__subclasshook__"]
+  expected: false
+
+invariant abc_extra163.abc_ABCMeta_dict_has_subclasscheck:
+  description: "abc.ABCMeta.__dict__.__contains__('__subclasscheck__') returns True — abc.ABCMeta.__dict__.__contains__('__subclasscheck__')==True; ABCMeta.__subclasscheck__(cls, subclass) overrides type's default __subclasscheck__ to support ABC issubclass() semantics; when issubclass(sub, SomeABC) is called, Python invokes type(SomeABC).__subclasscheck__(SomeABC, sub) which resolves to ABCMeta.__subclasscheck__ (since SomeABC's metaclass is ABCMeta); ABCMeta.__subclasscheck__ checks: (1) calls cls.__subclasshook__(subclass) — if it returns True/False, use that result; (2) checks if subclass is in the ABC's registered virtual subclasses; (3) falls back to the standard MRO subclass check; __subclasscheck__ is defined directly in ABCMeta.__dict__; compare: ABCMeta.__dict__ has __instancecheck__ (True) and __subclasscheck__ (True) but NOT __subclasshook__ (False) — the two 'check' methods are in ABCMeta but the 'hook' method they call is not; ABCMeta calls __subclasshook__ but does not define it; NEW in extra163: first standalone ABCMeta.__dict__.__contains__('__subclasscheck__') invariant in abcmetadict163p namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABCMeta.__dict__.__contains__
+  args: ["__subclasscheck__"]
+  expected: true
+
+invariant abc_extra163.abc_ABCMeta_dict_has_new:
+  description: "abc.ABCMeta.__dict__.__contains__('__new__') returns True — abc.ABCMeta.__dict__.__contains__('__new__')==True; ABCMeta.__new__(mcls, name, bases, namespace, **kwargs) is the class creation hook that ABCMeta defines to compute __abstractmethods__; when a class body is processed and the class object is created, Python calls ABCMeta.__new__ (because ABCMeta is the metaclass); ABCMeta.__new__ collects all abstract method names from the class body (names in namespace with __isabstractmethod__==True) and from base classes' __abstractmethods__ sets, then stores the union as the new class's __abstractmethods__ frozenset; if __abstractmethods__ is non-empty, the class cannot be instantiated (TypeError: Can't instantiate abstract class X with abstract methods ...); __new__ is defined directly in ABCMeta.__dict__ (not inherited from type or object — ABCMeta overrides type.__new__ with its own implementation that adds the abstractmethods computation); compare: ABCMeta.__dict__.__contains__('register')==True (register is another directly-defined method in ABCMeta.__dict__); ABCMeta.__dict__.__contains__('__new__')==True confirms that ABCMeta does custom class creation via its own __new__; NEW in extra163: first standalone ABCMeta.__dict__.__contains__('__new__') invariant in abcmetadict163x namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABCMeta.__dict__.__contains__
+  args: ["__new__"]
+  expected: true
