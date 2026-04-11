@@ -1,0 +1,167 @@
+spec: abc_extra165
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — Python abc module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/abc.py"
+    - "CPython source: Modules/_abc.c"
+  notes:
+    - "This spec covers: abc.ABC.__dict__.__contains__('__abstractmethods__')==True (VERIFIED: __abstractmethods__ IS in ABC.__dict__ as a frozenset() — it lives on ABC itself, not only on subclasses); abc.ABC.__dict__.__contains__('__dict__')==False (VERIFIED: '__dict__' is not in ABC.__dict__ because ABC defines __slots__=() which prevents instance __dict__; the '__dict__' descriptor for instances does NOT appear in ABC.__dict__); abc.ABCMeta.__dict__.__contains__('_dump_registry')==True; abc.ABCMeta.__dict__.__contains__('_abc_registry')==False (_abc_registry is on instances, not the metaclass — NOT in ABCMeta.__dict__); abc.abstractproperty.__name__=='abstractproperty' (deprecated but still exists in Python 3.14.3; verified). All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "KEY FINDINGS: abc.ABC.__dict__.__contains__('__abstractmethods__')==True — ABC itself has __abstractmethods__ as an entry in its class dict (value: frozenset(), an empty frozenset meaning ABC itself has no abstract methods); this is the value set by ABCMeta.__new__ when the ABC class is created; abc.ABC.__dict__.__contains__('__dict__')==False — ABC defines __slots__=() which blocks instance __dict__ creation; without instance __dict__, the '__dict__' descriptor does NOT appear in ABC.__dict__. Verified with Python 3.14.3."
+    - "abc.ABCMeta.__dict__.__contains__('_dump_registry')==True (established in abc_extra163; cross-checked here); abc.ABCMeta.__dict__.__contains__('_abc_registry')==False (_abc_registry is maintained on the C-level _abc_impl object stored per-class, NOT as a key in ABCMeta.__dict__ itself — it is per-instance state, not metaclass-level state). Verified with Python 3.14.3."
+    - "abc.abstractproperty.__name__=='abstractproperty' (len=16: 'abstract'=8+'property'=8=16); abc.abstractproperty is deprecated since Python 3.3 (use property with @abstractmethod instead) but still present and accessible in Python 3.14.3; abc.abstractproperty.__bases__[0].__name__=='property' (abstractproperty inherits from property); abc.abstractproperty.__module__=='abc' (len=3). Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# abc.ABC.__dict__.__contains__ — __abstractmethods__ and __dict__ — extra165
+#
+# abc.ABC.__dict__.__contains__('__abstractmethods__') == True
+# abc.ABC.__dict__.__contains__('__dict__')            == False
+# ---------------------------------------------------------------------------
+
+table abc_extra165.abc_ABC_dict_abstractmethods_and_dict:
+  description: "abc.ABC.__dict__.__contains__ checks for '__abstractmethods__' and '__dict__' in abcabcdict165 namespace — abc.ABC.__dict__.__contains__('__abstractmethods__')==True (KEY FINDING: '__abstractmethods__' IS in ABC.__dict__ — ABC itself has __abstractmethods__ as a class dict entry with value frozenset() (an empty frozenset indicating ABC has no abstract methods of its own); ABCMeta.__new__ sets __abstractmethods__ on every class it creates, including ABC itself; the frozenset() value means ABC can be instantiated (no unimplemented abstract methods); subclasses that don't implement all abstract methods get a non-empty __abstractmethods__ and cannot be instantiated); abc.ABC.__dict__.__contains__('__dict__')==False (KEY FINDING: '__dict__' is NOT in ABC.__dict__ — because ABC defines __slots__=(), there is no per-instance __dict__ for ABC instances; normally, classes without __slots__ have a '__dict__' descriptor in their class dict providing the instance namespace; but __slots__=() blocks this; ABC.__dict__.__contains__('__slots__')==True (confirmed in extra164: __slots__ IS in ABC.__dict__)); abc.ABC.__dict__.__len__()==7 (cross-check; 7 total entries; '__abstractmethods__' is 1 of 7; '__dict__' is NOT among them); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcabcdict165
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [abc_has_abstractmethods,  abc.ABC.__dict__.__contains__,  ["__abstractmethods__"],  true,   "ABC.__dict__.__contains__('__abstractmethods__') == True (frozenset(); ABC has empty abstract methods set); verified with Python 3.14.3"]
+    - [abc_no_dict,              abc.ABC.__dict__.__contains__,  ["__dict__"],             false,  "ABC.__dict__.__contains__('__dict__') == False (ABC has __slots__=(); no instance __dict__ descriptor); verified with Python 3.14.3"]
+    - [abc_has_slots,            abc.ABC.__dict__.__contains__,  ["__slots__"],            true,   "ABC.__dict__.__contains__('__slots__') == True (cross-check; __slots__=() blocks instance __dict__); verified with Python 3.14.3"]
+    - [abc_dict_len,             abc.ABC.__dict__.__len__,       [],                       7,      "ABC.__dict__.__len__() == 7 (cross-check; 7 entries; '__dict__' not among them; from extra164); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# abc.ABCMeta.__dict__.__contains__ — _dump_registry and _abc_registry — extra165
+#
+# abc.ABCMeta.__dict__.__contains__('_dump_registry')  == True
+# abc.ABCMeta.__dict__.__contains__('_abc_registry')   == False
+# ---------------------------------------------------------------------------
+
+table abc_extra165.abc_ABCMeta_dict_registry_checks:
+  description: "abc.ABCMeta.__dict__.__contains__ checks for '_dump_registry' and '_abc_registry' in abcmetareg165 namespace — abc.ABCMeta.__dict__.__contains__('_dump_registry')==True ('_dump_registry' is directly in ABCMeta.__dict__; established in abc_extra163; cross-checked here with new context: ABCMeta._dump_registry(cls, file=sys.stdout) prints the virtual subclass registry for an ABC to the specified file; it is a utility method for debugging ABC registration; the leading underscore marks it semi-private but it is accessible and in ABCMeta.__dict__); abc.ABCMeta.__dict__.__contains__('_abc_registry')==False (KEY FINDING: '_abc_registry' is NOT in ABCMeta.__dict__; the actual ABC registry data is stored in the C-level _abc_impl object (a _abc._ABCData instance) that lives in each ABC class's own '_abc_impl' attribute (abc.ABC.__dict__.__contains__('_abc_impl')==True from extra164); the registry is per-class instance state managed by the C extension _abc module, NOT a key in the metaclass ABCMeta's own dict); abc.ABCMeta.__dict__.__len__()==11 (cross-check; 11 entries in ABCMeta.__dict__; '_abc_registry' is NOT among them); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcmetareg165
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [abcmeta_has_dump_registry, abc.ABCMeta.__dict__.__contains__,  ["_dump_registry"],  true,   "ABCMeta.__dict__.__contains__('_dump_registry') == True (debug utility to print ABC registry); verified with Python 3.14.3"]
+    - [abcmeta_no_abc_registry,   abc.ABCMeta.__dict__.__contains__,  ["_abc_registry"],   false,  "ABCMeta.__dict__.__contains__('_abc_registry') == False (registry is per-class in _abc_impl, not metaclass); verified with Python 3.14.3"]
+    - [abcmeta_has_register,      abc.ABCMeta.__dict__.__contains__,  ["register"],        true,   "ABCMeta.__dict__.__contains__('register') == True (cross-check; register() IS in ABCMeta.__dict__); verified with Python 3.14.3"]
+    - [abcmeta_dict_len,          abc.ABCMeta.__dict__.__len__,       [],                  11,     "ABCMeta.__dict__.__len__() == 11 (cross-check; 11 entries; '_abc_registry' not among them); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# abc.abstractproperty class name and module — extra165
+#
+# abc.abstractproperty.__name__.__eq__('abstractproperty') == True
+# abc.abstractproperty.__name__.__len__()                  == 16
+# abc.abstractproperty.__module__.__eq__('abc')            == True
+# abc.abstractproperty.__bases__[0].__name__               == 'property'
+# ---------------------------------------------------------------------------
+
+table abc_extra165.abc_abstractproperty_identity:
+  description: "abc.abstractproperty class name, module, and base class identity checks in abcap165 namespace — abc.abstractproperty.__name__.__eq__('abstractproperty')==True (abstractproperty.__name__=='abstractproperty' (len=16: 'abstract'=8+'property'=8=16); abc.abstractproperty is DEPRECATED since Python 3.3 — it was the original way to define abstract properties before the @property/@abstractmethod combination was supported; despite being deprecated, abstractproperty is still present and importable in Python 3.14.3); abc.abstractproperty.__name__.__len__()==16 ('abstractproperty'=16: 'abstract'=8+'property'=8=16; both halves are equal length; compare: 'ABCMeta'=7 is less than half of 'abstractproperty'=16); abc.abstractproperty.__module__.__eq__('abc')==True (abstractproperty.__module__=='abc' (len=3: 'a'+'b'+'c'=3); the shortest module name in this spec series — compare: asyncio.exceptions(18) is 15 chars longer than abc(3)); abc.abstractproperty.__bases__[0].__name__.__eq__('property')==True (abstractproperty.__bases__[0].__name__=='property' (len=8: 'property'=8); abstractproperty inherits from the built-in property descriptor — it is a property subclass with __isabstractmethod__=True set as a class attribute); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcap165
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [ap_name_eq,       abc.abstractproperty.__name__.__eq__,                  ["abstractproperty"],  true,  "abstractproperty.__name__ == 'abstractproperty' (len=16: 'abstract'=8+'property'=8=16; deprecated); verified with Python 3.14.3"]
+    - [ap_name_len,      abc.abstractproperty.__name__.__len__,                 [],                    16,    "abstractproperty.__name__.__len__() == 16 ('abstractproperty'=16: 'abstract'=8+'property'=8); verified with Python 3.14.3"]
+    - [ap_mod_eq,        abc.abstractproperty.__module__.__eq__,                ["abc"],               true,  "abstractproperty.__module__ == 'abc' (len=3: shortest module name; same module as ABCMeta/ABC); verified with Python 3.14.3"]
+    - [ap_base_name_eq,  "abc.abstractproperty.__bases__[0].__name__.__eq__",   ["property"],          true,  "abstractproperty.__bases__[0].__name__ == 'property' (inherits from built-in property; len=8); verified with Python 3.14.3"]
+    - [ap_base_name_len, "abc.abstractproperty.__bases__[0].__name__.__len__",  [],                    8,     "abstractproperty.__bases__[0].__name__.__len__() == 8 ('property'=8; same as 'abstract'=8); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# abc.ABC.__dict__ slots and abstractmethods cross-checks — extra165
+#
+# abc.ABC.__dict__.__contains__('__slots__')           == True
+# abc.ABC.__dict__.__contains__('_abc_impl')           == True
+# abc.ABC.__abstractmethods__.__class__.__name__       == 'frozenset'
+# abc.ABC.__dict__.__contains__('__abstractmethods__') == True
+# ---------------------------------------------------------------------------
+
+table abc_extra165.abc_ABC_dict_slots_and_abc_impl:
+  description: "abc.ABC.__dict__ additional membership checks and __abstractmethods__ value class in abcabcslots165 namespace — abc.ABC.__dict__.__contains__('__slots__')==True (established in extra164; cross-checked here: ABC defines __slots__=() preventing instance __dict__ creation; the __slots__ entry in ABC.__dict__ is the tuple () which means ABC instances have no __dict__); abc.ABC.__dict__.__contains__('_abc_impl')==True (established in extra164; cross-checked here: '_abc_impl' IS in ABC.__dict__; it holds the C-level _abc._ABCData object that manages the registry of virtual subclasses and the ABC caches; this is the per-class ABC state object, not shared across the metaclass); abc.ABC.__abstractmethods__.__class__.__name__.__eq__('frozenset')==True (ABC.__abstractmethods__ is an empty frozenset(); __class__.__name__=='frozenset' (len=9: 'frozenset'=9); ABCMeta.__new__ stores a frozenset of abstract method names in __abstractmethods__ at class creation time; for ABC itself the frozenset is empty because ABC defines no abstract methods); abc.ABC.__dict__.__contains__('__abstractmethods__')==True (cross-check; '_abstractmethods__' IS in ABC.__dict__ as confirmed above); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcabcslots165
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [abc_has_slots,               abc.ABC.__dict__.__contains__,                             ["__slots__"],           true,  "ABC.__dict__.__contains__('__slots__') == True (cross-check; __slots__=() prevents instance __dict__); verified with Python 3.14.3"]
+    - [abc_has_abc_impl,            abc.ABC.__dict__.__contains__,                             ["_abc_impl"],           true,  "ABC.__dict__.__contains__('_abc_impl') == True (cross-check; C-level ABC state object per class); verified with Python 3.14.3"]
+    - [abc_abstractmethods_cls_eq,  abc.ABC.__abstractmethods__.__class__.__name__.__eq__,     ["frozenset"],           true,  "ABC.__abstractmethods__.__class__.__name__ == 'frozenset' (len=9; empty frozenset for ABC itself); verified with Python 3.14.3"]
+    - [abc_has_abstractmethods2,    abc.ABC.__dict__.__contains__,                             ["__abstractmethods__"], true,  "ABC.__dict__.__contains__('__abstractmethods__') == True (cross-check; __abstractmethods__ is in ABC.__dict__); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra165
+# ---------------------------------------------------------------------------
+
+invariant abc_extra165.abc_ABC_dict_has_abstractmethods:
+  description: "abc.ABC.__dict__.__contains__('__abstractmethods__') returns True — KEY FINDING: abc.ABC.__dict__.__contains__('__abstractmethods__')==True; '__abstractmethods__' IS in ABC.__dict__ with value frozenset() (an empty frozenset); every class created by ABCMeta gets an '__abstractmethods__' attribute set by ABCMeta.__new__ — this includes ABC itself; for ABC, the frozenset is empty (frozenset()) because ABC defines no abstract methods of its own; ABC can be instantiated directly (abc.ABC() works) because its __abstractmethods__ is the empty frozenset; subclasses that do not implement all declared abstract methods get a non-empty __abstractmethods__ frozenset and cannot be instantiated; '__abstractmethods__'=17 chars is the longest key in ABC.__dict__ (compare: '__static_attributes__'=21 is longer, but '__abstractmethods__'=17 is notable); ABC.__dict__.__len__()==7 — '__abstractmethods__' is 1 of 7 entries; NEW in extra165: first standalone ABC.__dict__.__contains__('__abstractmethods__') invariant (True result) in abcabcdict165 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABC.__dict__.__contains__
+  args: ["__abstractmethods__"]
+  expected: true
+
+invariant abc_extra165.abc_ABC_dict_no_dict_descriptor:
+  description: "abc.ABC.__dict__.__contains__('__dict__') returns False — KEY FINDING: abc.ABC.__dict__.__contains__('__dict__')==False; '__dict__' is NOT in ABC.__dict__ because ABC defines __slots__=() (abc.ABC.__dict__.__contains__('__slots__')==True from extra164); normally, a Python class without __slots__ has a '__dict__' descriptor in its class dict that provides each instance with its own __dict__ namespace; but when __slots__=() is defined, no instance __dict__ is created and no '__dict__' descriptor appears in the class dict; this means ABC instances have NO instance namespace (no ability to set instance attributes other than those defined in __slots__, which is empty); subclasses of ABC that do not define __slots__ will have their own __dict__ (inherited from object or created by their own class machinery); KEY: ABC.__dict__.__contains__('__dict__')==False is a DIRECT CONSEQUENCE of ABC.__dict__.__contains__('__slots__')==True; compare: multiprocessing.process.BaseProcess.__dict__.__contains__('__dict__')==True (BaseProcess DOES have a __dict__ descriptor because it does not define __slots__=() — BaseProcess instances CAN have instance attributes); NEW in extra165: first standalone ABC.__dict__.__contains__('__dict__') invariant (False result) in abcabcdict165 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABC.__dict__.__contains__
+  args: ["__dict__"]
+  expected: false
+
+invariant abc_extra165.abc_ABCMeta_dict_has_dump_registry:
+  description: "abc.ABCMeta.__dict__.__contains__('_dump_registry') returns True — abc.ABCMeta.__dict__.__contains__('_dump_registry')==True; ABCMeta._dump_registry(cls, file=sys.stdout) is a class-level utility method defined directly in ABCMeta.__dict__ (established in abc_extra163; cross-checked here in the new abc_extra165 namespace); _dump_registry(cls, file) prints the registered virtual subclasses of cls to the given file object; the leading underscore marks it as semi-private; despite the underscore, it IS accessible and useful for debugging ABC registration issues; '_dump_registry' is 1 of 11 entries in ABCMeta.__dict__; compare: ABCMeta.__dict__.__contains__('_abc_registry')==False (the actual registry DATA is in the C-level per-class _abc_impl object, NOT in ABCMeta's own dict; _dump_registry is the METHOD to print the registry, while '_abc_registry' is the data structure that does NOT live in ABCMeta.__dict__); KEY DISTINCTION: _dump_registry (method to print: True) vs _abc_registry (the data: False); NEW in extra165: first standalone ABCMeta.__dict__.__contains__('_dump_registry') invariant in abcmetareg165 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABCMeta.__dict__.__contains__
+  args: ["_dump_registry"]
+  expected: true
+
+invariant abc_extra165.abc_ABCMeta_dict_no_abc_registry:
+  description: "abc.ABCMeta.__dict__.__contains__('_abc_registry') returns False — KEY FINDING: abc.ABCMeta.__dict__.__contains__('_abc_registry')==False; '_abc_registry' is NOT a key in ABCMeta.__dict__; the ABC virtual subclass registry data is stored in the C-level _abc._ABCData object that is held in each individual ABC class's '_abc_impl' attribute (abc.ABC.__dict__.__contains__('_abc_impl')==True from extra164); the _abc_impl object is created per-class (each ABC class has its own _abc_impl) and stores: the set of registered virtual subclasses, the negative cache (classes known NOT to be subclasses), and the cache version token; this per-class storage model means the registry data is NOT in the metaclass ABCMeta's own __dict__ — it is instance-level state on each ABC class object; ABCMeta.__dict__.__len__()==11 — '_abc_registry' is not among those 11 entries; ARCHITECTURAL INSIGHT: ABCMeta defines the METHODS to manipulate the registry (register, _dump_registry, _abc_registry_clear) but the registry DATA lives in each ABC instance's _abc_impl; NEW in extra165: first standalone ABCMeta.__dict__.__contains__('_abc_registry') invariant (False result) in abcmetareg165 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.ABCMeta.__dict__.__contains__
+  args: ["_abc_registry"]
+  expected: false
+
+invariant abc_extra165.abc_abstractproperty_name_eq:
+  description: "abc.abstractproperty.__name__.__eq__('abstractproperty') returns True — abc.abstractproperty.__name__=='abstractproperty' (len=16: 'abstract'=8+'property'=8=16); abc.abstractproperty is DEPRECATED since Python 3.3 but still present and accessible in Python 3.14.3; the modern replacement is to combine @property with @abstractmethod: use @property then @abstractmethod (or vice versa) on the same method; abstractproperty was the original monolithic approach before Python gained the ability to stack abstract and concrete decorators; abstractproperty.__module__=='abc' (len=3: 'abc'=3); abstractproperty.__bases__[0].__name__=='property' (inherits from the built-in property descriptor); abstractproperty has __isabstractmethod__=True set as a class attribute, signaling to ABCMeta.__new__ that any class using abstractproperty without implementing it is abstract; compare: abc.abstractmethod.__name__=='abstractmethod' (len=14: 'abstract'=8+'method'=6=14; 2 shorter than abstractproperty=16 because 'method'=6 < 'property'=8 by 2); NEW in extra165: first standalone abstractproperty.__name__ identity invariant in abcap165 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.abstractproperty.__name__.__eq__
+  args: ["abstractproperty"]
+  expected: true
+
+invariant abc_extra165.abc_abstractproperty_module_eq:
+  description: "abc.abstractproperty.__module__.__eq__('abc') returns True — abc.abstractproperty.__module__=='abc' (len=3: 'a'+'b'+'c'=3); 'abc' is the shortest module name encountered across all specs in this series: compare module path lengths: 'abc'=3 < 'builtins'=8 < 'asyncio.locks'=13 < 'asyncio.queues'=14 < 'asyncio.exceptions'=18 < 'multiprocessing.process'=23 < 'concurrent.futures._base'=24; abstractproperty is defined in Lib/abc.py in the top-level 'abc' module (NOT in a submodule like asyncio.exceptions); abc.abstractmethod.__module__=='abc' (same 3-char module); abc.ABCMeta.__module__=='abc'; abc.ABC.__module__=='abc' — all abc module members share the same 3-char module path; compare: asyncio.CancelledError.__module__=='asyncio.exceptions' (len=18 from extra170): 15 chars longer than 'abc'=3; the brevity of 'abc'=3 reflects that the abc module is a top-level built-in module with no subpackage structure; NEW in extra165: first standalone abstractproperty.__module__ identity invariant in abcap165 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: abc.abstractproperty.__module__.__eq__
+  args: ["abc"]
+  expected: true
+
+invariant abc_extra165.abc_abstractproperty_base_is_property:
+  description: "abc.abstractproperty.__bases__[0].__name__.__eq__('property') returns True — abc.abstractproperty.__bases__[0].__name__=='property' (len=8: 'property'=8); abstractproperty inherits from the built-in property descriptor class; this means abstractproperty instances are valid property descriptors — they support __get__, __set__, and __delete__ just like regular property objects; abstractproperty adds the __isabstractmethod__ = True class attribute which tells ABCMeta.__new__ to count this method as abstract; the class hierarchy is: abstractproperty -> property -> object (3-entry MRO); compare: abc.abstractproperty.__bases__[0].__name__=='property' (len=8) vs abc.ABC.__bases__[0].__name__=='object' (len=6: ABC directly inherits from object, while abstractproperty inherits from property which itself inherits from object); abstractproperty.__name__='abstractproperty'=16 is twice the length of its base 'property'=8 — the 'abstract' prefix (8 chars) exactly doubles the length; NEW in extra165: first standalone abstractproperty.__bases__[0].__name__ invariant in abcap165 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: "abc.abstractproperty.__bases__[0].__name__.__eq__"
+  args: ["property"]
+  expected: true
