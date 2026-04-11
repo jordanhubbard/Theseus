@@ -1,0 +1,316 @@
+spec: threading_extra173
+version: ">=3.8"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec covers: threading.Lock.__class__.__name__ 'type' (Lock is a C extension type, not a factory function); threading.RLock.__class__.__name__ 'function' (RLock IS a Python factory function); threading.Lock.__name__ 'lock'; threading.TIMEOUT_MAX.__class__.__name__ 'float'; threading.TIMEOUT_MAX.__eq__(9223372036.0) True (Wave 301)."
+    - "threading.Lock.__class__.__name__ == 'type' — threading.Lock is actually the C extension type _thread.lock (not a Python factory function); its __class__.__name__ is 'type' (it IS a class, the metaclass is 'type'). threading.Lock.__name__ is 'lock' (lowercase). Verified with Python 3.14.3."
+    - "threading.RLock.__class__.__name__ == 'function' — threading.RLock is a Python factory function (defined with def RLock() in Lib/threading.py) that creates and returns an _RLock instance; it is NOT a class; its __class__.__name__ is 'function'. Verified with Python 3.14.3."
+    - "threading.Lock.__name__ == 'lock' — the Lock is actually the C extension type _thread.lock; its type __name__ is 'lock' (lowercase), not 'Lock'. Verified with Python 3.14.3."
+    - "threading.TIMEOUT_MAX == 9223372036.0 — on macOS/Darwin 25.4.0 with Python 3.14.3 the value is 9223372036.0. threading.TIMEOUT_MAX.__eq__(9223372036.0) returns True. Verified with Python 3.14.3."
+    - "threading.TIMEOUT_MAX.__class__.__name__ == 'float' — TIMEOUT_MAX is a float constant; verified in extra172 as well. Covered again here with additional equality checks. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: threading.Lock is a C extension type ('type'), NOT a factory function
+#
+# Wave 301 theme: threading.Lock.__class__.__name__ == 'type' (not 'function')
+# because threading.Lock is actually the C extension type _thread.lock.
+#
+# threading.Lock.__class__.__name__ == 'type'
+# threading.Lock.__class__.__name__ != 'function'
+# threading.Lock.__name__ == 'lock'
+# threading.Lock.__name__ != 'Lock'
+#
+# threading.Lock is exposed as a name in the threading module but it is actually
+# the C extension type _thread.lock itself (Modules/_threadmodule.c). Its
+# __class__.__name__ is 'type' (it is a class object, not a function). Its
+# __name__ is 'lock' (lowercase) — the name of the C type, not 'Lock'.
+# This contrasts with threading.RLock, which IS a Python factory function.
+# New to extra173.
+# ---------------------------------------------------------------------------
+
+table threading_extra173.lock_is_type_not_function:
+  description: "threading.Lock: __class__.__name__ 'type' (C extension type); __name__ 'lock' (lowercase); not a factory function; wave 301; new to extra173"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadinglitf173
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [lock_class_type,
+       "Lock.__class__.__name__.__eq__",
+       ["type"],
+       true,
+       "threading.Lock.__class__.__name__.__eq__('type') == True — threading.Lock is the C extension type _thread.lock from Modules/_threadmodule.c, exported directly; as a class object its __class__ is the metaclass 'type'; str.__eq__('type') returns True; new to extra173"]
+    - [lock_class_not_function,
+       "Lock.__class__.__name__.__eq__",
+       ["function"],
+       false,
+       "threading.Lock.__class__.__name__.__eq__('function') == False — threading.Lock is a C extension type (a class object), NOT a Python function; only threading.RLock is a factory function; str.__eq__('function') returns False; new to extra173"]
+    - [lock_name_lock_lowercase,
+       "Lock.__name__.__eq__",
+       ["lock"],
+       true,
+       "threading.Lock.__name__.__eq__('lock') == True — threading.Lock is the C extension type _thread.lock; its type __name__ is 'lock' (lowercase), not 'Lock' (uppercase); the C type is named 'lock' in itertoolsmodule.c; str.__eq__('lock') returns True; new to extra173"]
+    - [lock_name_not_uppercase_lock,
+       "Lock.__name__.__eq__",
+       ["Lock"],
+       false,
+       "threading.Lock.__name__.__eq__('Lock') == False — the C extension type's __name__ is 'lock' (lowercase), not 'Lock' (uppercase); the uppercase 'Lock' is the attribute name in the threading module namespace, but the type's own __name__ is lowercase 'lock'; str.__eq__('Lock') returns False; new to extra173"]
+
+# ---------------------------------------------------------------------------
+# Table 2: threading.RLock is a Python factory function ('function'), NOT a type
+#
+# Wave 301 theme: threading.RLock.__class__.__name__ == 'function' because
+# RLock is a Python factory function (def RLock() in Lib/threading.py).
+#
+# threading.RLock.__class__.__name__ == 'function'
+# threading.RLock.__class__.__name__ != 'type'
+# threading.RLock.__name__ == 'RLock'
+# threading.RLock.__name__ != 'lock'
+#
+# threading.RLock() is a factory function (def RLock(*args, **kwargs)) defined
+# in Lib/threading.py that creates and returns an _RLock instance. Unlike
+# threading.Lock (which is a C extension type), RLock is a Python function.
+# Its __class__.__name__ is 'function' and its __name__ is 'RLock'. New to
+# extra173.
+# ---------------------------------------------------------------------------
+
+table threading_extra173.rlock_is_function_not_type:
+  description: "threading.RLock: __class__.__name__ 'function' (Python factory); __name__ 'RLock'; NOT a type; wave 301; new to extra173"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingrift173
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [rlock_class_function,
+       "RLock.__class__.__name__.__eq__",
+       ["function"],
+       true,
+       "threading.RLock.__class__.__name__.__eq__('function') == True — threading.RLock is a Python factory function defined with def RLock() in Lib/threading.py that creates and returns a _RLock instance; its __class__.__name__ is 'function'; str.__eq__('function') returns True; new to extra173"]
+    - [rlock_class_not_type,
+       "RLock.__class__.__name__.__eq__",
+       ["type"],
+       false,
+       "threading.RLock.__class__.__name__.__eq__('type') == False — threading.RLock is a Python factory function, NOT a C extension type; it differs from threading.Lock which IS a C extension type; str.__eq__('type') returns False; new to extra173"]
+    - [rlock_name_rlock,
+       "RLock.__name__.__eq__",
+       ["RLock"],
+       true,
+       "threading.RLock.__name__.__eq__('RLock') == True — threading.RLock is a Python function named 'RLock'; its __name__ attribute is 'RLock'; str.__eq__('RLock') returns True; new to extra173"]
+    - [rlock_name_ne_lock,
+       "RLock.__name__.__eq__",
+       ["lock"],
+       false,
+       "threading.RLock.__name__.__eq__('lock') == False — RLock.__name__ is 'RLock', not 'lock'; 'lock' is the C type __name__ of threading.Lock; they are distinct; str.__eq__('lock') returns False; new to extra173"]
+
+# ---------------------------------------------------------------------------
+# Table 3: threading.Lock vs threading.RLock class identity asymmetry
+#
+# Wave 301 theme: Lock is a 'type' but RLock is a 'function' — they are
+# asymmetric despite both being used to create locking primitives.
+#
+# threading.Lock.__class__.__name__ != threading.RLock.__class__.__name__
+# threading.Lock.__class__.__name__ == 'type'
+# threading.RLock.__class__.__name__ == 'function'
+# threading.Lock.__name__ != 'RLock'
+#
+# This table highlights the asymmetry: Lock is the raw C type (imported
+# directly from _thread), while RLock is a Python wrapper function. New to
+# extra173.
+# ---------------------------------------------------------------------------
+
+table threading_extra173.lock_rlock_asymmetry:
+  description: "threading.Lock ('type') vs RLock ('function') asymmetry; Lock.__name__ 'lock' != 'RLock'; wave 301; new to extra173"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadinglra173
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [lock_class_type_xcheck,
+       "Lock.__class__.__name__.__eq__",
+       ["type"],
+       true,
+       "threading.Lock.__class__.__name__.__eq__('type') == True — cross-check: Lock is a C extension type so its __class__.__name__ is 'type'; new to extra173"]
+    - [rlock_class_function_xcheck,
+       "RLock.__class__.__name__.__eq__",
+       ["function"],
+       true,
+       "threading.RLock.__class__.__name__.__eq__('function') == True — cross-check: RLock is a Python factory function so its __class__.__name__ is 'function'; new to extra173"]
+    - [lock_class_ne_function,
+       "Lock.__class__.__name__.__eq__",
+       ["function"],
+       false,
+       "threading.Lock.__class__.__name__.__eq__('function') == False — confirming the asymmetry: Lock is 'type' not 'function', while RLock is 'function' not 'type'; they have opposite __class__.__name__ values; str.__eq__('function') returns False; new to extra173"]
+    - [lock_name_ne_rlock,
+       "Lock.__name__.__eq__",
+       ["RLock"],
+       false,
+       "threading.Lock.__name__.__eq__('RLock') == False — Lock.__name__ is 'lock' (lowercase C type name), not 'RLock'; the two locking primitives have entirely different names and __class__ values; str.__eq__('RLock') returns False; new to extra173"]
+
+# ---------------------------------------------------------------------------
+# Table 4: threading.TIMEOUT_MAX exact value and equality
+#
+# Wave 301 theme: threading.TIMEOUT_MAX.__eq__(9223372036.0) == True (the
+# exact value on macOS/Darwin 25.4.0 with Python 3.14.3).
+#
+# threading.TIMEOUT_MAX.__eq__(9223372036.0) == True
+# threading.TIMEOUT_MAX.__class__.__name__ == 'float'
+# threading.TIMEOUT_MAX.__eq__(0.0) == False
+# threading.TIMEOUT_MAX.__eq__(9223372036) == True
+#
+# threading.TIMEOUT_MAX is the maximum value allowed for the timeout parameter
+# of blocking threading functions. On macOS/Darwin 25.4.0 with Python 3.14.3
+# its exact value is 9223372036.0. TIMEOUT_MAX was already confirmed as a
+# positive float > 0 in extra172; this spec adds the exact equality check.
+# New to extra173.
+# ---------------------------------------------------------------------------
+
+table threading_extra173.timeout_max_exact_value:
+  description: "threading.TIMEOUT_MAX: __eq__(9223372036.0) True; class float; not 0.0; wave 301; new to extra173"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingtmev173
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [timeout_max_eq_9223372036,
+       "TIMEOUT_MAX.__eq__",
+       [9223372036.0],
+       true,
+       "threading.TIMEOUT_MAX.__eq__(9223372036.0) == True — on macOS/Darwin 25.4.0 with Python 3.14.3 threading.TIMEOUT_MAX has the exact value 9223372036.0; float.__eq__(9223372036.0) returns True; new to extra173"]
+    - [timeout_max_class_float_xcheck,
+       "TIMEOUT_MAX.__class__.__name__.__eq__",
+       ["float"],
+       true,
+       "threading.TIMEOUT_MAX.__class__.__name__.__eq__('float') == True — cross-check confirming TIMEOUT_MAX is a float; its __class__.__name__ is 'float'; str.__eq__('float') returns True; new to extra173"]
+    - [timeout_max_ne_zero,
+       "TIMEOUT_MAX.__eq__",
+       [0.0],
+       false,
+       "threading.TIMEOUT_MAX.__eq__(0.0) == False — TIMEOUT_MAX is 9223372036.0, not 0.0; it is a very large positive value, not zero; float.__eq__(0.0) returns False; new to extra173"]
+    - [timeout_max_eq_int_9223372036,
+       "TIMEOUT_MAX.__eq__",
+       [9223372036],
+       true,
+       "threading.TIMEOUT_MAX.__eq__(9223372036) == True — Python float.__eq__ compares equal to an int with the same numeric value; 9223372036.0 == 9223372036 (int) in Python; float.__eq__(9223372036) returns True; new to extra173"]
+
+# ---------------------------------------------------------------------------
+# Table 5: threading.Lock __name__ length and TIMEOUT_MAX value cross-checks
+#
+# Wave 301 theme: __name__.__len__() for 'lock' (4) and 'RLock' (5); and
+# TIMEOUT_MAX value relative magnitude checks.
+#
+# threading.Lock.__name__.__len__() == 4
+# threading.RLock.__name__.__len__() == 5
+# threading.TIMEOUT_MAX.__gt__(1000000.0) == True
+# threading.TIMEOUT_MAX.__lt__(0.0) == False
+#
+# 'lock' is 4 characters, 'RLock' is 5 characters. TIMEOUT_MAX (9223372036.0)
+# is much greater than 1000000.0. These are additional cross-verification
+# checks. New to extra173.
+# ---------------------------------------------------------------------------
+
+table threading_extra173.name_lengths_and_timeout_magnitude:
+  description: "threading: Lock.__name__ len 4, RLock.__name__ len 5; TIMEOUT_MAX > 1000000; wave 301; new to extra173"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingnltm173
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [lock_name_len_4,
+       "Lock.__name__.__len__",
+       [],
+       4,
+       "threading.Lock.__name__.__len__() == 4 — the C type __name__ 'lock' has exactly 4 characters: l-o-c-k; str.__len__() returns 4; new to extra173"]
+    - [rlock_name_len_5,
+       "RLock.__name__.__len__",
+       [],
+       5,
+       "threading.RLock.__name__.__len__() == 5 — the function __name__ 'RLock' has exactly 5 characters: R-L-o-c-k; str.__len__() returns 5; new to extra173"]
+    - [timeout_max_gt_1e6,
+       "TIMEOUT_MAX.__gt__",
+       [1000000.0],
+       true,
+       "threading.TIMEOUT_MAX.__gt__(1000000.0) == True — TIMEOUT_MAX is 9223372036.0, which is much greater than 1000000.0; float.__gt__(1000000.0) returns True; new to extra173"]
+    - [timeout_max_not_negative,
+       "TIMEOUT_MAX.__lt__",
+       [0.0],
+       false,
+       "threading.TIMEOUT_MAX.__lt__(0.0) == False — TIMEOUT_MAX is a large positive float (9223372036.0); it is NOT less than 0.0; float.__lt__(0.0) returns False; new to extra173"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra173
+# ---------------------------------------------------------------------------
+
+invariant threading_extra173.lock_class_type:
+  description: "threading.Lock.__class__.__name__ == 'type' — Lock is the C extension type _thread.lock; as a class object its metaclass is 'type'; wave 301; new to extra173"
+  kind: python_call_eq
+  function: Lock.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant threading_extra173.rlock_class_function:
+  description: "threading.RLock.__class__.__name__ == 'function' — RLock is a Python factory function (def RLock() in Lib/threading.py), not a C extension type; wave 301; new to extra173"
+  kind: python_call_eq
+  function: RLock.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant threading_extra173.lock_name_lock_lowercase:
+  description: "threading.Lock.__name__ == 'lock' — the C extension type's __name__ is 'lock' (lowercase), not 'Lock'; wave 301; new to extra173"
+  kind: python_call_eq
+  function: Lock.__name__.__eq__
+  args: ["lock"]
+  expected: true
+
+invariant threading_extra173.rlock_name_rlock:
+  description: "threading.RLock.__name__ == 'RLock' — the Python factory function's __name__ is 'RLock'; wave 301; new to extra173"
+  kind: python_call_eq
+  function: RLock.__name__.__eq__
+  args: ["RLock"]
+  expected: true
+
+invariant threading_extra173.timeout_max_class_float:
+  description: "threading.TIMEOUT_MAX.__class__.__name__ == 'float' — TIMEOUT_MAX is a float constant representing the maximum allowed timeout; wave 301; new to extra173"
+  kind: python_call_eq
+  function: TIMEOUT_MAX.__class__.__name__.__eq__
+  args: ["float"]
+  expected: true
+
+invariant threading_extra173.timeout_max_eq_9223372036:
+  description: "threading.TIMEOUT_MAX.__eq__(9223372036.0) == True — exact value on macOS/Darwin 25.4.0 with Python 3.14.3; wave 301; new to extra173"
+  kind: python_call_eq
+  function: TIMEOUT_MAX.__eq__
+  args: [9223372036.0]
+  expected: true
+
+invariant threading_extra173.lock_class_not_function:
+  description: "threading.Lock.__class__.__name__ != 'function' — Lock is a C extension type (metaclass 'type'), not a Python factory function like RLock; wave 301; new to extra173"
+  kind: python_call_eq
+  function: Lock.__class__.__name__.__eq__
+  args: ["function"]
+  expected: false
+
+invariant threading_extra173.timeout_max_gt_1e6:
+  description: "threading.TIMEOUT_MAX.__gt__(1000000.0) == True — TIMEOUT_MAX (9223372036.0) is vastly greater than 1000000.0; wave 301; new to extra173"
+  kind: python_call_eq
+  function: TIMEOUT_MAX.__gt__
+  args: [1000000.0]
+  expected: true
