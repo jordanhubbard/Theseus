@@ -1,0 +1,139 @@
+spec: multiprocessing_extra172
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html — Python multiprocessing module documentation"
+    - "https://docs.python.org/3/library/multiprocessing.html#pipes-and-queues — multiprocessing Queue and Pipe documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/multiprocessing/queues.py"
+    - "CPython source: Lib/multiprocessing/context.py"
+    - "CPython source: Lib/multiprocessing/process.py"
+  notes:
+    - "This spec covers: multiprocessing.queues.Queue.__name__=='Queue' (the class name); multiprocessing.queues.Queue.__module__=='multiprocessing.queues' (note: multiprocessing.Queue is a method on the context, not the class); multiprocessing.queues.Queue.__mro__.__len__()==2 (Queue > object); multiprocessing.queues.SimpleQueue.__mro__.__len__()==2 (SimpleQueue > object); multiprocessing.Pipe.__module__=='multiprocessing.context' (Pipe is a bound method on the DefaultContext, not a class); multiprocessing.Pipe.__name__=='Pipe'; multiprocessing.current_process.__name__=='current_process' and __module__=='multiprocessing.process'. KEY FINDINGS: multiprocessing.Queue is a bound method on the context object (not the class); the actual Queue class is multiprocessing.queues.Queue; multiprocessing.Pipe is also a bound method on the context with __module__=='multiprocessing.context'. All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "multiprocessing.queues.Queue.__mro__.__len__()==2: Queue (in multiprocessing.queues) inherits directly from object; MRO: [multiprocessing.queues.Queue, object]. Verified with Python 3.14.3."
+    - "multiprocessing.queues.SimpleQueue.__mro__.__len__()==2: SimpleQueue also inherits directly from object; MRO: [multiprocessing.queues.SimpleQueue, object]. Verified with Python 3.14.3."
+    - "multiprocessing.Pipe.__module__=='multiprocessing.context': Pipe is a bound method (BaseContext.Pipe) on the DefaultContext instance; its __module__ reflects the context module where it is defined. Verified with Python 3.14.3."
+    - "multiprocessing.current_process.__module__=='multiprocessing.process': current_process is a function defined in multiprocessing.process. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# multiprocessing.queues.Queue class identity — extra172
+#
+# multiprocessing.queues.Queue.__name__  == 'Queue'
+# multiprocessing.queues.Queue.__module__ == 'multiprocessing.queues'
+# multiprocessing.queues.Queue.__mro__.__len__() == 2
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra172.mp_queue_class_identity:
+  description: "multiprocessing.queues.Queue class identity checks in mpqueue172id namespace — multiprocessing.queues.Queue.__name__.__eq__('Queue')==True (the Queue class name; 'Queue'=5 chars; multiprocessing.queues.Queue is the actual Queue class; NOTE: multiprocessing.Queue is a bound method on the DefaultContext instance — type(multiprocessing.Queue) is method, not a class; to get the class itself one must import multiprocessing.queues directly); multiprocessing.queues.Queue.__module__.__eq__('multiprocessing.queues')==True ('multiprocessing.queues'=22: 'multiprocessing'=15+'.'=1+'queues'=6=22; the Queue class is defined in Lib/multiprocessing/queues.py); multiprocessing.queues.Queue.__mro__.__len__()==2 (Queue inherits directly from object; MRO: [multiprocessing.queues.Queue, object]; this minimal 2-entry MRO is consistent with multiprocessing's design philosophy of direct class definitions without mixin composition — contrast asyncio.Queue.__mro__.__len__()==3 which uses _LoopBoundMixin); multiprocessing.queues.Queue.__mro__[0].__name__.__eq__('Queue')==True (entry 0: Queue itself); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: mpqueue172id
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [q_name_eq,      multiprocessing.queues.Queue.__name__.__eq__,               ["Queue"],                    true,  "Queue.__name__ == 'Queue' (len=5; the actual class in multiprocessing.queues); verified with Python 3.14.3"]
+    - [q_mod_eq,       multiprocessing.queues.Queue.__module__.__eq__,              ["multiprocessing.queues"],   true,  "Queue.__module__ == 'multiprocessing.queues' (len=22; defined in Lib/multiprocessing/queues.py); verified with Python 3.14.3"]
+    - [q_mro_len,      multiprocessing.queues.Queue.__mro__.__len__,               [],                           2,     "Queue.__mro__.__len__() == 2 (Queue > object; minimal MRO; no mixins unlike asyncio.Queue which has len=3); verified with Python 3.14.3"]
+    - [q_mro0_name,    "multiprocessing.queues.Queue.__mro__[0].__name__.__eq__",    ["Queue"],                    true,  "Queue.__mro__[0].__name__ == 'Queue' (the Queue class itself at index 0 of 2); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# multiprocessing.queues.SimpleQueue MRO — extra172
+#
+# multiprocessing.queues.SimpleQueue.__mro__.__len__() == 2
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra172.mp_simplequeue_identity:
+  description: "multiprocessing.queues.SimpleQueue class identity and MRO checks in mpqueue172sq namespace — multiprocessing.queues.SimpleQueue.__name__.__eq__('SimpleQueue')==True ('SimpleQueue'=11: 'Simple'=6+'Queue'=5=11); multiprocessing.queues.SimpleQueue.__module__.__eq__('multiprocessing.queues')==True (same module as Queue; 'multiprocessing.queues'=22; both Queue and SimpleQueue are defined in Lib/multiprocessing/queues.py); multiprocessing.queues.SimpleQueue.__mro__.__len__()==2 (SimpleQueue also inherits directly from object; MRO: [multiprocessing.queues.SimpleQueue, object]; same minimal 2-entry MRO as Queue); DESIGN DISTINCTION: SimpleQueue is a simplified queue that does not use the background thread for puts that Queue uses; SimpleQueue is safe to use in processes that have been created with os.fork() without pre-existing queue state issues; Queue is more feature-rich (supports get_nowait, full, empty, qsize, join, task_done) while SimpleQueue is simpler (just put, get, empty, close); both share the same minimal 2-entry MRO; multiprocessing.queues.Queue.__mro__.__len__()==2 (cross-check: both Queue and SimpleQueue have identical MRO lengths); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: mpqueue172sq
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [sq_name_eq,    multiprocessing.queues.SimpleQueue.__name__.__eq__,      ["SimpleQueue"],              true,  "SimpleQueue.__name__ == 'SimpleQueue' (len=11: 'Simple'=6+'Queue'=5=11); verified with Python 3.14.3"]
+    - [sq_mod_eq,     multiprocessing.queues.SimpleQueue.__module__.__eq__,     ["multiprocessing.queues"],   true,  "SimpleQueue.__module__ == 'multiprocessing.queues' (same module as Queue; len=22); verified with Python 3.14.3"]
+    - [sq_mro_len,    multiprocessing.queues.SimpleQueue.__mro__.__len__,       [],                           2,     "SimpleQueue.__mro__.__len__() == 2 (SimpleQueue > object; same minimal MRO as Queue); verified with Python 3.14.3"]
+    - [q_mro_xchk,    multiprocessing.queues.Queue.__mro__.__len__,             [],                           2,     "Queue.__mro__.__len__() == 2 (cross-check; Queue and SimpleQueue share identical MRO length); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# multiprocessing.Pipe and multiprocessing.current_process identity — extra172
+#
+# multiprocessing.Pipe.__module__  == 'multiprocessing.context'
+# multiprocessing.Pipe.__name__    == 'Pipe'
+# multiprocessing.current_process.__name__   == 'current_process'
+# multiprocessing.current_process.__module__ == 'multiprocessing.process'
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra172.mp_pipe_and_current_process_identity:
+  description: "multiprocessing.Pipe and multiprocessing.current_process identity checks in mpqueue172pipe namespace — multiprocessing.Pipe.__module__.__eq__('multiprocessing.context')==True (multiprocessing.Pipe is a bound method on the DefaultContext instance — it is BaseContext.Pipe bound to the default context; __module__=='multiprocessing.context' (len=23: 'multiprocessing'=15+'.'=1+'context'=7=23); Pipe is a function/method that returns a pair of Connection objects (conn1, conn2) for interprocess communication); multiprocessing.Pipe.__name__.__eq__('Pipe')==True ('Pipe'=4 chars; the method name); multiprocessing.current_process.__name__.__eq__('current_process')==True ('current_process'=15: 'current'=7+'_'=1+'process'=7=15; current_process() returns the Process object corresponding to the current process); multiprocessing.current_process.__module__.__eq__('multiprocessing.process')==True ('multiprocessing.process'=23: 'multiprocessing'=15+'.'=1+'process'=7=23; len=23 same as 'multiprocessing.context'=23); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: mpqueue172pipe
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pipe_mod_eq,   multiprocessing.Pipe.__module__.__eq__,              ["multiprocessing.context"],   true,  "Pipe.__module__ == 'multiprocessing.context' (len=23; Pipe is a bound method on DefaultContext); verified with Python 3.14.3"]
+    - [pipe_name_eq,  multiprocessing.Pipe.__name__.__eq__,                ["Pipe"],                      true,  "Pipe.__name__ == 'Pipe' (len=4; the bound method name for creating pipe connections); verified with Python 3.14.3"]
+    - [cp_name_eq,    multiprocessing.current_process.__name__.__eq__,     ["current_process"],           true,  "current_process.__name__ == 'current_process' (len=15: 'current'=7+'_'=1+'process'=7=15); verified with Python 3.14.3"]
+    - [cp_mod_eq,     multiprocessing.current_process.__module__.__eq__,   ["multiprocessing.process"],   true,  "current_process.__module__ == 'multiprocessing.process' (len=23; same len as 'multiprocessing.context'); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra172
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra172.mp_queues_Queue_name_eq:
+  description: "multiprocessing.queues.Queue.__name__.__eq__('Queue') returns True — multiprocessing.queues.Queue.__name__=='Queue' (len=5: 'Queue'=5); the actual Queue class lives in multiprocessing.queues; NOTE: multiprocessing.Queue (accessed at the package level) is NOT the class — it is a bound method on the DefaultContext instance: type(multiprocessing.Queue) is <class 'method'>; to access the class directly, import multiprocessing.queues and use multiprocessing.queues.Queue; Queue.__name__=='Queue' confirms the class's own name attribute; the multiprocessing.Queue() call creates and returns a Queue instance using the process start method context (fork, spawn, or forkserver depending on platform); COMPARISON: 'Queue'=5 < 'SimpleQueue'=11 (SimpleQueue is 6 chars longer); both classes are in multiprocessing.queues with the same 2-entry MRO; NEW in extra172: first standalone multiprocessing.queues.Queue.__name__ identity invariant in mpqueue172id namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.queues.Queue.__name__.__eq__
+  args: ["Queue"]
+  expected: true
+
+invariant multiprocessing_extra172.mp_queues_Queue_module_eq:
+  description: "multiprocessing.queues.Queue.__module__.__eq__('multiprocessing.queues') returns True — multiprocessing.queues.Queue.__module__=='multiprocessing.queues' (len=22: 'multiprocessing'=15+'.'=1+'queues'=6=22); Queue is defined in Lib/multiprocessing/queues.py; the module path 'multiprocessing.queues'=22 is 1 char shorter than 'multiprocessing.context'=23 and 'multiprocessing.process'=23 (those have 7-char suffix 'context'/'process' vs 6-char 'queues'); MODULE PATH LENGTHS in multiprocessing: 'multiprocessing.queues'=22 < 'multiprocessing.context'=23 == 'multiprocessing.process'=23 < 'multiprocessing.managers'=24; COMPARISON: asyncio's Queue class lives in asyncio.queues (__module__=='asyncio.queues'; len=13) while multiprocessing's Queue lives in multiprocessing.queues (__module__=='multiprocessing.queues'; len=22); both are in a .queues submodule of their respective package — parallel naming convention; NEW in extra172: first standalone Queue.__module__ invariant in mpqueue172id namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.queues.Queue.__module__.__eq__
+  args: ["multiprocessing.queues"]
+  expected: true
+
+invariant multiprocessing_extra172.mp_queues_Queue_mro_len:
+  description: "multiprocessing.queues.Queue.__mro__.__len__() returns 2 — multiprocessing.queues.Queue.__mro__.__len__()==2; MRO: [multiprocessing.queues.Queue, object]; Queue inherits directly from object with no intermediate base classes; this minimal 2-entry MRO is consistent with all other root multiprocessing classes in this spec series: Pool(2), BaseProcess(2), BaseManager(2), ApplyResult(2) (all from extra171); CONTRAST: asyncio.Queue.__mro__.__len__()==3 (asyncio's Queue inherits from _LoopBoundMixin; adds an event-loop binding mixin at index 1); multiprocessing.queues.Queue's flat MRO means all queue functionality is defined directly on the Queue class itself without mixin composition; the internal implementation uses shared memory (multiprocessing.Value and multiprocessing.Lock) for cross-process synchronization but this is achieved through instance attributes not class inheritance; MRO ORDERING: Queue(2)==SimpleQueue(2) (both have minimal MRO); NEW in extra172: first standalone multiprocessing.queues.Queue.__mro__.__len__ invariant in mpqueue172id namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.queues.Queue.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant multiprocessing_extra172.mp_Pipe_module_eq:
+  description: "multiprocessing.Pipe.__module__.__eq__('multiprocessing.context') returns True — multiprocessing.Pipe.__module__=='multiprocessing.context' (len=23: 'multiprocessing'=15+'.'=1+'context'=7=23); multiprocessing.Pipe is a bound method of the DefaultContext instance (the default context is the module-level object that dispatches to fork/spawn/forkserver depending on platform); Pipe is defined as a method on BaseContext in Lib/multiprocessing/context.py; multiprocessing.Pipe(duplex=True) returns two Connection objects (conn1, conn2); if duplex is True (default), both connections are read-write; if duplex is False, conn1 is read-only and conn2 is write-only; CONTRAST: multiprocessing.current_process.__module__=='multiprocessing.process' (len=23; same length as 'multiprocessing.context'=23 — both have 7-character suffixes); multiprocessing.Pipe is a METHOD not a class (type is 'method') while multiprocessing.Queue is also a METHOD on the context; the actual Queue class is in multiprocessing.queues; NEW in extra172: first standalone Pipe.__module__ invariant in mpqueue172pipe namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.Pipe.__module__.__eq__
+  args: ["multiprocessing.context"]
+  expected: true
+
+invariant multiprocessing_extra172.mp_current_process_name_eq:
+  description: "multiprocessing.current_process.__name__.__eq__('current_process') returns True — multiprocessing.current_process.__name__=='current_process' (len=15: 'current'=7+'_'=1+'process'=7=15); multiprocessing.current_process is a function defined in multiprocessing.process; calling current_process() returns the BaseProcess object for the currently running process; in the main process, current_process().name is typically 'MainProcess'; NAME LENGTH: 'current_process'=15 matches asyncio.get_event_loop.__name__='get_event_loop'=14 (1 shorter; from prior asyncio specs); 'current_process'=15: first char 'c', 7 for 'current', 1 underscore, 7 for 'process' — the function name encodes what it does (get the CURRENT PROCESS object); CROSS-REFERENCE: multiprocessing.current_process.__module__=='multiprocessing.process' (len=23) — same module as BaseProcess class; current_process() is the user-facing API to access the running process's BaseProcess instance; NEW in extra172: first standalone current_process.__name__ invariant in mpqueue172pipe namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.current_process.__name__.__eq__
+  args: ["current_process"]
+  expected: true
+
+invariant multiprocessing_extra172.mp_current_process_module_eq:
+  description: "multiprocessing.current_process.__module__.__eq__('multiprocessing.process') returns True — multiprocessing.current_process.__module__=='multiprocessing.process' (len=23: 'multiprocessing'=15+'.'=1+'process'=7=23); current_process is defined in Lib/multiprocessing/process.py alongside the BaseProcess class and the Process alias; MODULE PATH LENGTHS: 'multiprocessing.process'=23 == 'multiprocessing.context'=23 (both 23 chars; 7-char suffixes 'process' and 'context'); 'multiprocessing.queues'=22 (1 shorter; 6-char suffix); 'multiprocessing.managers'=24 (1 longer; 8-char suffix); FUNCTION LOCATION: current_process is defined at module level in process.py — it delegates to _current_process which is a thread-local variable holding the current BaseProcess; the function is simple: def current_process(): return _current_process; despite its simplicity, it is a key API because BaseProcess stores the process name, pid, authkey, and daemon flag; NEW in extra172: first standalone current_process.__module__ invariant in mpqueue172pipe namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.current_process.__module__.__eq__
+  args: ["multiprocessing.process"]
+  expected: true

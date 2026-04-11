@@ -1,0 +1,140 @@
+spec: io_extra180
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+  notes:
+    - "This spec covers: io class MRO analysis for RawIOBase, BufferedIOBase, TextIOBase, BytesIO, StringIO, and IOBase."
+    - "io.IOBase.__mro__.__len__() == 3 — MRO is [IOBase, _IOBase, object]; IOBase is the Python ABC wrapper inheriting from the C class _IOBase."
+    - "io.RawIOBase.__mro__.__len__() == 5 — MRO is [RawIOBase, _RawIOBase, IOBase, _IOBase, object]; two Python wrappers each backed by a C class."
+    - "io.BufferedIOBase.__mro__.__len__() == 5 — MRO is [BufferedIOBase, _BufferedIOBase, IOBase, _IOBase, object]; same 5-step structure as RawIOBase."
+    - "io.TextIOBase.__mro__.__len__() == 5 — MRO is [TextIOBase, _TextIOBase, IOBase, _IOBase, object]; same 5-step structure as RawIOBase and BufferedIOBase."
+    - "io.BytesIO.__mro__.__len__() == 4 — MRO is [BytesIO, _BufferedIOBase, _IOBase, object]; BytesIO is a C class inheriting directly from the C-level _BufferedIOBase."
+    - "io.StringIO.__mro__.__len__() == 4 — MRO is [StringIO, _TextIOBase, _IOBase, object]; StringIO is a C class inheriting directly from the C-level _TextIOBase."
+    - "The three base ABC classes (RawIOBase, BufferedIOBase, TextIOBase) all have MRO length 5; the two concrete C classes (BytesIO, StringIO) have MRO length 4."
+    - "IOBase MRO entry names: mro[0]='IOBase' (len=6), mro[1]='_IOBase' (len=7), mro[2]='object' (len=6)."
+    - "RawIOBase MRO entry mro[1].__name__ == '_RawIOBase' (len=10: '_' (1) + 'RawIOBase' (9) = 10)."
+    - "BytesIO MRO entry mro[1].__name__ == '_BufferedIOBase' (len=15: '_' (1) + 'BufferedIOBase' (14) = 15)."
+    - "StringIO MRO entry mro[1].__name__ == '_TextIOBase' (len=11: '_' (1) + 'TextIOBase' (10) = 11)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io MRO lengths — IOBase, RawIOBase, BufferedIOBase
+# IOBase.__mro__.__len__() == 3 (IOBase > _IOBase > object)
+# RawIOBase.__mro__.__len__() == 5 (RawIOBase > _RawIOBase > IOBase > _IOBase > object)
+# BufferedIOBase.__mro__.__len__() == 5 (same 5-step pattern)
+# ---------------------------------------------------------------------------
+
+table io_extra180.mro_lengths_group1:
+  description: "MRO lengths: IOBase (len=3), RawIOBase (len=5), BufferedIOBase (len=5); RawIOBase and BufferedIOBase tie at 5; IOBase (3) < BytesIO=StringIO (4) < RawIOBase=BufferedIOBase=TextIOBase (5)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: iomro180
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [iobase_mro_len,     IOBase.__mro__.__len__,         [], 3, "io.IOBase.__mro__.__len__() == 3 — MRO is [IOBase, _IOBase, object]; IOBase is the top-level Python ABC wrapper in the io class hierarchy; it inherits from the C class _IOBase which provides the concrete implementations; the 3-step MRO (Python-ABC > C-impl > object) is the shortest in the io ABC family; IOBase is the root from which RawIOBase (5), BufferedIOBase (5), and TextIOBase (5) all inherit, so it contributes the last 3 steps of each of their 5-step MROs; IOBase (3) < BytesIO=StringIO (4) < RawIOBase=BufferedIOBase=TextIOBase (5): IOBase is the minimum in the MRO-length ordering; confirmed Python 3.14.3 macOS"]
+    - [rawiobase_mro_len,  RawIOBase.__mro__.__len__,      [], 5, "io.RawIOBase.__mro__.__len__() == 5 — MRO is [RawIOBase, _RawIOBase, IOBase, _IOBase, object]; RawIOBase follows the same Python-wrapper + C-impl pattern twice: RawIOBase (Python ABC) > _RawIOBase (C impl) > IOBase (Python ABC) > _IOBase (C impl) > object; this 5-step MRO is shared by all three ABC branch classes: RawIOBase, BufferedIOBase, and TextIOBase — a three-way tie at 5; RawIOBase (5) > BytesIO (4) by 1: the ABC class has one more MRO step than the concrete BytesIO class because RawIOBase adds the _RawIOBase C layer; confirmed Python 3.14.3 macOS"]
+    - [bufiobase_mro_len,  BufferedIOBase.__mro__.__len__, [], 5, "io.BufferedIOBase.__mro__.__len__() == 5 — MRO is [BufferedIOBase, _BufferedIOBase, IOBase, _IOBase, object]; BufferedIOBase follows the same 5-step pattern as RawIOBase and TextIOBase: Python-ABC > C-impl > Python-ABC > C-impl > object; the three-way tie at 5 (RawIOBase, BufferedIOBase, TextIOBase) reflects the uniform dual-layer design of the io ABC hierarchy; BufferedIOBase (5) == RawIOBase (5) == TextIOBase (5): all three io branch-level ABCs have MRO length 5; BufferedIOBase sits between IOBase (3) and BytesIO (4) in terms of concrete concreteness but has the longest MRO (5) because it is an ABC, not a C class; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# io MRO lengths — TextIOBase, BytesIO, StringIO
+# TextIOBase.__mro__.__len__() == 5 (TextIOBase > _TextIOBase > IOBase > _IOBase > object)
+# BytesIO.__mro__.__len__() == 4 (BytesIO > _BufferedIOBase > _IOBase > object)
+# StringIO.__mro__.__len__() == 4 (StringIO > _TextIOBase > _IOBase > object)
+# ---------------------------------------------------------------------------
+
+table io_extra180.mro_lengths_group2:
+  description: "MRO lengths: TextIOBase (len=5), BytesIO (len=4), StringIO (len=4); BytesIO and StringIO tie at 4; TextIOBase joins RawIOBase and BufferedIOBase at 5; BytesIO and StringIO are C classes that skip the Python-level ABC wrapper"
+  kind: python_call_eq
+  category: identity
+  id_prefix: iomro180
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [textiobase_mro_len, TextIOBase.__mro__.__len__, [], 5, "io.TextIOBase.__mro__.__len__() == 5 — MRO is [TextIOBase, _TextIOBase, IOBase, _IOBase, object]; TextIOBase completes the three-way tie at 5 with RawIOBase and BufferedIOBase; all three io branch ABC classes (Raw, Buffered, Text) have MRO length 5 because they all follow the same Python-ABC > C-impl > IOBase-ABC > _IOBase-C > object pattern; TextIOBase (5) > StringIO (4) by 1: the abstract TextIOBase has one more MRO step than the concrete StringIO because TextIOBase adds _TextIOBase in its chain while StringIO goes directly to _TextIOBase without the Python-level wrapper; confirmed Python 3.14.3 macOS"]
+    - [bytesio_mro_len,    BytesIO.__mro__.__len__,    [], 4, "io.BytesIO.__mro__.__len__() == 4 — MRO is [BytesIO, _BufferedIOBase, _IOBase, object]; BytesIO is a concrete C class that inherits directly from the C-level _BufferedIOBase, skipping the Python-level BufferedIOBase ABC wrapper; the 4-step MRO (C-concrete > C-ABC > C-base > object) has no Python-level ABC wrappers; BytesIO (4) < RawIOBase=BufferedIOBase=TextIOBase (5) by 1: the missing step is the Python-level ABC (BufferedIOBase) that BytesIO bypasses; BytesIO (4) == StringIO (4): a two-way tie between the two in-memory stream implementations; confirmed Python 3.14.3 macOS"]
+    - [stringio_mro_len,   StringIO.__mro__.__len__,   [], 4, "io.StringIO.__mro__.__len__() == 4 — MRO is [StringIO, _TextIOBase, _IOBase, object]; StringIO is a concrete C class that inherits directly from the C-level _TextIOBase, skipping the Python-level TextIOBase ABC wrapper; the 4-step MRO parallels BytesIO: C-concrete > C-ABC > C-base > object with no Python-level ABC middle layer; StringIO (4) == BytesIO (4): the two in-memory stream classes — bytes-based BytesIO and text-based StringIO — have identical MRO length 4; StringIO (4) < TextIOBase (5) by 1: the Python-level TextIOBase wrapper adds the extra step; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# io MRO entry names for IOBase, BytesIO, StringIO
+# IOBase.__mro__[1].__name__ == '_IOBase' (len=7)
+# BytesIO.__mro__[1].__name__ == '_BufferedIOBase' (len=15)
+# StringIO.__mro__[1].__name__ == '_TextIOBase' (len=11)
+# ---------------------------------------------------------------------------
+
+table io_extra180.mro_entry_names:
+  description: "MRO entry names: IOBase.mro[1]='_IOBase' (len=7), BytesIO.mro[1]='_BufferedIOBase' (len=15), StringIO.mro[1]='_TextIOBase' (len=11); all mro[0].__name__ values equal the class's own __name__"
+  kind: python_call_eq
+  category: identity
+  id_prefix: iomro180
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [iobase_mro0_name,    "IOBase.__mro__[0].__name__.__eq__",    ["IOBase"],          true, "io.IOBase.__mro__[0].__name__ == 'IOBase' — the first entry in any class's MRO is the class itself; IOBase.__mro__[0] is IOBase; 'IOBase' has 6 characters: 'IO' (2) + 'Base' (4) = 6; this confirms the MRO tuple structure: mro[0] is always the class itself, matching io.IOBase.__name__ == 'IOBase'; the identity of mro[0] with the class itself is a fundamental Python MRO guarantee (C3 linearization always starts with the class itself); confirmed Python 3.14.3 macOS"]
+    - [iobase_mro1_name,    "IOBase.__mro__[1].__name__.__eq__",    ["_IOBase"],         true, "io.IOBase.__mro__[1].__name__ == '_IOBase' — the second MRO entry for IOBase is the C-extension class _IOBase; '_IOBase' has 7 characters: '_' (1) + 'IOBase' (6) = 7; _IOBase (7) is 1 character longer than IOBase (6) due to the leading underscore that marks it as a private C implementation; io.IOBase (the Python ABC wrapper) inherits from io._IOBase (the C implementation class), so _IOBase appears at mro[1]; _IOBase provides the concrete implementations of close, flush, readline, readlines, and writelines; confirmed Python 3.14.3 macOS"]
+    - [bytesio_mro1_name,   "BytesIO.__mro__[1].__name__.__eq__",   ["_BufferedIOBase"], true, "io.BytesIO.__mro__[1].__name__ == '_BufferedIOBase' — BytesIO inherits directly from the C-level _BufferedIOBase (len=15: '_' (1) + 'BufferedIOBase' (14) = 15); BytesIO skips the Python-level BufferedIOBase ABC, so _BufferedIOBase appears at mro[1] rather than at mro[2]; this is why BytesIO.__mro__.__len__() == 4 rather than 5: one fewer step because the Python-level ABC wrapper is absent from the MRO; '_BufferedIOBase' (15 chars) is the longest class name encountered in the MRO entry names of this table: IOBase (6) < _IOBase (7) < _TextIOBase (11) < _BufferedIOBase (15); confirmed Python 3.14.3 macOS"]
+    - [stringio_mro1_name,  "StringIO.__mro__[1].__name__.__eq__",  ["_TextIOBase"],     true, "io.StringIO.__mro__[1].__name__ == '_TextIOBase' — StringIO inherits directly from the C-level _TextIOBase (len=11: '_' (1) + 'TextIOBase' (10) = 11); StringIO skips the Python-level TextIOBase ABC, so _TextIOBase appears at mro[1]; this parallels BytesIO: both concrete C stream classes bypass their respective Python-level ABC wrappers; '_TextIOBase' (11 chars) < '_BufferedIOBase' (15 chars) by 4: 'TextIOBase' (10) < 'BufferedIOBase' (14) by 4; StringIO (text, mro[1]='_TextIOBase') and BytesIO (bytes, mro[1]='_BufferedIOBase') mirror each other in MRO structure; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant io_extra180.IOBase_mro_len_3:
+  description: "io.IOBase.__mro__.__len__() == 3 — MRO is [IOBase, _IOBase, object]; IOBase is the root ABC of the io hierarchy; it has the shortest MRO of all io classes checked in this spec: IOBase (3) < BytesIO=StringIO (4) < RawIOBase=BufferedIOBase=TextIOBase (5); the 3-step MRO reflects the single Python-ABC > C-impl > object inheritance chain with no branch-specific extensions; IOBase.__mro__.__len__() (3) is the global minimum among the six io classes in this spec; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: IOBase.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant io_extra180.BytesIO_mro_len_4:
+  description: "io.BytesIO.__mro__.__len__() == 4 — MRO is [BytesIO, _BufferedIOBase, _IOBase, object]; BytesIO is a concrete C class that inherits directly from C-level _BufferedIOBase, bypassing the Python-level BufferedIOBase ABC; the 4-step MRO is 1 shorter than BufferedIOBase (5) because the Python-ABC wrapper step is absent; BytesIO (4) == StringIO (4): the two in-memory stream classes share MRO length 4; BytesIO (4) > IOBase (3) by 1; BytesIO (4) < BufferedIOBase (5) by 1; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: BytesIO.__mro__.__len__
+  args: []
+  expected: 4
+
+invariant io_extra180.StringIO_mro_len_4:
+  description: "io.StringIO.__mro__.__len__() == 4 — MRO is [StringIO, _TextIOBase, _IOBase, object]; StringIO is a concrete C class that inherits directly from C-level _TextIOBase, bypassing the Python-level TextIOBase ABC; StringIO (4) == BytesIO (4): the two-way tie at 4 between the in-memory stream classes; both BytesIO and StringIO are C implementations that skip the Python-level ABC layer in their MROs; StringIO (4) < TextIOBase (5) by 1 because TextIOBase adds the _TextIOBase Python-ABC wrapper step; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: StringIO.__mro__.__len__
+  args: []
+  expected: 4
+
+invariant io_extra180.RawIOBase_mro_len_5:
+  description: "io.RawIOBase.__mro__.__len__() == 5 — MRO is [RawIOBase, _RawIOBase, IOBase, _IOBase, object]; RawIOBase is a Python-level ABC that inherits from the C-level _RawIOBase, which in turn chains to the IOBase ABC and its C backing _IOBase; the 5-step MRO is the maximum among the io classes in this spec; RawIOBase (5) == BufferedIOBase (5) == TextIOBase (5): a three-way tie at 5 for the io branch-level ABC classes; RawIOBase (5) > BytesIO (4) > IOBase (3): a strict ascending sequence by one step each; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: RawIOBase.__mro__.__len__
+  args: []
+  expected: 5
+
+invariant io_extra180.BufferedIOBase_mro_len_5:
+  description: "io.BufferedIOBase.__mro__.__len__() == 5 — MRO is [BufferedIOBase, _BufferedIOBase, IOBase, _IOBase, object]; BufferedIOBase joins RawIOBase and TextIOBase in the three-way tie at MRO length 5; the three branch ABC classes (Raw, Buffered, Text) all follow the same 5-step Python-ABC > C-impl > Python-ABC > C-impl > object inheritance pattern; BufferedIOBase (5) > BytesIO (4): despite BytesIO being the concrete child of BufferedIOBase in concept, BytesIO has a shorter MRO because it skips the Python-level ABC wrapper; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: BufferedIOBase.__mro__.__len__
+  args: []
+  expected: 5
+
+invariant io_extra180.TextIOBase_mro_len_5:
+  description: "io.TextIOBase.__mro__.__len__() == 5 — MRO is [TextIOBase, _TextIOBase, IOBase, _IOBase, object]; TextIOBase completes the three-way tie at MRO length 5 with RawIOBase and BufferedIOBase; the uniform 5-step MRO across all three io branch ABCs (RawIOBase, BufferedIOBase, TextIOBase) reflects the symmetric design of the io class hierarchy: each branch has a Python-ABC wrapper backed by a C implementation class, both inheriting from the shared IOBase root; TextIOBase (5) > StringIO (4) by 1 because StringIO bypasses the Python-level wrapper; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: TextIOBase.__mro__.__len__
+  args: []
+  expected: 5

@@ -1,0 +1,141 @@
+spec: re_extra176
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec covers: re.Pattern, re.Match, and re.RegexFlag class identity via MRO analysis."
+    - "re.Pattern.__mro__.__len__() == 2 — MRO is [Pattern, object]; Pattern is a C type (_sre.SRE_Pattern) with no intermediate base class."
+    - "re.Match.__mro__.__len__() == 2 — MRO is [Match, object]; Match is a C type (_sre.SRE_Match) with no intermediate base class."
+    - "re.RegexFlag.__mro__.__len__() == 7 — MRO is [RegexFlag, IntFlag, int, ReprEnum, Flag, Enum, object]; RegexFlag is an IntFlag enum subclass."
+    - "re.Pattern.__name__ == 'Pattern' (len=7)."
+    - "re.Pattern.__module__ == 're' (len=2)."
+    - "re.Match.__name__ == 'Match' (len=5)."
+    - "re.Match.__module__ == 're' (len=2)."
+    - "re.RegexFlag.__name__ == 'RegexFlag' (len=9: 'Regex' (5) + 'Flag' (4) = 9)."
+    - "re.RegexFlag.__module__ == 're' (len=2)."
+    - "Pattern (7) > Match (5) > 're' (2) in class name length; RegexFlag (9) is the longest."
+    - "Pattern MRO mro[1].__name__ == 'object' (len=6); Match MRO mro[1].__name__ == 'object' (len=6)."
+    - "RegexFlag MRO mro[1].__name__ == 'IntFlag' (len=7); RegexFlag MRO mro[2].__name__ == 'int' (len=3)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.Pattern and re.Match MRO lengths
+# Pattern.__mro__.__len__() == 2 (Pattern > object — C type)
+# Match.__mro__.__len__() == 2 (Match > object — C type)
+# Both are C types with minimal single-step MROs
+# ---------------------------------------------------------------------------
+
+table re_extra176.Pattern_Match_mro_lengths:
+  description: "re.Pattern.__mro__.__len__()==2 (Pattern > object; C type); re.Match.__mro__.__len__()==2 (Match > object; C type); both Pattern and Match are C types with 2-step MROs; Pattern (7 chars) > Match (5 chars) in name length; both have __module__=='re' (len=2)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: repattern176
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pattern_mro_len, Pattern.__mro__.__len__, [], 2, "re.Pattern.__mro__.__len__() == 2 — MRO is [Pattern, object]; re.Pattern is a C type implemented in _sre (CPython's regex engine extension); as a C type it has no Python intermediate base classes, yielding the minimum 2-step MRO (class > object); Pattern (2) == Match (2): both C types in the re module have the same minimal MRO length 2; Pattern (2) < RegexFlag (7) by 5: the pure Python IntFlag-based RegexFlag has a much deeper MRO than the C types; re.Pattern.__name__ == 'Pattern' (7 chars); re.Pattern.__module__ == 're' (2 chars); confirmed Python 3.14.3 macOS"]
+    - [match_mro_len,   Match.__mro__.__len__,   [], 2, "re.Match.__mro__.__len__() == 2 — MRO is [Match, object]; re.Match is a C type implemented in _sre; like re.Pattern, Match has no Python intermediate base classes, yielding the minimal 2-step MRO; Match (2) == Pattern (2): the two main C types of the re module (Pattern and Match) tie at MRO length 2; Match (2) < RegexFlag (7) by 5; re.Match.__name__ == 'Match' (5 chars) < Pattern (7 chars) by 2; both Match and Pattern have __module__ == 're' (2 chars): the module name length equals the MRO length; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# re.RegexFlag MRO length and MRO entry names
+# RegexFlag.__mro__.__len__() == 7
+# MRO: [RegexFlag, IntFlag, int, ReprEnum, Flag, Enum, object]
+# ---------------------------------------------------------------------------
+
+table re_extra176.RegexFlag_mro:
+  description: "re.RegexFlag.__mro__.__len__()==7; MRO: RegexFlag > IntFlag > int > ReprEnum > Flag > Enum > object; mro[0]='RegexFlag' (len=9), mro[1]='IntFlag' (len=7), mro[2]='int' (len=3)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: repattern176
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [regexflag_mro_len,  RegexFlag.__mro__.__len__,              [], 7, "re.RegexFlag.__mro__.__len__() == 7 — MRO is [RegexFlag, IntFlag, int, ReprEnum, Flag, Enum, object]; RegexFlag is a Python IntFlag enum subclass, so it inherits the deep MRO of the Enum hierarchy; RegexFlag (7) >> Pattern (2) == Match (2): the pure-Python enum RegexFlag has a MRO more than 3 times deeper than the C types Pattern and Match; the 7-step MRO reflects the multiple inheritance in the Enum metaclass system: RegexFlag > IntFlag > int (mixin) > ReprEnum > Flag > Enum > object; re.RegexFlag.__name__ == 'RegexFlag' (9 chars: 'Regex' (5) + 'Flag' (4) = 9); RegexFlag (9 chars) is the longest class name among Pattern, Match, RegexFlag in this spec; confirmed Python 3.14.3 macOS"]
+    - [regexflag_mro1,     "RegexFlag.__mro__[1].__name__.__eq__", ["IntFlag"], true, "re.RegexFlag.__mro__[1].__name__ == 'IntFlag' — the second MRO entry for RegexFlag is IntFlag, the direct parent of RegexFlag in the enum hierarchy; 'IntFlag' has 7 characters: 'Int' (3) + 'Flag' (4) = 7; IntFlag (7) is one of the integer-based enum base classes in the Python enum module; RegexFlag.__mro__[1] being IntFlag confirms that RegexFlag is an integer-valued flag enum whose members support bitwise operations (|, &, ^); IntFlag.__name__ (7) == Pattern.__name__.__len__() (7): the IntFlag class name has the same 7-character length as the Pattern class name; confirmed Python 3.14.3 macOS"]
+    - [regexflag_mro2,     "RegexFlag.__mro__[2].__name__.__eq__", ["int"],     true, "re.RegexFlag.__mro__[2].__name__ == 'int' — the third MRO entry for RegexFlag is int, the Python integer type; 'int' has 3 characters; int appears at mro[2] because IntFlag (the direct parent) inherits from int to support integer-valued flag members; RegexFlag members like re.IGNORECASE, re.MULTILINE are integer values, which is why int is in the MRO; int (3 chars) == sub.__name__ (3 chars) == len('re') + 1: the 3-character 'int' type name coincidentally matches the length of the re.sub function name; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# re.Pattern, re.Match, re.RegexFlag class name and module checks
+# Pattern.__name__='Pattern' (len=7), Match.__name__='Match' (len=5),
+# RegexFlag.__name__='RegexFlag' (len=9)
+# All three have __module__=='re' (len=2)
+# ---------------------------------------------------------------------------
+
+table re_extra176.class_name_module_identity:
+  description: "Class name lengths: Match (5) < Pattern (7) < RegexFlag (9); all have __module__=='re' (len=2); Pattern.__name__ (7) == RegexFlag.__mro__[1].__name__.__len__() (7: 'IntFlag'); Match (5) == match.__name__.__len__() (5: the function)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: repattern176
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pattern_name,       Pattern.__name__.__eq__,    ["Pattern"],   true,  "re.Pattern.__name__ == 'Pattern' — 'Pattern' has 7 characters; Pattern (7) ties with len('compile') == 7 and len('findall') == 7 in re function/class name length; Pattern is the type returned by re.compile(); Pattern.__module__ == 're' (2 chars); Pattern (7) > Match (5) by 2; Pattern (7) < RegexFlag (9) by 2; Pattern.__mro__.__len__() == 2 (C type); confirmed Python 3.14.3 macOS"]
+    - [pattern_name_len,   Pattern.__name__.__len__,   [],            7,     "re.Pattern.__name__.__len__() == 7 — 'Pattern' has 7 characters; Pattern (7) ties with 'compile' (7) and 'findall' (7) in name length; Pattern (7) is the second-longest class name in this spec: Match (5) < Pattern (7) < RegexFlag (9); Pattern (7) == RegexFlag.__mro__[1].__name__.__len__() (7: 'IntFlag') — a coincidental tie between the Pattern class name length and the IntFlag class name length; confirmed Python 3.14.3 macOS"]
+    - [pattern_module,     Pattern.__module__.__eq__,  ["re"],        true,  "re.Pattern.__module__ == 're' — 're' has 2 characters; Pattern.__module__ (2) == Match.__module__ (2) == RegexFlag.__module__ (2): all three re class types share __module__ == 're'; the 2-character module name 're' is shorter than all three class names: Match (5) > Pattern (7) > RegexFlag (9), all > 're' (2); Pattern.__module__ (2) == Pattern.__mro__.__len__() (2): a coincidental tie between the module name length and the MRO length; confirmed Python 3.14.3 macOS"]
+    - [match_name,         Match.__name__.__eq__,      ["Match"],     true,  "re.Match.__name__ == 'Match' — 'Match' has 5 characters; Match (5) < Pattern (7) < RegexFlag (9): Match is the shortest class name in this spec; 'Match' (5, CamelCase) has the same 5-character length as 'match' (5, lowercase), the re.match() function name; re.Match is the type of objects returned by re.match(), re.search(), re.fullmatch(); Match.__module__ == 're' (2 chars); Match.__mro__.__len__() == 2 (C type); confirmed Python 3.14.3 macOS"]
+    - [match_module,       Match.__module__.__eq__,    ["re"],        true,  "re.Match.__module__ == 're' — 're' has 2 characters; Match.__module__ (2) == Pattern.__module__ (2) == RegexFlag.__module__ (2): uniform 2-character module attribution for all re class types; 're' (2 chars) < 'Match' (5 chars) by 3; Match.__module__ (2) == Match.__mro__.__len__() (2): a coincidental tie between module name length and MRO length, same as Pattern; confirmed Python 3.14.3 macOS"]
+    - [regexflag_name_len, RegexFlag.__name__.__len__, [],            9,     "re.RegexFlag.__name__.__len__() == 9 — 'RegexFlag' has 9 characters: 'Regex' (5) + 'Flag' (4) = 9; RegexFlag (9) is the longest class name in this spec: Match (5) < Pattern (7) < RegexFlag (9); RegexFlag (9) > Pattern (7) by 2; RegexFlag (9) == len('fullmatch') (9): the RegexFlag class name has the same 9-character length as the re.fullmatch function name — a coincidental tie; RegexFlag.__mro__.__len__() == 7 (deep enum hierarchy) vs Pattern.__mro__.__len__() == 2: despite having the longest name (9 chars), RegexFlag has the deepest MRO (7) while Pattern has the shortest (2); confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant re_extra176.Pattern_mro_len_2:
+  description: "re.Pattern.__mro__.__len__() == 2 — MRO is [Pattern, object]; re.Pattern is a C type with the minimum 2-step MRO; Pattern (2) == Match (2): the two C types of the re module tie at MRO length 2; Pattern (2) < RegexFlag (7) by 5: the Python IntFlag-based RegexFlag has a much deeper MRO; Pattern.__module__ (2 chars) == Pattern.__mro__.__len__() (2): a coincidental tie between module name length and MRO length; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: Pattern.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant re_extra176.Match_mro_len_2:
+  description: "re.Match.__mro__.__len__() == 2 — MRO is [Match, object]; re.Match is a C type with the minimum 2-step MRO; Match (2) == Pattern (2): a two-way tie at the minimum MRO length among re class types; Match.__module__ (2 chars) == Match.__mro__.__len__() (2): module name length equals MRO length — the same coincidental tie as Pattern; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: Match.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant re_extra176.RegexFlag_mro_len_7:
+  description: "re.RegexFlag.__mro__.__len__() == 7 — MRO is [RegexFlag, IntFlag, int, ReprEnum, Flag, Enum, object]; RegexFlag is a Python IntFlag enum subclass with a 7-step MRO reflecting the enum inheritance hierarchy; RegexFlag (7) >> Pattern (2) == Match (2): the enum class MRO is 3.5 times deeper than the C type MROs; the 7-step MRO includes int at mro[2] because IntFlag inherits from int to support integer-valued flag members; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: RegexFlag.__mro__.__len__
+  args: []
+  expected: 7
+
+invariant re_extra176.Pattern_name_is_Pattern:
+  description: "re.Pattern.__name__ == 'Pattern' — 'Pattern' has 7 characters; Pattern (7) ties with len('compile') (7) and len('findall') (7) in the re name family; Pattern is the class of compiled regex objects returned by re.compile(); Pattern.__module__ == 're' (2 chars); confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: Pattern.__name__.__eq__
+  args: ["Pattern"]
+  expected: true
+
+invariant re_extra176.Match_name_is_Match:
+  description: "re.Match.__name__ == 'Match' — 'Match' has 5 characters; Match (5) is the shortest class name in this spec: Match (5) < Pattern (7) < RegexFlag (9); 'Match' (5, CamelCase) has the same length as 're.match.__name__' ('match', 5, lowercase) — the class and its creating function share the same 5-character name length; Match is the class of objects returned by re.match(), re.search(), and re.fullmatch(); confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: Match.__name__.__eq__
+  args: ["Match"]
+  expected: true
+
+invariant re_extra176.RegexFlag_module_is_re:
+  description: "re.RegexFlag.__module__ == 're' — 're' has 2 characters; RegexFlag.__module__ (2) == Pattern.__module__ (2) == Match.__module__ (2): all three re class types share the 2-character module name 're'; the uniform module attribution confirms that RegexFlag, Pattern, and Match are all co-located in the public 're' module namespace despite having very different MRO depths (RegexFlag: 7, Pattern: 2, Match: 2); confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: RegexFlag.__module__.__eq__
+  args: ["re"]
+  expected: true
