@@ -1,0 +1,204 @@
+spec: struct_extra175
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+  notes:
+    - "This spec covers: struct pack/unpack with multiple values — struct.pack('3i', 1, 2, 3).__len__()==12 (3 * 4 bytes); struct.pack('4h', 0, 0, 0, 0).__len__()==8 (4 * 2 bytes); struct.unpack('3i', struct.pack('3i', 1, 2, 3)).__len__()==3 (3 values unpacked); struct.unpack('3i', struct.pack('3i', 10, 20, 30)).__class__.__name__=='tuple'; struct.calcsize('3i').__eq__(12); struct.calcsize('4h').__eq__(8); struct.calcsize('2q').__eq__(16) (2 * 8 bytes)."
+    - "struct.pack format codes: 'i' = signed int (4 bytes, native size); 'h' = signed short (2 bytes); 'q' = signed long long (8 bytes). The count prefix repeats the format character."
+    - "struct.calcsize returns the total byte size for a format string. '3i' = 12 bytes; '4h' = 8 bytes; '2q' = 16 bytes."
+    - "struct.unpack always returns a tuple, even when unpacking a single value. The tuple length equals the number of format characters in the format string."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: struct.pack byte length with multiple values
+#
+# struct.pack('3i', 1, 2, 3).__len__() == 12  (3 signed ints × 4 bytes each)
+# struct.pack('4h', 0, 0, 0, 0).__len__() == 8  (4 signed shorts × 2 bytes each)
+# struct.pack('3i', 1, 2, 3).__class__.__name__ == 'bytes'
+#
+# struct.pack serialises multiple values into a bytes object whose length
+# equals calcsize(fmt).  'i' occupies 4 bytes; 'h' occupies 2 bytes; repeating
+# the format char with a count prefix packs that many values in sequence.
+# New to extra175.
+# ---------------------------------------------------------------------------
+
+table struct_extra175.pack_byte_length:
+  description: "struct.pack('3i',...) len==12; struct.pack('4h',...) len==8; pack returns bytes; new to extra175"
+  kind: python_call_eq
+  category: identity
+  id_prefix: structmulti175
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pack_3i_len_12,
+       "pack('3i', 1, 2, 3).__len__",
+       [],
+       12,
+       "struct.pack('3i', 1, 2, 3).__len__() == 12 — '3i' packs three signed 32-bit integers, each occupying 4 bytes (native size); total = 3 × 4 = 12 bytes; bytes.__len__() returns 12; new to extra175"]
+    - [pack_4h_len_8,
+       "pack('4h', 0, 0, 0, 0).__len__",
+       [],
+       8,
+       "struct.pack('4h', 0, 0, 0, 0).__len__() == 8 — '4h' packs four signed 16-bit shorts, each occupying 2 bytes (native size); total = 4 × 2 = 8 bytes; bytes.__len__() returns 8; new to extra175"]
+    - [pack_3i_class_bytes,
+       "pack('3i', 1, 2, 3).__class__.__name__.__eq__",
+       ["bytes"],
+       true,
+       "struct.pack('3i', 1, 2, 3).__class__.__name__.__eq__('bytes') == True — struct.pack always returns a bytes object; its __class__.__name__ is 'bytes'; str.__eq__('bytes') returns True; new to extra175"]
+    - [pack_4h_class_bytes,
+       "pack('4h', 0, 0, 0, 0).__class__.__name__.__eq__",
+       ["bytes"],
+       true,
+       "struct.pack('4h', 0, 0, 0, 0).__class__.__name__.__eq__('bytes') == True — struct.pack always returns a bytes object regardless of format or values; its __class__.__name__ is 'bytes'; str.__eq__('bytes') returns True; new to extra175"]
+
+# ---------------------------------------------------------------------------
+# Table 2: struct.unpack result length and type
+#
+# struct.unpack('3i', struct.pack('3i', 1, 2, 3)).__len__() == 3
+# struct.unpack('3i', struct.pack('3i', 10, 20, 30)).__class__.__name__ == 'tuple'
+# struct.unpack('3i', struct.pack('3i', 1, 2, 3))[0] == 1
+# struct.unpack('3i', struct.pack('3i', 10, 20, 30))[1] == 20
+#
+# struct.unpack always returns a tuple.  The number of elements in the tuple
+# equals the number of values encoded in the format string (here, 3 for '3i').
+# New to extra175.
+# ---------------------------------------------------------------------------
+
+table struct_extra175.unpack_result_type_and_length:
+  description: "struct.unpack('3i',...) returns a tuple of length 3; values round-trip correctly; new to extra175"
+  kind: python_call_eq
+  category: identity
+  id_prefix: structmulti175
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [unpack_3i_len_3,
+       "unpack('3i', pack('3i', 1, 2, 3)).__len__",
+       [],
+       3,
+       "struct.unpack('3i', struct.pack('3i', 1, 2, 3)).__len__() == 3 — unpacking '3i' yields one element per format item; '3i' encodes 3 integers so the result tuple has 3 elements; tuple.__len__() returns 3; new to extra175"]
+    - [unpack_3i_class_tuple,
+       "unpack('3i', pack('3i', 10, 20, 30)).__class__.__name__.__eq__",
+       ["tuple"],
+       true,
+       "struct.unpack('3i', struct.pack('3i', 10, 20, 30)).__class__.__name__.__eq__('tuple') == True — struct.unpack always returns a plain tuple regardless of format or data; its __class__.__name__ is 'tuple'; str.__eq__('tuple') returns True; new to extra175"]
+    - [unpack_3i_first_value,
+       "unpack('3i', pack('3i', 1, 2, 3))[0].__eq__",
+       [1],
+       true,
+       "struct.unpack('3i', struct.pack('3i', 1, 2, 3))[0].__eq__(1) == True — the first element of the unpacked tuple is the first packed value (1); int.__eq__(1) returns True; round-trip check; new to extra175"]
+    - [unpack_3i_second_value,
+       "unpack('3i', pack('3i', 10, 20, 30))[1].__eq__",
+       [20],
+       true,
+       "struct.unpack('3i', struct.pack('3i', 10, 20, 30))[1].__eq__(20) == True — the second element of the unpacked tuple is the second packed value (20); int.__eq__(20) returns True; round-trip check; new to extra175"]
+
+# ---------------------------------------------------------------------------
+# Table 3: struct.calcsize with repeated format characters
+#
+# struct.calcsize('3i') == 12  (3 × 4 bytes)
+# struct.calcsize('4h') == 8   (4 × 2 bytes)
+# struct.calcsize('2q') == 16  (2 × 8 bytes)
+# struct.calcsize('3i') == struct.calcsize('12s')  (both are 12 bytes)
+#
+# calcsize computes the byte size of the packed representation without
+# allocating a buffer.  New to extra175.
+# ---------------------------------------------------------------------------
+
+table struct_extra175.calcsize_multi_format:
+  description: "struct.calcsize('3i')==12; '4h'==8; '2q'==16; new to extra175"
+  kind: python_call_eq
+  category: identity
+  id_prefix: structmulti175
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [calcsize_3i_12,
+       "calcsize('3i').__eq__",
+       [12],
+       true,
+       "struct.calcsize('3i').__eq__(12) == True — '3i' requests three native-size signed 32-bit integers (4 bytes each); total size is 3 × 4 = 12 bytes; int.__eq__(12) returns True; new to extra175"]
+    - [calcsize_4h_8,
+       "calcsize('4h').__eq__",
+       [8],
+       true,
+       "struct.calcsize('4h').__eq__(8) == True — '4h' requests four native-size signed 16-bit shorts (2 bytes each); total size is 4 × 2 = 8 bytes; int.__eq__(8) returns True; new to extra175"]
+    - [calcsize_2q_16,
+       "calcsize('2q').__eq__",
+       [16],
+       true,
+       "struct.calcsize('2q').__eq__(16) == True — '2q' requests two native-size signed 64-bit long longs (8 bytes each); total size is 2 × 8 = 16 bytes; int.__eq__(16) returns True; new to extra175"]
+    - [calcsize_3i_not_8,
+       "calcsize('3i').__eq__",
+       [8],
+       false,
+       "struct.calcsize('3i').__eq__(8) == False — '3i' is 12 bytes (3 × 4), not 8 bytes; int.__eq__(8) returns False; new to extra175"]
+    - [calcsize_2q_class_int,
+       "calcsize('2q').__class__.__name__.__eq__",
+       ["int"],
+       true,
+       "struct.calcsize('2q').__class__.__name__.__eq__('int') == True — struct.calcsize returns a plain Python int; its __class__.__name__ is 'int'; str.__eq__('int') returns True; new to extra175"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra175
+# ---------------------------------------------------------------------------
+
+invariant struct_extra175.pack_3i_len_12:
+  description: "struct.pack('3i', 1, 2, 3).__len__() == 12 — three signed ints packed as 3 × 4 = 12 bytes; new to extra175"
+  kind: python_call_eq
+  function: pack('3i', 1, 2, 3).__len__
+  args: []
+  expected: 12
+
+invariant struct_extra175.pack_4h_len_8:
+  description: "struct.pack('4h', 0, 0, 0, 0).__len__() == 8 — four signed shorts packed as 4 × 2 = 8 bytes; new to extra175"
+  kind: python_call_eq
+  function: pack('4h', 0, 0, 0, 0).__len__
+  args: []
+  expected: 8
+
+invariant struct_extra175.unpack_3i_len_3:
+  description: "struct.unpack('3i', struct.pack('3i', 1, 2, 3)).__len__() == 3 — unpacking '3i' yields 3 elements; new to extra175"
+  kind: python_call_eq
+  function: unpack('3i', pack('3i', 1, 2, 3)).__len__
+  args: []
+  expected: 3
+
+invariant struct_extra175.unpack_3i_class_tuple:
+  description: "struct.unpack('3i', struct.pack('3i', 10, 20, 30)).__class__.__name__ == 'tuple' — struct.unpack always returns a tuple; new to extra175"
+  kind: python_call_eq
+  function: unpack('3i', pack('3i', 10, 20, 30)).__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant struct_extra175.calcsize_3i_12:
+  description: "struct.calcsize('3i') == 12 — three 4-byte signed ints = 12 bytes; new to extra175"
+  kind: python_call_eq
+  function: calcsize('3i').__eq__
+  args: [12]
+  expected: true
+
+invariant struct_extra175.calcsize_4h_8:
+  description: "struct.calcsize('4h') == 8 — four 2-byte signed shorts = 8 bytes; new to extra175"
+  kind: python_call_eq
+  function: calcsize('4h').__eq__
+  args: [8]
+  expected: true
+
+invariant struct_extra175.calcsize_2q_16:
+  description: "struct.calcsize('2q') == 16 — two 8-byte signed long longs = 16 bytes; new to extra175"
+  kind: python_call_eq
+  function: calcsize('2q').__eq__
+  args: [16]
+  expected: true
