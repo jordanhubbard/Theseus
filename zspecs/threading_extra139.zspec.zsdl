@@ -1,0 +1,268 @@
+spec: threading_extra139
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec covers: threading.local (alias for _thread._local) — class identity, __module__, __name__, __init__/__setattr__/__getattribute__/__delattr__ slot qualnames and classes, __dict__ class, MRO (Wave 266)."
+    - "threading.local.__name__ == '_local' (len 6) — threading.local is an alias for _thread._local; the C type's real name is '_local'. Verified with Python 3.14.3."
+    - "threading.local.__module__ == '_thread' (len 7) — the C type is defined in _threadmodule.c, module name '_thread'. Verified with Python 3.14.3."
+    - "threading.local.__class__.__name__ == 'type' (len 4) — local is a C extension type. Verified with Python 3.14.3."
+    - "threading.local.__init__.__qualname__ == 'object.__init__' (len 15) — _local does not define __init__; it inherits object.__init__. Verified with Python 3.14.3."
+    - "threading.local.__setattr__.__qualname__ == '_local.__setattr__' (len 18) — defined in C as a slot. Verified with Python 3.14.3."
+    - "threading.local.__getattribute__.__qualname__ == '_local.__getattribute__' (len 23) — defined in C as a slot. Verified with Python 3.14.3."
+    - "threading.local.__delattr__.__qualname__ == '_local.__delattr__' (len 18) — defined in C as a slot. Verified with Python 3.14.3."
+    - "All three custom slots (__setattr__, __getattribute__, __delattr__) are wrapper_descriptor objects. Verified with Python 3.14.3."
+    - "threading.local.__dict__.__class__.__name__ == 'mappingproxy' (len 12). Verified with Python 3.14.3."
+    - "len(threading.local.__mro__) == 2 — MRO is [_local, object]. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: threading.local class identity
+#
+# Wave 266 theme: threading.local (=_thread._local) — class identity facts.
+#
+# threading.local.__class__.__name__ == 'type' (len 4)
+# threading.local.__name__ == '_local' (len 6)  — NOT 'local'!
+# threading.local.__module__ == '_thread' (len 7)  — NOT 'threading'!
+# len(threading.local.__mro__) == 2 — MRO is [_local, object]
+# threading.local.__bases__[0].__name__ == 'object'
+#
+# threading.local is merely an alias: `from _thread import _local as local`.
+# The C type's true name and module reveal its real origin. New to extra139.
+# ---------------------------------------------------------------------------
+
+table threading_extra139.local_class_identity:
+  description: "threading.local: C type alias for _thread._local; __name__=='_local' len 6, __module__=='_thread' len 7, MRO len 2; wave 266; new to extra139"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: threadinglocal139
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [local_class_name_eq_type,
+       "local.__class__.__name__.__eq__",
+       ["type"],
+       true,
+       "threading.local.__class__.__name__.__eq__('type') == True — threading.local is a C extension type; its metaclass is the built-in type; __class__.__name__ is 'type'; str.__eq__('type') returns True; new to extra139"]
+    - [local_class_name_len_eq_4,
+       "local.__class__.__name__.__len__",
+       [],
+       4,
+       "threading.local.__class__.__name__.__len__() == 4 — __class__.__name__ is 'type' which has 4 characters; len('type') == 4; new to extra139"]
+    - [local_name_eq__local,
+       "local.__name__.__eq__",
+       ["_local"],
+       true,
+       "threading.local.__name__.__eq__('_local') == True — threading.local is an alias for _thread._local; the C type's __name__ is '_local' (with underscore prefix); str.__eq__('_local') returns True; new to extra139"]
+    - [local_name_len_eq_6,
+       "local.__name__.__len__",
+       [],
+       6,
+       "threading.local.__name__.__len__() == 6 — __name__ is '_local' which has 6 characters; len('_local') == 6; new to extra139"]
+    - [local_module_eq__thread,
+       "local.__module__.__eq__",
+       ["_thread"],
+       true,
+       "threading.local.__module__.__eq__('_thread') == True — threading.local is defined in the C extension module _threadmodule.c; its __module__ is '_thread'; str.__eq__('_thread') returns True; new to extra139"]
+    - [local_module_len_eq_7,
+       "local.__module__.__len__",
+       [],
+       7,
+       "threading.local.__module__.__len__() == 7 — __module__ is '_thread' which has 7 characters; len('_thread') == 7; new to extra139"]
+    - [local_mro_len_eq_2,
+       "local.__mro__.__len__",
+       [],
+       2,
+       "threading.local.__mro__.__len__() == 2 — _local's MRO is [_local, object]; len(__mro__) is 2; new to extra139"]
+    - [local_bases_0_eq_object,
+       "local.__bases__[0].__name__.__eq__",
+       ["object"],
+       true,
+       "threading.local.__bases__[0].__name__.__eq__('object') == True — _local directly inherits from object; __bases__[0].__name__ is 'object'; str.__eq__('object') returns True; new to extra139"]
+
+# ---------------------------------------------------------------------------
+# Table 2: threading.local.__init__ — inherited from object
+#
+# Wave 266 theme: threading.local.__init__ is not defined by _local.
+#
+# threading.local.__init__.__qualname__ == 'object.__init__' (len 15)
+# threading.local.__init__.__class__.__name__ == 'wrapper_descriptor'
+#
+# _local stores per-thread data by overriding __setattr__ and __getattribute__,
+# but it does not define __init__. New to extra139.
+# ---------------------------------------------------------------------------
+
+table threading_extra139.local_init_inherited:
+  description: "threading.local.__init__: inherited from object; qualname=='object.__init__' len 15, class=='wrapper_descriptor'; wave 266; new to extra139"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: threadinglocalinit139
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [local_init_qualname_eq,
+       "local.__init__.__qualname__.__eq__",
+       ["object.__init__"],
+       true,
+       "threading.local.__init__.__qualname__.__eq__('object.__init__') == True — _local does not define __init__; it inherits object.__init__; the qualname reflects the defining class: 'object.__init__'; str.__eq__('object.__init__') returns True; new to extra139"]
+    - [local_init_qualname_len_eq_15,
+       "local.__init__.__qualname__.__len__",
+       [],
+       15,
+       "threading.local.__init__.__qualname__.__len__() == 15 — __qualname__ is 'object.__init__' which has 15 characters; len('object.__init__') == 15; new to extra139"]
+    - [local_init_class_name_eq,
+       "local.__init__.__class__.__name__.__eq__",
+       ["wrapper_descriptor"],
+       true,
+       "threading.local.__init__.__class__.__name__.__eq__('wrapper_descriptor') == True — the inherited object.__init__ is a wrapper_descriptor; __class__.__name__ is 'wrapper_descriptor'; str.__eq__('wrapper_descriptor') returns True; new to extra139"]
+
+# ---------------------------------------------------------------------------
+# Table 3: threading.local.__setattr__ and __getattribute__ — C slot qualnames
+#
+# Wave 266 theme: threading.local custom attribute access slots.
+#
+# threading.local.__setattr__.__qualname__ == '_local.__setattr__' (len 18)
+# threading.local.__setattr__.__class__.__name__ == 'wrapper_descriptor'
+# threading.local.__getattribute__.__qualname__ == '_local.__getattribute__' (len 23)
+# threading.local.__getattribute__.__class__.__name__ == 'wrapper_descriptor'
+#
+# _local overrides both __setattr__ and __getattribute__ in C to implement
+# per-thread storage. New to extra139.
+# ---------------------------------------------------------------------------
+
+table threading_extra139.local_setattr_getattribute_slots:
+  description: "threading.local.__setattr__ (qualname len 18) and __getattribute__ (qualname len 23): both wrapper_descriptor; wave 266; new to extra139"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: threadinglocalsattr139
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [local_setattr_qualname_eq,
+       "local.__setattr__.__qualname__.__eq__",
+       ["_local.__setattr__"],
+       true,
+       "threading.local.__setattr__.__qualname__.__eq__('_local.__setattr__') == True — _local.__setattr__ is a C slot method for per-thread attribute storage; its qualname is '_local.__setattr__'; str.__eq__('_local.__setattr__') returns True; new to extra139"]
+    - [local_setattr_qualname_len_eq_18,
+       "local.__setattr__.__qualname__.__len__",
+       [],
+       18,
+       "threading.local.__setattr__.__qualname__.__len__() == 18 — __qualname__ is '_local.__setattr__' which has 18 characters; len('_local.__setattr__') == 18; new to extra139"]
+    - [local_setattr_class_name_eq,
+       "local.__setattr__.__class__.__name__.__eq__",
+       ["wrapper_descriptor"],
+       true,
+       "threading.local.__setattr__.__class__.__name__.__eq__('wrapper_descriptor') == True — _local.__setattr__ is a wrapper_descriptor for the C tp_setattro slot; __class__.__name__ is 'wrapper_descriptor'; str.__eq__ returns True; new to extra139"]
+    - [local_getattribute_qualname_eq,
+       "local.__getattribute__.__qualname__.__eq__",
+       ["_local.__getattribute__"],
+       true,
+       "threading.local.__getattribute__.__qualname__.__eq__('_local.__getattribute__') == True — _local.__getattribute__ is a C slot method that looks up attributes in the current thread's dict; its qualname is '_local.__getattribute__'; str.__eq__ returns True; new to extra139"]
+    - [local_getattribute_qualname_len_eq_23,
+       "local.__getattribute__.__qualname__.__len__",
+       [],
+       23,
+       "threading.local.__getattribute__.__qualname__.__len__() == 23 — __qualname__ is '_local.__getattribute__' which has 23 characters; len('_local.__getattribute__') == 23; new to extra139"]
+    - [local_getattribute_class_name_eq,
+       "local.__getattribute__.__class__.__name__.__eq__",
+       ["wrapper_descriptor"],
+       true,
+       "threading.local.__getattribute__.__class__.__name__.__eq__('wrapper_descriptor') == True — _local.__getattribute__ is a wrapper_descriptor for the C tp_getattro slot; __class__.__name__ is 'wrapper_descriptor'; str.__eq__ returns True; new to extra139"]
+
+# ---------------------------------------------------------------------------
+# Table 4: threading.local.__delattr__ and __dict__ class
+#
+# Wave 266 theme: threading.local.__delattr__ slot and __dict__ mappingproxy.
+#
+# threading.local.__delattr__.__qualname__ == '_local.__delattr__' (len 18)
+# threading.local.__delattr__.__class__.__name__ == 'wrapper_descriptor'
+# threading.local.__dict__.__class__.__name__ == 'mappingproxy' (len 12)
+#
+# _local also overrides __delattr__ to handle per-thread deletion.
+# The type's __dict__ is a mappingproxy. New to extra139.
+# ---------------------------------------------------------------------------
+
+table threading_extra139.local_delattr_dict:
+  description: "threading.local.__delattr__: qualname '_local.__delattr__' len 18, wrapper_descriptor; __dict__ is mappingproxy len 12; wave 266; new to extra139"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: threadinglocaldel139
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [local_delattr_qualname_eq,
+       "local.__delattr__.__qualname__.__eq__",
+       ["_local.__delattr__"],
+       true,
+       "threading.local.__delattr__.__qualname__.__eq__('_local.__delattr__') == True — _local.__delattr__ is a C slot method for per-thread attribute deletion; its qualname is '_local.__delattr__'; str.__eq__('_local.__delattr__') returns True; new to extra139"]
+    - [local_delattr_qualname_len_eq_18,
+       "local.__delattr__.__qualname__.__len__",
+       [],
+       18,
+       "threading.local.__delattr__.__qualname__.__len__() == 18 — __qualname__ is '_local.__delattr__' which has 18 characters; len('_local.__delattr__') == 18; new to extra139"]
+    - [local_delattr_class_name_eq,
+       "local.__delattr__.__class__.__name__.__eq__",
+       ["wrapper_descriptor"],
+       true,
+       "threading.local.__delattr__.__class__.__name__.__eq__('wrapper_descriptor') == True — _local.__delattr__ is a wrapper_descriptor; __class__.__name__ is 'wrapper_descriptor'; str.__eq__ returns True; new to extra139"]
+    - [local_dict_class_eq_mappingproxy,
+       "local.__dict__.__class__.__name__.__eq__",
+       ["mappingproxy"],
+       true,
+       "threading.local.__dict__.__class__.__name__.__eq__('mappingproxy') == True — the type's __dict__ is a mappingproxy (read-only view of the namespace); __class__.__name__ is 'mappingproxy'; str.__eq__('mappingproxy') returns True; new to extra139"]
+    - [local_dict_class_len_eq_12,
+       "local.__dict__.__class__.__name__.__len__",
+       [],
+       12,
+       "threading.local.__dict__.__class__.__name__.__len__() == 12 — __class__.__name__ is 'mappingproxy' which has 12 characters; len('mappingproxy') == 12; new to extra139"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra139
+# ---------------------------------------------------------------------------
+
+invariant threading_extra139.local_name_is__local:
+  description: "threading.local.__name__ == '_local' — local is an alias for _thread._local, not named 'local'; wave 266; new to extra139"
+  kind: python_call_eq
+  function: local.__name__.__eq__
+  args: ["_local"]
+  expected: true
+
+invariant threading_extra139.local_module_is__thread:
+  description: "threading.local.__module__ == '_thread' — the C type lives in _thread, not threading; wave 266; new to extra139"
+  kind: python_call_eq
+  function: local.__module__.__eq__
+  args: ["_thread"]
+  expected: true
+
+invariant threading_extra139.local_setattr_qualname_len:
+  description: "len(threading.local.__setattr__.__qualname__) == 18 — qualname is '_local.__setattr__'; wave 266; new to extra139"
+  kind: python_call_eq
+  function: local.__setattr__.__qualname__.__len__
+  args: []
+  expected: 18
+
+invariant threading_extra139.local_getattribute_qualname_len:
+  description: "len(threading.local.__getattribute__.__qualname__) == 23 — qualname is '_local.__getattribute__'; wave 266; new to extra139"
+  kind: python_call_eq
+  function: local.__getattribute__.__qualname__.__len__
+  args: []
+  expected: 23
+
+invariant threading_extra139.local_dict_is_mappingproxy:
+  description: "threading.local.__dict__.__class__.__name__ == 'mappingproxy' — the type namespace is exposed as a read-only mappingproxy; wave 266; new to extra139"
+  kind: python_call_eq
+  function: local.__dict__.__class__.__name__.__eq__
+  args: ["mappingproxy"]
+  expected: true
