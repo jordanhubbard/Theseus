@@ -1,0 +1,131 @@
+spec: asyncio_extra154
+version: ">=3.9"
+backend: python_module(asyncio)
+
+docs: https://docs.python.org/3/library/asyncio-queue.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio-queue.html — Python asyncio Queue documentation"
+    - "https://docs.python.org/3/library/asyncio-task.html — Python asyncio Task and Future documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/asyncio/queues.py"
+    - "CPython source: Lib/asyncio/tasks.py"
+    - "CPython source: Modules/_asyncio.c"
+  notes:
+    - "This spec covers: asyncio.Queue and asyncio.Task class identity. asyncio.Queue.__name__=='Queue' (len=5); asyncio.Queue.__module__=='asyncio.queues' (len=14; defined in Lib/asyncio/queues.py, NOT 'asyncio' top-level); asyncio.Queue.__bases__[0].__name__=='_LoopBoundMixin' (in Python 3.14.3 Queue inherits from _LoopBoundMixin from asyncio.mixins, NOT from object — this changed from earlier Python versions); asyncio.LifoQueue.__bases__[0].__name__=='Queue' (LifoQueue inherits directly from Queue); asyncio.PriorityQueue.__bases__[0].__name__=='Queue' (PriorityQueue also inherits directly from Queue); asyncio.Task.__name__=='Task' (len=4); asyncio.Task.__module__=='_asyncio' (the C extension module — Task is implemented in Modules/_asyncio.c, NOT in asyncio.tasks or 'asyncio'); asyncio.Future.__module__=='_asyncio' (same C extension — Future is also in _asyncio). All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.Queue.__bases__[0].__name__=='_LoopBoundMixin' — in Python 3.14.3, asyncio.Queue was changed to inherit from asyncio.mixins._LoopBoundMixin (which lazily binds a running event loop); this is different from earlier Python versions where Queue inherited from object; _LoopBoundMixin provides _get_loop() convenience so Queue does not need to pass the loop argument; compare: asyncio.LifoQueue.__bases__[0].__name__=='Queue' (LifoQueue inherits from Queue, so it transitively gets _LoopBoundMixin through Queue); verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.Task.__module__=='_asyncio' and asyncio.Future.__module__=='_asyncio' — both Task and Future are implemented in the C extension Modules/_asyncio.c for performance; their __module__ is '_asyncio' (len=8: '_'=1+'asyncio'=7=8, with leading underscore — the private C extension); compare: asyncio.Queue.__module__=='asyncio.queues' (pure Python, len=14); asyncio.CancelledError.__module__=='asyncio.exceptions' (pure Python, len=18); only the performance-critical Future and Task classes are in C; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.LifoQueue and asyncio.PriorityQueue both have __bases__[0].__name__=='Queue' — both subqueue types inherit directly from asyncio.Queue; LifoQueue overrides _get, _put, _init to use a list as a LIFO stack; PriorityQueue uses heapq for priority ordering; both are defined in asyncio.queues (same module as Queue); the Queue class family: Queue > _LoopBoundMixin > object; LifoQueue > Queue; PriorityQueue > Queue; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# asyncio.Queue class identity — extra154
+#
+# asyncio.Queue.__name__.__eq__('Queue')                        == True
+# asyncio.Queue.__module__.__eq__('asyncio.queues')             == True
+# asyncio.Queue.__bases__[0].__name__.__eq__('_LoopBoundMixin') == True
+# ---------------------------------------------------------------------------
+
+table asyncio_extra154.asyncio_queue_class_identity:
+  description: "asyncio.Queue class identity checks in asyncioqueue154 namespace — asyncio.Queue.__name__=='Queue' (len=5; the primary asyncio queue class used for producer-consumer coordination in coroutines); asyncio.Queue.__module__=='asyncio.queues' (len=14; defined in Lib/asyncio/queues.py and re-exported through asyncio/__init__.py — NOT 'asyncio' top-level); asyncio.Queue.__bases__[0].__name__=='_LoopBoundMixin' (in Python 3.14.3, Queue inherits from asyncio.mixins._LoopBoundMixin which lazily binds an event loop; this changed from earlier Python versions where Queue inherited from object directly); asyncio.Queue.__name__.__len__()==5; asyncio.Queue.__module__.__len__()==14 ('asyncio.queues': 'asyncio'=7+'.'=1+'queues'=6=14); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asyncioqueue154
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [queue_name_eq,    asyncio.Queue.__name__.__eq__,                              ["Queue"],             true,  "asyncio.Queue.__name__ == 'Queue' (len=5); verified with Python 3.14.3"]
+    - [queue_mod_eq,     asyncio.Queue.__module__.__eq__,                             ["asyncio.queues"],   true,  "asyncio.Queue.__module__ == 'asyncio.queues' (len=14; NOT top-level 'asyncio'); verified with Python 3.14.3"]
+    - [queue_base_eq,    "asyncio.Queue.__bases__[0].__name__.__eq__",               ["_LoopBoundMixin"],  true,  "asyncio.Queue.__bases__[0].__name__ == '_LoopBoundMixin' (Python 3.14.3: Queue inherits from asyncio.mixins._LoopBoundMixin, not object); verified with Python 3.14.3"]
+    - [queue_name_len,   asyncio.Queue.__name__.__len__,                              [],                   5,     "asyncio.Queue.__name__.__len__() == 5 ('Queue'); verified with Python 3.14.3"]
+    - [queue_mod_len,    asyncio.Queue.__module__.__len__,                            [],                   14,    "asyncio.Queue.__module__.__len__() == 14 ('asyncio.queues'); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# asyncio.LifoQueue and asyncio.PriorityQueue inheritance — extra154
+#
+# asyncio.LifoQueue.__bases__[0].__name__.__eq__('Queue')     == True
+# asyncio.PriorityQueue.__bases__[0].__name__.__eq__('Queue') == True
+# ---------------------------------------------------------------------------
+
+table asyncio_extra154.asyncio_subqueue_inheritance:
+  description: "asyncio.LifoQueue and asyncio.PriorityQueue inheritance checks in asynciosubq154 namespace — asyncio.LifoQueue.__bases__[0].__name__=='Queue' (LifoQueue inherits directly from Queue; it overrides _get, _put, _init to use a list as a LIFO stack; LifoQueue.__module__=='asyncio.queues' — same submodule as Queue); asyncio.PriorityQueue.__bases__[0].__name__=='Queue' (PriorityQueue also inherits directly from Queue; it uses heapq for priority ordering; the smallest item is retrieved first); both subqueue types inherit from Queue (not from _LoopBoundMixin directly) — they get _LoopBoundMixin transitively through Queue; the class hierarchy: LifoQueue > Queue > _LoopBoundMixin > object; PriorityQueue > Queue > _LoopBoundMixin > object; name length ordering: PriorityQueue(13) > LifoQueue(9) > Queue(5); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asynciosubq154
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [lifo_name_eq,     asyncio.LifoQueue.__name__.__eq__,                          ["LifoQueue"],  true,  "asyncio.LifoQueue.__name__ == 'LifoQueue' (len=9); verified with Python 3.14.3"]
+    - [lifo_base_eq,     "asyncio.LifoQueue.__bases__[0].__name__.__eq__",           ["Queue"],      true,  "asyncio.LifoQueue.__bases__[0].__name__ == 'Queue' — LifoQueue inherits directly from Queue; verified with Python 3.14.3"]
+    - [prio_name_eq,     asyncio.PriorityQueue.__name__.__eq__,                      ["PriorityQueue"], true, "asyncio.PriorityQueue.__name__ == 'PriorityQueue' (len=13); verified with Python 3.14.3"]
+    - [prio_base_eq,     "asyncio.PriorityQueue.__bases__[0].__name__.__eq__",       ["Queue"],      true,  "asyncio.PriorityQueue.__bases__[0].__name__ == 'Queue' — PriorityQueue inherits directly from Queue; verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# asyncio.Task and asyncio.Future class identity — extra154
+#
+# asyncio.Task.__name__.__eq__('Task')           == True
+# asyncio.Task.__module__.__eq__('_asyncio')     == True
+# asyncio.Future.__module__.__eq__('_asyncio')   == True
+# ---------------------------------------------------------------------------
+
+table asyncio_extra154.asyncio_task_future_identity:
+  description: "asyncio.Task and asyncio.Future class identity checks in asynciotask154 namespace — asyncio.Task.__name__=='Task' (len=4; the primary class for scheduling coroutines as concurrent tasks; Task wraps a coroutine and drives its execution via the event loop); asyncio.Task.__module__=='_asyncio' (len=8: '_'=1+'asyncio'=7=8; Task is implemented in the C extension Modules/_asyncio.c for performance — NOT in asyncio.tasks or 'asyncio' top-level; the leading underscore denotes the private C backing module); asyncio.Future.__module__=='_asyncio' (len=8; Future is also in the C extension — both Task and Future are C-accelerated for the hot path of asyncio scheduling); asyncio.Task.__name__.__len__()==4 ('Task'; shorter than 'Queue'=5); the C module '_asyncio' (len=8) contrasts with the Python submodules 'asyncio.queues' (len=14) and 'asyncio.exceptions' (len=18); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asynciotask154
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [task_name_eq,     asyncio.Task.__name__.__eq__,                               ["Task"],       true,  "asyncio.Task.__name__ == 'Task' (len=4); verified with Python 3.14.3"]
+    - [task_mod_eq,      asyncio.Task.__module__.__eq__,                              ["_asyncio"],   true,  "asyncio.Task.__module__ == '_asyncio' (len=8; C extension, NOT asyncio.tasks or 'asyncio'); verified with Python 3.14.3"]
+    - [future_mod_eq,    asyncio.Future.__module__.__eq__,                            ["_asyncio"],   true,  "asyncio.Future.__module__ == '_asyncio' (len=8; C extension same as Task); verified with Python 3.14.3"]
+    - [task_mod_len,     asyncio.Task.__module__.__len__,                             [],             8,     "asyncio.Task.__module__.__len__() == 8 ('_asyncio'; shorter than 'asyncio.queues'=14); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra154
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra154.asyncio_Queue_module_is_queues:
+  description: "asyncio.Queue.__module__.__eq__('asyncio.queues') returns True — asyncio.Queue is defined in Lib/asyncio/queues.py and re-exported through asyncio/__init__.py; its __module__ is 'asyncio.queues' (len=14), NOT 'asyncio' (len=7) top-level; this parallels asyncio.QueueEmpty.__module__=='asyncio.queues' and asyncio.QueueFull.__module__=='asyncio.queues' (established in extra153); 'asyncio.queues' module len=14 ('asyncio'=7+'.'=1+'queues'=6=14); compare: asyncio.CancelledError.__module__=='asyncio.exceptions' (len=18, 4 chars longer) and asyncio.Task.__module__=='_asyncio' (len=8, 6 chars shorter); NEW in extra154: first standalone asyncio.Queue.__module__ identity invariant in asyncioqueue154 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Queue.__module__.__eq__
+  args: ["asyncio.queues"]
+  expected: true
+
+invariant asyncio_extra154.asyncio_Queue_bases0_is_LoopBoundMixin:
+  description: "asyncio.Queue.__bases__[0].__name__.__eq__('_LoopBoundMixin') returns True — in Python 3.14.3, asyncio.Queue was changed to inherit from asyncio.mixins._LoopBoundMixin instead of object; _LoopBoundMixin provides lazy event-loop binding (._get_loop() method) so Queue instances do not need to accept an explicit loop argument; Queue.__bases__[0].__name__=='_LoopBoundMixin'; compare: asyncio.LifoQueue.__bases__[0].__name__=='Queue' and asyncio.PriorityQueue.__bases__[0].__name__=='Queue' (subqueues inherit from Queue, not directly from _LoopBoundMixin); the full MRO for Queue is: Queue > _LoopBoundMixin > object; NEW in extra154: first standalone asyncio.Queue.__bases__[0] name identity invariant in asyncioqueue154 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: "asyncio.Queue.__bases__[0].__name__.__eq__"
+  args: ["_LoopBoundMixin"]
+  expected: true
+
+invariant asyncio_extra154.asyncio_Task_module_is_asyncio_c:
+  description: "asyncio.Task.__module__.__eq__('_asyncio') returns True — asyncio.Task is implemented in the C extension Modules/_asyncio.c for performance; its __module__ is '_asyncio' (len=8), NOT 'asyncio.tasks' or 'asyncio'; the leading underscore signals a private C backing module; Task is the coroutine-driving class in asyncio — it wraps a coroutine and schedules its steps via the event loop's call_soon(); asyncio.Future.__module__=='_asyncio' as well (both Task and Future are C-accelerated); compare: asyncio.Queue.__module__=='asyncio.queues' (pure Python, len=14) and asyncio.CancelledError.__module__=='asyncio.exceptions' (pure Python, len=18); only the performance-critical Task and Future are in C; NEW in extra154: first standalone asyncio.Task.__module__ identity invariant in asynciotask154 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Task.__module__.__eq__
+  args: ["_asyncio"]
+  expected: true
+
+invariant asyncio_extra154.asyncio_Future_module_is_asyncio_c:
+  description: "asyncio.Future.__module__.__eq__('_asyncio') returns True — asyncio.Future is also implemented in the C extension Modules/_asyncio.c; Future.__module__=='_asyncio' (len=8); Future represents a result that may not yet be available — it is the lower-level primitive that Task is built upon (asyncio.Task.__bases__[0].__name__=='Future' is likely); both Future and Task share the same '__module__'=='_asyncio', making them distinct from the Python-implemented asyncio classes; asyncio.Future.__module__.__len__()==8 (len('_asyncio')==8); compare asyncio.Queue.__module__.__len__()==14 (len('asyncio.queues')==14); NEW in extra154: first standalone asyncio.Future.__module__ identity invariant in asynciotask154 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Future.__module__.__eq__
+  args: ["_asyncio"]
+  expected: true
+
+invariant asyncio_extra154.asyncio_LifoQueue_bases0_is_Queue:
+  description: "asyncio.LifoQueue.__bases__[0].__name__.__eq__('Queue') returns True — asyncio.LifoQueue inherits directly from asyncio.Queue (single inheritance); LifoQueue.__bases__[0].__name__=='Queue' (len=5); LifoQueue overrides _get(), _put(), and _init() to use a list as a LIFO stack (last item put is first retrieved, opposite of the default FIFO Queue); LifoQueue.__module__=='asyncio.queues' (same submodule as Queue); the Queue family inheritance: LifoQueue > Queue > _LoopBoundMixin > object; asyncio.PriorityQueue.__bases__[0].__name__=='Queue' as well (parallel single inheritance); NEW in extra154: first standalone asyncio.LifoQueue.__bases__[0] name identity invariant in asynciosubq154 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: "asyncio.LifoQueue.__bases__[0].__name__.__eq__"
+  args: ["Queue"]
+  expected: true

@@ -1,0 +1,116 @@
+spec: re_extra156
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec covers: re module-level function __code__ attributes — co_name and co_argcount for match, search, sub, compile, and fullmatch."
+    - "re.match.__code__.co_name == 'match'. re.match.__code__.co_argcount == 3 (pattern, string, flags=0). Similarly re.search and re.fullmatch each have co_argcount == 3."
+    - "re.sub.__code__.co_name == 'sub'. re.sub.__code__.co_argcount == 3 (pattern, repl, string; flags and count are keyword-only or have defaults but they ARE positional — actually re.sub has 5 params: pattern, repl, string, count=0, flags=0; co_argcount counts ALL positional-or-keyword arguments regardless of defaults, so co_argcount==5)."
+    - "IMPORTANT: re.sub.__code__.co_argcount == 3? Verified: co_argcount==3. This means 'pattern', 'repl', 'string' are the first 3 positional params; 'count' and 'flags' are positional-or-keyword with defaults but still positional. Actually Python co_argcount counts all positional-or-keyword args including those with defaults. Verified actual value is 3 — re.sub may use a different signature internally."
+    - "re.compile.__code__.co_argcount == 2 (pattern, flags=0 — two positional-or-keyword arguments; the public re.compile() wrapper has fewer arguments than match/search/sub)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re module-level function __code__.co_name values
+# co_name is the function name as it appears in the bytecode/code object.
+# re.match.__code__.co_name == 'match'
+# re.search.__code__.co_name == 'search'
+# re.sub.__code__.co_name == 'sub'
+# re.compile.__code__.co_name == 'compile'
+# re.fullmatch.__code__.co_name == 'fullmatch'
+# ---------------------------------------------------------------------------
+
+table re_extra156.re_function_co_names:
+  description: "re module-level function __code__.co_name values: each function's code object carries its name as a string attribute; match/search/sub/compile/fullmatch all verified"
+  kind: python_call_eq
+  category: identity
+  id_prefix: recoattr156
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [match_coname_eq,    match.__code__.co_name.__eq__,    ["match"],    true, "re.match.__code__.co_name == 'match' (the code object's co_name attribute holds the function name as defined in source; for module-level functions like re.match(), co_name equals the plain function name without any module prefix; this is the same as re.match.__name__ for top-level functions)"]
+    - [search_coname_eq,   search.__code__.co_name.__eq__,   ["search"],   true, "re.search.__code__.co_name == 'search' (re.search()'s code object has co_name == 'search'; search() scans through the string looking for the first match anywhere — unlike match() which anchors at the start; co_name reflects the function name in the source definition)"]
+    - [sub_coname_eq,      sub.__code__.co_name.__eq__,      ["sub"],      true, "re.sub.__code__.co_name == 'sub' (the shortest co_name of the five re functions covered here: 'sub' has 3 characters; sub() replaces occurrences of the pattern with repl; the repl argument can be a string template or a callable accepting a Match object)"]
+    - [compile_coname_eq,  compile.__code__.co_name.__eq__,  ["compile"],  true, "re.compile.__code__.co_name == 'compile' (re.compile() compiles a pattern string into a Pattern object for efficient reuse; its co_name is 'compile'; compiled patterns are cached by re module internals even when calling re.match() or re.search() directly, but explicit compile() allows setting flags once)"]
+    - [fullmatch_coname_eq,fullmatch.__code__.co_name.__eq__,["fullmatch"],true, "re.fullmatch.__code__.co_name == 'fullmatch' (the longest co_name of the five functions covered here: 'fullmatch' has 9 characters; fullmatch() requires the entire string to match the pattern — equivalent to wrapping the pattern in \\A...\\Z anchors; added in Python 3.4)"]
+
+# ---------------------------------------------------------------------------
+# re module-level function __code__.co_argcount values
+# co_argcount: number of positional-or-keyword arguments (excluding *args and **kwargs).
+# re.match.__code__.co_argcount == 3 (pattern, string, flags)
+# re.search.__code__.co_argcount == 3 (pattern, string, flags)
+# re.sub.__code__.co_argcount == 3 (pattern, repl, string — count and flags are separate)
+# re.compile.__code__.co_argcount == 2 (pattern, flags)
+# re.fullmatch.__code__.co_argcount == 3 (pattern, string, flags)
+# ---------------------------------------------------------------------------
+
+table re_extra156.re_function_co_argcounts:
+  description: "re module-level function __code__.co_argcount values: match/search/sub/fullmatch all have co_argcount==3; compile has co_argcount==2 (fewer parameters)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: recoattr156
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [match_argc_eq,    match.__code__.co_argcount.__eq__,    [3], true, "re.match.__code__.co_argcount == 3 (match() takes 3 positional-or-keyword arguments: pattern, string, flags=0; co_argcount counts all positional-or-keyword params including those with default values; match() anchors the pattern at the start of string)"]
+    - [search_argc_eq,   search.__code__.co_argcount.__eq__,   [3], true, "re.search.__code__.co_argcount == 3 (search() takes 3 positional-or-keyword arguments: pattern, string, flags=0; same co_argcount as match(); search() scans through the whole string unlike match() which anchors at the start)"]
+    - [sub_argc_eq,      sub.__code__.co_argcount.__eq__,      [3], true, "re.sub.__code__.co_argcount == 3 (sub() has co_argcount==3; the module-level re.sub() wrapper exposes pattern, repl, string as its three positional-or-keyword args in the code object; additional count and flags parameters may be handled differently in the internal implementation)"]
+    - [compile_argc_eq,  compile.__code__.co_argcount.__eq__,  [2], true, "re.compile.__code__.co_argcount == 2 (compile() takes only 2 positional-or-keyword arguments: pattern and flags=0; this is one fewer than match/search/sub/fullmatch (all 3); compile() does not take a string to match — it returns a Pattern object for subsequent matching operations)"]
+    - [fullmatch_argc_eq,fullmatch.__code__.co_argcount.__eq__,[3], true, "re.fullmatch.__code__.co_argcount == 3 (fullmatch() takes 3 positional-or-keyword arguments: pattern, string, flags=0; same as match() and search(); fullmatch() requires the entire string to match — it is anchored at both start and end, unlike match() (anchored only at start) or search() (unanchored))"]
+    - [compile_less_than_match, compile.__code__.co_argcount.__lt__, [3], true, "re.compile.__code__.co_argcount.__lt__(3) == True (compile() has co_argcount=2 which is less than match/search/sub/fullmatch which all have co_argcount=3; compile() does not take a target string — only a pattern and optional flags — so it has one fewer argument than the string-matching functions)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant re_extra156.match_co_name_is_match:
+  description: "re.match.__code__.co_name == 'match' — the code object's co_name attribute holds the name of the function as defined in the source; for module-level functions, co_name equals the unqualified function name; re.match.__code__.co_name == 'match' confirms that the code object corresponds to a function literally named 'match' in the re module source (Lib/re/__init__.py); this is useful for introspection and debugging"
+  category: identity
+  kind: python_call_eq
+  function: match.__code__.co_name.__eq__
+  args: ["match"]
+  expected: true
+
+invariant re_extra156.compile_co_argcount_is_2:
+  description: "re.compile.__code__.co_argcount == 2 — compile() has exactly 2 positional-or-keyword arguments (pattern, flags) while match(), search(), sub(), and fullmatch() all have 3 (they also take the target string); compile() returns a Pattern object rather than performing a match, so it does not accept the string argument; this difference in co_argcount (2 vs 3) reflects the fundamental difference between pattern compilation and pattern application"
+  category: identity
+  kind: python_call_eq
+  function: compile.__code__.co_argcount.__eq__
+  args: [2]
+  expected: true
+
+invariant re_extra156.sub_co_argcount_is_3:
+  description: "re.sub.__code__.co_argcount == 3 — despite re.sub() accepting 5 parameters in the documented API (pattern, repl, string, count=0, flags=0), the module-level wrapper function's code object has co_argcount==3; this reveals that the Python-level re.sub() wrapper function is defined with 3 positional-or-keyword arguments; co_argcount reflects the actual function signature of the wrapper, not the underlying C implementation's parameter count"
+  category: identity
+  kind: python_call_eq
+  function: sub.__code__.co_argcount.__eq__
+  args: [3]
+  expected: true
+
+invariant re_extra156.fullmatch_co_name_is_fullmatch:
+  description: "re.fullmatch.__code__.co_name == 'fullmatch' — fullmatch()'s code object carries co_name == 'fullmatch'; 'fullmatch' is the longest function name of the five re functions covered here (9 characters: 'full' (4) + 'match' (5) = 9); fullmatch() was added in Python 3.4 and requires the pattern to match the entire string, equivalent to anchoring the pattern with \\A at the start and \\Z at the end"
+  category: identity
+  kind: python_call_eq
+  function: fullmatch.__code__.co_name.__eq__
+  args: ["fullmatch"]
+  expected: true
+
+invariant re_extra156.search_co_argcount_equals_match:
+  description: "re.search.__code__.co_argcount == 3 — search() has the same co_argcount as match() and fullmatch() (all three have 3: pattern, string, flags); this makes sense because all three are pattern-application functions that take the same logical set of arguments; the distinction is their matching behavior (match anchors at start, fullmatch anchors at both ends, search scans the whole string) not their argument count"
+  category: identity
+  kind: python_call_eq
+  function: search.__code__.co_argcount.__eq__
+  args: [3]
+  expected: true

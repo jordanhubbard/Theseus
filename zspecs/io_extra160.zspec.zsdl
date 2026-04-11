@@ -1,0 +1,114 @@
+spec: io_extra160
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+  notes:
+    - "This spec covers: io ABC method __qualname__ values for IOBase, RawIOBase, BufferedIOBase, and TextIOBase abstract methods."
+    - "A critical discovery: io.IOBase.close.__qualname__ == '_IOBase.close' (NOT 'IOBase.close'). The __qualname__ attribute on these methods reflects the private C type (_IOBase, _RawIOBase, _BufferedIOBase, _TextIOBase) that actually implements them, not the public Python wrapper (IOBase, RawIOBase, etc.). The public wrappers (io.IOBase, io.RawIOBase, etc.) have __name__ == 'IOBase' / 'RawIOBase' but their methods' __qualname__ values reveal the private C base."
+    - "io.IOBase.close.__qualname__ == '_IOBase.close'. io.IOBase.readable.__qualname__ == '_IOBase.readable'. io.IOBase.writable.__qualname__ == '_IOBase.writable'. io.IOBase.seekable.__qualname__ == '_IOBase.seekable'. io.IOBase.readline.__qualname__ == '_IOBase.readline'."
+    - "io.RawIOBase.read.__qualname__ == '_RawIOBase.read'. io.BufferedIOBase.read.__qualname__ == '_BufferedIOBase.read'. io.TextIOBase.read.__qualname__ == '_TextIOBase.read'."
+    - "This is consistent with the two-layer architecture established in io_extra159: the public io ABCs (IOBase, RawIOBase, etc.) wrap private C ABCs (_IOBase, _RawIOBase, etc.), and methods inherited from the C ABCs carry the private C type's name in their __qualname__."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io.IOBase method __qualname__ values
+# io.IOBase is a public Python wrapper over the private C type _IOBase.
+# Methods on io.IOBase carry __qualname__ values reflecting _IOBase (the C type).
+# IOBase.close.__qualname__ == '_IOBase.close' (NOT 'IOBase.close')
+# IOBase.readable.__qualname__ == '_IOBase.readable'
+# IOBase.writable.__qualname__ == '_IOBase.writable'
+# IOBase.seekable.__qualname__ == '_IOBase.seekable'
+# IOBase.readline.__qualname__ == '_IOBase.readline'
+# ---------------------------------------------------------------------------
+
+table io_extra160.IOBase_method_qualnames:
+  description: "io.IOBase method __qualname__ values all use '_IOBase.' prefix (private C type), NOT 'IOBase.' — the public Python wrapper delegates to the C ABC whose name begins with underscore"
+  kind: python_call_eq
+  category: qualname
+  id_prefix: ioabcq160
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [close_qeq,    IOBase.close.__qualname__.__eq__,    ["_IOBase.close"],    true, "io.IOBase.close.__qualname__ == '_IOBase.close' (NOT 'IOBase.close'; the qualname reflects the private C type _IOBase, not the public Python wrapper io.IOBase; close() flushes and closes the stream — subsequent calls have no effect; this is the most fundamental IOBase method)"]
+    - [close_qne,    IOBase.close.__qualname__.__eq__,    ["IOBase.close"],     false,"io.IOBase.close.__qualname__.__eq__('IOBase.close') == False (the qualname is '_IOBase.close' with the underscore-prefixed private C type; the public io.IOBase class does not define close() in Python — it delegates to the C-level _IOBase implementation)"]
+    - [readable_qeq, IOBase.readable.__qualname__.__eq__, ["_IOBase.readable"], true, "io.IOBase.readable.__qualname__ == '_IOBase.readable' (same _IOBase prefix as close; readable() returns False by default — only streams open for reading return True; the public wrapper io.IOBase inherits readable from C-level _IOBase so the method's qualname is '_IOBase.readable')"]
+    - [writable_qeq, IOBase.writable.__qualname__.__eq__, ["_IOBase.writable"], true, "io.IOBase.writable.__qualname__ == '_IOBase.writable' (writable() returns False by default — only streams open for writing return True; same _IOBase prefix pattern as close and readable; all three predicate methods (readable, writable, seekable) share the '_IOBase.' qualname prefix)"]
+    - [seekable_qeq, IOBase.seekable.__qualname__.__eq__, ["_IOBase.seekable"], true, "io.IOBase.seekable.__qualname__ == '_IOBase.seekable' (seekable() returns False by default — only random-access streams return True; non-seekable streams raise UnsupportedOperation when seek() or tell() is called; all IOBase predicates have '_IOBase.' qualname prefix from the C implementation)"]
+    - [readline_qeq, IOBase.readline.__qualname__.__eq__, ["_IOBase.readline"], true, "io.IOBase.readline.__qualname__ == '_IOBase.readline' (readline() reads and returns one line from the stream up to and including the newline; the default IOBase implementation is written in C (_IOBase), so the method qualname uses '_IOBase.readline' with the underscore-prefixed private type name)"]
+
+# ---------------------------------------------------------------------------
+# io.RawIOBase, BufferedIOBase, TextIOBase method __qualname__ values
+# All use private C type names in their qualnames:
+# RawIOBase.read.__qualname__ == '_RawIOBase.read'
+# BufferedIOBase.read.__qualname__ == '_BufferedIOBase.read'
+# TextIOBase.read.__qualname__ == '_TextIOBase.read'
+# ---------------------------------------------------------------------------
+
+table io_extra160.read_method_qualnames_across_abcs:
+  description: "io ABC .read method __qualname__ values: all use private C type prefix (_RawIOBase, _BufferedIOBase, _TextIOBase) not the public Python wrapper names"
+  kind: python_call_eq
+  category: qualname
+  id_prefix: ioabcq160
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [rawio_read_qeq,   RawIOBase.read.__qualname__.__eq__,    ["_RawIOBase.read"],    true, "io.RawIOBase.read.__qualname__ == '_RawIOBase.read' (the read method of the raw binary I/O abstract base class has qualname reflecting _RawIOBase, the private C type; raw I/O reads data directly from the OS without buffering; returns bytes or None if non-blocking and data not available)"]
+    - [bufio_read_qeq,   BufferedIOBase.read.__qualname__.__eq__,["_BufferedIOBase.read"],true,"io.BufferedIOBase.read.__qualname__ == '_BufferedIOBase.read' (the read method of the buffered binary I/O abstract base class; qualname uses '_BufferedIOBase' private C type prefix; BufferedIOBase.read() reads up to size bytes — or if size==-1, reads until EOF; concrete subclasses BufferedReader/BytesIO override this)"]
+    - [textio_read_qeq,  TextIOBase.read.__qualname__.__eq__,   ["_TextIOBase.read"],   true, "io.TextIOBase.read.__qualname__ == '_TextIOBase.read' (the read method of the text I/O abstract base class; qualname uses '_TextIOBase' private C type prefix; TextIOBase.read() reads and returns a string of up to size characters or until EOF if size==-1; TextIOWrapper and StringIO are concrete subclasses)"]
+    - [rawio_read_qne,   RawIOBase.read.__qualname__.__eq__,    ["RawIOBase.read"],     false,"io.RawIOBase.read.__qualname__.__eq__('RawIOBase.read') == False (the qualname is '_RawIOBase.read' with the underscore prefix from the private C ABC; the public wrapper name 'RawIOBase' does not appear in the method qualname — only the private C implementation name '_RawIOBase' does)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant io_extra160.IOBase_close_qualname_is_private:
+  description: "io.IOBase.close.__qualname__ == '_IOBase.close' — a critical finding: the qualname of io.IOBase.close uses the private C type name '_IOBase' (with underscore prefix), not the public Python wrapper 'IOBase'; this is because the method is actually implemented at the C level in _IOBase and the public io.IOBase Python wrapper simply exposes it; __qualname__ reflects the defining type, which is the private C type; this contrasts with e.g. pathlib.Path methods which are implemented in pure Python and have qualnames like 'Path.stat' without any underscore prefix"
+  category: qualname
+  kind: python_call_eq
+  function: IOBase.close.__qualname__.__eq__
+  args: ["_IOBase.close"]
+  expected: true
+
+invariant io_extra160.RawIOBase_read_qualname_is_private:
+  description: "io.RawIOBase.read.__qualname__ == '_RawIOBase.read' — the read method on the public io.RawIOBase abstract base class has a qualname using the private C type '_RawIOBase'; this is consistent with the two-layer io architecture documented in io_extra159: public wrappers (io.RawIOBase) over private C ABCs (_RawIOBase); the qualname reveals which C type actually defines the method; raw I/O streams (like FileIO) implement read() to perform unbuffered OS reads"
+  category: qualname
+  kind: python_call_eq
+  function: RawIOBase.read.__qualname__.__eq__
+  args: ["_RawIOBase.read"]
+  expected: true
+
+invariant io_extra160.TextIOBase_read_qualname_is_private:
+  description: "io.TextIOBase.read.__qualname__ == '_TextIOBase.read' — the read method on the text I/O abstract base class carries the private C type '_TextIOBase' in its qualname; all four io ABCs (IOBase, RawIOBase, BufferedIOBase, TextIOBase) consistently use private C type names in their method qualnames; this is the text I/O counterpart of _RawIOBase.read and _BufferedIOBase.read — all three share the underscore-prefixed-type qualname pattern"
+  category: qualname
+  kind: python_call_eq
+  function: TextIOBase.read.__qualname__.__eq__
+  args: ["_TextIOBase.read"]
+  expected: true
+
+invariant io_extra160.BufferedIOBase_read_qualname_is_private:
+  description: "io.BufferedIOBase.read.__qualname__ == '_BufferedIOBase.read' — the read method on the buffered binary I/O abstract base class has qualname '_BufferedIOBase.read', using the private C type name; BufferedIOBase.read() is the abstract method that BufferedReader, BufferedWriter, BytesIO, etc. must implement; the qualname '_BufferedIOBase.read' is the longest of the three ABC read qualnames ('_BufferedIOBase.' is 16 chars vs '_RawIOBase.' at 11 and '_TextIOBase.' at 12)"
+  category: qualname
+  kind: python_call_eq
+  function: BufferedIOBase.read.__qualname__.__eq__
+  args: ["_BufferedIOBase.read"]
+  expected: true
+
+invariant io_extra160.IOBase_writable_qualname_eq:
+  description: "io.IOBase.writable.__qualname__ == '_IOBase.writable' — writable() is one of the three predicate methods on IOBase (alongside readable() and seekable()) that report a stream's capabilities; all three have the '_IOBase.' qualname prefix from the C implementation; writable() returns False by default in the C implementation, and subclasses override it to return True when appropriate"
+  category: qualname
+  kind: python_call_eq
+  function: IOBase.writable.__qualname__.__eq__
+  args: ["_IOBase.writable"]
+  expected: true
