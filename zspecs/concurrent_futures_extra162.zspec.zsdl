@@ -1,0 +1,129 @@
+spec: concurrent_futures_extra162
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html — Python concurrent.futures module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/concurrent/futures/process.py"
+    - "CPython source: Lib/concurrent/futures/_base.py"
+  notes:
+    - "This spec covers: concurrent.futures.process.ProcessPoolExecutor __dict__ membership. PPE.__dict__.__contains__('submit')==True; PPE.__dict__.__contains__('shutdown')==True; PPE.__dict__.__contains__('__init__')==True; PPE.__dict__.__contains__('map')==True — KEY FINDING: unlike ThreadPoolExecutor (extra161) where 'map' is False (inherited), ProcessPoolExecutor DOES define 'map' directly in its __dict__; PPE.__dict__.__len__()==15. All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "ProcessPoolExecutor.__dict__ keys in Python 3.14.3: '__module__', '__firstlineno__', '__init__', '_start_executor_manager_thread', '_adjust_process_count', '_launch_processes', '_spawn_process', 'submit', 'map', 'shutdown', '_force_shutdown', 'terminate_workers', 'kill_workers', '__static_attributes__', '__doc__'; total 15 keys; KEY CONTRAST with ThreadPoolExecutor (extra161): TPE.__dict__.__len__()==12 and 'map' is False for TPE, but PPE.__dict__.__len__()==15 and 'map' is True for PPE — ProcessPoolExecutor overrides map() while ThreadPoolExecutor does not; 'submit' IS in PPE.__dict__ — PPE defines its own submit() with process-specific implementation; 'shutdown' IS in PPE.__dict__ — PPE defines shutdown() with process-pool-specific cleanup. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "ProcessPoolExecutor.__module__=='concurrent.futures.process' (len=26: 'concurrent'=10+'.'=1+'futures'=7+'.'=1+'process'=7=26); compare: ThreadPoolExecutor.__module__=='concurrent.futures.thread' (len=25: 'thread'=6 vs 'process'=7; PPE module path is 1 char longer); ProcessPoolExecutor.__name__=='ProcessPoolExecutor' (len=19: 'Process'=7+'Pool'=4+'Executor'=8=19; compare TPE name len=18 — PPE is 1 longer because 'Process'=7 > 'Thread'=6 by 1). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# ProcessPoolExecutor.__dict__ membership — extra162
+#
+# concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('submit')    == True
+# concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('shutdown')  == True
+# concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('__init__')  == True
+# concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('map')       == True
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra162.cf_ppe_dict_contains:
+  description: "concurrent.futures.process.ProcessPoolExecutor.__dict__ membership checks in cfppedict162 namespace — PPE.__dict__.__contains__('submit')==True (submit(fn, *args, **kwargs) is defined directly on ProcessPoolExecutor; submit dispatches fn to run in a worker process and returns a Future; PPE's submit uses process-safe queues and process management rather than thread queues); PPE.__dict__.__contains__('shutdown')==True (shutdown(wait=True, cancel_futures=False) is defined directly on ProcessPoolExecutor with process-pool-specific cleanup: signals worker processes to terminate and waits for them); PPE.__dict__.__contains__('__init__')==True (__init__ initializes the process pool with max_workers, mp_context, initializer, initargs, max_tasks_per_child); PPE.__dict__.__contains__('map')==True (KEY FINDING: unlike ThreadPoolExecutor where 'map' is False, ProcessPoolExecutor DOES define 'map' directly in its __dict__ — PPE overrides map() to support the chunksize argument which divides the iterable into chunks for more efficient inter-process communication); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: cfppedict162
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [ppe_has_submit,   concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__,  ["submit"],    true,  "PPE.__dict__.__contains__('submit') == True (directly defined; process-pool submit implementation); verified with Python 3.14.3"]
+    - [ppe_has_shutdown, concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__,  ["shutdown"],  true,  "PPE.__dict__.__contains__('shutdown') == True (directly defined; process-pool cleanup logic); verified with Python 3.14.3"]
+    - [ppe_has_init,     concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__,  ["__init__"],  true,  "PPE.__dict__.__contains__('__init__') == True (directly defined; initializes process pool); verified with Python 3.14.3"]
+    - [ppe_has_map,      concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__,  ["map"],       true,  "PPE.__dict__.__contains__('map') == True (directly defined; PPE overrides map() for chunksize support — contrast with TPE where map is False); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# ProcessPoolExecutor.__dict__ length and class identity — extra162
+#
+# PPE.__dict__.__len__()                                   == 15
+# PPE.__name__.__eq__('ProcessPoolExecutor')               == True
+# PPE.__module__.__eq__('concurrent.futures.process')      == True
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra162.cf_ppe_dict_len_and_identity:
+  description: "ProcessPoolExecutor.__dict__ length and class identity checks in cfppedli162 namespace — PPE.__dict__.__len__()==15 (exactly 15 keys directly defined on ProcessPoolExecutor in Python 3.14.3: '__module__', '__firstlineno__', '__init__', '_start_executor_manager_thread', '_adjust_process_count', '_launch_processes', '_spawn_process', 'submit', 'map', 'shutdown', '_force_shutdown', 'terminate_workers', 'kill_workers', '__static_attributes__', '__doc__'; 15 > TPE dict len(12) by 3 — PPE has 3 more directly-defined entries); PPE.__name__=='ProcessPoolExecutor' (len=19: 'Process'=7+'Pool'=4+'Executor'=8=19; 1 longer than ThreadPoolExecutor len=18 because 'Process'=7 > 'Thread'=6 by 1); PPE.__module__=='concurrent.futures.process' (len=26: 'concurrent'=10+'.'=1+'futures'=7+'.'=1+'process'=7=26; 1 longer than TPE module len=25 because 'process'=7 > 'thread'=6 by 1); PPE.__dict__.__contains__('_spawn_process')==True ('_spawn_process' is a private method unique to PPE; verified in the 15-key listing); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: cfppedli162
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [ppe_dict_len,       concurrent.futures.process.ProcessPoolExecutor.__dict__.__len__,           [],                              15,    "PPE.__dict__.__len__() == 15 (15 directly-defined entries in Python 3.14.3; 3 more than TPE=12); verified with Python 3.14.3"]
+    - [ppe_name_eq,        concurrent.futures.process.ProcessPoolExecutor.__name__.__eq__,            ["ProcessPoolExecutor"],          true,  "PPE.__name__ == 'ProcessPoolExecutor' (len=19: 'Process'=7+'Pool'=4+'Executor'=8=19; 1 longer than TPE=18); verified with Python 3.14.3"]
+    - [ppe_mod_eq,         concurrent.futures.process.ProcessPoolExecutor.__module__.__eq__,          ["concurrent.futures.process"],   true,  "PPE.__module__ == 'concurrent.futures.process' (len=26; 1 longer than TPE module=25); verified with Python 3.14.3"]
+    - [ppe_has_spawn_proc, concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__,      ["_spawn_process"],               true,  "PPE.__dict__.__contains__('_spawn_process') == True (process-spawning helper; unique to PPE); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# PPE vs TPE __dict__ contrast: map membership — extra162
+#
+# PPE.__dict__.__contains__('map')   == True   (PPE overrides map)
+# TPE.__dict__.__contains__('map')   == False  (TPE inherits map from Executor)
+# Executor.__dict__.__contains__('map') == True
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra162.cf_ppe_vs_tpe_map_contrast:
+  description: "ProcessPoolExecutor vs ThreadPoolExecutor map membership contrast in cfppetpemc162 namespace — concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('map')==True (PPE defines map() directly; PPE.map(fn, *iterables, timeout=None, chunksize=1) overrides Executor.map() to support the chunksize argument which batches work items into chunks for more efficient inter-process pickling and IPC); concurrent.futures.thread.ThreadPoolExecutor.__dict__.__contains__('map')==False (KEY CONTRAST: TPE does NOT define map() directly — TPE inherits map() from the base Executor class without overriding because thread-based execution does not benefit from chunking in the same way; chunksize is silently ignored for TPE); concurrent.futures.Executor.__dict__.__contains__('map')==True (Executor defines the base map() which is the version TPE inherits); the asymmetry: PPE needs its own map() for chunksize; TPE uses the inherited Executor.map(); PPE.__dict__.__len__()==15 vs concurrent.futures.thread.ThreadPoolExecutor.__dict__.__len__()==12 (PPE has 3 more entries); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: cfppetpemc162
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [ppe_map_true,  concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__,  ["map"],  true,   "PPE.__dict__.__contains__('map') == True (PPE overrides map for chunksize support); verified with Python 3.14.3"]
+    - [tpe_map_false, concurrent.futures.thread.ThreadPoolExecutor.__dict__.__contains__,    ["map"],  false,  "TPE.__dict__.__contains__('map') == False (TPE inherits map from Executor; no chunksize override needed); verified with Python 3.14.3"]
+    - [exec_map_true, concurrent.futures.Executor.__dict__.__contains__,                     ["map"],  true,   "Executor.__dict__.__contains__('map') == True (base map; inherited by TPE); verified with Python 3.14.3"]
+    - [ppe_name_len,  concurrent.futures.process.ProcessPoolExecutor.__name__.__len__,        [],       19,     "PPE.__name__.__len__() == 19 ('ProcessPoolExecutor'; 1 longer than TPE=18: 'Process'=7 > 'Thread'=6); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra162
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra162.cf_PPE_dict_has_submit:
+  description: "concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('submit') returns True — 'submit' is defined directly in ProcessPoolExecutor.__dict__; PPE.submit(fn, *args, **kwargs) schedules fn to run in a worker process; submit() uses process-safe queues (multiprocessing.SimpleQueue) to communicate work items to worker processes; it serializes fn and args using pickle for inter-process transport; PPE.submit() returns a Future; PPE's submit implementation differs from TPE's submit in that it must handle process management, process startup, and pickling concerns; compare: concurrent.futures.thread.ThreadPoolExecutor.__dict__.__contains__('submit')==True (TPE also directly defines submit — both concrete executors must implement submit(); the base Executor.submit raises NotImplementedError); compare: concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('map')==True (PPE ALSO defines map, unlike TPE where map is False); NEW in extra162: first standalone PPE.__dict__.__contains__('submit') invariant in cfppedict162 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__
+  args: ["submit"]
+  expected: true
+
+invariant concurrent_futures_extra162.cf_PPE_dict_has_map:
+  description: "concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('map') returns True — 'map' IS defined directly in ProcessPoolExecutor.__dict__; this is the KEY CONTRAST with ThreadPoolExecutor: TPE.__dict__.__contains__('map')==False (established in extra161) while PPE.__dict__.__contains__('map')==True; PPE.map(fn, *iterables, timeout=None, chunksize=1) overrides Executor.map() to add chunksize support; chunksize controls how the iterable is batched into chunks before being sent to worker processes — larger chunk sizes reduce the overhead of inter-process communication by grouping multiple work items into a single pickle/unpickle round-trip; without the chunksize override, ProcessPoolExecutor.map() would use the base Executor.map() which processes items one at a time, creating excessive IPC overhead for small tasks; this design decision (PPE overrides map, TPE does not) is reflected in their __dict__ memberships; PPE.__dict__.__len__()==15 vs TPE.__dict__.__len__()==12; NEW in extra162: first standalone PPE.__dict__.__contains__('map') invariant in cfppedict162 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__
+  args: ["map"]
+  expected: true
+
+invariant concurrent_futures_extra162.cf_PPE_dict_has_shutdown:
+  description: "concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__('shutdown') returns True — 'shutdown' is defined directly in ProcessPoolExecutor.__dict__; PPE.shutdown(wait=True, cancel_futures=False) has process-pool-specific shutdown logic: it signals worker processes to exit by sending sentinel values through the work queue, optionally cancels pending futures, and calls terminate()/join() on worker processes; PPE's shutdown must handle the complexity of process lifecycle management (processes can be in various states — initializing, running, zombie) unlike TPE's simpler thread join; 'shutdown' (len=8) is a directly-defined method on both PPE and TPE (both executors need their own shutdown implementations with executor-specific cleanup); compare: PPE.__dict__.__contains__('terminate_workers')==True (PPE also defines terminate_workers and kill_workers as separate helpers, reflecting process-level control that TPE does not have); NEW in extra162: first standalone PPE.__dict__.__contains__('shutdown') invariant in cfppedict162 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: concurrent.futures.process.ProcessPoolExecutor.__dict__.__contains__
+  args: ["shutdown"]
+  expected: true
+
+invariant concurrent_futures_extra162.cf_PPE_dict_len:
+  description: "concurrent.futures.process.ProcessPoolExecutor.__dict__.__len__() returns 15 — ProcessPoolExecutor.__dict__ has exactly 15 entries in Python 3.14.3: '__module__', '__firstlineno__', '__init__', '_start_executor_manager_thread', '_adjust_process_count', '_launch_processes', '_spawn_process', 'submit', 'map', 'shutdown', '_force_shutdown', 'terminate_workers', 'kill_workers', '__static_attributes__', '__doc__'; 15 entries vs ThreadPoolExecutor.__dict__.__len__()==12 (extra161) — PPE has 3 more entries than TPE reflecting additional process-management complexity: PPE defines _launch_processes, _spawn_process, _force_shutdown, terminate_workers, kill_workers (process-lifecycle methods with no thread equivalents), plus 'map' (which TPE lacks); the 15-entry dict length captures PPE's role as a process pool that must manage OS-level processes rather than lightweight threads; NEW in extra162: first standalone PPE.__dict__.__len__ invariant in cfppedli162 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: concurrent.futures.process.ProcessPoolExecutor.__dict__.__len__
+  args: []
+  expected: 15
+
+invariant concurrent_futures_extra162.cf_PPE_name_eq:
+  description: "concurrent.futures.process.ProcessPoolExecutor.__name__.__eq__('ProcessPoolExecutor') returns True — ProcessPoolExecutor.__name__=='ProcessPoolExecutor' (len=19: 'Process'=7+'Pool'=4+'Executor'=8=19); compare: ThreadPoolExecutor.__name__=='ThreadPoolExecutor' (len=18: 'Thread'=6+'Pool'=4+'Executor'=8=18; established in extra161); PPE.__name__ is 1 char longer than TPE.__name__ because 'Process'=7 > 'Thread'=6 by 1; both share the 'PoolExecutor'=12 suffix ('Pool'=4+'Executor'=8=12); PPE.__module__=='concurrent.futures.process' (len=26; established in table above) vs TPE.__module__=='concurrent.futures.thread' (len=25; extra161); module paths are also 1 char apart for the same reason ('process'=7 > 'thread'=6); the Process/Thread parallel structure is consistent in both class names and module names; NEW in extra162: first standalone PPE.__name__ identity invariant in cfppedli162 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: concurrent.futures.process.ProcessPoolExecutor.__name__.__eq__
+  args: ["ProcessPoolExecutor"]
+  expected: true
