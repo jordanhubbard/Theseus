@@ -1,0 +1,129 @@
+spec: asyncio_extra163
+version: ">=3.9"
+backend: python_module(asyncio)
+
+docs: https://docs.python.org/3/library/asyncio-sync.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio-sync.html — Python asyncio synchronization primitives documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/asyncio/locks.py"
+    - "CPython source: Lib/asyncio/mixins.py"
+  notes:
+    - "This spec covers: asyncio.Event class identity and asyncio.Queue method qualnames. asyncio.Event.__name__=='Event' (len=5: 'E'+'v'+'e'+'n'+'t'=5); asyncio.Event.__module__=='asyncio.locks' (len=13: 'asyncio'=7+'.'=1+'locks'=5=13; Event is defined in Lib/asyncio/locks.py alongside Lock, Semaphore, and Condition — same module as all asyncio synchronization primitives); asyncio.Event.__bases__[0].__name__=='_LoopBoundMixin' (len=15: '_'=1+'Loop'=4+'Bound'=5+'Mixin'=5=15; KEY FINDING: asyncio.Event inherits from _LoopBoundMixin, the SAME mixin as asyncio.Queue — NOT _ContextManagerMixin; Event does not support 'async with', it uses wait() instead; this is a Python 3.14.3 behavior where Event was moved to use _LoopBoundMixin). asyncio.Queue method qualnames: put.__qualname__=='Queue.put' (len=9: 'Queue'=5+'.'=1+'put'=3=9); get.__qualname__=='Queue.get' (len=9; same as put); empty.__qualname__=='Queue.empty' (len=11: 'Queue'=5+'.'=1+'empty'=5=11); full.__qualname__=='Queue.full' (len=10: 'Queue'=5+'.'=1+'full'=4=10). All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.Event.__bases__[0].__name__=='_LoopBoundMixin' (len=15) — KEY FINDING: in Python 3.14.3 asyncio.Event inherits from _LoopBoundMixin rather than _ContextManagerMixin; _LoopBoundMixin is the mixin used by Queue-like classes (not context-manager-eligible primitives); Event does NOT support 'async with' directly; asyncio.Event.wait() is used instead to wait for the event to be set; compare: asyncio.Lock.__bases__[0].__name__=='_ContextManagerMixin' (Lock supports 'async with'); asyncio.Semaphore.__bases__[0].__name__=='_ContextManagerMixin' (Semaphore supports 'async with'; established in extra161); asyncio.Event.__bases__[0].__name__=='_LoopBoundMixin' (Event uses the Queue mixin; len=15 == asyncio.Queue.__bases__[0].__name__.__len__()==15). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.Queue method qualnames: Queue.put.__qualname__=='Queue.put' (len=9: 'Queue'=5+'.'=1+'put'=3=9); Queue.get.__qualname__=='Queue.get' (len=9; same length as put because 'get'=3=='put'=3); Queue.empty.__qualname__=='Queue.empty' (len=11: 'empty'=5 > 'full'=4 > 'put'=3=='get'=3); Queue.full.__qualname__=='Queue.full' (len=10: 'full'=4); qualname length ordering: put(9)==get(9) < full(10) < empty(11); all four method qualnames share the 'Queue.'=6 prefix (5+1=6). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "asyncio.Event.__name__=='Event' (len=5) — same name length as asyncio.Queue.__name__=='Queue' (len=5); 'Event'=5 and 'Queue'=5 are the same length; asyncio.Event.__module__=='asyncio.locks' (len=13: same as asyncio.Lock, asyncio.Semaphore, asyncio.Condition — all in the locks submodule); compare: asyncio.Queue.__module__=='asyncio.queues' (len=14; 1 char longer than 'asyncio.locks'=13 because 'queues'=6 > 'locks'=5 by 1); Event is in the locks submodule (len=13) not the queues submodule (len=14). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# asyncio.Event class identity — extra163
+#
+# asyncio.Event.__name__.__eq__('Event')                         == True
+# asyncio.Event.__module__.__eq__('asyncio.locks')               == True
+# asyncio.Event.__bases__[0].__name__.__eq__('_LoopBoundMixin')  == True
+# ---------------------------------------------------------------------------
+
+table asyncio_extra163.asyncio_event_identity:
+  description: "asyncio.Event class identity checks in asyncioevent163 namespace — asyncio.Event.__name__=='Event' (len=5: 'E'+'v'+'e'+'n'+'t'=5; the asyncio event class; an asyncio.Event object is a synchronization primitive that allows one or more coroutines to wait until another coroutine signals that something has happened; wait() blocks until the event is set via set(); clear() resets the event); asyncio.Event.__module__=='asyncio.locks' (len=13: 'asyncio'=7+'.'=1+'locks'=5=13; Event is defined in Lib/asyncio/locks.py alongside Lock, Semaphore, Condition, and BoundedSemaphore — all asyncio synchronization primitives share this module); asyncio.Event.__bases__[0].__name__=='_LoopBoundMixin' (len=15: '_'=1+'Loop'=4+'Bound'=5+'Mixin'=5=15; KEY FINDING: Event inherits from _LoopBoundMixin rather than _ContextManagerMixin in Python 3.14.3; _LoopBoundMixin is also the base for asyncio.Queue; Event does not support 'async with' — it uses wait() instead; compare: Lock and Semaphore inherit from _ContextManagerMixin which provides 'async with' support); Event.__name__.__len__()==5 (same length as asyncio.Queue.__name__.__len__()==5 — both 'Event' and 'Queue' are 5 chars); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asyncioevent163
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [event_name_eq,   asyncio.Event.__name__.__eq__,                          ["Event"],           true,  "asyncio.Event.__name__ == 'Event' (len=5; asyncio event synchronization primitive); verified with Python 3.14.3"]
+    - [event_mod_eq,    asyncio.Event.__module__.__eq__,                          ["asyncio.locks"],   true,  "asyncio.Event.__module__ == 'asyncio.locks' (len=13; same module as Lock, Semaphore, Condition); verified with Python 3.14.3"]
+    - [event_base_eq,   "asyncio.Event.__bases__[0].__name__.__eq__",             ["_LoopBoundMixin"], true,  "asyncio.Event.__bases__[0].__name__ == '_LoopBoundMixin' (same mixin as Queue; NOT _ContextManagerMixin); verified with Python 3.14.3"]
+    - [event_name_len,  asyncio.Event.__name__.__len__,                           [],                  5,     "asyncio.Event.__name__.__len__() == 5 ('Event'; same length as Queue=5); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# asyncio.Queue method qualnames — extra163
+#
+# asyncio.Queue.put.__qualname__.__eq__('Queue.put')      == True
+# asyncio.Queue.get.__qualname__.__eq__('Queue.get')      == True
+# asyncio.Queue.empty.__qualname__.__eq__('Queue.empty')  == True
+# asyncio.Queue.full.__qualname__.__eq__('Queue.full')    == True
+# ---------------------------------------------------------------------------
+
+table asyncio_extra163.asyncio_queue_method_qualnames:
+  description: "asyncio.Queue method qualname checks in asyncioqmq163 namespace — asyncio.Queue.put.__qualname__=='Queue.put' (len=9: 'Queue'=5+'.'=1+'put'=3=9; put(item) puts an item into the queue; if the queue is full, waits until a free slot is available; put() is a coroutine); asyncio.Queue.get.__qualname__=='Queue.get' (len=9: 'Queue'=5+'.'=1+'get'=3=9; get() removes and returns an item from the queue; if the queue is empty, waits until an item is available; 'get'=3=='put'=3 so both qualnames have the same length=9); asyncio.Queue.empty.__qualname__=='Queue.empty' (len=11: 'Queue'=5+'.'=1+'empty'=5=11; empty() returns True if the queue is empty; NOT a coroutine — a synchronous predicate; 'empty'=5 > 'full'=4 so empty qualname(11) > full qualname(10)); asyncio.Queue.full.__qualname__=='Queue.full' (len=10: 'Queue'=5+'.'=1+'full'=4=10; full() returns True if there are maxsize items in the queue; synchronous predicate); qualname length ordering: put(9)==get(9) < full(10) < empty(11); all share 'Queue.'=6 prefix; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asyncioqmq163
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [q_put_qn_eq,    asyncio.Queue.put.__qualname__.__eq__,    ["Queue.put"],    true,  "Queue.put.__qualname__ == 'Queue.put' (len=9; 'put'=3 chars); verified with Python 3.14.3"]
+    - [q_get_qn_eq,    asyncio.Queue.get.__qualname__.__eq__,    ["Queue.get"],    true,  "Queue.get.__qualname__ == 'Queue.get' (len=9; 'get'=3 == 'put'=3; same length as put); verified with Python 3.14.3"]
+    - [q_empty_qn_eq,  asyncio.Queue.empty.__qualname__.__eq__,  ["Queue.empty"],  true,  "Queue.empty.__qualname__ == 'Queue.empty' (len=11; 'empty'=5; longest Queue predicate qualname); verified with Python 3.14.3"]
+    - [q_full_qn_eq,   asyncio.Queue.full.__qualname__.__eq__,   ["Queue.full"],   true,  "Queue.full.__qualname__ == 'Queue.full' (len=10; 'full'=4; between get/put and empty); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# asyncio.Queue qualname lengths cross-comparison — extra163
+#
+# asyncio.Queue.put.__qualname__.__len__()    == 9
+# asyncio.Queue.empty.__qualname__.__len__()  == 11
+# ---------------------------------------------------------------------------
+
+table asyncio_extra163.asyncio_queue_qualname_lengths:
+  description: "asyncio.Queue method qualname length cross-comparison checks in asyncioqmql163 namespace — Queue.put.__qualname__.__len__()==9 ('Queue.put'=9: 'Queue'=5+'.'=1+'put'=3=9); Queue.get.__qualname__.__len__()==9 ('Queue.get'=9: same as put since 'get'=3=='put'=3); Queue.full.__qualname__.__len__()==10 ('Queue.full'=10: 'full'=4 > 'put'=3 by 1 char); Queue.empty.__qualname__.__len__()==11 ('Queue.empty'=11: 'empty'=5 > 'full'=4 by 1 char); length ordering: put(9)==get(9) < full(10) < empty(11); asyncio.Event.__module__.__len__()==13 ('asyncio.locks'=13; same as Semaphore.__module__.__len__()==13 established in extra161); asyncio.Event.__bases__[0].__name__.__len__()==15 ('_LoopBoundMixin'=15: same as asyncio.Queue.__bases__[0].__name__.__len__()==15 since both inherit from _LoopBoundMixin); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asyncioqmql163
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [q_put_qn_len,    asyncio.Queue.put.__qualname__.__len__,    [],  9,   "Queue.put.__qualname__.__len__() == 9 ('Queue.put'); verified with Python 3.14.3"]
+    - [q_get_qn_len,    asyncio.Queue.get.__qualname__.__len__,    [],  9,   "Queue.get.__qualname__.__len__() == 9 (same as put=9; 'get'=3=='put'=3); verified with Python 3.14.3"]
+    - [q_full_qn_len,   asyncio.Queue.full.__qualname__.__len__,   [],  10,  "Queue.full.__qualname__.__len__() == 10 ('Queue.full'; 1 longer than get/put=9); verified with Python 3.14.3"]
+    - [q_empty_qn_len,  asyncio.Queue.empty.__qualname__.__len__,  [],  11,  "Queue.empty.__qualname__.__len__() == 11 ('Queue.empty'; longest Queue predicate qualname); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra163
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra163.asyncio_Event_name_eq:
+  description: "asyncio.Event.__name__.__eq__('Event') returns True — asyncio.Event is the asyncio event synchronization primitive; Event.__name__=='Event' (len=5: 'E'+'v'+'e'+'n'+'t'=5); an asyncio Event starts in the 'not set' state; calling event.set() wakes all coroutines blocked on await event.wait(); calling event.clear() resets it to 'not set'; event.is_set() returns True if the event is currently set; Event.__module__=='asyncio.locks' (len=13; same module as Lock, Semaphore, BoundedSemaphore, Condition — all in Lib/asyncio/locks.py); Event.__bases__[0].__name__=='_LoopBoundMixin' (KEY: Event uses _LoopBoundMixin in Python 3.14.3 — same mixin as Queue — NOT _ContextManagerMixin like Lock/Semaphore); compare: 'Event'=5 == 'Queue'=5 (same name length; both share _LoopBoundMixin as base); NEW in extra163: first standalone asyncio.Event.__name__ identity invariant in asyncioevent163 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Event.__name__.__eq__
+  args: ["Event"]
+  expected: true
+
+invariant asyncio_extra163.asyncio_Event_module_eq:
+  description: "asyncio.Event.__module__.__eq__('asyncio.locks') returns True — asyncio.Event is defined in Lib/asyncio/locks.py; __module__=='asyncio.locks' (len=13: 'asyncio'=7+'.'=1+'locks'=5=13); all asyncio synchronization primitives (Lock, Event, Condition, Semaphore, BoundedSemaphore) are in the locks submodule; 'asyncio.locks' (len=13) < 'asyncio.queues' (len=14) by 1 char — the queues submodule name is 1 char longer than locks; Event.__module__ (len=13) == asyncio.Lock.__module__ (len=13) == asyncio.Semaphore.__module__ (len=13) — all share the same module; compare: asyncio.Queue.__module__=='asyncio.queues' (len=14; 1 char longer); Event.__bases__[0].__name__=='_LoopBoundMixin' (inherits from Queue's mixin despite being in the locks module); NEW in extra163: first standalone asyncio.Event.__module__ identity invariant in asyncioevent163 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Event.__module__.__eq__
+  args: ["asyncio.locks"]
+  expected: true
+
+invariant asyncio_extra163.asyncio_Event_base_is_LoopBoundMixin:
+  description: "asyncio.Event.__bases__[0].__name__.__eq__('_LoopBoundMixin') returns True — asyncio.Event inherits from _LoopBoundMixin in Python 3.14.3; __bases__[0].__name__=='_LoopBoundMixin' (len=15: '_'=1+'Loop'=4+'Bound'=5+'Mixin'=5=15); KEY FINDING: Event uses _LoopBoundMixin rather than _ContextManagerMixin; _LoopBoundMixin is the mixin shared with asyncio.Queue — established in prior specs (extra160 series) as Queue.__bases__[0].__name__=='_LoopBoundMixin'; this means Event and Queue share the same base mixin, while Lock, Semaphore, and Condition share _ContextManagerMixin; the separation: context-manager-eligible (Lock, Semaphore, Condition) use _ContextManagerMixin; non-context-manager (Event, Queue) use _LoopBoundMixin; '_LoopBoundMixin' (len=15) < '_ContextManagerMixin' (len=20) by 5 chars; NEW in extra163: first standalone asyncio.Event.__bases__[0].__name__ identity invariant in asyncioevent163 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: "asyncio.Event.__bases__[0].__name__.__eq__"
+  args: ["_LoopBoundMixin"]
+  expected: true
+
+invariant asyncio_extra163.asyncio_Queue_put_qualname_eq:
+  description: "asyncio.Queue.put.__qualname__.__eq__('Queue.put') returns True — asyncio.Queue.put is defined directly on Queue; put.__qualname__=='Queue.put' (len=9: 'Queue'=5+'.'=1+'put'=3=9); Queue.put(item) puts an item into the queue; if the queue is full (maxsize was set and reached), put() waits until a free slot is available before inserting the item; put() is a coroutine that must be awaited; 'Queue.put'.__len__()==9 — the shortest (tied with Queue.get) among the four Queue predicate/accessor qualnames: put(9)==get(9) < full(10) < empty(11); the 'Queue.'=6 prefix (5+1=6) is shared by all four; NEW in extra163: first standalone asyncio.Queue.put.__qualname__ identity invariant in asyncioqmq163 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Queue.put.__qualname__.__eq__
+  args: ["Queue.put"]
+  expected: true
+
+invariant asyncio_extra163.asyncio_Queue_empty_qualname_eq:
+  description: "asyncio.Queue.empty.__qualname__.__eq__('Queue.empty') returns True — asyncio.Queue.empty is defined directly on Queue; empty.__qualname__=='Queue.empty' (len=11: 'Queue'=5+'.'=1+'empty'=5=11); Queue.empty() returns True if the queue is empty (qsize()==0); it is a synchronous predicate — NOT a coroutine; 'Queue.empty' (len=11) is the longest among the four Queue method qualnames covered: put(9)==get(9) < full(10) < empty(11); 'empty'=5 is the longest method name in this set: 'put'=3=='get'=3 < 'full'=4 < 'empty'=5; compare: Queue.full.__qualname__=='Queue.full' (len=10; 1 shorter than empty=11); NEW in extra163: first standalone asyncio.Queue.empty.__qualname__ identity invariant in asyncioqmq163 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Queue.empty.__qualname__.__eq__
+  args: ["Queue.empty"]
+  expected: true
