@@ -1,0 +1,167 @@
+spec: concurrent_futures_extra76
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html — Python concurrent.futures module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Lib/concurrent/futures/_base.py"
+    - "CPython source: Lib/concurrent/futures/thread.py"
+    - "CPython source: Lib/concurrent/futures/process.py"
+  notes:
+    - "This spec extends concurrent_futures_extra75.zspec.zsdl."
+    - "This spec covers: wave 244 theme — concurrent.futures ThreadPoolExecutor/ProcessPoolExecutor init code attributes + Executor context manager and submit. NEW in extra76: ThreadPoolExecutor.__init__.__code__.co_name=='__init__'; ThreadPoolExecutor.__init__.__code__.co_argcount==5 (self + max_workers + thread_name_prefix + initializer + initargs; ctxkwargs is positional too, so actually 6? — VERIFIED: co_argcount==5 on Python 3.14.3 because ctxkwargs uses **); ProcessPoolExecutor.__init__.__code__.co_name=='__init__'; ProcessPoolExecutor.__init__.__code__.co_argcount==5 (self + max_workers + mp_context + initializer + initargs; max_tasks_per_child is keyword-only); Executor.map.__code__.co_name=='map'; Executor.map.__code__.co_argcount==2 (self + fn; *iterables is VAR_POSITIONAL); Executor.submit.__code__.co_name=='submit'; Executor.submit.__code__.co_argcount==2 (self + fn; *args and **kwargs are VAR); Executor.__enter__.__code__.co_name=='__enter__'; Executor.__enter__.__code__.co_argcount==1 (self only); Executor.__exit__.__code__.co_name=='__exit__'; Executor.__exit__.__code__.co_argcount==4 (self + exc_type + exc_val + exc_tb); Future.__init__.__code__.co_argcount==1 (self only); Future.result.__code__.co_name=='result'; Future.result.__code__.co_argcount==2 (self + timeout). All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.ThreadPoolExecutor.__init__.__code__.co_name == '__init__'. ThreadPoolExecutor is a Python class in concurrent/futures/thread.py. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.ThreadPoolExecutor.__init__.__code__.co_argcount == 5. self, max_workers, thread_name_prefix, initializer, initargs are positional; ctxkwargs uses **kwargs. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.ProcessPoolExecutor.__init__.__code__.co_name == '__init__'. ProcessPoolExecutor is a Python class in concurrent/futures/process.py. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.ProcessPoolExecutor.__init__.__code__.co_argcount == 5. self, max_workers, mp_context, initializer, initargs are positional; max_tasks_per_child is keyword-only (co_kwonlyargcount==1). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Executor.map.__code__.co_name == 'map'. Executor.map is a generator method in _base.py; *iterables is VAR_POSITIONAL so co_argcount==2. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Executor.map.__code__.co_argcount == 2. self and fn are positional; *iterables is VAR_POSITIONAL not counted in co_argcount. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Executor.submit.__code__.co_name == 'submit'. Executor.submit is a Python method in _base.py (raises NotImplementedError). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Executor.submit.__code__.co_argcount == 2. self and fn are positional; *args and **kwargs are VAR_POSITIONAL and VAR_KEYWORD. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Executor.__enter__.__code__.co_name == '__enter__'. Executor.__enter__ is a Python method in _base.py returning self. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Executor.__enter__.__code__.co_argcount == 1. Only self is a positional parameter. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Executor.__exit__.__code__.co_name == '__exit__'. Executor.__exit__ is a Python method in _base.py calling self.shutdown. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Executor.__exit__.__code__.co_argcount == 4. self, exc_type, exc_val, exc_tb are all positional parameters. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Future.__init__.__code__.co_argcount == 1. Only self is a positional parameter. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Future.result.__code__.co_name == 'result'. Future.result is a Python method in _base.py. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "concurrent.futures.Future.result.__code__.co_argcount == 2. self and timeout are positional parameters. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# concurrent.futures ThreadPoolExecutor.__init__ and ProcessPoolExecutor.__init__
+# code attributes — extra76
+#
+# Wave 244 theme: TPE/PPE init code attributes.
+#
+# ThreadPoolExecutor.__init__.__code__.co_name == '__init__'
+# ThreadPoolExecutor.__init__.__code__.co_argcount == 5
+# ProcessPoolExecutor.__init__.__code__.co_name == '__init__'
+# ProcessPoolExecutor.__init__.__code__.co_argcount == 5
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra76.TPE_and_PPE_init_code_attrs:
+  description: "concurrent.futures ThreadPoolExecutor and ProcessPoolExecutor __init__ code attribute checks in cfmore76 namespace — wave 244 theme: TPE/PPE init code attributes; ThreadPoolExecutor.__init__.__code__.co_name=='__init__' (code object co_name matches method name); ThreadPoolExecutor.__init__.__code__.co_argcount==5 (self + max_workers + thread_name_prefix + initializer + initargs); ProcessPoolExecutor.__init__.__code__.co_name=='__init__'; ProcessPoolExecutor.__init__.__code__.co_argcount==5 (self + max_workers + mp_context + initializer + initargs; max_tasks_per_child is keyword-only); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code
+  id_prefix: cfmore76
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [tpe_init_co_name,     ThreadPoolExecutor.__init__.__code__.co_name.__eq__,     ["__init__"], true, "ThreadPoolExecutor.__init__.__code__.co_name == '__init__' — code object co_name matches the method name; verified with Python 3.14.3"]
+    - [tpe_init_co_argcount, ThreadPoolExecutor.__init__.__code__.co_argcount.__eq__,  [5],          true, "ThreadPoolExecutor.__init__.__code__.co_argcount == 5 — self + max_workers + thread_name_prefix + initializer + initargs are positional; verified with Python 3.14.3"]
+    - [ppe_init_co_name,     ProcessPoolExecutor.__init__.__code__.co_name.__eq__,    ["__init__"], true, "ProcessPoolExecutor.__init__.__code__.co_name == '__init__' — code object co_name matches the method name; verified with Python 3.14.3"]
+    - [ppe_init_co_argcount, ProcessPoolExecutor.__init__.__code__.co_argcount.__eq__, [5],          true, "ProcessPoolExecutor.__init__.__code__.co_argcount == 5 — self + max_workers + mp_context + initializer + initargs; max_tasks_per_child is keyword-only; verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# concurrent.futures Executor.map and Executor.submit code attributes — extra76
+#
+# Executor.map.__code__.co_name == 'map'
+# Executor.map.__code__.co_argcount == 2
+# Executor.submit.__code__.co_name == 'submit'
+# Executor.submit.__code__.co_argcount == 2
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra76.Executor_map_and_submit_code_attrs:
+  description: "concurrent.futures Executor.map and submit code attribute checks in cfmore76 namespace — wave 244 theme: Executor.map/submit code attributes; Executor.map.__code__.co_name=='map'; Executor.map.__code__.co_argcount==2 (self + fn; *iterables is VAR_POSITIONAL not counted in co_argcount); Executor.submit.__code__.co_name=='submit'; Executor.submit.__code__.co_argcount==2 (self + fn; *args and **kwargs are VAR); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code
+  id_prefix: cfmore76a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [executor_map_co_name,     Executor.map.__code__.co_name.__eq__,       ["map"],    true, "Executor.map.__code__.co_name == 'map' — Executor.map is a generator method; *iterables is VAR_POSITIONAL; verified with Python 3.14.3"]
+    - [executor_map_co_argcount, Executor.map.__code__.co_argcount.__eq__,    [2],        true, "Executor.map.__code__.co_argcount == 2 — self and fn are positional; *iterables is VAR_POSITIONAL not counted; verified with Python 3.14.3"]
+    - [executor_sub_co_name,     Executor.submit.__code__.co_name.__eq__,    ["submit"], true, "Executor.submit.__code__.co_name == 'submit' — Executor.submit is a Python method that raises NotImplementedError; verified with Python 3.14.3"]
+    - [executor_sub_co_argcount, Executor.submit.__code__.co_argcount.__eq__, [2],        true, "Executor.submit.__code__.co_argcount == 2 — self and fn are positional; *args and **kwargs are VAR; verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# concurrent.futures Executor.__enter__ and __exit__ code attributes — extra76
+#
+# Executor.__enter__.__code__.co_name == '__enter__'
+# Executor.__enter__.__code__.co_argcount == 1
+# Executor.__exit__.__code__.co_name == '__exit__'
+# Executor.__exit__.__code__.co_argcount == 4
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra76.Executor_enter_and_exit_code_attrs:
+  description: "concurrent.futures Executor.__enter__ and __exit__ code attribute checks in cfmore76 namespace — wave 244 theme: Executor context manager code attributes; Executor.__enter__.__code__.co_name=='__enter__'; Executor.__enter__.__code__.co_argcount==1 (self only; returns self); Executor.__exit__.__code__.co_name=='__exit__'; Executor.__exit__.__code__.co_argcount==4 (self + exc_type + exc_val + exc_tb); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code
+  id_prefix: cfmore76b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [executor_enter_co_name,     Executor.__enter__.__code__.co_name.__eq__,     ["__enter__"], true, "Executor.__enter__.__code__.co_name == '__enter__' — code object co_name matches the method name; verified with Python 3.14.3"]
+    - [executor_enter_co_argcount, Executor.__enter__.__code__.co_argcount.__eq__,  [1],           true, "Executor.__enter__.__code__.co_argcount == 1 — only self; __enter__ returns self; verified with Python 3.14.3"]
+    - [executor_exit_co_name,      Executor.__exit__.__code__.co_name.__eq__,      ["__exit__"],  true, "Executor.__exit__.__code__.co_name == '__exit__' — code object co_name matches the method name; verified with Python 3.14.3"]
+    - [executor_exit_co_argcount,  Executor.__exit__.__code__.co_argcount.__eq__,   [4],           true, "Executor.__exit__.__code__.co_argcount == 4 — self + exc_type + exc_val + exc_tb; verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# concurrent.futures Future.__init__ and result code attributes + cross-check
+# — extra76
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra76.Future_init_result_and_cross_check:
+  description: "concurrent.futures Future.__init__ and result code attributes plus cross-check in cfmore76 namespace — wave 244 theme: Future.__init__/result code attributes + cross-checks; Future.__init__.__code__.co_argcount==1 (self only); Future.result.__code__.co_name=='result'; Future.result.__code__.co_argcount==2 (self + timeout); Executor.__enter__.__code__.co_name=='__enter__'; ThreadPoolExecutor.__init__.__code__.co_name=='__init__'; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code
+  id_prefix: cfmore76c
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [future_init_co_argcount,  Future.__init__.__code__.co_argcount.__eq__,  [1],        true, "Future.__init__.__code__.co_argcount == 1 — only self is a positional parameter; verified with Python 3.14.3"]
+    - [future_result_co_name,    Future.result.__code__.co_name.__eq__,        ["result"], true, "Future.result.__code__.co_name == 'result' — code object co_name matches the method name; verified with Python 3.14.3"]
+    - [future_result_co_argcount, Future.result.__code__.co_argcount.__eq__,    [2],        true, "Future.result.__code__.co_argcount == 2 — self and timeout are positional parameters; verified with Python 3.14.3"]
+    - [executor_enter_cross,     Executor.__enter__.__code__.co_name.__eq__,   ["__enter__"], true, "Executor.__enter__.__code__.co_name == '__enter__' — cross-check; verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra76
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra76.TPE_init_co_name:
+  description: "concurrent.futures.ThreadPoolExecutor.__init__.__code__.co_name.__eq__('__init__') returns True — ThreadPoolExecutor is a Python class in concurrent/futures/thread.py; code object co_name matches the method name; NEW in extra76: first standalone co_name invariant for ThreadPoolExecutor.__init__ in cfmore76 namespace; wave 244; verified with Python 3.14.3"
+  category: code
+  kind: python_call_eq
+  function: ThreadPoolExecutor.__init__.__code__.co_name.__eq__
+  args: ["__init__"]
+  expected: true
+
+invariant concurrent_futures_extra76.TPE_init_co_argcount:
+  description: "concurrent.futures.ThreadPoolExecutor.__init__.__code__.co_argcount.__eq__(5) returns True — self, max_workers, thread_name_prefix, initializer, initargs are positional; ctxkwargs uses **kwargs; NEW in extra76: first standalone co_argcount invariant for ThreadPoolExecutor.__init__ in cfmore76 namespace; wave 244; verified with Python 3.14.3"
+  category: code
+  kind: python_call_eq
+  function: ThreadPoolExecutor.__init__.__code__.co_argcount.__eq__
+  args: [5]
+  expected: true
+
+invariant concurrent_futures_extra76.PPE_init_co_argcount:
+  description: "concurrent.futures.ProcessPoolExecutor.__init__.__code__.co_argcount.__eq__(5) returns True — self, max_workers, mp_context, initializer, initargs are positional; max_tasks_per_child is keyword-only (co_kwonlyargcount==1); NEW in extra76: first standalone co_argcount invariant for ProcessPoolExecutor.__init__ in cfmore76 namespace; wave 244; verified with Python 3.14.3"
+  category: code
+  kind: python_call_eq
+  function: ProcessPoolExecutor.__init__.__code__.co_argcount.__eq__
+  args: [5]
+  expected: true
+
+invariant concurrent_futures_extra76.Executor_exit_co_argcount:
+  description: "concurrent.futures.Executor.__exit__.__code__.co_argcount.__eq__(4) returns True — self, exc_type, exc_val, exc_tb are all positional parameters; NEW in extra76: first standalone co_argcount invariant for Executor.__exit__ in cfmore76 namespace; wave 244; verified with Python 3.14.3"
+  category: code
+  kind: python_call_eq
+  function: Executor.__exit__.__code__.co_argcount.__eq__
+  args: [4]
+  expected: true
+
+invariant concurrent_futures_extra76.Future_result_co_argcount:
+  description: "concurrent.futures.Future.result.__code__.co_argcount.__eq__(2) returns True — self and timeout are positional parameters; NEW in extra76: first standalone co_argcount invariant for Future.result in cfmore76 namespace; wave 244; verified with Python 3.14.3"
+  category: code
+  kind: python_call_eq
+  function: Future.result.__code__.co_argcount.__eq__
+  args: [2]
+  expected: true
