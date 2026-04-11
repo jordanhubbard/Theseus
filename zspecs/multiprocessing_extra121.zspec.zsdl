@@ -1,0 +1,146 @@
+spec: multiprocessing_extra121
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html — Python multiprocessing module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/multiprocessing/pool.py"
+  notes:
+    - "This spec covers: wave 261 theme — multiprocessing.pool.Pool async method co_varnames elements not previously covered. Prior specs covered: extra116 covered Pool.map/starmap/apply co_varnames elements (func, iterable, chunksize, args, kwds); extra105 covered Pool.apply_async/__qualname__=='Pool.apply_async' (len=16); extra112 covered Pool.map_async/starmap_async qualnames. NOT previously covered: Pool.join co_varnames[1]='p' (len=1, single-char); Pool.apply_async co_varnames[4]='callback', [5]='error_callback' (len=14, longest in spec), [6]='result'; Pool.apply_async co_varnames.__len__()==7 (most of any Pool method); Pool.map_async co_varnames[4]='callback', [5]='error_callback'; Pool.starmap_async co_varnames.__len__()==6 (tied with map_async). All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "multiprocessing.pool.Pool.join.__code__.co_varnames == ('self', 'p'): len=2. co_argcount==1 (self only; 'p' is a local process variable). co_varnames[1]='p' (len=1: single-character local name for each Process object iterated in the join loop; same single-char convention as asyncio.Condition.notify co_varnames[1]='n'=1). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "multiprocessing.pool.Pool.apply_async.__code__.co_varnames == ('self','func','args','kwds','callback','error_callback','result'): len=7 (most co_varnames of any Pool method). co_varnames[5]='error_callback' (len=14: longest element in this spec and the longest Pool method parameter name; 'error_callback'='error_'=6+'callback'=8=14). co_varnames[6]='result' (len=6: a local ApplyResult object created inside apply_async). co_argcount==6 (self+func+args+kwds+callback+error_callback; 'result' at index 6 is a local not a parameter). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "multiprocessing.pool.Pool.map_async.__code__.co_varnames == ('self','func','iterable','chunksize','callback','error_callback'): len=6 (1 fewer than apply_async=7; map_async has no 'result' local since it uses _map_async internally). co_varnames[5]='error_callback' (len=14: same as apply_async; tied). Pool.starmap_async has identical co_varnames structure to Pool.map_async: len=6, error_callback at index 5. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# multiprocessing.pool.Pool.join and close co_varnames — extra121
+#
+# Wave 261 theme: Pool.join co_varnames[1]='p' (len=1), Pool.close/terminate len=1.
+#
+# Pool.join.__code__.co_varnames   == ('self', 'p')  len=2; co_varnames[1]='p' (len=1)
+# Pool.close.__code__.co_varnames  == ('self',)       len=1
+# Pool.terminate.__code__.co_varnames == ('self',)    len=1 (tied)
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra121.pool_join_close_terminate_co_varnames:
+  description: "multiprocessing.pool.Pool.join, close, terminate co_varnames checks in mpjoin121 namespace — wave 261 theme: Pool.join co_varnames[1]='p' and co_varnames lengths for close/terminate/join; Pool.join.__code__.co_varnames==('self','p') len=2: co_argcount==1 (self only; 'p' is a local variable for each Process worker in the pool's _pool list that is joined); co_varnames[1].__eq__('p')==True (len=1: single-character local 'p' for the process being joined in the for-loop: for p in pool._pool: p.join(); 'p'=1 is the shortest possible variable name and the same length as asyncio.Condition.notify co_varnames[1]='n'=1 — both are 1-char iteration variables); co_varnames[1].__len__()==1 (1 is the shortest co_varnames element length in Pool method specs: shorter than Pool.apply co_varnames element 'kwds'=4, 'func'=4, etc.); Pool.close.__code__.co_varnames==('self',) len=1 (Pool.close sets self._state='CLOSE' and signals worker threads; it has no local variables beyond self); Pool.terminate.__code__.co_varnames==('self',) len=1 (tied with Pool.close=1: Pool.terminate sets self._state='TERMINATE'; both lifecycle methods have only 'self' in co_varnames); Pool.join co_varnames len=2 > Pool.close=1 == Pool.terminate=1 (join needs an iteration variable 'p' while close/terminate have none); Pool.join.__qualname__=='Pool.join' (len=9: covered in extra105); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code_attrs
+  id_prefix: mpjoin121
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [join_vlen,    "multiprocessing.pool.Pool.join.__code__.co_varnames.__len__",    [],    2,    "Pool.join co_varnames.__len__() == 2 (('self','p'); 1 self + 1 local p); verified with Python 3.14.3"]
+    - [join_v1_eq,   "multiprocessing.pool.Pool.join.__code__.co_varnames[1].__eq__",  ["p"], true, "Pool.join co_varnames[1] == 'p' (len=1; local Process variable in join loop; shortest possible name); verified with Python 3.14.3"]
+    - [join_v1_len,  "multiprocessing.pool.Pool.join.__code__.co_varnames[1].__len__", [],    1,    "Pool.join co_varnames[1].__len__() == 1 ('p'=1; shortest co_varnames element in Pool method specs); verified with Python 3.14.3"]
+    - [close_vlen,   "multiprocessing.pool.Pool.close.__code__.co_varnames.__len__",   [],    1,    "Pool.close co_varnames.__len__() == 1 (('self',); no locals beyond self); verified with Python 3.14.3"]
+    - [term_vlen,    "multiprocessing.pool.Pool.terminate.__code__.co_varnames.__len__", [],   1,    "Pool.terminate co_varnames.__len__() == 1 (tied with Pool.close=1: no locals beyond self); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# multiprocessing.pool.Pool.apply_async co_varnames — extra121
+#
+# Wave 261 theme: apply_async has 7 co_varnames (most of any Pool method);
+#                 error_callback is the longest element (len=14).
+#
+# apply_async co_varnames == ('self','func','args','kwds','callback','error_callback','result')
+# co_varnames.__len__() == 7  (most co_varnames of any Pool method)
+# co_varnames[4] == 'callback'       (len=8)
+# co_varnames[5] == 'error_callback' (len=14, longest in spec)
+# co_varnames[6] == 'result'         (len=6, local ApplyResult)
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra121.pool_apply_async_co_varnames:
+  description: "multiprocessing.pool.Pool.apply_async co_varnames element checks in mpasync121 namespace — wave 261 theme: apply_async co_varnames element-level coverage; Pool.apply_async.__code__.co_varnames==('self','func','args','kwds','callback','error_callback','result') len=7: len=7 is the most co_varnames of any Pool method (1 more than map_async=6 and starmap_async=6; 3 more than Pool.apply=4 and Pool.map=4); co_argcount==6 (self+func+args+kwds+callback+error_callback: 6 real parameters; 'result' at index 6 is a local ApplyResult object created inside apply_async and not a parameter); co_varnames[4].__eq__('callback')==True (len=8: the success callback function called with the result when the task completes; apply_async(func, args, kwds, callback, error_callback) passes callback to the ApplyResult); co_varnames[4].__len__()==8 ('callback'=8: 'call'=4+'back'=4=8; 8 is less than chunksize=9 from Pool.map); co_varnames[5].__eq__('error_callback')==True (len=14: 'error_callback'='error_'=6+'callback'=8=14; longest element in this table and in Pool method co_varnames across this spec; the error_callback function is called with the exception if the task raises one; 14 chars is the longest Pool method parameter name); co_varnames[5].__len__()==14 (14: longest co_varnames element in this spec; compare: 'chunksize'=9 from Pool.map, 'kwds'=4 from Pool.apply, 'p'=1 from Pool.join); co_varnames[6].__eq__('result')==True (len=6: 'result' is a local ApplyResult instance created inside apply_async to hold the async computation; not a parameter — it is a local returned to the caller; co_argcount==6 excludes 'result' from the parameter count); co_varnames.__len__()==7 (most co_varnames of any Pool method: join=2, apply=4, map=4, starmap=4, map_async=6, starmap_async=6, apply_async=7); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code_attrs
+  id_prefix: mpasync121
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [aa_vlen,    "multiprocessing.pool.Pool.apply_async.__code__.co_varnames.__len__",    [],                    7,    "Pool.apply_async co_varnames.__len__() == 7 (most of any Pool method; map_async=6 has 1 fewer); verified with Python 3.14.3"]
+    - [aa_v4_eq,   "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[4].__eq__",  ["callback"],          true, "Pool.apply_async co_varnames[4] == 'callback' (len=8; success callback function); verified with Python 3.14.3"]
+    - [aa_v4_len,  "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[4].__len__", [],                    8,    "Pool.apply_async co_varnames[4].__len__() == 8 ('callback'=8: 'call'=4+'back'=4=8); verified with Python 3.14.3"]
+    - [aa_v5_eq,   "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[5].__eq__",  ["error_callback"],    true, "Pool.apply_async co_varnames[5] == 'error_callback' (len=14; longest Pool method parameter name); verified with Python 3.14.3"]
+    - [aa_v5_len,  "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[5].__len__", [],                    14,   "Pool.apply_async co_varnames[5].__len__() == 14 ('error_callback'=14; longest element in this spec); verified with Python 3.14.3"]
+    - [aa_v6_eq,   "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[6].__eq__",  ["result"],            true, "Pool.apply_async co_varnames[6] == 'result' (len=6; local ApplyResult object; not a parameter); verified with Python 3.14.3"]
+    - [aa_v6_len,  "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[6].__len__", [],                    6,    "Pool.apply_async co_varnames[6].__len__() == 6 ('result'=6; local var; co_argcount=6 excludes it); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# multiprocessing.pool.Pool.map_async and starmap_async co_varnames — extra121
+#
+# Wave 261 theme: map_async/starmap_async share identical co_varnames structure.
+#
+# map_async co_varnames == ('self','func','iterable','chunksize','callback','error_callback')
+# co_varnames.__len__() == 6  (1 fewer than apply_async=7)
+# co_varnames[4] == 'callback'       (len=8, tied with apply_async)
+# co_varnames[5] == 'error_callback' (len=14, tied with apply_async)
+# starmap_async co_varnames == identical structure (len=6, same elements)
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra121.pool_map_starmap_async_co_varnames:
+  description: "multiprocessing.pool.Pool.map_async and starmap_async co_varnames element checks in mpmaync121 namespace — wave 261 theme: map_async and starmap_async co_varnames element-level coverage; Pool.map_async.__code__.co_varnames==('self','func','iterable','chunksize','callback','error_callback') len=6: len=6 is 1 fewer than apply_async=7 (map_async has no 'result' local because it returns an AsyncMapResult internally, not creating a local result variable like apply_async does); co_argcount==6 (self+func+iterable+chunksize+callback+error_callback: all 6 elements are real parameters for map_async — unlike apply_async where element 6='result' is a local); co_varnames[4].__eq__('callback')==True (len=8: tied with apply_async co_varnames[4]='callback'=8; both async methods take the same callback parameter for success notification); co_varnames[4].__len__()==8 (same as apply_async: the callback parameter is always at index 4 for both *_async methods and always has len=8); co_varnames[5].__eq__('error_callback')==True (len=14: tied with apply_async co_varnames[5]='error_callback'=14; both map_async and apply_async share the same 'error_callback' parameter name at index 5); co_varnames[5].__len__()==14 (same as apply_async: 'error_callback'=14 is the longest element for both; this cross-method consistency: all three *_async methods (apply_async, map_async, starmap_async) have 'callback' at index 4 and 'error_callback' at index 5); Pool.starmap_async.__code__.co_varnames.__len__()==6 (tied with Pool.map_async=6: starmap_async and map_async have identical co_varnames structure; starmap_async expects each iterable element to be a tuple of arguments for the function, using itertools.starmap semantics; co_varnames are identical to map_async because the difference is only in how the function arguments are unpacked, not in what the method accepts); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: code_attrs
+  id_prefix: mpmaync121
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [ma_vlen,    "multiprocessing.pool.Pool.map_async.__code__.co_varnames.__len__",    [],                 6,    "Pool.map_async co_varnames.__len__() == 6 (1 fewer than apply_async=7; no 'result' local); verified with Python 3.14.3"]
+    - [ma_v4_eq,   "multiprocessing.pool.Pool.map_async.__code__.co_varnames[4].__eq__",  ["callback"],       true, "Pool.map_async co_varnames[4] == 'callback' (len=8; tied with apply_async co_varnames[4]='callback'); verified with Python 3.14.3"]
+    - [ma_v5_eq,   "multiprocessing.pool.Pool.map_async.__code__.co_varnames[5].__eq__",  ["error_callback"], true, "Pool.map_async co_varnames[5] == 'error_callback' (len=14; tied with apply_async co_varnames[5]='error_callback'); verified with Python 3.14.3"]
+    - [ma_v5_len,  "multiprocessing.pool.Pool.map_async.__code__.co_varnames[5].__len__", [],                 14,   "Pool.map_async co_varnames[5].__len__() == 14 ('error_callback'=14; tied with apply_async=14); verified with Python 3.14.3"]
+    - [sa_vlen,    "multiprocessing.pool.Pool.starmap_async.__code__.co_varnames.__len__", [],                6,    "Pool.starmap_async co_varnames.__len__() == 6 (tied with map_async=6; starmap_async has identical co_varnames structure); verified with Python 3.14.3"]
+    - [sa_v4_eq,   "multiprocessing.pool.Pool.starmap_async.__code__.co_varnames[4].__eq__", ["callback"],    true, "Pool.starmap_async co_varnames[4] == 'callback' (len=8; tied with map_async and apply_async); verified with Python 3.14.3"]
+    - [sa_v5_eq,   "multiprocessing.pool.Pool.starmap_async.__code__.co_varnames[5].__eq__", ["error_callback"], true, "Pool.starmap_async co_varnames[5] == 'error_callback' (len=14; tied with map_async and apply_async); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra121
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra121.Pool_join_v1_p:
+  description: "multiprocessing.pool.Pool.join.__code__.co_varnames[1].__eq__('p') returns True — Pool.join co_varnames[1]='p' (len=1); co_varnames==('self','p') len=2; co_argcount==1 (self only; 'p' is a local not a parameter); 'p' is the iteration variable in the for loop that joins each Process worker: for p in self._pool: p.join(); single-character 'p' at len=1 is the shortest possible variable name; compare: 'n'=1 in asyncio.Condition.notify co_varnames[1] (both are 1-char iteration/count variable names in different asyncio-related modules); 'p'=1 is shorter than Pool.apply co_varnames elements ('func'=4, 'args'=4, 'kwds'=4) and Pool.apply_async co_varnames elements ('error_callback'=14, longest); Pool.join.__qualname__=='Pool.join' (len=9: covered in extra105); Pool.join.__code__.co_varnames.__len__()==2 (more than Pool.close=1 and Pool.terminate=1: join needs an iteration variable while close/terminate just set self._state); NEW in extra121: first standalone Pool.join co_varnames[1] equality invariant in mpjoin121 namespace; wave 261; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: "multiprocessing.pool.Pool.join.__code__.co_varnames[1].__eq__"
+  args: ["p"]
+  expected: true
+
+invariant multiprocessing_extra121.Pool_apply_async_v5_error_callback:
+  description: "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[5].__eq__('error_callback') returns True — apply_async co_varnames[5]='error_callback' (len=14: 'error_'=6+'callback'=8=14); 'error_callback' is the 6th parameter of apply_async (after self, func, args, kwds, callback); the error_callback function is called with the exception object when the task raises an exception; 'error_callback'=14 is the longest element in Pool method co_varnames in this spec (longer than 'chunksize'=9 from Pool.map, 'iterable'=8 from Pool.map, 'callback'=8 from apply_async co_varnames[4]); co_varnames[5]='error_callback' is the same string in apply_async, map_async, and starmap_async (all three *_async methods share this parameter name and position); the compound name 'error_callback' follows the pattern: type_action (error = what happened; callback = what to call); NEW in extra121: first standalone apply_async co_varnames[5] equality invariant in mpasync121 namespace; wave 261; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[5].__eq__"
+  args: ["error_callback"]
+  expected: true
+
+invariant multiprocessing_extra121.Pool_apply_async_co_varnames_len_7:
+  description: "multiprocessing.pool.Pool.apply_async.__code__.co_varnames.__len__() == 7 — co_varnames==('self','func','args','kwds','callback','error_callback','result'); 7 is the most co_varnames of any Pool method: Pool.join=2, Pool.apply=4, Pool.map=4, Pool.starmap=4, Pool.map_async=6, Pool.starmap_async=6, Pool.apply_async=7; 7 is 1 more than map_async=6 and starmap_async=6 because apply_async creates a local 'result' ApplyResult object (co_varnames[6]='result') that is returned to the caller; map_async and starmap_async do not create this local variable (they use a different internal mechanism); co_argcount==6 for apply_async (self+func+args+kwds+callback+error_callback are the 6 parameters; 'result' at index 6 is a local variable not counted in co_argcount); Pool.apply_async.__qualname__=='Pool.apply_async' (len=16: covered in extra103 and extra105); NEW in extra121: first standalone apply_async co_varnames length invariant in mpasync121 namespace; wave 261; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: "multiprocessing.pool.Pool.apply_async.__code__.co_varnames.__len__"
+  args: []
+  expected: 7
+
+invariant multiprocessing_extra121.Pool_map_async_v5_error_callback:
+  description: "multiprocessing.pool.Pool.map_async.__code__.co_varnames[5].__eq__('error_callback') returns True — map_async co_varnames[5]='error_callback' (len=14; tied with apply_async co_varnames[5]='error_callback'=14); co_varnames==('self','func','iterable','chunksize','callback','error_callback'); len=6 (1 fewer than apply_async=7 because map_async has no 'result' local); 'error_callback' at index 5 is the last element in map_async co_varnames (since len=6, index 5 is the final element); compare apply_async: 'error_callback' is at index 5 but not the last element (apply_async has 'result' at index 6); Pool.map_async.__qualname__=='Pool.map_async' (len=14: covered in extra112); Pool.starmap_async co_varnames[5]=='error_callback' (identical structure to map_async: starmap_async and map_async have the same co_varnames in the same order with the same string values; they differ only in how the function arguments are unpacked, not in their code object variable names); first standalone map_async co_varnames[5] equality invariant in mpmaync121 namespace; wave 261; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: "multiprocessing.pool.Pool.map_async.__code__.co_varnames[5].__eq__"
+  args: ["error_callback"]
+  expected: true
+
+invariant multiprocessing_extra121.Pool_error_callback_len_14:
+  description: "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[5].__len__() == 14 — 'error_callback'=14 chars: 'error_'=6+'callback'=8=14; this is the longest co_varnames element across all Pool method specs (longer than 'chunksize'=9 from Pool.map, 'iterable'=8 from Pool.map, 'callback'=8 from all *_async methods, 'result'=6, 'kwds'=4, 'func'=4, 'args'=4, 'self'=4, 'p'=1); the compound name 'error_callback' (14 chars) is consistent across all three *_async methods (apply_async, map_async, starmap_async) at co_varnames[5]='error_callback'; 'callback'=8 (at co_varnames[4] for all *_async methods) is exactly half the length of 'error_callback'=14 (8 vs 14, ratio=1.75: error_callback is 1.75x the length of callback; equivalently, error_callback = 'error_'=6 + callback=8, so error_callback is exactly 6 chars longer than callback=8); length ordering of Pool method co_varnames elements: p=1 < self=func=args=kwds=4 < result=6 < iterable=callback=8 < chunksize=9 < error_callback=14; first standalone error_callback length invariant in mpmaync121 namespace; wave 261; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: code_attrs
+  kind: python_call_eq
+  function: "multiprocessing.pool.Pool.apply_async.__code__.co_varnames[5].__len__"
+  args: []
+  expected: 14
