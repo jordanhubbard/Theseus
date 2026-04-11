@@ -1,0 +1,155 @@
+spec: asyncio_extra99
+version: ">=3.9"
+backend: python_module(asyncio)
+extends: asyncio_extra98
+
+docs: https://docs.python.org/3/library/asyncio.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio.html — Python asyncio module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_asynciomodule.c"
+  notes:
+    - "This spec extends asyncio_extra98.zspec.zsdl."
+    - "This spec covers: wave 254 theme — asyncio Task and Future class identity (C extension). NEW in extra99: asyncio.Task.__class__.__name__=='type'; asyncio.Task.__module__=='_asyncio' (C extension, note underscore prefix); asyncio.Task.__bases__[0].__name__=='Future'; asyncio.Task.__mro__.__len__()==3; asyncio.Task.cancel.__class__.__name__=='method_descriptor' (C-level method); asyncio.Task.result.__class__.__name__=='method_descriptor'; asyncio.Task.done.__class__.__name__=='method_descriptor'; asyncio.Future.__class__.__name__=='type'; asyncio.Future.__module__=='_asyncio' (C extension); asyncio.Future.__bases__[0].__name__=='object'; asyncio.Future.__mro__.__len__()==2; asyncio.Future.cancel.__class__.__name__=='method_descriptor'; asyncio.Task.cancel.__qualname__=='Task.cancel' (len=11); asyncio.Future.cancel.__qualname__=='Future.cancel' (len=13). All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "asyncio.Task.__module__ == '_asyncio'. Task and Future are implemented in the C extension Modules/_asynciomodule.c (module='_asyncio', with underscore prefix), not in Lib/asyncio/tasks.py. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "asyncio.Task.cancel.__class__.__name__ == 'method_descriptor'. Task and Future methods are C-level method_descriptors, unlike the Python coroutine functions sleep/gather/wait (class='function'). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "asyncio.Task.__mro__.__len__() == 3. Task's MRO is [Task, Future, object] — Task inherits from Future. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "asyncio.Future.__mro__.__len__() == 2. Future's MRO is [Future, object] — Future inherits directly from object with no intermediate base. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# asyncio Task class identity — extra99
+#
+# Wave 254 theme: asyncio Task and Future class identity (C extension).
+#
+# asyncio.Task.__class__.__name__ == 'type'
+# asyncio.Task.__module__ == '_asyncio'    (C extension, underscore prefix)
+# asyncio.Task.__bases__[0].__name__ == 'Future'
+# asyncio.Task.__mro__.__len__() == 3      [Task, Future, object]
+# asyncio.Task.__name__ == 'Task'          (len=4)
+# asyncio.Task.__qualname__ == 'Task'      (len=4)
+# ---------------------------------------------------------------------------
+
+table asyncio_extra99.asyncio_task_class_identity:
+  description: "asyncio.Task class identity checks in asynciotaskident99 namespace — wave 254 theme: asyncio Task and Future are C extension classes; asyncio.Task is implemented in CPython's Modules/_asynciomodule.c (not Lib/asyncio/tasks.py); Task.__class__.__name__.__eq__('type')==True (Task is a class, metaclass is type); Task.__module__.__eq__('_asyncio')==True (the C extension module name has underscore prefix, unlike the public 'asyncio' package); Task.__bases__[0].__name__.__eq__('Future')==True (Task inherits from Future, making Future the sole direct base class); Task.__mro__.__len__()==3 (MRO is [Task, Future, object], a 3-element chain); Task.__name__.__eq__('Task')==True (len=4); Task.__qualname__.__eq__('Task')==True (len=4, module-level class so qualname equals name); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asynciotaskident99
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [task_class_nm,  asyncio.Task.__class__.__name__.__eq__,       ["type"],    true, "asyncio.Task.__class__.__name__ == 'type' — Task is a class, metaclass is type; verified with Python 3.14.3"]
+    - [task_module,    asyncio.Task.__module__.__eq__,                ["_asyncio"], true, "asyncio.Task.__module__ == '_asyncio' — C extension module (underscore prefix); verified with Python 3.14.3"]
+    - [task_base0,     "asyncio.Task.__bases__[0].__name__.__eq__",   ["Future"],  true, "asyncio.Task.__bases__[0].__name__ == 'Future' — Task inherits from Future; verified with Python 3.14.3"]
+    - [task_mro_len,   asyncio.Task.__mro__.__len__,                  [],          3,    "asyncio.Task.__mro__.__len__() == 3 — MRO is [Task, Future, object]; verified with Python 3.14.3"]
+    - [task_name,      asyncio.Task.__name__.__eq__,                  ["Task"],    true, "asyncio.Task.__name__ == 'Task' (len=4); verified with Python 3.14.3"]
+    - [task_qualname,  asyncio.Task.__qualname__.__eq__,              ["Task"],    true, "asyncio.Task.__qualname__ == 'Task' (len=4); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# asyncio Task method class names — extra99
+#
+# asyncio.Task.cancel.__class__.__name__ == 'method_descriptor'
+# asyncio.Task.result.__class__.__name__ == 'method_descriptor'
+# asyncio.Task.done.__class__.__name__ == 'method_descriptor'
+# asyncio.Task.cancel.__qualname__ == 'Task.cancel'   (len=11)
+# asyncio.Task.result.__qualname__ == 'Task.result'   (len=11)
+# asyncio.Task.done.__qualname__   == 'Task.done'     (len=9)
+# ---------------------------------------------------------------------------
+
+table asyncio_extra99.asyncio_task_method_class_names:
+  description: "asyncio.Task method class name checks in asynciotaskident99 namespace — wave 254 theme: Task methods are C-level method_descriptors; Task.cancel, Task.result, and Task.done are C-level method_descriptors (class='method_descriptor') because Task is a C extension class in _asyncio; this contrasts with pure-Python asyncio functions (sleep, gather, wait) which have class='function'; Task.cancel.__class__.__name__.__eq__('method_descriptor')==True; Task.result.__class__.__name__.__eq__('method_descriptor')==True; Task.done.__class__.__name__.__eq__('method_descriptor')==True; Task.cancel.__qualname__.__eq__('Task.cancel')==True (len=11: 'Task.'=5 + 'cancel'=6); Task.result.__qualname__.__eq__('Task.result')==True (len=11: 'Task.'=5 + 'result'=6); Task.done.__qualname__.__eq__('Task.done')==True (len=9: 'Task.'=5 + 'done'=4); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asynciotaskident99a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [task_cancel_cls,  asyncio.Task.cancel.__class__.__name__.__eq__,  ["method_descriptor"], true, "asyncio.Task.cancel.__class__.__name__ == 'method_descriptor' — C-level method; verified with Python 3.14.3"]
+    - [task_result_cls,  asyncio.Task.result.__class__.__name__.__eq__,  ["method_descriptor"], true, "asyncio.Task.result.__class__.__name__ == 'method_descriptor' — C-level method; verified with Python 3.14.3"]
+    - [task_done_cls,    asyncio.Task.done.__class__.__name__.__eq__,    ["method_descriptor"], true, "asyncio.Task.done.__class__.__name__ == 'method_descriptor' — C-level method; verified with Python 3.14.3"]
+    - [task_cancel_qeq,  asyncio.Task.cancel.__qualname__.__eq__,        ["Task.cancel"],       true, "asyncio.Task.cancel.__qualname__ == 'Task.cancel' (len=11); verified with Python 3.14.3"]
+    - [task_cancel_qlen, asyncio.Task.cancel.__qualname__.__len__,       [],                    11,   "asyncio.Task.cancel.__qualname__.__len__() == 11; verified with Python 3.14.3"]
+    - [task_result_qeq,  asyncio.Task.result.__qualname__.__eq__,        ["Task.result"],       true, "asyncio.Task.result.__qualname__ == 'Task.result' (len=11); verified with Python 3.14.3"]
+    - [task_done_qeq,    asyncio.Task.done.__qualname__.__eq__,          ["Task.done"],         true, "asyncio.Task.done.__qualname__ == 'Task.done' (len=9); verified with Python 3.14.3"]
+    - [task_done_qlen,   asyncio.Task.done.__qualname__.__len__,         [],                    9,    "asyncio.Task.done.__qualname__.__len__() == 9; verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# asyncio Future class identity — extra99
+#
+# asyncio.Future.__class__.__name__ == 'type'
+# asyncio.Future.__module__ == '_asyncio'      (C extension)
+# asyncio.Future.__bases__[0].__name__ == 'object'
+# asyncio.Future.__mro__.__len__() == 2        [Future, object]
+# asyncio.Future.cancel.__class__.__name__ == 'method_descriptor'
+# asyncio.Future.cancel.__qualname__ == 'Future.cancel'   (len=13)
+# asyncio.Future.result.__qualname__ == 'Future.result'   (len=13)
+# asyncio.Future.done.__qualname__   == 'Future.done'     (len=11)
+# ---------------------------------------------------------------------------
+
+table asyncio_extra99.asyncio_future_class_identity:
+  description: "asyncio.Future class identity and method checks in asynciotaskident99 namespace — wave 254 theme: asyncio.Future is a C extension class in _asyncio; Future.__class__.__name__.__eq__('type')==True; Future.__module__.__eq__('_asyncio')==True (same C extension module as Task; both are defined in Modules/_asynciomodule.c); Future.__bases__[0].__name__.__eq__('object')==True (Future inherits directly from object, unlike Task which inherits from Future); Future.__mro__.__len__()==2 (MRO is [Future, object], minimal 2-element chain — one fewer than Task's 3-element MRO); Future.cancel.__class__.__name__.__eq__('method_descriptor')==True (C-level method); Future.cancel.__qualname__.__eq__('Future.cancel')==True (len=13: 'Future.'=7 + 'cancel'=6, two chars longer than Task.cancel len=11 because 'Future.'=7 vs 'Task.'=5); Future.result.__qualname__.__eq__('Future.result')==True (len=13); Future.done.__qualname__.__eq__('Future.done')==True (len=11); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: asynciotaskident99b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [future_class_nm,   asyncio.Future.__class__.__name__.__eq__,         ["type"],              true, "asyncio.Future.__class__.__name__ == 'type' — C extension class; verified with Python 3.14.3"]
+    - [future_module,     asyncio.Future.__module__.__eq__,                  ["_asyncio"],          true, "asyncio.Future.__module__ == '_asyncio' — same C extension as Task; verified with Python 3.14.3"]
+    - [future_base0,      "asyncio.Future.__bases__[0].__name__.__eq__",     ["object"],            true, "asyncio.Future.__bases__[0].__name__ == 'object' — Future inherits directly from object; verified with Python 3.14.3"]
+    - [future_mro_len,    asyncio.Future.__mro__.__len__,                    [],                    2,    "asyncio.Future.__mro__.__len__() == 2 — MRO is [Future, object]; verified with Python 3.14.3"]
+    - [future_cancel_cls, asyncio.Future.cancel.__class__.__name__.__eq__,   ["method_descriptor"], true, "asyncio.Future.cancel.__class__.__name__ == 'method_descriptor' — C-level method; verified with Python 3.14.3"]
+    - [future_cancel_qeq, asyncio.Future.cancel.__qualname__.__eq__,         ["Future.cancel"],     true, "asyncio.Future.cancel.__qualname__ == 'Future.cancel' (len=13); verified with Python 3.14.3"]
+    - [future_cancel_qln, asyncio.Future.cancel.__qualname__.__len__,        [],                    13,   "asyncio.Future.cancel.__qualname__.__len__() == 13 (two more than Task.cancel len=11); verified with Python 3.14.3"]
+    - [future_result_qeq, asyncio.Future.result.__qualname__.__eq__,         ["Future.result"],     true, "asyncio.Future.result.__qualname__ == 'Future.result' (len=13); verified with Python 3.14.3"]
+    - [future_done_qeq,   asyncio.Future.done.__qualname__.__eq__,           ["Future.done"],       true, "asyncio.Future.done.__qualname__ == 'Future.done' (len=11); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra99
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra99.Task_module_is_c_asyncio:
+  description: "asyncio.Task.__module__.__eq__('_asyncio') returns True — asyncio.Task is implemented in CPython's C extension Modules/_asynciomodule.c; the C extension module is named '_asyncio' (with underscore prefix) and is re-exported through the public 'asyncio' package; this contrasts with the pure Python coroutine functions asyncio.sleep, asyncio.gather, and asyncio.wait whose __module__ is 'asyncio.tasks' (defined in Lib/asyncio/tasks.py); the '_asyncio' module also contains asyncio.Future; Task.__class__.__name__ is 'type' and Task.__mro__ has length 3 (Task inherits from Future); NEW in extra99: first standalone Task module invariant in asynciotaskident99 namespace; wave 254; verified with Python 3.14.3"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Task.__module__.__eq__
+  args: ["_asyncio"]
+  expected: true
+
+invariant asyncio_extra99.Task_base_is_Future:
+  description: "asyncio.Task.__bases__[0].__name__.__eq__('Future') returns True — asyncio.Task inherits from asyncio.Future as its sole direct base class; this means Task's MRO is [Task, Future, object] (length=3); Future in turn inherits directly from object (MRO=[Future, object], length=2); the Task→Future→object inheritance chain means Task has all Future's methods (cancel, result, done, add_done_callback, etc.) plus Task-specific methods (get_coro, get_name, set_name); all these methods have class 'method_descriptor' (C-level) rather than 'function' (Python-level); NEW in extra99: first standalone Task base class invariant in asynciotaskident99 namespace; wave 254; verified with Python 3.14.3"
+  category: identity
+  kind: python_call_eq
+  function: "asyncio.Task.__bases__[0].__name__.__eq__"
+  args: ["Future"]
+  expected: true
+
+invariant asyncio_extra99.Task_cancel_is_method_descriptor:
+  description: "asyncio.Task.cancel.__class__.__name__.__eq__('method_descriptor') returns True — asyncio.Task.cancel is a C-level method_descriptor because Task is a C extension class (module='_asyncio'); this is categorically different from Python-level coroutine functions like asyncio.sleep (class='function'); all Task methods (cancel, result, done, add_done_callback, set_name, get_name, get_coro) share the same 'method_descriptor' class; Task.cancel.__qualname__ is 'Task.cancel' (len=11); the cancellation mechanism in Task adds task-specific logic on top of Future.cancel; NEW in extra99: first standalone Task.cancel class name invariant in asynciotaskident99 namespace; wave 254; verified with Python 3.14.3"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Task.cancel.__class__.__name__.__eq__
+  args: ["method_descriptor"]
+  expected: true
+
+invariant asyncio_extra99.Future_mro_len_is_2:
+  description: "asyncio.Future.__mro__.__len__() == 2 — asyncio.Future's MRO is [Future, object]; this minimal 2-element chain reflects Future's direct inheritance from object with no intermediate classes; contrast with asyncio.Task whose MRO has length 3 ([Task, Future, object]) because Task inserts Future between itself and object; Future's MRO depth (2) matches concurrent.futures.Future's depth (also 2, as verified in extra95); Future.__module__ is '_asyncio' (C extension) while concurrent.futures.Future.__module__ is 'concurrent.futures._base' (Python); NEW in extra99: first standalone asyncio.Future MRO length invariant in asynciotaskident99 namespace; wave 254; verified with Python 3.14.3"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Future.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant asyncio_extra99.Future_module_is_c_asyncio:
+  description: "asyncio.Future.__module__.__eq__('_asyncio') returns True — asyncio.Future is implemented in the C extension Modules/_asynciomodule.c alongside asyncio.Task; both share the module name '_asyncio' (underscore-prefixed C extension); asyncio.Future and asyncio.Task are the two C extension classes in the asyncio package; Future.__bases__[0].__name__ is 'object' (direct subclass); Future.cancel.__class__.__name__ is 'method_descriptor'; Future.cancel.__qualname__ is 'Future.cancel' (len=13, two chars longer than Task.cancel len=11 because 'Future.' prefix is 7 chars vs 'Task.' 5 chars); NEW in extra99: first standalone asyncio.Future module invariant in asynciotaskident99 namespace; wave 254; verified with Python 3.14.3"
+  category: identity
+  kind: python_call_eq
+  function: asyncio.Future.__module__.__eq__
+  args: ["_asyncio"]
+  expected: true

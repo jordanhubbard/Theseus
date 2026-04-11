@@ -1,0 +1,163 @@
+spec: io_extra105
+version: ">=3.9"
+backend: python_module(io)
+extends: io_extra104
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Modules/_io/iobase.c"
+  notes:
+    - "This spec extends io_extra104.zspec.zsdl."
+    - "This spec covers: io.IOBase and io.RawIOBase class hierarchy and method class names."
+    - "io.IOBase.__class__.__name__ = 'ABCMeta' — unlike concrete C types which use 'type', the abstract base IOBase uses ABCMeta as its metaclass."
+    - "io.IOBase.__module__ = 'io' — IOBase is registered in the public io module."
+    - "io.IOBase.__bases__[0].__name__ = '_IOBase' — the public IOBase ABC wraps the private C base _IOBase."
+    - "io.IOBase.__mro__.__len__() = 3 — MRO is [IOBase, _IOBase, object]."
+    - "io.RawIOBase.__class__.__name__ = 'ABCMeta' — RawIOBase also uses ABCMeta (it is an abstract base class)."
+    - "io.RawIOBase.__module__ = 'io' — registered in the public io module."
+    - "io.RawIOBase.__bases__[0].__name__ = '_RawIOBase' — public RawIOBase wraps private C base _RawIOBase."
+    - "io.RawIOBase.__mro__.__len__() = 5 — MRO is [RawIOBase, _RawIOBase, IOBase, _IOBase, object]."
+    - "io.BufferedIOBase.__class__.__name__ = 'ABCMeta' — same pattern as RawIOBase."
+    - "io.BufferedIOBase.__bases__[0].__name__ = '_BufferedIOBase' — wraps private C base."
+    - "io.BufferedIOBase.__mro__.__len__() = 5 — MRO is [BufferedIOBase, _BufferedIOBase, IOBase, _IOBase, object]."
+    - "io.TextIOBase.__class__.__name__ = 'ABCMeta' — same pattern."
+    - "io.TextIOBase.__bases__[0].__name__ = '_TextIOBase' — wraps private C base."
+    - "io.TextIOBase.__mro__.__len__() = 5 — MRO is [TextIOBase, _TextIOBase, IOBase, _IOBase, object]."
+    - "io.IOBase methods (close, flush, readline, readlines, writelines, seek, tell, truncate, readable, writable, seekable) are all 'method_descriptor' — they resolve to the private _IOBase C methods."
+    - "io.IOBase method qualnames use '_IOBase.' prefix (e.g. '_IOBase.close') because the methods are defined on the private C base _IOBase."
+    - "io.RawIOBase methods (read, readall, readinto, write) are all 'method_descriptor' with '_RawIOBase.' qualname prefix."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-10."
+  created_at: "2026-04-10T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io.IOBase class hierarchy
+# io.IOBase is an abstract base class using ABCMeta as its metaclass.
+# It wraps the private C base _IOBase; MRO length == 3.
+# io.RawIOBase, io.BufferedIOBase, and io.TextIOBase follow the same ABC
+# pattern but have MRO length == 5 (they sit one level deeper).
+# ---------------------------------------------------------------------------
+
+table io_extra105.IOBase_class_hierarchy:
+  description: "io.IOBase class hierarchy: __class__.__name__ (ABCMeta), __module__, __bases__[0].__name__, __mro__.__len__()"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: ioabchier105
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [iobase_meta_eq,       IOBase.__class__.__name__.__eq__,           ["ABCMeta"],  true,  "IOBase.__class__.__name__ == 'ABCMeta' (IOBase is an ABC; its metaclass is ABCMeta, not plain 'type')"]
+    - [iobase_meta_not_type, IOBase.__class__.__name__.__eq__,           ["type"],     false, "IOBase.__class__.__name__ is NOT 'type' (the abstract base classes use ABCMeta, distinguishing them from concrete C types like BytesIO)"]
+    - [iobase_module_eq,     IOBase.__module__.__eq__,                   ["io"],       true,  "IOBase.__module__ == 'io' (registered in the public io module)"]
+    - [iobase_name_eq,       IOBase.__name__.__eq__,                     ["IOBase"],   true,  "IOBase.__name__ == 'IOBase' (bare class name)"]
+    - [iobase_base_eq,       "IOBase.__bases__[0].__name__.__eq__",        ["_IOBase"],  true,  "IOBase.__bases__[0].__name__ == '_IOBase' (the public ABC wraps the private C base _IOBase)"]
+    - [iobase_mro_len,       IOBase.__mro__.__len__,                     [],           3,     "IOBase.__mro__.__len__() == 3 (MRO is [IOBase, _IOBase, object])"]
+    - [iobase_qualname_eq,   IOBase.__qualname__.__eq__,                 ["IOBase"],   true,  "IOBase.__qualname__ == 'IOBase' (no enclosing class; same as __name__)"]
+    - [iobase_mro_not_2,     IOBase.__mro__.__len__.__eq__,              [2],          false, "IOBase.__mro__.__len__() is NOT 2 (unlike Decimal or Pattern, IOBase has _IOBase as an intermediate base)"]
+
+# ---------------------------------------------------------------------------
+# io.RawIOBase, io.BufferedIOBase, io.TextIOBase class hierarchy
+# All three share the same ABC pattern: metaclass=ABCMeta, __module__='io',
+# bases = [private_C_base], MRO length == 5.
+# ---------------------------------------------------------------------------
+
+table io_extra105.abstract_IO_subclasses_hierarchy:
+  description: "io.RawIOBase, io.BufferedIOBase, io.TextIOBase class hierarchy: each has __class__.__name__=='ABCMeta', __module__=='io', and __mro__.__len__()==5"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: ioabchier105
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [rawio_meta_eq,    RawIOBase.__class__.__name__.__eq__,           ["ABCMeta"],       true,  "RawIOBase.__class__.__name__ == 'ABCMeta' (RawIOBase is an ABC like IOBase)"]
+    - [rawio_module_eq,  RawIOBase.__module__.__eq__,                   ["io"],            true,  "RawIOBase.__module__ == 'io' (public module)"]
+    - [rawio_base_eq,    "RawIOBase.__bases__[0].__name__.__eq__",        ["_RawIOBase"],    true,  "RawIOBase.__bases__[0].__name__ == '_RawIOBase' (wraps private C base)"]
+    - [rawio_mro_len,    RawIOBase.__mro__.__len__,                     [],                5,     "RawIOBase.__mro__.__len__() == 5 (MRO is [RawIOBase, _RawIOBase, IOBase, _IOBase, object])"]
+    - [bufio_meta_eq,    BufferedIOBase.__class__.__name__.__eq__,      ["ABCMeta"],       true,  "BufferedIOBase.__class__.__name__ == 'ABCMeta' (ABC pattern)"]
+    - [bufio_module_eq,  BufferedIOBase.__module__.__eq__,              ["io"],            true,  "BufferedIOBase.__module__ == 'io'"]
+    - [bufio_base_eq,    "BufferedIOBase.__bases__[0].__name__.__eq__",   ["_BufferedIOBase"], true, "BufferedIOBase.__bases__[0].__name__ == '_BufferedIOBase'"]
+    - [bufio_mro_len,    BufferedIOBase.__mro__.__len__,                [],                5,     "BufferedIOBase.__mro__.__len__() == 5"]
+    - [txtio_meta_eq,    TextIOBase.__class__.__name__.__eq__,          ["ABCMeta"],       true,  "TextIOBase.__class__.__name__ == 'ABCMeta'"]
+    - [txtio_module_eq,  TextIOBase.__module__.__eq__,                  ["io"],            true,  "TextIOBase.__module__ == 'io'"]
+    - [txtio_base_eq,    "TextIOBase.__bases__[0].__name__.__eq__",       ["_TextIOBase"],   true,  "TextIOBase.__bases__[0].__name__ == '_TextIOBase'"]
+    - [txtio_mro_len,    TextIOBase.__mro__.__len__,                    [],                5,     "TextIOBase.__mro__.__len__() == 5"]
+
+# ---------------------------------------------------------------------------
+# io.IOBase method class names and qualnames
+# All IOBase methods resolve to the private C base _IOBase and are
+# 'method_descriptor'. Their __qualname__ starts with '_IOBase.' not 'IOBase.'.
+# ---------------------------------------------------------------------------
+
+table io_extra105.IOBase_method_class_names:
+  description: "io.IOBase methods (close, flush, readline, readlines, writelines, seek, tell, truncate, readable, writable, seekable) all have __class__.__name__ == 'method_descriptor'; their qualnames use the '_IOBase.' prefix"
+  kind: python_call_eq
+  category: method_class_names
+  id_prefix: ioabchier105
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [iobase_close_cls,      IOBase.close.__class__.__name__.__eq__,      ["method_descriptor"], true,  "IOBase.close is 'method_descriptor' (resolves to _IOBase.close, a C method)"]
+    - [iobase_flush_cls,      IOBase.flush.__class__.__name__.__eq__,      ["method_descriptor"], true,  "IOBase.flush is 'method_descriptor'"]
+    - [iobase_readline_cls,   IOBase.readline.__class__.__name__.__eq__,   ["method_descriptor"], true,  "IOBase.readline is 'method_descriptor'"]
+    - [iobase_readlines_cls,  IOBase.readlines.__class__.__name__.__eq__,  ["method_descriptor"], true,  "IOBase.readlines is 'method_descriptor'"]
+    - [iobase_seek_cls,       IOBase.seek.__class__.__name__.__eq__,       ["method_descriptor"], true,  "IOBase.seek is 'method_descriptor'"]
+    - [iobase_tell_cls,       IOBase.tell.__class__.__name__.__eq__,       ["method_descriptor"], true,  "IOBase.tell is 'method_descriptor'"]
+    - [iobase_readable_cls,   IOBase.readable.__class__.__name__.__eq__,   ["method_descriptor"], true,  "IOBase.readable is 'method_descriptor'"]
+    - [iobase_writable_cls,   IOBase.writable.__class__.__name__.__eq__,   ["method_descriptor"], true,  "IOBase.writable is 'method_descriptor'"]
+    - [iobase_seekable_cls,   IOBase.seekable.__class__.__name__.__eq__,   ["method_descriptor"], true,  "IOBase.seekable is 'method_descriptor'"]
+    - [iobase_close_qn,       IOBase.close.__qualname__.__eq__,            ["_IOBase.close"],     true,  "IOBase.close.__qualname__ == '_IOBase.close' (qualname reflects defining class _IOBase, not the ABC wrapper)"]
+    - [iobase_tell_qn,        IOBase.tell.__qualname__.__eq__,             ["_IOBase.tell"],      true,  "IOBase.tell.__qualname__ == '_IOBase.tell'"]
+    - [iobase_readable_qn,    IOBase.readable.__qualname__.__eq__,         ["_IOBase.readable"],  true,  "IOBase.readable.__qualname__ == '_IOBase.readable'"]
+    - [iobase_close_name,     IOBase.close.__name__.__eq__,                ["close"],             true,  "IOBase.close.__name__ == 'close' (bare method name)"]
+    - [iobase_readable_name,  IOBase.readable.__name__.__eq__,             ["readable"],          true,  "IOBase.readable.__name__ == 'readable'"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant io_extra105.IOBase.metaclass_is_ABCMeta:
+  description: "io.IOBase.__class__.__name__ == 'ABCMeta' (the abstract IO base classes use ABCMeta as their metaclass, unlike concrete C extension types such as BytesIO and StringIO which use the plain 'type' metaclass)"
+  category: class_identity
+  kind: python_call_eq
+  function: IOBase.__class__.__name__.__eq__
+  args: ["ABCMeta"]
+  expected: true
+
+invariant io_extra105.IOBase.base_is_underscore_IOBase:
+  description: "io.IOBase.__bases__[0].__name__ == '_IOBase' (the public IOBase ABC wraps a private C base class _IOBase; the public class exists to provide the ABCMeta machinery, while _IOBase provides the actual C implementations)"
+  category: class_identity
+  kind: python_call_eq
+  function: IOBase.__bases__[0].__name__.__eq__
+  args: ["_IOBase"]
+  expected: true
+
+invariant io_extra105.IOBase.mro_len_3:
+  description: "io.IOBase.__mro__.__len__() == 3 (the MRO of IOBase is [IOBase, _IOBase, object]; the intermediate _IOBase is the private C implementation class)"
+  category: class_identity
+  kind: python_call_eq
+  function: IOBase.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant io_extra105.RawIOBase.mro_len_5:
+  description: "io.RawIOBase.__mro__.__len__() == 5 (the MRO is [RawIOBase, _RawIOBase, IOBase, _IOBase, object]; RawIOBase has two ABC layers and two C layers before reaching object)"
+  category: class_identity
+  kind: python_call_eq
+  function: RawIOBase.__mro__.__len__
+  args: []
+  expected: 5
+
+invariant io_extra105.IOBase.close_qualname_uses_private_prefix:
+  description: "io.IOBase.close.__qualname__ == '_IOBase.close' (IOBase methods resolve to the private _IOBase C base; their qualname reflects the actual defining class, which is the private C type _IOBase rather than the public ABC IOBase)"
+  category: method_class_names
+  kind: python_call_eq
+  function: IOBase.close.__qualname__.__eq__
+  args: ["_IOBase.close"]
+  expected: true
