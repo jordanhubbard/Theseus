@@ -1,0 +1,174 @@
+spec: struct_extra242
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified by running Python 3.14.3 struct module on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl through struct_extra241.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "struct.zspec.zsdl covers: pack/unpack vectors for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize for H/I/Q/HI/HIQ/q/h/b/?/e; roundtrip and error cases."
+    - "struct_extra.zspec.zsdl covers: Struct format/size attrs; calcsize for f/d/B/4s/>BHI; pack_into name; unpack_from; iter_unpack; error class."
+    - "struct_extra241.zspec.zsdl covers: pack/unpack 's' string format with padding."
+    - "The '?' format packs a boolean value as one byte: True -> b'\\x01', False -> b'\\x00'."
+    - "The '?' format normalizes any truthy integer to b'\\x01' — struct.pack('?', 2) == b'\\x01'."
+    - "The 'c' format packs a single byte as bytes of length 1: b'A' -> b'A'."
+    - "struct.unpack('?', b'\\x01') == (True,) — returns a one-element tuple containing the bool."
+    - "struct.unpack('?', b'\\x00') == (False,) — the zero byte unpacks to False."
+    - "struct.unpack('c', b'A') == (b'A',) — returns a one-element tuple containing bytes."
+    - "struct.unpack('c', b'z') == (b'z',) — single lowercase char."
+    - "struct.calcsize('?') == 1 — bool format occupies exactly one byte."
+    - "struct.calcsize('c') == 1 — char format occupies exactly one byte."
+    - "struct.calcsize('?c') == 2 — bool + char occupies two bytes."
+    - "pack result is always bytes; unpack result is always a tuple."
+    - "unpack('?', ...) first element has __class__.__name__ == 'bool'."
+    - "unpack('c', ...) first element has __class__.__name__ == 'bytes'."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# pack() — boolean ('?') format vectors
+# True packs to b'\x01', False packs to b'\x00'.
+# Any truthy integer packs to b'\x01'.
+# ---------------------------------------------------------------------------
+
+invariant struct242bool.pack.true:
+  description: "struct.pack('?', True) == b'\\x01'"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: ["?", true]
+  expected: !hex 01
+
+invariant struct242bool.pack.false:
+  description: "struct.pack('?', False) == b'\\x00'"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: ["?", false]
+  expected: !hex 00
+
+# ---------------------------------------------------------------------------
+# pack() — char ('c') format vectors
+# 'c' packs a single byte value; input must be bytes of length 1.
+# ---------------------------------------------------------------------------
+
+invariant struct242bool.pack.char_A:
+  description: "struct.pack('c', b'A') == b'A'"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: ["c", !ascii "A"]
+  expected: !ascii "A"
+
+invariant struct242bool.pack.char_z:
+  description: "struct.pack('c', b'z') == b'z'"
+  category: pack
+  kind: python_call_eq
+  function: pack
+  args: ["c", !ascii "z"]
+  expected: !ascii "z"
+
+# ---------------------------------------------------------------------------
+# unpack() — boolean ('?') format vectors
+# b'\x01' unpacks to (True,), b'\x00' unpacks to (False,).
+# ---------------------------------------------------------------------------
+
+invariant struct242bool.unpack.true:
+  description: "struct.unpack('?', b'\\x01') == (True,)"
+  category: unpack
+  kind: python_call_eq
+  function: unpack
+  args: ["?", !hex 01]
+  expected: [true]
+
+invariant struct242bool.unpack.false:
+  description: "struct.unpack('?', b'\\x00') == (False,)"
+  category: unpack
+  kind: python_call_eq
+  function: unpack
+  args: ["?", !hex 00]
+  expected: [false]
+
+# ---------------------------------------------------------------------------
+# unpack() — char ('c') format vectors
+# b'A' unpacks to (b'A',), b'z' unpacks to (b'z',).
+# ---------------------------------------------------------------------------
+
+invariant struct242bool.unpack.char_A:
+  description: "struct.unpack('c', b'A') == (b'A',)"
+  category: unpack
+  kind: python_call_eq
+  function: unpack
+  args: ["c", !ascii "A"]
+  expected: [!ascii "A"]
+
+invariant struct242bool.unpack.char_z:
+  description: "struct.unpack('c', b'z') == (b'z',)"
+  category: unpack
+  kind: python_call_eq
+  function: unpack
+  args: ["c", !ascii "z"]
+  expected: [!ascii "z"]
+
+# ---------------------------------------------------------------------------
+# calcsize() — bool and char format sizes
+# Both '?' and 'c' occupy exactly 1 byte each.
+# ---------------------------------------------------------------------------
+
+table struct242bool.calcsize.bool_char_formats:
+  description: "calcsize for bool ('?') and char ('c') formats — both occupy 1 byte"
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: struct242bool
+
+  columns: [id, args, expected]
+  rows:
+    - [bool_1,     ["?"],    1]
+    - [char_1,     ["c"],    1]
+    - [bool_char,  ["?c"],   2]
+    - [two_bools,  ["??"],   2]
+    - [two_chars,  ["cc"],   2]
+
+# ---------------------------------------------------------------------------
+# pack result type: bytes
+# pack('?', True).__class__.__name__ == 'bytes'
+# ---------------------------------------------------------------------------
+
+invariant struct242bool.pack.result_type:
+  description: "struct.pack('?', True).__class__.__name__ == 'bytes'"
+  category: type_identity
+  kind: python_call_eq
+  function: pack
+  args: ["?", true]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# unpack result type: tuple
+# unpack('?', b'\x01').__class__.__name__ == 'tuple'
+# ---------------------------------------------------------------------------
+
+invariant struct242bool.unpack.result_type:
+  description: "struct.unpack('?', b'\\x01').__class__.__name__ == 'tuple'"
+  category: type_identity
+  kind: python_call_eq
+  function: unpack
+  args: ["?", !hex 01]
+  method: __class__.__name__.__eq__
+  method_args: ["tuple"]
+  expected: true

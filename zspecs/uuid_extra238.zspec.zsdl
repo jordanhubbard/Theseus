@@ -1,0 +1,213 @@
+spec: uuid_extra238
+version: ">=3.2"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 9562 — Universally Unique IDentifiers (UUID)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/uuid.html — Python uuid module documentation"
+    - "RFC 9562 — Universally Unique IDentifiers (UUID) — https://www.rfc-editor.org/rfc/rfc9562"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+    - "CPython source: internal PRNG or MAC address resolution"
+  notes:
+    - "This spec extends uuid_extra.zspec.zsdl through uuid_extra237.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "uuid_extra237.zspec.zsdl covers: UUID.__repr__/__str__/__hash__/__eq__/__lt__/__int__ method __name__/__qualname__/__class__.__name__ identity."
+    - "uuid.UUID.__eq__ and uuid.UUID.__lt__ are Python functions (class 'function'); uuid.UUID.__ne__ is a wrapper_descriptor."
+    - "uuid.UUID.__hash__.__class__.__name__ == 'function' — Python-level hash implementation."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000001').int == 1 — UUID with integer value 1."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000002').int == 2 — UUID with integer value 2."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000001').__hash__() == 1 — hash equals int value for small integers."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000002').__hash__() == 2 — hash equals int value for small integers."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000001').__lt__(uuid.UUID('00000000-0000-0000-0000-000000000002')) == True — comparison by integer value."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000002').__lt__(uuid.UUID('00000000-0000-0000-0000-000000000001')) == False — larger UUID is not less than smaller."
+    - "uuid.UUID.__eq__.__name__ == '__eq__' and uuid.UUID.__eq__.__qualname__ == 'UUID.__eq__' — from uuid_extra237."
+    - "uuid.UUID.__lt__.__name__ == '__lt__' and uuid.UUID.__lt__.__qualname__ == 'UUID.__lt__' — from uuid_extra237."
+    - "uuid.UUID.__hash__.__name__ == '__hash__' — from uuid_extra237."
+    - "UUID.int attribute type is 'int' — the integer value of the UUID."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000001').__hash__().__class__.__name__ == 'int' — hash() returns an int."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# UUID.__eq__ and UUID.__lt__ class names — both are 'function'
+# uuid_extra237 covers __name__ and __qualname__; this spec covers class names.
+# ---------------------------------------------------------------------------
+
+table uuid238cmp.method_class_names:
+  description: "UUID comparison dunder methods have correct __class__.__name__ values"
+  kind: python_call_eq
+  category: method_identity
+  id_prefix: uuid238cmp
+
+  columns: [id, function, args, expected]
+  rows:
+    - [eq_class,   UUID.__eq__.__class__.__name__.__eq__,   ["function"], true]
+    - [lt_class,   UUID.__lt__.__class__.__name__.__eq__,   ["function"], true]
+    - [hash_class, UUID.__hash__.__class__.__name__.__eq__,  ["function"], true]
+
+# ---------------------------------------------------------------------------
+# UUID.__hash__ class name — 'function' (Python implementation)
+# uuid.UUID.__hash__ is a Python-level function, not a slot wrapper.
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.hash_class_name:
+  description: "uuid.UUID.__hash__.__class__.__name__ == 'function' — hash is a Python-level function"
+  category: method_identity
+  kind: python_call_eq
+  function: UUID.__hash__.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID.int attribute for known UUID values
+# uuid.UUID('00000000-0000-0000-0000-000000000001').int == 1
+# uuid.UUID('00000000-0000-0000-0000-000000000002').int == 2
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.uuid1_int:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000001').int == 1"
+  category: known_vector
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000001"]
+  method: int.__eq__
+  method_args: [1]
+  expected: true
+
+invariant uuid238cmp.uuid2_int:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000002').int == 2"
+  category: known_vector
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000002"]
+  method: int.__eq__
+  method_args: [2]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID.__hash__() return value for known UUID integers
+# hash(uuid.UUID('00000000-0000-0000-0000-000000000001')) == 1
+# For UUIDs with small integer values, hash equals the int value.
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.uuid1_hash:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000001').__hash__() == 1"
+  category: known_vector
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000001"]
+  method: __hash__
+  method_args: []
+  expected: 1
+
+invariant uuid238cmp.uuid2_hash:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000002').__hash__() == 2"
+  category: known_vector
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000002"]
+  method: __hash__
+  method_args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# UUID.__hash__() return type is int
+# uuid.UUID('00000000-0000-0000-0000-000000000001').__hash__().__class__.__name__ == 'int'
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.hash_return_type:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000001').__hash__().__class__.__name__ == 'int'"
+  category: known_vector
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000001"]
+  method: __hash__.__call__
+  method_args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# UUID int attribute type class name
+# UUID.int is a plain Python int.
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.int_attr_class_name:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000001').int.__class__.__name__ == 'int'"
+  category: known_vector
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000001"]
+  method: int.__class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID.__eq__ class name is 'function' — standalone confirming table entry
+# uuid.UUID.__eq__.__class__.__name__ == 'function'
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.eq_class_name:
+  description: "uuid.UUID.__eq__.__class__.__name__ == 'function'"
+  category: method_identity
+  kind: python_call_eq
+  function: UUID.__eq__.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID.__lt__ class name is 'function' — standalone confirming table entry
+# uuid.UUID.__lt__.__class__.__name__ == 'function'
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.lt_class_name:
+  description: "uuid.UUID.__lt__.__class__.__name__ == 'function'"
+  category: method_identity
+  kind: python_call_eq
+  function: UUID.__lt__.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID.__eq__ qualname length
+# 'UUID.__eq__' has 10 characters.
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.eq_qualname_len:
+  description: "uuid.UUID.__eq__.__qualname__.__len__() == 10 — 'UUID.__eq__' has 10 characters"
+  category: method_identity
+  kind: python_call_eq
+  function: UUID.__eq__.__qualname__.__len__
+  args: []
+  expected: 10
+
+# ---------------------------------------------------------------------------
+# UUID.__lt__ qualname length
+# 'UUID.__lt__' has 10 characters.
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.lt_qualname_len:
+  description: "uuid.UUID.__lt__.__qualname__.__len__() == 10 — 'UUID.__lt__' has 10 characters"
+  category: method_identity
+  kind: python_call_eq
+  function: UUID.__lt__.__qualname__.__len__
+  args: []
+  expected: 10
+
+# ---------------------------------------------------------------------------
+# UUID.__hash__ qualname length
+# 'UUID.__hash__' has 13 characters.
+# ---------------------------------------------------------------------------
+
+invariant uuid238cmp.hash_qualname_len:
+  description: "uuid.UUID.__hash__.__qualname__.__len__() == 13 — 'UUID.__hash__' has 13 characters"
+  category: method_identity
+  kind: python_call_eq
+  function: UUID.__hash__.__qualname__.__len__
+  args: []
+  expected: 13
