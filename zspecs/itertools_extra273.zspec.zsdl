@@ -1,0 +1,145 @@
+spec: itertools_extra273
+version: ">=3.12"
+backend: python_module(itertools)
+
+docs: https://docs.python.org/3/library/itertools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/itertools.html — documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/itertoolsmodule.c"
+  notes:
+    - "islice, takewhile, dropwhile, pairwise, batched are all C-level types; __class__.__name__ == 'type'."
+    - "islice(range(10), 3) yields [0,1,2]; islice(range(10), 0) yields [] (stop=0 produces empty)."
+    - "islice step=0 raises ValueError; islice stop=-1 raises ValueError."
+    - "pairwise and batched require Python >= 3.10 and >= 3.12 respectively."
+    - "takewhile.__module__ == 'itertools'; dropwhile.__module__ == 'itertools'."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# itertools.islice — slicing behavior
+#
+# islice(iterable, stop)        — first stop elements
+# islice(iterable, start, stop) — elements [start, stop)
+# islice(iterable, 0)           — empty (stop=0)
+# islice(iterable, start, stop, step) — every step-th element in [start,stop)
+# islice(iterable, step=0)      — raises ValueError
+# islice(iterable, stop=-1)     — raises ValueError
+# ---------------------------------------------------------------------------
+
+table itertools_extra273.islice_behavior:
+  description: "itertools.islice slicing behavior — stop-only, start/stop, zero stop yields empty, step, overshooting stop; ValueError on step=0 and negative stop; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: behavior
+  id_prefix: itex273is
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [isl_stop3_first,    islice,   ["<range:10>", 3],        0, "islice(range(10),3).__next__() == 0 (first element); verified with Python 3.14.3"]
+    - [isl_start2_first,   islice,   ["<range:10>", 2, 5],     2, "islice(range(10),2,5).__next__() == 2 (start index); verified with Python 3.14.3"]
+    - [isl_step3_first,    islice,   ["<range:10>", 0, 10, 3], 0, "islice(range(10),0,10,3).__next__() == 0 (first stepped element); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# itertools.takewhile, dropwhile, pairwise, batched — class identity
+#
+# All C-level types: __class__.__name__ == 'type'.
+# pairwise: Python 3.10+; batched: Python 3.12+.
+# ---------------------------------------------------------------------------
+
+table itertools_extra273.filter_and_window_identity:
+  description: "itertools.takewhile, dropwhile, pairwise, batched class identity — __name__, __module__, __class__.__name__; all C-level types; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: itex273fi
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [tw_name_eq,   takewhile.__name__.__eq__,           ["takewhile"],  true, "itertools.takewhile.__name__ == 'takewhile'; verified with Python 3.14.3"]
+    - [tw_mod_eq,    takewhile.__module__.__eq__,         ["itertools"],  true, "itertools.takewhile.__module__ == 'itertools'; verified with Python 3.14.3"]
+    - [tw_cls_eq,    takewhile.__class__.__name__.__eq__, ["type"],       true, "itertools.takewhile.__class__.__name__ == 'type' (C-level type); verified with Python 3.14.3"]
+    - [dw_name_eq,   dropwhile.__name__.__eq__,           ["dropwhile"],  true, "itertools.dropwhile.__name__ == 'dropwhile'; verified with Python 3.14.3"]
+    - [dw_mod_eq,    dropwhile.__module__.__eq__,         ["itertools"],  true, "itertools.dropwhile.__module__ == 'itertools'; verified with Python 3.14.3"]
+    - [dw_cls_eq,    dropwhile.__class__.__name__.__eq__, ["type"],       true, "itertools.dropwhile.__class__.__name__ == 'type' (C-level type); verified with Python 3.14.3"]
+    - [pw_name_eq,   pairwise.__name__.__eq__,            ["pairwise"],   true, "itertools.pairwise.__name__ == 'pairwise' (3.10+); verified with Python 3.14.3"]
+    - [pw_mod_eq,    pairwise.__module__.__eq__,          ["itertools"],  true, "itertools.pairwise.__module__ == 'itertools'; verified with Python 3.14.3"]
+    - [pw_cls_eq,    pairwise.__class__.__name__.__eq__,  ["type"],       true, "itertools.pairwise.__class__.__name__ == 'type' (C-level type); verified with Python 3.14.3"]
+    - [bt_name_eq,   batched.__name__.__eq__,             ["batched"],    true, "itertools.batched.__name__ == 'batched' (3.12+); verified with Python 3.14.3"]
+    - [bt_mod_eq,    batched.__module__.__eq__,           ["itertools"],  true, "itertools.batched.__module__ == 'itertools'; verified with Python 3.14.3"]
+    - [bt_cls_eq,    batched.__class__.__name__.__eq__,   ["type"],       true, "itertools.batched.__class__.__name__ == 'type' (C-level type); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — itertools_extra273
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra273.islice_stop_zero_yields_nothing:
+  description: "itertools.islice(range(10), 0) — stop=0 produces an empty iterator; first call to __next__() raises StopIteration"
+  category: behavior
+  kind: python_call_raises
+  function: islice
+  args: ["<range:10>", 0]
+  method: __next__
+  raises: StopIteration
+
+invariant itertools_extra273.islice_negative_stop_raises_valueerror:
+  description: "itertools.islice(range(10), -1) raises ValueError — negative stop is not allowed"
+  category: error_handling
+  kind: python_call_raises
+  function: islice
+  args: ["<range:10>", -1]
+  raises: ValueError
+
+invariant itertools_extra273.islice_step_zero_raises_valueerror:
+  description: "itertools.islice(range(10), 0, 5, 0) raises ValueError — step=0 is not allowed"
+  category: error_handling
+  kind: python_call_raises
+  function: islice
+  args: ["<range:10>", 0, 5, 0]
+  raises: ValueError
+
+invariant itertools_extra273.islice_class_name_is_type:
+  description: "itertools.islice.__class__.__name__ == 'type' — islice is a C-level type, not a Python function"
+  category: identity
+  kind: python_call_eq
+  function: islice.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant itertools_extra273.takewhile_first_element_predicate_true:
+  description: "itertools.takewhile(lambda x: x<4, range(10)).__next__() == 0 — yields elements while predicate holds"
+  category: behavior
+  kind: python_call_eq
+  function: takewhile
+  args: ["<lambda:lt4>", [0, 1, 2, 3, 10]]
+  method: __next__
+  expected: 0
+
+invariant itertools_extra273.pairwise_first_element_is_adjacent_pair:
+  description: "itertools.pairwise([1,2,3,4]).__next__() == (1,2) — yields consecutive overlapping pairs; tuple normalized to list"
+  category: behavior
+  kind: python_call_eq
+  function: pairwise
+  args: [[1, 2, 3, 4]]
+  method: __next__
+  expected: [1, 2]
+
+invariant itertools_extra273.batched_first_element_is_first_chunk:
+  description: "itertools.batched([1,2,3,4,5], 2).__next__() == (1,2) — yields non-overlapping chunks of size n; tuple normalized to list"
+  category: behavior
+  kind: python_call_eq
+  function: batched
+  args: [[1, 2, 3, 4, 5], 2]
+  method: __next__
+  expected: [1, 2]
+
+invariant itertools_extra273.dropwhile_module_is_itertools:
+  description: "itertools.dropwhile.__module__ == 'itertools' — C-level type registered under the itertools module"
+  category: identity
+  kind: python_call_eq
+  function: dropwhile.__module__.__eq__
+  args: ["itertools"]
+  expected: true
