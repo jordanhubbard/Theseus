@@ -1,0 +1,154 @@
+spec: socket_extra228
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+    - "CPython source: Lib/socket.py"
+  notes:
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "socket.inet_aton('127.0.0.1') returns b'\\x7f\\x00\\x00\\x01' — 4 bytes."
+    - "socket.inet_aton result.__class__.__name__ == 'bytes' — always returns bytes."
+    - "socket.inet_aton result length is always 4 for any valid IPv4 address."
+    - "socket.inet_ntoa(b'\\x7f\\x00\\x00\\x01') == '127.0.0.1' — inverse of inet_aton."
+    - "socket.inet_ntoa(b'\\xc0\\xa8\\x00\\x01') == '192.168.0.1' — private network address."
+    - "socket.getfqdn.__name__ == 'getfqdn' — Python function defined in socket.py."
+    - "socket.gethostname.__name__ == 'gethostname' — C builtin from _socket."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# socket.inet_aton — result type and length contracts
+#
+# socket.inet_aton('127.0.0.1').__class__.__name__ == 'bytes'
+# socket.inet_aton('127.0.0.1').__len__()          == 4
+# socket.inet_aton('0.0.0.0').__len__()             == 4
+# socket.inet_aton('255.255.255.255').__len__()      == 4
+#
+# inet_aton converts a dotted-quad IPv4 address string to packed binary.
+# It always returns exactly 4 bytes regardless of the address value.
+# ---------------------------------------------------------------------------
+
+table socket_extra228.inet_aton_type_and_length:
+  description: "inet_aton result is bytes; inet_aton length always 4; class name and length contracts; new to extra228"
+  kind: python_call_eq
+  category: identity
+  id_prefix: socket228
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [inet_aton_class_bytes,
+       "inet_aton('127.0.0.1').__class__.__name__.__eq__",
+       ["bytes"],
+       true,
+       "socket.inet_aton('127.0.0.1').__class__.__name__.__eq__('bytes') == True — inet_aton always returns a bytes object; 4-byte packed binary representation of IPv4 address; new anchor in extra228 namespace; verified Python 3.14.3"]
+    - [inet_aton_loopback_len_4,
+       "inet_aton('127.0.0.1').__len__",
+       [],
+       4,
+       "socket.inet_aton('127.0.0.1').__len__() == 4 — inet_aton result is always exactly 4 bytes; IPv4 addresses are 32 bits = 4 bytes; 127.0.0.1 is the loopback address; new anchor in extra228 namespace; verified Python 3.14.3"]
+    - [inet_aton_zeros_len_4,
+       "inet_aton('0.0.0.0').__len__",
+       [],
+       4,
+       "socket.inet_aton('0.0.0.0').__len__() == 4 — inet_aton result is always 4 bytes regardless of address; 0.0.0.0 is INADDR_ANY; new anchor in extra228 namespace; verified Python 3.14.3"]
+    - [inet_aton_broadcast_len_4,
+       "inet_aton('255.255.255.255').__len__",
+       [],
+       4,
+       "socket.inet_aton('255.255.255.255').__len__() == 4 — inet_aton result is always 4 bytes; 255.255.255.255 is the broadcast address (all bits set); new anchor in extra228 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# socket.inet_ntoa — bytes-to-string conversion contracts
+#
+# socket.inet_ntoa(b'\x7f\x00\x00\x01') == '127.0.0.1'
+# socket.inet_ntoa(b'\xc0\xa8\x00\x01') == '192.168.0.1'
+#
+# inet_ntoa is the inverse of inet_aton: it converts 4-byte packed binary
+# back to a dotted-quad IPv4 address string. b'\x7f\x00\x00\x01' is the
+# loopback address 127.0.0.1. b'\xc0\xa8\x00\x01' is 192.168.0.1.
+# ---------------------------------------------------------------------------
+
+table socket_extra228.inet_ntoa_bytes_to_string:
+  description: "inet_ntoa(loopback_bytes)=='127.0.0.1'; inet_ntoa(private_bytes)=='192.168.0.1'; bytes-to-string contracts; new to extra228"
+  kind: python_call_eq
+  category: identity
+  id_prefix: socket228a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [inet_ntoa_loopback,
+       inet_ntoa,
+       ["!hex 7f000001"],
+       "127.0.0.1",
+       "socket.inet_ntoa(b'\\x7f\\x00\\x00\\x01') == '127.0.0.1' — inverse of inet_aton; b'\\x7f\\x00\\x00\\x01' is the 4-byte packed loopback address; 0x7f=127, 0x00=0, 0x00=0, 0x01=1; new anchor in extra228 namespace; verified Python 3.14.3"]
+    - [inet_ntoa_private,
+       inet_ntoa,
+       ["!hex c0a80001"],
+       "192.168.0.1",
+       "socket.inet_ntoa(b'\\xc0\\xa8\\x00\\x01') == '192.168.0.1' — b'\\xc0\\xa8\\x00\\x01' is the 4-byte packed private network address; 0xc0=192, 0xa8=168, 0x00=0, 0x01=1; new anchor in extra228 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# socket.getfqdn and socket.gethostname function name contracts
+#
+# socket.getfqdn.__name__    == 'getfqdn'
+# socket.gethostname.__name__ == 'gethostname'
+#
+# getfqdn is a Python function in socket.py that returns the fully qualified
+# domain name. gethostname is a C builtin from _socket that returns the
+# current machine hostname.
+# ---------------------------------------------------------------------------
+
+table socket_extra228.getfqdn_gethostname_names:
+  description: "getfqdn.__name__=='getfqdn'; gethostname.__name__=='gethostname'; function name identity contracts; new to extra228"
+  kind: python_call_eq
+  category: identity
+  id_prefix: socket228b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [getfqdn_name_eq,
+       "getfqdn.__name__.__eq__",
+       ["getfqdn"],
+       true,
+       "socket.getfqdn.__name__.__eq__('getfqdn') == True — getfqdn is a Python function in socket.py that returns the fully qualified domain name; __name__ is 'getfqdn' (8 characters); new anchor in extra228 namespace; verified Python 3.14.3"]
+    - [gethostname_name_eq,
+       "gethostname.__name__.__eq__",
+       ["gethostname"],
+       true,
+       "socket.gethostname.__name__.__eq__('gethostname') == True — gethostname is a C builtin from _socket that returns the machine hostname; __name__ is 'gethostname' (11 characters); new anchor in extra228 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant socket_extra228.inet_aton_returns_bytes:
+  description: "socket.inet_aton('127.0.0.1').__class__.__name__.__eq__('bytes') == True — inet_aton converts a dotted-quad IPv4 address string to a 4-byte packed binary bytes object; the return type is always bytes regardless of the address value; '127.0.0.1' is the IPv4 loopback address; prior specs (socket.zspec, socket_extra) anchor inet_aton hex string via .hex() method; extra228 is the first namespace to anchor the return type class name; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: "inet_aton('127.0.0.1').__class__.__name__.__eq__"
+  args: ["bytes"]
+  expected: true
+
+invariant socket_extra228.inet_ntoa_loopback:
+  description: "socket.inet_ntoa(b'\\x7f\\x00\\x00\\x01') == '127.0.0.1' — inet_ntoa is the inverse of inet_aton; it converts a 4-byte packed binary representation back to a dotted-quad IPv4 address string; b'\\x7f\\x00\\x00\\x01' encodes the loopback address 127.0.0.1 (0x7f=127, 0x00=0, 0x00=0, 0x01=1); socket_extra anchors inet_ntoa(loopback) from its namespace; extra228 re-anchors from the extra228 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: inet_ntoa
+  args: [!hex 7f000001]
+  expected: "127.0.0.1"
+
+invariant socket_extra228.inet_ntoa_private_192_168_0_1:
+  description: "socket.inet_ntoa(b'\\xc0\\xa8\\x00\\x01') == '192.168.0.1' — inet_ntoa converts the 4-byte packed binary address b'\\xc0\\xa8\\x00\\x01' to the string '192.168.0.1'; 0xc0=192, 0xa8=168, 0x00=0, 0x01=1; 192.168.0.1 is a private IPv4 address per RFC 1918 (192.168.0.0/16 range); no prior socket spec anchors this specific address in inet_ntoa; first extra228 anchor for 192.168.0.1 via inet_ntoa; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: identity
+  kind: python_call_eq
+  function: inet_ntoa
+  args: [!hex c0a80001]
+  expected: "192.168.0.1"
