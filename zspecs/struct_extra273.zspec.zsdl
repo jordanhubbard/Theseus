@@ -1,0 +1,144 @@
+spec: struct_extra273
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl through struct_extra272.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "struct.zspec.zsdl covers: pack/unpack for B/b/H/h/I/i/Q/q/f/d/?/e/x with big/little-endian and network byte order; calcsize; roundtrip; error cases."
+    - "struct_extra272.zspec.zsdl covers: calcsize for 'x'/'c'/'5x'; pack/unpack for 'c' and '3s'; pack_into TypeError for read-only bytes."
+    - "This spec focuses on: network byte order ('!') signed integer pack/unpack vectors — pack('!h', -1), pack('!b', -128/127), pack('!i', -1/min/max); unpack('!h', ffff), unpack('!b', 80/7f), unpack('!i', ffffffff)."
+    - "struct.pack('!h', -1) == b'\\xff\\xff' — signed short -1 in network byte order is two 0xff bytes. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!b', -128) == b'\\x80' — int8 minimum value in network byte order is 0x80. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!b', 127) == b'\\x7f' — int8 maximum value in network byte order is 0x7f. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!h', -32768) == b'\\x80\\x00' — signed short minimum in network byte order. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!h', 32767) == b'\\x7f\\xff' — signed short maximum in network byte order. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!i', -1) == b'\\xff\\xff\\xff\\xff' — signed int -1 in network byte order. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!i', -2147483648) == b'\\x80\\x00\\x00\\x00' — signed int32 minimum in network byte order. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!i', 2147483647) == b'\\x7f\\xff\\xff\\xff' — signed int32 maximum in network byte order. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('!h', b'\\xff\\xff') == (-1,) — two 0xff bytes decode as signed short -1. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('!b', b'\\x80') == (-128,) — 0x80 decodes as signed byte -128 (int8 minimum). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('!b', b'\\x7f') == (127,) — 0x7f decodes as signed byte 127 (int8 maximum). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and out-of-range values. struct.pack raises struct.error for values outside the signed range of the format character."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; no shared state."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.pack — network byte order ('!') signed integers
+# struct.zspec.zsdl covers '>b' (int8 -1 == ff), '>h' (int16 -1 == ffff),
+# '>q' (int64 -1 == ffffffffffffffff), and the unsigned variants.
+# No prior spec covers '!' (network byte order) for signed 'b', 'h', 'i'.
+# '!' is identical to '>' for byte order (RFC 1700 network byte order = big-
+# endian), but encoding the '!' variants as distinct invariants is valuable
+# because some code uses '!' specifically for network protocols.
+# ---------------------------------------------------------------------------
+
+table struct_extra273.pack_network_signed:
+  description: "struct.pack network byte order ('!') signed integer pack vectors — signed b/h/i with boundary and -1 values; distinct from '>' coverage in struct.zspec.zsdl; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: pack_vector
+  function: pack
+  id_prefix: pns273
+
+  columns: [id, args, expected]
+  rows:
+    - [b_minus128,   ["!b", -128],        !hex 80        ]
+    - [b_plus127,    ["!b",  127],        !hex 7f        ]
+    - [h_minus1,     ["!h", -1],          !hex ffff      ]
+    - [h_minus32768, ["!h", -32768],      !hex 8000      ]
+    - [h_plus32767,  ["!h",  32767],      !hex 7fff      ]
+    - [i_minus1,     ["!i", -1],          !hex ffffffff  ]
+    - [i_min,        ["!i", -2147483648], !hex 80000000  ]
+    - [i_max,        ["!i",  2147483647], !hex 7fffffff  ]
+
+# ---------------------------------------------------------------------------
+# struct.unpack — network byte order ('!') signed integers
+# struct.zspec.zsdl covers '>q' (int64 ffff..==(-1,)) and '>h' (ffff==(1,)
+# wait — struct.zspec.zsdl covers '>H' 0100==(256,) and '>h' 0001==(1,)).
+# No prior spec covers '!h' or '!b' unpack for the negative/boundary values.
+# ---------------------------------------------------------------------------
+
+table struct_extra273.unpack_network_signed:
+  description: "struct.unpack network byte order ('!') signed integer unpack vectors — h/b/i with negative and boundary values; distinct from '>' and '<' coverage in struct.zspec.zsdl; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: unpack_vector
+  function: unpack
+  id_prefix: uns273
+
+  columns: [id, args, expected]
+  rows:
+    - [h_ffff,       ["!h", !hex ffff],     [-1]          ]
+    - [h_8000,       ["!h", !hex 8000],     [-32768]      ]
+    - [h_7fff,       ["!h", !hex 7fff],     [32767]       ]
+    - [b_80,         ["!b", !hex 80],       [-128]        ]
+    - [b_7f,         ["!b", !hex 7f],       [127]         ]
+    - [i_ffffffff,   ["!i", !hex ffffffff], [-1]          ]
+    - [i_80000000,   ["!i", !hex 80000000], [-2147483648] ]
+    - [i_7fffffff,   ["!i", !hex 7fffffff], [2147483647]  ]
+
+# ---------------------------------------------------------------------------
+# struct.calcsize — network byte order signed formats
+# calcsize confirms the byte widths: b==1, h==2, i==4.
+# struct.zspec.zsdl covers calcsize for '>b' (1), '>h' (2), '>I' (4), '>Q' (8).
+# These '!' variants are novel coverage despite being numerically identical.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra273.calcsize.bang_b:
+  description: "struct.calcsize('!b') == 1 — signed byte is 1 byte wide in network byte order; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["!b"]
+  expected: 1
+
+invariant struct_extra273.calcsize.bang_h:
+  description: "struct.calcsize('!h') == 2 — signed short is 2 bytes wide in network byte order; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["!h"]
+  expected: 2
+
+invariant struct_extra273.calcsize.bang_i:
+  description: "struct.calcsize('!i') == 4 — signed int is 4 bytes wide in network byte order; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["!i"]
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# struct.pack — out-of-range signed byte raises struct.error
+# struct.pack('!b', 128) should raise struct.error because 128 > INT8_MAX=127.
+# struct.pack('!b', -129) should raise struct.error because -129 < INT8_MIN=-128.
+# No prior spec covers out-of-range values for signed 'b' format.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra273.pack.b_overflow_raises:
+  description: "struct.pack('!b', 128) raises struct.error — 128 exceeds signed int8 maximum of 127; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: pack
+  args: ["!b", 128]
+  raises: struct.error
+
+invariant struct_extra273.pack.b_underflow_raises:
+  description: "struct.pack('!b', -129) raises struct.error — -129 is below signed int8 minimum of -128; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: pack
+  args: ["!b", -129]
+  raises: struct.error

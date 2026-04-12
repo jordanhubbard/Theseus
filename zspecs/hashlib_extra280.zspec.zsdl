@@ -1,0 +1,211 @@
+spec: hashlib_extra280
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha256module.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl through hashlib_extra279.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "hashlib.zspec.zsdl covers: sha256/sha1/md5/sha512/sha3_256/sha3_512/blake2b/blake2s known vectors; digest_size/block_size; algorithms_guaranteed; digest_consistency; copy_independence."
+    - "hashlib_extra279.zspec.zsdl covers: hashlib.new() API hexdigest/name/digest_size; algorithms_available/algorithms_guaranteed type checks; new() ValueError for unknown algorithm."
+    - "This spec focuses on: the HASH class identity — __name__/'HASH', __module__/'_hashlib', __bases__[0]/__name__/'object'; and hmac.HMAC class identity — __name__/'HMAC', __module__/'hmac', __bases__[0]/__name__/'object', __qualname__/'HMAC'."
+    - "hashlib.sha256().__class__.__name__ == 'HASH' — the concrete hash object type is named HASH. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hashlib.sha256().__class__.__module__ == '_hashlib' — the HASH class lives in the C extension _hashlib, not in hashlib. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hashlib.sha256().__class__.__bases__[0].__name__ == 'object' — HASH inherits directly from object. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.HMAC.__name__ == 'HMAC' — the HMAC class is named HMAC. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.HMAC.__module__ == 'hmac' — HMAC is defined in the pure-Python hmac module (not a C extension). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.HMAC.__bases__[0].__name__ == 'object' — HMAC inherits directly from object. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.HMAC.__qualname__ == 'HMAC' — the qualified name matches the simple name (not a nested class). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "Attribute access on class objects is stateless and never raises."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are pure attribute lookups."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# HASH class identity — __name__, __module__, __bases__[0].__name__
+# hashlib hash objects (sha256(), md5(), etc.) are instances of a C-level
+# class named HASH defined in the _hashlib extension module.
+# No prior spec encodes __name__/__module__ of the HASH type as
+# machine-readable python_call_eq invariants.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra280.HASH.class_name:
+  description: "hashlib.sha256().__class__.__name__ == 'HASH' — the concrete hash object type from the _hashlib C extension is named HASH; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: sha256
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["HASH"]
+  expected: true
+
+invariant hashlib_extra280.HASH.module:
+  description: "hashlib.sha256().__class__.__module__ == '_hashlib' — the HASH class lives in the C extension _hashlib, not the top-level hashlib module; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: sha256
+  args: []
+  method: __class__.__module__.__eq__
+  method_args: ["_hashlib"]
+  expected: true
+
+invariant hashlib_extra280.HASH.base_class_name:
+  description: "hashlib.sha256().__class__.__bases__[0].__name__ == 'object' — the HASH class inherits directly from object; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: sha256
+  args: []
+  method: "__class__.__bases__[0].__name__.__eq__"
+  method_args: ["object"]
+  expected: true
+
+# Verify same HASH class identity applies to md5 objects (not just sha256)
+invariant hashlib_extra280.HASH.md5_class_name:
+  description: "hashlib.md5().__class__.__name__ == 'HASH' — md5() objects share the same HASH class as sha256() objects; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: md5
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["HASH"]
+  expected: true
+
+invariant hashlib_extra280.HASH.md5_module:
+  description: "hashlib.md5().__class__.__module__ == '_hashlib' — md5() objects also live in _hashlib; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: md5
+  args: []
+  method: __class__.__module__.__eq__
+  method_args: ["_hashlib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hmac.HMAC class identity — __name__, __module__, __bases__[0].__name__
+# hmac.zspec.zsdl covers HMAC.__name__/__module__ via __eq__ chains on the
+# class object directly. This spec reinforces with sha256/md5 HASH identity
+# above and adds __qualname__ for HMAC as a distinct invariant.
+# hmac.HMAC is a pure-Python class (module='hmac'), unlike HASH (_hashlib).
+# ---------------------------------------------------------------------------
+
+table hashlib_extra280.hmac_HMAC_identity:
+  description: "hmac.HMAC class identity attributes — __name__/'HMAC', __module__/'hmac', __qualname__/'HMAC', __bases__[0]/__name__/'object'; pure-Python class unlike HASH which is C-level; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: hmac280
+
+  columns: [id, function, args, expected]
+  rows:
+    - [name,       "hmac.HMAC.__name__.__eq__",              ["HMAC"],   true]
+    - [module,     "hmac.HMAC.__module__.__eq__",            ["hmac"],   true]
+    - [qualname,   "hmac.HMAC.__qualname__.__eq__",          ["HMAC"],   true]
+    - [base_name,  "hmac.HMAC.__bases__[0].__name__.__eq__", ["object"], true]
+
+# ---------------------------------------------------------------------------
+# HASH vs HMAC module contrast
+# HASH lives in _hashlib (C extension); HMAC lives in hmac (pure Python).
+# This cross-module difference is a behavioral invariant of the stdlib layout.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra280.HASH.module_is_not_hashlib:
+  description: "hashlib.sha256().__class__.__module__ != 'hashlib' — the HASH type module is '_hashlib' (C ext), not 'hashlib'; confirms hash objects come from the C extension layer; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: sha256
+  args: []
+  method: __class__.__module__.__eq__
+  method_args: ["hashlib"]
+  expected: false
+
+invariant hashlib_extra280.hmac_HMAC.module_is_not_c_extension:
+  description: "hmac.HMAC.__module__ != '_hashlib' — HMAC is a pure-Python class in 'hmac', not the C extension '_hashlib'; contrasts with HASH which lives in '_hashlib'; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: "hmac.HMAC.__module__.__eq__"
+  args: ["_hashlib"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# HASH class — sha1 also yields same class name and module as sha256
+# Confirms that all algorithm constructors share the same HASH class in
+# _hashlib, not separate per-algorithm classes.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra280.HASH.sha1_class_name:
+  description: "hashlib.sha1().__class__.__name__ == 'HASH' — sha1() objects share the same HASH class as sha256() and md5(); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: sha1
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["HASH"]
+  expected: true
+
+invariant hashlib_extra280.HASH.sha1_module:
+  description: "hashlib.sha1().__class__.__module__ == '_hashlib' — sha1() objects also live in _hashlib; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: sha1
+  args: []
+  method: __class__.__module__.__eq__
+  method_args: ["_hashlib"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hmac.HMAC — __class__.__name__ is 'type'
+# The HMAC class object itself is an instance of type (the metaclass).
+# This is distinct from checking HMAC.__name__ (the class name string).
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra280.hmac_HMAC.metaclass_name:
+  description: "hmac.HMAC.__class__.__name__ == 'type' — the HMAC class object is an instance of the 'type' metaclass; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: "hmac.HMAC.__class__.__name__.__eq__"
+  args: ["type"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# HASH class __qualname__ — equals __name__ ('HASH') for top-level C class
+# __qualname__ for a C extension class is the same as __name__ since there
+# is no enclosing class or function scope in the C module.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra280.HASH.qualname:
+  description: "hashlib.sha256().__class__.__qualname__ == 'HASH' — the HASH class __qualname__ equals its __name__ (no enclosing scope in C extension); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: sha256
+  args: []
+  method: __class__.__qualname__.__eq__
+  method_args: ["HASH"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sha256 constructor function class name — builtin_function_or_method
+# The hashlib.sha256 attribute is a C-level constructor, not a Python function.
+# Its __class__.__name__ is 'builtin_function_or_method', the same class used
+# by built-in functions like len and print.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra280.sha256.constructor_class_name:
+  description: "hashlib.sha256.__class__.__name__ == 'builtin_function_or_method' — the sha256 constructor is a C-level builtin, not a pure-Python function; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: class_identity
+  kind: python_call_eq
+  function: sha256.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true

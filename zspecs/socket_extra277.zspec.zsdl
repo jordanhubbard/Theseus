@@ -1,0 +1,140 @@
+spec: socket_extra277
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+rfcs:
+  - "RFC 791 — Internet Protocol (IPv4)"
+  - "RFC 1700 — Assigned Numbers (Internet address notation)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "RFC 791 — Internet Protocol (IPv4)"
+    - "RFC 1700 — Assigned Numbers (Internet address notation)"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+    - "CPython source: Lib/socket.py"
+  notes:
+    - "This spec extends socket.zspec.zsdl through socket_extra276.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "socket_extra276.zspec.zsdl covers: socket.socket I/O method __qualname__ and __name__ for connect/bind/listen/accept/send/recv; method_descriptor class name."
+    - "socket_extra275.zspec.zsdl covers: __module__ for pure-Python socket functions; has_dualstack_ipv6/__name__; getaddrinfo/__name__; IPPROTO_ICMP; module __name__."
+    - "This spec focuses on: socket.inet_aton() and socket.inet_ntoa() — IPv4 address conversion between dotted-decimal string and 4-byte packed binary form."
+    - "socket.inet_aton('127.0.0.1') == b'\\x7f\\x00\\x00\\x01' — loopback address in packed form. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "socket.inet_aton('0.0.0.0') == b'\\x00\\x00\\x00\\x00' — any-address in packed form. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "socket.inet_aton('255.255.255.255') == b'\\xff\\xff\\xff\\xff' — broadcast address in packed form. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "socket.inet_aton('192.168.1.1') == b'\\xc0\\xa8\\x01\\x01' — RFC 1918 private address in packed form. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "socket.inet_ntoa(b'\\x7f\\x00\\x00\\x01') == '127.0.0.1' — round-trip from packed form to dotted decimal. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "socket.inet_aton() raises OSError for invalid dotted-decimal strings. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "socket.inet_ntoa() raises OSError for buffers that are not exactly 4 bytes. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "socket.inet_aton and socket.inet_ntoa are builtin_function_or_method (C-level, from _socket). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "socket.inet_aton raises OSError for invalid IPv4 address strings. socket.inet_ntoa raises OSError for buffers not exactly 4 bytes long."
+  stderr: "null"
+  stickiness: "N/A — inet_aton and inet_ntoa are pure conversion functions with no side effects."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# socket.inet_aton — IPv4 dotted-decimal string to 4-byte packed binary
+# No prior spec in socket.zspec.zsdl through socket_extra276.zspec.zsdl
+# encodes inet_aton as a python_call_eq invariant with specific address vectors.
+# Addresses chosen: loopback (127.0.0.1), any (0.0.0.0), broadcast
+# (255.255.255.255), and private (192.168.1.1 from RFC 1918).
+# ---------------------------------------------------------------------------
+
+table socket_extra277.inet_aton_vectors:
+  description: "socket.inet_aton() IPv4 dotted-decimal to packed binary — loopback/any/broadcast/private addresses; novel coverage; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: inet_aton
+  function: inet_aton
+  id_prefix: aton277
+
+  columns: [id, args, expected]
+  rows:
+    - [loopback,   ["127.0.0.1"],       !hex 7f000001]
+    - [any,        ["0.0.0.0"],         !hex 00000000]
+    - [broadcast,  ["255.255.255.255"], !hex ffffffff]
+    - [private,    ["192.168.1.1"],     !hex c0a80101]
+    - [private_10, ["10.0.0.1"],        !hex 0a000001]
+
+# ---------------------------------------------------------------------------
+# socket.inet_ntoa — 4-byte packed binary to IPv4 dotted-decimal string
+# inet_ntoa is the inverse of inet_aton. These vectors cover the same
+# addresses as the inet_aton table above, confirming round-trip consistency.
+# ---------------------------------------------------------------------------
+
+table socket_extra277.inet_ntoa_vectors:
+  description: "socket.inet_ntoa() packed binary to IPv4 dotted-decimal — inverse of inet_aton for the same address set; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: inet_ntoa
+  function: inet_ntoa
+  id_prefix: ntoa277
+
+  columns: [id, args, expected]
+  rows:
+    - [loopback,   [!hex 7f000001], "127.0.0.1"      ]
+    - [any,        [!hex 00000000], "0.0.0.0"         ]
+    - [broadcast,  [!hex ffffffff], "255.255.255.255" ]
+    - [private,    [!hex c0a80101], "192.168.1.1"     ]
+    - [private_10, [!hex 0a000001], "10.0.0.1"        ]
+
+# ---------------------------------------------------------------------------
+# socket.inet_aton — raises OSError for invalid addresses
+# Invalid dotted-decimal strings (non-numeric groups, too many octets,
+# octet values > 255) cause inet_aton to raise OSError.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra277.inet_aton.invalid_string_raises:
+  description: "socket.inet_aton('not.valid') raises OSError — non-numeric dotted-decimal string is rejected; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: inet_aton
+  args: ["not.valid"]
+  raises: OSError
+
+invariant socket_extra277.inet_aton.out_of_range_raises:
+  description: "socket.inet_aton('256.0.0.1') raises OSError — octet value 256 exceeds maximum 255; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: inet_aton
+  args: ["256.0.0.1"]
+  raises: OSError
+
+# ---------------------------------------------------------------------------
+# socket.inet_ntoa — raises OSError for non-4-byte buffer
+# inet_ntoa requires exactly 4 bytes; 3 or 5 bytes raises OSError.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra277.inet_ntoa.three_bytes_raises:
+  description: "socket.inet_ntoa(b'\\x7f\\x00\\x01') raises OSError — buffer must be exactly 4 bytes; 3 bytes is rejected; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: inet_ntoa
+  args: [!hex 7f0001]
+  raises: OSError
+
+# ---------------------------------------------------------------------------
+# socket.inet_aton and inet_ntoa — function class name
+# Both are C-level builtin_function_or_method objects from the _socket
+# C extension. No prior spec checks their __class__.__name__.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra277.inet_aton.class_name:
+  description: "socket.inet_aton.__class__.__name__ == 'builtin_function_or_method' — inet_aton is a C-level function from the _socket extension; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: function_identity
+  kind: python_call_eq
+  function: inet_aton.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant socket_extra277.inet_ntoa.class_name:
+  description: "socket.inet_ntoa.__class__.__name__ == 'builtin_function_or_method' — inet_ntoa is a C-level function from the _socket extension; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: function_identity
+  kind: python_call_eq
+  function: inet_ntoa.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
