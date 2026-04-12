@@ -1,0 +1,159 @@
+spec: hashlib_extra211
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "RFC 1321 — The MD5 Message-Digest Algorithm"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "RFC 1321 — The MD5 Message-Digest Algorithm, April 1992"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified by running Python 3.14.3 hashlib on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha256module.c"
+    - "CPython source: Modules/_sha512module.c"
+    - "CPython source: Modules/md5module.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl, hashlib_extra.zspec.zsdl, and hashlib_extra2.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "hashlib.algorithms_guaranteed is a plain Python frozenset-like set; its __class__.__name__ == 'set'."
+    - "hashlib.algorithms_available is a superset of algorithms_guaranteed; it includes OpenSSL-provided algorithms."
+    - "sha512_256 and sha512_224 are NOT in algorithms_guaranteed on all platforms (verified False on macOS/Darwin 25.4.0 with Python 3.14.3)."
+    - "sha384 IS in algorithms_guaranteed (verified True on macOS/Darwin 25.4.0 with Python 3.14.3)."
+    - "sha256 IS in algorithms_available (verified True on macOS/Darwin 25.4.0 with Python 3.14.3)."
+    - "md5-sha1 IS in algorithms_available on macOS/Darwin via OpenSSL (verified True on macOS/Darwin 25.4.0 with Python 3.14.3)."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model:
+  semantics: "hashlib raises ValueError for unknown algorithm names passed to hashlib.new(). Set membership checks are stateless and never raise."
+  stderr: "null"
+  stickiness: "N/A — algorithms_guaranteed and algorithms_available are module-level read-only sets."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed — membership checks (known-true values)
+# sha384, sha1, sha256, sha512 are required on all conforming platforms.
+# ---------------------------------------------------------------------------
+
+table hashlibalgos211.guaranteed.known_true:
+  description: "algorithms_guaranteed contains the required core algorithms"
+  kind: python_call_eq
+  category: algorithms
+  id_prefix: hashlibalgos211_guaranteed_true
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [sha384,    algorithms_guaranteed.__contains__, ["sha384"],    true, "sha384 must be in algorithms_guaranteed"]
+    - [sha1,      algorithms_guaranteed.__contains__, ["sha1"],      true, "sha1 must be in algorithms_guaranteed"]
+    - [sha256,    algorithms_guaranteed.__contains__, ["sha256"],    true, "sha256 must be in algorithms_guaranteed"]
+    - [sha512,    algorithms_guaranteed.__contains__, ["sha512"],    true, "sha512 must be in algorithms_guaranteed"]
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed — membership checks (known-false values on macOS/Python 3.14.3)
+# sha512_256 and sha512_224 are NOT guaranteed on all platforms.
+# ---------------------------------------------------------------------------
+
+table hashlibalgos211.guaranteed.known_false:
+  description: "algorithms_guaranteed does NOT contain sha512_256 or sha512_224 on macOS/Python 3.14.3"
+  kind: python_call_eq
+  category: algorithms
+  id_prefix: hashlibalgos211_guaranteed_false
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [sha512_256, algorithms_guaranteed.__contains__, ["sha512_256"], false, "sha512_256 is not in algorithms_guaranteed on macOS/Python 3.14.3"]
+    - [sha512_224, algorithms_guaranteed.__contains__, ["sha512_224"], false, "sha512_224 is not in algorithms_guaranteed on macOS/Python 3.14.3"]
+    - [not_an_algo, algorithms_guaranteed.__contains__, ["not_an_algorithm"], false, "arbitrary string is not in algorithms_guaranteed"]
+    - [empty_str, algorithms_guaranteed.__contains__, [""], false, "empty string is not in algorithms_guaranteed"]
+
+# ---------------------------------------------------------------------------
+# algorithms_available — membership and type checks
+# algorithms_available is a superset including OpenSSL-provided algorithms.
+# ---------------------------------------------------------------------------
+
+table hashlibalgos211.available.checks:
+  description: "algorithms_available contains sha256 and md5-sha1 (OpenSSL-backed) on macOS/Python 3.14.3"
+  kind: python_call_eq
+  category: algorithms
+  id_prefix: hashlibalgos211_available
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [sha256,   algorithms_available.__contains__, ["sha256"],   true,  "sha256 is in algorithms_available"]
+    - [md5_sha1, algorithms_available.__contains__, ["md5-sha1"], true,  "md5-sha1 is in algorithms_available via OpenSSL on macOS"]
+    - [sha384,   algorithms_available.__contains__, ["sha384"],   true,  "sha384 is in algorithms_available"]
+    - [sha512,   algorithms_available.__contains__, ["sha512"],   true,  "sha512 is in algorithms_available"]
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed and algorithms_available — class name checks
+# Both are plain Python sets (type name == 'set').
+# ---------------------------------------------------------------------------
+
+invariant hashlibalgos211.guaranteed.class_name:
+  description: "hashlib.algorithms_guaranteed.__class__.__name__ == 'set'"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true
+
+invariant hashlibalgos211.available.class_name:
+  description: "hashlib.algorithms_available.__class__.__name__ == 'set'"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true
+
+invariant hashlibalgos211.guaranteed.contains_sha384:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha384') == True — sha384 is a guaranteed algorithm"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha384"]
+  expected: true
+
+invariant hashlibalgos211.guaranteed.not_contains_sha512_256:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha512_256') == False — sha512_256 is not guaranteed on macOS/Python 3.14.3"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha512_256"]
+  expected: false
+
+invariant hashlibalgos211.guaranteed.not_contains_sha512_224:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha512_224') == False — sha512_224 is not guaranteed on macOS/Python 3.14.3"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha512_224"]
+  expected: false
+
+invariant hashlibalgos211.available.contains_sha256:
+  description: "hashlib.algorithms_available.__contains__('sha256') == True — sha256 is available"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__contains__
+  args: ["sha256"]
+  expected: true
+
+invariant hashlibalgos211.available.contains_md5_sha1:
+  description: "hashlib.algorithms_available.__contains__('md5-sha1') == True — md5-sha1 is available via OpenSSL on macOS/Darwin 25.4.0"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__contains__
+  args: ["md5-sha1"]
+  expected: true
+
+invariant hashlibalgos211.guaranteed.class_is_set:
+  description: "hashlib.algorithms_guaranteed.__class__.__name__.__eq__('set') returns True"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true
