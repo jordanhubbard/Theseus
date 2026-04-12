@@ -1,0 +1,118 @@
+spec: uuid_extra1426
+version: ">=3.9"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/uuid.html — Python uuid module documentation"
+    - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+    - "uuid_extra142.zspec.zsdl — covers uuid.SafeUUID class namespace / SafeUUID.__dict__.__len__()==19 / SafeUUID.__dict__.__contains__('safe'/'unsafe'/'unknown'/'_member_names_') / UUID.__dict__.__contains__('__setattr__'/'is_safe') (table + invariants)."
+    - "uuid_extra141.zspec.zsdl — covers uuid.__dict__.__contains__('UUID'/'uuid1'/'uuid3'/'uuid4'/'uuid5'/'NAMESPACE_DNS'/'NAMESPACE_URL') / uuid.__dict__.__len__()==75 / uuid.__dict__.__class__.__name__.__eq__('dict') (table + invariants)."
+    - "uuid_extra95.zspec.zsdl — covers SafeUUID.safe.value==0 / SafeUUID.unsafe.value==-1 / SafeUUID.__name__/__qualname__.__eq__ / SafeUUID.__bases__[0].__name__=='Enum'."
+    - "uuid.zspec / early extras — cover uuid.__name__/__package__ (base spec)."
+  notes:
+    - "This spec does NOT duplicate invariants present in any prior uuid spec."
+    - "Wave 542 theme: __format__ and __dir__ method type and dict-presence checks for uuid.UUID and uuid.SafeUUID."
+    - "uuid.UUID.__format__.__class__.__name__ == 'method_descriptor'. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "uuid.UUID.__dir__.__class__.__name__ == 'method_descriptor'. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "__format__ in uuid.UUID.__dict__ == False. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "__dir__ in uuid.UUID.__dict__ == False. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "uuid.SafeUUID.__format__.__class__.__name__ == 'function'. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "uuid.SafeUUID.__dir__.__class__.__name__ == 'function'. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "__format__ in uuid.SafeUUID.__dict__ == False. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "__dir__ in uuid.SafeUUID.__dict__ == False. Verified Python 3.14.3 macOS/Darwin 25.4.0."
+    - "Key distinction: UUID.__format__ and UUID.__dir__ are 'method_descriptor' (inherited from object via C-level), while SafeUUID.__format__ and SafeUUID.__dir__ are 'function' (inherited from enum.Enum which defines __format__ and __dir__ as Python-level functions overriding object's C-level versions). This distinction arises because SafeUUID subclasses Enum, and Enum defines its own __format__ and __dir__ as Python functions to support enum-specific formatting and introspection behaviors."
+    - "Both UUID and SafeUUID have __format__/__dir__ absent from their own __dict__ (returns False from __contains__) because neither class defines these methods directly — UUID inherits them from object, SafeUUID inherits them from Enum."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# uuid.UUID.__format__.__class__.__name__ == 'method_descriptor'
+# uuid.UUID.__dir__.__class__.__name__ == 'method_descriptor'
+#
+# Wave 542 theme: __format__ and __dir__ type checks on uuid.UUID.
+#
+# uuid.UUID inherits directly from object (MRO: [UUID, object]). It does not override
+# __format__ or __dir__, so both are the C-level method_descriptor from object.
+# No prior uuid spec anchors UUID.__format__.__class__.__name__ or
+# UUID.__dir__.__class__.__name__ under uu1426fm. Verified Python 3.14.3 macOS/Darwin 25.4.0.
+# ---------------------------------------------------------------------------
+
+table uuid_extra1426.UUID_format_dir_type:
+  description: "uuid.UUID.__format__.__class__.__name__=='method_descriptor' / UUID.__dir__.__class__.__name__=='method_descriptor' — UUID inherits both from object; UUID MRO is [UUID, object]; __format__ and __dir__ are C-level method_descriptor on object type; no prior uuid spec anchors these; first uu1426fm anchor"
+  kind: python_call_eq
+  category: type_identity
+  id_prefix: uu1426fm
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [uu1426fm001, "UUID.__format__.__class__.__name__.__eq__", ["method_descriptor"], true, "uuid.UUID.__format__.__class__.__name__ == 'method_descriptor' — inherited from object (UUID MRO: [UUID, object]); C-level descriptor"]
+    - [uu1426fm002, "UUID.__dir__.__class__.__name__.__eq__",    ["method_descriptor"], true, "uuid.UUID.__dir__.__class__.__name__ == 'method_descriptor' — inherited from object (UUID MRO: [UUID, object]); C-level descriptor"]
+    - [uu1426fm003, "UUID.__dict__.__contains__",                ["__format__"],        false, "uuid.UUID.__dict__ does not contain '__format__' — not defined on UUID; inherited from object"]
+    - [uu1426fm004, "UUID.__dict__.__contains__",                ["__dir__"],           false, "uuid.UUID.__dict__ does not contain '__dir__' — not defined on UUID; inherited from object"]
+    - [uu1426fm005, "UUID.__format__.__class__.__name__.__eq__", ["wrapper_descriptor"], false, "uuid.UUID.__format__.__class__.__name__ is NOT 'wrapper_descriptor' — it is 'method_descriptor'"]
+    - [uu1426fm006, "UUID.__dir__.__class__.__name__.__eq__",    ["wrapper_descriptor"], false, "uuid.UUID.__dir__.__class__.__name__ is NOT 'wrapper_descriptor' — it is 'method_descriptor'"]
+
+# ---------------------------------------------------------------------------
+# uuid.SafeUUID.__format__.__class__.__name__ == 'function'
+# uuid.SafeUUID.__dir__.__class__.__name__ == 'function'
+#
+# Wave 542 theme: __format__ and __dir__ type checks on uuid.SafeUUID.
+#
+# uuid.SafeUUID inherits from enum.Enum, which defines its own __format__ and __dir__
+# as Python-level functions. This overrides object's C-level method_descriptor. Thus
+# SafeUUID.__format__ and SafeUUID.__dir__ are 'function' (not 'method_descriptor').
+# This contrasts with UUID, which inherits from object and gets method_descriptor.
+# No prior uuid spec anchors SafeUUID.__format__.__class__.__name__ or
+# SafeUUID.__dir__.__class__.__name__ under uu1426sf. Verified Python 3.14.3 macOS/Darwin 25.4.0.
+# ---------------------------------------------------------------------------
+
+table uuid_extra1426.SafeUUID_format_dir_type:
+  description: "uuid.SafeUUID.__format__.__class__.__name__=='function' / SafeUUID.__dir__.__class__.__name__=='function' — SafeUUID inherits from Enum which defines Python-level __format__ and __dir__; this overrides object's C-level method_descriptor; key contrast with UUID which gets method_descriptor from object; __format__ and __dir__ absent from SafeUUID.__dict__ (both inherited from Enum.__dict__); no prior uuid spec anchors these; first uu1426sf anchor"
+  kind: python_call_eq
+  category: type_identity
+  id_prefix: uu1426sf
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [uu1426sf001, "SafeUUID.__format__.__class__.__name__.__eq__", ["function"], true, "uuid.SafeUUID.__format__.__class__.__name__ == 'function' — inherited from enum.Enum which defines __format__ as a Python function"]
+    - [uu1426sf002, "SafeUUID.__dir__.__class__.__name__.__eq__",    ["function"], true, "uuid.SafeUUID.__dir__.__class__.__name__ == 'function' — inherited from enum.Enum which defines __dir__ as a Python function"]
+    - [uu1426sf003, "SafeUUID.__dict__.__contains__",                ["__format__"], false, "uuid.SafeUUID.__dict__ does not contain '__format__' — inherited from Enum.__dict__; not defined on SafeUUID itself"]
+    - [uu1426sf004, "SafeUUID.__dict__.__contains__",                ["__dir__"],    false, "uuid.SafeUUID.__dict__ does not contain '__dir__' — inherited from Enum.__dict__; not defined on SafeUUID itself"]
+    - [uu1426sf005, "SafeUUID.__format__.__class__.__name__.__eq__", ["method_descriptor"], false, "uuid.SafeUUID.__format__.__class__.__name__ is NOT 'method_descriptor' — it is 'function' (Enum overrides object's C-level descriptor)"]
+    - [uu1426sf006, "SafeUUID.__dir__.__class__.__name__.__eq__",    ["method_descriptor"], false, "uuid.SafeUUID.__dir__.__class__.__name__ is NOT 'method_descriptor' — it is 'function' (Enum overrides object's C-level descriptor)"]
+
+# ---------------------------------------------------------------------------
+# uuid.UUID.__format__ vs uuid.SafeUUID.__format__ class name length contrast
+#
+# Wave 542 supplemental: string length checks on the two type names.
+#
+# 'method_descriptor' has len 17; 'function' has len 8. The contrast in lengths
+# reflects the underlying difference in how object and Enum implement these dunder
+# methods. No prior uuid spec anchors these name lengths under uu1426nl.
+# Verified Python 3.14.3 macOS/Darwin 25.4.0.
+# ---------------------------------------------------------------------------
+
+table uuid_extra1426.format_dir_class_name_lengths:
+  description: "uuid.UUID.__format__.__class__.__name__.__len__()==17 / UUID.__dir__.__class__.__name__.__len__()==17 / SafeUUID.__format__.__class__.__name__.__len__()==8 / SafeUUID.__dir__.__class__.__name__.__len__()==8 — 'method_descriptor' is 17 chars; 'function' is 8 chars; UUID gets longer C-level name; SafeUUID gets shorter Python-function name via Enum override; no prior uuid spec anchors these lengths; first uu1426nl anchor"
+  kind: python_call_eq
+  category: type_identity
+  id_prefix: uu1426nl
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [uu1426nl001, "UUID.__format__.__class__.__name__.__len__",     [], 17, "uuid.UUID.__format__.__class__.__name__.__len__() == 17 — len('method_descriptor') == 17"]
+    - [uu1426nl002, "UUID.__dir__.__class__.__name__.__len__",        [], 17, "uuid.UUID.__dir__.__class__.__name__.__len__() == 17 — len('method_descriptor') == 17"]
+    - [uu1426nl003, "SafeUUID.__format__.__class__.__name__.__len__", [], 8,  "uuid.SafeUUID.__format__.__class__.__name__.__len__() == 8 — len('function') == 8"]
+    - [uu1426nl004, "SafeUUID.__dir__.__class__.__name__.__len__",    [], 8,  "uuid.SafeUUID.__dir__.__class__.__name__.__len__() == 8 — len('function') == 8"]
+    - [uu1426nl005, "UUID.__format__.__class__.__name__.__eq__",     ["method_descriptor"], true, "uuid.UUID.__format__.__class__.__name__ == 'method_descriptor' (17 chars) — confirms name used for length above"]
+    - [uu1426nl006, "SafeUUID.__format__.__class__.__name__.__eq__", ["function"],          true, "uuid.SafeUUID.__format__.__class__.__name__ == 'function' (8 chars) — confirms name used for length above"]
