@@ -1,0 +1,151 @@
+spec: decimal_extra215
+version: ">=3.7"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal module documentation"
+    - "IBM General Decimal Arithmetic Specification, Version 1.72 — http://speleotrove.com/decimal/decarith.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_decimal/_decimal.c"
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "This spec covers: Decimal.quantize() with ROUND_HALF_EVEN rounding; Decimal.sqrt() string representation; Decimal.log10() string contains check; Decimal and Context class __name__ and __module__."
+    - "Decimal('3.14159').quantize(Decimal('0.01')).__str__() == '3.14' — rounds to 2 decimal places using ROUND_HALF_EVEN (default)."
+    - "Decimal('2.5').quantize(Decimal('1'), rounding=ROUND_HALF_EVEN).__str__() == '2' — banker's rounding: 2.5 rounds to 2 (even)."
+    - "Decimal('3.5').quantize(Decimal('1'), rounding=ROUND_HALF_EVEN).__str__() == '4' — banker's rounding: 3.5 rounds to 4 (even)."
+    - "Decimal('10').sqrt().__str__() == '3.162277660168379331998893544' — 28-digit precision (default context prec=28)."
+    - "Decimal('100').sqrt().__str__() == '10' — exact integer result, no trailing decimal digits."
+    - "str(Decimal('2').log10()) contains '0.301' — log base 10 of 2 is approximately 0.30103."
+    - "Decimal.__name__ == 'Decimal', Decimal.__module__ == 'decimal'."
+    - "Context.__name__ == 'Context', Context.__module__ == 'decimal'."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Decimal.quantize() with ROUND_HALF_EVEN (banker's rounding)
+# quantize() rounds to the exponent of the argument Decimal.
+# ROUND_HALF_EVEN: ties round to the nearest even digit.
+# 2.5 -> 2 (even), 3.5 -> 4 (even).
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra215.quantize.two_decimal_places:
+  description: "Decimal('3.14159').quantize(Decimal('0.01')).__str__() == '3.14' — rounds to 2 decimal places with ROUND_HALF_EVEN"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["3.14159"]
+  method: quantize
+  method_args: ["0.01"]
+  method_chain: __str__
+  expected: "3.14"
+
+invariant decimal_extra215.quantize.bankers_round_25:
+  description: "Decimal('2.5').quantize(Decimal('1'), rounding=ROUND_HALF_EVEN).__str__() == '2' — ROUND_HALF_EVEN rounds 2.5 down to 2 (nearest even)"
+  category: arithmetic
+  kind: python_call_eq
+  function: "Decimal('2.5').quantize(Decimal('1'), rounding=ROUND_HALF_EVEN).__str__"
+  args: []
+  expected: "2"
+
+invariant decimal_extra215.quantize.bankers_round_35:
+  description: "Decimal('3.5').quantize(Decimal('1'), rounding=ROUND_HALF_EVEN).__str__() == '4' — ROUND_HALF_EVEN rounds 3.5 up to 4 (nearest even)"
+  category: arithmetic
+  kind: python_call_eq
+  function: "Decimal('3.5').quantize(Decimal('1'), rounding=ROUND_HALF_EVEN).__str__"
+  args: []
+  expected: "4"
+
+# ---------------------------------------------------------------------------
+# Decimal.sqrt() string representations
+# With default context precision of 28 digits, sqrt(10) produces a 28-digit
+# result. sqrt(100) == 10 exactly.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra215.sqrt.100_exact:
+  description: "Decimal('100').sqrt().__str__() == '10' — square root of perfect square is exact integer"
+  category: arithmetic
+  kind: python_call_eq
+  function: "Decimal('100').sqrt().__str__"
+  args: []
+  expected: "10"
+
+invariant decimal_extra215.sqrt.10_contains:
+  description: "str(Decimal('10').sqrt()) contains '3.162277660168379331998893544' — 28-digit precision result"
+  category: arithmetic
+  kind: python_call_eq
+  function: "Decimal('10').sqrt().__str__().__contains__"
+  args: ["3.162277660168379331998893544"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Decimal.log10() — logarithm base 10
+# Decimal('2').log10() approximates 0.30103 with 28-digit precision.
+# We test that the string contains '0.301' as a prefix check.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra215.log10.2_contains_0301:
+  description: "str(Decimal('2').log10()) contains '0.301' — log10(2) ≈ 0.30102999..."
+  category: arithmetic
+  kind: python_call_eq
+  function: "Decimal('2').log10().__str__().__contains__"
+  args: ["0.301"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Decimal and Context class __name__ and __module__
+# ---------------------------------------------------------------------------
+
+table decimal_extra215.class_metadata:
+  description: "Decimal and Context class __name__ and __module__ attribute values"
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: decclasmeta215
+
+  columns: [id, function, args, expected]
+  rows:
+    - [decimal_name,    decimal.Decimal.__name__.__eq__,  ["Decimal"], true]
+    - [decimal_module,  decimal.Decimal.__module__.__eq__, ["decimal"], true]
+    - [context_name,    decimal.Context.__name__.__eq__,  ["Context"], true]
+    - [context_module,  decimal.Context.__module__.__eq__, ["decimal"], true]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra215.Decimal.class_name:
+  description: "decimal.Decimal.__name__ == 'Decimal'"
+  category: class_metadata
+  kind: python_call_eq
+  function: decimal.Decimal.__name__.__eq__
+  args: ["Decimal"]
+  expected: true
+
+invariant decimal_extra215.Decimal.module:
+  description: "decimal.Decimal.__module__ == 'decimal'"
+  category: class_metadata
+  kind: python_call_eq
+  function: decimal.Decimal.__module__.__eq__
+  args: ["decimal"]
+  expected: true
+
+invariant decimal_extra215.Context.class_name:
+  description: "decimal.Context.__name__ == 'Context'"
+  category: class_metadata
+  kind: python_call_eq
+  function: decimal.Context.__name__.__eq__
+  args: ["Context"]
+  expected: true
+
+invariant decimal_extra215.Context.module:
+  description: "decimal.Context.__module__ == 'decimal'"
+  category: class_metadata
+  kind: python_call_eq
+  function: decimal.Context.__module__.__eq__
+  args: ["decimal"]
+  expected: true
