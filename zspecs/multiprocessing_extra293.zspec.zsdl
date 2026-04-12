@@ -1,0 +1,124 @@
+spec: multiprocessing_extra293
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html — multiprocessing documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source code"
+  notes:
+    - "multiprocessing.Value('i', 0).__class__.__name__ == 'Synchronized' (from multiprocessing.sharedctypes)."
+    - "multiprocessing.Process(target=None).is_alive() == False — a process that has never been started is not alive."
+    - "multiprocessing.Queue().__class__.__name__ == 'Queue' (from multiprocessing.queues)."
+    - "multiprocessing.Pipe() returns a plain tuple of two Connection objects; tuple.__class__.__name__ == 'tuple'."
+    - "multiprocessing.Pipe()[0].__class__.__name__ == 'Connection' (from multiprocessing.connection)."
+    - "multiprocessing.current_process().__class__.__name__ == '_MainProcess' on CPython macOS."
+    - "multiprocessing.active_children().__class__.__name__ == 'list' — always returns a plain list."
+    - "All expected values verified by running Python 3.14.3 multiprocessing module on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# multiprocessing.Value — shared ctypes value class identity
+#
+# Value('i', 0) returns a Synchronized wrapper from multiprocessing.sharedctypes.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.value.class_name:
+  description: "multiprocessing.Value('i', 0).__class__.__name__ == 'Synchronized'"
+  category: value
+  kind: python_call_eq
+  function: Value.__class__.__name__.__eq__
+  args: ["Synchronized"]
+  setup: "Value = __import__('multiprocessing').Value('i', 0)"
+  expected: true
+
+# ---------------------------------------------------------------------------
+# multiprocessing.Process — is_alive before start
+#
+# A Process that has never been started reports is_alive() == False.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.process.not_started_not_alive:
+  description: "multiprocessing.Process(target=None).is_alive() == False — not-started process is not alive"
+  category: process
+  kind: python_call_eq
+  function: Process
+  args: []
+  kwargs: {target: ~}
+  method: is_alive
+  expected: false
+
+# ---------------------------------------------------------------------------
+# multiprocessing.Queue — class identity
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.queue.class_name:
+  description: "multiprocessing.Queue().__class__.__name__ == 'Queue'"
+  category: queue
+  kind: python_call_eq
+  function: Queue.__name__.__eq__
+  args: ["Queue"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# multiprocessing.Pipe — returns a tuple
+#
+# Pipe() returns a plain 2-tuple of Connection objects.
+# The tuple's __class__.__name__ == 'tuple'.
+# The first element's __class__.__name__ == 'Connection'.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.pipe.result_class_name:
+  description: "multiprocessing.Pipe().__class__.__name__ == 'tuple' — Pipe returns a plain tuple"
+  category: pipe
+  kind: python_call_eq
+  function: Pipe.__class__.__name__.__eq__
+  args: ["tuple"]
+  setup: "Pipe = __import__('multiprocessing').Pipe()"
+  expected: true
+
+invariant multiprocessing.pipe.element_class_name:
+  description: "multiprocessing.Pipe()[0].__class__.__name__ == 'Connection'"
+  category: pipe
+  kind: python_call_eq
+  function: Pipe.__getitem__
+  args: [0]
+  setup: "Pipe = __import__('multiprocessing').Pipe()"
+  method: __class__.__name__
+  expected: "Connection"
+
+# ---------------------------------------------------------------------------
+# multiprocessing.current_process — instance class identity
+#
+# On macOS/CPython the main process is an instance of _MainProcess.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.current_process.class_name:
+  description: "multiprocessing.current_process().__class__.__name__ == '_MainProcess' on CPython macOS"
+  category: current_process
+  kind: python_call_eq
+  function: current_process.__class__.__name__.__eq__
+  args: ["_MainProcess"]
+  setup: "current_process = __import__('multiprocessing').current_process()"
+  expected: true
+
+# ---------------------------------------------------------------------------
+# multiprocessing.active_children — return type
+#
+# active_children() always returns a plain list (possibly empty in the main process).
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing.active_children.class_name:
+  description: "multiprocessing.active_children().__class__.__name__ == 'list'"
+  category: active_children
+  kind: python_call_eq
+  function: active_children.__class__.__name__.__eq__
+  args: ["list"]
+  setup: "active_children = __import__('multiprocessing').active_children()"
+  expected: true

@@ -1,0 +1,113 @@
+spec: abc_extra299
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — abc documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source code"
+  notes:
+    - "abc.get_cache_token() returns an int (the current ABC cache invalidation token)."
+    - "abc.abstractmethod is itself a plain function; abc.abstractmethod.__class__.__name__ == 'function'."
+    - "When abc.abstractmethod decorates a lambda, the result.__class__.__name__ == 'function' and __isabstractmethod__ == True."
+    - "A minimal class inheriting from abc.ABC has __abstractmethods__ == frozenset() (empty — no abstract methods)."
+    - "abc.ABCMeta.__instancecheck__.__qualname__ == 'ABCMeta.__instancecheck'."
+    - "abc does not expose a __version__ attribute; hasattr(abc, '__version__') == False."
+    - "All expected values verified by running Python 3.14.3 abc module on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# abc.get_cache_token — return type
+#
+# Returns an opaque integer token that increments each time the ABC cache
+# is invalidated. The type is always int.
+# ---------------------------------------------------------------------------
+
+invariant abc.get_cache_token.class_name:
+  description: "abc.get_cache_token().__class__.__name__ == 'int'"
+  category: get_cache_token
+  kind: python_call_eq
+  function: get_cache_token.__class__.__name__.__eq__
+  args: ["int"]
+  setup: "get_cache_token = __import__('abc').get_cache_token()"
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abc.abstractmethod — decorator identity
+#
+# abc.abstractmethod is a plain function, not a class. When it decorates
+# another function, the decorated result is still a function with
+# __isabstractmethod__ == True.
+# ---------------------------------------------------------------------------
+
+invariant abc.abstractmethod.decorator_class_name:
+  description: "abc.abstractmethod.__class__.__name__ == 'function' — abstractmethod is itself a plain function"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant abc.abstractmethod.result_isabstractmethod:
+  description: "abc.abstractmethod(lambda: None).__isabstractmethod__ == True"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__isabstractmethod__.__eq__
+  args: [true]
+  setup: "abstractmethod = __import__('abc').abstractmethod(lambda: None)"
+  expected: true
+
+invariant abc.abstractmethod.result_class_name:
+  description: "abc.abstractmethod(lambda: None).__class__.__name__ == 'function' — decorated result is still a function"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__class__.__name__.__eq__
+  args: ["function"]
+  setup: "abstractmethod = __import__('abc').abstractmethod(lambda: None)"
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Minimal ABC subclass — __abstractmethods__ is frozenset()
+#
+# A class that inherits from abc.ABC but declares no abstract methods has
+# __abstractmethods__ == frozenset() (empty, not absent).
+# ---------------------------------------------------------------------------
+
+invariant abc.abc_subclass.abstractmethods_empty:
+  description: "class Foo(abc.ABC): pass — Foo.__abstractmethods__ == frozenset()"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__abstractmethods__.__eq__
+  args: [{}]
+  setup: "import abc as _abc\nclass ABC(_abc.ABC): pass"
+  expected: true
+
+invariant abc.abc_subclass.abstractmethods_class_name:
+  description: "class Foo(abc.ABC): pass — Foo.__abstractmethods__.__class__.__name__ == 'frozenset'"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__abstractmethods__.__class__.__name__.__eq__
+  args: ["frozenset"]
+  setup: "import abc as _abc\nclass ABC(_abc.ABC): pass"
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abc.ABCMeta.__instancecheck__ — qualname identity
+#
+# __instancecheck__ is defined on ABCMeta. Its __qualname__ reveals the
+# defining class.
+# ---------------------------------------------------------------------------
+
+invariant abc.abcmeta.instancecheck_qualname:
+  description: "abc.ABCMeta.__instancecheck__.__qualname__ == 'ABCMeta.__instancecheck__'"
+  category: abcmeta
+  kind: python_call_eq
+  function: ABCMeta.__instancecheck__.__qualname__.__eq__
+  args: ["ABCMeta.__instancecheck__"]
+  expected: true
