@@ -1,0 +1,151 @@
+spec: uuid_extra271
+version: ">=3.9"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/uuid.html — Python uuid module documentation"
+    - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+  notes:
+    - "This spec extends uuid.zspec.zsdl through uuid_extra270.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "uuid_extra270.zspec.zsdl covers: curly-brace constructor notation; nil UUID bytes_le/node/bytes attributes; uuid5/uuid3 fixed vectors (python.org); uuid5/uuid3 version attributes; nil UUID version is None."
+    - "This spec focuses on: uuid.uuid4().__class__.__name__; uuid4().variant string value; uuid.UUID(int=0).variant string value; UUID.__doc__ class name; uuid4().version == 4."
+    - "uuid.uuid4().__class__.__name__ == 'UUID' — uuid4() always returns a UUID instance. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.uuid4().variant == 'specified in RFC 4122' — all uuid4 values have the RFC 4122 variant bits set. Variant is a string constant in Python's uuid module. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID(int=0).variant == 'reserved for NCS compatibility' — nil UUID has variant bits 0b0xx (NCS reserved). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID.__doc__.__class__.__name__ == 'str' — UUID has a docstring and it is a str. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.uuid4().version == 4 — all uuid4 UUIDs are version 4. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# uuid.uuid4() — class name and version
+# uuid4() is non-deterministic; invariants test structural properties only.
+# uuid4().__class__.__name__ == 'UUID' confirms the return type.
+# uuid4().version == 4 confirms the version field for all v4 UUIDs.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra271.uuid4.class_name:
+  description: "uuid.uuid4().__class__.__name__ == 'UUID' — uuid4() always returns a UUID instance; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: uuid4
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["UUID"]
+  expected: true
+
+invariant uuid_extra271.uuid4.version:
+  description: "uuid.uuid4().version == 4 — all v4 UUIDs have version field set to 4 (RFC 4122 §4.4); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: uuid4
+  rfc: "RFC 4122 §4.4"
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: version.__eq__
+  method_args: [4]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uuid.uuid4().variant — RFC 4122 variant string
+# All v4 UUIDs have the RFC 4122 variant (bits 10xx in octet 8).
+# Python's uuid module encodes variant as a string constant, not an integer.
+# uuid4().variant == uuid.RFC_4122 == 'specified in RFC 4122'
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra271.uuid4.variant_eq_rfc4122:
+  description: "uuid.uuid4().variant == 'specified in RFC 4122' — variant of any v4 UUID equals the RFC_4122 string constant; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: uuid4
+  rfc: "RFC 4122 §4.1.1"
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: variant.__eq__
+  method_args: ["specified in RFC 4122"]
+  expected: true
+
+invariant uuid_extra271.uuid4.variant_class_name:
+  description: "uuid.uuid4().variant.__class__.__name__ == 'str' — variant attribute is a Python str, not an integer; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: uuid4
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: variant.__class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uuid.UUID(int=0).variant — NCS reserved variant
+# The nil UUID has all bits set to zero. The two most significant variant
+# bits are 0b00, placing it in the 'reserved for NCS compatibility' range.
+# Python returns this as a string constant, not an integer.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra271.nil_uuid.variant_ncs:
+  description: "uuid.UUID(int=0).variant == 'reserved for NCS compatibility' — nil UUID variant bits 0b0xx correspond to NCS reserved range; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: nil_uuid
+  rfc: "RFC 4122 §4.1.1"
+  kind: python_call_eq
+  function: UUID
+  args: []
+  kwargs: {int: 0}
+  method: variant.__eq__
+  method_args: ["reserved for NCS compatibility"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uuid.UUID.__doc__ — docstring exists and is a str
+# UUID is a documented class; __doc__ must be a non-None str.
+# This confirms the public API surface includes inline documentation.
+# ---------------------------------------------------------------------------
+
+table uuid_extra271.UUID_doc:
+  description: "uuid.UUID.__doc__ is a non-None str — the UUID class has a docstring; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: udoc271
+
+  columns: [id, function, args, expected]
+  rows:
+    - [doc_class_name, "UUID.__doc__.__class__.__name__.__eq__", ["str"],  true ]
+    - [doc_is_truthy,  "UUID.__doc__.__len__.__gt__",            [0],      true ]
+
+# ---------------------------------------------------------------------------
+# uuid.uuid4() — int attribute is always an integer (non-deterministic value)
+# The .int attribute holds the 128-bit integer value. Its class name is 'int'.
+# This tests the type without relying on the random value.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra271.uuid4.int_class_name:
+  description: "uuid.uuid4().int.__class__.__name__ == 'int' — the int attribute of a UUID is always a Python int; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: uuid4
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: int.__class__.__name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uuid.uuid4() — hex attribute is a 32-character string
+# The hex attribute is the UUID without hyphens: always exactly 32 hex chars.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra271.uuid4.hex_length:
+  description: "len(uuid.uuid4().hex) == 32 — UUID hex attribute is always a 32-character string (128 bits / 4 bits per hex char); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: uuid4
+  kind: python_call_eq
+  function: uuid4
+  args: []
+  method: hex.__len__
+  method_args: []
+  expected: 32

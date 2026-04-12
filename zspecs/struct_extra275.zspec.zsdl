@@ -1,0 +1,133 @@
+spec: struct_extra275
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl through struct_extra274.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "struct.zspec.zsdl covers: big-endian ('>') and little-endian ('<') pack/unpack for B/b/H/h/I/i/Q/q/?/e/x; calcsize; roundtrip; error cases."
+    - "struct_extra274.zspec.zsdl covers: IEEE 754 float/double ('!f'/'!d') pack/unpack vectors — zero/1.0/-1.0/inf; calcsize for !f (4) and !d (8) and !fd (12); unpack size mismatch error."
+    - "This spec focuses on: additional little-endian ('<') pack vectors — confirming byte order for H/I formats; calcsize for '<HI' and '<HIQ'; unpack little-endian vectors."
+    - "struct.pack('<H', 256) == b'\\x00\\x01' — little-endian H: low byte 0x00 first, high byte 0x01 second. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('<H', 1) == b'\\x01\\x00' — little-endian H: low byte 0x01 first, high byte 0x00 second. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('<I', 1) == b'\\x01\\x00\\x00\\x00' — little-endian I: LSB first. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('<I', 256) == b'\\x00\\x01\\x00\\x00' — little-endian I: byte 0=0x00, byte 1=0x01, bytes 2-3=0x00. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.calcsize('<HI') == 6 — little-endian H (2 bytes) + I (4 bytes) = 6 bytes, no padding. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.calcsize('<HIQ') == 14 — little-endian H (2) + I (4) + Q (8) = 14 bytes total. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('<H', b'\\x01\\x00') == (1,) — decoding little-endian uint16 from b'\\x01\\x00' yields 1. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('<I', b'\\x01\\x00\\x00\\x00') == (1,) — decoding little-endian uint32 from LSB-first bytes yields 1. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for buffer size mismatches on unpack, and for invalid format strings. struct.pack raises struct.error for out-of-range integer values."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; no shared state."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.pack — little-endian ('<') uint16 and uint32 vectors
+# Little-endian stores least-significant byte first. For H (uint16):
+#   pack('<H', 1) == b'\x01\x00'  (low byte=0x01, high byte=0x00)
+#   pack('<H', 256) == b'\x00\x01' (low byte=0x00, high byte=0x01)
+# For I (uint32):
+#   pack('<I', 1) == b'\x01\x00\x00\x00' (LSB first)
+#   pack('<I', 256) == b'\x00\x01\x00\x00'
+# struct.zspec.zsdl already covers '<H'/256 and '<I'/305419896;
+# this spec adds '<H'/1, '<I'/1, '<I'/256 as additional coverage.
+# ---------------------------------------------------------------------------
+
+table struct_extra275.pack_little_endian_vectors:
+  description: "struct.pack('<...', ...) little-endian pack vectors — H/I formats with values 1 and 256; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: pack_vector
+  function: pack
+  id_prefix: ple275
+
+  columns: [id, args, expected, description]
+  rows:
+    - [H_1,   ["<H", 1],   !hex 0100, "uint16 LE: value 1 → 0x01 (LSB) then 0x00 (MSB)"]
+    - [H_256, ["<H", 256], !hex 0001, "uint16 LE: value 256 (0x0100) → 0x00 (LSB) then 0x01 (MSB)"]
+    - [I_1,   ["<I", 1],   !hex 01000000, "uint32 LE: value 1 → 0x01 then three 0x00 bytes"]
+    - [I_256, ["<I", 256], !hex 00010000, "uint32 LE: value 256 (0x100) → 0x00, 0x01, 0x00, 0x00"]
+
+# ---------------------------------------------------------------------------
+# struct.calcsize — little-endian format sizes
+# '<' prefix suppresses alignment padding, so sizes are always the sum
+# of individual field sizes. H=2, I=4, Q=8 in all byte-order modes.
+# '<HI' = 2+4 = 6; '<HIQ' = 2+4+8 = 14.
+# ---------------------------------------------------------------------------
+
+table struct_extra275.calcsize_little_endian:
+  description: "struct.calcsize('<...') little-endian format sizes — no padding for '<' prefix; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: cls275
+
+  columns: [id, args, expected, description]
+  rows:
+    - [lt_H,   ["<H"],   2,  "uint16 is always 2 bytes"]
+    - [lt_I,   ["<I"],   4,  "uint32 is always 4 bytes"]
+    - [lt_Q,   ["<Q"],   8,  "uint64 is always 8 bytes"]
+    - [lt_HI,  ["<HI"],  6,  "H+I = 2+4 = 6 bytes; '<' suppresses alignment padding"]
+    - [lt_HIQ, ["<HIQ"], 14, "H+I+Q = 2+4+8 = 14 bytes"]
+
+# ---------------------------------------------------------------------------
+# struct.unpack — little-endian ('<') decode vectors
+# Decoding the packed bytes back yields the original values.
+# Verifies that unpack is the inverse of pack for '<H' and '<I'.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra275.unpack.little_endian_H_1:
+  description: "struct.unpack('<H', b'\\x01\\x00') == (1,) — little-endian uint16 decode; 0x01 0x00 → value 1; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["<H", !hex 0100]
+  expected: [1]
+
+invariant struct_extra275.unpack.little_endian_H_256:
+  description: "struct.unpack('<H', b'\\x00\\x01') == (256,) — little-endian uint16 decode; 0x00 0x01 → value 256; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["<H", !hex 0001]
+  expected: [256]
+
+invariant struct_extra275.unpack.little_endian_I_1:
+  description: "struct.unpack('<I', b'\\x01\\x00\\x00\\x00') == (1,) — little-endian uint32 decode; LSB-first bytes → value 1; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["<I", !hex 01000000]
+  expected: [1]
+
+# ---------------------------------------------------------------------------
+# struct.pack — little-endian uint64 zero and all-ones
+# These are useful edge cases: zero is all-zero bytes; 2^64-1 is all 0xff.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra275.pack.little_endian_Q_zero:
+  description: "struct.pack('<Q', 0) == b'\\x00' * 8 — little-endian uint64 zero is eight zero bytes; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["<Q", 0]
+  expected: !hex 0000000000000000
+
+invariant struct_extra275.pack.little_endian_q_minus1:
+  description: "struct.pack('<q', -1) == b'\\xff' * 8 — little-endian int64 -1 is eight 0xff bytes (two's complement); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["<q", -1]
+  expected: !hex ffffffffffffffff
