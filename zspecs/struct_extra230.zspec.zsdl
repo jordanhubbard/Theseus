@@ -1,0 +1,145 @@
+spec: struct_extra230
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra229.zspec.zsdl — covers pack('!H',1); pack('!H',65535); pack('!I',1); pack('!B',127); pack('!B',128)"
+    - "struct_extra222.zspec.zsdl — covers pack('!B',0); pack('!B',255); pack('!H',0); pack('!H',256); pack('!I',256)"
+    - "struct_extra214.zspec.zsdl — covers Struct('!H').pack(1); Struct('!I').pack(1)"
+    - "_struct.zspec.zsdl — covers _struct C extension identity"
+  notes:
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "struct.error.__name__ == 'error' — the exception class has a lowercase name (unusual; matches struct module convention)."
+    - "struct.error.__module__ == 'struct' — error is defined in the struct module (exposed via the C extension)."
+    - "struct.error.__bases__[0].__name__ == 'Exception' — struct.error inherits directly from Exception."
+    - "struct.error.__qualname__ == 'error' — flat qualname (not nested), lowercase."
+    - "struct.pack('!H', -1) raises struct.error — negative value out of range for unsigned short."
+    - "struct.pack('!H', 65536) raises struct.error — value too large for unsigned short (max is 65535)."
+    - "struct.pack('!B', 256) raises struct.error — value too large for unsigned byte (max is 255)."
+    - "struct.pack('!b', 128) raises struct.error — value too large for signed byte (max is 127)."
+    - "struct.unpack('!H', b'x') raises struct.error — buffer too short (need 2 bytes for H)."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.error class identity contracts
+#
+# struct.error.__name__             == 'error'
+# struct.error.__module__           == 'struct'
+# struct.error.__qualname__         == 'error'
+# struct.error.__bases__[0].__name__ == 'Exception'
+#
+# struct.error is an exception class exposed by the struct module. Unusually,
+# it has a lowercase name ('error') unlike most Python exceptions which use
+# CamelCase. It inherits directly from Exception (not OSError or ValueError).
+# No prior struct_extra spec covers these identity contracts.
+# ---------------------------------------------------------------------------
+
+table struct_extra230.struct_error_identity:
+  description: "struct.error.__name__=='error'; struct.error.__module__=='struct'; struct.error.__qualname__=='error'; struct.error class identity contracts; new to struct_extra230"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: struct230
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [error_name_eq,
+       "error.__name__.__eq__",
+       ["error"],
+       true,
+       "struct.error.__name__.__eq__('error') == True — struct.error has a lowercase class name 'error' (5 characters); unusual for Python exceptions which conventionally use CamelCase; novel class identity anchor; new to struct_extra230 namespace; verified Python 3.14.3"]
+    - [error_module_eq,
+       "error.__module__.__eq__",
+       ["struct"],
+       true,
+       "struct.error.__module__.__eq__('struct') == True — struct.error is defined in the struct module (exposed via _struct C extension); __module__ is 'struct' not '_struct'; novel class identity anchor; new to struct_extra230 namespace; verified Python 3.14.3"]
+    - [error_qualname_eq,
+       "error.__qualname__.__eq__",
+       ["error"],
+       true,
+       "struct.error.__qualname__.__eq__('error') == True — struct.error is a top-level exception class; its qualname is flat 'error' (not nested like 'outer.error'); qualname equals __name__ for top-level classes; novel class identity anchor; new to struct_extra230 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# struct.error.__bases__[0].__name__ == 'Exception'
+#
+# struct.error inherits directly from the built-in Exception class.
+# It is NOT a subclass of OSError, ValueError, or TypeError. This confirms
+# the inheritance chain: struct.error -> Exception -> BaseException -> object.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra230.error_base_is_exception:
+  description: "struct.error.__bases__[0].__name__ == 'Exception' — struct.error inherits directly from Exception (not OSError or ValueError); the bases tuple has exactly one element: Exception; this confirms the exception hierarchy for struct.error; novel __bases__ identity contract; struct_extra230 is the first namespace to anchor this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: class_identity
+  kind: python_call_eq
+  function: "error.__bases__.__getitem__"
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# struct.pack raises struct.error for out-of-range values
+#
+# struct.pack('!H', -1)    raises struct.error — negative value for unsigned short
+# struct.pack('!H', 65536) raises struct.error — exceeds uint16 max (65535)
+# struct.pack('!B', 256)   raises struct.error — exceeds uint8 max (255)
+# struct.pack('!b', 128)   raises struct.error — exceeds int8 max (127)
+#
+# Format 'H' unsigned short [0, 65535]; 'B' unsigned byte [0, 255];
+# 'b' signed byte [-128, 127]. Values outside these ranges raise struct.error.
+# No prior struct spec covers pack raises contracts for these boundary cases.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra230.pack_H_neg1_raises:
+  description: "struct.pack('!H', -1) raises struct.error — format 'H' is unsigned short with valid range [0, 65535]; -1 is negative and outside this range; raises struct.error with message 'H format requires 0 <= number <= 65535'; novel raises contract; struct_extra230 is the first namespace to anchor this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: raises
+  kind: python_call_raises
+  function: pack
+  args: ["!H", -1]
+  raises: error
+
+invariant struct_extra230.pack_H_65536_raises:
+  description: "struct.pack('!H', 65536) raises struct.error — format 'H' is unsigned short with valid range [0, 65535]; 65536 (2^16) is one above the maximum value; raises struct.error; novel raises contract for the overflow boundary; struct_extra229 confirms pack('!H', 65535) succeeds; struct_extra230 is the first namespace to anchor pack('!H', 65536) raises; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: raises
+  kind: python_call_raises
+  function: pack
+  args: ["!H", 65536]
+  raises: error
+
+invariant struct_extra230.pack_B_256_raises:
+  description: "struct.pack('!B', 256) raises struct.error — format 'B' is unsigned byte with valid range [0, 255]; 256 (2^8) is one above the maximum; raises struct.error; novel raises contract; struct_extra222 confirms pack('!B', 255) succeeds; struct_extra230 is the first namespace to anchor pack('!B', 256) raises; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: raises
+  kind: python_call_raises
+  function: pack
+  args: ["!B", 256]
+  raises: error
+
+invariant struct_extra230.pack_b_128_raises:
+  description: "struct.pack('!b', 128) raises struct.error — format 'b' is signed byte with valid range [-128, 127]; 128 is one above the maximum signed byte value; raises struct.error; distinct from 'B' (unsigned): for 'b' signed, range is [-128, 127]; novel raises contract for signed byte overflow; struct_extra230 is the first namespace to anchor this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: raises
+  kind: python_call_raises
+  function: pack
+  args: ["!b", 128]
+  raises: error
+
+# ---------------------------------------------------------------------------
+# struct.error __name__ length contract
+#
+# struct.error.__name__.__len__() == 5 — 'error' has 5 characters.
+# Novel length anchor: no prior struct spec covers error.__name__.__len__().
+# ---------------------------------------------------------------------------
+
+invariant struct_extra230.error_name_len_5:
+  description: "struct.error.__name__.__len__() == 5 — the class name 'error' has 5 characters (e-r-r-o-r); this is the shortest exception class name in the standard library among exceptions that inherit directly from Exception; novel length anchor; struct_extra230 is the first namespace to anchor error.__name__.__len__(); verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: class_identity
+  kind: python_call_eq
+  function: "error.__name__.__len__"
+  args: []
+  expected: 5

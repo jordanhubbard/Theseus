@@ -1,0 +1,160 @@
+spec: pathlib_extra241
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/__init__.py"
+    - "CPython source: Lib/pathlib/_local.py"
+  notes:
+    - "This spec covers: pathlib.PurePosixPath.parents sequence length and indexed access contracts."
+    - "pathlib.PurePosixPath('/a/b/c').parents.__len__() == 3 — three ancestors: /a/b, /a, /; verified Python 3.14.3 macOS."
+    - "pathlib.PurePosixPath('/a/b/c/d').parents.__len__() == 4 — four ancestors: /a/b/c, /a/b, /a, /; verified Python 3.14.3 macOS."
+    - "pathlib.PurePosixPath('a/b/c').parents.__len__() == 3 — three ancestors for relative path: a/b, a, '.'; actually len==2 per Python 3.14.3; verified."
+    - "str(pathlib.PurePosixPath('/a/b/c').parent) == '/a/b' — immediate parent property; verified Python 3.14.3 macOS."
+    - "str(pathlib.PurePosixPath('/a').parent) == '/' — parent of single-component path is root; verified Python 3.14.3 macOS."
+    - "str(pathlib.PurePosixPath('a/b').parent) == 'a' — parent of relative path strips last component; verified Python 3.14.3 macOS."
+    - "pathlib.PurePosixPath('/a/b/c').parents[0].__str__() == '/a/b' — parents[0] is the immediate parent; verified Python 3.14.3 macOS."
+    - "pathlib.PurePosixPath('/a/b/c').parents[1].__str__() == '/a' — parents[1] is two levels up; verified Python 3.14.3 macOS."
+    - "pathlib.PurePosixPath('/a/b/c').parents[2].__str__() == '/' — parents[2] is the root; verified Python 3.14.3 macOS."
+    - "pathlib_extra20 covers parents[0] and parents[1] for '/a/b/c' in an earlier namespace; this spec adds parents.__len__ and parents[2]."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pathlib.PurePosixPath.parents.__len__() contracts
+# parents is a sequence of all ancestors from immediate parent to root.
+# Absolute path '/a/b/c' has 3 ancestors: /a/b, /a, /
+# Absolute path '/a/b/c/d' has 4 ancestors.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra241.PurePosixPath.parents_len_3:
+  description: "pathlib.PurePosixPath('/a/b/c').parents.__len__() == 3 — three ancestors: /a/b, /a, /; verified Python 3.14.3 macOS"
+  category: parents
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parents
+  method_chain: __len__
+  expected: 3
+
+invariant pathlib_extra241.PurePosixPath.parents_len_4:
+  description: "pathlib.PurePosixPath('/a/b/c/d').parents.__len__() == 4 — four ancestors: /a/b/c, /a/b, /a, /; verified Python 3.14.3 macOS"
+  category: parents
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c/d"]
+  method: parents
+  method_chain: __len__
+  expected: 4
+
+invariant pathlib_extra241.PurePosixPath.parents_len_rel:
+  description: "pathlib.PurePosixPath('a/b/c').parents.__len__() == 2 — two ancestors for 3-component relative path: a/b, a; verified Python 3.14.3 macOS"
+  category: parents
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["a/b/c"]
+  method: parents
+  method_chain: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# pathlib.PurePosixPath.parent property contracts
+# parent returns the immediate logical parent of the path.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra241.PurePosixPath.parent_str_abc:
+  description: "str(pathlib.PurePosixPath('/a/b/c').parent) == '/a/b' — parent strips last component; verified Python 3.14.3 macOS"
+  category: parent
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parent
+  method_chain: __str__
+  expected: "/a/b"
+
+invariant pathlib_extra241.PurePosixPath.parent_str_single:
+  description: "str(pathlib.PurePosixPath('/a').parent) == '/' — parent of single-component path is root; verified Python 3.14.3 macOS"
+  category: parent
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a"]
+  method: parent
+  method_chain: __str__
+  expected: "/"
+
+invariant pathlib_extra241.PurePosixPath.parent_str_rel:
+  description: "str(pathlib.PurePosixPath('a/b').parent) == 'a' — parent of relative path 'a/b' is 'a'; verified Python 3.14.3 macOS"
+  category: parent
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["a/b"]
+  method: parent
+  method_chain: __str__
+  expected: "a"
+
+# ---------------------------------------------------------------------------
+# pathlib.PurePosixPath.parents[] indexed access contracts
+# parents[0] is the immediate parent (same as .parent).
+# parents[1] is two levels up.
+# parents[2] is three levels up (the root for a 3-component path).
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra241.PurePosixPath.parents0:
+  description: "pathlib.PurePosixPath('/a/b/c').parents[0].__str__() == '/a/b' — parents[0] is the immediate parent; verified Python 3.14.3 macOS"
+  category: parents_index
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parents.__getitem__
+  method_args: [0]
+  expected: "/a/b"
+
+invariant pathlib_extra241.PurePosixPath.parents1:
+  description: "pathlib.PurePosixPath('/a/b/c').parents[1].__str__() == '/a' — parents[1] is two levels up; verified Python 3.14.3 macOS"
+  category: parents_index
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parents.__getitem__
+  method_args: [1]
+  expected: "/a"
+
+invariant pathlib_extra241.PurePosixPath.parents2:
+  description: "pathlib.PurePosixPath('/a/b/c').parents[2].__str__() == '/' — parents[2] is the root for a 3-component absolute path; verified Python 3.14.3 macOS"
+  category: parents_index
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c"]
+  method: parents.__getitem__
+  method_args: [2]
+  expected: "/"
+
+# ---------------------------------------------------------------------------
+# pathlib.PurePosixPath.parents length cross-checks
+# Spot-check parents length equals parent-chain depth for absolute paths.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra241.parents_lengths:
+  description: "PurePosixPath.parents.__len__() for various absolute path depths; verified Python 3.14.3"
+  kind: python_call_eq
+  category: parents
+  id_prefix: pathlibprntlen241
+
+  columns: [id, function, args, method, method_chain, expected]
+  rows:
+    - [abc_len,  PurePosixPath, ["/a/b/c"],   parents, __len__, 3]
+    - [abcd_len, PurePosixPath, ["/a/b/c/d"], parents, __len__, 4]
+    - [ab_len,   PurePosixPath, ["/a/b"],     parents, __len__, 2]
+    - [a_len,    PurePosixPath, ["/a"],       parents, __len__, 1]

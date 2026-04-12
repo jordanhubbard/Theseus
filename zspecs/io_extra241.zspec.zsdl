@@ -1,0 +1,161 @@
+spec: io_extra241
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_io/stringio.c"
+    - "CPython source: Modules/_io/_iomodule.c"
+  notes:
+    - "This spec covers: io.StringIO line iteration and readline behavioral contracts."
+    - "io.StringIO('hello\\nworld\\n').readline() == 'hello\\n' — first readline returns first line including newline; verified Python 3.14.3 macOS."
+    - "io.StringIO('hello').read() == 'hello' — read all content from a single-line StringIO; verified Python 3.14.3 macOS."
+    - "io.StringIO('hello').read(3) == 'hel' — partial read with size argument returns first N characters; verified Python 3.14.3 macOS."
+    - "io.StringIO('').read() == '' — read from empty StringIO returns empty string; verified Python 3.14.3 macOS."
+    - "io.StringIO('hello\\nworld\\n').getvalue() == 'hello\\nworld\\n' — getvalue returns entire buffer regardless of position; verified Python 3.14.3 macOS."
+    - "io.StringIO('hello\\nworld\\n').getvalue().__len__() == 12 — 'hello\\nworld\\n' has 12 characters; verified Python 3.14.3 macOS."
+    - "io.StringIO('abc\\ndef').readlines() == ['abc\\n', 'def'] — readlines returns list of all lines; verified Python 3.14.3 macOS."
+    - "len(io.StringIO('abc\\ndef').readlines()) == 2 — two lines total (last without trailing newline); verified Python 3.14.3 macOS."
+    - "io.StringIO.readline.__name__ == 'readline' — method name; covered for name attribute in io_extra237; this spec covers behavioral call contracts."
+    - "io.StringIO.getvalue.__name__ == 'getvalue' — method name; covered in io_extra237; this spec covers call-value contracts."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io.StringIO.read() behavioral contracts
+# read() with no args reads the entire remaining content from current position.
+# read(n) reads at most n characters.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant io_extra241.StringIO.read.full:
+  description: "io.StringIO('hello').read() == 'hello' — read all content from single-line StringIO; verified Python 3.14.3 macOS"
+  category: read_behavior
+  kind: python_call_eq
+  function: "StringIO('hello').read.__call__"
+  args: []
+  expected: "hello"
+
+invariant io_extra241.StringIO.read.partial:
+  description: "io.StringIO('hello').read(3) == 'hel' — partial read returns first 3 characters; verified Python 3.14.3 macOS"
+  category: read_behavior
+  kind: python_call_eq
+  function: "StringIO('hello').read.__call__"
+  args: [3]
+  expected: "hel"
+
+invariant io_extra241.StringIO.read.empty:
+  description: "io.StringIO('').read() == '' — reading from empty StringIO returns empty string; verified Python 3.14.3 macOS"
+  category: read_behavior
+  kind: python_call_eq
+  function: "StringIO('').read.__call__"
+  args: []
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# io.StringIO.readline() behavioral contracts
+# readline() returns the next line including its newline character.
+# At EOF, readline() returns an empty string ''.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant io_extra241.StringIO.readline.first_line:
+  description: "io.StringIO('hello\\nworld\\n').readline() == 'hello\\n' — first readline returns first line including trailing newline; verified Python 3.14.3 macOS"
+  category: readline_behavior
+  kind: python_call_eq
+  function: "StringIO('hello\\nworld\\n').readline.__call__"
+  args: []
+  expected: "hello\n"
+
+invariant io_extra241.StringIO.readline.result_class:
+  description: "io.StringIO('hello\\nworld\\n').readline().__class__.__name__ == 'str' — readline returns a str object; verified Python 3.14.3 macOS"
+  category: readline_behavior
+  kind: python_call_eq
+  function: "StringIO('hello\\nworld\\n').readline().__class__.__name__.__eq__"
+  args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# io.StringIO.getvalue() behavioral contracts
+# getvalue() returns the full buffer contents regardless of current position.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant io_extra241.StringIO.getvalue.full:
+  description: "io.StringIO('hello\\nworld\\n').getvalue() == 'hello\\nworld\\n' — getvalue returns entire buffer; verified Python 3.14.3 macOS"
+  category: getvalue_behavior
+  kind: python_call_eq
+  function: "StringIO('hello\\nworld\\n').getvalue.__call__"
+  args: []
+  expected: "hello\nworld\n"
+
+invariant io_extra241.StringIO.getvalue.length:
+  description: "io.StringIO('hello\\nworld\\n').getvalue().__len__() == 12 — 'hello\\nworld\\n' has 12 characters; verified Python 3.14.3 macOS"
+  category: getvalue_behavior
+  kind: python_call_eq
+  function: "StringIO('hello\\nworld\\n').getvalue().__len__.__call__"
+  args: []
+  expected: 12
+
+invariant io_extra241.StringIO.getvalue.empty:
+  description: "io.StringIO('').getvalue() == '' — getvalue of empty StringIO returns empty string; verified Python 3.14.3 macOS"
+  category: getvalue_behavior
+  kind: python_call_eq
+  function: "StringIO('').getvalue.__call__"
+  args: []
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# io.StringIO.readlines() behavioral contracts
+# readlines() returns a list of all lines; last line may lack trailing newline.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant io_extra241.StringIO.readlines.count:
+  description: "len(io.StringIO('abc\\ndef').readlines()) == 2 — two-line string yields list of length 2; last line has no trailing newline; verified Python 3.14.3 macOS"
+  category: readlines_behavior
+  kind: python_call_eq
+  function: "StringIO('abc\\ndef').readlines().__len__.__call__"
+  args: []
+  expected: 2
+
+invariant io_extra241.StringIO.readlines.first_item:
+  description: "io.StringIO('abc\\ndef').readlines()[0] == 'abc\\n' — first element includes trailing newline; verified Python 3.14.3 macOS"
+  category: readlines_behavior
+  kind: python_call_eq
+  function: "StringIO('abc\\ndef').readlines().__getitem__"
+  args: [0]
+  expected: "abc\n"
+
+invariant io_extra241.StringIO.readlines.second_item:
+  description: "io.StringIO('abc\\ndef').readlines()[1] == 'def' — last element without trailing newline; verified Python 3.14.3 macOS"
+  category: readlines_behavior
+  kind: python_call_eq
+  function: "StringIO('abc\\ndef').readlines().__getitem__"
+  args: [1]
+  expected: "def"
+
+# ---------------------------------------------------------------------------
+# io.StringIO class name and module identity (spot-check)
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+table io_extra241.StringIO_class_identity:
+  description: "io.StringIO class __name__ and __module__ identity spot-checks; verified Python 3.14.3"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: iostrioid241
+
+  columns: [id, function, args, expected]
+  rows:
+    - [name_eq,    StringIO.__name__.__eq__,    ["StringIO"], true]
+    - [module_eq,  StringIO.__module__.__eq__,  ["_io"],      true]
+    - [name_len,   StringIO.__name__.__len__,   [],           8]
+    - [module_len, StringIO.__module__.__len__, [],           3]

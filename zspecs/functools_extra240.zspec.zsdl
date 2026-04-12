@@ -1,0 +1,255 @@
+spec: functools_extra240
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec covers functools.reduce output contracts with various inputs."
+    - "functools.reduce(int.__add__, [1, 2, 3, 4]) == 10 — cumulative sum of 1+2+3+4. Verified with Python 3.14.3."
+    - "functools.reduce(int.__add__, [1, 2, 3, 4], 10) == 20 — sum with initializer 10. Verified with Python 3.14.3."
+    - "functools.reduce(int.__mul__, [1, 2, 3, 4]) == 24 — cumulative product 1*2*3*4. Verified with Python 3.14.3."
+    - "functools.reduce(int.__mul__, [2, 3], 1) == 6 — product with initializer 1: 1*2*3. Verified with Python 3.14.3."
+    - "functools.reduce(int.__add__, [5]) == 5 — single-element list returns that element. Verified with Python 3.14.3."
+    - "functools.reduce(int.__add__, [], 0) == 0 — empty list with initializer returns initializer. Verified with Python 3.14.3."
+    - "functools.reduce.__name__ == 'reduce' (len=6) — the builtin function name. Verified with Python 3.14.3."
+    - "functools.reduce.__module__ == '_functools' (len=10) — reduce is implemented in Modules/_functoolsmodule.c. Verified with Python 3.14.3."
+    - "functools.reduce.__class__.__name__ == 'builtin_function_or_method' — reduce is a C-level builtin. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: functools.reduce output contracts — addition with and without initializer
+#
+# functools.reduce(int.__add__, [1, 2, 3, 4]) == 10
+# functools.reduce(int.__add__, [1, 2, 3, 4], 10) == 20
+# functools.reduce(int.__add__, [5]) == 5
+# functools.reduce(int.__add__, [], 0) == 0
+# functools.reduce(int.__mul__, [1, 2, 3, 4]) == 24
+#
+# reduce applies a two-argument function cumulatively left-to-right.
+# New to extra240.
+# ---------------------------------------------------------------------------
+
+table functools_extra240.reduce_add_output:
+  description: "functools.reduce output contracts: addition accumulation with/without initializer; new to extra240"
+  kind: python_call_eq
+  category: output
+  id_prefix: functoolsextra240addout
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [reduce_add_1234,
+       reduce,
+       [int.__add__, "[1, 2, 3, 4]"],
+       10,
+       "functools.reduce(int.__add__, [1, 2, 3, 4]) == 10 — cumulative left-to-right addition: ((1+2)+3)+4 = 10; no initializer; new to extra240"]
+    - [reduce_add_1234_init10,
+       reduce,
+       [int.__add__, "[1, 2, 3, 4]", 10],
+       20,
+       "functools.reduce(int.__add__, [1, 2, 3, 4], 10) == 20 — addition with initializer 10: (((10+1)+2)+3)+4 = 20; new to extra240"]
+    - [reduce_add_single,
+       reduce,
+       [int.__add__, "[5]"],
+       5,
+       "functools.reduce(int.__add__, [5]) == 5 — single-element list; reduce returns the sole element unchanged; new to extra240"]
+    - [reduce_add_empty_init,
+       reduce,
+       [int.__add__, "[]", 0],
+       0,
+       "functools.reduce(int.__add__, [], 0) == 0 — empty iterable with initializer 0 returns the initializer; new to extra240"]
+    - [reduce_mul_1234,
+       reduce,
+       [int.__mul__, "[1, 2, 3, 4]"],
+       24,
+       "functools.reduce(int.__mul__, [1, 2, 3, 4]) == 24 — cumulative multiplication: ((1*2)*3)*4 = 24; new to extra240"]
+
+# ---------------------------------------------------------------------------
+# Table 2: functools.reduce multiplication with initializer and identity contracts
+#
+# functools.reduce(int.__mul__, [2, 3], 1) == 6
+# functools.reduce.__name__ == 'reduce' (len=6)
+# functools.reduce.__module__ == '_functools' (len=10)
+# functools.reduce.__class__.__name__ == 'builtin_function_or_method'
+# functools.reduce.__name__.__len__() == 6
+#
+# reduce is a C builtin in _functools module. New to extra240.
+# ---------------------------------------------------------------------------
+
+table functools_extra240.reduce_mul_and_identity:
+  description: "functools.reduce multiplication with initializer; reduce function identity contracts; new to extra240"
+  kind: python_call_eq
+  category: identity
+  id_prefix: functoolsextra240mulident
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [reduce_mul_23_init1,
+       reduce,
+       [int.__mul__, "[2, 3]", 1],
+       6,
+       "functools.reduce(int.__mul__, [2, 3], 1) == 6 — multiplication with initializer 1: ((1*2)*3) = 6; new to extra240"]
+    - [reduce_name_eq,
+       reduce.__name__.__eq__,
+       ["reduce"],
+       true,
+       "functools.reduce.__name__.__eq__('reduce') == True — reduce is the builtin function name (len=6); new to extra240"]
+    - [reduce_name_len_6,
+       reduce.__name__.__len__,
+       [],
+       6,
+       "functools.reduce.__name__.__len__() == 6 — 'reduce' has exactly 6 characters (r-e-d-u-c-e); new to extra240"]
+    - [reduce_module_eq,
+       reduce.__module__.__eq__,
+       ["_functools"],
+       true,
+       "functools.reduce.__module__.__eq__('_functools') == True — reduce is implemented in Modules/_functoolsmodule.c; __module__ is '_functools' (len=10); new to extra240"]
+    - [reduce_class_is_builtin,
+       reduce.__class__.__name__.__eq__,
+       ["builtin_function_or_method"],
+       true,
+       "functools.reduce.__class__.__name__.__eq__('builtin_function_or_method') == True — reduce is a C-level builtin function; __class__.__name__ is 'builtin_function_or_method'; new to extra240"]
+
+# ---------------------------------------------------------------------------
+# Table 3: functools.reduce module length and doc contracts
+#
+# functools.reduce.__module__.__len__() == 10
+# functools.reduce.__name__.__len__() == 6
+# functools.reduce.__doc__.__class__.__name__ == 'str'
+# functools.reduce.__doc__.__contains__('reduce') == True
+# functools.reduce.__qualname__.__eq__('reduce') == True
+#
+# Additional identity and documentation contracts for reduce. New to extra240.
+# ---------------------------------------------------------------------------
+
+table functools_extra240.reduce_module_len_doc:
+  description: "functools.reduce module length, doc class, doc content, and qualname contracts; new to extra240"
+  kind: python_call_eq
+  category: identity
+  id_prefix: functoolsextra240modlenid
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [reduce_module_len_10,
+       reduce.__module__.__len__,
+       [],
+       10,
+       "functools.reduce.__module__.__len__() == 10 — '_functools' has exactly 10 characters (_-f-u-n-c-t-o-o-l-s); str.__len__() returns 10; new to extra240"]
+    - [reduce_doc_class_is_str,
+       reduce.__doc__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "functools.reduce.__doc__.__class__.__name__.__eq__('str') == True — the reduce docstring is a plain Python str; new to extra240"]
+    - [reduce_doc_contains_reduce,
+       reduce.__doc__.__contains__,
+       ["reduce"],
+       true,
+       "functools.reduce.__doc__.__contains__('reduce') == True — the docstring of reduce contains the word 'reduce'; new to extra240"]
+    - [reduce_qualname_eq,
+       reduce.__qualname__.__eq__,
+       ["reduce"],
+       true,
+       "functools.reduce.__qualname__.__eq__('reduce') == True — reduce is a top-level builtin with unqualified qualname 'reduce'; new to extra240"]
+    - [reduce_qualname_len_6,
+       reduce.__qualname__.__len__,
+       [],
+       6,
+       "functools.reduce.__qualname__.__len__() == 6 — 'reduce' qualname has exactly 6 characters; str.__len__() returns 6; new to extra240"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra240
+# ---------------------------------------------------------------------------
+
+invariant functools_extra240.reduce_add_1234:
+  description: "functools.reduce(int.__add__, [1, 2, 3, 4]) == 10 — cumulative addition; new to extra240"
+  kind: python_call_eq
+  function: reduce
+  args: [int.__add__, "[1, 2, 3, 4]"]
+  expected: 10
+
+invariant functools_extra240.reduce_add_1234_init10:
+  description: "functools.reduce(int.__add__, [1, 2, 3, 4], 10) == 20 — addition with initializer 10; new to extra240"
+  kind: python_call_eq
+  function: reduce
+  args: [int.__add__, "[1, 2, 3, 4]", 10]
+  expected: 20
+
+invariant functools_extra240.reduce_mul_1234:
+  description: "functools.reduce(int.__mul__, [1, 2, 3, 4]) == 24 — cumulative multiplication; new to extra240"
+  kind: python_call_eq
+  function: reduce
+  args: [int.__mul__, "[1, 2, 3, 4]"]
+  expected: 24
+
+invariant functools_extra240.reduce_mul_23_init1:
+  description: "functools.reduce(int.__mul__, [2, 3], 1) == 6 — multiplication with initializer 1; new to extra240"
+  kind: python_call_eq
+  function: reduce
+  args: [int.__mul__, "[2, 3]", 1]
+  expected: 6
+
+invariant functools_extra240.reduce_add_single:
+  description: "functools.reduce(int.__add__, [5]) == 5 — single-element list returns that element; new to extra240"
+  kind: python_call_eq
+  function: reduce
+  args: [int.__add__, "[5]"]
+  expected: 5
+
+invariant functools_extra240.reduce_add_empty_init:
+  description: "functools.reduce(int.__add__, [], 0) == 0 — empty list with initializer returns initializer; new to extra240"
+  kind: python_call_eq
+  function: reduce
+  args: [int.__add__, "[]", 0]
+  expected: 0
+
+invariant functools_extra240.reduce_name_eq:
+  description: "functools.reduce.__name__ == 'reduce' (len=6); new to extra240"
+  kind: python_call_eq
+  function: reduce.__name__.__eq__
+  args: ["reduce"]
+  expected: true
+
+invariant functools_extra240.reduce_name_len_6:
+  description: "functools.reduce.__name__.__len__() == 6 — 'reduce' has 6 characters; new to extra240"
+  kind: python_call_eq
+  function: reduce.__name__.__len__
+  args: []
+  expected: 6
+
+invariant functools_extra240.reduce_module_eq:
+  description: "functools.reduce.__module__ == '_functools'; new to extra240"
+  kind: python_call_eq
+  function: reduce.__module__.__eq__
+  args: ["_functools"]
+  expected: true
+
+invariant functools_extra240.reduce_module_len_10:
+  description: "functools.reduce.__module__.__len__() == 10 — '_functools' has 10 characters; new to extra240"
+  kind: python_call_eq
+  function: reduce.__module__.__len__
+  args: []
+  expected: 10
+
+invariant functools_extra240.reduce_class_is_builtin:
+  description: "functools.reduce.__class__.__name__ == 'builtin_function_or_method'; new to extra240"
+  kind: python_call_eq
+  function: reduce.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant functools_extra240.reduce_doc_class_is_str:
+  description: "functools.reduce.__doc__.__class__.__name__ == 'str' — docstring is a plain str; new to extra240"
+  kind: python_call_eq
+  function: reduce.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
