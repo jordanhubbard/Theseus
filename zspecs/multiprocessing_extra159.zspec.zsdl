@@ -9,119 +9,151 @@ provenance:
     - "https://docs.python.org/3/library/multiprocessing.html — Python multiprocessing module documentation"
     - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
   not_derived_from:
-    - "CPython source: Lib/multiprocessing/process.py"
-    - "CPython source: Lib/multiprocessing/context.py"
+    - "CPython source: Lib/multiprocessing/process.py, Lib/multiprocessing/context.py"
   notes:
-    - "This spec covers: multiprocessing.Process class identity and method qualnames (start, join, terminate, is_alive). multiprocessing.Process.__name__=='Process' (len=7: 'P'+'r'+'o'+'c'+'e'+'s'+'s'=7); multiprocessing.Process.__module__=='multiprocessing.context' (len=23: 'multiprocessing'=15+'.'=1+'context'=7=23; Process is accessed via the context system — the class registered in Lib/multiprocessing/context.py — though its implementation is in Lib/multiprocessing/process.py; the __module__ reflects where the class is registered/re-exported in the context, NOT where BaseProcess is defined); multiprocessing.Process.__bases__[0].__name__=='BaseProcess' (len=11: 'Base'=4+'Process'=7=11; Process inherits from BaseProcess, the abstract process base class); multiprocessing.Process.start.__qualname__=='BaseProcess.start' (len=17: 'BaseProcess'=11+'.'=1+'start'=5=17; Process inherits start() from BaseProcess — it does not override it); multiprocessing.Process.join.__qualname__=='BaseProcess.join' (len=16); multiprocessing.Process.terminate.__qualname__=='BaseProcess.terminate' (len=21); multiprocessing.Process.is_alive.__qualname__=='BaseProcess.is_alive' (len=20). All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
-    - "multiprocessing.Process.__module__=='multiprocessing.context' (len=23) — the concrete Process class used by the context system has __module__=='multiprocessing.context'; this is the SAME module as multiprocessing.Manager, multiprocessing.Value, and multiprocessing.Array (established in extra158); the underlying base class multiprocessing.process.BaseProcess.__module__=='multiprocessing.process' (len=24: 'multiprocessing'=15+'.'=1+'process'=7=23... wait: 'process'=7, len('multiprocessing.process')=15+1+7=23... same length as context); actually both are 23: 'multiprocessing.context'=23 and 'multiprocessing.process'=23 because 'context'=7=='process'=7. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
-    - "multiprocessing.Process method qualnames all start with 'BaseProcess.' — Process does not override start, join, terminate, or is_alive; all four methods are inherited from BaseProcess; qualname pattern 'BaseProcess.<method>' (prefix 'BaseProcess.'=12 chars for all); qualname length ordering: join(16) < start(17) < is_alive(20) < terminate(21); join is shortest because 'join'=4 < 'start'=5 < 'is_alive'=8 < 'terminate'=9; all four are instance methods with qualnames starting with 'BaseProcess.' confirming they are defined on BaseProcess, not on Process. Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
-    - "multiprocessing.Process.__bases__[0].__name__=='BaseProcess' (len=11: 'Base'=4+'Process'=7=11) — Process is a concrete subclass of BaseProcess that is bound to the current start method (spawn, fork, or forkserver); BaseProcess is the abstract process class that defines the process protocol (start, join, terminate, kill, is_alive, etc.); in different contexts (SpawnProcess, ForkProcess, ForkServerProcess), different concrete subclasses of BaseProcess are used; the multiprocessing.Process available at top-level is the context-specific concrete Process class; BaseProcess.__module__=='multiprocessing.process' (defined in Lib/multiprocessing/process.py). Verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "multiprocessing.Process.__dict__.__contains__('_start_method') returns True — multiprocessing.Process in multiprocessing.context defines _start_method directly; it is the class-level start method indicator (e.g. 'fork', 'spawn', 'forkserver')."
+    - "multiprocessing.Process.__dict__.__contains__('_Popen') returns True — multiprocessing.Process in multiprocessing.context defines _Popen directly; it is set to the platform-appropriate Popen class."
+    - "multiprocessing.Process.__dict__.__len__() == 7 — multiprocessing.Process (the context.Process subclass) has exactly 7 entries: __module__, __firstlineno__, _start_method, _Popen, _after_fork, __static_attributes__, __doc__."
+    - "multiprocessing.process.BaseProcess.__dict__.__contains__('start') returns True — BaseProcess.start() is defined directly in Lib/multiprocessing/process.py; it starts the child process."
+    - "multiprocessing.process.BaseProcess.__dict__.__contains__('run') returns True — BaseProcess.run() is defined directly on the class; it is the method invoked in the child process."
+    - "multiprocessing.process.BaseProcess.__dict__.__contains__('join') returns True — BaseProcess.join() is defined directly on the class; it blocks until the child process terminates."
+    - "multiprocessing.Process.__dict__ keys on Python 3.14.3: __module__, __firstlineno__, _start_method, _Popen, _after_fork, __static_attributes__, __doc__ (len=7)."
+    - "multiprocessing.process.BaseProcess.__dict__ has 27 entries on Python 3.14.3 including: __init__, run, start, interrupt, terminate, kill, join, is_alive, close, name, daemon, authkey, exitcode, ident, pid, sentinel, __repr__, _bootstrap, _after_fork, __dict__, __weakref__."
     - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
   created_at: "2026-04-11T00:00:00Z"
 
 error_model: python_exceptions
 
 # ---------------------------------------------------------------------------
-# multiprocessing.Process class identity — extra159
+# Table 1: multiprocessing.Process.__dict__ property descriptor checks
 #
-# multiprocessing.Process.__name__.__eq__('Process')                        == True
-# multiprocessing.Process.__module__.__eq__('multiprocessing.context')      == True
-# multiprocessing.Process.__bases__[0].__name__.__eq__('BaseProcess')       == True
+# multiprocessing.Process.__dict__.__contains__('_start_method') == True
+# multiprocessing.Process.__dict__.__contains__('_Popen')        == True
+# multiprocessing.Process.__dict__.__contains__('_after_fork')   == True
+# multiprocessing.Process.__dict__.__len__()                      == 7
 # ---------------------------------------------------------------------------
 
-table multiprocessing_extra159.mp_process_class_identity:
-  description: "multiprocessing.Process class identity checks in mpproc159 namespace — multiprocessing.Process.__name__=='Process' (len=7: 'P'+'r'+'o'+'c'+'e'+'s'+'s'=7; the multiprocessing process class that represents a process running in a separate OS process; supports start(), join(), terminate(), kill(), is_alive(), and the daemon and exitcode attributes); multiprocessing.Process.__module__=='multiprocessing.context' (len=23: 'multiprocessing'=15+'.'=1+'context'=7=23; Process is registered in the context system in Lib/multiprocessing/context.py — same module as multiprocessing.Manager, Value, Array established in extra158); multiprocessing.Process.__bases__[0].__name__=='BaseProcess' (len=11: 'Base'=4+'Process'=7=11; Process inherits from BaseProcess, the abstract process base defined in Lib/multiprocessing/process.py); Process.__name__.__len__()==7; compare: multiprocessing.pool.Pool.__name__.__len__()==4 (shorter than Process=7); verified with Python 3.14.3"
+table multiprocessing_extra159.process_dict_membership:
+  description: "multiprocessing.Process.__dict__ property descriptor and length checks in mprepr159 namespace — Process.__dict__.__contains__('_start_method')==True (multiprocessing.Process defines _start_method directly; it is the class-level attribute indicating the start method such as 'fork' or 'spawn'); Process.__dict__.__contains__('_Popen')==True (multiprocessing.Process defines _Popen directly; it is the Popen class used to start the process); Process.__dict__.__contains__('_after_fork')==True (defined directly on the class); Process.__dict__.__len__()==7 (the context.Process subclass has only 7 entries); verified with Python 3.14.3"
   kind: python_call_eq
-  category: identity
-  id_prefix: mpproc159
+  category: dict_membership
+  id_prefix: mprepr159
 
   columns: [id, function, args, expected, description]
   rows:
-    - [proc_name_eq,   multiprocessing.Process.__name__.__eq__,                ["Process"],                  true,  "mp.Process.__name__ == 'Process' (len=7); verified with Python 3.14.3"]
-    - [proc_mod_eq,    multiprocessing.Process.__module__.__eq__,               ["multiprocessing.context"],  true,  "mp.Process.__module__ == 'multiprocessing.context' (len=23; context system module); verified with Python 3.14.3"]
-    - [proc_base_eq,   "multiprocessing.Process.__bases__[0].__name__.__eq__",  ["BaseProcess"],              true,  "mp.Process.__bases__[0].__name__ == 'BaseProcess' (inherits from abstract BaseProcess); verified with Python 3.14.3"]
-    - [proc_name_len,  multiprocessing.Process.__name__.__len__,                [],                           7,     "mp.Process.__name__.__len__() == 7 ('Process'); verified with Python 3.14.3"]
+    - [process_dict_has_start_method, "multiprocessing.Process.__dict__.__contains__", ["_start_method"], true, "multiprocessing.Process.__dict__.__contains__('_start_method') == True; verified Python 3.14.3"]
+    - [process_dict_has_popen,        "multiprocessing.Process.__dict__.__contains__", ["_Popen"],        true, "multiprocessing.Process.__dict__.__contains__('_Popen') == True; verified Python 3.14.3"]
+    - [process_dict_has_after_fork,   "multiprocessing.Process.__dict__.__contains__", ["_after_fork"],   true, "multiprocessing.Process.__dict__.__contains__('_after_fork') == True; verified Python 3.14.3"]
+    - [process_dict_len,              "multiprocessing.Process.__dict__.__len__",       [],                7,    "multiprocessing.Process.__dict__.__len__() == 7; verified Python 3.14.3"]
 
 # ---------------------------------------------------------------------------
-# multiprocessing.Process method qualnames (start, join) — extra159
+# Table 2: multiprocessing.process.BaseProcess.__dict__ lifecycle methods
 #
-# multiprocessing.Process.start.__qualname__.__eq__('BaseProcess.start') == True
-# multiprocessing.Process.join.__qualname__.__eq__('BaseProcess.join')   == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__('start')     == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__('run')       == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__('join')      == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__('terminate') == True
 # ---------------------------------------------------------------------------
 
-table multiprocessing_extra159.mp_process_start_join_qualnames:
-  description: "multiprocessing.Process.start and join method qualname checks in mpprocstjn159 namespace — multiprocessing.Process.start.__qualname__=='BaseProcess.start' (len=17: 'BaseProcess'=11+'.'=1+'start'=5=17; Process does NOT define its own start() — it inherits from BaseProcess; the qualname 'BaseProcess.start' reveals the method is defined on BaseProcess, not on Process; start() spawns the child process by calling the run() method); multiprocessing.Process.join.__qualname__=='BaseProcess.join' (len=16: 'BaseProcess'=11+'.'=1+'join'=4=16; join is also inherited from BaseProcess; join() waits for the process to finish — blocks until the process whose join() method is called terminates or until the optional timeout occurs); qualname lengths: join(16) < start(17) because 'join'=4 < 'start'=5 (1 char difference); both qualnames start with 'BaseProcess.' (prefix=12 chars); verified with Python 3.14.3"
+table multiprocessing_extra159.base_process_lifecycle_methods:
+  description: "multiprocessing.process.BaseProcess.__dict__ lifecycle method membership checks in mprepr159 namespace — BaseProcess.__dict__.__contains__('start')==True (BaseProcess.start() starts the child process; must not be called more than once per process object); BaseProcess.__dict__.__contains__('run')==True (BaseProcess.run() is the method representing the process's activity; it invokes target with args and kwargs); BaseProcess.__dict__.__contains__('join')==True (BaseProcess.join() blocks the calling process until the child process terminates or timeout expires); BaseProcess.__dict__.__contains__('terminate')==True (BaseProcess.terminate() terminates the child process via SIGTERM on Unix); all four are in BaseProcess.__dict__; verified with Python 3.14.3"
   kind: python_call_eq
-  category: identity
-  id_prefix: mpprocstjn159
+  category: dict_membership
+  id_prefix: mprepr159b
 
   columns: [id, function, args, expected, description]
   rows:
-    - [start_qn_eq,   multiprocessing.Process.start.__qualname__.__eq__,  ["BaseProcess.start"],  true,  "mp.Process.start.__qualname__ == 'BaseProcess.start' (len=17; inherited from BaseProcess); verified with Python 3.14.3"]
-    - [join_qn_eq,    multiprocessing.Process.join.__qualname__.__eq__,    ["BaseProcess.join"],   true,  "mp.Process.join.__qualname__ == 'BaseProcess.join' (len=16; inherited from BaseProcess); verified with Python 3.14.3"]
-    - [start_qn_len,  multiprocessing.Process.start.__qualname__.__len__,  [],                     17,    "mp.Process.start.__qualname__.__len__() == 17 ('BaseProcess.start'; 1 longer than join=16); verified with Python 3.14.3"]
-    - [join_qn_len,   multiprocessing.Process.join.__qualname__.__len__,   [],                     16,    "mp.Process.join.__qualname__.__len__() == 16 ('BaseProcess.join'; shortest Process method qualname); verified with Python 3.14.3"]
+    - [base_process_has_start,     "multiprocessing.process.BaseProcess.__dict__.__contains__", ["start"],     true, "multiprocessing.process.BaseProcess.__dict__.__contains__('start') == True; verified Python 3.14.3"]
+    - [base_process_has_run,       "multiprocessing.process.BaseProcess.__dict__.__contains__", ["run"],       true, "multiprocessing.process.BaseProcess.__dict__.__contains__('run') == True; verified Python 3.14.3"]
+    - [base_process_has_join,      "multiprocessing.process.BaseProcess.__dict__.__contains__", ["join"],      true, "multiprocessing.process.BaseProcess.__dict__.__contains__('join') == True; verified Python 3.14.3"]
+    - [base_process_has_terminate, "multiprocessing.process.BaseProcess.__dict__.__contains__", ["terminate"], true, "multiprocessing.process.BaseProcess.__dict__.__contains__('terminate') == True; verified Python 3.14.3"]
 
 # ---------------------------------------------------------------------------
-# multiprocessing.Process method qualnames (terminate, is_alive) — extra159
+# Table 3: multiprocessing.process.BaseProcess.__dict__ additional methods
 #
-# multiprocessing.Process.terminate.__qualname__.__eq__('BaseProcess.terminate') == True
-# multiprocessing.Process.is_alive.__qualname__.__eq__('BaseProcess.is_alive')   == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__('kill')     == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__('is_alive') == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__('close')    == True
+# multiprocessing.process.BaseProcess.__dict__.__len__()                 == 27
 # ---------------------------------------------------------------------------
 
-table multiprocessing_extra159.mp_process_terminate_isalive_qualnames:
-  description: "multiprocessing.Process.terminate and is_alive method qualname checks in mpproctiqa159 namespace — multiprocessing.Process.terminate.__qualname__=='BaseProcess.terminate' (len=21: 'BaseProcess'=11+'.'=1+'terminate'=9=21; terminate is the longest Process method qualname covered here; terminate() sends SIGTERM on Unix or calls TerminateProcess() on Windows to forcefully stop the child process; Process does NOT define terminate() — it inherits from BaseProcess); multiprocessing.Process.is_alive.__qualname__=='BaseProcess.is_alive' (len=20: 'BaseProcess'=11+'.'=1+'is_alive'=8=20; is_alive() returns True if the process is running; Process inherits is_alive from BaseProcess); qualname length ordering: join(16) < start(17) < is_alive(20) < terminate(21); terminate is the longest because 'terminate'=9 is the longest method name; compare: 'is_alive'=8 < 'terminate'=9 — is_alive is 1 char shorter in qualname; verified with Python 3.14.3"
+table multiprocessing_extra159.base_process_additional_methods:
+  description: "multiprocessing.process.BaseProcess.__dict__ additional methods and dict length in mprepr159 namespace — BaseProcess.__dict__.__contains__('kill')==True (BaseProcess.kill() is like terminate() but sends SIGKILL on Unix for immediate termination); BaseProcess.__dict__.__contains__('is_alive')==True (BaseProcess.is_alive() returns True if the process is alive between start and join/termination); BaseProcess.__dict__.__contains__('close')==True (BaseProcess.close() closes the Process object and releases resources); BaseProcess.__dict__.__len__()==27 (BaseProcess has 27 entries in its dict on Python 3.14.3); verified with Python 3.14.3"
   kind: python_call_eq
-  category: identity
-  id_prefix: mpproctiqa159
+  category: dict_membership
+  id_prefix: mprepr159c
 
   columns: [id, function, args, expected, description]
   rows:
-    - [term_qn_eq,     multiprocessing.Process.terminate.__qualname__.__eq__,  ["BaseProcess.terminate"],  true,  "mp.Process.terminate.__qualname__ == 'BaseProcess.terminate' (len=21; longest Process method qualname); verified with Python 3.14.3"]
-    - [alive_qn_eq,    multiprocessing.Process.is_alive.__qualname__.__eq__,   ["BaseProcess.is_alive"],   true,  "mp.Process.is_alive.__qualname__ == 'BaseProcess.is_alive' (len=20; 1 shorter than terminate=21); verified with Python 3.14.3"]
-    - [term_qn_len,    multiprocessing.Process.terminate.__qualname__.__len__,  [],                         21,    "mp.Process.terminate.__qualname__.__len__() == 21 ('BaseProcess.terminate'; longest in spec); verified with Python 3.14.3"]
-    - [alive_qn_len,   multiprocessing.Process.is_alive.__qualname__.__len__,  [],                         20,    "mp.Process.is_alive.__qualname__.__len__() == 20 ('BaseProcess.is_alive'); verified with Python 3.14.3"]
+    - [base_process_has_kill,     "multiprocessing.process.BaseProcess.__dict__.__contains__", ["kill"],     true, "multiprocessing.process.BaseProcess.__dict__.__contains__('kill') == True; verified Python 3.14.3"]
+    - [base_process_has_is_alive, "multiprocessing.process.BaseProcess.__dict__.__contains__", ["is_alive"], true, "multiprocessing.process.BaseProcess.__dict__.__contains__('is_alive') == True; verified Python 3.14.3"]
+    - [base_process_has_close,    "multiprocessing.process.BaseProcess.__dict__.__contains__", ["close"],    true, "multiprocessing.process.BaseProcess.__dict__.__contains__('close') == True; verified Python 3.14.3"]
+    - [base_process_dict_len,     "multiprocessing.process.BaseProcess.__dict__.__len__",      [],           27,   "multiprocessing.process.BaseProcess.__dict__.__len__() == 27; verified Python 3.14.3"]
 
 # ---------------------------------------------------------------------------
-# Standalone invariants — extra159
+# Standalone invariants — multiprocessing_extra159
 # ---------------------------------------------------------------------------
 
-invariant multiprocessing_extra159.mp_Process_name_eq:
-  description: "multiprocessing.Process.__name__.__eq__('Process') returns True — multiprocessing.Process is the concrete process class for the current platform start method; Process.__name__=='Process' (len=7: 'P'+'r'+'o'+'c'+'e'+'s'+'s'=7); Process represents a child OS process running Python code; typical usage: Process(target=fn, args=(...)). start(), p.join(); Process.__module__=='multiprocessing.context' (len=23; registered in the context system — same module as multiprocessing.Manager, Value, Array from extra158); Process.__bases__[0].__name__=='BaseProcess' (abstract base; len=11); Process inherits start, join, terminate, is_alive from BaseProcess — all four method qualnames start with 'BaseProcess.'; compare: multiprocessing.pool.Pool.__name__=='Pool' (len=4; Pool manages a pool of Processes); NEW in extra159: first standalone mp.Process.__name__ identity invariant in mpproc159 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
-  category: identity
+invariant multiprocessing_extra159.process_dict_contains_start_method:
+  description: "multiprocessing.Process.__dict__.__contains__('_start_method') returns True — multiprocessing.Process (the platform-specific subclass in multiprocessing.context) defines _start_method directly as a class attribute; it holds the start method string (e.g. 'fork' on Linux, 'spawn' on macOS); '_start_method' is in Process.__dict__ (not inherited from BaseProcess); NEW in extra159; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: dict_membership
   kind: python_call_eq
-  function: multiprocessing.Process.__name__.__eq__
-  args: ["Process"]
+  function: multiprocessing.Process.__dict__.__contains__
+  args: ["_start_method"]
   expected: true
 
-invariant multiprocessing_extra159.mp_Process_module_eq:
-  description: "multiprocessing.Process.__module__.__eq__('multiprocessing.context') returns True — multiprocessing.Process has __module__=='multiprocessing.context' (len=23: 'multiprocessing'=15+'.'=1+'context'=7=23); the context system in Lib/multiprocessing/context.py registers the platform-specific Process class; this is the SAME __module__ as multiprocessing.Manager, Value, Array established in extra158 — all top-level multiprocessing objects accessed via the context system report __module__=='multiprocessing.context'; contrast: multiprocessing.process.BaseProcess.__module__=='multiprocessing.process' (len=23; same length because 'context'=7 == 'process'=7); the two module names are the same length (both 23); NEW in extra159: first standalone mp.Process.__module__ identity invariant in mpproc159 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
-  category: identity
+invariant multiprocessing_extra159.process_dict_contains_popen:
+  description: "multiprocessing.Process.__dict__.__contains__('_Popen') returns True — multiprocessing.Process defines _Popen directly as a class attribute; it is set to the Popen class appropriate for the platform start method (e.g. popen_fork.Popen on macOS fork, popen_spawn_posix.Popen on spawn); '_Popen' is in Process.__dict__ (not inherited from BaseProcess); NEW in extra159; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: dict_membership
   kind: python_call_eq
-  function: multiprocessing.Process.__module__.__eq__
-  args: ["multiprocessing.context"]
+  function: multiprocessing.Process.__dict__.__contains__
+  args: ["_Popen"]
   expected: true
 
-invariant multiprocessing_extra159.mp_Process_base_is_BaseProcess:
-  description: "multiprocessing.Process.__bases__[0].__name__.__eq__('BaseProcess') returns True — multiprocessing.Process inherits from BaseProcess; __bases__[0].__name__=='BaseProcess' (len=11: 'Base'=4+'Process'=7=11); BaseProcess is the abstract process class in Lib/multiprocessing/process.py that defines the process protocol; the concrete Process class registered by the context adds platform-specific behavior (how to spawn/fork); Process does NOT directly define start(), join(), terminate(), or is_alive() — all four are inherited from BaseProcess (as shown by the 'BaseProcess.method' qualnames); contrast: multiprocessing.pool.Pool.__bases__[0].__name__=='object' (Pool inherits from object directly, not from a process class); 'BaseProcess' (len=11) is the only multiprocessing abstract base in this spec series; NEW in extra159: first standalone mp.Process.__bases__[0].__name__ identity invariant in mpproc159 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
-  category: identity
+invariant multiprocessing_extra159.process_dict_len_seven:
+  description: "multiprocessing.Process.__dict__.__len__() returns 7 — multiprocessing.Process (context.Process) is a thin platform-specific subclass with only 7 entries: __module__, __firstlineno__, _start_method, _Popen, _after_fork, __static_attributes__, __doc__; the actual process management logic lives in multiprocessing.process.BaseProcess which Process inherits from; NEW in extra159; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: dict_membership
   kind: python_call_eq
-  function: "multiprocessing.Process.__bases__[0].__name__.__eq__"
-  args: ["BaseProcess"]
+  function: multiprocessing.Process.__dict__.__len__
+  args: []
+  expected: 7
+
+invariant multiprocessing_extra159.base_process_dict_contains_start:
+  description: "multiprocessing.process.BaseProcess.__dict__.__contains__('start') returns True — multiprocessing.process.BaseProcess defines start() directly in its class body in Lib/multiprocessing/process.py; BaseProcess.start() starts the child process; it creates and starts the Popen object (_Popen(self)); must not be called more than once per process object; 'start' is in BaseProcess.__dict__; NEW in extra159; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: dict_membership
+  kind: python_call_eq
+  function: multiprocessing.process.BaseProcess.__dict__.__contains__
+  args: ["start"]
   expected: true
 
-invariant multiprocessing_extra159.mp_Process_start_qualname_eq:
-  description: "multiprocessing.Process.start.__qualname__.__eq__('BaseProcess.start') returns True — multiprocessing.Process.start is inherited from BaseProcess; start.__qualname__=='BaseProcess.start' (len=17: 'BaseProcess'=11+'.'=1+'start'=5=17); the qualname 'BaseProcess.start' (NOT 'Process.start') confirms that start() is defined on BaseProcess and Process simply inherits it without overriding; calling p.start() spawns the child process and calls the target function (or run() if overridden) in the new process; after start(), the child process is running and p.is_alive() returns True; qualname len=17 is 1 longer than join (len=16) because 'start'=5 > 'join'=4; NEW in extra159: first standalone mp.Process.start.__qualname__ identity invariant in mpprocstjn159 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
-  category: identity
+invariant multiprocessing_extra159.base_process_dict_contains_run:
+  description: "multiprocessing.process.BaseProcess.__dict__.__contains__('run') returns True — multiprocessing.process.BaseProcess defines run() directly in its class body; BaseProcess.run() represents the process's activity; it calls self._target(*self._args, **self._kwargs) if a target was provided; subclasses override run() to provide custom process behavior; 'run' is in BaseProcess.__dict__; NEW in extra159; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: dict_membership
   kind: python_call_eq
-  function: multiprocessing.Process.start.__qualname__.__eq__
-  args: ["BaseProcess.start"]
+  function: multiprocessing.process.BaseProcess.__dict__.__contains__
+  args: ["run"]
   expected: true
 
-invariant multiprocessing_extra159.mp_Process_terminate_qualname_eq:
-  description: "multiprocessing.Process.terminate.__qualname__.__eq__('BaseProcess.terminate') returns True — multiprocessing.Process.terminate is inherited from BaseProcess; terminate.__qualname__=='BaseProcess.terminate' (len=21: 'BaseProcess'=11+'.'=1+'terminate'=9=21; 'terminate'=9 is the longest method name among start/join/terminate/is_alive); terminate() sends SIGTERM to the child process on Unix or calls TerminateProcess() on Windows; calling terminate() does not wait for the process to finish — call join() afterward if needed; terminate is the longest qualname at len=21: join(16) < start(17) < is_alive(20) < terminate(21); the 'BaseProcess.' prefix (12 chars) is the same for all four inherited methods; NEW in extra159: first standalone mp.Process.terminate.__qualname__ identity invariant in mpproctiqa159 namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
-  category: identity
+invariant multiprocessing_extra159.base_process_dict_contains_join:
+  description: "multiprocessing.process.BaseProcess.__dict__.__contains__('join') returns True — multiprocessing.process.BaseProcess defines join() directly in its class body; BaseProcess.join(timeout=None) blocks the calling process until the child process whose join() method is called terminates; if timeout is given, at most timeout seconds are waited; 'join' is in BaseProcess.__dict__; NEW in extra159; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: dict_membership
   kind: python_call_eq
-  function: multiprocessing.Process.terminate.__qualname__.__eq__
-  args: ["BaseProcess.terminate"]
+  function: multiprocessing.process.BaseProcess.__dict__.__contains__
+  args: ["join"]
   expected: true
+
+invariant multiprocessing_extra159.base_process_dict_contains_kill:
+  description: "multiprocessing.process.BaseProcess.__dict__.__contains__('kill') returns True — multiprocessing.process.BaseProcess defines kill() directly in its class body; BaseProcess.kill() is the same as terminate() but uses SIGKILL signal on Unix for immediate forced termination without cleanup; 'kill' is in BaseProcess.__dict__; NEW in extra159; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: dict_membership
+  kind: python_call_eq
+  function: multiprocessing.process.BaseProcess.__dict__.__contains__
+  args: ["kill"]
+  expected: true
+
+invariant multiprocessing_extra159.base_process_dict_len_twentyseven:
+  description: "multiprocessing.process.BaseProcess.__dict__.__len__() returns 27 — multiprocessing.process.BaseProcess has 27 entries in its class dict on Python 3.14.3: __module__, __firstlineno__, __doc__, _Popen, __init__, _check_closed, run, start, interrupt, terminate, kill, join, is_alive, close, name, daemon, authkey, exitcode, ident, pid, sentinel, __repr__, _bootstrap, _after_fork, __static_attributes__, __dict__, __weakref__; NEW in extra159; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: dict_membership
+  kind: python_call_eq
+  function: multiprocessing.process.BaseProcess.__dict__.__len__
+  args: []
+  expected: 27

@@ -1,0 +1,153 @@
+spec: socket_extra209
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "Python 3 socket module documentation — https://docs.python.org/3/library/socket.html"
+    - "POSIX.1-2017 — IPPROTO_TCP, IPPROTO_UDP constants"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+    - "CPython source: Lib/socket.py"
+  notes:
+    - "This spec extends socket.zspec.zsdl, socket_extra.zspec.zsdl, and socket_extra208.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "socket_extra208.zspec.zsdl covers: socket.socket.__dict__ contains '__doc__', '__init__', '__repr__', 'accept', 'close', 'dup', 'makefile'; fileno absent; AF_INET/AF_INET6/AF_UNSPEC class names; SOCK_STREAM class name."
+    - "socket.socket.__dict__ DOES contain: 'detach', 'dup', '__repr__', '__init__', '__enter__', '__exit__', 'sendfile', 'family' (all verified on Python 3.14.3 macOS/Darwin 25.4.0)."
+    - "socket.socket.__dict__.__len__() == 28 on Python 3.14.3 macOS/Darwin 25.4.0."
+    - "socket.IPPROTO_TCP.__class__.__name__ == 'int' — IPPROTO_TCP is a plain Python int (value 6) on Python 3.14.3 macOS/Darwin 25.4.0."
+    - "socket.IPPROTO_UDP.__class__.__name__ == 'int' — IPPROTO_UDP is a plain Python int (value 17) on Python 3.14.3 macOS/Darwin 25.4.0."
+    - "IPPROTO_TCP and IPPROTO_UDP are plain ints (unlike AF_INET/SOCK_STREAM which are IntEnum members); this is a behavioral distinction verified on Python 3.14.3."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model:
+  semantics: "socket raises OSError and subclasses for I/O failures. Class dict membership and type name checks are stateless and never raise."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are class dict membership or constant type checks."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# socket.socket.__dict__ — Python-layer method membership (known-true)
+# detach, dup, __repr__, __init__ are defined in the Python wrapper layer.
+# Low-level C methods (connect, bind, listen) are NOT here.
+# ---------------------------------------------------------------------------
+
+table socketmethods209.socket_dict.known_true:
+  description: "socket.socket.__dict__ contains Python-layer method entries for detach, dup, __repr__, __init__"
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: socketmethods209_dict_true
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [detach, "socket.__dict__.__contains__", ["detach"],   true, "socket.socket.__dict__ contains 'detach' (Python-layer method)"]
+    - [dup,    "socket.__dict__.__contains__", ["dup"],      true, "socket.socket.__dict__ contains 'dup' (Python-layer method)"]
+    - [repr,   "socket.__dict__.__contains__", ["__repr__"], true, "socket.socket.__dict__ contains '__repr__' (Python-layer method)"]
+    - [init,   "socket.__dict__.__contains__", ["__init__"], true, "socket.socket.__dict__ contains '__init__' (Python-layer method)"]
+
+# ---------------------------------------------------------------------------
+# socket.socket.__dict__ — more Python-layer methods and absent C-layer methods
+# ---------------------------------------------------------------------------
+
+table socketmethods209.socket_dict.more_checks:
+  description: "socket.socket.__dict__ contains __enter__, __exit__; C-layer methods connect/bind are absent"
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: socketmethods209_dict_more
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [enter,          "socket.__dict__.__contains__", ["__enter__"], true,  "socket.socket.__dict__ contains '__enter__' (context manager support)"]
+    - [exit,           "socket.__dict__.__contains__", ["__exit__"],  true,  "socket.socket.__dict__ contains '__exit__' (context manager support)"]
+    - [no_connect,     "socket.__dict__.__contains__", ["connect"],   false, "'connect' is NOT in socket.socket.__dict__ — it is a C-layer method"]
+    - [no_bind,        "socket.__dict__.__contains__", ["bind"],      false, "'bind' is NOT in socket.socket.__dict__ — it is a C-layer method"]
+
+# ---------------------------------------------------------------------------
+# socket module constants — IPPROTO_TCP and IPPROTO_UDP type checks
+# Unlike AF_INET (AddressFamily enum) and SOCK_STREAM (SocketKind enum),
+# IPPROTO_TCP and IPPROTO_UDP are plain Python ints on Python 3.14.3 macOS.
+# ---------------------------------------------------------------------------
+
+table socketmethods209.ipproto_constants.class_names:
+  description: "socket.IPPROTO_TCP and socket.IPPROTO_UDP are plain Python ints on Python 3.14.3 macOS"
+  kind: python_call_eq
+  category: constants
+  id_prefix: socketmethods209_ipproto
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [tcp_class, IPPROTO_TCP.__class__.__name__.__eq__, ["int"], true, "IPPROTO_TCP.__class__.__name__ == 'int'"]
+    - [udp_class, IPPROTO_UDP.__class__.__name__.__eq__, ["int"], true, "IPPROTO_UDP.__class__.__name__ == 'int'"]
+    - [tcp_val,   IPPROTO_TCP.__eq__,                   [6],     true, "IPPROTO_TCP == 6 (POSIX.1-2017)"]
+    - [udp_val,   IPPROTO_UDP.__eq__,                   [17],    true, "IPPROTO_UDP == 17 (POSIX.1-2017)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant socketmethods209.socket_dict.has_detach:
+  description: "socket.socket.__dict__.__contains__('detach') == True — detach is a Python-layer method on socket.socket"
+  category: class_metadata
+  kind: python_call_eq
+  function: "socket.__dict__.__contains__"
+  args: ["detach"]
+  expected: true
+
+invariant socketmethods209.socket_dict.has_dup:
+  description: "socket.socket.__dict__.__contains__('dup') == True — dup is a Python-layer method on socket.socket"
+  category: class_metadata
+  kind: python_call_eq
+  function: "socket.__dict__.__contains__"
+  args: ["dup"]
+  expected: true
+
+invariant socketmethods209.socket_dict.has_repr:
+  description: "socket.socket.__dict__.__contains__('__repr__') == True — socket.socket defines its own __repr__"
+  category: class_metadata
+  kind: python_call_eq
+  function: "socket.__dict__.__contains__"
+  args: ["__repr__"]
+  expected: true
+
+invariant socketmethods209.socket_dict.has_init:
+  description: "socket.socket.__dict__.__contains__('__init__') == True — socket.socket defines its own __init__"
+  category: class_metadata
+  kind: python_call_eq
+  function: "socket.__dict__.__contains__"
+  args: ["__init__"]
+  expected: true
+
+invariant socketmethods209.IPPROTO_TCP.class_name:
+  description: "socket.IPPROTO_TCP.__class__.__name__ == 'int' — IPPROTO_TCP is a plain Python int, not an IntEnum member"
+  category: constants
+  kind: python_call_eq
+  function: IPPROTO_TCP.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant socketmethods209.IPPROTO_UDP.class_name:
+  description: "socket.IPPROTO_UDP.__class__.__name__ == 'int' — IPPROTO_UDP is a plain Python int, not an IntEnum member"
+  category: constants
+  kind: python_call_eq
+  function: IPPROTO_UDP.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant socketmethods209.socket_dict.no_connect:
+  description: "socket.socket.__dict__.__contains__('connect') == False — connect is a C-layer method inherited from _socket.socket"
+  category: class_metadata
+  kind: python_call_eq
+  function: "socket.__dict__.__contains__"
+  args: ["connect"]
+  expected: false
+
+invariant socketmethods209.socket_dict.has_enter:
+  description: "socket.socket.__dict__.__contains__('__enter__') == True — socket.socket supports the context manager protocol"
+  category: class_metadata
+  kind: python_call_eq
+  function: "socket.__dict__.__contains__"
+  args: ["__enter__"]
+  expected: true
