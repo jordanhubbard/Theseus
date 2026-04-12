@@ -1,0 +1,163 @@
+spec: uuid_extra228
+version: ">=3.9"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/uuid.html — Python uuid module documentation"
+    - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+    - "uuid_extra227.zspec.zsdl — covers UUID.bytes_le length and class; fields length, class, and element values"
+    - "uuid_extra226.zspec.zsdl — covers uuid3/uuid5 deterministic output, version attribute, and str length"
+    - "uuid_extra225.zspec.zsdl — covers UUID field bit_length contracts and field class name"
+    - "uuid_extra224.zspec.zsdl — covers UUID property fget qualname and __name__ contracts"
+    - "uuid_extra223.zspec.zsdl — covers UUID comparison operator names and qualnames"
+    - "uuid_extra222.zspec.zsdl — covers UUID dunder method names and str len 36"
+    - "uuid_extra221.zspec.zsdl — covers getnode identity; uuid1/uuid4 identity"
+    - "uuid_extra220.zspec.zsdl — covers UUID.__name__/__module__/__qualname__ and uuid3/uuid5 function identity"
+  notes:
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "uuid.UUID('12345678-1234-4678-a234-567812345678').variant == 'specified in RFC 4122' — version 4 UUID with RFC 4122 variant bits."
+    - "uuid.UUID('12345678-1234-4678-a234-567812345678').version == 4 — version encoded in bits 12-15 of time_hi_and_version."
+    - "uuid.UUID('12345678-1234-3678-9234-567812345678').version == 3 — version encoded in bits 12-15 of time_hi_and_version."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000000').variant == 'reserved for NCS compatibility' — nil UUID has NCS variant."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000000').version is None — nil UUID has no version."
+    - "uuid.uuid4().variant == 'specified in RFC 4122' — all uuid4 results have RFC 4122 variant."
+    - "uuid.uuid4().version == 4 — all uuid4 results have version 4."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# UUID version attribute contracts for fixed UUIDs
+#
+# uuid.UUID('12345678-1234-4678-a234-567812345678').version == 4
+# uuid.UUID('12345678-1234-3678-9234-567812345678').version == 3
+#
+# The version is encoded in bits 12-15 of time_hi_and_version (3rd group,
+# first hex digit). '4678' encodes version 4; '3678' encodes version 3.
+# Novel to uuid_extra228: no prior uuid spec anchors version for these UUIDs.
+# ---------------------------------------------------------------------------
+
+table uuid_extra228.uuid_version_contracts:
+  description: "UUID('...-4678-a234-...').version==4; UUID('...-3678-9234-...').version==3; UUID version attribute value contracts; new to uuid_extra228"
+  kind: python_call_eq
+  category: version
+  id_prefix: uuid228
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [uuid_v4_version_eq_4,
+       "UUID('12345678-1234-4678-a234-567812345678').version.__eq__",
+       [4],
+       true,
+       "uuid.UUID('12345678-1234-4678-a234-567812345678').version.__eq__(4) == True — the 3rd group '4678' has leading hex digit '4' encoding version 4 in bits 12-15 of time_hi_and_version; version 4 UUIDs are randomly generated per RFC 4122 §4.4; novel version attribute anchor for version 4; new to uuid_extra228 namespace; verified Python 3.14.3"]
+    - [uuid_v3_version_eq_3,
+       "UUID('12345678-1234-3678-9234-567812345678').version.__eq__",
+       [3],
+       true,
+       "uuid.UUID('12345678-1234-3678-9234-567812345678').version.__eq__(3) == True — the 3rd group '3678' has leading hex digit '3' encoding version 3 in bits 12-15 of time_hi_and_version; version 3 UUIDs are MD5-based name UUIDs per RFC 4122 §4.3; novel version attribute anchor for version 3; new to uuid_extra228 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# UUID variant attribute contracts
+#
+# uuid.UUID('12345678-1234-4678-a234-567812345678').variant == 'specified in RFC 4122'
+# uuid.UUID('00000000-0000-0000-0000-000000000000').variant == 'reserved for NCS compatibility'
+#
+# The variant is encoded in the high bits of clock_seq_hi_variant (4th group).
+# 'a234' starts with 'a' == 1010b, high bits 10x == RFC 4122 variant.
+# '0000' in 4th group starts with '0' == 0000b, high bit 0 == NCS variant.
+# Novel to uuid_extra228.
+# ---------------------------------------------------------------------------
+
+table uuid_extra228.uuid_variant_contracts:
+  description: "UUID('...-a234-...').variant=='specified in RFC 4122'; nil UUID variant=='reserved for NCS compatibility'; UUID variant string contracts; new to uuid_extra228"
+  kind: python_call_eq
+  category: variant
+  id_prefix: uuid228a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [uuid_v4_variant_rfc4122,
+       "UUID('12345678-1234-4678-a234-567812345678').variant.__eq__",
+       ["specified in RFC 4122"],
+       true,
+       "uuid.UUID('12345678-1234-4678-a234-567812345678').variant.__eq__('specified in RFC 4122') == True — the 4th group 'a234' starts with 'a' (0xA = 1010b); high two bits '10' indicate the RFC 4122 variant per §4.1.1; the variant string is 'specified in RFC 4122'; novel variant string anchor; new to uuid_extra228 namespace; verified Python 3.14.3"]
+    - [nil_uuid_variant_ncs,
+       "UUID('00000000-0000-0000-0000-000000000000').variant.__eq__",
+       ["reserved for NCS compatibility"],
+       true,
+       "uuid.UUID('00000000-0000-0000-0000-000000000000').variant.__eq__('reserved for NCS compatibility') == True — the nil UUID has all zero bits; the 4th group '0000' starts with '0' (0x0 = 0000b); high bit '0' indicates the NCS compatibility variant per RFC 4122 §4.1.1; the variant string is 'reserved for NCS compatibility'; novel nil UUID variant anchor; new to uuid_extra228 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# UUID version is None for nil UUID
+#
+# uuid.UUID('00000000-0000-0000-0000-000000000000').version is None
+#
+# The nil UUID has all zero bits. The 3rd group '0000' has leading digit '0',
+# which is not a valid version (1-5). Python's uuid.UUID sets .version to None
+# when the UUID does not have the RFC 4122 variant bits set. The nil UUID has
+# NCS variant (high bit 0), so .version is None.
+# Novel to uuid_extra228.
+# ---------------------------------------------------------------------------
+
+table uuid_extra228.nil_uuid_version_none:
+  description: "nil UUID version is None; UUID('00000000-...').version.__class__.__name__=='NoneType'; nil UUID version contracts; new to uuid_extra228"
+  kind: python_call_eq
+  category: version
+  id_prefix: uuid228b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [nil_uuid_version_none_class,
+       "UUID('00000000-0000-0000-0000-000000000000').version.__class__.__name__.__eq__",
+       ["NoneType"],
+       true,
+       "uuid.UUID('00000000-0000-0000-0000-000000000000').version.__class__.__name__.__eq__('NoneType') == True — the nil UUID has NCS variant (not RFC 4122), so .version is None; None.__class__.__name__ is 'NoneType'; this confirms .version returns None for non-RFC-4122 variant UUIDs; novel nil UUID version None anchor; new to uuid_extra228 namespace; verified Python 3.14.3"]
+    - [uuid_v4_variant_contains_rfc,
+       "UUID('12345678-1234-4678-a234-567812345678').variant.__contains__",
+       ["RFC"],
+       true,
+       "uuid.UUID('12345678-1234-4678-a234-567812345678').variant.__contains__('RFC') == True — the RFC 4122 variant string 'specified in RFC 4122' contains the substring 'RFC'; this confirms the variant identifies as RFC 4122 type; consistent with RFC 4122 §4.1.1 variant encoding where high two bits are 10; novel variant contains RFC anchor; new to uuid_extra228 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra228.uuid_v4_version_4:
+  description: "uuid.UUID('12345678-1234-4678-a234-567812345678').version.__eq__(4) == True — the UUID version is encoded in bits 12-15 of the time_hi_and_version field (3rd hyphen-separated group); the leading hex digit '4' in '4678' sets these bits to 0100b = 4; RFC 4122 §4.1.3 defines version 4 as randomly or pseudo-randomly generated UUID; the .version property returns the integer version number directly; no prior uuid spec anchors .version for a version 4 UUID with this fixed string; uuid_extra228 is the first namespace to record this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: version
+  kind: python_call_eq
+  function: "UUID('12345678-1234-4678-a234-567812345678').version.__eq__"
+  args: [4]
+  expected: true
+
+invariant uuid_extra228.uuid_v4_variant_rfc4122:
+  description: "uuid.UUID('12345678-1234-4678-a234-567812345678').variant.__eq__('specified in RFC 4122') == True — the UUID variant is encoded in the high bits of clock_seq_hi_variant (4th hyphen-separated group); the leading hex digit 'a' in 'a234' is 0xA = 1010b; high bits 10 indicate the RFC 4122 variant per §4.1.1; Python's uuid module returns the string 'specified in RFC 4122' for this variant; this is the most common variant for all modern UUIDs (versions 1-5); no prior uuid spec anchors this variant string for a fixed UUID; uuid_extra228 is the first namespace to record this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: variant
+  kind: python_call_eq
+  function: "UUID('12345678-1234-4678-a234-567812345678').variant.__eq__"
+  args: ["specified in RFC 4122"]
+  expected: true
+
+invariant uuid_extra228.nil_uuid_variant_ncs:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000000').variant.__eq__('reserved for NCS compatibility') == True — the nil UUID (all zeros) has the 4th group starting with '0' = 0x0 = 0000b; the high bit being 0 indicates the NCS compatibility variant per RFC 4122 §4.1.1; this variant predates RFC 4122 and was used in the Apollo NCS system; Python's uuid module returns the string 'reserved for NCS compatibility'; the nil UUID is special-cased as having no version; no prior uuid spec anchors nil UUID variant string; uuid_extra228 is the first namespace to record this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: variant
+  kind: python_call_eq
+  function: "UUID('00000000-0000-0000-0000-000000000000').variant.__eq__"
+  args: ["reserved for NCS compatibility"]
+  expected: true
+
+invariant uuid_extra228.uuid_v3_version_3:
+  description: "uuid.UUID('12345678-1234-3678-9234-567812345678').version.__eq__(3) == True — the UUID version is encoded in bits 12-15 of the time_hi_and_version field (3rd hyphen-separated group); the leading hex digit '3' in '3678' sets these bits to 0011b = 3; RFC 4122 §4.1.3 defines version 3 as MD5-based name UUID; the 4th group '9234' has leading hex '9' = 1001b, high bits 10 indicate RFC 4122 variant; .version returns 3; no prior uuid spec anchors .version for a version 3 UUID with this fixed string; uuid_extra228 is the first namespace to record this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: version
+  kind: python_call_eq
+  function: "UUID('12345678-1234-3678-9234-567812345678').version.__eq__"
+  args: [3]
+  expected: true

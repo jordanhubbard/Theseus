@@ -1,0 +1,138 @@
+spec: re_extra239
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+    - "re.zspec.zsdl — covers re.split whitespace, comma, pipe, and leading-delimiter cases"
+  notes:
+    - "This spec covers: re.split behavioral contracts — result length, maxsplit parameter, and capturing-group delimiter retention."
+    - "re.zspec.zsdl covers split with id_prefix 'split': whitespace/comma/pipe/leading-delimiter. This spec adds result length checks, maxsplit, and capturing-group retention."
+    - "re.split(r'\\s+', 'hello world foo') == ['hello', 'world', 'foo'] — 3 elements; verified Python 3.14.3 macOS."
+    - "re.split(r',', 'a,b,c') == ['a', 'b', 'c'] — 3 elements; verified Python 3.14.3 macOS."
+    - "re.split(r',', 'a,b,c', maxsplit=1) == ['a', 'b,c'] — maxsplit=1 stops after first match; verified Python 3.14.3 macOS."
+    - "re.split(r'(\\W+)', 'hello world') == ['hello', ' ', 'world'] — capturing group retains delimiter; verified Python 3.14.3 macOS."
+    - "re.split(r'\\s+', 'hello') == ['hello'] — no whitespace found; single-element list; verified Python 3.14.3 macOS."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.split() result list length contracts
+# These verify the length of the returned list for common split patterns.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant re_extra239.split.whitespace_len:
+  description: "len(re.split(r'\\s+', 'hello world foo')) == 3 — splits into 3 words on whitespace; verified Python 3.14.3 macOS"
+  category: split_len
+  kind: python_call_eq
+  function: split
+  args: ["\\s+", "hello world foo"]
+  method: __len__
+  expected: 3
+
+invariant re_extra239.split.comma_len:
+  description: "len(re.split(r',', 'a,b,c')) == 3 — splits 'a,b,c' into 3 elements at commas; verified Python 3.14.3 macOS"
+  category: split_len
+  kind: python_call_eq
+  function: split
+  args: [",", "a,b,c"]
+  method: __len__
+  expected: 3
+
+invariant re_extra239.split.no_match_len:
+  description: "len(re.split(r'\\s+', 'hello')) == 1 — no whitespace found; result is single-element list; verified Python 3.14.3 macOS"
+  category: split_len
+  kind: python_call_eq
+  function: split
+  args: ["\\s+", "hello"]
+  method: __len__
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# re.split() full result value contracts
+# These verify the exact list returned by re.split for common cases.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant re_extra239.split.whitespace_result:
+  description: "re.split(r'\\s+', 'hello world foo') == ['hello', 'world', 'foo'] — splits three words; verified Python 3.14.3 macOS"
+  category: split_result
+  kind: python_call_eq
+  function: split
+  args: ["\\s+", "hello world foo"]
+  expected: ["hello", "world", "foo"]
+
+invariant re_extra239.split.comma_result:
+  description: "re.split(r',', 'a,b,c') == ['a', 'b', 'c'] — splits three single-char elements at commas; verified Python 3.14.3 macOS"
+  category: split_result
+  kind: python_call_eq
+  function: split
+  args: [",", "a,b,c"]
+  expected: ["a", "b", "c"]
+
+invariant re_extra239.split.no_match_result:
+  description: "re.split(r'\\s+', 'hello') == ['hello'] — no split when no match; returns list containing original string; verified Python 3.14.3 macOS"
+  category: split_result
+  kind: python_call_eq
+  function: split
+  args: ["\\s+", "hello"]
+  expected: ["hello"]
+
+# ---------------------------------------------------------------------------
+# re.split() with maxsplit parameter contracts
+# maxsplit limits the number of splits performed; remaining string is unsplit.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant re_extra239.split.maxsplit1_result:
+  description: "re.split(r',', 'a,b,c', maxsplit=1) == ['a', 'b,c'] — stops after first split; 'b,c' is returned as-is; verified Python 3.14.3 macOS"
+  category: split_maxsplit
+  kind: python_call_eq
+  function: split
+  args: [",", "a,b,c"]
+  kwargs: {maxsplit: 1}
+  expected: ["a", "b,c"]
+
+invariant re_extra239.split.maxsplit1_len:
+  description: "len(re.split(r',', 'a,b,c', maxsplit=1)) == 2 — maxsplit=1 yields exactly 2 elements; verified Python 3.14.3 macOS"
+  category: split_maxsplit
+  kind: python_call_eq
+  function: split
+  args: [",", "a,b,c"]
+  kwargs: {maxsplit: 1}
+  method: __len__
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# re.split() with capturing group — delimiter retention contracts
+# When the pattern contains a capturing group, the delimiter is included in
+# the returned list between the surrounding elements.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant re_extra239.split.capturing_group_result:
+  description: "re.split(r'(\\W+)', 'hello world') == ['hello', ' ', 'world'] — capturing group retains the space delimiter in result; verified Python 3.14.3 macOS"
+  category: split_capturing
+  kind: python_call_eq
+  function: split
+  args: ["(\\W+)", "hello world"]
+  expected: ["hello", " ", "world"]
+
+invariant re_extra239.split.capturing_group_len:
+  description: "len(re.split(r'(\\W+)', 'hello world')) == 3 — capturing group yields 3-element result with delimiter retained; verified Python 3.14.3 macOS"
+  category: split_capturing
+  kind: python_call_eq
+  function: split
+  args: ["(\\W+)", "hello world"]
+  method: __len__
+  expected: 3

@@ -1,0 +1,183 @@
+spec: socket_extra236
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+rfcs:
+  - "RFC 791 — Internet Protocol"
+  - "RFC 4291 — IP Version 6 Addressing Architecture"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "RFC 791 — Internet Protocol (IPv4 address notation)"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+    - "CPython source: Lib/socket.py"
+    - "socket_extra235.zspec.zsdl — covers ntohs/htons/ntohl/htonl function name and round-trip contracts"
+    - "socket_extra234.zspec.zsdl — covers AF_UNIX, AddressFamily, SocketKind class identity contracts"
+    - "socket_extra233.zspec.zsdl — covers getdefaulttimeout/__doc__/__contains__ and setdefaulttimeout contracts"
+    - "socket_extra232.zspec.zsdl — covers socket module identity contracts"
+    - "_socket_extra.zspec.zsdl — covers _socket C extension identity"
+  notes:
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "socket.inet_pton(socket.AF_INET, '127.0.0.1') == b'\\x7f\\x00\\x00\\x01' — loopback address."
+    - "socket.inet_pton(socket.AF_INET, '0.0.0.0') == b'\\x00\\x00\\x00\\x00' — any/unspecified address."
+    - "socket.inet_pton(socket.AF_INET, '255.255.255.255') == b'\\xff\\xff\\xff\\xff' — broadcast address."
+    - "socket.inet_pton(socket.AF_INET, '192.168.0.1') == b'\\xc0\\xa8\\x00\\x01' — private network address."
+    - "socket.inet_ntop(socket.AF_INET, b'\\x7f\\x00\\x00\\x01') == '127.0.0.1' — loopback reverse."
+    - "socket.inet_ntop(socket.AF_INET, b'\\xc0\\xa8\\x00\\x01') == '192.168.0.1' — private network reverse."
+    - "socket.inet_pton.__name__ == 'inet_pton'; socket.inet_ntop.__name__ == 'inet_ntop'."
+    - "socket.AF_INET == 2 on macOS/Linux."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# socket.inet_pton(AF_INET, ...) contracts — presentation to network bytes
+#
+# socket.inet_pton(socket.AF_INET, '127.0.0.1')       == b'\x7f\x00\x00\x01'
+# socket.inet_pton(socket.AF_INET, '0.0.0.0')         == b'\x00\x00\x00\x00'
+# socket.inet_pton(socket.AF_INET, '255.255.255.255')  == b'\xff\xff\xff\xff'
+# socket.inet_pton(socket.AF_INET, '192.168.0.1')      == b'\xc0\xa8\x00\x01'
+#
+# inet_pton converts an IP address string to its packed binary representation
+# (network byte order, big-endian). For AF_INET, the result is always 4 bytes.
+# Novel to socket_extra236: no prior socket spec anchors inet_pton values.
+# ---------------------------------------------------------------------------
+
+table socket_extra236.inet_pton_ipv4_contracts:
+  description: "inet_pton(AF_INET,'127.0.0.1')==b'\\x7f\\x00\\x00\\x01'; inet_pton(AF_INET,'0.0.0.0')==b'\\x00\\x00\\x00\\x00'; inet_pton(AF_INET,'255.255.255.255')==b'\\xff\\xff\\xff\\xff'; socket.inet_pton IPv4 address to bytes contracts; new to socket_extra236"
+  kind: python_call_eq
+  category: inet_pton
+  id_prefix: socket236
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [inet_pton_loopback,
+       "inet_pton(AF_INET, '127.0.0.1').__eq__",
+       ["\x7f\x00\x00\x01"],
+       true,
+       "socket.inet_pton(socket.AF_INET, '127.0.0.1').__eq__(b'\\x7f\\x00\\x00\\x01') == True — IPv4 loopback address 127.0.0.1 packed as 4 bytes big-endian; 127==0x7F, 0==0x00, 0==0x00, 1==0x01; inet_pton converts presentation format to network bytes; novel inet_pton loopback anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+    - [inet_pton_any_addr,
+       "inet_pton(AF_INET, '0.0.0.0').__eq__",
+       ["\x00\x00\x00\x00"],
+       true,
+       "socket.inet_pton(socket.AF_INET, '0.0.0.0').__eq__(b'\\x00\\x00\\x00\\x00') == True — IPv4 unspecified/any address 0.0.0.0 packed as 4 zero bytes; all octets are zero so the binary representation is 4 null bytes; novel inet_pton any-address anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+    - [inet_pton_broadcast,
+       "inet_pton(AF_INET, '255.255.255.255').__eq__",
+       ["\xff\xff\xff\xff"],
+       true,
+       "socket.inet_pton(socket.AF_INET, '255.255.255.255').__eq__(b'\\xff\\xff\\xff\\xff') == True — IPv4 limited broadcast address 255.255.255.255 packed as 4 all-ones bytes; 255==0xFF for each octet; novel inet_pton broadcast anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+    - [inet_pton_private,
+       "inet_pton(AF_INET, '192.168.0.1').__eq__",
+       ["\xc0\xa8\x00\x01"],
+       true,
+       "socket.inet_pton(socket.AF_INET, '192.168.0.1').__eq__(b'\\xc0\\xa8\\x00\\x01') == True — IPv4 private network address 192.168.0.1 packed big-endian; 192==0xC0, 168==0xA8, 0==0x00, 1==0x01; common gateway address in RFC 1918 private space 192.168.0.0/16; novel inet_pton private address anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# socket.inet_ntop(AF_INET, ...) contracts — network bytes to presentation
+#
+# socket.inet_ntop(socket.AF_INET, b'\x7f\x00\x00\x01') == '127.0.0.1'
+# socket.inet_ntop(socket.AF_INET, b'\xc0\xa8\x00\x01') == '192.168.0.1'
+# socket.inet_ntop(socket.AF_INET, b'\x00\x00\x00\x00') == '0.0.0.0'
+# socket.inet_ntop(socket.AF_INET, b'\xff\xff\xff\xff') == '255.255.255.255'
+#
+# inet_ntop converts a packed binary IP address to its string representation.
+# Round-trips with inet_pton. Novel to socket_extra236.
+# ---------------------------------------------------------------------------
+
+table socket_extra236.inet_ntop_ipv4_contracts:
+  description: "inet_ntop(AF_INET,b'\\x7f\\x00\\x00\\x01')=='127.0.0.1'; inet_ntop(AF_INET,b'\\xc0\\xa8\\x00\\x01')=='192.168.0.1'; socket.inet_ntop IPv4 bytes to address string contracts; new to socket_extra236"
+  kind: python_call_eq
+  category: inet_ntop
+  id_prefix: socket236a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [inet_ntop_loopback,
+       "inet_ntop(AF_INET, b'\\x7f\\x00\\x00\\x01').__eq__",
+       ["127.0.0.1"],
+       true,
+       "socket.inet_ntop(socket.AF_INET, b'\\x7f\\x00\\x00\\x01').__eq__('127.0.0.1') == True — 4-byte packed IPv4 0x7F000001 converted to dotted-decimal string '127.0.0.1'; 0x7F=127, 0x00=0, 0x00=0, 0x01=1; inverse of inet_pton; novel inet_ntop loopback anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+    - [inet_ntop_private,
+       "inet_ntop(AF_INET, b'\\xc0\\xa8\\x00\\x01').__eq__",
+       ["192.168.0.1"],
+       true,
+       "socket.inet_ntop(socket.AF_INET, b'\\xc0\\xa8\\x00\\x01').__eq__('192.168.0.1') == True — 4-byte packed IPv4 0xC0A80001 converted to dotted-decimal string '192.168.0.1'; 0xC0=192, 0xA8=168, 0x00=0, 0x01=1; novel inet_ntop private address anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+    - [inet_ntop_any_addr,
+       "inet_ntop(AF_INET, b'\\x00\\x00\\x00\\x00').__eq__",
+       ["0.0.0.0"],
+       true,
+       "socket.inet_ntop(socket.AF_INET, b'\\x00\\x00\\x00\\x00').__eq__('0.0.0.0') == True — 4 zero bytes converted to dotted-decimal string '0.0.0.0'; the unspecified/any address; novel inet_ntop any-address anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+    - [inet_ntop_broadcast,
+       "inet_ntop(AF_INET, b'\\xff\\xff\\xff\\xff').__eq__",
+       ["255.255.255.255"],
+       true,
+       "socket.inet_ntop(socket.AF_INET, b'\\xff\\xff\\xff\\xff').__eq__('255.255.255.255') == True — 4 all-ones bytes converted to dotted-decimal string '255.255.255.255'; broadcast address; novel inet_ntop broadcast anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# socket.inet_pton and inet_ntop function name contracts
+#
+# socket.inet_pton.__name__ == 'inet_pton'
+# socket.inet_ntop.__name__ == 'inet_ntop'
+#
+# These function names confirm the functions are accessible as module attributes
+# with the expected __name__ values. Novel to socket_extra236.
+# ---------------------------------------------------------------------------
+
+table socket_extra236.inet_function_name_contracts:
+  description: "inet_pton.__name__=='inet_pton'; inet_ntop.__name__=='inet_ntop'; socket inet_pton/inet_ntop function name contracts; new to socket_extra236"
+  kind: python_call_eq
+  category: function_names
+  id_prefix: socket236b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [inet_pton_name_eq,
+       "inet_pton.__name__.__eq__",
+       ["inet_pton"],
+       true,
+       "socket.inet_pton.__name__.__eq__('inet_pton') == True — inet_pton is 'internet presentation to network'; converts an IPv4 or IPv6 address string to its binary packed form; function name is 'inet_pton' (9 characters); novel function name anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+    - [inet_ntop_name_eq,
+       "inet_ntop.__name__.__eq__",
+       ["inet_ntop"],
+       true,
+       "socket.inet_ntop.__name__.__eq__('inet_ntop') == True — inet_ntop is 'internet network to presentation'; converts a packed binary IP address to its string representation; function name is 'inet_ntop' (9 characters); novel function name anchor; new to socket_extra236 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant socket_extra236.inet_pton_loopback:
+  description: "socket.inet_pton(socket.AF_INET, '127.0.0.1').__eq__(b'\\x7f\\x00\\x00\\x01') == True — inet_pton converts the dotted-decimal IPv4 presentation string '127.0.0.1' to its 4-byte big-endian network representation; 127==0x7F, 0==0x00, 0==0x00, 1==0x01; the loopback address is the canonical test address for inet_pton; AF_INET==2 selects IPv4 address family; the result is always exactly 4 bytes for AF_INET; no prior socket spec anchors any inet_pton output value; socket_extra236 is the first namespace to record this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: inet_pton
+  kind: python_call_eq
+  function: "inet_pton(AF_INET, '127.0.0.1').__eq__"
+  args: ["\x7f\x00\x00\x01"]
+  expected: true
+
+invariant socket_extra236.inet_ntop_loopback:
+  description: "socket.inet_ntop(socket.AF_INET, b'\\x7f\\x00\\x00\\x01').__eq__('127.0.0.1') == True — inet_ntop converts the 4-byte big-endian binary representation b'\\x7f\\x00\\x00\\x01' to the dotted-decimal string '127.0.0.1'; 0x7F=127, 0x00=0, 0x00=0, 0x01=1; inet_ntop is the inverse of inet_pton for valid addresses; AF_INET selects IPv4 interpretation; no prior socket spec anchors any inet_ntop output value; socket_extra236 is the first namespace to record this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: inet_ntop
+  kind: python_call_eq
+  function: "inet_ntop(AF_INET, b'\\x7f\\x00\\x00\\x01').__eq__"
+  args: ["127.0.0.1"]
+  expected: true
+
+invariant socket_extra236.inet_pton_broadcast:
+  description: "socket.inet_pton(socket.AF_INET, '255.255.255.255').__eq__(b'\\xff\\xff\\xff\\xff') == True — inet_pton converts the limited broadcast address '255.255.255.255' to its 4-byte representation; all 32 bits are set to 1; 255==0xFF for each of the 4 octets; the broadcast address is a well-known IPv4 address that cannot be assigned to an interface; AF_INET selects IPv4; no prior socket spec anchors inet_pton broadcast; socket_extra236 is the first namespace to record this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: inet_pton
+  kind: python_call_eq
+  function: "inet_pton(AF_INET, '255.255.255.255').__eq__"
+  args: ["\xff\xff\xff\xff"]
+  expected: true
+
+invariant socket_extra236.inet_pton_name:
+  description: "socket.inet_pton.__name__.__eq__('inet_pton') == True — socket.inet_pton is a built-in function; its __name__ attribute is 'inet_pton' (9 characters); inet_pton stands for 'internet presentation to network' and converts an address string (presentation format) to packed binary form (network format); the function is available on POSIX systems including macOS; not available on Windows prior to Python 3.4; no prior socket spec anchors inet_pton.__name__; socket_extra236 is the first namespace to record this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: function_names
+  kind: python_call_eq
+  function: "inet_pton.__name__.__eq__"
+  args: ["inet_pton"]
+  expected: true
