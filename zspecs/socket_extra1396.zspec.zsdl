@@ -1,0 +1,68 @@
+spec: socket_extra1396
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — socket module documentation"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/socket.py"
+    - "CPython source: Modules/socketmodule.c"
+  notes:
+    - "Wave 540 (_extra1396): focuses on __class_getitem__ and __init_subclass__ method checks."
+    - "socket.socket is a concrete Python class wrapping a C-level socket. It does not define __class_getitem__ in its own __dict__, so socket.socket.__dict__.__contains__('__class_getitem__') returns False."
+    - "socket.error is an alias for OSError (a C builtin exception). socket.error.__name__ == 'OSError'. It does not define __class_getitem__ in its own __dict__, so socket.error.__dict__.__contains__('__class_getitem__') returns False."
+    - "socket.timeout is an alias for TimeoutError (itself an OSError subclass). socket.timeout.__name__ == 'TimeoutError'. It also does not define __class_getitem__ in its own __dict__."
+    - "None of socket.socket, socket.error, or socket.timeout define __init_subclass__ in their own __dict__; all inherit it from object."
+    - "When accessed as an attribute, the classmethod_descriptor in object.__dict__ is bound through the descriptor protocol, yielding a 'builtin_function_or_method' for all three classes."
+    - "object.__dict__.__contains__('__class_getitem__') returns False on Python 3.14 — object does not expose __class_getitem__."
+    - "object.__dict__.__contains__('__init_subclass__') returns True — object owns __init_subclass__ as a classmethod_descriptor."
+    - "All expected values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+table socket_extra1396.socket_class_getitem_absent:
+  description: "socket.socket, socket.error, and socket.timeout class dicts do not contain __class_getitem__ — none of these classes define generic-alias support; __dict__.__contains__ returns False for all three"
+  kind: python_call_eq
+  category: class_getitem_checks
+  id_prefix: sk1396cg
+  columns: [id, function, args, expected]
+  rows:
+    - [sk1396cg001, socket.socket.__dict__.__contains__,                          ["__class_getitem__"], false]
+    - [sk1396cg002, socket.error.__dict__.__contains__,                           ["__class_getitem__"], false]
+    - [sk1396cg003, socket.timeout.__dict__.__contains__,                         ["__class_getitem__"], false]
+    - [sk1396cg004, socket.socket.__dict__.__contains__,                          ["__init_subclass__"], false]
+    - [sk1396cg005, socket.error.__dict__.__contains__,                           ["__init_subclass__"], false]
+    - [sk1396cg006, socket.timeout.__dict__.__contains__,                         ["__init_subclass__"], false]
+
+table socket_extra1396.socket_init_subclass_bound_checks:
+  description: "socket.socket, socket.error, and socket.timeout inherit __init_subclass__ from object; when accessed as an attribute the descriptor protocol yields a builtin_function_or_method; object.__dict__ owns the classmethod_descriptor"
+  kind: python_call_eq
+  category: init_subclass_checks
+  id_prefix: sk1396is
+  columns: [id, function, args, expected]
+  rows:
+    - [sk1396is001, socket.socket.__init_subclass__.__class__.__name__.__eq__,   ["builtin_function_or_method"], true]
+    - [sk1396is002, socket.error.__init_subclass__.__class__.__name__.__eq__,    ["builtin_function_or_method"], true]
+    - [sk1396is003, socket.timeout.__init_subclass__.__class__.__name__.__eq__,  ["builtin_function_or_method"], true]
+    - [sk1396is004, object.__dict__.__contains__,                                 ["__init_subclass__"],          true]
+    - [sk1396is005, object.__dict__.__contains__,                                 ["__class_getitem__"],          false]
+    - [sk1396is006, socket.socket.__dict__.__class__.__name__.__eq__,            ["mappingproxy"],               true]
+
+table socket_extra1396.socket_error_name_and_mro_checks:
+  description: "socket.error is an alias for OSError and socket.timeout is an alias for TimeoutError; their __name__ attributes reflect the underlying class names; MROs and bases are tuples"
+  kind: python_call_eq
+  category: class_getitem_checks
+  id_prefix: sk1396en
+  columns: [id, function, args, expected]
+  rows:
+    - [sk1396en001, socket.error.__name__.__eq__,                          ["OSError"],      true]
+    - [sk1396en002, socket.timeout.__name__.__eq__,                        ["TimeoutError"], true]
+    - [sk1396en003, socket.socket.__bases__.__class__.__name__.__eq__,     ["tuple"],        true]
+    - [sk1396en004, socket.error.__bases__.__class__.__name__.__eq__,      ["tuple"],        true]
+    - [sk1396en005, socket.timeout.__mro__.__class__.__name__.__eq__,      ["tuple"],        true]
+    - [sk1396en006, socket.error.__dict__.__class__.__name__.__eq__,       ["mappingproxy"], true]
