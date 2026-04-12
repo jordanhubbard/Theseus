@@ -1,0 +1,143 @@
+spec: multiprocessing_extra265
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html — Python multiprocessing module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/multiprocessing/process.py"
+    - "CPython source: Lib/multiprocessing/context.py"
+  notes:
+    - "multiprocessing.current_process() returns the _MainProcess instance in the main process; __class__.__name__ == '_MainProcess'."
+    - "_MainProcess.__module__ == 'multiprocessing.process' — defined in Lib/multiprocessing/process.py."
+    - "_MainProcess.__bases__[0].__name__ == 'BaseProcess' — inherits from BaseProcess, not from Process."
+    - "_MainProcess.__mro__.__len__() == 3 — [_MainProcess, BaseProcess, object]."
+    - "multiprocessing.active_children.__module__ == 'multiprocessing.process' — defined in process.py alongside _MainProcess."
+    - "multiprocessing.active_children.__qualname__ == 'active_children' — module-level function, not a method."
+    - "multiprocessing.cpu_count.__module__ == 'multiprocessing.context' — cpu_count is defined in BaseContext."
+    - "multiprocessing.cpu_count.__qualname__ == 'BaseContext.cpu_count' — the qualname reflects the defining class BaseContext."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# multiprocessing current_process class identity — table
+#
+# current_process() returns the _MainProcess singleton in the main thread.
+# _MainProcess inherits from BaseProcess (not from Process), so its MRO is
+# [_MainProcess, BaseProcess, object].
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra265.main_process_identity:
+  description: "multiprocessing.current_process().__class__ identity: _MainProcess inherits from BaseProcess"
+  kind: python_call_eq
+  category: identity
+  id_prefix: mpid265
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [cp_cls_name,    multiprocessing.current_process().__class__.__name__.__eq__,        ["_MainProcess"],             true, "current_process().__class__.__name__ == '_MainProcess'"]
+    - [cp_cls_module,  multiprocessing.current_process().__class__.__module__.__eq__,      ["multiprocessing.process"],  true, "current_process().__class__.__module__ == 'multiprocessing.process'"]
+    - [cp_cls_qname,   multiprocessing.current_process().__class__.__qualname__.__eq__,    ["_MainProcess"],             true, "current_process().__class__.__qualname__ == '_MainProcess'"]
+    - [cp_base0,       "multiprocessing.current_process().__class__.__bases__[0].__name__.__eq__", ["BaseProcess"],     true, "current_process().__class__.__bases__[0].__name__ == 'BaseProcess'"]
+    - [cp_mro_len,     multiprocessing.current_process().__class__.__mro__.__len__,        [],                           3,    "current_process().__class__.__mro__.__len__() == 3 — [_MainProcess, BaseProcess, object]"]
+
+# ---------------------------------------------------------------------------
+# multiprocessing.active_children and cpu_count module identity — table
+#
+# active_children is a module-level function in multiprocessing.process.
+# cpu_count is a method of BaseContext defined in multiprocessing.context.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra265.module_function_identity:
+  description: "multiprocessing.active_children and cpu_count __module__ and __qualname__ identity"
+  kind: python_call_eq
+  category: identity
+  id_prefix: mpfnid265
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [ac_name,      multiprocessing.active_children.__name__.__eq__,      ["active_children"],          true, "multiprocessing.active_children.__name__ == 'active_children'"]
+    - [ac_qualname,  multiprocessing.active_children.__qualname__.__eq__,  ["active_children"],          true, "multiprocessing.active_children.__qualname__ == 'active_children' (module-level function)"]
+    - [ac_module,    multiprocessing.active_children.__module__.__eq__,    ["multiprocessing.process"],  true, "multiprocessing.active_children.__module__ == 'multiprocessing.process'"]
+    - [cc_name,      multiprocessing.cpu_count.__name__.__eq__,            ["cpu_count"],                true, "multiprocessing.cpu_count.__name__ == 'cpu_count'"]
+    - [cc_qualname,  multiprocessing.cpu_count.__qualname__.__eq__,        ["BaseContext.cpu_count"],    true, "multiprocessing.cpu_count.__qualname__ == 'BaseContext.cpu_count' (defined in BaseContext)"]
+    - [cc_module,    multiprocessing.cpu_count.__module__.__eq__,          ["multiprocessing.context"],  true, "multiprocessing.cpu_count.__module__ == 'multiprocessing.context'"]
+
+# ---------------------------------------------------------------------------
+# _MainProcess MRO depth — standalone invariant
+#
+# [_MainProcess, BaseProcess, object] — 3 entries.
+# This parallels multiprocessing.Process.__mro__.__len__() == 3.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra265.MainProcess.mro_len:
+  description: "multiprocessing.current_process().__class__.__mro__.__len__() == 3"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.current_process().__class__.__mro__.__len__
+  args: []
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# active_children qualname reflects module-level function — standalone invariant
+#
+# As a plain module-level function (not a method), __qualname__ == __name__.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra265.active_children.qualname_eq_name:
+  description: "multiprocessing.active_children.__qualname__ == multiprocessing.active_children.__name__ (both 'active_children')"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.active_children.__qualname__.__eq__
+  args: ["active_children"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# cpu_count qualname uses BaseContext prefix — standalone invariant
+#
+# cpu_count is accessed via the module but defined as BaseContext.cpu_count;
+# its __qualname__ reflects the defining class, not the alias path.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra265.cpu_count.qualname_uses_BaseContext:
+  description: "multiprocessing.cpu_count.__qualname__ == 'BaseContext.cpu_count' (defining class prefix)"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.cpu_count.__qualname__.__eq__
+  args: ["BaseContext.cpu_count"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# _MainProcess base is BaseProcess, not Process — standalone invariant
+#
+# _MainProcess is an internal singleton class that bypasses Process entirely.
+# Its direct base is BaseProcess.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra265.MainProcess.base_is_BaseProcess:
+  description: "multiprocessing.current_process().__class__.__bases__[0].__name__ == 'BaseProcess' (not 'Process')"
+  category: identity
+  kind: python_call_eq
+  function: "multiprocessing.current_process().__class__.__bases__[0].__name__.__eq__"
+  args: ["BaseProcess"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# active_children module matches _MainProcess module — standalone invariant
+#
+# Both active_children and _MainProcess live in multiprocessing.process.
+# ---------------------------------------------------------------------------
+
+invariant multiprocessing_extra265.active_children.module_is_process:
+  description: "multiprocessing.active_children.__module__ == 'multiprocessing.process' (same module as _MainProcess)"
+  category: identity
+  kind: python_call_eq
+  function: multiprocessing.active_children.__module__.__eq__
+  args: ["multiprocessing.process"]
+  expected: true

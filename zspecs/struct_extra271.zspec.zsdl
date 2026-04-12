@@ -1,0 +1,163 @@
+spec: struct_extra271
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl and struct_extra.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "struct.zspec.zsdl covers: pack/unpack vectors for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize; roundtrip; error cases."
+    - "struct_extra.zspec.zsdl covers: Struct format/size/size_multi_field; calcsize for f/d/B/4s/BHI; pack_into/__name__; unpack_from with offset; iter_unpack; error class name and base."
+    - "This spec focuses on '!' (network byte order) format prefix, which is identical to '>' (big-endian)."
+    - "Struct('!H').size == 2 — network byte order uint16 is 2 bytes."
+    - "Struct('!I').size == 4 — network byte order uint32 is 4 bytes."
+    - "Struct('!HH').size == 4 — two network byte order uint16 fields = 4 bytes total."
+    - "Struct('!H').format == '!H' — format string is stored as given (preserves '!' prefix)."
+    - "Struct('!IHQ').size == 14 — 4 + 2 + 8 bytes, no padding in network byte order."
+    - "Struct.__doc__ is a non-empty str describing the Struct constructor."
+    - "Struct.__name__ == 'Struct' — the class is named 'Struct'."
+    - "Struct('!H').pack(256) == b'\\x01\\x00' — network byte order big-endian encoding of 256."
+    - "Struct('!HH').pack(1, 2) == b'\\x00\\x01\\x00\\x02' — two uint16 fields in network byte order."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.Struct — size attribute for network byte order ('!') format strings
+# struct.zspec.zsdl covers calcsize() for '>H'/'>I'/'>Q'; this spec covers
+# the Struct compiled object's .size attribute for '!' prefix.
+# ---------------------------------------------------------------------------
+
+table struct_extra271.Struct.network_order_sizes:
+  kind: python_call_eq
+  category: Struct_class
+  function: Struct
+  id_prefix: struct_size
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [H,   ["!H"],   size.__eq__, [2],  true]
+    - [I,   ["!I"],   size.__eq__, [4],  true]
+    - [HH,  ["!HH"],  size.__eq__, [4],  true]
+    - [IHQ, ["!IHQ"], size.__eq__, [14], true]
+
+# ---------------------------------------------------------------------------
+# struct.Struct — format attribute preserves '!' prefix
+# struct_extra.zspec.zsdl already checks Struct('>H').format == '>H';
+# this spec checks that '!' prefix is also preserved as-given.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra271.Struct.format_network_order:
+  description: "struct.Struct('!H').format == '!H' — '!' prefix is preserved in the format attribute"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: ["!H"]
+  method: format.__eq__
+  method_args: ["!H"]
+  expected: true
+
+invariant struct_extra271.Struct.format_network_order_I:
+  description: "struct.Struct('!I').format == '!I' — '!' prefix is preserved for uint32 format"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: ["!I"]
+  method: format.__eq__
+  method_args: ["!I"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct.Struct — class identity
+# ---------------------------------------------------------------------------
+
+invariant struct_extra271.Struct.class_name:
+  description: "struct.Struct.__name__ == 'Struct'"
+  category: class_metadata
+  kind: python_call_eq
+  function: Struct.__name__.__eq__
+  args: ["Struct"]
+  expected: true
+
+invariant struct_extra271.Struct.doc_not_none:
+  description: "struct.Struct.__doc__ is a non-empty str (constructor is documented)"
+  category: class_metadata
+  kind: python_call_eq
+  function: Struct.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant struct_extra271.Struct.instance_class_name:
+  description: "struct.Struct('!H').__class__.__name__ == 'Struct'"
+  category: class_metadata
+  kind: python_call_eq
+  function: Struct
+  args: ["!H"]
+  method: __class__.__name__.__eq__
+  method_args: ["Struct"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct.Struct — pack method produces correct network-byte-order bytes
+# Struct('!H').pack(256) == b'\x01\x00'  (big-endian: 0x0100)
+# Struct('!HH').pack(1, 2) == b'\x00\x01\x00\x02'
+# ---------------------------------------------------------------------------
+
+invariant struct_extra271.Struct.pack_H_256:
+  description: "struct.Struct('!H').pack(256).hex() == '0100' — network byte order uint16 big-endian"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: ["!H"]
+  method: pack
+  method_args: [256]
+  expected: !hex 0100
+
+invariant struct_extra271.Struct.pack_HH_1_2:
+  description: "struct.Struct('!HH').pack(1, 2).hex() == '00010002' — two uint16 fields in network byte order"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: ["!HH"]
+  method: pack
+  method_args: [1, 2]
+  expected: !hex 00010002
+
+# ---------------------------------------------------------------------------
+# struct.Struct — unpack method
+# Struct('!H').unpack(b'\x01\x00') == (256,)
+# ---------------------------------------------------------------------------
+
+invariant struct_extra271.Struct.unpack_H:
+  description: "struct.Struct('!H').unpack(b'\\x01\\x00') == (256,) — big-endian decode of 0x0100"
+  category: Struct_class
+  kind: python_call_eq
+  function: Struct
+  args: ["!H"]
+  method: unpack
+  method_args: [!hex 0100]
+  expected: [256]
+
+# ---------------------------------------------------------------------------
+# struct.Struct — invalid format string raises struct.error
+# ---------------------------------------------------------------------------
+
+invariant struct_extra271.Struct.invalid_format_raises:
+  description: "struct.Struct('!Z') raises struct.error — 'Z' is not a valid format character"
+  category: error
+  kind: python_call_raises
+  function: Struct
+  args: ["!Z"]
+  raises: struct.error

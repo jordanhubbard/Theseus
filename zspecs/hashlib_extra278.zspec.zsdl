@@ -1,0 +1,186 @@
+spec: hashlib_extra278
+version: ">=3.6"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 202 — SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions"
+
+provenance:
+  derived_from:
+    - "FIPS 202 — SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions, NIST, August 2015"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha3/sha3module.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl, hashlib_extra.zspec.zsdl, and hashlib_extra2.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "hashlib.zspec.zsdl covers: sha256/sha1/md5/sha512/sha3_256/sha3_512/blake2b/blake2s known vectors; digest_size/block_size attrs; algorithms_guaranteed core set; digest_consistency, copy_independence, api_equivalence."
+    - "hashlib_extra.zspec.zsdl covers: blake2b/blake2s/sha3_224/sha3_384 attrs; algorithms_available type; pbkdf2_hmac."
+    - "hashlib_extra2.zspec.zsdl covers: md5/sha1/sha256 empty hexdigest; new() api; algorithms_guaranteed type check."
+    - "shake_128 and shake_256 are SHAKE extendable-output functions (XOFs) defined in FIPS 202."
+    - "XOFs have variable-length output: digest_size == 0 indicates variable-length (not a fixed 0-byte output)."
+    - "shake_128().hexdigest(n) returns a hex string of 2*n characters (n output bytes)."
+    - "shake_128(b'').hexdigest(32) == '7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26' — FIPS 202 reference."
+    - "shake_256(b'').hexdigest(32) == '46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762f' — FIPS 202 reference."
+    - "shake_128(b'abc').hexdigest(32) == '5881092dd818bf5cf8a3ddb793fbcba74097d5c526a6d35f97b83351940f2cc8' — verified on Python 3.14.3."
+    - "shake_256(b'abc').hexdigest(32) == '483366601360a8771c6863080cc4114d8db44530f8f1e1ee4f94ea37e78b5739' — verified on Python 3.14.3."
+    - "The class name of both shake_128() and shake_256() objects is 'HASHXOF' on CPython."
+    - "shake_128 block_size == 168 (rate = 1600 - 2*128 = 1344 bits / 8 bytes)."
+    - "shake_256 block_size == 136 (rate = 1600 - 2*256 = 1088 bits / 8 bytes)."
+    - "Both shake_128 and shake_256 are members of algorithms_guaranteed."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "hashlib raises ValueError for unknown algorithm names. SHAKE XOF objects raise ValueError if hexdigest() is called without a length argument."
+  stderr: "null"
+  stickiness: "N/A — hash objects are independent; module-level attributes are read-only sets."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# shake_128 — known hexdigest vectors (empty and b'abc')
+# FIPS 202 specifies SHAKE128 with 128-bit security strength; output length is variable.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra278.shake_128.hexdigest_vectors:
+  kind: python_call_eq
+  category: known_vector
+  function: shake_128
+  id_prefix: shake128
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [empty_32, [""], hexdigest, [32], "7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26"]
+    - [abc_32,   ["abc"], hexdigest, [32], "5881092dd818bf5cf8a3ddb793fbcba74097d5c526a6d35f97b83351940f2cc8"]
+
+# ---------------------------------------------------------------------------
+# shake_256 — known hexdigest vectors (empty and b'abc')
+# ---------------------------------------------------------------------------
+
+table hashlib_extra278.shake_256.hexdigest_vectors:
+  kind: python_call_eq
+  category: known_vector
+  function: shake_256
+  id_prefix: shake256
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [empty_32, [""], hexdigest, [32], "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762f"]
+    - [abc_32,   ["abc"], hexdigest, [32], "483366601360a8771c6863080cc4114d8db44530f8f1e1ee4f94ea37e78b5739"]
+
+# ---------------------------------------------------------------------------
+# shake_128 — digest_size == 0 (variable-length XOF output)
+# digest_size 0 means the length is not fixed — the caller supplies it via hexdigest(n).
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra278.shake_128.digest_size_zero:
+  description: "hashlib.shake_128().digest_size == 0 — XOFs report digest_size==0 (variable-length output)"
+  category: properties
+  kind: python_call_eq
+  function: shake_128
+  args: []
+  method: digest_size.__eq__
+  method_args: [0]
+  expected: true
+
+invariant hashlib_extra278.shake_256.digest_size_zero:
+  description: "hashlib.shake_256().digest_size == 0 — XOFs report digest_size==0 (variable-length output)"
+  category: properties
+  kind: python_call_eq
+  function: shake_256
+  args: []
+  method: digest_size.__eq__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# shake_128 — block_size (rate in bytes)
+# shake_128 rate = 1600 - 2*128 = 1344 bits = 168 bytes
+# shake_256 rate = 1600 - 2*256 = 1088 bits = 136 bytes
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra278.shake_128.block_size:
+  description: "hashlib.shake_128().block_size == 168 (rate = 1600 - 2*128 bits, divided by 8)"
+  category: properties
+  kind: python_call_eq
+  function: shake_128
+  args: []
+  method: block_size.__eq__
+  method_args: [168]
+  expected: true
+
+invariant hashlib_extra278.shake_256.block_size:
+  description: "hashlib.shake_256().block_size == 136 (rate = 1600 - 2*256 bits, divided by 8)"
+  category: properties
+  kind: python_call_eq
+  function: shake_256
+  args: []
+  method: block_size.__eq__
+  method_args: [136]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# shake_128 and shake_256 — .name attribute
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra278.shake_128.name_attr:
+  description: "hashlib.shake_128().name == 'shake_128'"
+  category: properties
+  kind: python_call_eq
+  function: shake_128
+  args: []
+  method: name.__eq__
+  method_args: ["shake_128"]
+  expected: true
+
+invariant hashlib_extra278.shake_256.name_attr:
+  description: "hashlib.shake_256().name == 'shake_256'"
+  category: properties
+  kind: python_call_eq
+  function: shake_256
+  args: []
+  method: name.__eq__
+  method_args: ["shake_256"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# shake_128 and shake_256 — class name is 'HASHXOF' on CPython
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra278.shake_128.class_name:
+  description: "hashlib.shake_128().__class__.__name__ == 'HASHXOF' — CPython XOF object class name"
+  category: properties
+  kind: python_call_eq
+  function: shake_128
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["HASHXOF"]
+  expected: true
+
+invariant hashlib_extra278.shake_256.class_name:
+  description: "hashlib.shake_256().__class__.__name__ == 'HASHXOF' — CPython XOF object class name"
+  category: properties
+  kind: python_call_eq
+  function: shake_256
+  args: []
+  method: __class__.__name__.__eq__
+  method_args: ["HASHXOF"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# algorithms_guaranteed — shake_128 and shake_256 membership
+# (sha3_256/sha3_512/blake2b/blake2s membership already in hashlib.zspec.zsdl;
+#  sha3_224/sha3_384 membership already in hashlib_extra.zspec.zsdl)
+# ---------------------------------------------------------------------------
+
+table hashlib_extra278.algorithms_guaranteed.shake_membership:
+  kind: python_call_eq
+  category: algorithms
+  id_prefix: alg_shake
+
+  columns: [id, function, args, expected]
+  rows:
+    - [shake_128, algorithms_guaranteed.__contains__, ["shake_128"], true]
+    - [shake_256, algorithms_guaranteed.__contains__, ["shake_256"], true]

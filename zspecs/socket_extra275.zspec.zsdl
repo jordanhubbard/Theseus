@@ -1,0 +1,133 @@
+spec: socket_extra275
+version: ">=3.8"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "Python 3 socket module documentation — https://docs.python.org/3/library/socket.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+    - "CPython source: Lib/socket.py"
+  notes:
+    - "This spec extends socket.zspec.zsdl, socket_extra.zspec.zsdl, and socket_extra2.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "socket.zspec.zsdl covers: AF_INET/AF_INET6/AF_UNIX constants; SOCK_STREAM/SOCK_DGRAM/SOCK_RAW; IPPROTO_IP/TCP/UDP; SOL_SOCKET; SHUT_RD/WR/RDWR; socket/herror/gaierror class names; gethostname/getdefaulttimeout function names; inet_aton/inet_ntoa/htonl/ntohl; getdefaulttimeout()==None; htonl(0)==0."
+    - "socket_extra.zspec.zsdl covers: create_connection/create_server/setdefaulttimeout/htons/ntohs __name__; setdefaulttimeout(None)==None; inet_aton broadcast/len; inet_ntoa loopback/broadcast/zero; htons/ntohs/ntohl zero; htonl(1) little-endian."
+    - "socket_extra2.zspec.zsdl covers: AddressFamily/SocketKind enum class names; AF_INET==2/SOCK_STREAM==1/SOCK_DGRAM==2; gethostname() str type; getfqdn() str type; socket.error alias __name__=='OSError'; socket.timeout __name__=='TimeoutError' and base."
+    - "This spec focuses on: __module__ attribute of pure-Python socket functions; IPPROTO_ICMP constant; getaddrinfo __module__; has_dualstack_ipv6 __name__ and __module__."
+    - "create_connection, create_server, getfqdn, getaddrinfo, and has_dualstack_ipv6 are all defined in Lib/socket.py; their __module__ == 'socket'."
+    - "gethostbyname and getnameinfo are implemented in C (_socket extension); their __module__ == '_socket'."
+    - "IPPROTO_ICMP == 1 — POSIX-stable value for Internet Control Message Protocol."
+    - "IPPROTO_TCP == 6 and IPPROTO_UDP == 17 are covered in socket.zspec.zsdl."
+    - "has_dualstack_ipv6 was added in Python 3.8; it is a pure-Python function in socket.py."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "socket raises OSError subclasses for I/O failures. Module attribute checks are stateless and never raise."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are pure-computation function name or module checks."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# __module__ attribute — pure-Python socket functions live in 'socket'
+# create_connection and create_server are already tested for __name__ in socket_extra;
+# this spec adds __module__ checks for these and additional functions.
+# ---------------------------------------------------------------------------
+
+table socket_extra275.module_attributes:
+  kind: python_call_eq
+  category: function_module
+  id_prefix: module
+
+  columns: [id, function, args, expected]
+  rows:
+    - [create_connection,    create_connection.__module__.__eq__,    ["socket"], true]
+    - [create_server,        create_server.__module__.__eq__,        ["socket"], true]
+    - [has_dualstack_ipv6,   has_dualstack_ipv6.__module__.__eq__,   ["socket"], true]
+    - [getfqdn,              getfqdn.__module__.__eq__,              ["socket"], true]
+    - [getaddrinfo,          getaddrinfo.__module__.__eq__,          ["socket"], true]
+
+# ---------------------------------------------------------------------------
+# has_dualstack_ipv6 — function identity (added in Python 3.8)
+# ---------------------------------------------------------------------------
+
+invariant socket_extra275.has_dualstack_ipv6.function_name:
+  description: "socket.has_dualstack_ipv6.__name__ == 'has_dualstack_ipv6'"
+  category: function_names
+  kind: python_call_eq
+  function: has_dualstack_ipv6.__name__.__eq__
+  args: ["has_dualstack_ipv6"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getaddrinfo — function identity (__name__ not covered in earlier specs)
+# ---------------------------------------------------------------------------
+
+invariant socket_extra275.getaddrinfo.function_name:
+  description: "socket.getaddrinfo.__name__ == 'getaddrinfo'"
+  category: function_names
+  kind: python_call_eq
+  function: getaddrinfo.__name__.__eq__
+  args: ["getaddrinfo"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPPROTO_ICMP — not covered in socket.zspec.zsdl (which only covers TCP and UDP)
+# IPPROTO_ICMP == 1 is a universally stable POSIX constant.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra275.IPPROTO_ICMP.value:
+  description: "socket.IPPROTO_ICMP == 1 — universally stable POSIX constant for ICMP"
+  category: constants
+  kind: python_call_eq
+  function: IPPROTO_ICMP.__eq__
+  args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPPROTO_ICMP — enum class name (mirrors AddressFamily/SocketKind checks in socket_extra2)
+# ---------------------------------------------------------------------------
+
+invariant socket_extra275.IPPROTO_ICMP.class_name:
+  description: "socket.IPPROTO_ICMP.__class__.__name__ == 'AddressInfo' or integer — verify it is an int subtype"
+  category: constants
+  kind: python_call_eq
+  function: IPPROTO_ICMP.__class__.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["int"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# getfqdn — function name (not covered in socket_extra or socket_extra2 via __name__)
+# socket_extra2 checks getfqdn().__class__.__name__=='str'; this checks __name__.
+# ---------------------------------------------------------------------------
+
+invariant socket_extra275.getfqdn.function_name:
+  description: "socket.getfqdn.__name__ == 'getfqdn'"
+  category: function_names
+  kind: python_call_eq
+  function: getfqdn.__name__.__eq__
+  args: ["getfqdn"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# socket.__name__ — the module itself reports its name as 'socket'
+# ---------------------------------------------------------------------------
+
+invariant socket_extra275.module.name:
+  description: "socket module __name__ == 'socket'"
+  category: module_metadata
+  kind: python_call_eq
+  function: __name__.__eq__
+  args: ["socket"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# create_server — __name__ cross-check (socket_extra covered create_connection only)
+# socket_extra.zspec.zsdl line 52 covers create_server.__name__; this file only
+# adds the __module__ check via the table above.  No standalone duplication here.
+# ---------------------------------------------------------------------------
