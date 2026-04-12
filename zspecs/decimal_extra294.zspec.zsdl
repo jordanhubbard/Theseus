@@ -1,0 +1,188 @@
+spec: decimal_extra294
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — decimal module documentation"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source code"
+  notes:
+    - "decimal.Decimal is implemented in C (_decimal extension) and in pure Python (Lib/_pydecimal.py); CPython 3.3+ uses the C implementation by default."
+    - "Decimal.__module__ == 'decimal'; Decimal.__name__ == 'Decimal'."
+    - "Decimal.__bases__[0].__name__ == 'object' — Decimal has no intermediate base class."
+    - "Decimal string representations are exact: Decimal('0.1') + Decimal('0.2') == Decimal('0.3') (unlike float)."
+    - "Decimal('1') / Decimal('3') uses the current context precision (default 28 decimal digits)."
+    - "Decimal has no is_integer() method in Python 3.14 — the method does not exist on Decimal objects."
+    - "is_nan(), is_infinite(), is_finite(), is_zero(), is_signed() are all bool-returning methods."
+    - "adjusted() returns the adjusted exponent as an int: position of the most significant digit."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Decimal class identity — __name__, __module__, __bases__[0].__name__
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra294.Decimal.name:
+  description: "decimal.Decimal.__name__ == 'Decimal'"
+  category: class_identity
+  kind: python_call_eq
+  function: Decimal.__name__.__eq__
+  args: ["Decimal"]
+  expected: true
+
+invariant decimal_extra294.Decimal.module:
+  description: "decimal.Decimal.__module__ == 'decimal'"
+  category: class_identity
+  kind: python_call_eq
+  function: Decimal.__module__.__eq__
+  args: ["decimal"]
+  expected: true
+
+invariant decimal_extra294.Decimal.base0_name:
+  description: "decimal.Decimal.__bases__[0].__name__ == 'object' — Decimal has no intermediate base class"
+  category: class_identity
+  kind: python_call_eq
+  function: Decimal.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# __str__ representations — exact decimal string values
+# ---------------------------------------------------------------------------
+
+table decimal_extra294.str_representations:
+  description: "Decimal.__str__() returns exact decimal string representation"
+  kind: python_call_eq
+  category: string_repr
+  id_prefix: str
+  function: Decimal
+
+  columns: [id, args, method, expected]
+  rows:
+    - [one_half,      ["1.5"],      __str__, "1.5"      ]
+    - [four_point_oh, ["4.0"],      __str__, "4.0"      ]
+    - [zero_point_3,  ["0.3"],      __str__, "0.3"      ]
+    - [zero_point_1,  ["0.1"],      __str__, "0.1"      ]
+    - [zero_point_2,  ["0.2"],      __str__, "0.2"      ]
+    - [one,           ["1"],        __str__, "1"        ]
+    - [zero,          ["0"],        __str__, "0"        ]
+    - [neg_one,       ["-1"],       __str__, "-1"       ]
+    - [nan,           ["NaN"],      __str__, "NaN"      ]
+    - [inf,           ["Infinity"], __str__, "Infinity" ]
+    - [neg_inf,       ["-Infinity"],__str__, "-Infinity"]
+
+# ---------------------------------------------------------------------------
+# is_nan() — True for NaN, False for finite values and Infinity
+# ---------------------------------------------------------------------------
+
+table decimal_extra294.is_nan:
+  description: "Decimal.is_nan() returns True only for NaN values"
+  kind: python_call_eq
+  category: predicates
+  id_prefix: is_nan
+  function: Decimal
+
+  columns: [id, args, method, expected]
+  rows:
+    - [nan_true,           ["NaN"],      is_nan, true ]
+    - [finite_false,       ["1"],        is_nan, false]
+    - [infinity_false,     ["Infinity"], is_nan, false]
+
+# ---------------------------------------------------------------------------
+# is_infinite() — True for Infinity and -Infinity, False otherwise
+# ---------------------------------------------------------------------------
+
+table decimal_extra294.is_infinite:
+  description: "Decimal.is_infinite() returns True for Infinity and -Infinity"
+  kind: python_call_eq
+  category: predicates
+  id_prefix: is_infinite
+  function: Decimal
+
+  columns: [id, args, method, expected]
+  rows:
+    - [pos_inf_true,   ["Infinity"],  is_infinite, true ]
+    - [neg_inf_true,   ["-Infinity"], is_infinite, true ]
+    - [finite_false,   ["1"],         is_infinite, false]
+    - [nan_false,      ["NaN"],       is_infinite, false]
+
+# ---------------------------------------------------------------------------
+# is_finite() — True for finite values, False for NaN and Infinity
+# ---------------------------------------------------------------------------
+
+table decimal_extra294.is_finite:
+  description: "Decimal.is_finite() returns True for finite values only"
+  kind: python_call_eq
+  category: predicates
+  id_prefix: is_finite
+  function: Decimal
+
+  columns: [id, args, method, expected]
+  rows:
+    - [one_true,        ["1"],         is_finite, true ]
+    - [one_half_true,   ["1.5"],       is_finite, true ]
+    - [nan_false,       ["NaN"],       is_finite, false]
+    - [inf_false,       ["Infinity"],  is_finite, false]
+
+# ---------------------------------------------------------------------------
+# is_zero() — True only for zero values
+# ---------------------------------------------------------------------------
+
+table decimal_extra294.is_zero:
+  description: "Decimal.is_zero() returns True for zero values"
+  kind: python_call_eq
+  category: predicates
+  id_prefix: is_zero
+  function: Decimal
+
+  columns: [id, args, method, expected]
+  rows:
+    - [zero_true,     ["0"],   is_zero, true ]
+    - [zero_0_true,   ["0.0"], is_zero, true ]
+    - [one_false,     ["1"],   is_zero, false]
+
+# ---------------------------------------------------------------------------
+# is_signed() — True for negative values (sign bit set)
+# ---------------------------------------------------------------------------
+
+table decimal_extra294.is_signed:
+  description: "Decimal.is_signed() returns True when the sign bit is set (negative values)"
+  kind: python_call_eq
+  category: predicates
+  id_prefix: is_signed
+  function: Decimal
+
+  columns: [id, args, method, expected]
+  rows:
+    - [neg_one_true,    ["-1"],   is_signed, true ]
+    - [neg_half_true,   ["-1.5"], is_signed, true ]
+    - [pos_one_false,   ["1"],    is_signed, false]
+    - [pos_half_false,  ["1.5"],  is_signed, false]
+    - [zero_false,      ["0"],    is_signed, false]
+
+# ---------------------------------------------------------------------------
+# adjusted() — adjusted exponent (position of most significant digit)
+# ---------------------------------------------------------------------------
+
+table decimal_extra294.adjusted:
+  description: "Decimal.adjusted() returns the adjusted exponent: floor(log10(abs(x)))"
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: adjusted
+  function: Decimal
+
+  columns: [id, args, method, expected]
+  rows:
+    - [one_half,  ["1.5"],   adjusted, 0]
+    - [one,       ["1"],     adjusted, 0]
+    - [one_fifty, ["150"],   adjusted, 2]
+    - [small,     ["0.015"], adjusted, -2]
+    - [hundred,   ["100"],   adjusted, 2]
