@@ -1,0 +1,191 @@
+spec: struct_extra238
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+rfcs:
+  - "RFC 1700 — Assigned Numbers (network byte order = big-endian)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "RFC 1700 — Assigned Numbers (defines network byte order as big-endian)"
+    - "Test vectors verified by running Python 3.14.3 struct on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct.zspec.zsdl — covers pack/unpack integer formats (B/b/H/h/I/i/Q/q) and calcsize for single-field formats."
+    - "struct_extra237.zspec.zsdl — covers pack/unpack/calcsize for '!f' single-precision and '!d' double-precision float formats."
+    - "struct_extra236.zspec.zsdl — covers pack/unpack with signed integers and error cases."
+    - "struct_extra24.zspec.zsdl — covers pack/unpack/calcsize __module__.__len__ and __qualname__ equality."
+  notes:
+    - "This spec covers struct.pack and struct.unpack with network byte order multi-field formats '!HH' and '!BHI'."
+    - "struct_extra237 covers single float/double formats; this spec covers multi-field integer formats — the orthogonal dimension."
+    - "struct.pack('!HH', 1, 2) == b'\\x00\\x01\\x00\\x02' — two unsigned shorts in network (big-endian) byte order. Verified Python 3.14.3."
+    - "struct.pack('!BHI', 1, 2, 3) == b'\\x01\\x00\\x02\\x00\\x00\\x00\\x03' — B=1 byte, H=2 bytes (padded), I=4 bytes; total 7 bytes. Verified Python 3.14.3."
+    - "struct.unpack('!HH', b'\\x00\\x01\\x00\\x02') == (1, 2) — inverse of pack for '!HH'. Verified Python 3.14.3."
+    - "struct.unpack('!BHI', b'\\x01\\x00\\x02\\x00\\x00\\x00\\x03') == (1, 2, 3) — inverse of pack for '!BHI'. Verified Python 3.14.3."
+    - "struct.calcsize('!HH') == 4 — two H fields (2 bytes each) = 4 bytes total. Verified Python 3.14.3."
+    - "struct.calcsize('!BHI') == 7 — B=1 byte + H=2 bytes + I=4 bytes = 7 bytes; no inter-field padding in network byte order. Verified Python 3.14.3."
+    - "struct.calcsize('!HHH') == 6 — three H fields = 6 bytes. Verified Python 3.14.3."
+    - "struct.calcsize('!IH') == 6 — I=4 bytes + H=2 bytes = 6 bytes. Verified Python 3.14.3."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model:
+  semantics: "struct raises struct.error for wrong buffer size or invalid format strings. Multi-field pack/unpack with valid format and matching buffer size never raises."
+  stderr: "null"
+  stickiness: "N/A — struct functions are stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.pack with multi-field network byte order formats
+#
+# Format '!HH'  = two unsigned shorts (2 bytes each) = 4 bytes total.
+# Format '!BHI' = unsigned char (1) + unsigned short (2) + unsigned int (4)
+#                = 7 bytes total. No inter-field padding in '!' mode.
+# Format '!HHH' = three unsigned shorts = 6 bytes total.
+# Format '!IH'  = unsigned int (4) + unsigned short (2) = 6 bytes total.
+# ---------------------------------------------------------------------------
+
+table struct238multi.pack_multi_vectors:
+  description: "struct.pack multi-field network byte order vectors — '!HH', '!BHI', '!HHH', '!IH'; new to extra238"
+  kind: python_call_eq
+  category: pack_vector
+  id_prefix: struct238multi
+  function: pack
+
+  columns: [id, args, expected]
+  rows:
+    - [hh_1_2,     ["!HH",  1, 2],       !hex 00010002          ]
+    - [bhi_1_2_3,  ["!BHI", 1, 2, 3],    !hex 01000200000003    ]
+    - [hhh_1_2_3,  ["!HHH", 1, 2, 3],    !hex 000100020003      ]
+    - [ih_1_2,     ["!IH",  1, 2],        !hex 000000010002      ]
+
+# ---------------------------------------------------------------------------
+# struct.unpack with multi-field network byte order formats
+# unpack is the left-inverse of pack; these vectors verify the round-trip.
+# ---------------------------------------------------------------------------
+
+table struct238multi.unpack_multi_vectors:
+  description: "struct.unpack multi-field network byte order inverse vectors — '!HH', '!BHI'; new to extra238"
+  kind: python_call_eq
+  category: unpack_vector
+  id_prefix: struct238multi
+  function: unpack
+
+  columns: [id, args, expected]
+  rows:
+    - [hh_1_2,    ["!HH",  !hex 00010002],           [1, 2]   ]
+    - [bhi_1_2_3, ["!BHI", !hex 01000200000003],     [1, 2, 3]]
+
+# ---------------------------------------------------------------------------
+# struct.calcsize for multi-field formats
+# '!HH'  = 4 bytes (2 shorts)
+# '!BHI' = 7 bytes (1 + 2 + 4; no padding in network byte order mode)
+# '!HHH' = 6 bytes (3 shorts)
+# '!IH'  = 6 bytes (4 + 2)
+# ---------------------------------------------------------------------------
+
+table struct238multi.calcsize_multi:
+  description: "struct.calcsize multi-field network byte order — '!HH'=4, '!BHI'=7, '!HHH'=6, '!IH'=6; new to extra238"
+  kind: python_call_eq
+  category: calcsize
+  id_prefix: struct238multi
+  function: calcsize
+
+  columns: [id, args, expected]
+  rows:
+    - [hh_4,    ["!HH"],  4]
+    - [bhi_7,   ["!BHI"], 7]
+    - [hhh_6,   ["!HHH"], 6]
+    - [ih_6,    ["!IH"],  6]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant struct238multi.pack_hh_result:
+  description: "struct.pack('!HH', 1, 2) == b'\\x00\\x01\\x00\\x02' — packing two unsigned shorts (H) with values 1 and 2 in network byte order (big-endian, '!') produces a 4-byte sequence; each H field occupies 2 bytes with the most significant byte first; 1 becomes 00 01 and 2 becomes 00 02; network byte order ('!') is identical to big-endian ('>') for struct format strings; extra238 anchors the '!HH' multi-field pack vector as the first standalone invariant in this namespace; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["!HH", 1, 2]
+  method: __eq__
+  method_args: [!hex 00010002]
+  expected: true
+
+invariant struct238multi.pack_bhi_result:
+  description: "struct.pack('!BHI', 1, 2, 3) == b'\\x01\\x00\\x02\\x00\\x00\\x00\\x03' — packing one unsigned byte (B=1 byte, value 1), one unsigned short (H=2 bytes, value 2), and one unsigned int (I=4 bytes, value 3) in network byte order; the '!' format does not add inter-field alignment padding; total is 1+2+4=7 bytes; B gives 01, H gives 00 02, I gives 00 00 00 03; extra238 anchors '!BHI' as the multi-type format vector; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["!BHI", 1, 2, 3]
+  method: __eq__
+  method_args: [!hex 01000200000003]
+  expected: true
+
+invariant struct238multi.unpack_hh_result:
+  description: "struct.unpack('!HH', b'\\x00\\x01\\x00\\x02') == (1, 2) — unpacking 4 bytes with format '!HH' yields a 2-tuple of unsigned shorts; the bytes 00 01 decode to integer 1 and 00 02 decode to integer 2 in big-endian order; unpack is the left-inverse of pack for matching format strings; the result is always a tuple; extra238 anchors the '!HH' unpack vector as a standalone invariant; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["!HH", !hex 00010002]
+  method: __eq__
+  method_args: [[1, 2]]
+  expected: true
+
+invariant struct238multi.calcsize_hh_4:
+  description: "struct.calcsize('!HH') == 4 — format '!HH' specifies two unsigned short fields (H); each H field is 2 bytes wide; total size is 2+2=4 bytes; calcsize returns the number of bytes required to pack/unpack the format; no padding is added in network byte order ('!') mode; struct.zspec.zsdl covers calcsize for single-field formats; extra238 anchors the multi-field '!HH' calcsize; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["!HH"]
+  expected: 4
+
+invariant struct238multi.calcsize_bhi_7:
+  description: "struct.calcsize('!BHI') == 7 — format '!BHI' specifies B=1 byte + H=2 bytes + I=4 bytes = 7 bytes total; the '!' (network byte order) prefix disables native alignment padding between fields; in native '@' mode the same B-H-I layout might be padded to 8 bytes on some platforms due to H alignment; extra238 anchors '!BHI' calcsize as the 7-byte multi-type format; struct_extra237 covers calcsize for float formats; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["!BHI"]
+  expected: 7
+
+invariant struct238multi.pack_hh_len_4:
+  description: "len(struct.pack('!HH', 1, 2)) == 4 — the packed bytes object has length 4, matching calcsize('!HH')==4; pack always returns a bytes object whose length equals calcsize(format); extra238 anchors the '!HH' pack result length as a standalone invariant; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: result_length
+  kind: python_call_eq
+  function: pack
+  args: ["!HH", 1, 2]
+  method: __len__
+  method_args: []
+  expected: 4
+
+invariant struct238multi.pack_bhi_len_7:
+  description: "len(struct.pack('!BHI', 1, 2, 3)) == 7 — the packed bytes object has length 7, matching calcsize('!BHI')==7; pack result length always equals calcsize(format); extra238 anchors the '!BHI' pack result length; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: result_length
+  kind: python_call_eq
+  function: pack
+  args: ["!BHI", 1, 2, 3]
+  method: __len__
+  method_args: []
+  expected: 7
+
+invariant struct238multi.pack_result_class:
+  description: "struct.pack('!HH', 1, 2).__class__.__name__ == 'bytes' — struct.pack always returns a bytes object regardless of the format string; the result is an immutable bytes sequence containing the packed binary data; struct_extra237 anchors this for '!f' format; extra238 anchors it for '!HH' multi-field format; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: result_type
+  kind: python_call_eq
+  function: pack
+  args: ["!HH", 1, 2]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant struct238multi.unpack_result_class:
+  description: "struct.unpack('!HH', b'\\x00\\x01\\x00\\x02').__class__.__name__ == 'tuple' — struct.unpack always returns a tuple regardless of the format string; the tuple length equals the number of format codes; for '!HH' the tuple has 2 elements; extra238 anchors unpack result type for the multi-field '!HH' format; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: result_type
+  kind: python_call_eq
+  function: unpack
+  args: ["!HH", !hex 00010002]
+  method: __class__.__name__.__eq__
+  method_args: ["tuple"]
+  expected: true
