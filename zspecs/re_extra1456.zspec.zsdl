@@ -1,0 +1,95 @@
+spec: re_extra1456
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_sre.c"
+    - "CPython source: Lib/re/__init__.py"
+  notes:
+    - "This spec covers __contains__ and __iter__ method presence and type checks for re module classes (wave 544, _extra1456)."
+    - "re.Pattern does NOT define __iter__ or __contains__ in its own __dict__; Pattern objects are not iterable or containers."
+    - "re.Match does NOT define __iter__ or __contains__ in its own __dict__; Match objects support __getitem__ for group access but not iteration."
+    - "re.error does NOT define __iter__ or __contains__ in its own __dict__; it is a plain exception subclass."
+    - "re.Pattern method descriptors (match, search, findall, finditer, fullmatch, sub, subn, split, scanner) are all method_descriptor type."
+    - "re.Match method descriptors (group, start, end, span, groups, groupdict, expand) are all method_descriptor type."
+    - "re.Match member fields (string, re, pos, endpos) are member_descriptor; lastindex, lastgroup, regs are getset_descriptor."
+    - "re.Pattern.__class__.__name__ == 'type'; re.Match.__class__.__name__ == 'type'; re.error.__class__.__name__ == 'type'."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.Pattern.__dict__ — __iter__ and __contains__ absence
+# Pattern objects match text; they have no iteration or membership protocol.
+# Pattern methods (match, search, etc.) are method_descriptors.
+# ---------------------------------------------------------------------------
+
+table re_extra1456.Pattern_dict_no_iter_contains:
+  description: "re.Pattern.__dict__.__contains__: __iter__=False, __contains__=False; match/search/findall/finditer/sub/split all True as method_descriptors"
+  kind: python_call_eq
+  category: identity
+  id_prefix: re1456pt
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [re1456pt001, Pattern.__dict__.__contains__, ["__iter__"],      false, "re.Pattern.__dict__.__contains__('__iter__') == False — Pattern does not define __iter__ in its own __dict__; compiled regex patterns are not iterable; use Pattern.finditer() to iterate over all matches in a string"]
+    - [re1456pt002, Pattern.__dict__.__contains__, ["__contains__"],  false, "re.Pattern.__dict__.__contains__('__contains__') == False — Pattern does not define __contains__ in its own __dict__; 'x in pattern' is not supported; use pattern.search(x) to test membership"]
+    - [re1456pt003, Pattern.__dict__.__contains__, ["match"],         true,  "re.Pattern.__dict__.__contains__('match') == True — Pattern.match is a method_descriptor in Pattern.__dict__; it matches the pattern at the beginning of the string and returns a Match object or None"]
+    - [re1456pt004, Pattern.__dict__.__contains__, ["search"],        true,  "re.Pattern.__dict__.__contains__('search') == True — Pattern.search is a method_descriptor in Pattern.__dict__; it scans through the string for the first location where the pattern produces a match"]
+    - [re1456pt005, Pattern.__dict__.__contains__, ["findall"],       true,  "re.Pattern.__dict__.__contains__('findall') == True — Pattern.findall is a method_descriptor in Pattern.__dict__; it returns a list of all non-overlapping matches in the string"]
+    - [re1456pt006, Pattern.__dict__.__contains__, ["finditer"],      true,  "re.Pattern.__dict__.__contains__('finditer') == True — Pattern.finditer is a method_descriptor in Pattern.__dict__; it returns an iterator yielding Match objects for all non-overlapping matches"]
+    - [re1456pt007, Pattern.__dict__.__contains__, ["sub"],           true,  "re.Pattern.__dict__.__contains__('sub') == True — Pattern.sub is a method_descriptor in Pattern.__dict__; it returns the string obtained by replacing the leftmost non-overlapping occurrences of the pattern"]
+    - [re1456pt008, Pattern.__dict__.__contains__, ["split"],         true,  "re.Pattern.__dict__.__contains__('split') == True — Pattern.split is a method_descriptor in Pattern.__dict__; it splits the string at each occurrence of the pattern and returns a list"]
+
+# ---------------------------------------------------------------------------
+# re.Pattern method descriptor type checks
+# All Pattern matching methods are method_descriptors (C-level).
+# ---------------------------------------------------------------------------
+
+table re_extra1456.Pattern_method_descriptor_types:
+  description: "re.Pattern method descriptors: match/search/findall/finditer/fullmatch/sub/subn/split all have __class__.__name__ == 'method_descriptor'"
+  kind: python_call_eq
+  category: identity
+  id_prefix: re1456md
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [re1456md001, Pattern.__dict__.__getitem__("match").__class__.__name__.__eq__,     ["method_descriptor"], true, "re.Pattern.match.__class__.__name__ == 'method_descriptor' — Pattern.match is a C-level method_descriptor; method_descriptor is the type for C-extension methods that take a self argument and are stored directly in the type's __dict__"]
+    - [re1456md002, Pattern.__dict__.__getitem__("search").__class__.__name__.__eq__,    ["method_descriptor"], true, "re.Pattern.search.__class__.__name__ == 'method_descriptor' — Pattern.search is a C-level method_descriptor; like match, it is implemented in Modules/_sre.c and exposed as a method_descriptor in Pattern.__dict__"]
+    - [re1456md003, Pattern.__dict__.__getitem__("findall").__class__.__name__.__eq__,   ["method_descriptor"], true, "re.Pattern.findall.__class__.__name__ == 'method_descriptor' — Pattern.findall is a C-level method_descriptor; returns a list of all non-overlapping matches as strings (or tuples of groups if there are groups)"]
+    - [re1456md004, Pattern.__dict__.__getitem__("finditer").__class__.__name__.__eq__,  ["method_descriptor"], true, "re.Pattern.finditer.__class__.__name__ == 'method_descriptor' — Pattern.finditer is a C-level method_descriptor; returns an iterator of Match objects; since it returns an iterator rather than a list it avoids materializing all matches"]
+    - [re1456md005, Pattern.__dict__.__getitem__("fullmatch").__class__.__name__.__eq__, ["method_descriptor"], true, "re.Pattern.fullmatch.__class__.__name__ == 'method_descriptor' — Pattern.fullmatch is a C-level method_descriptor; matches the whole string against the pattern (equivalent to anchoring with ^ and $)"]
+    - [re1456md006, Pattern.__dict__.__getitem__("sub").__class__.__name__.__eq__,       ["method_descriptor"], true, "re.Pattern.sub.__class__.__name__ == 'method_descriptor' — Pattern.sub is a C-level method_descriptor; replaces pattern matches with a replacement string or callable"]
+    - [re1456md007, Pattern.__dict__.__getitem__("split").__class__.__name__.__eq__,     ["method_descriptor"], true, "re.Pattern.split.__class__.__name__ == 'method_descriptor' — Pattern.split is a C-level method_descriptor; splits the string at each match; if the pattern contains capturing groups, the text of those groups is also returned"]
+    - [re1456md008, Pattern.__class__.__name__.__eq__, ["type"], true, "re.Pattern.__class__.__name__ == 'type' — Pattern is a class object (metaclass is the built-in 'type'); confirmed with Python 3.14.3 on macOS/Darwin 25.4.0"]
+
+# ---------------------------------------------------------------------------
+# re.Match.__dict__ — __iter__ and __contains__ absence
+# Match objects expose groups via __getitem__ but have no iterator protocol.
+# Match methods (group, start, end, etc.) are method_descriptors.
+# ---------------------------------------------------------------------------
+
+table re_extra1456.Match_dict_no_iter_contains:
+  description: "re.Match.__dict__.__contains__: __iter__=False, __contains__=False; group/start/end/span/groups/groupdict/expand all True as method_descriptors"
+  kind: python_call_eq
+  category: identity
+  id_prefix: re1456mt
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [re1456mt001, Match.__dict__.__contains__, ["__iter__"],      false, "re.Match.__dict__.__contains__('__iter__') == False — Match does not define __iter__ in its own __dict__; Match objects are not iterable; iterate over captures using m.groups() or access individual groups via m.group(n)"]
+    - [re1456mt002, Match.__dict__.__contains__, ["__contains__"],  false, "re.Match.__dict__.__contains__('__contains__') == False — Match does not define __contains__ in its own __dict__; membership testing on a Match object is not supported"]
+    - [re1456mt003, Match.__dict__.__contains__, ["group"],         true,  "re.Match.__dict__.__contains__('group') == True — Match.group is a method_descriptor in Match.__dict__; group(0) returns the entire match, group(n) returns the nth capture group"]
+    - [re1456mt004, Match.__dict__.__contains__, ["start"],         true,  "re.Match.__dict__.__contains__('start') == True — Match.start is a method_descriptor in Match.__dict__; returns the index of the start of the match (or the start of a capture group when given an argument)"]
+    - [re1456mt005, Match.__dict__.__contains__, ["end"],           true,  "re.Match.__dict__.__contains__('end') == True — Match.end is a method_descriptor in Match.__dict__; returns the index of the end of the match (exclusive, same convention as Python slicing)"]
+    - [re1456mt006, Match.__dict__.__contains__, ["span"],          true,  "re.Match.__dict__.__contains__('span') == True — Match.span is a method_descriptor in Match.__dict__; returns (start, end) as a tuple; equivalent to (m.start(), m.end())"]
+    - [re1456mt007, Match.__dict__.__contains__, ["groups"],        true,  "re.Match.__dict__.__contains__('groups') == True — Match.groups is a method_descriptor in Match.__dict__; returns a tuple of all capture groups; groups that did not contribute to the match return the default value (None by default)"]
+    - [re1456mt008, Match.__dict__.__contains__, ["__getitem__"],   true,  "re.Match.__dict__.__contains__('__getitem__') == True — Match defines __getitem__ in its own __dict__; this allows m[n] as shorthand for m.group(n); __getitem__ is present but __iter__ and __contains__ are not, so Match supports indexed access without being a full sequence"]
+    - [re1456mt009, Match.__class__.__name__.__eq__, ["type"],      true,  "re.Match.__class__.__name__ == 'type' — Match is a class object (metaclass is the built-in 'type'); confirmed with Python 3.14.3 on macOS/Darwin 25.4.0"]

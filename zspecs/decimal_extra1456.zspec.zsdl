@@ -1,0 +1,90 @@
+spec: decimal_extra1456
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+    - "CPython source: Modules/_decimal/_decimal.c"
+  notes:
+    - "This spec covers __contains__ and __iter__ method presence and type checks for decimal module classes (wave 544, _extra1456)."
+    - "decimal.Decimal does NOT define __iter__ or __contains__ in its own __dict__; Decimal objects are numeric values, not containers."
+    - "decimal.Context does NOT define __iter__ or __contains__ in its own __dict__; Context objects configure arithmetic but are not iterable."
+    - "decimal.DecimalException does NOT define __iter__ or __contains__ in its own __dict__; it is an exception subclass with minimal __dict__."
+    - "decimal.InvalidOperation does NOT define __iter__ or __contains__ in its own __dict__; same as DecimalException."
+    - "At runtime, iter(Decimal('1')) raises TypeError: 'decimal.Decimal' object is not iterable."
+    - "At runtime, 1 in Decimal('1') raises TypeError: argument of type 'decimal.Decimal' is not a container or iterable."
+    - "Decimal defines __eq__, __lt__, __hash__, __add__, __mul__, __sub__, __truediv__, __pow__, __neg__, __abs__ in its __dict__."
+    - "DecimalException bases: [ArithmeticError]; InvalidOperation bases: [DecimalException]. Confirmed Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# decimal.Decimal.__dict__ — __iter__ and __contains__ absence
+# Decimal is a numeric type; it has no iteration or membership protocol.
+# Decimal defines arithmetic dunder methods but not container dunders.
+# ---------------------------------------------------------------------------
+
+table decimal_extra1456.Decimal_dict_no_iter_contains:
+  description: "decimal.Decimal.__dict__.__contains__: __iter__=False, __contains__=False — Decimal is numeric, not a container; it defines arithmetic dunders but no iteration protocol"
+  kind: python_call_eq
+  category: identity
+  id_prefix: dc1456di
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dc1456di001, Decimal.__dict__.__contains__, ["__iter__"],      false, "decimal.Decimal.__dict__.__contains__('__iter__') == False — Decimal does not define __iter__ in its own __dict__; Decimal objects are numeric scalar values and have no iteration protocol; iter(Decimal('1')) raises TypeError at runtime"]
+    - [dc1456di002, Decimal.__dict__.__contains__, ["__contains__"],  false, "decimal.Decimal.__dict__.__contains__('__contains__') == False — Decimal does not define __contains__ in its own __dict__; '1 in Decimal(\"1\")' raises TypeError at runtime: 'argument of type decimal.Decimal is not a container or iterable'"]
+    - [dc1456di003, Decimal.__dict__.__contains__, ["__add__"],       true,  "decimal.Decimal.__dict__.__contains__('__add__') == True — Decimal defines __add__ in its own __dict__; implements Decimal + other respecting the current Context precision and rounding (covered in decimal_extra145)"]
+    - [dc1456di004, Decimal.__dict__.__contains__, ["__eq__"],        true,  "decimal.Decimal.__dict__.__contains__('__eq__') == True — Decimal defines __eq__ in its own __dict__; unlike compare(), __eq__ considers two NaN values as unequal (NaN != NaN) per IEEE 754"]
+    - [dc1456di005, Decimal.__dict__.__contains__, ["__lt__"],        true,  "decimal.Decimal.__dict__.__contains__('__lt__') == True — Decimal defines __lt__ in its own __dict__; comparison raises InvalidOperation if either operand is NaN, following IEEE 754 rules"]
+    - [dc1456di006, Decimal.__dict__.__contains__, ["__hash__"],      true,  "decimal.Decimal.__dict__.__contains__('__hash__') == True — Decimal defines __hash__ in its own __dict__; Decimal objects are hashable; hash(Decimal('1.0')) == hash(1) (numeric equality preserves hash equality across types)"]
+
+# ---------------------------------------------------------------------------
+# decimal.Context.__dict__ — __iter__ and __contains__ absence
+# Context configures arithmetic precision and rounding; not a container.
+# ---------------------------------------------------------------------------
+
+table decimal_extra1456.Context_dict_no_iter_contains:
+  description: "decimal.Context.__dict__.__contains__: __iter__=False, __contains__=False — Context is a configuration object, not a container; it defines arithmetic and configuration methods but no iteration protocol"
+  kind: python_call_eq
+  category: identity
+  id_prefix: dc1456ci
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dc1456ci001, Context.__dict__.__contains__, ["__iter__"],      false, "decimal.Context.__dict__.__contains__('__iter__') == False — Context does not define __iter__ in its own __dict__; Context objects configure decimal arithmetic (precision, rounding mode, traps) but are not iterable"]
+    - [dc1456ci002, Context.__dict__.__contains__, ["__contains__"],  false, "decimal.Context.__dict__.__contains__('__contains__') == False — Context does not define __contains__ in its own __dict__; 'x in context' is not supported; Context is a settings object, not a container"]
+    - [dc1456ci003, Context.__dict__.__contains__, ["add"],           true,  "decimal.Context.__dict__.__contains__('add') == True — Context.add is defined in Context.__dict__; it performs addition of two Decimal values using this Context's precision and rounding settings (covered in decimal_extra145)"]
+    - [dc1456ci004, Context.__dict__.__contains__, ["sqrt"],          true,  "decimal.Context.__dict__.__contains__('sqrt') == True — Context.sqrt is defined in Context.__dict__; computes square root using this Context's precision (covered in decimal_extra145)"]
+    - [dc1456ci005, Context.__dict__.__contains__, ["clear_flags"],   true,  "decimal.Context.__dict__.__contains__('clear_flags') == True — Context.clear_flags is defined in Context.__dict__; it resets all status flags in the Context to False; useful after arithmetic operations that set flags like Inexact or Rounded"]
+    - [dc1456ci006, Context.__dict__.__contains__, ["create_decimal"], true, "decimal.Context.__dict__.__contains__('create_decimal') == True — Context.create_decimal is defined in Context.__dict__; it converts a value (int, string, tuple, or another Decimal) to a Decimal using this Context's settings; covered in decimal_extra145"]
+
+# ---------------------------------------------------------------------------
+# decimal.DecimalException and decimal.InvalidOperation —
+# __iter__ and __contains__ absence, class hierarchy
+# ---------------------------------------------------------------------------
+
+table decimal_extra1456.exception_classes_no_iter_contains:
+  description: "decimal.DecimalException and InvalidOperation do NOT define __iter__ or __contains__ in their own __dict__; their metaclass is 'type'; exception hierarchy: InvalidOperation < DecimalException < ArithmeticError"
+  kind: python_call_eq
+  category: identity
+  id_prefix: dc1456ex
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dc1456ex001, DecimalException.__dict__.__contains__, ["__iter__"],      false, "decimal.DecimalException.__dict__.__contains__('__iter__') == False — DecimalException does not define __iter__ in its own __dict__; it is a minimal exception class with only __module__, __weakref__, and __doc__ in its __dict__"]
+    - [dc1456ex002, DecimalException.__dict__.__contains__, ["__contains__"],  false, "decimal.DecimalException.__dict__.__contains__('__contains__') == False — DecimalException does not define __contains__; exception objects are not containers or iterables; to get exception args use e.args"]
+    - [dc1456ex003, InvalidOperation.__dict__.__contains__, ["__iter__"],      false, "decimal.InvalidOperation.__dict__.__contains__('__iter__') == False — InvalidOperation does not define __iter__ in its own __dict__; its __dict__ contains only __module__ and __doc__; all other behavior is inherited from DecimalException and ArithmeticError"]
+    - [dc1456ex004, InvalidOperation.__dict__.__contains__, ["__contains__"],  false, "decimal.InvalidOperation.__dict__.__contains__('__contains__') == False — InvalidOperation does not define __contains__; like DecimalException it is a plain exception subclass with no container protocol"]
+    - [dc1456ex005, DecimalException.__class__.__name__.__eq__, ["type"],      true,  "decimal.DecimalException.__class__.__name__ == 'type' — DecimalException is a class object; its metaclass is the built-in 'type'; DecimalException is a subclass of ArithmeticError; confirmed Python 3.14.3"]
+    - [dc1456ex006, InvalidOperation.__class__.__name__.__eq__, ["type"],      true,  "decimal.InvalidOperation.__class__.__name__ == 'type' — InvalidOperation is a class object; its metaclass is the built-in 'type'; InvalidOperation is a subclass of DecimalException which is a subclass of ArithmeticError; confirmed Python 3.14.3"]
+    - [dc1456ex007, Decimal.__class__.__name__.__eq__, ["type"],               true,  "decimal.Decimal.__class__.__name__ == 'type' — Decimal is a class object; its metaclass is the built-in 'type'; confirmed Python 3.14.3 on macOS/Darwin 25.4.0"]
+    - [dc1456ex008, Context.__class__.__name__.__eq__, ["type"],               true,  "decimal.Context.__class__.__name__ == 'type' — Context is a class object; its metaclass is the built-in 'type'; confirmed Python 3.14.3 on macOS/Darwin 25.4.0"]

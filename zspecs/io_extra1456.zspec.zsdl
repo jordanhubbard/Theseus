@@ -1,0 +1,92 @@
+spec: io_extra1456
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/_pyio.py"
+  notes:
+    - "This spec covers __contains__ and __iter__ method presence and type checks for io module classes (wave 544, _extra1456)."
+    - "io.BytesIO defines __iter__ and __next__ directly in its __dict__ (both are wrapper_descriptors)."
+    - "io.StringIO defines __next__ but NOT __iter__ in its own __dict__; __iter__ is inherited."
+    - "io.BufferedReader and io.BufferedRandom define __next__ (wrapper_descriptor) but not __iter__ in their own __dict__."
+    - "io.IOBase, io.RawIOBase, io.BufferedIOBase, io.TextIOBase, io.FileIO, io.BufferedWriter do NOT define __iter__, __next__, or __contains__ in their own __dict__."
+    - "None of the io classes define __contains__ in their own __dict__; io streams are line-iterable but not containers."
+    - "BytesIO.__iter__.__class__.__name__ == 'wrapper_descriptor' (confirmed Python 3.14.3 macOS)."
+    - "BytesIO.__next__.__class__.__name__ == 'wrapper_descriptor' (confirmed Python 3.14.3 macOS)."
+    - "StringIO.__next__.__class__.__name__ == 'wrapper_descriptor' (confirmed Python 3.14.3 macOS)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io.BytesIO.__dict__ — __iter__ and __next__ presence
+# BytesIO defines both __iter__ and __next__ directly in its __dict__.
+# __iter__ and __next__ are wrapper_descriptors (C-level implementations).
+# ---------------------------------------------------------------------------
+
+table io_extra1456.BytesIO_dict_iter_protocol:
+  description: "io.BytesIO.__dict__.__contains__: __iter__=True, __next__=True, __contains__=False — BytesIO defines full iterator protocol (__iter__+__next__) in its own __dict__; __contains__ is absent"
+  kind: python_call_eq
+  category: identity
+  id_prefix: io1456bi
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [io1456bi001, BytesIO.__dict__.__contains__, ["__iter__"],     true,  "io.BytesIO.__dict__.__contains__('__iter__') == True — BytesIO defines __iter__ directly in its own __dict__ as a wrapper_descriptor; it is part of the iterator protocol allowing BytesIO to be used in for-loops line by line"]
+    - [io1456bi002, BytesIO.__dict__.__contains__, ["__next__"],     true,  "io.BytesIO.__dict__.__contains__('__next__') == True — BytesIO defines __next__ directly in its own __dict__ as a wrapper_descriptor; along with __iter__ this completes the iterator protocol for BytesIO"]
+    - [io1456bi003, BytesIO.__dict__.__contains__, ["__contains__"], false, "io.BytesIO.__dict__.__contains__('__contains__') == False — BytesIO does not define __contains__ in its own __dict__; byte streams support iteration but not membership testing via 'in' operator"]
+    - [io1456bi004, BytesIO.__dict__.__contains__, ["read"],         true,  "io.BytesIO.__dict__.__contains__('read') == True — BytesIO defines read() directly in its own __dict__; read() returns up to n bytes or all bytes if n is omitted or negative"]
+    - [io1456bi005, BytesIO.__dict__.__contains__, ["readline"],     true,  "io.BytesIO.__dict__.__contains__('readline') == True — BytesIO defines readline() in its own __dict__; readline() reads up to the next newline or EOF"]
+    - [io1456bi006, BytesIO.__iter__.__class__.__name__.__eq__, ["wrapper_descriptor"], true, "io.BytesIO.__iter__.__class__.__name__ == 'wrapper_descriptor' — BytesIO.__iter__ is a C-level wrapper_descriptor; this is the expected type for C-extension slot wrappers that expose tp_iter in Python's type system"]
+
+# ---------------------------------------------------------------------------
+# io.BytesIO.__iter__ and __next__ class names
+# Both are wrapper_descriptors confirming C-extension implementation.
+# ---------------------------------------------------------------------------
+
+table io_extra1456.BytesIO_iter_descriptor_types:
+  description: "io.BytesIO.__iter__ and __next__ are wrapper_descriptors; confirms C-level iterator protocol implementation in BytesIO"
+  kind: python_call_eq
+  category: identity
+  id_prefix: io1456bd
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [io1456bd001, BytesIO.__iter__.__class__.__name__.__eq__,  ["wrapper_descriptor"], true, "io.BytesIO.__iter__.__class__.__name__ == 'wrapper_descriptor' — the __iter__ method on BytesIO is a C wrapper_descriptor wrapping the underlying tp_iter slot; this distinguishes it from pure-Python functions (which would be 'function') or method_descriptors"]
+    - [io1456bd002, BytesIO.__next__.__class__.__name__.__eq__,  ["wrapper_descriptor"], true, "io.BytesIO.__next__.__class__.__name__ == 'wrapper_descriptor' — the __next__ method on BytesIO is also a C wrapper_descriptor wrapping tp_iternext; both __iter__ and __next__ being wrapper_descriptors confirms the iterator protocol is implemented at the C level in BytesIO"]
+    - [io1456bd003, StringIO.__next__.__class__.__name__.__eq__, ["wrapper_descriptor"], true, "io.StringIO.__next__.__class__.__name__ == 'wrapper_descriptor' — StringIO.__next__ is a wrapper_descriptor (C-level); StringIO defines __next__ but not __iter__ in its own __dict__; __iter__ is inherited"]
+    - [io1456bd004, BufferedReader.__next__.__class__.__name__.__eq__,  ["wrapper_descriptor"], true, "io.BufferedReader.__next__.__class__.__name__ == 'wrapper_descriptor' — BufferedReader defines __next__ as a wrapper_descriptor but does not define __iter__ in its own __dict__; iteration over BufferedReader relies on inherited __iter__"]
+    - [io1456bd005, BufferedRandom.__next__.__class__.__name__.__eq__, ["wrapper_descriptor"], true, "io.BufferedRandom.__next__.__class__.__name__ == 'wrapper_descriptor' — BufferedRandom defines __next__ as a wrapper_descriptor but not __iter__ in its own __dict__; it supports reading as an iterator through inherited __iter__"]
+    - [io1456bd006, BytesIO.__class__.__name__.__eq__, ["type"], true, "io.BytesIO.__class__.__name__ == 'type' — BytesIO is a class object (its metaclass is the built-in type); confirmed with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# io.StringIO, IOBase, RawIOBase, BufferedIOBase, TextIOBase —
+# __iter__ and __contains__ absence in own __dict__
+# ---------------------------------------------------------------------------
+
+table io_extra1456.io_classes_no_iter_in_dict:
+  description: "io.StringIO/IOBase/RawIOBase/BufferedIOBase/TextIOBase/FileIO/BufferedWriter do NOT define __iter__ or __contains__ in their own __dict__"
+  kind: python_call_eq
+  category: identity
+  id_prefix: io1456nd
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [io1456nd001, StringIO.__dict__.__contains__,      ["__iter__"],     false, "io.StringIO.__dict__.__contains__('__iter__') == False — StringIO does NOT define __iter__ in its own __dict__; __iter__ is inherited from the ABC chain; StringIO does define __next__ directly (wrapper_descriptor) but delegates __iter__ to the inherited implementation"]
+    - [io1456nd002, StringIO.__dict__.__contains__,      ["__contains__"], false, "io.StringIO.__dict__.__contains__('__contains__') == False — StringIO does not define __contains__; string IO streams support iteration over lines but not membership testing with the 'in' operator"]
+    - [io1456nd003, IOBase.__dict__.__contains__,        ["__iter__"],     false, "io.IOBase.__dict__.__contains__('__iter__') == False — IOBase does NOT define __iter__ in its own __dict__; the iteration protocol for io streams is provided by subclasses (e.g. BytesIO) not at the abstract base level"]
+    - [io1456nd004, IOBase.__dict__.__contains__,        ["__contains__"], false, "io.IOBase.__dict__.__contains__('__contains__') == False — IOBase does not define __contains__ in its own __dict__; the abstract base class for all IO types provides no membership-testing protocol"]
+    - [io1456nd005, RawIOBase.__dict__.__contains__,     ["__iter__"],     false, "io.RawIOBase.__dict__.__contains__('__iter__') == False — RawIOBase does not define __iter__ in its own __dict__; raw byte streams inherit iteration from the ABC hierarchy rather than defining it themselves"]
+    - [io1456nd006, BufferedIOBase.__dict__.__contains__, ["__iter__"],    false, "io.BufferedIOBase.__dict__.__contains__('__iter__') == False — BufferedIOBase does not define __iter__ in its own __dict__; like RawIOBase and IOBase, iteration over buffered streams relies on inherited protocol"]
+    - [io1456nd007, TextIOBase.__dict__.__contains__,    ["__iter__"],     false, "io.TextIOBase.__dict__.__contains__('__iter__') == False — TextIOBase does not define __iter__ in its own __dict__; text IO iteration protocol is not defined at this abstract base level"]
+    - [io1456nd008, FileIO.__dict__.__contains__,        ["__iter__"],     false, "io.FileIO.__dict__.__contains__('__iter__') == False — FileIO does not define __iter__ in its own __dict__; FileIO is a raw IO stream and inherits iteration behavior from the ABC chain"]
+    - [io1456nd009, BufferedWriter.__dict__.__contains__, ["__iter__"],    false, "io.BufferedWriter.__dict__.__contains__('__iter__') == False — BufferedWriter does not define __iter__ in its own __dict__; write-only streams generally do not expose iteration protocol"]
+    - [io1456nd010, BufferedReader.__dict__.__contains__, ["__iter__"],    false, "io.BufferedReader.__dict__.__contains__('__iter__') == False — BufferedReader defines __next__ but NOT __iter__ in its own __dict__; BufferedReader is iterable through inherited __iter__ but only owns the tp_iternext slot"]
