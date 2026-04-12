@@ -1,0 +1,93 @@
+spec: socket_extra327
+version: ">=3.5"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+rfcs:
+  - "RFC 791 — Internet Protocol"
+  - "RFC 1700 — Assigned Numbers (network byte order)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — socket documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source code"
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "socket raises OSError for invalid IP strings and wrong-length bytes. All invariants here are pure-computation calls that do not raise."
+  stderr: "null"
+  stickiness: "N/A — all tested functions are stateless pure-computation calls."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# inet_aton — length and type checks
+# inet_aton always returns exactly 4 bytes (IPv4 packed binary).
+# socket_extra.zspec.zsdl already covers inet_aton broadcast/len and '1.2.3.4'.
+# These focus on specific addresses not yet covered.
+# ---------------------------------------------------------------------------
+
+table socket_extra327.inet_aton.length_checks:
+  description: "socket.inet_aton returns exactly 4 bytes for any valid IPv4 address"
+  kind: python_call_eq
+  category: functions
+  function: inet_aton
+  id_prefix: aton_len
+
+  columns: [id, args, expected]
+  rows:
+    - [loopback_len,  ["127.0.0.1"], 4]
+    - [zero_len,      ["0.0.0.0"],   4]
+
+invariant socket_extra327.inet_aton.return_type:
+  description: "socket.inet_aton('127.0.0.1').__class__.__name__ == 'bytes'"
+  category: functions
+  kind: python_call_eq
+  function: inet_aton
+  args: ["127.0.0.1"]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# inet_ntoa and inet_aton function identity — __name__ and __module__
+# Both live in the _socket C extension; their __module__ == '_socket'.
+# ---------------------------------------------------------------------------
+
+table socket_extra327.function_identity:
+  description: "inet_ntoa and inet_aton __name__ and __module__ attributes"
+  kind: python_call_eq
+  category: function_identity
+  id_prefix: fn_id
+
+  columns: [id, function, args, expected]
+  rows:
+    - [inet_ntoa_name,   inet_ntoa.__name__.__eq__,   ["inet_ntoa"], true]
+    - [inet_ntoa_module, inet_ntoa.__module__.__eq__,  ["_socket"],   true]
+    - [inet_aton_name,   inet_aton.__name__.__eq__,    ["inet_aton"], true]
+    - [inet_aton_module, inet_aton.__module__.__eq__,  ["_socket"],   true]
+
+# ---------------------------------------------------------------------------
+# htons / ntohs — byte-swap on little-endian (macOS x86_64 / arm64)
+# On a little-endian host:
+#   htons(1) == 256   (0x0001 host-to-network → 0x0100 = 256)
+#   ntohs(256) == 1   (0x0100 network-to-host → 0x0001 = 1)
+# Verified: Python 3.14.3, macOS/Darwin 25.4.0 (little-endian, arm64)
+# ---------------------------------------------------------------------------
+
+invariant socket_extra327.htons.one_little_endian:
+  description: "socket.htons(1) == 256 on little-endian (x86_64/arm64) macOS — byte-swaps 0x0001 to 0x0100"
+  category: functions
+  kind: python_call_eq
+  function: htons
+  args: [1]
+  expected: 256
+
+invariant socket_extra327.ntohs.256_little_endian:
+  description: "socket.ntohs(256) == 1 on little-endian macOS — byte-swaps 0x0100 back to 0x0001"
+  category: functions
+  kind: python_call_eq
+  function: ntohs
+  args: [256]
+  expected: 1
