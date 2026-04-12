@@ -1,0 +1,130 @@
+spec: pathlib_extra254
+version: ">=3.6"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/__init__.py"
+  notes:
+    - "This spec covers: Path string component properties — name, suffix, stem, parent (as string), parts, suffixes, and with_suffix."
+    - "Path('/tmp/foo.txt').name == 'foo.txt' — final path component including extension; verified Python 3.14.3 macOS."
+    - "Path('/tmp/foo.txt').suffix == '.txt' — last file extension including dot; verified Python 3.14.3 macOS."
+    - "Path('/tmp/foo.txt').stem == 'foo' — final path component without its last suffix; verified Python 3.14.3 macOS."
+    - "str(Path('/tmp/foo.txt').parent) == '/tmp' — parent directory as string; verified Python 3.14.3 macOS."
+    - "Path('foo.tar.gz').suffix == '.gz' — only the last extension is returned by .suffix; verified Python 3.14.3 macOS."
+    - "Path('foo.tar.gz').suffixes == ['.tar', '.gz'] — all extensions returned by .suffixes; verified Python 3.14.3 macOS."
+    - "str(Path('/tmp/foo.txt').with_suffix('.py')) == '/tmp/foo.py' — replaces last suffix; verified Python 3.14.3 macOS."
+    - "Path('/tmp/foo.txt').parts == ('/', 'tmp', 'foo.txt') — tuple of path components; verified Python 3.14.3 macOS."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Path string component properties — 5-column table
+# Uses __eq__ method chains on string attributes of Path('/tmp/foo.txt').
+# ---------------------------------------------------------------------------
+
+table pathlib_extra254.path_components:
+  description: "Path('/tmp/foo.txt') string component properties: name, suffix, stem, parent string; verified Python 3.14.3"
+  kind: python_call_eq
+  category: components
+  id_prefix: pathlibcomp254
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [name,    "Path('/tmp/foo.txt').name.__eq__",            ["foo.txt"], true, "Path('/tmp/foo.txt').name == 'foo.txt'"]
+    - [suffix,  "Path('/tmp/foo.txt').suffix.__eq__",          [".txt"],    true, "Path('/tmp/foo.txt').suffix == '.txt'"]
+    - [stem,    "Path('/tmp/foo.txt').stem.__eq__",            ["foo"],     true, "Path('/tmp/foo.txt').stem == 'foo'"]
+    - [parent,  "str(Path('/tmp/foo.txt').parent).__eq__",     ["/tmp"],    true, "str(Path('/tmp/foo.txt').parent) == '/tmp'"]
+
+# ---------------------------------------------------------------------------
+# Path multi-suffix properties — 5-column table
+# Covers .suffix (last only) and .suffixes (all) for 'foo.tar.gz'.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra254.path_multi_suffix:
+  description: "Path suffix and suffixes for multi-extension filenames; verified Python 3.14.3"
+  kind: python_call_eq
+  category: suffixes
+  id_prefix: pathlibsuf254
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [suffix_gz,    "Path('foo.tar.gz').suffix.__eq__",     [".gz"],              true, "Path('foo.tar.gz').suffix == '.gz' (last suffix only)"]
+    - [suffixes_all, "Path('foo.tar.gz').suffixes.__eq__",   [[".tar", ".gz"]],    true, "Path('foo.tar.gz').suffixes == ['.tar', '.gz']"]
+    - [suffix_txt,   "Path('foo.txt').suffix.__eq__",        [".txt"],             true, "Path('foo.txt').suffix == '.txt' (single suffix)"]
+    - [suffix_none,  "Path('foo').suffix.__eq__",            [""],                 true, "Path('foo').suffix == '' (no suffix)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — Path.parts
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra254.Path.parts.tmp_foo_txt:
+  description: "pathlib.Path('/tmp/foo.txt').parts == ('/', 'tmp', 'foo.txt') — parts is a tuple of all path components; verified Python 3.14.3 macOS"
+  category: parts
+  kind: python_call_eq
+  function: "Path('/tmp/foo.txt').parts.__eq__"
+  args: [["/" , "tmp", "foo.txt"]]
+  expected: true
+
+invariant pathlib_extra254.Path.parts.single:
+  description: "pathlib.Path('/tmp').parts == ('/', 'tmp') — parts for a two-component absolute path; verified Python 3.14.3 macOS"
+  category: parts
+  kind: python_call_eq
+  function: "Path('/tmp').parts.__eq__"
+  args: [["/", "tmp"]]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — Path.with_suffix
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra254.Path.with_suffix.py:
+  description: "str(pathlib.Path('/tmp/foo.txt').with_suffix('.py')) == '/tmp/foo.py' — with_suffix replaces the last extension; verified Python 3.14.3 macOS"
+  category: with_suffix
+  kind: python_call_eq
+  function: "str(Path('/tmp/foo.txt').with_suffix('.py')).__eq__"
+  args: ["/tmp/foo.py"]
+  expected: true
+
+invariant pathlib_extra254.Path.with_suffix.remove:
+  description: "str(pathlib.Path('/tmp/foo.txt').with_suffix('')) == '/tmp/foo' — with_suffix('') removes the extension; verified Python 3.14.3 macOS"
+  category: with_suffix
+  kind: python_call_eq
+  function: "str(Path('/tmp/foo.txt').with_suffix('')).__eq__"
+  args: ["/tmp/foo"]
+  expected: true
+
+invariant pathlib_extra254.Path.with_suffix.tar_gz_to_bz2:
+  description: "str(pathlib.Path('foo.tar.gz').with_suffix('.bz2')) == 'foo.tar.bz2' — with_suffix replaces only the last suffix of a multi-suffix path; verified Python 3.14.3 macOS"
+  category: with_suffix
+  kind: python_call_eq
+  function: "str(Path('foo.tar.gz').with_suffix('.bz2')).__eq__"
+  args: ["foo.tar.bz2"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — Path stem
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra254.Path.stem.foo_tar_gz:
+  description: "pathlib.Path('foo.tar.gz').stem == 'foo.tar' — stem removes only the last suffix; verified Python 3.14.3 macOS"
+  category: stem
+  kind: python_call_eq
+  function: "Path('foo.tar.gz').stem.__eq__"
+  args: ["foo.tar"]
+  expected: true
+
+invariant pathlib_extra254.Path.stem.no_suffix:
+  description: "pathlib.Path('foo').stem == 'foo' — stem of a path with no suffix is the name itself; verified Python 3.14.3 macOS"
+  category: stem
+  kind: python_call_eq
+  function: "Path('foo').stem.__eq__"
+  args: ["foo"]
+  expected: true
