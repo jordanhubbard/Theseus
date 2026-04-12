@@ -1,0 +1,155 @@
+spec: re_extra284
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "re_extra283 covers groupindex, NOFLAG, and re.compile() Pattern type."
+    - "This spec focuses on re.Match.span(), re.Match.start(), re.Match.end(), and re.Match.group()."
+    - "re.match(r'(\\w+)', 'hello world').group(0) == 'hello' — group(0) is the entire match."
+    - "re.match(r'(\\w+)', 'hello world').group(1) == 'hello' — group(1) is the first capturing group."
+    - "re.match(r'(\\w+)', 'hello world').start() == 0 — match at the start of string."
+    - "re.match(r'(\\w+)', 'hello world').end() == 5 — 'hello' has 5 characters."
+    - "re.match(r'(\\w+)', 'hello world').start(1) == 0 — group 1 also starts at position 0."
+    - "re.match(r'(\\w+)\\s+(\\w+)', 'hello world').start(2) == 6 — second word starts at index 6."
+    - "re.match(r'(\\w+)\\s+(\\w+)', 'hello world').end(2) == 11 — second word ends at index 11."
+    - "re.search(r'\\d+', 'abc123def').start() == 3 — the digit sequence starts at index 3."
+    - "re.search(r'\\d+', 'abc123def').end() == 6 — '123' occupies positions 3-5 (exclusive end is 6)."
+    - "span() returns a tuple; the harness normalizes tuple to list when expected is a list."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.match() — group(), start(), end() for single capturing group
+#
+# re.match(r'(\w+)', 'hello world') matches 'hello'.
+# group(0) == 'hello'  — the full match
+# group(1) == 'hello'  — the first (and only) capturing group
+# start() == start(0) == start(1) == 0
+# end()   == end(0)   == end(1)   == 5
+# ---------------------------------------------------------------------------
+
+table re_extra284.match_single_group:
+  description: "re.match(r'(\\w+)', 'hello world'): group, start, end for the single capturing group"
+  kind: python_call_eq
+  category: match_position
+  id_prefix: matchsg284
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [group0,   "match('(\\w+)', 'hello world').group",  [0], "hello", "group(0) == 'hello' — full match"]
+    - [group1,   "match('(\\w+)', 'hello world').group",  [1], "hello", "group(1) == 'hello' — first capturing group"]
+    - [start0,   "match('(\\w+)', 'hello world').start",  [0], 0,       "start(0) == 0 — full match begins at index 0"]
+    - [end0,     "match('(\\w+)', 'hello world').end",    [0], 5,       "end(0) == 5 — full match ends at index 5 (exclusive)"]
+    - [start1,   "match('(\\w+)', 'hello world').start",  [1], 0,       "start(1) == 0 — group 1 begins at index 0"]
+    - [end1,     "match('(\\w+)', 'hello world').end",    [1], 5,       "end(1) == 5 — group 1 ends at index 5 (exclusive)"]
+
+# ---------------------------------------------------------------------------
+# re.match() — two capturing groups: start/end of group 2
+#
+# re.match(r'(\w+)\s+(\w+)', 'hello world') matches the full string.
+# group(1) == 'hello', group(2) == 'world'
+# start(2) == 6  — 'world' begins after 'hello '
+# end(2)   == 11 — 'world' ends at index 11 (exclusive)
+# ---------------------------------------------------------------------------
+
+table re_extra284.match_two_groups:
+  description: "re.match(r'(\\w+)\\s+(\\w+)', 'hello world'): group(1)/group(2) and positions for the second group"
+  kind: python_call_eq
+  category: match_position
+  id_prefix: matchtg284
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [grp1,     "match('(\\w+)\\s+(\\w+)', 'hello world').group",  [1], "hello", "group(1) == 'hello'"]
+    - [grp2,     "match('(\\w+)\\s+(\\w+)', 'hello world').group",  [2], "world", "group(2) == 'world'"]
+    - [start2,   "match('(\\w+)\\s+(\\w+)', 'hello world').start",  [2], 6,       "start(2) == 6 — 'world' begins at index 6"]
+    - [end2,     "match('(\\w+)\\s+(\\w+)', 'hello world').end",    [2], 11,      "end(2) == 11 — 'world' ends at index 11 (exclusive)"]
+    - [start1,   "match('(\\w+)\\s+(\\w+)', 'hello world').start",  [1], 0,       "start(1) == 0 — 'hello' begins at index 0"]
+    - [end1,     "match('(\\w+)\\s+(\\w+)', 'hello world').end",    [1], 5,       "end(1) == 5 — 'hello' ends at index 5 (exclusive)"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant re_extra284.match.group0_is_hello:
+  description: "re.match(r'(\\w+)', 'hello world').group(0) == 'hello' — group(0) always refers to the entire match, not a capturing group"
+  category: match_position
+  kind: python_call_eq
+  function: "match('(\\w+)', 'hello world').group"
+  args: [0]
+  expected: "hello"
+
+invariant re_extra284.match.group1_is_hello:
+  description: "re.match(r'(\\w+)', 'hello world').group(1) == 'hello' — group(1) refers to the first capturing group which matches the word 'hello'"
+  category: match_position
+  kind: python_call_eq
+  function: "match('(\\w+)', 'hello world').group"
+  args: [1]
+  expected: "hello"
+
+invariant re_extra284.match.start1_is_0:
+  description: "re.match(r'(\\w+)', 'hello world').start(1) == 0 — the first capturing group begins at position 0 (start of string for re.match)"
+  category: match_position
+  kind: python_call_eq
+  function: "match('(\\w+)', 'hello world').start"
+  args: [1]
+  expected: 0
+
+invariant re_extra284.match.end_is_5:
+  description: "re.match(r'(\\w+)', 'hello world').end() == 5 — 'hello' has 5 characters so the match ends at exclusive index 5"
+  category: match_position
+  kind: python_call_eq
+  function: "match('(\\w+)', 'hello world').end"
+  args: []
+  expected: 5
+
+invariant re_extra284.match.group1_digit:
+  description: "re.match(r'(\\d+)', '42abc').group(1) == '42' — group(1) captures only the digit run at the start of the string"
+  category: match_position
+  kind: python_call_eq
+  function: "match('(\\d+)', '42abc').group"
+  args: [1]
+  expected: "42"
+
+invariant re_extra284.match.start1_digit:
+  description: "re.match(r'(\\d+)', '42abc').start(1) == 0 — digits begin at index 0 in '42abc'"
+  category: match_position
+  kind: python_call_eq
+  function: "match('(\\d+)', '42abc').start"
+  args: [1]
+  expected: 0
+
+invariant re_extra284.search.start_digits:
+  description: "re.search(r'\\d+', 'abc123def').start() == 3 — the first digit sequence begins after the three-character prefix 'abc'"
+  category: search_position
+  kind: python_call_eq
+  function: "search('\\d+', 'abc123def').start"
+  args: []
+  expected: 3
+
+invariant re_extra284.search.end_digits:
+  description: "re.search(r'\\d+', 'abc123def').end() == 6 — '123' occupies indices 3, 4, 5 so the exclusive end is 6"
+  category: search_position
+  kind: python_call_eq
+  function: "search('\\d+', 'abc123def').end"
+  args: []
+  expected: 6
+
+invariant re_extra284.search.group_digits:
+  description: "re.search(r'\\d+', 'abc123def').group() == '123' — group() without arguments returns the entire match"
+  category: search_position
+  kind: python_call_eq
+  function: "search('\\d+', 'abc123def').group"
+  args: []
+  expected: "123"

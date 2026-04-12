@@ -1,0 +1,153 @@
+spec: hashlib_extra284
+version: ">=3.6"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Lib/hashlib.py"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl through hashlib_extra283.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "hashlib_extra283.zspec.zsdl covers: the hmac module — hmac.new(), hmac.digest(), hmac.compare_digest(); known hex vectors; digest_size; name attribute; function class names."
+    - "This spec focuses on: sha256.update() incremental hashing — h = sha256(b'hello'); h.update(b' world'); h.hexdigest() equals the one-shot sha256(b'hello world').hexdigest(); copy() produces an independent object yielding the same digest; name/digest_size/block_size attributes after update."
+    - "hashlib.sha256(b'hello world').hexdigest() == 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "h = sha256(b'hello'); h.update(b' world'); h.hexdigest() == 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "h.copy().hexdigest() == h.hexdigest() — copy() forks the hash state without consuming it. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "h.copy() is not h — copy returns a distinct object. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "sha256 HASH object name attribute == 'sha256'; digest_size == 32; block_size == 64. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hashlib.sha256().__class__.__name__ == 'HASH' — sha256 returns a HASH instance. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "hashlib.sha256() returns a HASH object; .update() mutates in-place returning None; .hexdigest() and .digest() return the current hash as str/bytes without altering state."
+  stderr: "null"
+  stickiness: "HASH objects carry mutable state; copy() produces an independent snapshot."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# hashlib.sha256 — one-shot hexdigest vector for b'hello world'
+# sha256(b'hello world').hexdigest() is the canonical single-call form.
+# Equivalent to feeding the same bytes via two update() calls.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra284.sha256_hexdigest_vectors:
+  description: "hashlib.sha256() hexdigest and digest known vectors for b'hello world'; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: known_vector
+  id_prefix: shv284
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [sha256_hello_world_hex, "sha256", [{type: bytes_ascii, value: "hello world"}], "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9", "sha256(b'hello world').hexdigest() — one-shot SHA-256 hex digest"]
+    - [sha256_empty_hex,       "sha256", [],                                          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "sha256(b'').hexdigest() — SHA-256 of empty input"]
+    - [sha256_name,            "sha256.__call__.name.__eq__", [{type: bytes_ascii, value: "hello"}, "sha256"], true, "sha256(b'hello').name == 'sha256' — algorithm name attribute"]
+
+# ---------------------------------------------------------------------------
+# hashlib.sha256 — incremental update() then hexdigest()
+# h = sha256(b'hello'); h.update(b' world'); h.hexdigest()
+# Must equal sha256(b'hello world').hexdigest() — update() is identical to
+# feeding all bytes at construction time.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra284.sha256_update.hexdigest_equals_oneshot:
+  description: "sha256(b'hello').update(b' world') then hexdigest() == sha256(b'hello world').hexdigest() — incremental update produces same digest as one-shot; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: known_vector
+  kind: python_call_eq
+  function: sha256
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: update.__call__
+  method_args: [{type: bytes_ascii, value: " world"}]
+  then: hexdigest
+  then_args: []
+  expected: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+
+invariant hashlib_extra284.sha256_update.update_returns_none:
+  description: "sha256(b'hello').update(b' world') returns None — update() mutates in place and returns None; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: return_type
+  kind: python_call_eq
+  function: sha256
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: update
+  method_args: [{type: bytes_ascii, value: " world"}]
+  expected: null
+
+# ---------------------------------------------------------------------------
+# hashlib.sha256 — copy() behaviour
+# copy() snapshots the current hash state into a new independent HASH object.
+# The copy's hexdigest() equals the original's at the moment of the copy.
+# Mutating the original after copy() does not affect the copy.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra284.sha256_copy.hexdigest_matches:
+  description: "sha256(b'hello world').copy().hexdigest() == sha256(b'hello world').hexdigest() — copy() produces a fork with the same digest; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: copy_behaviour
+  kind: python_call_eq
+  function: sha256
+  args: [{type: bytes_ascii, value: "hello world"}]
+  method: copy.__call__
+  method_args: []
+  then: hexdigest
+  then_args: []
+  expected: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+
+invariant hashlib_extra284.sha256_copy.class_name:
+  description: "sha256(b'hello').copy().__class__.__name__ == 'HASH' — copy() returns a HASH instance; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: copy_behaviour
+  kind: python_call_eq
+  function: sha256
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: copy.__call__.__class__.__name__.__eq__
+  method_args: ["HASH"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hashlib.sha256 — HASH object attributes
+# digest_size == 32 (256-bit output expressed in bytes)
+# block_size  == 64 (512-bit block size in bytes)
+# name        == 'sha256'
+# __class__.__name__ == 'HASH'
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra284.sha256_attrs.digest_size:
+  description: "hashlib.sha256().digest_size == 32 — SHA-256 produces a 32-byte (256-bit) digest; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: hash_attributes
+  kind: python_call_eq
+  function: sha256
+  args: []
+  method: digest_size.__eq__
+  method_args: [32]
+  expected: true
+
+invariant hashlib_extra284.sha256_attrs.block_size:
+  description: "hashlib.sha256().block_size == 64 — SHA-256 uses a 64-byte (512-bit) block size; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: hash_attributes
+  kind: python_call_eq
+  function: sha256
+  args: []
+  method: block_size.__eq__
+  method_args: [64]
+  expected: true
+
+invariant hashlib_extra284.sha256_attrs.name:
+  description: "hashlib.sha256().name == 'sha256' — name attribute identifies the algorithm; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: hash_attributes
+  kind: python_call_eq
+  function: sha256
+  args: []
+  method: name.__eq__
+  method_args: ["sha256"]
+  expected: true
+
+invariant hashlib_extra284.sha256_attrs.class_name:
+  description: "hashlib.sha256().__class__.__name__ == 'HASH' — sha256() returns a HASH instance; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: return_type
+  kind: python_call_eq
+  function: sha256.__class__.__name__.__eq__
+  args: ["HASH"]
+  expected: true

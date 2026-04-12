@@ -1,0 +1,142 @@
+spec: uuid_extra273
+version: ">=3.9"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/uuid.html — Python uuid module documentation"
+    - "RFC 4122 — A Universally Unique IDentifier (UUID) URN Namespace"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+  notes:
+    - "This spec extends uuid.zspec.zsdl through uuid_extra272.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "uuid_extra272.zspec.zsdl covers: uuid.UUID property descriptors (time/clock_seq/node/hex/version/bytes/fields); __slots__ count and contents; UUID.__name__ and __module__."
+    - "This spec focuses on: UUID boundary values — UUID(int=0) and UUID(int=2**128-1); __str__(), __repr__(), .hex, and .int for both boundary UUIDs; UUID from string constructor round-trips; .version == None for non-versioned UUIDs."
+    - "uuid.UUID(int=0).__str__() == '00000000-0000-0000-0000-000000000000'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID(int=0).__repr__() == \"UUID('00000000-0000-0000-0000-000000000000')\". Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID(int=2**128-1).__str__() == 'ffffffff-ffff-ffff-ffff-ffffffffffff'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID(int=2**128-1).__repr__() == \"UUID('ffffffff-ffff-ffff-ffff-ffffffffffff')\". Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID(int=0).hex == '00000000000000000000000000000000' — 32 hex chars, no hyphens. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID(int=2**128-1).hex == 'ffffffffffffffffffffffffffffffff'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID(int=0).version is None — UUIDs constructed from int have no RFC 4122 version. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000000') == uuid.UUID(int=0) — string and int constructors are equivalent. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# uuid.UUID boundary values — str() and repr() output
+# UUID(int=0) is the all-zeros UUID; UUID(int=2**128-1) is all-ones.
+# str() produces the hyphenated 8-4-4-4-12 hex form.
+# repr() wraps str() as UUID('<str>').
+# ---------------------------------------------------------------------------
+
+table uuid_extra273.UUID_boundary_str:
+  description: "uuid.UUID(int=0) and uuid.UUID(int=2**128-1) — __str__ and __repr__ canonical forms; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: known_vector
+  id_prefix: ubs273
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [zero_str,    "UUID.__call__.__str__",   [{int: 0}],           "00000000-0000-0000-0000-000000000000",           "UUID(int=0).__str__() — all-zeros UUID canonical string form"]
+    - [zero_repr,   "UUID.__call__.__repr__",  [{int: 0}],           "UUID('00000000-0000-0000-0000-000000000000')",   "UUID(int=0).__repr__() — repr wraps str in UUID(...)"]
+    - [max_str,     "UUID.__call__.__str__",   [{int: 340282366920938463463374607431768211455}], "ffffffff-ffff-ffff-ffff-ffffffffffff", "UUID(int=2**128-1).__str__() — all-ones UUID canonical string form"]
+    - [max_repr,    "UUID.__call__.__repr__",  [{int: 340282366920938463463374607431768211455}], "UUID('ffffffff-ffff-ffff-ffff-ffffffffffff')", "UUID(int=2**128-1).__repr__() — repr wraps str in UUID(...)"]
+    - [zero_hex,    "UUID.__call__.hex.__eq__", [{int: 0}, "00000000000000000000000000000000"],   true, "UUID(int=0).hex — 32-char lowercase hex string without hyphens"]
+    - [max_hex,     "UUID.__call__.hex.__eq__", [{int: 340282366920938463463374607431768211455}, "ffffffffffffffffffffffffffffffff"], true, "UUID(int=2**128-1).hex — 32 'f' characters"]
+
+# ---------------------------------------------------------------------------
+# uuid.UUID — .int attribute round-trip
+# UUID(int=N).int == N for boundary values 0 and 2**128-1.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra273.UUID_int.zero_roundtrip:
+  description: "uuid.UUID(int=0).int == 0 — int attribute recovers the original value; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: boundary_value
+  kind: python_call_eq
+  function: UUID.__call__.int.__eq__
+  args: [{int: 0}, 0]
+  expected: true
+
+invariant uuid_extra273.UUID_int.max_roundtrip:
+  description: "uuid.UUID(int=2**128-1).int == 340282366920938463463374607431768211455 — int attribute recovers 2**128-1; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: boundary_value
+  kind: python_call_eq
+  function: UUID.__call__.int.__eq__
+  args: [{int: 340282366920938463463374607431768211455}, 340282366920938463463374607431768211455]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uuid.UUID — .version is None for non-versioned (int-constructed) UUIDs
+# RFC 4122 version applies only to UUIDs generated by uuid1/uuid3/uuid4/uuid5.
+# UUIDs constructed directly from int have no version: .version returns None.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra273.UUID_version.zero_is_none:
+  description: "uuid.UUID(int=0).version is None — directly int-constructed UUID carries no RFC 4122 version field; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: version_attribute
+  kind: python_call_eq
+  function: UUID.__call__.version.__eq__
+  args: [{int: 0}, null]
+  expected: true
+
+invariant uuid_extra273.UUID_version.max_is_none:
+  description: "uuid.UUID(int=2**128-1).version is None — all-ones UUID also carries no version; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: version_attribute
+  kind: python_call_eq
+  function: UUID.__call__.version.__eq__
+  args: [{int: 340282366920938463463374607431768211455}, null]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uuid.UUID — string constructor round-trips boundary values
+# UUID('00000000-0000-0000-0000-000000000000') == UUID(int=0)
+# Confirms that the string and int constructors are interchangeable for
+# well-formed UUID strings.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra273.UUID_from_str.zero_equals_int_zero:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000000') == uuid.UUID(int=0) — string and int constructors produce equal objects for boundary UUID; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: constructor_equivalence
+  kind: python_call_eq
+  function: "UUID.__call__.__eq__"
+  args: ["00000000-0000-0000-0000-000000000000", {call: UUID, kwargs: {int: 0}}]
+  expected: true
+
+invariant uuid_extra273.UUID_from_str.max_equals_int_max:
+  description: "uuid.UUID('ffffffff-ffff-ffff-ffff-ffffffffffff') == uuid.UUID(int=2**128-1) — string and int constructors produce equal objects for all-ones UUID; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: constructor_equivalence
+  kind: python_call_eq
+  function: "UUID.__call__.__eq__"
+  args: ["ffffffff-ffff-ffff-ffff-ffffffffffff", {call: UUID, kwargs: {int: 340282366920938463463374607431768211455}}]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# uuid.UUID — fields tuple for boundary UUIDs
+# .fields returns a 6-tuple of integers: (time_low, time_mid, time_hi_version,
+# clock_seq_hi_variant, clock_seq_low, node).
+# For UUID(int=0) all six fields are 0.
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra273.UUID_fields.zero_len:
+  description: "len(uuid.UUID(int=0).fields) == 6 — fields tuple always has 6 components per RFC 4122; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: fields_attribute
+  kind: python_call_eq
+  function: UUID.__call__.fields.__len__
+  args: [{int: 0}]
+  expected: 6
+
+invariant uuid_extra273.UUID_fields.zero_first_is_zero:
+  description: "uuid.UUID(int=0).fields[0] == 0 — time_low component of all-zeros UUID is 0; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: fields_attribute
+  kind: python_call_eq
+  function: UUID.__call__.fields.__getitem__
+  args: [{int: 0}, 0]
+  expected: 0

@@ -1,0 +1,164 @@
+spec: struct_extra277
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl through struct_extra276.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "struct_extra276.zspec.zsdl covers: mixed-format calcsize with native vs network alignment (BH/!BH → 4/3); pack/unpack BB and !BB; pack/unpack !BH 1/300; buffer-size mismatch raises; pack('B', 256) raises."
+    - "This spec focuses on: signed vs unsigned overflow errors — pack('b', 128) and pack('B', 256) both raise struct.error; pack('B', 255) == b'\\xff' and pack('b', -1) == b'\\xff' (max valid values); unpack round-trips for B/b with 0xff; Struct() compiled object size/format/pack/unpack; 4s string format pack and unpack."
+    - "struct.pack('B', 255) == b'\\xff' — 255 is the maximum value for an unsigned char. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('b', -1) == b'\\xff' — -1 in two's-complement is 0xff for a signed char. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('B', 256) raises struct.error: 'B' format requires 0 <= number <= 255. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('b', 128) raises struct.error: 'b' format requires -128 <= number <= 127. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('B', b'\\xff') == (255,); struct.unpack('b', b'\\xff') == (-1,) — same byte, different signed interpretation. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.Struct('>H').size == 2; .format == '>H'; .pack(256) == b'\\x01\\x00'; .unpack(b'\\x01\\x00') == (256,). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('4s', b'helo') == b'helo'; struct.unpack('4s', b'helo') == (b'helo',). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for out-of-range integer values on pack and for buffer size mismatches on unpack. struct.error is a direct subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; no shared state."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.pack — signed vs unsigned boundary values
+# B (unsigned char): valid range 0–255; b (signed char): valid range -128–127.
+# pack('B', 255) and pack('b', -1) both produce b'\xff' — same wire encoding
+# for the maximum unsigned and the value -1 signed.
+# ---------------------------------------------------------------------------
+
+table struct_extra277.pack_signed_unsigned_boundary:
+  description: "struct.pack signed/unsigned boundary values — valid maxima and overflow errors for 'B' and 'b' format codes; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: pack_vector
+  function: pack
+  id_prefix: psu277
+
+  columns: [id, args, expected, description]
+  rows:
+    - [B_max_255,  ["B", 255],  !hex ff, "pack('B', 255) == b'\\xff' — maximum unsigned char value"]
+    - [b_minus1,   ["b", -1],   !hex ff, "pack('b', -1) == b'\\xff' — -1 as signed char is 0xff in two's-complement"]
+    - [b_minus128, ["b", -128], !hex 80, "pack('b', -128) == b'\\x80' — minimum signed char value"]
+    - [B_zero,     ["B", 0],    !hex 00, "pack('B', 0) == b'\\x00' — minimum unsigned char value"]
+
+# ---------------------------------------------------------------------------
+# struct.pack — overflow raises struct.error
+# Passing a value outside the valid range for the format code raises struct.error.
+# struct.error is a direct subclass of Exception (not ValueError or OverflowError).
+# ---------------------------------------------------------------------------
+
+invariant struct_extra277.pack.B_256_raises:
+  description: "struct.pack('B', 256) raises struct.error — 256 exceeds the unsigned char range [0, 255]; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: pack
+  args: ["B", 256]
+  raises: error
+
+invariant struct_extra277.pack.b_128_raises:
+  description: "struct.pack('b', 128) raises struct.error — 128 exceeds the signed char range [-128, 127]; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: pack
+  args: ["b", 128]
+  raises: error
+
+invariant struct_extra277.pack.b_minus129_raises:
+  description: "struct.pack('b', -129) raises struct.error — -129 is below the signed char minimum of -128; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: pack
+  args: ["b", -129]
+  raises: error
+
+# ---------------------------------------------------------------------------
+# struct.unpack — same 0xff byte decoded differently by B vs b
+# struct.unpack('B', b'\xff') == (255,)  — unsigned: 0xff → 255
+# struct.unpack('b', b'\xff') == (-1,)   — signed: 0xff → -1 (two's-complement)
+# This is the canonical demonstration that wire format and interpretation diverge.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra277.unpack.B_xff_is_255:
+  description: "struct.unpack('B', b'\\xff') == (255,) — unsigned char: 0xff is 255; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["B", !hex ff]
+  expected: [255]
+
+invariant struct_extra277.unpack.b_xff_is_minus1:
+  description: "struct.unpack('b', b'\\xff') == (-1,) — signed char: 0xff is -1 in two's-complement; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["b", !hex ff]
+  expected: [-1]
+
+# ---------------------------------------------------------------------------
+# struct.pack / unpack — 4s string format
+# The '4s' format code packs/unpacks exactly 4 bytes as a bytes object.
+# pack('4s', b'helo') == b'helo'; unpack('4s', b'helo') == (b'helo',).
+# ---------------------------------------------------------------------------
+
+invariant struct_extra277.pack.four_s_bytes:
+  description: "struct.pack('4s', b'helo') == b'helo' — 4-byte string format passes through unchanged; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["4s", {type: bytes_ascii, value: "helo"}]
+  expected: {type: bytes_ascii, value: "helo"}
+
+invariant struct_extra277.unpack.four_s_roundtrip:
+  description: "struct.unpack('4s', b'helo') == (b'helo',) — round-trip of pack('4s', b'helo'); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["4s", {type: bytes_ascii, value: "helo"}]
+  expected: [{type: bytes_ascii, value: "helo"}]
+
+# ---------------------------------------------------------------------------
+# struct.Struct — compiled format object
+# struct.Struct('>H') pre-compiles the big-endian unsigned short format.
+# .size == 2; .format == '>H'; .pack(256) == b'\x01\x00'; .unpack(b'\x01\x00') == (256,).
+# ---------------------------------------------------------------------------
+
+invariant struct_extra277.Struct.big_H_size:
+  description: "struct.Struct('>H').size == 2 — big-endian unsigned short is 2 bytes; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: struct_object
+  kind: python_call_eq
+  function: Struct
+  args: [">H"]
+  method: size.__eq__
+  method_args: [2]
+  expected: true
+
+invariant struct_extra277.Struct.big_H_format:
+  description: "struct.Struct('>H').format == '>H' — format attribute reflects the format string passed to the constructor; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: struct_object
+  kind: python_call_eq
+  function: Struct
+  args: [">H"]
+  method: format.__eq__
+  method_args: [">H"]
+  expected: true
+
+invariant struct_extra277.Struct.big_H_pack_256:
+  description: "struct.Struct('>H').pack(256) == b'\\x01\\x00' — 256 in big-endian unsigned short; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: struct_object
+  kind: python_call_eq
+  function: Struct
+  args: [">H"]
+  method: pack
+  method_args: [256]
+  expected: !hex 0100

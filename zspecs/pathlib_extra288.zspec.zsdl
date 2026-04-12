@@ -1,0 +1,131 @@
+spec: pathlib_extra288
+version: ">=3.4"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/_abc.py"
+    - "CPython source: Lib/pathlib/_local.py"
+  notes:
+    - "pathlib_extra287 covers Path.resolve() and symlink expansion."
+    - "This spec focuses on PurePath division (the / operator via __truediv__)."
+    - "PurePath uses __truediv__ for the / operator — PurePath('/foo') / 'bar' calls __truediv__('bar')."
+    - "On macOS/POSIX, PurePath() returns a PurePosixPath instance."
+    - "PurePath('/foo').__truediv__('bar') == PurePath('/foo/bar') — division appends a path segment."
+    - "PurePath('a').__truediv__('b').__truediv__('c') has str 'a/b/c' — chained division builds a relative path."
+    - "PurePath('/foo').__truediv__(PurePath('bar')).name == 'bar' — the name attribute gives the final component."
+    - "PurePath('docs').__truediv__('api').parent.__str__() == 'docs' — parent after division strips the last segment."
+    - "str(PurePath('/usr').__truediv__('local').__truediv__('bin')) == '/usr/local/bin' — three-level absolute path."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# PurePath.__truediv__() — the / division operator for path joining
+#
+# PurePath('/foo').__truediv__('bar') -> PurePosixPath('/foo/bar')
+# str() of the result is the platform path string.
+# name gives the final component.
+# parent gives all components except the last.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra288.PurePath_truediv_str:
+  description: "PurePath.__truediv__() string results: / operator joins path segments"
+  kind: python_call_eq
+  category: division
+  id_prefix: pdiv288
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [foo_bar_str,   "PurePath('/foo').__truediv__('bar').__str__",              [], "/foo/bar",      "str(PurePath('/foo') / 'bar') == '/foo/bar'"]
+    - [a_b_c_str,     "PurePath('a').__truediv__('b').__truediv__('c').__str__",  [], "a/b/c",         "str(PurePath('a') / 'b' / 'c') == 'a/b/c'"]
+    - [usr_local_bin, "PurePath('/usr').__truediv__('local').__truediv__('bin').__str__", [], "/usr/local/bin", "str(PurePath('/usr') / 'local' / 'bin') == '/usr/local/bin'"]
+    - [docs_api_str,  "PurePath('docs').__truediv__('api').__str__",              [], "docs/api",      "str(PurePath('docs') / 'api') == 'docs/api'"]
+    - [foo_purepath,  "PurePath('/foo').__truediv__(PurePath('bar')).__str__",     [], "/foo/bar",      "PurePath('/foo') / PurePath('bar') — right-hand side may also be a PurePath"]
+
+# ---------------------------------------------------------------------------
+# PurePath.__truediv__() — name and parent attributes after division
+#
+# The name attribute gives the final path component.
+# The parent attribute gives all but the last component.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra288.PurePath_truediv_name_parent:
+  description: "PurePath division: .name gives the last component; .parent.__str__() gives all but the last"
+  kind: python_call_eq
+  category: division_attrs
+  id_prefix: pdivattr288
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [foo_bar_name,     "PurePath('/foo').__truediv__('bar').name",                    [], "bar",  ".name of PurePath('/foo') / 'bar' == 'bar'"]
+    - [a_b_c_name,       "PurePath('a').__truediv__('b').__truediv__('c').name",        [], "c",    ".name of PurePath('a') / 'b' / 'c' == 'c'"]
+    - [docs_api_name,    "PurePath('docs').__truediv__('api').name",                    [], "api",  ".name of PurePath('docs') / 'api' == 'api'"]
+    - [docs_api_parent,  "PurePath('docs').__truediv__('api').parent.__str__",          [], "docs", ".parent of PurePath('docs') / 'api' is 'docs'"]
+    - [foo_bar_parent,   "PurePath('/foo').__truediv__('bar').parent.__str__",           [], "/foo", ".parent of PurePath('/foo') / 'bar' is '/foo'"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra288.PurePath.truediv_foo_bar_str:
+  description: "str(PurePath('/foo') / 'bar') == '/foo/bar' — the / operator joins path components using PurePath.__truediv__"
+  category: division
+  kind: python_call_eq
+  function: "PurePath('/foo').__truediv__('bar').__str__"
+  args: []
+  expected: "/foo/bar"
+
+invariant pathlib_extra288.PurePath.truediv_a_b_c_str:
+  description: "str(PurePath('a') / 'b' / 'c') == 'a/b/c' — chained division builds a relative path with all three components"
+  category: division
+  kind: python_call_eq
+  function: "PurePath('a').__truediv__('b').__truediv__('c').__str__"
+  args: []
+  expected: "a/b/c"
+
+invariant pathlib_extra288.PurePath.truediv_with_purepath_arg_name:
+  description: "PurePath('/foo') / PurePath('bar') has name 'bar' — the right-hand operand of / may be another PurePath"
+  category: division
+  kind: python_call_eq
+  function: "PurePath('/foo').__truediv__(PurePath('bar')).name"
+  args: []
+  expected: "bar"
+
+invariant pathlib_extra288.PurePath.truediv_name:
+  description: "(PurePath('/foo') / 'bar').name == 'bar' — .name gives the final component after division"
+  category: division_attrs
+  kind: python_call_eq
+  function: "PurePath('/foo').__truediv__('bar').name"
+  args: []
+  expected: "bar"
+
+invariant pathlib_extra288.PurePath.truediv_parent_str:
+  description: "str((PurePath('/foo') / 'bar').parent) == '/foo' — .parent after division strips the appended component"
+  category: division_attrs
+  kind: python_call_eq
+  function: "PurePath('/foo').__truediv__('bar').parent.__str__"
+  args: []
+  expected: "/foo"
+
+invariant pathlib_extra288.PurePath.truediv_docs_api_name:
+  description: "(PurePath('docs') / 'api').name == 'api' — division works on relative paths too"
+  category: division_attrs
+  kind: python_call_eq
+  function: "PurePath('docs').__truediv__('api').name"
+  args: []
+  expected: "api"
+
+invariant pathlib_extra288.PurePath.truediv_three_level_absolute:
+  description: "str(PurePath('/usr') / 'local' / 'bin') == '/usr/local/bin' — three-level absolute path built by chained division"
+  category: division
+  kind: python_call_eq
+  function: "PurePath('/usr').__truediv__('local').__truediv__('bin').__str__"
+  args: []
+  expected: "/usr/local/bin"

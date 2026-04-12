@@ -1,0 +1,155 @@
+spec: decimal_extra278
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal module documentation"
+    - "IBM General Decimal Arithmetic Specification, Version 1.72 — http://speleotrove.com/decimal/decarith.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+    - "CPython source: Modules/_decimal/_decimal.c"
+  notes:
+    - "decimal_extra277 covers Decimal.normalize() and trailing-zero removal."
+    - "This spec focuses on Decimal to int conversion via __int__(), to_integral_value() class identity, and __abs__()."
+    - "Decimal.__int__() truncates toward zero — Decimal('3.7').__int__() == 3, not 4."
+    - "Decimal('-3.7').__int__() == -3 — truncation is toward zero, not toward negative infinity."
+    - "to_integral_value() rounds to the nearest integer per the active rounding mode; its return type is Decimal, not int."
+    - "Decimal('3.7').to_integral_value().__class__.__name__ == 'Decimal' — result is always a Decimal instance."
+    - "Decimal('-0').__abs__() has is_signed() == False — __abs__ strips the sign bit from negative zero."
+    - "Decimal('-0').__abs__() is_zero() == True — the absolute value of negative zero is (positive) zero."
+    - "Decimal('-5').__abs__() == Decimal('5') — __abs__ returns the magnitude as a Decimal."
+    - "int(Decimal('Infinity')) raises OverflowError — cannot convert Infinity to Python int."
+    - "int(Decimal('NaN')) raises ValueError — cannot convert NaN to Python int."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Decimal.__int__() — truncation toward zero
+#
+# int() on a Decimal calls __int__(), which truncates toward zero
+# (same semantics as int() on float).
+# Decimal('3.7').__int__() == 3   — truncates down
+# Decimal('-3.7').__int__() == -3 — truncates up (toward zero)
+# Decimal('2.9').__int__() == 2
+# Decimal('-2.9').__int__() == -2
+# Decimal('0').__int__() == 0
+# ---------------------------------------------------------------------------
+
+table decimal_extra278.Decimal_int_truncation:
+  description: "Decimal.__int__() truncates toward zero; verified values for positive, negative, and zero"
+  kind: python_call_eq
+  category: int_conversion
+  id_prefix: decint278
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pos_3_7,  "Decimal('3.7').__int__",   [], 3,  "Decimal('3.7').__int__() == 3 — truncates down, not rounds"]
+    - [neg_3_7,  "Decimal('-3.7').__int__",  [], -3, "Decimal('-3.7').__int__() == -3 — truncates toward zero"]
+    - [pos_2_9,  "Decimal('2.9').__int__",   [], 2,  "Decimal('2.9').__int__() == 2"]
+    - [neg_2_9,  "Decimal('-2.9').__int__",  [], -2, "Decimal('-2.9').__int__() == -2"]
+    - [zero,     "Decimal('0').__int__",      [], 0,  "Decimal('0').__int__() == 0"]
+    - [pos_9_9,  "Decimal('9.9').__int__",   [], 9,  "Decimal('9.9').__int__() == 9 — truncates, does not round to 10"]
+
+# ---------------------------------------------------------------------------
+# Decimal.to_integral_value() — class identity
+#
+# to_integral_value() rounds the Decimal to an integer using the active
+# rounding mode, but the return type is always Decimal, never int or float.
+# Decimal('3.7').to_integral_value().__class__.__name__ == 'Decimal'
+# Decimal('3').to_integral_value().__class__.__name__ == 'Decimal'
+# ---------------------------------------------------------------------------
+
+table decimal_extra278.to_integral_value_class:
+  description: "Decimal.to_integral_value() always returns a Decimal instance, never int or float"
+  kind: python_call_eq
+  category: to_integral
+  id_prefix: decti278
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [float_class,   "Decimal('3.7').to_integral_value().__class__.__name__.__eq__",  ["Decimal"], true,  "Decimal('3.7').to_integral_value().__class__.__name__ == 'Decimal'"]
+    - [int_class,     "Decimal('3').to_integral_value().__class__.__name__.__eq__",    ["Decimal"], true,  "Decimal('3').to_integral_value().__class__.__name__ == 'Decimal'"]
+    - [not_int_type,  "Decimal('3.7').to_integral_value().__class__.__name__.__eq__",  ["int"],     false, "to_integral_value() does not return int"]
+    - [not_float_type,"Decimal('3.7').to_integral_value().__class__.__name__.__eq__",  ["float"],   false, "to_integral_value() does not return float"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra278.Decimal.int_3_7_truncates:
+  description: "int(Decimal('3.7')) == Decimal('3.7').__int__() == 3 — __int__() truncates toward zero; 3.7 becomes 3, not 4"
+  category: int_conversion
+  kind: python_call_eq
+  function: "Decimal('3.7').__int__"
+  args: []
+  expected: 3
+
+invariant decimal_extra278.Decimal.int_neg_3_7_truncates:
+  description: "int(Decimal('-3.7')) == Decimal('-3.7').__int__() == -3 — truncation is toward zero, not toward negative infinity"
+  category: int_conversion
+  kind: python_call_eq
+  function: "Decimal('-3.7').__int__"
+  args: []
+  expected: -3
+
+invariant decimal_extra278.Decimal.to_integral_value_class_is_Decimal:
+  description: "Decimal('3.7').to_integral_value().__class__.__name__ == 'Decimal' — to_integral_value() rounds but keeps the Decimal type"
+  category: to_integral
+  kind: python_call_eq
+  function: "Decimal('3.7').to_integral_value().__class__.__name__.__eq__"
+  args: ["Decimal"]
+  expected: true
+
+invariant decimal_extra278.Decimal.abs_negative_zero_is_unsigned:
+  description: "Decimal('-0').__abs__().is_signed() == False — __abs__ of negative zero yields positive zero; the sign bit is cleared"
+  category: abs
+  kind: python_call_eq
+  function: "Decimal('-0').__abs__().is_signed"
+  args: []
+  expected: false
+
+invariant decimal_extra278.Decimal.abs_negative_zero_is_zero:
+  description: "Decimal('-0').__abs__().is_zero() == True — the absolute value of negative zero is zero"
+  category: abs
+  kind: python_call_eq
+  function: "Decimal('-0').__abs__().is_zero"
+  args: []
+  expected: true
+
+invariant decimal_extra278.Decimal.abs_neg5_str:
+  description: "str(Decimal('-5').__abs__()) == '5' — __abs__() returns the Decimal magnitude as a positive Decimal"
+  category: abs
+  kind: python_call_eq
+  function: "Decimal('-5').__abs__().__str__"
+  args: []
+  expected: "5"
+
+invariant decimal_extra278.Decimal.abs_result_class:
+  description: "Decimal('-5').__abs__().__class__.__name__ == 'Decimal' — __abs__() always returns a Decimal"
+  category: abs
+  kind: python_call_eq
+  function: "Decimal('-5').__abs__().__class__.__name__.__eq__"
+  args: ["Decimal"]
+  expected: true
+
+invariant decimal_extra278.Decimal.int_infinity_raises:
+  description: "int(Decimal('Infinity')) raises OverflowError — Infinity has no integer representation"
+  category: error
+  kind: python_call_raises
+  function: "Decimal('Infinity').__int__"
+  args: []
+  raises: OverflowError
+
+invariant decimal_extra278.Decimal.int_nan_raises:
+  description: "int(Decimal('NaN')) raises ValueError — NaN cannot be converted to an integer"
+  category: error
+  kind: python_call_raises
+  function: "Decimal('NaN').__int__"
+  args: []
+  raises: ValueError
