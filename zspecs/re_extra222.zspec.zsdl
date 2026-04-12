@@ -1,0 +1,151 @@
+spec: re_extra222
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec covers: re.compile() error-raising for invalid patterns; re.match/search returning None for no-match; match object group() and groups(); re.findall() list length; re.sub() result equality."
+    - "re.compile('(invalid') raises re.error (PatternError) — unmatched parenthesis; verified with Python 3.14.3."
+    - "re.compile('[invalid') raises re.error (PatternError) — unmatched bracket; verified with Python 3.14.3."
+    - "re.match('hello', 'world') returns None — no match; type(None).__name__ == 'NoneType'; verified with Python 3.14.3."
+    - "re.search(r'\\d+', 'no digits') returns None — no digits in string; verified with Python 3.14.3."
+    - "re.match(r'(\\w+)\\s(\\w+)', 'hello world').group(1) == 'hello'; group(2) == 'world'; groups().__len__() == 2; verified with Python 3.14.3."
+    - "re.findall(r'\\d+', 'a1b2c3') returns ['1','2','3'] — 3 matches; verified with Python 3.14.3."
+    - "re.findall(r'\\d+', 'no digits') returns [] — 0 matches; verified with Python 3.14.3."
+    - "re.sub(r'\\d', 'X', 'a1b2c3') == 'aXbXcX' — replaces each digit with X; verified with Python 3.14.3."
+    - "re.error is re.PatternError in Python 3.14 — re.error is an alias for PatternError (renamed in 3.13); re.error still works; verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.compile() raises re.error for invalid patterns
+# Unmatched parenthesis and unmatched bracket both cause re.error
+# (PatternError in Python 3.14, but re.error still works as alias).
+# ---------------------------------------------------------------------------
+
+invariant re_extra222.compile.unmatched_paren_raises:
+  description: "re.compile('(invalid') raises re.error — unmatched opening parenthesis is a regex syntax error; re.error is PatternError in Python 3.14; verified with Python 3.14.3"
+  category: errors
+  kind: python_call_raises
+  function: re.compile
+  args: ["(invalid"]
+  raises: re.error
+
+invariant re_extra222.compile.unmatched_bracket_raises:
+  description: "re.compile('[invalid') raises re.error — unmatched opening bracket (character set) is a regex syntax error; verified with Python 3.14.3"
+  category: errors
+  kind: python_call_raises
+  function: re.compile
+  args: ["[invalid"]
+  raises: re.error
+
+# ---------------------------------------------------------------------------
+# re.match / re.search returning None for no-match
+# These functions return None (not raise) when there is no match.
+# We use __class__.__name__ to confirm the NoneType result.
+# ---------------------------------------------------------------------------
+
+invariant re_extra222.match.no_match_none_type:
+  description: "re.match('hello', 'world') returns None; type(result).__name__ == 'NoneType'; match anchors at position 0 and finds no match; verified with Python 3.14.3"
+  category: no_match
+  kind: python_call_eq
+  function: "match('hello', 'world').__class__.__name__.__eq__"
+  args: ["NoneType"]
+  expected: true
+
+invariant re_extra222.search.no_digits_none_type:
+  description: "re.search(r'\\d+', 'no digits') returns None; type(result).__name__ == 'NoneType'; no digits present in input string; verified with Python 3.14.3"
+  category: no_match
+  kind: python_call_eq
+  function: "search('\\\\d+', 'no digits').__class__.__name__.__eq__"
+  args: ["NoneType"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Match object group() and groups()
+# re.match(r'(\w+)\s(\w+)', 'hello world') produces two capture groups.
+# group(1) == 'hello', group(2) == 'world', groups().__len__() == 2.
+# ---------------------------------------------------------------------------
+
+invariant re_extra222.match.group1:
+  description: "re.match(r'(\\w+)\\s(\\w+)', 'hello world').group(1) == 'hello' — first capture group; verified with Python 3.14.3"
+  category: match
+  kind: python_call_eq
+  function: "match('(\\\\w+)\\\\s(\\\\w+)', 'hello world').group"
+  args: [1]
+  expected: "hello"
+
+invariant re_extra222.match.group2:
+  description: "re.match(r'(\\w+)\\s(\\w+)', 'hello world').group(2) == 'world' — second capture group; verified with Python 3.14.3"
+  category: match
+  kind: python_call_eq
+  function: "match('(\\\\w+)\\\\s(\\\\w+)', 'hello world').group"
+  args: [2]
+  expected: "world"
+
+invariant re_extra222.match.groups_len:
+  description: "re.match(r'(\\w+)\\s(\\w+)', 'hello world').groups().__len__() == 2 — groups() returns tuple of all capture group strings; two groups; verified with Python 3.14.3"
+  category: match
+  kind: python_call_eq
+  function: "match('(\\\\w+)\\\\s(\\\\w+)', 'hello world').groups().__len__"
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# re.findall() result list length
+# findall returns a list of all non-overlapping matches.
+# ---------------------------------------------------------------------------
+
+table re_extra222.findall_lengths:
+  description: "re.findall() list length for digit pattern: 3 matches in 'a1b2c3', 0 matches in 'no digits'; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: findall
+  id_prefix: refindalll222
+
+  columns: [id, function, args, expected]
+  rows:
+    - [digits_len,    "findall('\\\\d+', 'a1b2c3').__len__",    [], 3]
+    - [nodigits_len,  "findall('\\\\d+', 'no digits').__len__", [], 0]
+
+# ---------------------------------------------------------------------------
+# re.sub() result equality
+# sub replaces all occurrences of the pattern with the replacement string.
+# ---------------------------------------------------------------------------
+
+invariant re_extra222.sub.digits_to_x:
+  description: "re.sub(r'\\d', 'X', 'a1b2c3').__eq__('aXbXcX') == True — each digit replaced by 'X'; verified with Python 3.14.3"
+  category: substitution
+  kind: python_call_eq
+  function: "sub('\\\\d', 'X', 'a1b2c3').__eq__"
+  args: ["aXbXcX"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant re_extra222.findall.digits.len3:
+  description: "re.findall(r'\\d+', 'a1b2c3').__len__() == 3 — finds '1', '2', '3'; verified with Python 3.14.3"
+  category: findall
+  kind: python_call_eq
+  function: "findall('\\\\d+', 'a1b2c3').__len__"
+  args: []
+  expected: 3
+
+invariant re_extra222.findall.nodigits.len0:
+  description: "re.findall(r'\\d+', 'no digits').__len__() == 0 — no digits in input string; verified with Python 3.14.3"
+  category: findall
+  kind: python_call_eq
+  function: "findall('\\\\d+', 'no digits').__len__"
+  args: []
+  expected: 0

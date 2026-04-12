@@ -1,0 +1,211 @@
+spec: threading_extra221
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec covers threading RLock, Semaphore, BoundedSemaphore, Lock, and Thread behavioral contracts."
+    - "threading.RLock is a factory function (not a class); RLock.__class__.__name__ == 'function'. Verified with Python 3.14.3."
+    - "threading.RLock().__class__.__name__ == 'RLock' — the factory returns an _RLock instance whose type name is 'RLock'. Verified with Python 3.14.3."
+    - "threading.Semaphore.__name__ == 'Semaphore'; __module__ == 'threading'; __bases__[0].__name__ == 'object'. Verified with Python 3.14.3."
+    - "threading.Semaphore(0) is valid; Semaphore(-1) raises ValueError. Verified with Python 3.14.3."
+    - "threading.BoundedSemaphore(-1) raises ValueError. Verified with Python 3.14.3."
+    - "threading.Lock is a type (not a plain function); Lock.__class__.__name__ == 'type'. Verified with Python 3.14.3."
+    - "threading.Lock().__class__.__name__ == 'lock' — Lock() returns a primitive lock object. Verified with Python 3.14.3."
+    - "threading.Thread.__name__ == 'Thread'; __module__ == 'threading'; __bases__[0].__name__ == 'object'. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: threading.RLock factory function checks
+#
+# RLock is a module-level factory function (not a class).
+# Verified with Python 3.14.3:
+#   threading.RLock.__class__.__name__ == 'function'
+#   threading.RLock().__class__.__name__ == 'RLock'
+# ---------------------------------------------------------------------------
+
+table threading_extra221.rlock_identity:
+  description: "threading.RLock factory function and instance class name checks; new to extra221"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingextra221rlock
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [rlock_class_name_eq,
+       RLock.__class__.__name__.__eq__,
+       ["function"],
+       true,
+       "threading.RLock.__class__.__name__.__eq__('function') == True — RLock is a module-level factory function in Lib/threading.py (not a class); it returns a new _RLock instance; its __class__ is the function type; str.__eq__('function') returns True; new to extra221"]
+
+# ---------------------------------------------------------------------------
+# Table 2: threading.Semaphore identity and base class checks
+#
+# Verified with Python 3.14.3:
+#   Semaphore.__name__ == 'Semaphore'
+#   Semaphore.__module__ == 'threading'
+#   Semaphore.__bases__[0].__name__ == 'object'
+#   Semaphore(0).__class__.__name__ == 'Semaphore'
+# ---------------------------------------------------------------------------
+
+table threading_extra221.semaphore_identity:
+  description: "threading.Semaphore __name__, __module__, and base class checks; new to extra221"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingextra221semaphore
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [semaphore_name_eq,
+       Semaphore.__name__.__eq__,
+       ["Semaphore"],
+       true,
+       "threading.Semaphore.__name__.__eq__('Semaphore') == True — Semaphore is a class defined in Lib/threading.py; its __name__ is 'Semaphore'; str.__eq__('Semaphore') returns True; new to extra221"]
+    - [semaphore_module_eq,
+       Semaphore.__module__.__eq__,
+       ["threading"],
+       true,
+       "threading.Semaphore.__module__.__eq__('threading') == True — Semaphore is defined in the threading module; its __module__ is 'threading'; str.__eq__('threading') returns True; new to extra221"]
+    - [semaphore_base_name_eq,
+       Semaphore.__bases__.__getitem__(0).__name__.__eq__,
+       ["object"],
+       true,
+       "threading.Semaphore.__bases__[0].__name__.__eq__('object') == True — Semaphore inherits directly from object with no intermediate base classes; str.__eq__('object') returns True; new to extra221"]
+    - [semaphore_zero_class_name_eq,
+       Semaphore.__call__(0).__class__.__name__.__eq__,
+       ["Semaphore"],
+       true,
+       "threading.Semaphore(0).__class__.__name__.__eq__('Semaphore') == True — Semaphore(0) creates a semaphore with initial count 0; the resulting instance's __class__.__name__ is 'Semaphore'; str.__eq__('Semaphore') returns True; new to extra221"]
+
+# ---------------------------------------------------------------------------
+# Table 3: threading.Semaphore and BoundedSemaphore — ValueError on negative
+#
+# Verified with Python 3.14.3:
+#   threading.Semaphore(-1) -> ValueError: semaphore initial value must be >= 0
+#   threading.BoundedSemaphore(-1) -> ValueError: semaphore initial value >= 0
+# ---------------------------------------------------------------------------
+
+table threading_extra221.semaphore_negative_raises:
+  description: "Semaphore(-1) and BoundedSemaphore(-1) raise ValueError; new to extra221"
+  kind: python_call_raises
+  category: errors
+  id_prefix: threadingextra221semaphoreerr
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [semaphore_neg_raises_ValueError,
+       Semaphore,
+       [-1],
+       ValueError,
+       "threading.Semaphore(-1) raises ValueError — the initial semaphore count must be >= 0; -1 is negative; Python raises ValueError: semaphore initial value must be >= 0; new to extra221"]
+    - [bounded_semaphore_neg_raises_ValueError,
+       BoundedSemaphore,
+       [-1],
+       ValueError,
+       "threading.BoundedSemaphore(-1) raises ValueError — the initial bounded semaphore count must be >= 0; -1 is negative; Python raises ValueError: semaphore initial value must be >= 0; new to extra221"]
+
+# ---------------------------------------------------------------------------
+# Table 4: threading.Thread identity checks
+#
+# Verified with Python 3.14.3:
+#   Thread.__name__ == 'Thread'
+#   Thread.__module__ == 'threading'
+#   Thread.__bases__[0].__name__ == 'object'
+# ---------------------------------------------------------------------------
+
+table threading_extra221.thread_identity:
+  description: "threading.Thread __name__, __module__, and base class checks; new to extra221"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingextra221thread
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [thread_name_eq,
+       Thread.__name__.__eq__,
+       ["Thread"],
+       true,
+       "threading.Thread.__name__.__eq__('Thread') == True — Thread is a class defined in Lib/threading.py; its __name__ is 'Thread'; str.__eq__('Thread') returns True; new to extra221"]
+    - [thread_module_eq,
+       Thread.__module__.__eq__,
+       ["threading"],
+       true,
+       "threading.Thread.__module__.__eq__('threading') == True — Thread is defined in the threading module; its __module__ is 'threading'; str.__eq__('threading') returns True; new to extra221"]
+    - [thread_base_name_eq,
+       Thread.__bases__.__getitem__(0).__name__.__eq__,
+       ["object"],
+       true,
+       "threading.Thread.__bases__[0].__name__.__eq__('object') == True — Thread inherits directly from object; its first base class is object; str.__eq__('object') returns True; new to extra221"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra221
+# ---------------------------------------------------------------------------
+
+invariant threading_extra221.semaphore_neg_ValueError:
+  description: "threading.Semaphore(-1) raises ValueError — initial value must be >= 0; new to extra221"
+  kind: python_call_raises
+  category: errors
+  function: Semaphore
+  args: [-1]
+  expected: ValueError
+
+invariant threading_extra221.bounded_semaphore_neg_ValueError:
+  description: "threading.BoundedSemaphore(-1) raises ValueError — initial value must be >= 0; new to extra221"
+  kind: python_call_raises
+  category: errors
+  function: BoundedSemaphore
+  args: [-1]
+  expected: ValueError
+
+invariant threading_extra221.rlock_class_name:
+  description: "threading.RLock.__class__.__name__.__eq__('function') == True — RLock is a factory function; new to extra221"
+  kind: python_call_eq
+  function: RLock.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant threading_extra221.semaphore_name:
+  description: "threading.Semaphore.__name__.__eq__('Semaphore') == True; new to extra221"
+  kind: python_call_eq
+  function: Semaphore.__name__.__eq__
+  args: ["Semaphore"]
+  expected: true
+
+invariant threading_extra221.semaphore_module:
+  description: "threading.Semaphore.__module__.__eq__('threading') == True; new to extra221"
+  kind: python_call_eq
+  function: Semaphore.__module__.__eq__
+  args: ["threading"]
+  expected: true
+
+invariant threading_extra221.thread_name:
+  description: "threading.Thread.__name__.__eq__('Thread') == True; new to extra221"
+  kind: python_call_eq
+  function: Thread.__name__.__eq__
+  args: ["Thread"]
+  expected: true
+
+invariant threading_extra221.thread_module:
+  description: "threading.Thread.__module__.__eq__('threading') == True; new to extra221"
+  kind: python_call_eq
+  function: Thread.__module__.__eq__
+  args: ["threading"]
+  expected: true
+
+invariant threading_extra221.thread_base_name:
+  description: "threading.Thread.__bases__[0].__name__.__eq__('object') == True; new to extra221"
+  kind: python_call_eq
+  function: Thread.__bases__.__getitem__(0).__name__.__eq__
+  args: ["object"]
+  expected: true

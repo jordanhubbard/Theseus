@@ -1,0 +1,127 @@
+spec: struct_extra215
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "struct.pack('!H', 65536) raises struct.error — 'H' format requires 0 <= number <= 65535."
+    - "struct.pack('!B', 256) raises struct.error — 'B' format requires 0 <= number <= 255."
+    - "struct.unpack('!H', b'\\x00\\x01') == (1,); [0] == 1."
+    - "struct.unpack('!H', b'\\xff\\xff')[0] == 65535 — max unsigned short."
+    - "struct.unpack('!I', b'\\x00\\x00\\x00\\x01')[0] == 1."
+    - "struct.unpack('!I', b'\\xff\\xff\\xff\\xff')[0] == 4294967295 — max unsigned int."
+    - "struct.pack('!HH', 1, 2) == b'\\x00\\x01\\x00\\x02' — two big-endian unsigned shorts."
+    - "struct.calcsize('!HH') == 4; struct.calcsize('!4B') == 4."
+    - "struct.error.__name__ == 'error'."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.pack — raises struct.error for out-of-range values
+#
+# struct.pack('!H', 65536) raises struct.error  (max for 'H' is 65535)
+# struct.pack('!B', 256)   raises struct.error  (max for 'B' is 255)
+# ---------------------------------------------------------------------------
+
+table struct_extra215.pack_out_of_range_raises:
+  description: "struct.pack raises struct.error for values exceeding the format range in structeq215 namespace — wave 215 theme: struct.pack('!H', 65536) raises struct.error; struct.pack('!B', 256) raises struct.error; 'H' (unsigned short) max is 65535; 'B' (unsigned char) max is 255; network byte order '!' uses standard sizes; verified with Python 3.14.3"
+  kind: python_call_raises
+  category: errors
+  id_prefix: structeq215
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pack_H_too_large,  struct.pack,  ["!H", 65536],  struct.error,  "struct.pack('!H', 65536) raises struct.error — 65536 exceeds unsigned short maximum 65535"]
+    - [pack_B_too_large,  struct.pack,  ["!B", 256],    struct.error,  "struct.pack('!B', 256) raises struct.error — 256 exceeds unsigned char maximum 255"]
+
+# ---------------------------------------------------------------------------
+# struct.unpack — big-endian unsigned short values
+#
+# struct.unpack('!H', b'\x00\x01')[0] == 1
+# struct.unpack('!H', b'\xff\xff')[0] == 65535
+# ---------------------------------------------------------------------------
+
+table struct_extra215.unpack_ushort_values:
+  description: "struct.unpack big-endian unsigned short value checks in structeq215a namespace — wave 215 theme: b'\\x00\\x01' decodes to 1 (minimum non-zero value for 'H'); b'\\xff\\xff' decodes to 65535 (maximum value for 'H'); network byte order is big-endian (MSB first); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: unpack_values
+  id_prefix: structeq215a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [unpack_H_one,  "struct.unpack('!H', b'\\x00\\x01').__getitem__",  [0], 1,     "struct.unpack('!H', b'\\x00\\x01')[0] == 1 — big-endian unsigned short 0x0001 is 1"]
+    - [unpack_H_max,  "struct.unpack('!H', b'\\xff\\xff').__getitem__",  [0], 65535, "struct.unpack('!H', b'\\xff\\xff')[0] == 65535 — max unsigned short (all bits set)"]
+
+# ---------------------------------------------------------------------------
+# struct.unpack — big-endian unsigned int values
+#
+# struct.unpack('!I', b'\x00\x00\x00\x01')[0] == 1
+# struct.unpack('!I', b'\xff\xff\xff\xff')[0] == 4294967295
+# ---------------------------------------------------------------------------
+
+table struct_extra215.unpack_uint_values:
+  description: "struct.unpack big-endian unsigned int value checks in structeq215b namespace — wave 215 theme: b'\\x00\\x00\\x00\\x01' decodes to 1 (minimum non-zero 32-bit value); b'\\xff\\xff\\xff\\xff' decodes to 4294967295 (maximum uint32 = 2^32-1); network byte order '!' is big-endian; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: unpack_values
+  id_prefix: structeq215b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [unpack_I_one,  "struct.unpack('!I', b'\\x00\\x00\\x00\\x01').__getitem__",  [0], 1,          "struct.unpack('!I', b'\\x00\\x00\\x00\\x01')[0] == 1 — big-endian unsigned int 0x00000001 is 1"]
+    - [unpack_I_max,  "struct.unpack('!I', b'\\xff\\xff\\xff\\xff').__getitem__",  [0], 4294967295, "struct.unpack('!I', b'\\xff\\xff\\xff\\xff')[0] == 4294967295 — max uint32 (all bits set; 2^32-1)"]
+
+# ---------------------------------------------------------------------------
+# struct.pack('!HH', 1, 2) — two big-endian unsigned shorts
+#
+# struct.pack('!HH', 1, 2) == b'\x00\x01\x00\x02'
+# ---------------------------------------------------------------------------
+
+invariant struct_extra215.pack_HH_1_2:
+  description: "struct.pack('!HH', 1, 2) == b'\\x00\\x01\\x00\\x02' — two consecutive big-endian unsigned shorts: 1 encodes as 0x0001 and 2 encodes as 0x0002; total 4 bytes in network byte order; verified with Python 3.14.3"
+  category: pack_values
+  kind: python_call_eq
+  function: "struct.pack"
+  args: ["!HH", 1, 2]
+  expected: !hex 00010002
+
+# ---------------------------------------------------------------------------
+# struct.calcsize — compute format byte sizes
+#
+# struct.calcsize('!HH') == 4
+# struct.calcsize('!4B') == 4
+# ---------------------------------------------------------------------------
+
+table struct_extra215.calcsize_values:
+  description: "struct.calcsize format size checks in structeq215c namespace — wave 215 theme: '!HH' is two unsigned shorts = 4 bytes; '!4B' is four unsigned chars = 4 bytes; network byte order '!' uses standard sizes; the repeat count prefix multiplies the element size; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: calcsize
+  id_prefix: structeq215c
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [calcsize_HH,  struct.calcsize,  ["!HH"],  4,  "struct.calcsize('!HH') == 4 — two unsigned shorts at 2 bytes each = 4 bytes total"]
+    - [calcsize_4B,  struct.calcsize,  ["!4B"],  4,  "struct.calcsize('!4B') == 4 — four unsigned chars at 1 byte each = 4 bytes total"]
+
+# ---------------------------------------------------------------------------
+# struct.error class name identity
+#
+# struct.error.__name__ == 'error'
+# ---------------------------------------------------------------------------
+
+invariant struct_extra215.error_class_name:
+  description: "struct.error.__name__ == 'error' — the struct exception class simple name is 'error'; struct.error is the exception raised for all packing and unpacking failures; verified with Python 3.14.3"
+  category: class_identity
+  kind: python_call_eq
+  function: "struct.error.__name__.__eq__"
+  args: ["error"]
+  expected: true
