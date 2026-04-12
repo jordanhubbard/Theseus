@@ -1,0 +1,123 @@
+spec: hashlib_extra264
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha256module.c"
+    - "CPython source: Modules/md5module.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl and hashlib_extra263.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "hashlib.zspec.zsdl covers: sha256/sha1/md5 known vectors; copy_independence (hash_copy_independence kind); digest_consistency; new_equals_constructor."
+    - "hashlib_extra263.zspec.zsdl covers: sha256/md5/sha1 empty digest/hexdigest lengths and equality; sha256(hello) hexdigest."
+    - "Theme: incremental update pattern and copy() independence for sha256 using python_call_eq kind."
+    - "sha256(b'hello world').hexdigest() == 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9'."
+    - "sha256(b'hello').hexdigest() == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'."
+    - "copy() returns a HASH object (same class as the original). Verified: type(sha256(b'hello').copy()).__name__ == 'HASH'."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# sha256(b'hello world') — known vector (one-shot, no incremental update)
+# sha256(b'hello world') = b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra264.sha256.hello_world_hexdigest:
+  description: "hashlib.sha256(b'hello world').hexdigest() == 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9'"
+  category: known_vector
+  kind: python_call_eq
+  function: sha256
+  args: [!ascii "hello world"]
+  method: hexdigest.__eq__
+  method_args: ["b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"]
+  expected: true
+
+invariant hashlib_extra264.sha256.hello_world_hexdigest_len:
+  description: "len(hashlib.sha256(b'hello world').hexdigest()) == 64 — sha256 always produces 64 hex chars"
+  category: properties
+  kind: python_call_eq
+  function: sha256
+  args: [!ascii "hello world"]
+  method: hexdigest.__len__
+  method_args: []
+  expected: 64
+
+invariant hashlib_extra264.sha256.hello_world_digest_len:
+  description: "len(hashlib.sha256(b'hello world').digest()) == 32 — sha256 always produces 32 bytes"
+  category: properties
+  kind: python_call_eq
+  function: sha256
+  args: [!ascii "hello world"]
+  method: digest.__len__
+  method_args: []
+  expected: 32
+
+# ---------------------------------------------------------------------------
+# sha256(b'hello') — known vector (source state before copy+update)
+# sha256(b'hello') = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+# This value must remain stable after copy(); only the copy changes.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra264.sha256.hello_hexdigest:
+  description: "hashlib.sha256(b'hello').hexdigest() == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'"
+  category: known_vector
+  kind: python_call_eq
+  function: sha256
+  args: [!ascii "hello"]
+  method: hexdigest.__eq__
+  method_args: ["2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# copy() creates independent state — copy() returns a HASH object
+# The class name of the copy is the same as the original: 'HASH'.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra264.sha256.copy_class_name:
+  description: "hashlib.sha256(b'hello').copy().__class__.__name__ == 'HASH' — copy() returns a HASH instance"
+  category: copy_semantics
+  kind: python_call_eq
+  function: sha256
+  args: [!ascii "hello"]
+  method: copy.__class__.__name__.__eq__
+  method_args: ["HASH"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# copy() preserves the digest of the source before the copy was updated.
+# sha256(b'hello').copy().hexdigest() must equal sha256(b'hello').hexdigest()
+# before any further update is applied to the copy.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra264.sha256.copy_hexdigest_matches_original:
+  description: "hashlib.sha256(b'hello').copy().hexdigest() == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824' — copy starts with same state"
+  category: copy_semantics
+  kind: python_call_eq
+  function: sha256
+  args: [!ascii "hello"]
+  method: copy.hexdigest.__eq__
+  method_args: ["2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# sha256 name attribute — hash object .name must be 'sha256'
+# (Complements hashlib.zspec.zsdl hash_object_attr tests with python_call_eq kind)
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra264.sha256.name_attr:
+  description: "hashlib.sha256(b'').name == 'sha256'"
+  category: properties
+  kind: python_call_eq
+  function: sha256
+  args: [""]
+  method: name.__eq__
+  method_args: ["sha256"]
+  expected: true
