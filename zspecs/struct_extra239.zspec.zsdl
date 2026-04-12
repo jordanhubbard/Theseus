@@ -1,0 +1,160 @@
+spec: struct_extra239
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+rfcs:
+  - "IEEE 754-2019 — Standard for Floating-Point Arithmetic (for float/double format strings)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "Test vectors verified by running Python 3.14.3 struct module on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl and struct_extra.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "struct_extra.zspec.zsdl covers: Struct('>H').format, Struct('>H').size==2, Struct('>BHI').size==7; calcsize extra formats f/d/B/4s/BHI; pack_into/unpack_from/iter_unpack function names; error class name and base."
+    - "This spec focuses on: Struct('!I'), Struct('!HH'), Struct('!BHI'), Struct('!q'), Struct('!f') size and format attributes using '!' (network byte order) format prefix."
+    - "struct.Struct('!I').size == 4 — '!' is network byte order (big-endian per RFC 1700); I=uint32 is 4 bytes."
+    - "struct.Struct('!HH').size == 4 — two uint16 fields: 2+2=4 bytes. No padding in network byte order."
+    - "struct.Struct('!BHI').size == 7 — uint8(1) + uint16(2) + uint32(4) = 7 bytes (no alignment padding with '!' prefix)."
+    - "struct.Struct('!q').size == 8 — int64 is 8 bytes."
+    - "struct.Struct('!f').size == 4 — IEEE 754 single-precision float is 4 bytes."
+    - "struct.Struct.__doc__ starts with 'Struct(fmt) --> compiled struct object'; it contains 'fmt'."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.Struct — .size attribute for network byte order ('!') format strings
+# struct.zspec.zsdl and struct_extra.zspec.zsdl use '>' and '<'; this spec uses '!'
+# ---------------------------------------------------------------------------
+
+table struct_extra239.Struct.size_network_order:
+  kind: python_call_eq
+  category: Struct_size
+  function: Struct
+  id_prefix: struct239size
+
+  columns: [id, args, expected]
+  rows:
+    - [size_I,   ["!I"],   4]
+    - [size_HH,  ["!HH"],  4]
+    - [size_BHI, ["!BHI"], 7]
+    - [size_q,   ["!q"],   8]
+    - [size_f,   ["!f"],   4]
+
+# ---------------------------------------------------------------------------
+# struct.Struct — .format attribute preserved as-given for '!' prefix
+# ---------------------------------------------------------------------------
+
+table struct_extra239.Struct.format_preserved:
+  kind: python_call_eq
+  category: Struct_format
+  id_prefix: struct239size
+
+  columns: [id, function, args, expected]
+  rows:
+    - [fmt_I,   Struct.format.__eq__,   ["!I"],   true]
+    - [fmt_HH,  Struct.format.__eq__,   ["!HH"],  true]
+    - [fmt_BHI, Struct.format.__eq__,   ["!BHI"], true]
+    - [fmt_q,   Struct.format.__eq__,   ["!q"],   true]
+    - [fmt_f,   Struct.format.__eq__,   ["!f"],   true]
+
+# ---------------------------------------------------------------------------
+# struct.Struct — .size via method chain (python_call_eq, function=Struct)
+# Orthogonal coverage: call Struct(fmt) and then access .size via method chain
+# ---------------------------------------------------------------------------
+
+invariant struct_extra239.Struct_I.size_method_chain:
+  description: "struct.Struct('!I').size == 4 — uint32 in network byte order"
+  category: Struct_size
+  kind: python_call_eq
+  function: Struct
+  args: ["!I"]
+  method: size.__eq__
+  method_args: [4]
+  expected: true
+
+invariant struct_extra239.Struct_HH.size_method_chain:
+  description: "struct.Struct('!HH').size == 4 — two uint16 fields, no padding"
+  category: Struct_size
+  kind: python_call_eq
+  function: Struct
+  args: ["!HH"]
+  method: size.__eq__
+  method_args: [4]
+  expected: true
+
+invariant struct_extra239.Struct_q.size_method_chain:
+  description: "struct.Struct('!q').size == 8 — signed int64"
+  category: Struct_size
+  kind: python_call_eq
+  function: Struct
+  args: ["!q"]
+  method: size.__eq__
+  method_args: [8]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct.Struct.__doc__ — contains 'fmt' keyword
+# struct_extra.zspec.zsdl does not test the doc; only error.__name__
+# ---------------------------------------------------------------------------
+
+invariant struct_extra239.Struct.doc_contains_fmt:
+  description: "struct.Struct.__doc__.__contains__('fmt') == True — doc starts with 'Struct(fmt) --> compiled struct object'"
+  category: Struct_doc
+  kind: python_call_eq
+  function: Struct.__doc__.__contains__
+  args: ["fmt"]
+  expected: true
+
+invariant struct_extra239.Struct.doc_contains_compiled:
+  description: "struct.Struct.__doc__.__contains__('compiled') == True — doc mentions 'compiled struct object'"
+  category: Struct_doc
+  kind: python_call_eq
+  function: Struct.__doc__.__contains__
+  args: ["compiled"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# struct.Struct — additional sizes: d (float64), B (uint8), H (uint16), Q (uint64)
+# ---------------------------------------------------------------------------
+
+invariant struct_extra239.Struct_d.size:
+  description: "struct.Struct('!d').size == 8 — IEEE 754 double-precision float is 8 bytes"
+  category: Struct_size
+  kind: python_call_eq
+  function: Struct
+  args: ["!d"]
+  method: size.__eq__
+  method_args: [8]
+  expected: true
+
+invariant struct_extra239.Struct_B.size:
+  description: "struct.Struct('!B').size == 1 — unsigned byte is 1 byte"
+  category: Struct_size
+  kind: python_call_eq
+  function: Struct
+  args: ["!B"]
+  method: size.__eq__
+  method_args: [1]
+  expected: true
+
+invariant struct_extra239.Struct_H.size:
+  description: "struct.Struct('!H').size == 2 — unsigned short (uint16) is 2 bytes"
+  category: Struct_size
+  kind: python_call_eq
+  function: Struct
+  args: ["!H"]
+  method: size.__eq__
+  method_args: [2]
+  expected: true

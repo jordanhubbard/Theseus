@@ -1,0 +1,217 @@
+spec: uuid_extra235
+version: ">=3.2"
+backend: python_module(uuid)
+
+docs: https://docs.python.org/3/library/uuid.html
+rfcs:
+  - "RFC 9562 — Universally Unique IDentifiers (UUID)"
+
+provenance:
+  derived_from:
+    - "Python uuid documentation — https://docs.python.org/3/library/uuid.html"
+    - "RFC 9562 — Universally Unique IDentifiers (UUID) — https://www.rfc-editor.org/rfc/rfc9562"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/uuid.py"
+    - "CPython source: internal PRNG or MAC address resolution"
+  notes:
+    - "This spec extends uuid_extra.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "uuid.UUID uses __slots__ to enforce immutability; __slots__ is a tuple of three names: 'int', 'is_safe', '__weakref__'."
+    - "uuid.UUID.__slots__.__class__.__name__ == 'tuple' — __slots__ is always a tuple."
+    - "len(uuid.UUID.__slots__) == 3 (Python 3.14.3: ('int', 'is_safe', '__weakref__'))."
+    - "'int' is in __slots__ — the .int attribute stores the 128-bit integer value of the UUID."
+    - "'is_safe' is in __slots__ — added in Python 3.7 to indicate whether the UUID was generated safely."
+    - "'hex' is NOT in __slots__ — .hex is a computed property, not a stored slot."
+    - "uuid.UUID objects are immutable; attempting to set any attribute raises TypeError."
+    - "str(uuid.UUID('00000000-0000-0000-0000-000000000000')) == '00000000-0000-0000-0000-000000000000' (nil UUID)."
+    - "Every UUID str representation has exactly 36 characters (32 hex digits + 4 hyphens)."
+    - "uuid.UUID('00000000-0000-0000-0000-000000000000').int == 0 (nil UUID integer value)."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# UUID.__slots__ — type contract
+# __slots__ is a tuple of three slot names
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra235.slots.class_name:
+  description: "uuid.UUID.__slots__.__class__.__name__ == 'tuple' — __slots__ is a tuple"
+  category: slots
+  kind: python_call_eq
+  function: UUID.__slots__.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+invariant uuid_extra235.slots.len:
+  description: "len(uuid.UUID.__slots__) == 3 — three slot names: 'int', 'is_safe', '__weakref__'"
+  category: slots
+  kind: python_call_eq
+  function: UUID.__slots__.__len__
+  args: []
+  expected: 3
+
+# ---------------------------------------------------------------------------
+# UUID.__slots__ — membership contracts
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra235.slots.contains_int:
+  description: "'int' in uuid.UUID.__slots__ — the primary storage slot for the 128-bit integer value"
+  category: slots
+  kind: python_call_eq
+  function: UUID.__slots__.__contains__
+  args: ["int"]
+  expected: true
+
+invariant uuid_extra235.slots.contains_is_safe:
+  description: "'is_safe' in uuid.UUID.__slots__ — slot added in Python 3.7 for safe UUID generation flag"
+  category: slots
+  kind: python_call_eq
+  function: UUID.__slots__.__contains__
+  args: ["is_safe"]
+  expected: true
+
+invariant uuid_extra235.slots.not_contains_hex:
+  description: "'hex' NOT in uuid.UUID.__slots__ — .hex is a computed property, not a stored slot"
+  category: slots
+  kind: python_call_eq
+  function: UUID.__slots__.__contains__
+  args: ["hex"]
+  expected: false
+
+# ---------------------------------------------------------------------------
+# UUID.__slots__ — index access
+# slots[0] == 'int', slots[1] == 'is_safe', slots[2] == '__weakref__'
+# ---------------------------------------------------------------------------
+
+table uuid_extra235.slots.index_access:
+  kind: python_call_eq
+  category: slots
+  id_prefix: uuid235slots
+
+  columns: [id, function, args, expected]
+  rows:
+    - [slot0_is_int,       UUID.__slots__.__getitem__, [0], "int"]
+    - [slot1_is_is_safe,   UUID.__slots__.__getitem__, [1], "is_safe"]
+    - [slot2_is_weakref,   UUID.__slots__.__getitem__, [2], "__weakref__"]
+
+# ---------------------------------------------------------------------------
+# Nil UUID — string representation and length
+# RFC 9562 §5.9 defines the nil UUID as all zeros
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra235.nil_uuid.str_value:
+  description: "str(uuid.UUID('00000000-0000-0000-0000-000000000000')) == '00000000-0000-0000-0000-000000000000'"
+  category: nil_uuid
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000000"]
+  method: __str__
+  method_args: []
+  expected: "00000000-0000-0000-0000-000000000000"
+
+invariant uuid_extra235.nil_uuid.str_len:
+  description: "len(str(uuid.UUID('00000000-0000-0000-0000-000000000000'))) == 36 (32 hex digits + 4 hyphens)"
+  category: nil_uuid
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000000"]
+  method: __str__.__len__
+  method_args: []
+  expected: 36
+
+invariant uuid_extra235.nil_uuid.int_value:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000000').int == 0"
+  category: nil_uuid
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000000"]
+  method: int.__eq__
+  method_args: [0]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID str length contract — applies to all valid UUID strings
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra235.uuid.str_len_36:
+  description: "len(str(uuid.UUID('12345678-1234-5678-1234-567812345678'))) == 36 — all UUID strings are 36 chars"
+  category: str_format
+  kind: python_call_eq
+  function: UUID
+  args: ["12345678-1234-5678-1234-567812345678"]
+  method: __str__.__len__
+  method_args: []
+  expected: 36
+
+# ---------------------------------------------------------------------------
+# UUID immutability — TypeError raised when setting an attribute
+# uuid.UUID.__setattr__ raises TypeError: 'UUID objects are immutable'
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra235.uuid.immutable_setattr_raises:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000000').int = 1 raises TypeError — UUID objects are immutable"
+  category: immutability
+  kind: python_call_raises
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000000"]
+  method: __setattr__
+  method_args: ["int", 1]
+  raises: TypeError
+
+# ---------------------------------------------------------------------------
+# UUID class metadata — name and module
+# (uuid_extra.zspec.zsdl covers UUID.__name__ and UUID.__module__;
+#  this spec adds the __qualname__ check for completeness)
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra235.UUID.qualname:
+  description: "uuid.UUID.__qualname__ == 'UUID' — UUID is a top-level class in the uuid module"
+  category: class_metadata
+  kind: python_call_eq
+  function: UUID.__qualname__.__eq__
+  args: ["UUID"]
+  expected: true
+
+invariant uuid_extra235.UUID.slots_is_not_list:
+  description: "uuid.UUID.__slots__.__class__.__name__ != 'list' — __slots__ is a tuple, not a list"
+  category: slots
+  kind: python_call_eq
+  function: UUID.__slots__.__class__.__name__.__eq__
+  args: ["list"]
+  expected: false
+
+invariant uuid_extra235.slots.contains_weakref:
+  description: "'__weakref__' in uuid.UUID.__slots__ — slot to support weak references"
+  category: slots
+  kind: python_call_eq
+  function: UUID.__slots__.__contains__
+  args: ["__weakref__"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID nil — .version attribute returns None for nil UUID (RFC 9562 §5.9)
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra235.nil_uuid.version_is_none:
+  description: "uuid.UUID('00000000-0000-0000-0000-000000000000').version is None — nil UUID has no version"
+  category: nil_uuid
+  kind: python_call_eq
+  function: UUID
+  args: ["00000000-0000-0000-0000-000000000000"]
+  method: version.__class__.__name__.__eq__
+  method_args: ["NoneType"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# UUID class — __slots__ is not a set
+# ---------------------------------------------------------------------------
+
+invariant uuid_extra235.slots.class_is_tuple_not_set:
+  description: "uuid.UUID.__slots__.__class__.__name__ != 'set' — __slots__ is tuple, not set or list"
+  category: slots
+  kind: python_call_eq
+  function: UUID.__slots__.__class__.__name__.__eq__
+  args: ["set"]
+  expected: false
