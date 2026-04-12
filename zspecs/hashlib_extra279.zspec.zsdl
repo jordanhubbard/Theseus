@@ -1,0 +1,143 @@
+spec: hashlib_extra279
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha256module.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl through hashlib_extra278.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "hashlib.zspec.zsdl covers: sha256/sha1/md5/sha512/sha3_256/sha3_512/blake2b/blake2s known vectors; digest_size/block_size; algorithms_guaranteed core set and sha3 membership; digest_consistency, copy_independence, api_equivalence."
+    - "hashlib_extra2.zspec.zsdl covers: md5/sha1/sha256 empty hexdigest; algorithms_available and algorithms_guaranteed are both plain Python sets."
+    - "hashlib_extra278.zspec.zsdl covers: shake_128/shake_256 XOF hexdigest vectors and block_size/digest_size/name/class_name; shake membership in algorithms_guaranteed."
+    - "This spec focuses on: hashlib.new() returning a HASH object for valid algorithms; hashlib.new() raising ValueError for unknown algorithm names; algorithms_available type is set; algorithms_guaranteed type is set (not frozenset); sha256 empty hexdigest via hashlib.new()."
+    - "hashlib.new('sha256', b'').hexdigest() == 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' — FIPS 180-4 reference vector verified on Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hashlib.new('sha256').name == 'sha256' — the name attribute of a new() hash object matches the algorithm string. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hashlib.new('sha256').digest_size == 32 — SHA-256 produces 32 bytes (256 bits). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hashlib.new('nonexistent_xyz') raises ValueError — unknown algorithm names always raise ValueError. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "type(hashlib.algorithms_available).__name__ == 'set' — algorithms_available is a plain mutable set, not a frozenset. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "type(hashlib.algorithms_guaranteed).__name__ == 'set' — algorithms_guaranteed is a plain mutable set, not a frozenset. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hashlib.algorithms_guaranteed has 14 entries on Python 3.14.3 macOS/Darwin."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "hashlib.new() raises ValueError for unknown algorithm names. Valid algorithm names produce a HASH object."
+  stderr: "null"
+  stickiness: "N/A — hash objects are independent; module-level attributes are read-only sets."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# hashlib.new() — known vector: sha256 of empty input
+# hashlib_extra2 covers md5/sha1/sha256 empty hexdigest via direct constructors
+# (md5(), sha1(), sha256()). This spec covers the hashlib.new() API path.
+# hashlib.new('sha256', b'').hexdigest() must equal the FIPS 180-4 vector.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra279.new_api_hexdigest_vectors:
+  description: "hashlib.new() API hexdigest for sha256 and md5 empty inputs — verifies new() produces correct hash objects; distinct from direct-constructor path covered in hashlib_extra2; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: known_vector
+  function: new
+  id_prefix: newapi279
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [sha256_empty, ["sha256", ""], hexdigest, [], "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"]
+    - [md5_empty,    ["md5",    ""], hexdigest, [], "d41d8cd98f00b204e9800998ecf8427e"]
+
+# ---------------------------------------------------------------------------
+# hashlib.new() — name and digest_size attributes
+# Prior specs cover digest_size for sha256 via the sha256() constructor; this
+# spec covers the same attributes accessed via the hashlib.new() code path.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra279.new_api_attrs:
+  description: "hashlib.new() object name and digest_size attributes — verifies new() sets .name and .digest_size correctly; tested via new() path; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: properties
+  function: new
+  id_prefix: newattr279
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [sha256_name,        ["sha256"], name.__eq__,        ["sha256"], true]
+    - [sha256_digest_size, ["sha256"], digest_size.__eq__, [32],       true]
+    - [sha1_name,          ["sha1"],   name.__eq__,        ["sha1"],   true]
+    - [sha1_digest_size,   ["sha1"],   digest_size.__eq__, [20],       true]
+    - [md5_name,           ["md5"],    name.__eq__,        ["md5"],    true]
+    - [md5_digest_size,    ["md5"],    digest_size.__eq__, [16],       true]
+
+# ---------------------------------------------------------------------------
+# algorithms_available and algorithms_guaranteed — type checks
+# hashlib_extra2 notes that both are "plain Python sets" but does not
+# encode the type as a machine-readable invariant. This spec adds that check.
+# algorithms_available is a set, not a frozenset (mutable; platform-specific
+# algorithms may be added by the OpenSSL backend).
+# algorithms_guaranteed is also a plain set, not frozenset (both verified
+# Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12).
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra279.algorithms_available.type_is_set:
+  description: "type(hashlib.algorithms_available).__name__ == 'set' — algorithms_available is a plain mutable set, not a frozenset; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true
+
+invariant hashlib_extra279.algorithms_guaranteed.type_is_set:
+  description: "type(hashlib.algorithms_guaranteed).__name__ == 'set' — algorithms_guaranteed is a plain mutable set, not a frozenset; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__class__.__name__.__eq__
+  args: ["set"]
+  expected: true
+
+invariant hashlib_extra279.algorithms_available.sha256_membership:
+  description: "hashlib.algorithms_available.__contains__('sha256') == True — sha256 is always available"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_available.__contains__
+  args: ["sha256"]
+  expected: true
+
+invariant hashlib_extra279.algorithms_guaranteed.sha256_membership:
+  description: "hashlib.algorithms_guaranteed.__contains__('sha256') == True — sha256 is always guaranteed"
+  category: algorithms
+  kind: python_call_eq
+  function: algorithms_guaranteed.__contains__
+  args: ["sha256"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hashlib.new() — ValueError for unknown algorithm name
+# hashlib.zspec.zsdl notes that ValueError is raised but encodes it only
+# as a textual note. This spec adds a machine-readable python_call_raises
+# invariant for the new() API with an unknown algorithm string.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra279.new.unknown_algorithm_raises:
+  description: "hashlib.new('nonexistent_xyz_algo_abc') raises ValueError — unknown algorithm names always raise ValueError from hashlib.new(); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: new
+  args: ["nonexistent_xyz_algo_abc"]
+  raises: ValueError
+
+invariant hashlib_extra279.new.empty_string_algorithm_raises:
+  description: "hashlib.new('') raises ValueError — empty string is not a valid algorithm name; raises ValueError from hashlib.new(); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: new
+  args: [""]
+  raises: ValueError

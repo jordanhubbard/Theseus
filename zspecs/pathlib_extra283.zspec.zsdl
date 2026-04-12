@@ -1,0 +1,147 @@
+spec: pathlib_extra283
+version: ">=3.12"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/"
+  notes:
+    - "pathlib_extra282 covers Path method __qualname__ values and Path/PurePath class metadata."
+    - "This spec focuses on Path component properties: name, stem, suffix accessed on Path instances."
+    - "Path('.').name == '' — the current-directory dot path has no name component."
+    - "Path('/').name == '' — the root path has no name component."
+    - "Path('/foo/bar').name == 'bar' — name is the final path component."
+    - "Path('/foo/bar').stem == 'bar' — stem is name without its last suffix."
+    - "Path('/foo/bar.txt').suffix == '.txt' — suffix includes the leading dot."
+    - "Path('/foo/bar.txt').stem == 'bar' — stem strips the single suffix."
+    - "Path('/foo/bar.tar.gz').suffix == '.gz' — suffix is the last suffix only."
+    - "Path('/foo/bar.tar.gz').stem == 'bar.tar' — stem strips only the final suffix."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Path.name — final path component (empty string for '.' and '/')
+# ---------------------------------------------------------------------------
+
+table pathlib_extra283.path_name:
+  description: "pathlib.Path.name property — final path component string"
+  kind: python_call_eq
+  category: components
+  id_prefix: name
+  function: Path
+  method: name
+
+  columns: [id, args, expected]
+  rows:
+    - [dot,          ["."],             ""     ]
+    - [root,         ["/"],             ""     ]
+    - [simple_dir,   ["/foo/bar"],      "bar"  ]
+    - [txt_file,     ["/foo/bar.txt"],  "bar.txt"]
+    - [tar_gz,       ["/foo/bar.tar.gz"], "bar.tar.gz"]
+    - [top_level,    ["/foo"],          "foo"  ]
+
+# ---------------------------------------------------------------------------
+# Path.stem — name without its last suffix
+# ---------------------------------------------------------------------------
+
+table pathlib_extra283.path_stem:
+  description: "pathlib.Path.stem property — name without the last suffix"
+  kind: python_call_eq
+  category: components
+  id_prefix: stem
+  function: Path
+  method: stem
+
+  columns: [id, args, expected]
+  rows:
+    - [no_suffix,    ["/foo/bar"],        "bar"    ]
+    - [txt_suffix,   ["/foo/bar.txt"],    "bar"    ]
+    - [tar_gz,       ["/foo/bar.tar.gz"], "bar.tar"]
+    - [dotfile,      ["/foo/.hidden"],    ".hidden"]
+
+# ---------------------------------------------------------------------------
+# Path.suffix — last suffix including the leading dot, or '' if none
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra283.Path.suffix.no_suffix:
+  description: "pathlib.Path('/foo/bar').suffix == '' — no extension means empty suffix"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["/foo/bar"]
+  method: suffix
+  expected: ""
+
+invariant pathlib_extra283.Path.suffix.txt:
+  description: "pathlib.Path('/foo/bar.txt').suffix == '.txt' — suffix includes the leading dot"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["/foo/bar.txt"]
+  method: suffix
+  expected: ".txt"
+
+invariant pathlib_extra283.Path.suffix.tar_gz:
+  description: "pathlib.Path('/foo/bar.tar.gz').suffix == '.gz' — only the last suffix is returned"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["/foo/bar.tar.gz"]
+  method: suffix
+  expected: ".gz"
+
+invariant pathlib_extra283.Path.suffix.dotfile:
+  description: "pathlib.Path('/foo/.hidden').suffix == '' — dotfiles with no extension have empty suffix"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["/foo/.hidden"]
+  method: suffix
+  expected: ""
+
+# ---------------------------------------------------------------------------
+# Path.name for dot and root are both '' — confirming edge cases
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra283.Path.name.dot_is_empty:
+  description: "pathlib.Path('.').name == '' — the dot path has no name component"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["."]
+  method: name
+  expected: ""
+
+invariant pathlib_extra283.Path.name.root_is_empty:
+  description: "pathlib.Path('/').name == '' — the root path has no name component"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["/"]
+  method: name
+  expected: ""
+
+invariant pathlib_extra283.Path.anchor.absolute:
+  description: "pathlib.Path('/foo/bar').anchor == '/' — absolute path anchor is '/'"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["/foo/bar"]
+  method: anchor
+  expected: "/"
+
+invariant pathlib_extra283.Path.anchor.relative:
+  description: "pathlib.Path('.').anchor == '' — relative path has no anchor"
+  category: components
+  kind: python_call_eq
+  function: Path
+  args: ["."]
+  method: anchor
+  expected: ""

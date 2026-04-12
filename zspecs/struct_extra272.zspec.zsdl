@@ -1,0 +1,126 @@
+spec: struct_extra272
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl through struct_extra271.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "struct.zspec.zsdl covers: pack/unpack vectors for B/b/H/h/I/i/Q/q/f/d/?/e/x; calcsize; roundtrip; error cases. The '3x' pad in struct.zspec.zsdl is a multi-count pad, but single 'x' calcsize is also listed there."
+    - "struct_extra271.zspec.zsdl covers: Struct '!' format sizes, pack/unpack, format attribute, class identity, invalid format raises struct.error."
+    - "struct_extra270.zspec.zsdl covers: pack_into/unpack_from/iter_unpack; struct.error hierarchy."
+    - "This spec focuses on: 'x' single pad byte calcsize==1; 'c' char format calcsize==1; struct.pack('3s', b'abc')==b'abc'; struct.pack('?', True)==b'\\x01'; unpack of 3s and c; calcsize for multi-pad '5x'; read-only bytes raises TypeError in pack_into."
+    - "struct format character 'x': pad byte — contributes 1 byte to the packed size and produces a null byte on pack; struct.calcsize('x') == 1. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct format character 'c': char — packs/unpacks a single byte; struct.calcsize('c') == 1. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('3s', b'abc') == b'abc' — '3s' packs a 3-byte string unchanged. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('?', True) == b'\\x01' — '?' packs a bool as a single byte (0 or 1). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.calcsize('5x') == 5 — '5x' is 5 pad bytes. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('3s', b'abc') == (b'abc',) — '3s' unpack returns a 1-tuple containing a bytes object. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('c', b'A') == (b'A',) — 'c' unpack returns a 1-tuple containing a single-byte bytes object. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. TypeError is raised for non-writable buffers in pack_into."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# calcsize for 'x' (pad), 'c' (char), and '5x' (multi-pad)
+# struct.zspec.zsdl covers '3x' (calcsize == 3) but not single 'x' or '5x'
+# as standalone invariants, and not 'c'. These are novel coverage axes.
+# 'x' = pad byte: 1 byte written as null; no corresponding Python value.
+# 'c' = char: 1 byte; maps to a bytes object of length 1 in Python.
+# ---------------------------------------------------------------------------
+
+table struct_extra272.calcsize_pad_and_char:
+  description: "struct.calcsize for 'x' (pad byte), 'c' (char), and multi-count pads — novel coverage; struct.zspec.zsdl covers '3x' but not single 'x' or '5x'; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: calcsz272
+
+  columns: [id, args, expected]
+  rows:
+    - [x_single, ["x"],  1]
+    - [c_char,   ["c"],  1]
+    - [x_five,   ["5x"], 5]
+    - [s_single, ["s"],  1]
+    - [s_three,  ["3s"], 3]
+
+# ---------------------------------------------------------------------------
+# struct.pack — 'c' and '3s' format characters
+# struct.zspec.zsdl covers '?'/x/B/b/H/h/I/i/Q/q/f/d/e with pack vectors.
+# No prior spec covers pack with 'c' (char) or '3s' (3-byte string).
+# ---------------------------------------------------------------------------
+
+invariant struct_extra272.pack.c_char_A:
+  description: "struct.pack('c', b'A') == b'A' — 'c' format packs a single-byte bytes object unchanged; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["c", !hex 41]
+  expected: !hex 41
+
+invariant struct_extra272.pack.3s_abc:
+  description: "struct.pack('3s', b'abc') == b'abc' — '3s' packs a 3-byte string as raw bytes with no transformation; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["3s", !hex 616263]
+  expected: !hex 616263
+
+invariant struct_extra272.pack.bool_true_is_0x01:
+  description: "struct.pack('?', True) == b'\\x01' — '?' packs True as byte value 1; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["?", true]
+  expected: !hex 01
+
+# ---------------------------------------------------------------------------
+# struct.unpack — 'c' and '3s' format characters
+# struct.zspec.zsdl covers unpack for B/H/I/q/Q with big/little-endian.
+# No prior spec covers unpack with 'c' or '3s'.
+# unpack('3s', b'abc') returns (b'abc',) — a 1-tuple of a bytes object.
+# unpack('c', b'A') returns (b'A',) — a 1-tuple of a single-byte bytes.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra272.unpack.3s_abc:
+  description: "struct.unpack('3s', b'abc') == (b'abc',) — '3s' unpack returns a 1-tuple with a bytes object; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["3s", !hex 616263]
+  expected: [!hex 616263]
+
+invariant struct_extra272.unpack.c_char_A:
+  description: "struct.unpack('c', b'A') == (b'A',) — 'c' unpack returns a 1-tuple with a single-byte bytes object; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["c", !hex 41]
+  expected: [!hex 41]
+
+# ---------------------------------------------------------------------------
+# struct.pack_into — TypeError for read-only bytes buffer
+# struct_extra270 covers pack_into TypeError for str buffer.
+# This spec covers pack_into TypeError for a read-only bytes object (not str).
+# bytes is immutable and is not a valid writable buffer for pack_into.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra272.pack_into.readonly_bytes_raises:
+  description: "struct.pack_into('>H', bytes(2), 0, 256) raises TypeError — bytes is read-only; pack_into requires a writable (read-write) bytes-like object; distinct from str case covered in struct_extra270; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: pack_into
+  args: [">H", !hex 0000, 0, 256]
+  raises: TypeError
