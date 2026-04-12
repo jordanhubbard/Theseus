@@ -1,0 +1,153 @@
+spec: struct_extra229
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra222.zspec.zsdl — covers pack('!B',0)==b'\\x00'; pack('!B',255)==b'\\xff'; pack('!H',0)==b'\\x00\\x00'; pack('!H',256)==b'\\x01\\x00'; pack('!I',256)==b'\\x00\\x00\\x01\\x00'"
+    - "struct_extra214.zspec.zsdl — covers Struct('!H').pack(1)==b'\\x00\\x01'; Struct('!I').pack(1)==b'\\x00\\x00\\x00\\x01'"
+    - "struct_extra14.zspec.zsdl — covers pack('>I',1)==b'\\x00\\x00\\x00\\x01'"
+    - "struct_extra11.zspec.zsdl — covers pack('<H',256)==b'\\x00\\x01'; pack('>B',127)==b'\\x7f'"
+    - "struct_extra6.zspec.zsdl — covers pack('>b',127)==b'\\x7f'; pack('>b',-128)==b'\\x80'"
+    - "struct_extra215.zspec.zsdl — covers unpack('!H',b'\\xff\\xff')[0]==65535; unpack('!I',b'\\x00\\x00\\x00\\x01')[0]==1"
+  notes:
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+    - "struct.pack('!H', 1) == b'\\x00\\x01' — network byte order unsigned short 1; MSB 0x00, LSB 0x01."
+    - "struct.pack('!H', 65535) == b'\\xff\\xff' — network byte order unsigned short 65535 (max); both bytes 0xFF."
+    - "struct.pack('!I', 1) == b'\\x00\\x00\\x00\\x01' — network byte order unsigned int 1; three zero bytes then 0x01."
+    - "struct.pack('!B', 127) == b'\\x7f' — network byte order unsigned byte 127; same as pack('>B',127) (1-byte format)."
+    - "struct.pack('!B', 128) == b'\\x80' — network byte order unsigned byte 128; first bit set; byte boundary."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.pack('!H', ...) — network byte order unsigned short value contracts
+#
+# struct.pack('!H', 1)     == b'\x00\x01'
+# struct.pack('!H', 65535) == b'\xff\xff'
+#
+# '!' prefix selects network byte order (big-endian per RFC 1700). 'H' is
+# unsigned short (2 bytes). Value 1 encodes as 0x0001 (big-endian): MSB
+# first gives b'\x00\x01'. Value 65535 (0xFFFF, the max for uint16) encodes
+# as b'\xff\xff' with both bytes set.
+#
+# Coverage note: pack('!H', 1) == b'\x00\x01' is novel — struct_extra11 has
+# pack('<H', 256) == b'\x00\x01' (little-endian 256, different semantics);
+# struct_extra214 uses Struct('!H').pack(1) (instance method, not module-level).
+# pack('!H', 65535) == b'\xff\xff' is novel — struct_extra215 covers the
+# inverse unpack direction only.
+# ---------------------------------------------------------------------------
+
+table struct_extra229.pack_network_H_values:
+  description: "pack('!H',1)==b'\\x00\\x01'; pack('!H',65535)==b'\\xff\\xff'; network byte order unsigned short value contracts; new to struct_extra229"
+  kind: python_call_eq
+  category: pack_values
+  id_prefix: struct229
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pack_netH_1,
+       pack,
+       ["!H", 1],
+       !hex 0001,
+       "struct.pack('!H', 1) == b'\\x00\\x01' — network byte order unsigned short 1; MSB is 0x00, LSB is 0x01; novel: module-level pack with !H and value 1; new anchor in struct_extra229 namespace; verified Python 3.14.3"]
+    - [pack_netH_65535,
+       pack,
+       ["!H", 65535],
+       !hex ffff,
+       "struct.pack('!H', 65535) == b'\\xff\\xff' — network byte order unsigned short 65535 (maximum uint16 value, 2^16-1); both bytes are 0xFF; novel pack direction (struct_extra215 covers only unpack); new anchor in struct_extra229 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# struct.pack('!I', 1) — network byte order unsigned int value contract
+#
+# struct.pack('!I', 1) == b'\x00\x00\x00\x01'
+#
+# 'I' is unsigned int (4 bytes). Value 1 encodes as 0x00000001 in network
+# (big-endian) order: three zero bytes followed by 0x01.
+#
+# Coverage note: struct_extra14 has pack('>I', 1) == b'\x00\x00\x00\x01'
+# (big-endian explicit prefix '>'); struct_extra214 has Struct('!I').pack(1)
+# (Struct instance method). Module-level pack('!I', 1) using the '!' prefix
+# is not covered by any prior spec. Novel.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra229.pack_netI_1:
+  description: "struct.pack('!I', 1) == b'\\x00\\x00\\x00\\x01' — network byte order unsigned int 1; three zero bytes then 0x01; '!' is RFC 1700 network byte order (identical to '>'); novel: module-level pack with '!' prefix and uint32 value 1; struct_extra14 covers pack('>I',1) only; struct_extra229 is first namespace for pack('!I',1) as standalone; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: ["!I", 1]
+  expected: !hex 00000001
+
+# ---------------------------------------------------------------------------
+# struct.pack('!B', 127) and struct.pack('!B', 128) — midpoint boundary
+#
+# struct.pack('!B', 127) == b'\x7f'
+# struct.pack('!B', 128) == b'\x80'
+#
+# 'B' is unsigned char (1 byte). For 1-byte formats, byte order prefix
+# does not affect the result; '!' and '>' and '<' all produce the same byte.
+#
+# 127 (0x7F) is the maximum signed byte value and the midpoint of uint8.
+# 128 (0x80) is one above 127: the first value with the high bit set.
+# This bit-boundary pair is significant for signed/unsigned interpretation.
+#
+# Coverage note: struct_extra11 has pack('>B', 127) == b'\x7f' (big-endian
+# prefix '>'); struct_extra6 has pack('>b', 127) == b'\x7f' (signed byte).
+# Module-level pack('!B', 127) and pack('!B', 128) using the '!' prefix
+# are novel. struct_extra222 covers pack('!B', 0) and pack('!B', 255) only.
+# ---------------------------------------------------------------------------
+
+table struct_extra229.pack_network_B_midpoint:
+  description: "pack('!B',127)==b'\\x7f'; pack('!B',128)==b'\\x80'; network byte order unsigned byte midpoint boundary; 127 is max signed byte; 128 is first high-bit-set value; new to struct_extra229"
+  kind: python_call_eq
+  category: pack_values
+  id_prefix: struct229a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pack_netB_127,
+       pack,
+       ["!B", 127],
+       !hex 7f,
+       "struct.pack('!B', 127) == b'\\x7f' — network byte order unsigned byte 127 (0x7F); maximum signed byte value; single byte 0x7F; novel: '!B' format not covered by any prior spec for value 127; new anchor in struct_extra229 namespace; verified Python 3.14.3"]
+    - [pack_netB_128,
+       pack,
+       ["!B", 128],
+       !hex 80,
+       "struct.pack('!B', 128) == b'\\x80' — network byte order unsigned byte 128 (0x80); first value with high bit set; the sign bit boundary for signed byte; single byte 0x80; novel: '!B' format not covered by any prior spec for value 128; new anchor in struct_extra229 namespace; verified Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant struct_extra229.pack_netH_1:
+  description: "struct.pack('!H', 1) == b'\\x00\\x01' — '!' is network byte order per RFC 1700 (identical to big-endian '>'); 'H' is unsigned short (2 bytes); value 1 encodes as 0x0001 big-endian: MSB byte is 0x00 (high 8 bits of 1 are zero), LSB byte is 0x01 (low 8 bits of 1 are 0x01); struct_extra214 covers Struct('!H').pack(1) via Struct instance method; no prior spec covers module-level pack('!H', 1) with expected bytes value; struct_extra229 is the first namespace to anchor this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: ["!H", 1]
+  expected: !hex 0001
+
+invariant struct_extra229.pack_netH_65535:
+  description: "struct.pack('!H', 65535) == b'\\xff\\xff' — '!' network byte order unsigned short 65535 (0xFFFF, the maximum uint16 value, 2^16-1); both bytes are 0xFF since all 16 bits are set; this is the maximum non-error input for format 'H' (65536 raises struct.error); struct_extra215 covers unpack('!H', b'\\xff\\xff')[0]==65535 (inverse direction); no prior spec covers pack('!H', 65535) with expected bytes value; struct_extra229 is the first namespace to anchor this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: ["!H", 65535]
+  expected: !hex ffff
+
+invariant struct_extra229.pack_netB_127:
+  description: "struct.pack('!B', 127) == b'\\x7f' — '!' network byte order unsigned byte 127 (0x7F); 127 is the maximum value for a signed byte (int8_max) and the midpoint of the uint8 range [0, 255]; single byte 0x7F; for 1-byte formats, byte order prefix does not affect the result; struct_extra11 covers pack('>B', 127) with big-endian explicit prefix; no prior spec covers pack('!B', 127) with network-order prefix; struct_extra229 is the first namespace to anchor this; verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  category: pack_values
+  kind: python_call_eq
+  function: pack
+  args: ["!B", 127]
+  expected: !hex 7f

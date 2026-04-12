@@ -1,0 +1,257 @@
+spec: threading_extra235
+version: ">=3.9"
+backend: python_module(threading)
+
+docs: https://docs.python.org/3/library/threading.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/threading.html — Python threading module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/threading.py"
+    - "CPython source: Modules/_threadmodule.c"
+  notes:
+    - "This spec covers threading.local class identity and method contracts."
+    - "threading.local is actually _thread._local (a C extension type); threading.local is an alias. Verified with Python 3.14.3."
+    - "threading.local.__name__ == '_local' (len=6) — the internal C-level class name. Verified with Python 3.14.3."
+    - "threading.local.__module__ == '_thread' — _local is defined in Modules/_threadmodule.c. Verified with Python 3.14.3."
+    - "threading.local.__qualname__ == '_local' — top-level C extension type with unqualified qualname. Verified with Python 3.14.3."
+    - "threading.local.__class__.__name__ == 'type' — _local is a C extension type; its metaclass is the built-in type. Verified with Python 3.14.3."
+    - "threading.local.__bases__[0].__name__ == 'object' — _local inherits directly from object. Verified with Python 3.14.3."
+    - "threading.local.__mro__[0].__name__ == '_local' — MRO slot 0 is the class itself. Verified with Python 3.14.3."
+    - "threading.local.__mro__[1].__name__ == 'object' — MRO slot 1 is object. Verified with Python 3.14.3."
+    - "threading.local.__doc__.__class__.__name__ == 'str' — the docstring is a plain str. Verified with Python 3.14.3."
+    - "threading.local.__doc__.__len__() == 17 — 'Thread-local data' has 17 characters. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: threading.local class identity contracts
+#
+# threading.local.__name__ == '_local' (len=6)
+# threading.local.__module__ == '_thread'
+# threading.local.__qualname__ == '_local'
+# threading.local.__class__.__name__ == 'type'
+# threading.local.__bases__[0].__name__ == 'object'
+#
+# threading.local is an alias for _thread._local, a C extension type.
+# New to extra235.
+# ---------------------------------------------------------------------------
+
+table threading_extra235.local_class_identity:
+  description: "threading.local class identity contracts: name is '_local', module is '_thread', metaclass is type, base is object; new to extra235"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingextra235localclassid
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [local_name_eq,
+       local.__name__.__eq__,
+       ["_local"],
+       true,
+       "threading.local.__name__.__eq__('_local') == True — threading.local is an alias for _thread._local; the C-level class name is '_local' (len=6); new to extra235"]
+    - [local_name_len_6,
+       local.__name__.__len__,
+       [],
+       6,
+       "threading.local.__name__.__len__() == 6 — '_local' has exactly 6 characters (_-l-o-c-a-l); str.__len__() returns 6; new to extra235"]
+    - [local_module_eq,
+       local.__module__.__eq__,
+       ["_thread"],
+       true,
+       "threading.local.__module__.__eq__('_thread') == True — _local is defined in Modules/_threadmodule.c; __module__ is '_thread' (len=7); new to extra235"]
+    - [local_qualname_eq,
+       local.__qualname__.__eq__,
+       ["_local"],
+       true,
+       "threading.local.__qualname__.__eq__('_local') == True — _local is a top-level C extension type with unqualified qualname '_local'; new to extra235"]
+    - [local_class_is_type,
+       local.__class__.__name__.__eq__,
+       ["type"],
+       true,
+       "threading.local.__class__.__name__.__eq__('type') == True — _local is a C extension type whose metaclass is the built-in type; __class__.__name__ is 'type'; new to extra235"]
+
+# ---------------------------------------------------------------------------
+# Table 2: threading.local base, MRO, and __doc__ contracts
+#
+# threading.local.__bases__[0].__name__ == 'object'
+# threading.local.__mro__[0].__name__ == '_local'
+# threading.local.__mro__[1].__name__ == 'object'
+# threading.local.__doc__.__class__.__name__ == 'str'
+# threading.local.__doc__.__len__() == 17
+#
+# _local has a two-element MRO (itself and object) and a short docstring.
+# New to extra235.
+# ---------------------------------------------------------------------------
+
+table threading_extra235.local_mro_and_doc:
+  description: "threading.local base is object; MRO slots are _local and object; doc is str of len 17; new to extra235"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingextra235localmroid
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [local_base_is_object,
+       "local.__bases__[0].__name__.__eq__",
+       ["object"],
+       true,
+       "threading.local.__bases__[0].__name__.__eq__('object') == True — _local inherits directly from object with no intermediate base; __bases__[0].__name__ is 'object'; new to extra235"]
+    - [local_mro0_eq,
+       "local.__mro__[0].__name__.__eq__",
+       ["_local"],
+       true,
+       "threading.local.__mro__[0].__name__.__eq__('_local') == True — _local MRO slot 0 is the class itself; __mro__[0].__name__ is '_local'; new to extra235"]
+    - [local_mro1_eq,
+       "local.__mro__[1].__name__.__eq__",
+       ["object"],
+       true,
+       "threading.local.__mro__[1].__name__.__eq__('object') == True — _local MRO slot 1 is object; _local has a two-element MRO; new to extra235"]
+    - [local_doc_class_is_str,
+       local.__doc__.__class__.__name__.__eq__,
+       ["str"],
+       true,
+       "threading.local.__doc__.__class__.__name__.__eq__('str') == True — the docstring of _local is a plain Python str object; __class__.__name__ is 'str'; new to extra235"]
+    - [local_doc_len_17,
+       local.__doc__.__len__,
+       [],
+       17,
+       "threading.local.__doc__.__len__() == 17 — 'Thread-local data' has exactly 17 characters (T-h-r-e-a-d---l-o-c-a-l---d-a-t-a); str.__len__() returns 17; new to extra235"]
+
+# ---------------------------------------------------------------------------
+# Table 3: threading.local module length and doc contains contracts
+#
+# threading.local.__module__.__len__() == 7
+# threading.local.__name__.__len__() == 6
+# threading.local.__doc__.__contains__('Thread') == True
+# threading.local.__qualname__.__len__() == 6
+# threading.local.__doc__.__contains__('local') == True
+#
+# Additional length and content contracts for _local. New to extra235.
+# ---------------------------------------------------------------------------
+
+table threading_extra235.local_module_len_doc_contains:
+  description: "threading.local module length, name length, qualname length; doc contains 'Thread' and 'local'; new to extra235"
+  kind: python_call_eq
+  category: identity
+  id_prefix: threadingextra235locallenid
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [local_module_len_7,
+       local.__module__.__len__,
+       [],
+       7,
+       "threading.local.__module__.__len__() == 7 — '_thread' has exactly 7 characters (_-t-h-r-e-a-d); str.__len__() returns 7; new to extra235"]
+    - [local_qualname_len_6,
+       local.__qualname__.__len__,
+       [],
+       6,
+       "threading.local.__qualname__.__len__() == 6 — '_local' qualname has exactly 6 characters; str.__len__() returns 6; new to extra235"]
+    - [local_doc_contains_thread,
+       local.__doc__.__contains__,
+       ["Thread"],
+       true,
+       "threading.local.__doc__.__contains__('Thread') == True — docstring 'Thread-local data' contains the word 'Thread'; str.__contains__('Thread') returns True; new to extra235"]
+    - [local_doc_contains_local,
+       local.__doc__.__contains__,
+       ["local"],
+       true,
+       "threading.local.__doc__.__contains__('local') == True — docstring 'Thread-local data' contains the word 'local'; str.__contains__('local') returns True; new to extra235"]
+    - [local_doc_contains_data,
+       local.__doc__.__contains__,
+       ["data"],
+       true,
+       "threading.local.__doc__.__contains__('data') == True — docstring 'Thread-local data' contains the word 'data'; str.__contains__('data') returns True; new to extra235"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra235
+# ---------------------------------------------------------------------------
+
+invariant threading_extra235.local_name_eq:
+  description: "threading.local.__name__ == '_local' (len=6); new to extra235"
+  kind: python_call_eq
+  function: local.__name__.__eq__
+  args: ["_local"]
+  expected: true
+
+invariant threading_extra235.local_name_len_6:
+  description: "threading.local.__name__.__len__() == 6 — '_local' has 6 characters; new to extra235"
+  kind: python_call_eq
+  function: local.__name__.__len__
+  args: []
+  expected: 6
+
+invariant threading_extra235.local_module_eq:
+  description: "threading.local.__module__ == '_thread'; new to extra235"
+  kind: python_call_eq
+  function: local.__module__.__eq__
+  args: ["_thread"]
+  expected: true
+
+invariant threading_extra235.local_qualname_eq:
+  description: "threading.local.__qualname__ == '_local'; new to extra235"
+  kind: python_call_eq
+  function: local.__qualname__.__eq__
+  args: ["_local"]
+  expected: true
+
+invariant threading_extra235.local_class_is_type:
+  description: "threading.local.__class__.__name__ == 'type'; new to extra235"
+  kind: python_call_eq
+  function: local.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant threading_extra235.local_base_is_object:
+  description: "threading.local.__bases__[0].__name__ == 'object'; new to extra235"
+  kind: python_call_eq
+  function: "local.__bases__[0].__name__.__eq__"
+  args: ["object"]
+  expected: true
+
+invariant threading_extra235.local_mro0_eq:
+  description: "threading.local.__mro__[0].__name__ == '_local'; new to extra235"
+  kind: python_call_eq
+  function: "local.__mro__[0].__name__.__eq__"
+  args: ["_local"]
+  expected: true
+
+invariant threading_extra235.local_mro1_eq:
+  description: "threading.local.__mro__[1].__name__ == 'object'; new to extra235"
+  kind: python_call_eq
+  function: "local.__mro__[1].__name__.__eq__"
+  args: ["object"]
+  expected: true
+
+invariant threading_extra235.local_doc_class_is_str:
+  description: "threading.local.__doc__.__class__.__name__ == 'str' — docstring is a plain str; new to extra235"
+  kind: python_call_eq
+  function: local.__doc__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant threading_extra235.local_doc_len_17:
+  description: "threading.local.__doc__.__len__() == 17 — 'Thread-local data' has 17 characters; new to extra235"
+  kind: python_call_eq
+  function: local.__doc__.__len__
+  args: []
+  expected: 17
+
+invariant threading_extra235.local_doc_contains_thread:
+  description: "threading.local.__doc__.__contains__('Thread') == True; new to extra235"
+  kind: python_call_eq
+  function: local.__doc__.__contains__
+  args: ["Thread"]
+  expected: true
+
+invariant threading_extra235.local_module_len_7:
+  description: "threading.local.__module__.__len__() == 7 — '_thread' has 7 characters; new to extra235"
+  kind: python_call_eq
+  function: local.__module__.__len__
+  args: []
+  expected: 7
