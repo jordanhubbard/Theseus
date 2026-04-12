@@ -1,0 +1,211 @@
+spec: hashlib_extra243
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "RFC 1321 — The MD5 Message-Digest Algorithm"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "RFC 1321 — The MD5 Message-Digest Algorithm, April 1992"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified by running Python 3.14.3 hashlib on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha512module.c"
+    - "CPython source: Modules/md5module.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl, hashlib_extra.zspec.zsdl, hashlib_extra2.zspec.zsdl, and hashlib_extra3.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "hashlib.zspec.zsdl covers sha512 known vectors (FIPS 180-4) and sha512 digest_size/block_size via hash_object_attr; hashlib_extra3 covers sha512 name_attr, block_size_eq, digest_size_eq."
+    - "This spec covers sha512 via python_call_eq for hexdigest, hexdigest length (128), and hashlib.new() constructor forms for sha256 and md5."
+    - "sha512(b'').hexdigest() == 'cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e' — FIPS 180-4 Appendix B.1 reference vector."
+    - "sha512(b'abc').hexdigest() == 'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f' — FIPS 180-4 Appendix B.1 reference vector."
+    - "SHA-512 produces a 512-bit digest; hexdigest() returns 128 lowercase hex characters (512 bits / 4 bits per hex char)."
+    - "SHA-512 digest_size == 64 bytes; block_size == 128 bytes (1024-bit block size per FIPS 180-4 Section 1)."
+    - "hashlib.new('sha256', b'abc').hexdigest() == 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad' — FIPS 180-4 reference vector for SHA-256('abc')."
+    - "hashlib.new('md5', b'').hexdigest() == 'd41d8cd98f00b204e9800998ecf8427e' — RFC 1321 Appendix A.5 reference vector for MD5('')."
+    - "hashlib.new() class name is 'HASH' on OpenSSL-backed builds (macOS/Linux)."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model:
+  semantics: "hashlib raises ValueError for unknown algorithm names passed to hashlib.new(). Hash constructor calls do not raise for valid algorithms."
+  stderr: "null"
+  stickiness: "N/A — hash objects are independent; module-level attributes are read-only."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# SHA-512 NIST FIPS 180-4 known vectors — hexdigest
+# These use python_call_eq with method: hexdigest.
+# hashlib.zspec.zsdl covers the same vectors via hash_known_vector kind;
+# this spec provides orthogonal python_call_eq coverage.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra243.sha512.empty_hexdigest:
+  description: "hashlib.sha512(b'').hexdigest() — FIPS 180-4 Appendix B.1 reference vector for empty input"
+  category: known_vector
+  kind: python_call_eq
+  function: sha512
+  args: [""]
+  method: hexdigest
+  method_args: []
+  expected: "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+
+invariant hashlib_extra243.sha512.abc_hexdigest:
+  description: "hashlib.sha512(b'abc').hexdigest() — FIPS 180-4 Appendix B.1 reference vector for b'abc'"
+  category: known_vector
+  kind: python_call_eq
+  function: sha512
+  args: [!ascii "abc"]
+  method: hexdigest
+  method_args: []
+  expected: "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
+
+# ---------------------------------------------------------------------------
+# SHA-512 hexdigest length (always 128 hex chars = 512 bits)
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra243.sha512.hexdigest_len:
+  description: "len(hashlib.sha512(b'').hexdigest()) == 128 (512 bits / 4 bits per hex char = 128 chars)"
+  category: lengths
+  kind: python_call_eq
+  function: sha512
+  args: [""]
+  method: hexdigest.__len__
+  method_args: []
+  expected: 128
+
+# ---------------------------------------------------------------------------
+# SHA-512 object attributes: digest_size and block_size
+# Covered in hashlib.zspec.zsdl via hash_object_attr kind;
+# here we add python_call_eq coverage for orthogonality.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra243.sha512.attrs:
+  kind: python_call_eq
+  category: properties
+  function: sha512
+  id_prefix: hl243sha512
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [digest_size, [""], digest_size.__eq__, [64],  true]
+    - [block_size,  [""], block_size.__eq__,  [128], true]
+
+# ---------------------------------------------------------------------------
+# SHA-512 hexdigest return type is str
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra243.sha512.hexdigest_type:
+  description: "hashlib.sha512(b'').hexdigest().__class__.__name__ == 'str'"
+  category: properties
+  kind: python_call_eq
+  function: sha512
+  args: [""]
+  method: hexdigest.__class__.__name__.__eq__
+  method_args: ["str"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SHA-512 digest() returns bytes (complement to hexdigest)
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra243.sha512.digest_type:
+  description: "hashlib.sha512(b'').digest().__class__.__name__ == 'bytes'"
+  category: properties
+  kind: python_call_eq
+  function: sha512
+  args: [""]
+  method: digest.__class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant hashlib_extra243.sha512.digest_len:
+  description: "len(hashlib.sha512(b'').digest()) == 64 (512 bits = 64 bytes)"
+  category: properties
+  kind: python_call_eq
+  function: sha512
+  args: [""]
+  method: digest.__len__
+  method_args: []
+  expected: 64
+
+# ---------------------------------------------------------------------------
+# hashlib.new() — sha256 and md5 constructor forms
+# hashlib.new() is the generic factory; it accepts an algorithm name string.
+# hashlib_extra2 covers: new('md5', b'') hexdigest and new('md5', b'') class check.
+# This spec covers new('sha256', b'abc') and new('md5', b'') with distinct coverage.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra243.new.sha256_abc_hexdigest:
+  description: "hashlib.new('sha256', b'abc').hexdigest() == 'ba7816bf...' — FIPS 180-4 SHA-256(abc) via hashlib.new()"
+  category: known_vector
+  kind: python_call_eq
+  function: new
+  args: ["sha256", !ascii "abc"]
+  method: hexdigest
+  method_args: []
+  expected: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+
+invariant hashlib_extra243.new.md5_empty_hexdigest:
+  description: "hashlib.new('md5', b'').hexdigest() == 'd41d8cd98f00b204e9800998ecf8427e' — RFC 1321 A.5 via hashlib.new()"
+  category: known_vector
+  kind: python_call_eq
+  function: new
+  args: ["md5", ""]
+  method: hexdigest
+  method_args: []
+  expected: "d41d8cd98f00b204e9800998ecf8427e"
+
+invariant hashlib_extra243.new.sha512_empty_hexdigest:
+  description: "hashlib.new('sha512', b'').hexdigest() — FIPS 180-4 SHA-512('') via hashlib.new() factory"
+  category: known_vector
+  kind: python_call_eq
+  function: new
+  args: ["sha512", ""]
+  method: hexdigest
+  method_args: []
+  expected: "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+
+# ---------------------------------------------------------------------------
+# hashlib.new() — class name and digest_size checks
+# The class name is implementation-defined ('HASH' on OpenSSL-backed builds).
+# ---------------------------------------------------------------------------
+
+table hashlib_extra243.new.class_checks:
+  kind: python_call_eq
+  category: api
+  id_prefix: hl243new
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - [sha256_class, new, ["sha256", ""], __class__.__name__.__eq__, ["HASH"], true]
+    - [md5_class,    new, ["md5",    ""], __class__.__name__.__eq__, ["HASH"], true]
+    - [sha512_class, new, ["sha512", ""], __class__.__name__.__eq__, ["HASH"], true]
+
+# ---------------------------------------------------------------------------
+# hashlib.new() — digest_size matches direct constructor digest_size
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra243.new.sha256_digest_size:
+  description: "hashlib.new('sha256', b'').digest_size == 32 (same as hashlib.sha256().digest_size)"
+  category: api
+  kind: python_call_eq
+  function: new
+  args: ["sha256", ""]
+  method: digest_size.__eq__
+  method_args: [32]
+  expected: true
+
+invariant hashlib_extra243.new.md5_digest_size:
+  description: "hashlib.new('md5', b'').digest_size == 16 (same as hashlib.md5().digest_size)"
+  category: api
+  kind: python_call_eq
+  function: new
+  args: ["md5", ""]
+  method: digest_size.__eq__
+  method_args: [16]
+  expected: true

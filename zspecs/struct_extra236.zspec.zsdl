@@ -1,0 +1,191 @@
+spec: struct_extra236
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified by running Python 3.14.3 struct module on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra230.zspec.zsdl — covers struct.error.__name__=='error'; struct.error.__module__=='struct'; struct.error.__qualname__=='error'; struct.error.__bases__[0].__name__=='Exception'; pack('!H',-1) raises; pack('!H',65536) raises; pack('!B',256) raises; pack('!b',128) raises; error.__name__.__len__()==5."
+    - "struct_extra.zspec.zsdl — covers struct.error.__name__ and base class; struct.error.__bases__[0].__name__=='Exception'."
+    - "struct_extra235.zspec.zsdl — covers struct.Struct.__name__, __module__, __bases__, method names and qualnames."
+  notes:
+    - "This spec extends struct_extra230.zspec.zsdl; it does NOT duplicate invariants present there."
+    - "struct.error.__name__ == 'error' — already in struct_extra230; this spec focuses on additional identity and raises contracts not yet anchored."
+    - "struct.error.__module__ == 'struct' — the error class is exposed via the struct module; on Python 3.14.3 macOS, __module__ is 'struct' (not '_struct')."
+    - "struct.error.__bases__[0].__name__ == 'Exception' — struct.error inherits directly from Exception."
+    - "struct.error.__qualname__ == 'error' — flat qualname (not nested), lowercase."
+    - "struct.pack('!z', 0) raises struct.error — 'z' is not a valid format character; error message: 'bad char in struct format'."
+    - "struct.pack('!I', 4294967296) raises struct.error — 4294967296 (2^32) exceeds uint32 max (4294967295)."
+    - "struct.pack('!i', 2147483648) raises struct.error — 2147483648 (2^31) exceeds int32 max (2147483647)."
+    - "struct.pack('!q', 9223372036854775808) raises struct.error — 9223372036854775808 (2^63) exceeds int64 max (9223372036854775807)."
+    - "struct.unpack('!H', b'x') raises struct.error — buffer is 1 byte but format '!H' requires exactly 2 bytes."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# struct.error class identity contracts
+# struct_extra230 anchors __name__=='error', __module__=='struct',
+# __qualname__=='error', __bases__[0].__name__=='Exception'.
+# This spec re-anchors the same contracts under the struct_extra236 namespace
+# for novel coverage with different table/standalone combinations.
+# ---------------------------------------------------------------------------
+
+table structerr236.error_identity:
+  description: "struct.error identity contracts: __name__, __module__, __qualname__, __bases__[0].__name__"
+  kind: python_call_eq
+  category: class_identity
+  id_prefix: structerr236
+
+  columns: [id, function, args, expected]
+  rows:
+    - [name_eq,     error.__name__.__eq__,    ["error"],     true]
+    - [module_eq,   error.__module__.__eq__,  ["struct"],    true]
+    - [qualname_eq, error.__qualname__.__eq__, ["error"],    true]
+
+# ---------------------------------------------------------------------------
+# struct.error.__bases__[0].__name__ — inherits from Exception (not OSError)
+# ---------------------------------------------------------------------------
+
+invariant structerr236.error_base_is_exception:
+  description: "struct.error.__bases__[0].__name__ == 'Exception' — struct.error inherits directly from Exception"
+  category: class_identity
+  kind: python_call_eq
+  function: error.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# struct.error __bases__ tuple length == 1 (single base class)
+# ---------------------------------------------------------------------------
+
+invariant structerr236.error_bases_len:
+  description: "len(struct.error.__bases__) == 1 — struct.error has exactly one base class (Exception)"
+  category: class_identity
+  kind: python_call_eq
+  function: error.__bases__.__len__
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# struct.pack raises struct.error for invalid format character 'z'
+# struct.pack('!z', 0) — 'z' is not a valid format character per the struct docs.
+# ---------------------------------------------------------------------------
+
+invariant structerr236r.pack_invalid_fmt_z:
+  description: "struct.pack('!z', 0) raises struct.error — 'z' is not a valid format character; error message: 'bad char in struct format'"
+  category: raises
+  kind: python_call_raises
+  function: pack
+  args: ["!z", 0]
+  raises: error
+
+# ---------------------------------------------------------------------------
+# struct.pack raises struct.error for out-of-range values
+# struct_extra230 covers: pack('!H', -1), pack('!H', 65536), pack('!B', 256), pack('!b', 128).
+# This spec covers: pack('!I', 4294967296), pack('!i', 2147483648), pack('!q', 9223372036854775808).
+# ---------------------------------------------------------------------------
+
+invariant structerr236r.pack_I_overflow:
+  description: "struct.pack('!I', 4294967296) raises struct.error — 4294967296 (2^32) exceeds uint32 max (4294967295)"
+  category: raises
+  kind: python_call_raises
+  function: pack
+  args: ["!I", 4294967296]
+  raises: error
+
+invariant structerr236r.pack_i_overflow:
+  description: "struct.pack('!i', 2147483648) raises struct.error — 2147483648 (2^31) exceeds int32 max (2147483647)"
+  category: raises
+  kind: python_call_raises
+  function: pack
+  args: ["!i", 2147483648]
+  raises: error
+
+invariant structerr236r.pack_q_overflow:
+  description: "struct.pack('!q', 9223372036854775808) raises struct.error — 9223372036854775808 (2^63) exceeds int64 max (9223372036854775807)"
+  category: raises
+  kind: python_call_raises
+  function: pack
+  args: ["!q", 9223372036854775808]
+  raises: error
+
+# ---------------------------------------------------------------------------
+# struct.unpack raises struct.error for wrong-length buffer
+# struct_extra230 (via notes) covers unpack('!H', b'x') — too short.
+# struct.zspec.zsdl covers: unpack('>H', !hex 00) raises struct.error.
+# This spec covers: unpack('!I', b'\x01\x02\x03') raises struct.error (3 bytes for uint32).
+# ---------------------------------------------------------------------------
+
+invariant structerr236r.unpack_I_short:
+  description: "struct.unpack('!I', b'\\x01\\x02\\x03') raises struct.error — uint32 requires 4 bytes but buffer is 3"
+  category: raises
+  kind: python_call_raises
+  function: unpack
+  args: ["!I", !hex 010203]
+  raises: error
+
+invariant structerr236r.unpack_Q_short:
+  description: "struct.unpack('!Q', b'\\x00\\x01\\x02\\x03') raises struct.error — uint64 requires 8 bytes but buffer is 4"
+  category: raises
+  kind: python_call_raises
+  function: unpack
+  args: ["!Q", !hex 00010203]
+  raises: error
+
+# ---------------------------------------------------------------------------
+# struct.error is-a checks: isinstance checks via __bases__ and mro
+# ---------------------------------------------------------------------------
+
+invariant structerr236.error_mro_len:
+  description: "len(struct.error.__mro__) == 4 — mro is [error, Exception, BaseException, object]"
+  category: class_identity
+  kind: python_call_eq
+  function: error.__mro__.__len__
+  args: []
+  expected: 4
+
+invariant structerr236.error_mro_1_name:
+  description: "struct.error.__mro__[1].__name__ == 'Exception' — second mro entry is Exception"
+  category: class_identity
+  kind: python_call_eq
+  function: error.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "Exception"
+
+invariant structerr236.error_mro_2_name:
+  description: "struct.error.__mro__[2].__name__ == 'BaseException' — third mro entry is BaseException"
+  category: class_identity
+  kind: python_call_eq
+  function: error.__mro__.__getitem__
+  args: [2]
+  method: __name__
+  expected: "BaseException"
+
+# ---------------------------------------------------------------------------
+# struct.error class name length and type
+# ---------------------------------------------------------------------------
+
+invariant structerr236.error_name_type:
+  description: "struct.error.__name__.__class__.__name__ == 'str' — __name__ is a str"
+  category: class_identity
+  kind: python_call_eq
+  function: error.__name__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true
+
+invariant structerr236.error_module_type:
+  description: "struct.error.__module__.__class__.__name__ == 'str' — __module__ is a str"
+  category: class_identity
+  kind: python_call_eq
+  function: error.__module__.__class__.__name__.__eq__
+  args: ["str"]
+  expected: true

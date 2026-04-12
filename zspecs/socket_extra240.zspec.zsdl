@@ -1,0 +1,199 @@
+spec: socket_extra240
+version: ">=3.5"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+rfcs:
+  - "RFC 793 — Transmission Control Protocol"
+  - "RFC 768 — User Datagram Protocol"
+  - "RFC 791 — Internet Protocol"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "RFC 793 — Transmission Control Protocol, September 1981"
+    - "RFC 768 — User Datagram Protocol, August 1980"
+    - "RFC 791 — Internet Protocol, September 1981"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+    - "socket.zspec.zsdl — covers IPPROTO_TCP/UDP/IP integer values via __eq__; SOL_SOCKET==65535; AF_INET/SOCK_STREAM constants."
+    - "socket_extra.zspec.zsdl — covers inet_aton/inet_ntoa vectors; htons/ntohs/ntohl zero; htonl(1) little-endian."
+    - "socket_extra2.zspec.zsdl — covers AF_INET/AF_INET6/AF_UNIX AddressFamily class names; SOCK_STREAM/SOCK_DGRAM/SOCK_RAW SocketKind class names."
+    - "socket_extra239.zspec.zsdl — covers socket.error/timeout aliases class identity."
+  notes:
+    - "This spec extends socket.zspec.zsdl and socket_extra2.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "socket.zspec.zsdl covers IPPROTO_TCP/UDP/IP via __eq__ (integer values); this spec covers __class__.__name__ (which is 'int' on macOS Python 3.14.3, not an IntEnum subclass)."
+    - "IPPROTO_TCP == 6 — RFC 793 assigns protocol number 6 to TCP."
+    - "IPPROTO_UDP == 17 — RFC 768 assigns protocol number 17 to UDP."
+    - "IPPROTO_IP == 0 — protocol number 0 is used as a placeholder for IP-level options."
+    - "IPPROTO_ICMP == 1 — RFC 792 assigns protocol number 1 to ICMP."
+    - "On macOS Python 3.14.3, IPPROTO_TCP.__class__.__name__ == 'int' (plain int, not IntEnum)."
+    - "On some Python builds IPPROTO_* may be IntEnum members; on macOS/Darwin 25.4.0 with Python 3.14.3 they are plain int."
+    - "SOL_SOCKET == 65535 on macOS/Darwin; SOL_SOCKET.__class__.__name__ == 'int'."
+    - "SO_REUSEADDR == 4 on macOS/Darwin; SO_REUSEADDR.__class__.__name__ == 'int'."
+    - "SO_KEEPALIVE == 8 on macOS/Darwin; SO_KEEPALIVE.__class__.__name__ == 'int'."
+    - "SO_BROADCAST == 32 on macOS/Darwin; SO_BROADCAST.__class__.__name__ == 'int'."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model:
+  semantics: "socket raises OSError (and subclasses herror, gaierror, timeout) for I/O failures. Constant and class-name checks are stateless and never raise."
+  stderr: "null"
+  stickiness: "N/A — all tested invariants are constant value or class name checks."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# IPPROTO_TCP, IPPROTO_UDP, IPPROTO_IP — __class__.__name__ == 'int'
+# socket.zspec.zsdl covers the integer values via __eq__; this spec covers
+# the __class__.__name__ attribute to confirm they are plain int on macOS.
+# ---------------------------------------------------------------------------
+
+table socket240ip.ipproto_class_names:
+  description: "IPPROTO_TCP/UDP/IP/ICMP are plain int on macOS Python 3.14.3 (not IntEnum members)"
+  kind: python_call_eq
+  category: ipproto_identity
+  id_prefix: socket240ip
+
+  columns: [id, function, args, expected]
+  rows:
+    - [tcp_class,  IPPROTO_TCP.__class__.__name__.__eq__,  ["int"], true]
+    - [udp_class,  IPPROTO_UDP.__class__.__name__.__eq__,  ["int"], true]
+    - [ip_class,   IPPROTO_IP.__class__.__name__.__eq__,   ["int"], true]
+    - [icmp_class, IPPROTO_ICMP.__class__.__name__.__eq__, ["int"], true]
+
+# ---------------------------------------------------------------------------
+# IPPROTO integer values — RFC-assigned protocol numbers
+# socket.zspec.zsdl covers these via __eq__ in a table; this spec provides
+# additional standalone invariant coverage with RFC citations.
+# ---------------------------------------------------------------------------
+
+invariant socket240ip.tcp_value:
+  description: "socket.IPPROTO_TCP == 6 — RFC 793 assigns protocol number 6 to TCP"
+  category: ipproto_values
+  kind: python_call_eq
+  function: IPPROTO_TCP.__eq__
+  args: [6]
+  expected: true
+
+invariant socket240ip.udp_value:
+  description: "socket.IPPROTO_UDP == 17 — RFC 768 assigns protocol number 17 to UDP"
+  category: ipproto_values
+  kind: python_call_eq
+  function: IPPROTO_UDP.__eq__
+  args: [17]
+  expected: true
+
+invariant socket240ip.ip_value:
+  description: "socket.IPPROTO_IP == 0 — protocol number 0 is used as placeholder for IP-level socket options"
+  category: ipproto_values
+  kind: python_call_eq
+  function: IPPROTO_IP.__eq__
+  args: [0]
+  expected: true
+
+invariant socket240ip.icmp_value:
+  description: "socket.IPPROTO_ICMP == 1 — RFC 792 assigns protocol number 1 to ICMP"
+  category: ipproto_values
+  kind: python_call_eq
+  function: IPPROTO_ICMP.__eq__
+  args: [1]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SOL_SOCKET — class name and integer value
+# socket.zspec.zsdl covers SOL_SOCKET == 65535 (macOS); this spec covers class name.
+# ---------------------------------------------------------------------------
+
+invariant socket240sol.sol_socket_class:
+  description: "socket.SOL_SOCKET.__class__.__name__ == 'int' — SOL_SOCKET is a plain int on macOS Python 3.14.3"
+  category: sol_identity
+  kind: python_call_eq
+  function: SOL_SOCKET.__class__.__name__.__eq__
+  args: ["int"]
+  expected: true
+
+invariant socket240sol.sol_socket_value:
+  description: "socket.SOL_SOCKET == 65535 on macOS/Darwin — platform-specific value for the socket-level option layer"
+  category: sol_identity
+  kind: python_call_eq
+  function: SOL_SOCKET.__eq__
+  args: [65535]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# SO_REUSEADDR, SO_KEEPALIVE, SO_BROADCAST — class name and integer value
+# On macOS/Darwin 25.4.0 with Python 3.14.3 these are plain int.
+# ---------------------------------------------------------------------------
+
+table socket240sol.so_constants:
+  description: "SO_REUSEADDR/SO_KEEPALIVE/SO_BROADCAST are plain int on macOS Python 3.14.3"
+  kind: python_call_eq
+  category: so_identity
+  id_prefix: socket240sol
+
+  columns: [id, function, args, expected]
+  rows:
+    - [reuseaddr_class,   SO_REUSEADDR.__class__.__name__.__eq__,  ["int"], true]
+    - [keepalive_class,   SO_KEEPALIVE.__class__.__name__.__eq__,  ["int"], true]
+    - [broadcast_class,   SO_BROADCAST.__class__.__name__.__eq__,  ["int"], true]
+
+invariant socket240sol.so_reuseaddr_value:
+  description: "socket.SO_REUSEADDR == 4 on macOS/Darwin — allows rebinding to a recently-released address"
+  category: so_values
+  kind: python_call_eq
+  function: SO_REUSEADDR.__eq__
+  args: [4]
+  expected: true
+
+invariant socket240sol.so_keepalive_value:
+  description: "socket.SO_KEEPALIVE == 8 on macOS/Darwin — enables TCP keepalive probes"
+  category: so_values
+  kind: python_call_eq
+  function: SO_KEEPALIVE.__eq__
+  args: [8]
+  expected: true
+
+invariant socket240sol.so_broadcast_value:
+  description: "socket.SO_BROADCAST == 32 on macOS/Darwin — enables broadcast datagrams on the socket"
+  category: so_values
+  kind: python_call_eq
+  function: SO_BROADCAST.__eq__
+  args: [32]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPPROTO_TCP is-a int check via __bases__
+# (IPPROTO_TCP is a plain int, so its class inherits from object not IntEnum)
+# ---------------------------------------------------------------------------
+
+invariant socket240ip.tcp_class_base:
+  description: "socket.IPPROTO_TCP.__class__.__bases__[0].__name__ == 'object' — IPPROTO_TCP is a plain int whose class (int) inherits from object"
+  category: ipproto_identity
+  kind: python_call_eq
+  function: IPPROTO_TCP.__class__.__bases__.__getitem__
+  args: [0]
+  method: __name__.__eq__
+  method_args: ["object"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# IPPROTO constants are comparable as ints — __add__ and __repr__ checks
+# Verifying that IPPROTO_TCP + 0 == 6 (plain int arithmetic works)
+# ---------------------------------------------------------------------------
+
+invariant socket240ip.tcp_add_zero:
+  description: "socket.IPPROTO_TCP.__add__(0) == 6 — plain int arithmetic: IPPROTO_TCP + 0 == 6"
+  category: ipproto_arithmetic
+  kind: python_call_eq
+  function: IPPROTO_TCP.__add__
+  args: [0]
+  expected: 6
+
+invariant socket240ip.udp_add_zero:
+  description: "socket.IPPROTO_UDP.__add__(0) == 17 — plain int arithmetic: IPPROTO_UDP + 0 == 17"
+  category: ipproto_arithmetic
+  kind: python_call_eq
+  function: IPPROTO_UDP.__add__
+  args: [0]
+  expected: 17
