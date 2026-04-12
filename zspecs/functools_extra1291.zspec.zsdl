@@ -1,0 +1,213 @@
+spec: functools_extra1291
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools module documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec extends functools_extra1290.zspec.zsdl and prior extras through functools_extra129.zspec.zsdl."
+    - "Wave 533 theme: __init__ and __new__ method presence and qualname checks for functools classes."
+    - "functools.partial is a C extension type from _functoolsmodule.c; it does NOT define __init__ (inherits object.__init__); __init__.__qualname__ == 'object.__init__'; __init__.__class__.__name__ == 'wrapper_descriptor'."
+    - "functools.partial DOES define __new__; __new__.__qualname__ == 'partial.__new__'; __new__.__class__.__name__ == 'builtin_function_or_method'."
+    - "functools.cached_property is a Python class that defines __init__; __init__.__qualname__ == 'cached_property.__init__' (len 24); __init__.__class__.__name__ == 'function'."
+    - "functools.singledispatchmethod is a Python class that defines __init__; __init__.__qualname__ == 'singledispatchmethod.__init__' (len 29); __init__.__class__.__name__ == 'function'."
+    - "functools.partialmethod is a Python class that does NOT define __init__; inherits object.__init__; __new__.__qualname__ == '_partial_new' (a local function, len 12)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: functools.partial __init__ and __new__ qualnames and class names
+#
+# Wave 533 theme: __init__/__new__ presence and qualname checks.
+#
+# functools.partial is a C extension type (_functoolsmodule.c). It defines
+# __new__ (builtin_function_or_method, qualname 'partial.__new__', len 15)
+# but does NOT define __init__ — it inherits object.__init__
+# (wrapper_descriptor, qualname 'object.__init__', len 15).
+#
+# '__init__' not in partial.__dict__ (inherits from object)
+# '__new__' in partial.__dict__ (defined by the C type)
+#
+# New to extra1291.
+# ---------------------------------------------------------------------------
+
+table functools_extra1291.partial_init_new_qualnames:
+  description: "functools.partial __init__.__qualname__=='object.__init__'(15), __init__.__class__.__name__=='wrapper_descriptor'; __new__.__qualname__=='partial.__new__'(15), __new__.__class__.__name__=='builtin_function_or_method'; __init__ not in dict, __new__ in dict; C extension type; wave 533; new to extra1291"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: fu1291pa
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [fu1291pa001,
+       "partial.__init__.__qualname__.__eq__",
+       ["object.__init__"],
+       true,
+       "functools.partial.__init__.__qualname__.__eq__('object.__init__') == True — partial is a C extension type that does not define __init__; it inherits object.__init__ whose __qualname__ is 'object.__init__'; str.__eq__('object.__init__') returns True; new to extra1291"]
+    - [fu1291pa002,
+       "partial.__init__.__qualname__.__len__",
+       [],
+       15,
+       "functools.partial.__init__.__qualname__.__len__() == 15 — 'object.__init__' has 15 characters; same length as partial.__new__.__qualname__ ('partial.__new__', also 15 chars); new to extra1291"]
+    - [fu1291pa003,
+       "partial.__init__.__class__.__name__.__eq__",
+       ["wrapper_descriptor"],
+       true,
+       "functools.partial.__init__.__class__.__name__.__eq__('wrapper_descriptor') == True — object.__init__ is a wrapper_descriptor (CPython internal slot type for C-level tp_init); __class__.__name__ is 'wrapper_descriptor'; str.__eq__('wrapper_descriptor') returns True; new to extra1291"]
+    - [fu1291pa004,
+       "partial.__dict__.__contains__",
+       ["__init__"],
+       false,
+       "functools.partial.__dict__.__contains__('__init__') == False — partial does not define __init__ in its class dict; it relies on the inherited object.__init__; dict.__contains__('__init__') returns False; new to extra1291"]
+    - [fu1291pa005,
+       "partial.__new__.__qualname__.__eq__",
+       ["partial.__new__"],
+       true,
+       "functools.partial.__new__.__qualname__.__eq__('partial.__new__') == True — partial defines __new__ in the C extension; the builtin_function_or_method has __qualname__ 'partial.__new__'; str.__eq__('partial.__new__') returns True; new to extra1291"]
+    - [fu1291pa006,
+       "partial.__new__.__qualname__.__len__",
+       [],
+       15,
+       "functools.partial.__new__.__qualname__.__len__() == 15 — 'partial.__new__' has 15 characters: 'partial' (7) + '.' (1) + '__new__' (7) = 15; same length as '__init__.__qualname__' ('object.__init__', also 15); new to extra1291"]
+    - [fu1291pa007,
+       "partial.__new__.__class__.__name__.__eq__",
+       ["builtin_function_or_method"],
+       true,
+       "functools.partial.__new__.__class__.__name__.__eq__('builtin_function_or_method') == True — partial.__new__ is a C-level slot function; __class__.__name__ is 'builtin_function_or_method', distinct from the wrapper_descriptor type of __init__; str.__eq__('builtin_function_or_method') returns True; new to extra1291"]
+    - [fu1291pa008,
+       "partial.__dict__.__contains__",
+       ["__new__"],
+       true,
+       "functools.partial.__dict__.__contains__('__new__') == True — unlike __init__, partial explicitly defines __new__ in its C extension type dict; dict.__contains__('__new__') returns True; new to extra1291"]
+
+# ---------------------------------------------------------------------------
+# Table 2: functools.cached_property __init__ qualname and class name
+#
+# Wave 533 theme: cached_property is a Python class that defines __init__.
+#
+# cached_property.__init__.__qualname__ == 'cached_property.__init__' (len 24)
+# cached_property.__init__.__class__.__name__ == 'function'
+# '__init__' in cached_property.__dict__ == True
+# cached_property.__new__.__qualname__ == 'object.__new__' (len 14)
+#
+# New to extra1291.
+# ---------------------------------------------------------------------------
+
+table functools_extra1291.cached_property_init_qualnames:
+  description: "functools.cached_property __init__.__qualname__=='cached_property.__init__'(24), __class__.__name__=='function'; __init__ in dict; __new__.__qualname__=='object.__new__'(14); Python class; wave 533; new to extra1291"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: fu1291cp
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [fu1291cp001,
+       "cached_property.__init__.__qualname__.__eq__",
+       ["cached_property.__init__"],
+       true,
+       "functools.cached_property.__init__.__qualname__.__eq__('cached_property.__init__') == True — cached_property is a Python class that explicitly defines __init__ in Lib/functools.py; the method __qualname__ is 'cached_property.__init__' following the dotted class.method convention; str.__eq__('cached_property.__init__') returns True; new to extra1291"]
+    - [fu1291cp002,
+       "cached_property.__init__.__qualname__.__len__",
+       [],
+       24,
+       "functools.cached_property.__init__.__qualname__.__len__() == 24 — 'cached_property.__init__' has 24 characters: 'cached_property' (15) + '.' (1) + '__init__' (8) = 24; new to extra1291"]
+    - [fu1291cp003,
+       "cached_property.__init__.__class__.__name__.__eq__",
+       ["function"],
+       true,
+       "functools.cached_property.__init__.__class__.__name__.__eq__('function') == True — cached_property.__init__ is a Python function defined with def in Lib/functools.py; __class__.__name__ is 'function'; str.__eq__('function') returns True; new to extra1291"]
+    - [fu1291cp004,
+       "cached_property.__dict__.__contains__",
+       ["__init__"],
+       true,
+       "functools.cached_property.__dict__.__contains__('__init__') == True — cached_property explicitly defines __init__ in its class body; dict.__contains__('__init__') returns True; new to extra1291"]
+    - [fu1291cp005,
+       "cached_property.__new__.__qualname__.__eq__",
+       ["object.__new__"],
+       true,
+       "functools.cached_property.__new__.__qualname__.__eq__('object.__new__') == True — cached_property does not define __new__; it inherits object.__new__; the inherited method has __qualname__ 'object.__new__'; str.__eq__('object.__new__') returns True; new to extra1291"]
+    - [fu1291cp006,
+       "cached_property.__new__.__qualname__.__len__",
+       [],
+       14,
+       "functools.cached_property.__new__.__qualname__.__len__() == 14 — 'object.__new__' has 14 characters: 'object' (6) + '.' (1) + '__new__' (7) = 14; shorter than __init__.__qualname__ ('cached_property.__init__', len 24); new to extra1291"]
+
+# ---------------------------------------------------------------------------
+# Table 3: functools.singledispatchmethod and functools.partialmethod __init__/__new__
+#
+# Wave 533 theme: singledispatchmethod defines __init__; partialmethod does not.
+#
+# singledispatchmethod.__init__.__qualname__ == 'singledispatchmethod.__init__' (len 29)
+# singledispatchmethod.__init__.__class__.__name__ == 'function'
+# '__init__' in singledispatchmethod.__dict__ == True
+#
+# partialmethod does NOT define __init__; inherits object.__init__
+# partialmethod.__init__.__qualname__ == 'object.__init__'
+# partialmethod.__new__.__qualname__ == '_partial_new' (len 12, local function)
+# partialmethod.__new__.__class__.__name__ == 'function'
+#
+# New to extra1291.
+# ---------------------------------------------------------------------------
+
+table functools_extra1291.singledispatch_partialmethod_init_new:
+  description: "functools.singledispatchmethod __init__.__qualname__=='singledispatchmethod.__init__'(29), class='function', in dict; functools.partialmethod no __init__, __new__.__qualname__=='_partial_new'(12), class='function'; wave 533; new to extra1291"
+  kind: python_call_eq
+  category: string_identity
+  id_prefix: fu1291sp
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [fu1291sp001,
+       "singledispatchmethod.__init__.__qualname__.__eq__",
+       ["singledispatchmethod.__init__"],
+       true,
+       "functools.singledispatchmethod.__init__.__qualname__.__eq__('singledispatchmethod.__init__') == True — singledispatchmethod is a Python class that defines __init__ in Lib/functools.py; __qualname__ is 'singledispatchmethod.__init__'; str.__eq__('singledispatchmethod.__init__') returns True; new to extra1291"]
+    - [fu1291sp002,
+       "singledispatchmethod.__init__.__qualname__.__len__",
+       [],
+       29,
+       "functools.singledispatchmethod.__init__.__qualname__.__len__() == 29 — 'singledispatchmethod.__init__' has 29 characters: 'singledispatchmethod' (20) + '.' (1) + '__init__' (8) = 29; the longest __init__.__qualname__ among functools classes; new to extra1291"]
+    - [fu1291sp003,
+       "singledispatchmethod.__init__.__class__.__name__.__eq__",
+       ["function"],
+       true,
+       "functools.singledispatchmethod.__init__.__class__.__name__.__eq__('function') == True — singledispatchmethod.__init__ is a Python function; __class__.__name__ is 'function'; str.__eq__('function') returns True; new to extra1291"]
+    - [fu1291sp004,
+       "singledispatchmethod.__dict__.__contains__",
+       ["__init__"],
+       true,
+       "functools.singledispatchmethod.__dict__.__contains__('__init__') == True — singledispatchmethod defines __init__ in its class body; dict.__contains__('__init__') returns True; new to extra1291"]
+    - [fu1291sp005,
+       "partialmethod.__init__.__qualname__.__eq__",
+       ["object.__init__"],
+       true,
+       "functools.partialmethod.__init__.__qualname__.__eq__('object.__init__') == True — partialmethod does not define __init__; it inherits object.__init__; __qualname__ is 'object.__init__'; str.__eq__('object.__init__') returns True; new to extra1291"]
+    - [fu1291sp006,
+       "partialmethod.__dict__.__contains__",
+       ["__init__"],
+       false,
+       "functools.partialmethod.__dict__.__contains__('__init__') == False — partialmethod does not define __init__ in its class dict; dict.__contains__('__init__') returns False; new to extra1291"]
+    - [fu1291sp007,
+       "partialmethod.__new__.__qualname__.__eq__",
+       ["_partial_new"],
+       true,
+       "functools.partialmethod.__new__.__qualname__.__eq__('_partial_new') == True — partialmethod overrides __new__ with a local helper function named '_partial_new' defined in Lib/functools.py; __qualname__ is '_partial_new'; str.__eq__('_partial_new') returns True; new to extra1291"]
+    - [fu1291sp008,
+       "partialmethod.__new__.__qualname__.__len__",
+       [],
+       12,
+       "functools.partialmethod.__new__.__qualname__.__len__() == 12 — '_partial_new' has 12 characters; shorter than partial.__new__.__qualname__ ('partial.__new__', len 15); new to extra1291"]
+    - [fu1291sp009,
+       "partialmethod.__new__.__class__.__name__.__eq__",
+       ["function"],
+       true,
+       "functools.partialmethod.__new__.__class__.__name__.__eq__('function') == True — partialmethod.__new__ is a Python function (_partial_new); unlike partial.__new__ which is a builtin_function_or_method, this is a regular Python function; __class__.__name__ is 'function'; str.__eq__('function') returns True; new to extra1291"]
