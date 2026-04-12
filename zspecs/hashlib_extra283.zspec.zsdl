@@ -1,0 +1,175 @@
+spec: hashlib_extra283
+version: ">=3.6"
+backend: python_module(hmac)
+
+docs: https://docs.python.org/3/library/hmac.html
+rfcs:
+  - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hmac.html — Python hmac module documentation"
+    - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/hmac.py"
+    - "OpenSSL source: crypto/hmac/hmac.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl through hashlib_extra282.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "hashlib_extra282.zspec.zsdl covers: hashlib.scrypt() known vectors (n=16 r=8 p=1); dklen parameter; scrypt output length; error cases; function identity."
+    - "This spec focuses on: the hmac module — hmac.new(), hmac.digest(), hmac.compare_digest(); known hex vectors; digest_size; name attribute; function class names."
+    - "hmac.new(b'key', b'msg', 'sha256').hexdigest() == '2d93cbc1be167bcb1637a4a23cbff01a7878f0c50ee833954ea5221bb1b8c628'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.digest(b'key', b'msg', 'sha256').hex() == '2d93cbc1be167bcb1637a4a23cbff01a7878f0c50ee833954ea5221bb1b8c628'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.new(b'key', b'msg', 'sha256').digest_size == 32 — SHA-256 HMAC produces a 32-byte (256-bit) digest. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.new(b'key', b'msg', 'sha1').digest_size == 20 — SHA-1 HMAC produces a 20-byte (160-bit) digest. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.new(b'key', b'msg', 'sha256').name == 'hmac-sha256' — name attribute encodes the algorithm as 'hmac-<algo>'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.compare_digest(b'abc', b'abc') == True; hmac.compare_digest(b'abc', b'xyz') == False. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "hmac.new and hmac.digest are Python-level functions (class 'function'); hmac.compare_digest is a C-level builtin ('builtin_function_or_method'). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "hmac functions raise TypeError for mismatched argument types. All return values are HMAC objects or bytes."
+  stderr: "null"
+  stickiness: "N/A — HMAC is a deterministic keyed hash; no shared mutable state."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# hmac.new and hmac.digest — HMAC-SHA256 and HMAC-SHA1 known vectors
+# key=b'key', msg=b'msg'. hmac.new() returns an HMAC object with .hexdigest().
+# hmac.digest() is the fast one-shot form returning raw bytes (Python 3.7+).
+# Both produce the same output for the same inputs.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra283.hmac_vectors:
+  description: "hmac known vectors — HMAC-SHA256 and HMAC-SHA1 hex output for key=b'key', msg=b'msg'; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: known_vector
+  rfc: "RFC 2104"
+  id_prefix: hmv283
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [new_sha256_hex,    "new.__call__",    [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha256"], "2d93cbc1be167bcb1637a4a23cbff01a7878f0c50ee833954ea5221bb1b8c628", "hmac.new(b'key', b'msg', 'sha256').hexdigest() — HMAC-SHA256 vector"]
+    - [digest_sha256_hex, "digest",          [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha256"], "2d93cbc1be167bcb1637a4a23cbff01a7878f0c50ee833954ea5221bb1b8c628", "hmac.digest(b'key', b'msg', 'sha256').hex() — one-shot form matches hmac.new"]
+    - [new_sha1_hex,      "new.__call__",    [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha1"],   "102900b72b7bf1031eec76b4804b66052376896b",                           "hmac.new(b'key', b'msg', 'sha1').hexdigest() — HMAC-SHA1 vector"]
+
+# ---------------------------------------------------------------------------
+# hmac.new — output length from digest_size attribute
+# digest_size is an int attribute of the HMAC instance.
+# SHA-256 → 32 bytes; SHA-1 → 20 bytes.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra283.hmac_new.sha256_digest_size:
+  description: "hmac.new(b'key', b'msg', 'sha256').digest_size == 32 — SHA-256 HMAC digest is 32 bytes; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: digest_size
+  kind: python_call_eq
+  function: new
+  args: [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha256"]
+  method: digest_size.__eq__
+  method_args: [32]
+  expected: true
+
+invariant hashlib_extra283.hmac_new.sha1_digest_size:
+  description: "hmac.new(b'key', b'msg', 'sha1').digest_size == 20 — SHA-1 HMAC digest is 20 bytes; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: digest_size
+  kind: python_call_eq
+  function: new
+  args: [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha1"]
+  method: digest_size.__eq__
+  method_args: [20]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hmac.new — name attribute encodes algorithm
+# The name attribute is always 'hmac-<digest_name>'.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra283.hmac_new.sha256_name:
+  description: "hmac.new(b'key', b'msg', 'sha256').name == 'hmac-sha256' — name attribute encodes algorithm as 'hmac-<algo>'; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: name_attribute
+  kind: python_call_eq
+  function: new
+  args: [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha256"]
+  method: name.__eq__
+  method_args: ["hmac-sha256"]
+  expected: true
+
+invariant hashlib_extra283.hmac_new.return_class_name:
+  description: "hmac.new(b'key', b'msg', 'sha256').__class__.__name__ == 'HMAC' — new() returns an HMAC instance; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: return_type
+  kind: python_call_eq
+  function: new
+  args: [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha256"]
+  method: __class__.__name__.__eq__
+  method_args: ["HMAC"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hmac.digest — return type and output length
+# hmac.digest() returns bytes directly (not an HMAC object).
+# For 'sha256' the output is always 32 bytes.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra283.hmac_digest.sha256_length:
+  description: "len(hmac.digest(b'key', b'msg', 'sha256')) == 32 — SHA-256 HMAC output is 32 bytes; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: output_length
+  kind: python_call_eq
+  function: digest
+  args: [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha256"]
+  method: __len__
+  method_args: []
+  expected: 32
+
+invariant hashlib_extra283.hmac_digest.return_class_name:
+  description: "hmac.digest(b'key', b'msg', 'sha256').__class__.__name__ == 'bytes' — hmac.digest() returns bytes (not HMAC); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: return_type
+  kind: python_call_eq
+  function: digest
+  args: [{type: bytes_ascii, value: "key"}, {type: bytes_ascii, value: "msg"}, "sha256"]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hmac.compare_digest — constant-time comparison
+# compare_digest(a, b) returns True iff a == b; accepts both bytes and str.
+# It is a C-level builtin (builtin_function_or_method) for timing-safe comparison.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra283.compare_digest.bytes_equal:
+  description: "hmac.compare_digest(b'abc', b'abc') == True — identical byte strings compare equal; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: compare_digest
+  kind: python_call_eq
+  function: compare_digest
+  args: [{type: bytes_ascii, value: "abc"}, {type: bytes_ascii, value: "abc"}]
+  expected: true
+
+invariant hashlib_extra283.compare_digest.bytes_unequal:
+  description: "hmac.compare_digest(b'abc', b'xyz') == False — different byte strings compare unequal; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: compare_digest
+  kind: python_call_eq
+  function: compare_digest
+  args: [{type: bytes_ascii, value: "abc"}, {type: bytes_ascii, value: "xyz"}]
+  expected: false
+
+invariant hashlib_extra283.compare_digest.str_equal:
+  description: "hmac.compare_digest('abc', 'abc') == True — identical str arguments compare equal; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: compare_digest
+  kind: python_call_eq
+  function: compare_digest
+  args: ["abc", "abc"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# hmac.compare_digest — function identity (C-level builtin)
+# compare_digest is implemented in C for timing-safe comparison.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra283.compare_digest.function_class_name:
+  description: "hmac.compare_digest.__class__.__name__ == 'builtin_function_or_method' — compare_digest is a C-level builtin; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: function_identity
+  kind: python_call_eq
+  function: compare_digest.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true

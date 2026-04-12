@@ -1,0 +1,141 @@
+spec: struct_extra276
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "This spec extends struct.zspec.zsdl through struct_extra275.zspec.zsdl; it does NOT duplicate invariants already present there."
+    - "struct_extra275.zspec.zsdl covers: little-endian ('<') pack/unpack vectors for H/I formats; calcsize for '<HI' (6) and '<HIQ' (14); little-endian Q zero and q -1."
+    - "This spec focuses on: mixed format strings with native alignment (BH → 4 bytes due to padding) vs network byte order (!BH → 3 bytes no padding); pack BB/!BB known vectors; calcsize for additional mixed formats."
+    - "struct.calcsize('BH') == 4 — native/default byte order adds 1 padding byte after B to align H to a 2-byte boundary on this little-endian macOS system. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.calcsize('!BH') == 3 — network byte order ('!') uses standard sizes with no padding: B=1 + H=2 = 3. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('BB', 1, 2) == b'\\x01\\x02' — two adjacent unsigned bytes, no padding. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!BB', 255, 0) == b'\\xff\\x00' — network order BB: no difference from native for single-byte fields. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack('!BH', 1, 300) == b'\\x01\\x01\\x2c' — 3 bytes total: B=0x01, H=300 big-endian (0x012c). Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('BB', b'\\x01\\x02') == (1, 2) — round-trip from pack BB. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('!BH', b'\\x01\\x01\\x2c') == (1, 300) — round-trip for network BH. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack('!BH', b'\\x01\\x02') raises struct.error — buffer is 2 bytes but format requires 3. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "struct.error is raised for buffer size mismatches on unpack, and for out-of-range integer values on pack."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; no shared state."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# struct.calcsize — mixed format strings with and without alignment padding
+# Native byte order (no prefix or '@') pads fields to natural alignment.
+# Network/big/little-endian ('!', '>', '<') use standard sizes with no padding.
+# B=1 byte; H=2 bytes. 'BH' with native order → 1 byte B + 1 byte pad + 2 bytes H = 4.
+# '!BH' → 1 byte B + 2 bytes H = 3 (no padding).
+# ---------------------------------------------------------------------------
+
+table struct_extra276.calcsize_mixed_formats:
+  description: "struct.calcsize() for mixed B/H format strings — native alignment adds padding; network/explicit order does not; verified with Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: csm276
+
+  columns: [id, args, expected, description]
+  rows:
+    - [BH_native,  ["BH"],  4, "native BH: B(1) + pad(1) + H(2) = 4 — H aligned to 2-byte boundary"]
+    - [BH_network, ["!BH"], 3, "network !BH: B(1) + H(2) = 3 — no alignment padding in network order"]
+    - [BH_big,     [">BH"], 3, "big-endian >BH: B(1) + H(2) = 3 — explicit endian suppresses padding"]
+    - [BH_little,  ["<BH"], 3, "little-endian <BH: B(1) + H(2) = 3 — explicit endian suppresses padding"]
+    - [BB_native,  ["BB"],  2, "native BB: B(1) + B(1) = 2 — no padding needed (B already byte-aligned)"]
+    - [BB_network, ["!BB"], 2, "network !BB: B(1) + B(1) = 2 — single-byte fields never need padding"]
+
+# ---------------------------------------------------------------------------
+# struct.pack — BB and !BB vectors
+# struct.pack('BB', 1, 2) == b'\x01\x02' — two unsigned bytes, no padding.
+# struct.pack('!BB', 255, 0) == b'\xff\x00' — same layout, max/min byte values.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra276.pack.BB_1_2:
+  description: "struct.pack('BB', 1, 2) == b'\\x01\\x02' — two adjacent unsigned bytes; no padding between B fields; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["BB", 1, 2]
+  expected: !hex 0102
+
+invariant struct_extra276.pack.network_BB_255_0:
+  description: "struct.pack('!BB', 255, 0) == b'\\xff\\x00' — network order BB: 0xff then 0x00; byte order is irrelevant for single-byte fields; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["!BB", 255, 0]
+  expected: !hex ff00
+
+# ---------------------------------------------------------------------------
+# struct.pack — !BH network byte order known vector
+# struct.pack('!BH', 1, 300): B=0x01, H=300=0x012c in big-endian → b'\x01\x01\x2c'
+# 3 bytes total (no padding in network byte order).
+# ---------------------------------------------------------------------------
+
+invariant struct_extra276.pack.network_BH_1_300:
+  description: "struct.pack('!BH', 1, 300) == b'\\x01\\x01\\x2c' — network order: B=0x01, H=300 big-endian (0x012c); 3 bytes total, no padding; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: pack_vector
+  kind: python_call_eq
+  function: pack
+  args: ["!BH", 1, 300]
+  expected: !hex 01012c
+
+# ---------------------------------------------------------------------------
+# struct.unpack — round-trip for BB and !BH
+# Unpack is the inverse of pack for the same format string.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra276.unpack.BB_roundtrip:
+  description: "struct.unpack('BB', b'\\x01\\x02') == (1, 2) — round-trip of struct.pack('BB', 1, 2); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["BB", !hex 0102]
+  expected: [1, 2]
+
+invariant struct_extra276.unpack.network_BH_roundtrip:
+  description: "struct.unpack('!BH', b'\\x01\\x01\\x2c') == (1, 300) — round-trip of struct.pack('!BH', 1, 300); verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: unpack_vector
+  kind: python_call_eq
+  function: unpack
+  args: ["!BH", !hex 01012c]
+  expected: [1, 300]
+
+# ---------------------------------------------------------------------------
+# struct.unpack — buffer size mismatch raises struct.error
+# '!BH' requires exactly 3 bytes. Passing a 2-byte buffer raises struct.error.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra276.unpack.size_mismatch_raises:
+  description: "struct.unpack('!BH', b'\\x01\\x02') raises struct.error — buffer is 2 bytes but '!BH' requires 3; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: unpack
+  args: ["!BH", !hex 0102]
+  raises: error
+
+# ---------------------------------------------------------------------------
+# struct.pack — out-of-range unsigned byte raises struct.error
+# struct.pack('B', 256) raises struct.error: 256 exceeds the 0–255 range
+# for an unsigned char (B format code).
+# ---------------------------------------------------------------------------
+
+invariant struct_extra276.pack.B_overflow_raises:
+  description: "struct.pack('B', 256) raises struct.error — value 256 exceeds unsigned char range [0, 255]; verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12"
+  category: error
+  kind: python_call_raises
+  function: pack
+  args: ["B", 256]
+  raises: error

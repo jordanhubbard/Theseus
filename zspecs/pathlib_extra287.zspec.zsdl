@@ -1,0 +1,127 @@
+spec: pathlib_extra287
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/_abc.py"
+    - "CPython source: Lib/pathlib/_local.py"
+  notes:
+    - "pathlib_extra286 covers Path.with_name() and Path.with_suffix() transforms."
+    - "This spec focuses on Path.resolve() — symlink resolution, dot-dot normalization, and absolute-path guarantees."
+    - "Path('.').resolve().__class__.__name__ == 'PosixPath' — resolve() returns a PosixPath on macOS/Linux."
+    - "Path('.').resolve().is_absolute() is True — resolve() always returns an absolute path."
+    - "Path('/tmp').resolve().is_absolute() is True — even a known symlink target is absolute after resolve."
+    - "Path('/nonexistent/../tmp').resolve() == Path('/private/tmp') on macOS — '..' is eliminated and /tmp resolves via /private/tmp."
+    - "Path('/usr/local/../bin').resolve() == Path('/usr/bin') on macOS — double-dot traversal collapses correctly."
+    - "Path('/tmp').resolve().parts[0] == '/' — the root component of any resolved path is '/'."
+    - "On macOS, /tmp is a symlink to /private/tmp, so Path('/tmp').resolve() == Path('/private/tmp')."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Path.resolve() class identity and absolute-path guarantee
+# On macOS/POSIX, resolve() returns a PosixPath and is always absolute.
+# The root parts[0] is always '/'.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra287.resolve_class_and_absolute:
+  description: "Path.resolve() returns a PosixPath that is always absolute; parts[0] == '/'"
+  kind: python_call_eq
+  category: resolve_identity
+  id_prefix: resolveclass287
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [dot_class,     "Path('.').resolve().__class__.__name__.__eq__",  ["PosixPath"], true,  "Path('.').resolve().__class__.__name__ == 'PosixPath'"]
+    - [dot_absolute,  "Path('.').resolve().is_absolute",                [],            true,  "Path('.').resolve().is_absolute() is True"]
+    - [tmp_absolute,  "Path('/tmp').resolve().is_absolute",             [],            true,  "Path('/tmp').resolve().is_absolute() is True"]
+    - [tmp_parts0,    "Path('/tmp').resolve().parts.__getitem__",       [0],           "/",   "Path('/tmp').resolve().parts[0] == '/' — root component"]
+    - [dot_not_rel,   "Path('.').resolve().__class__.__name__.__eq__",  ["PurePath"],  false, "Path('.').resolve() is not a bare PurePath"]
+
+# ---------------------------------------------------------------------------
+# Path.resolve() dot-dot normalization on macOS
+# /nonexistent/../tmp -> /private/tmp  (symlink expansion + ..)
+# /usr/local/../bin   -> /usr/bin      (.. collapses after real directory)
+# Both results are absolute PosixPath instances.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra287.resolve_dotdot_normalization:
+  description: "Path.resolve() eliminates '..' components and resolves symlinks; verified results on macOS"
+  kind: python_call_eq
+  category: resolve_normalization
+  id_prefix: resolvedd287
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [nonexist_tmp,  "Path('/nonexistent/../tmp').resolve().__str__",  [],         "/private/tmp", "Path('/nonexistent/../tmp').resolve() == '/private/tmp' on macOS"]
+    - [usr_local_bin, "Path('/usr/local/../bin').resolve().__str__",    [],         "/usr/bin",     "Path('/usr/local/../bin').resolve() == '/usr/bin' on macOS"]
+    - [tmp_str,       "Path('/tmp').resolve().__str__",                 [],         "/private/tmp", "Path('/tmp').resolve() == '/private/tmp' — /tmp is a symlink on macOS"]
+    - [nonexist_abs,  "Path('/nonexistent/../tmp').resolve().is_absolute", [],      true,           "Path('/nonexistent/../tmp').resolve().is_absolute() is True"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra287.resolve.dot_returns_posixpath:
+  description: "Path('.').resolve().__class__.__name__ == 'PosixPath' — resolve() on macOS/Linux returns a concrete PosixPath, not a generic Path or PurePath"
+  category: resolve_identity
+  kind: python_call_eq
+  function: "Path('.').resolve().__class__.__name__.__eq__"
+  args: ["PosixPath"]
+  expected: true
+
+invariant pathlib_extra287.resolve.dot_is_absolute:
+  description: "Path('.').resolve().is_absolute() is True — resolve() always converts a relative path to an absolute path"
+  category: resolve_identity
+  kind: python_call_eq
+  function: "Path('.').resolve().is_absolute"
+  args: []
+  expected: true
+
+invariant pathlib_extra287.resolve.tmp_is_absolute:
+  description: "Path('/tmp').resolve().is_absolute() is True — an already-absolute path remains absolute after resolve()"
+  category: resolve_identity
+  kind: python_call_eq
+  function: "Path('/tmp').resolve().is_absolute"
+  args: []
+  expected: true
+
+invariant pathlib_extra287.resolve.tmp_expands_symlink:
+  description: "str(Path('/tmp').resolve()) == '/private/tmp' — on macOS /tmp is a symlink to /private/tmp; resolve() follows it"
+  category: resolve_normalization
+  kind: python_call_eq
+  function: "Path('/tmp').resolve().__str__"
+  args: []
+  expected: "/private/tmp"
+
+invariant pathlib_extra287.resolve.dotdot_normalizes:
+  description: "str(Path('/nonexistent/../tmp').resolve()) == '/private/tmp' — resolve() collapses '..' traversal and follows symlinks"
+  category: resolve_normalization
+  kind: python_call_eq
+  function: "Path('/nonexistent/../tmp').resolve().__str__"
+  args: []
+  expected: "/private/tmp"
+
+invariant pathlib_extra287.resolve.usr_local_dotdot:
+  description: "str(Path('/usr/local/../bin').resolve()) == '/usr/bin' — '..' after a real directory collapses to the parent; /usr/bin is the canonical result"
+  category: resolve_normalization
+  kind: python_call_eq
+  function: "Path('/usr/local/../bin').resolve().__str__"
+  args: []
+  expected: "/usr/bin"
+
+invariant pathlib_extra287.resolve.root_part_is_slash:
+  description: "Path('/tmp').resolve().parts[0] == '/' — the first element of parts on any resolved absolute path is the root '/'"
+  category: resolve_identity
+  kind: python_call_eq
+  function: "Path('/tmp').resolve().parts.__getitem__"
+  args: [0]
+  expected: "/"
