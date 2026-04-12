@@ -1,0 +1,153 @@
+spec: inspect_extra215
+version: ">=3.9"
+backend: python_module(inspect)
+
+docs: https://docs.python.org/3/library/inspect.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/inspect.html — Python inspect module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/inspect.py"
+  notes:
+    - "This spec covers exception-raising behavior for inspect functions on bad inputs."
+    - "inspect.signature(42) raises TypeError — argument must be a callable; 42 is not. Verified with Python 3.14.3."
+    - "inspect.getsource(len) raises TypeError — argument must be a module, class, method, function, traceback, frame, or code object; built-in functions like len do not have accessible source. Verified with Python 3.14.3."
+    - "inspect.getfile(len) raises TypeError — same restriction as getsource; built-in len has no associated file. Verified with Python 3.14.3."
+    - "inspect.Parameter('name', kind=99) raises ValueError — kind must be a valid Parameter.kind enum value; 99 is not. Verified with Python 3.14.3."
+    - "inspect.Signature(42) raises TypeError — parameters argument must be an iterable; 42 is not iterable. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# inspect.signature — exception on non-callable argument
+#
+# inspect.signature(callable) requires a callable as its argument. Passing
+# a non-callable raises TypeError immediately.
+# Verified: signature(42) -> TypeError: 42 is not a callable object.
+# ---------------------------------------------------------------------------
+
+table inspect_extra215.signature_bad_arg:
+  description: "signature(non-callable) raises TypeError — argument must be callable; new to extra215"
+  kind: python_call_raises
+  category: errors
+  id_prefix: inspectextra215
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [signature_int_raises_TypeError,
+       signature,
+       [42],
+       TypeError,
+       "inspect.signature(42) raises TypeError — signature() introspects the parameters of a callable; passing an integer 42 which is not callable raises TypeError: 42 is not a callable object; new to extra215"]
+
+# ---------------------------------------------------------------------------
+# inspect.getsource — exception on built-in with no source
+#
+# inspect.getsource(object) requires the object to be a module, class,
+# method, function, traceback, frame, or code object. Passing a built-in
+# function like len (implemented in C) raises TypeError because built-in
+# functions are not in the expected categories.
+# Verified: getsource(len) -> TypeError: module, class, method, function,
+# traceback, frame, or code object was expected, got builtin_function_or_method.
+# ---------------------------------------------------------------------------
+
+table inspect_extra215.getsource_builtin:
+  description: "getsource(builtin) raises TypeError — must be module/class/method/function/traceback/frame/code; new to extra215"
+  kind: python_call_raises
+  category: errors
+  id_prefix: inspectextra215
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [getsource_len_raises_TypeError,
+       getsource,
+       [len],
+       TypeError,
+       "inspect.getsource(len) raises TypeError — getsource() retrieves source code for an object; it accepts module, class, method, function, traceback, frame, or code objects; len is a builtin_function_or_method implemented in C with no Python source; Python raises TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method; new to extra215"]
+
+# ---------------------------------------------------------------------------
+# inspect.Parameter — exception on invalid kind value
+#
+# inspect.Parameter(name, kind) requires kind to be a valid Parameter.kind
+# enum value. Passing an integer that does not correspond to any enum member
+# raises ValueError immediately.
+# Verified: Parameter('name', kind=99) -> ValueError: value 99 is not a valid
+# Parameter.kind.
+# ---------------------------------------------------------------------------
+
+table inspect_extra215.parameter_bad_kind:
+  description: "Parameter('name', kind=invalid_int) raises ValueError — kind must be valid Parameter.kind enum; new to extra215"
+  kind: python_call_raises
+  category: errors
+  id_prefix: inspectextra215
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [parameter_bad_kind_raises_ValueError,
+       Parameter,
+       ["name", 99],
+       ValueError,
+       "inspect.Parameter('name', kind=99) raises ValueError — the kind argument to Parameter() must be one of the Parameter.kind enum values (POSITIONAL_ONLY, POSITIONAL_OR_KEYWORD, VAR_POSITIONAL, KEYWORD_ONLY, VAR_KEYWORD); 99 is not a valid enum value so Python raises ValueError: value 99 is not a valid Parameter.kind; new to extra215"]
+
+# ---------------------------------------------------------------------------
+# inspect.Signature — exception on non-iterable parameters
+#
+# inspect.Signature(parameters) requires parameters to be an iterable of
+# Parameter objects or None. Passing a bare integer raises TypeError because
+# integers are not iterable.
+# Verified: Signature(42) -> TypeError: 'int' object is not iterable.
+# ---------------------------------------------------------------------------
+
+table inspect_extra215.signature_non_iterable_params:
+  description: "Signature(non-iterable) raises TypeError — parameters must be iterable; new to extra215"
+  kind: python_call_raises
+  category: errors
+  id_prefix: inspectextra215
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [signature_int_params_raises_TypeError,
+       Signature,
+       [42],
+       TypeError,
+       "inspect.Signature(42) raises TypeError — the Signature constructor accepts an iterable of Parameter objects as its parameters argument; 42 is an integer and not iterable so Python raises TypeError: 'int' object is not iterable; new to extra215"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra215
+# ---------------------------------------------------------------------------
+
+invariant inspect_extra215.signature_non_callable_TypeError:
+  description: "inspect.signature(42) raises TypeError — argument must be callable; new to extra215"
+  kind: python_call_raises
+  category: errors
+  function: signature
+  args: [42]
+  expected: TypeError
+
+invariant inspect_extra215.getsource_builtin_TypeError:
+  description: "inspect.getsource(len) raises TypeError — len is a builtin with no Python source; new to extra215"
+  kind: python_call_raises
+  category: errors
+  function: getsource
+  args: [len]
+  expected: TypeError
+
+invariant inspect_extra215.parameter_bad_kind_ValueError:
+  description: "inspect.Parameter('name', kind=99) raises ValueError — 99 is not a valid Parameter.kind; new to extra215"
+  kind: python_call_raises
+  category: errors
+  function: Parameter
+  args: ["name", 99]
+  expected: ValueError
+
+invariant inspect_extra215.signature_non_iterable_params_TypeError:
+  description: "inspect.Signature(42) raises TypeError — parameters argument must be iterable; new to extra215"
+  kind: python_call_raises
+  category: errors
+  function: Signature
+  args: [42]
+  expected: TypeError

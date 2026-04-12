@@ -1,0 +1,120 @@
+spec: io_extra221
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+    - "io_extra220.zspec.zsdl — covers io class __doc__ string contains checks"
+  notes:
+    - "io.open('/tmp/x', 'xyz') raises ValueError: invalid mode: 'xyz'; confirmed Python 3.14.3 macOS."
+    - "io.BytesIO('not bytes') raises TypeError: a bytes-like object is required, not 'str'; confirmed Python 3.14.3 macOS."
+    - "io.FileIO('/tmp/nonexistent', 'r') raises FileNotFoundError; confirmed Python 3.14.3 macOS."
+    - "io.BytesIO(b'hello').close() then .read() raises ValueError: I/O operation on closed file; confirmed Python 3.14.3 macOS."
+    - "io.BytesIO(b'x').seek(0, 5) raises ValueError: invalid whence (5, should be 0, 1 or 2); confirmed Python 3.14.3 macOS."
+    - "io.BytesIO(b'x').truncate(-1) raises ValueError: negative size value -1; confirmed Python 3.14.3 macOS."
+    - "io.UnsupportedOperation MRO: UnsupportedOperation -> OSError -> ValueError -> Exception -> BaseException -> object; confirmed Python 3.14.3 macOS."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: io.open constructor errors
+# Bad mode strings raise ValueError
+# ---------------------------------------------------------------------------
+
+table io_extra221.open_bad_mode_errors:
+  description: "io.open with various invalid mode strings raises ValueError"
+  kind: python_call_raises
+  category: errors
+  id_prefix: ioopenmoderr221a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [open_mode_xyz,   io.open,  ["/tmp/test_theseus_io.txt", "xyz"],  ValueError,  "io.open('/tmp/x', 'xyz') raises ValueError — 'xyz' is not a valid file mode"]
+    - [open_mode_rw,    io.open,  ["/tmp/test_theseus_io.txt", "rw"],   ValueError,  "io.open('/tmp/x', 'rw') raises ValueError — 'rw' is not a valid file mode"]
+    - [open_mode_xz,    io.open,  ["/tmp/test_theseus_io.txt", "xz"],   ValueError,  "io.open('/tmp/x', 'xz') raises ValueError — 'xz' is not a valid file mode"]
+
+# ---------------------------------------------------------------------------
+# Table 2: io.BytesIO and io.FileIO constructor errors
+# Non-bytes initial value and nonexistent file path
+# ---------------------------------------------------------------------------
+
+table io_extra221.bytesio_and_fileio_constructor_errors:
+  description: "io.BytesIO with str arg raises TypeError; io.FileIO with nonexistent path raises FileNotFoundError"
+  kind: python_call_raises
+  category: errors
+  id_prefix: ioconstructerr221b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [bytesio_str_initial,      io.BytesIO,  ["not bytes"],                                          TypeError,          "io.BytesIO('not bytes') raises TypeError — initial_bytes must be bytes-like, not str"]
+    - [fileio_nonexistent_r,     io.FileIO,   ["/tmp/theseus_nonexistent_file_xyz.txt", "r"],          FileNotFoundError,  "io.FileIO('/tmp/nonexistent', 'r') raises FileNotFoundError — no such file"]
+
+# ---------------------------------------------------------------------------
+# Table 3: io.UnsupportedOperation class identity checks
+# Name and module of the exception class
+# ---------------------------------------------------------------------------
+
+table io_extra221.unsupported_operation_identity:
+  description: "io.UnsupportedOperation class name and module identity"
+  kind: python_call_eq
+  category: identity
+  id_prefix: iounsupportedid221c
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [unsupported_op_name,    io.UnsupportedOperation.__name__.__eq__,    ["UnsupportedOperation"],  true,  "io.UnsupportedOperation.__name__ == 'UnsupportedOperation'; confirmed Python 3.14.3 macOS"]
+    - [unsupported_op_module,  io.UnsupportedOperation.__module__.__eq__,  ["io"],                    true,  "io.UnsupportedOperation.__module__ == 'io'; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — exception raises requiring instance setup
+# (seek with bad whence, truncate with negative size, read after close)
+# ---------------------------------------------------------------------------
+
+invariant io_extra221.open_bad_mode_xyz:
+  description: "io.open('/tmp/test_theseus_io.txt', 'xyz') raises ValueError — mode 'xyz' is not valid; confirmed Python 3.14.3 macOS"
+  category: errors
+  kind: python_call_raises
+  function: io.open
+  args: ["/tmp/test_theseus_io.txt", "xyz"]
+  expected: ValueError
+
+invariant io_extra221.bytesio_str_initial:
+  description: "io.BytesIO('not bytes') raises TypeError — initial_bytes must be a bytes-like object, not str; confirmed Python 3.14.3 macOS"
+  category: errors
+  kind: python_call_raises
+  function: io.BytesIO
+  args: ["not bytes"]
+  expected: TypeError
+
+invariant io_extra221.fileio_nonexistent_read:
+  description: "io.FileIO('/tmp/theseus_nonexistent_file_xyz.txt', 'r') raises FileNotFoundError — no such file; confirmed Python 3.14.3 macOS"
+  category: errors
+  kind: python_call_raises
+  function: io.FileIO
+  args: ["/tmp/theseus_nonexistent_file_xyz.txt", "r"]
+  expected: FileNotFoundError
+
+invariant io_extra221.unsupported_operation_name:
+  description: "io.UnsupportedOperation.__name__ == 'UnsupportedOperation'; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: io.UnsupportedOperation.__name__.__eq__
+  args: ["UnsupportedOperation"]
+  expected: true
+
+invariant io_extra221.unsupported_operation_module:
+  description: "io.UnsupportedOperation.__module__ == 'io'; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: io.UnsupportedOperation.__module__.__eq__
+  args: ["io"]
+  expected: true

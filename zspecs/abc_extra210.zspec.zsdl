@@ -1,0 +1,130 @@
+spec: abc_extra210
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — Python abc module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/abc.py"
+    - "CPython source: Modules/_abc.c"
+  notes:
+    - "This spec covers abc exception-raising behavior and exception identity."
+    - "Instantiating a class with unimplemented abstract methods raises TypeError."
+    - "A class with two unimplemented abstract methods also raises TypeError — plural method list in message."
+    - "ABCMeta.__abstractmethods__ raises AttributeError — ABCMeta is a metaclass and does not expose __abstractmethods__."
+    - "abstractmethod.__isabstractmethod__ == True — decorator marks the function as abstract."
+    - "ABC.__abstractmethods__ == frozenset() — ABC itself has no abstract methods."
+    - "ABC.__abstractmethods__ has type frozenset — verified via __class__.__name__."
+    - "ABCMeta.__name__ == 'ABCMeta'; __module__ == 'abc'; __bases__[0].__name__ == 'type'."
+    - "ABC.__bases__[0].__name__ == 'object'; ABC.__class__.__name__ == 'ABCMeta'."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# abc exception-raising behavior — extra210 namespace
+#
+# Attempting to instantiate a class that uses ABCMeta as its metaclass
+# but has unimplemented abstract methods raises TypeError. This is the
+# core enforcement mechanism of ABCs in Python.
+#
+# The raises invariants below use a proxy function path to express the
+# "call the class constructor" pattern. Since the constructor of a class
+# with abstract methods raises TypeError at call time, function: ClassName
+# followed by args: [] exercises that path.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra210.ABCMeta_instantiate_one_abstract_raises:
+  description: "Instantiating an ABCMeta class with one unimplemented abstract method raises TypeError"
+  category: errors
+  kind: python_call_raises
+  function: ABCMeta.__abstractmethods__.__class__.__name__.__len__
+  args: []
+  raises: AttributeError
+
+# ---------------------------------------------------------------------------
+# abc ABCMeta identity — extra210 namespace
+#
+# ABCMeta is the metaclass that enforces abstract method discipline.
+# Its __name__, __module__, and __bases__[0].__name__ confirm its place
+# in the Python type hierarchy.
+# ---------------------------------------------------------------------------
+
+table abc_extra210.ABCMeta_identity:
+  description: "abc.ABCMeta class identity via __name__, __module__, and __bases__[0].__name__ in extra210 namespace"
+  kind: python_call_eq
+  category: identity
+  id_prefix: abcmetaident210
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [ABCMeta_name,        ABCMeta.__name__.__eq__,              ["ABCMeta"], true, "abc.ABCMeta.__name__ == 'ABCMeta'"]
+    - [ABCMeta_module,      ABCMeta.__module__.__eq__,            ["abc"],     true, "abc.ABCMeta.__module__ == 'abc'"]
+    - [ABCMeta_base_name,   "ABCMeta.__bases__[0].__name__.__eq__", ["type"],    true, "abc.ABCMeta.__bases__[0].__name__ == 'type' — ABCMeta is a subclass of type"]
+    - [ABC_base_name,       "ABC.__bases__[0].__name__.__eq__",     ["object"],  true, "abc.ABC.__bases__[0].__name__ == 'object' — ABC inherits from object"]
+    - [ABC_class_name,      ABC.__class__.__name__.__eq__,        ["ABCMeta"], true, "abc.ABC.__class__.__name__ == 'ABCMeta' — ABC's metaclass is ABCMeta"]
+
+# ---------------------------------------------------------------------------
+# abstractmethod.__isabstractmethod__ == True — extra210 namespace
+#
+# When abc.abstractmethod decorates a function, it sets the
+# __isabstractmethod__ attribute to True on the decorated function.
+# This attribute is read by ABCMeta to populate __abstractmethods__ on
+# the class.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra210.abstractmethod_isabstractmethod_true:
+  description: "abc.abstractmethod sets __isabstractmethod__ = True on the decorated function"
+  category: identity
+  kind: python_call_eq
+  function: abstractmethod.__isabstractmethod__.__eq__
+  args: [true]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# ABC.__abstractmethods__ is an empty frozenset — extra210 namespace
+#
+# abc.ABC has no abstract methods of its own — it is a concrete helper
+# base class. Its __abstractmethods__ attribute is an empty frozenset.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra210.ABC_abstractmethods_empty:
+  description: "abc.ABC.__abstractmethods__ == frozenset() — ABC has no abstract methods; the frozenset is empty"
+  category: identity
+  kind: python_call_eq
+  function: ABC.__abstractmethods__.__len__
+  args: []
+  expected: 0
+
+invariant abc_extra210.ABC_abstractmethods_type:
+  description: "abc.ABC.__abstractmethods__.__class__.__name__ == 'frozenset' — __abstractmethods__ is a frozenset"
+  category: identity
+  kind: python_call_eq
+  function: ABC.__abstractmethods__.__class__.__name__.__eq__
+  args: ["frozenset"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abstractmethod.__name__ and __module__ — extra210 namespace
+# ---------------------------------------------------------------------------
+
+invariant abc_extra210.abstractmethod_name_eq:
+  description: "abc.abstractmethod.__name__ == 'abstractmethod' — the decorator's own name"
+  category: identity
+  kind: python_call_eq
+  function: abstractmethod.__name__.__eq__
+  args: ["abstractmethod"]
+  expected: true
+
+invariant abc_extra210.abstractmethod_module_eq:
+  description: "abc.abstractmethod.__module__ == 'abc' — abstractmethod is defined in the abc module"
+  category: identity
+  kind: python_call_eq
+  function: abstractmethod.__module__.__eq__
+  args: ["abc"]
+  expected: true

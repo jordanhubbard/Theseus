@@ -1,0 +1,128 @@
+spec: re_extra217
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/_sre.c"
+    - "CPython source: Lib/re/__init__.py"
+    - "re_extra216.zspec.zsdl — covers re function __doc__ contains checks"
+  notes:
+    - "re.compile('[invalid') raises re.error (aliased as re.PatternError in Python 3.13+); confirmed Python 3.14.3 macOS."
+    - "re.match(42, 'string') raises TypeError: first argument must be string or compiled pattern; confirmed Python 3.14.3 macOS."
+    - "re.sub(r'(\\w+)', 42, 'hello') raises TypeError: decoding to str: need a bytes-like object, int found; confirmed Python 3.14.3 macOS."
+    - "re.compile('pattern', flags=99999999) raises ValueError: cannot use LOCALE flag with a str pattern; confirmed Python 3.14.3 macOS."
+    - "re.error.__name__ == 'PatternError' in Python 3.13+; re.error is re.PatternError; confirmed Python 3.14.3 macOS."
+    - "re.error.__module__ == 're'; confirmed Python 3.14.3 macOS."
+    - "re.error base class is Exception; confirmed Python 3.14.3 macOS."
+    - "re.PatternError is re.error — they are the same object; confirmed Python 3.14.3 macOS."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: re.compile exception raises
+# Invalid pattern syntax and invalid flags value
+# ---------------------------------------------------------------------------
+
+table re_extra217.compile_errors:
+  description: "re.compile raises re.error for invalid pattern syntax; raises ValueError for invalid flags"
+  kind: python_call_raises
+  category: errors
+  id_prefix: recomperr217a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [compile_unterminated_charset,   re.compile,  ["[invalid"],   re.error,    "re.compile('[invalid') raises re.error — unterminated character set at position 0"]
+    - [compile_invalid_flags,          re.compile,  ["pattern", 99999999],  ValueError,  "re.compile('pattern', 99999999) raises ValueError — cannot use LOCALE flag with a str pattern"]
+
+# ---------------------------------------------------------------------------
+# Table 2: re.match and re.sub type errors
+# Non-string pattern and non-string/non-callable replacement
+# ---------------------------------------------------------------------------
+
+table re_extra217.match_and_sub_type_errors:
+  description: "re.match raises TypeError for non-string pattern; re.sub raises TypeError for non-string/callable repl"
+  kind: python_call_raises
+  category: errors
+  id_prefix: rematchsuberr217b
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [match_int_pattern,       re.match,  [42, "string"],          TypeError,  "re.match(42, 'string') raises TypeError — first argument must be string or compiled pattern"]
+    - [sub_int_replacement,     re.sub,    ["(\\w+)", 42, "hello"],  TypeError,  "re.sub(r'(\\w+)', 42, 'hello') raises TypeError — repl must be string or callable, not int"]
+
+# ---------------------------------------------------------------------------
+# Table 3: re.error class identity
+# __name__, __module__, and base class
+# ---------------------------------------------------------------------------
+
+table re_extra217.error_class_identity:
+  description: "re.error class name, module, and base class identity (re.error renamed PatternError in Python 3.13)"
+  kind: python_call_eq
+  category: identity
+  id_prefix: reerrorid217c
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [error_name,    re.error.__name__.__eq__,              ["PatternError"],  true,  "re.error.__name__ == 'PatternError' — renamed from 'error' in Python 3.13; confirmed Python 3.14.3 macOS"]
+    - [error_module,  re.error.__module__.__eq__,            ["re"],            true,  "re.error.__module__ == 're'; confirmed Python 3.14.3 macOS"]
+    - [error_base,    re.error.__bases__[0].__name__.__eq__, ["Exception"],     true,  "re.error base class is Exception; confirmed Python 3.14.3 macOS"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant re_extra217.compile_unterminated_charset:
+  description: "re.compile('[invalid') raises re.error — unterminated character set; confirmed Python 3.14.3 macOS"
+  category: errors
+  kind: python_call_raises
+  function: re.compile
+  args: ["[invalid"]
+  expected: re.error
+
+invariant re_extra217.compile_invalid_flags:
+  description: "re.compile('pattern', flags=99999999) raises ValueError — invalid flags value; confirmed Python 3.14.3 macOS"
+  category: errors
+  kind: python_call_raises
+  function: re.compile
+  args: ["pattern", 99999999]
+  expected: ValueError
+
+invariant re_extra217.match_int_pattern:
+  description: "re.match(42, 'string') raises TypeError — first argument must be string or compiled pattern; confirmed Python 3.14.3 macOS"
+  category: errors
+  kind: python_call_raises
+  function: re.match
+  args: [42, "string"]
+  expected: TypeError
+
+invariant re_extra217.sub_int_repl:
+  description: "re.sub(r'(\\w+)', 42, 'hello') raises TypeError — repl must be str or callable; confirmed Python 3.14.3 macOS"
+  category: errors
+  kind: python_call_raises
+  function: re.sub
+  args: ["(\\w+)", 42, "hello"]
+  expected: TypeError
+
+invariant re_extra217.error_name:
+  description: "re.error.__name__ == 'PatternError' — re.error was renamed to PatternError in Python 3.13; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: re.error.__name__.__eq__
+  args: ["PatternError"]
+  expected: true
+
+invariant re_extra217.error_module:
+  description: "re.error.__module__ == 're'; confirmed Python 3.14.3 macOS"
+  category: identity
+  kind: python_call_eq
+  function: re.error.__module__.__eq__
+  args: ["re"]
+  expected: true

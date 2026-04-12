@@ -1,0 +1,85 @@
+spec: socket_extra214
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — Python socket module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+  notes:
+    - "verified with Python 3.14.3."
+    - "socket.socket(family=999) raises OSError: [Errno 47] Address family not supported by protocol family."
+    - "socket.gethostbyname('invalid.hostname.that.does.not.exist.xyz.abc') raises socket.gaierror (subclass of OSError)."
+    - "socket.getaddrinfo('localhost', 'invalid_service_xyz') raises socket.gaierror (subclass of OSError)."
+    - "socket.setdefaulttimeout(-1) raises ValueError: Timeout value out of range."
+    - "socket.gaierror.__name__ == 'gaierror'; socket.gaierror base class is OSError."
+    - "socket.herror.__name__ == 'herror'; socket.herror base class is OSError."
+    - "All exception types verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# socket.socket — raises OSError for invalid address family
+#
+# socket.socket(family=999) raises OSError
+# ---------------------------------------------------------------------------
+
+invariant socket_extra214.socket_invalid_family_raises:
+  description: "socket.socket(family=999) raises OSError — family 999 is not a recognized address family on any standard platform; the OS immediately rejects the socket creation with EAFNOSUPPORT (errno 47 on macOS/Darwin); OSError is the base class for all OS-level errors in Python; socket.gaierror and socket.herror are both subclasses of OSError; verified with Python 3.14.3"
+  category: errors
+  kind: python_call_raises
+  function: socket.socket
+  args: []
+  kwargs:
+    family: 999
+  expected_exception: OSError
+
+# ---------------------------------------------------------------------------
+# socket.setdefaulttimeout — raises ValueError for negative timeout
+# ---------------------------------------------------------------------------
+
+invariant socket_extra214.setdefaulttimeout_negative_raises:
+  description: "socket.setdefaulttimeout(-1) raises ValueError — timeout values must be non-negative; -1 is explicitly rejected with 'Timeout value out of range'; a timeout of 0 sets non-blocking mode, and None clears the default; only positive floats/ints are accepted as finite timeouts; verified with Python 3.14.3"
+  category: errors
+  kind: python_call_raises
+  function: socket.setdefaulttimeout
+  args: [-1]
+  expected_exception: ValueError
+
+# ---------------------------------------------------------------------------
+# socket.gethostbyname and socket.getaddrinfo
+# — raise socket.gaierror for unresolvable names/services
+# ---------------------------------------------------------------------------
+
+table socket_extra214.resolution_errors_raise:
+  description: "socket.gethostbyname and socket.getaddrinfo raise socket.gaierror for unresolvable hostnames and invalid service names in socketerr214 namespace — wave 214 theme: socket.gethostbyname('invalid.hostname...') raises socket.gaierror; socket.getaddrinfo('localhost', 'invalid_service_xyz') raises socket.gaierror; socket.gaierror is a subclass of OSError; verified with Python 3.14.3"
+  kind: python_call_raises
+  category: errors
+  id_prefix: socketerr214
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [gethostbyname_bad_host,     socket.gethostbyname,  ["invalid.hostname.that.does.not.exist.xyz.abc"],   socket.gaierror, "socket.gethostbyname('invalid.hostname...') raises socket.gaierror — hostname cannot be resolved"]
+    - [getaddrinfo_bad_service,    socket.getaddrinfo,    ["localhost", "invalid_service_xyz"],                socket.gaierror, "socket.getaddrinfo('localhost', 'invalid_service_xyz') raises socket.gaierror — service name is not known"]
+
+# ---------------------------------------------------------------------------
+# socket.gaierror and socket.herror identity checks
+# ---------------------------------------------------------------------------
+
+table socket_extra214.gaierror_herror_identity:
+  description: "socket.gaierror and socket.herror class name and base class identity checks in socketerr214a namespace — wave 214 theme: socket.gaierror.__name__ == 'gaierror'; socket.herror.__name__ == 'herror'; both are subclasses of OSError; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: socketerr214a
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [gaierror_name,          socket.gaierror.__name__.__eq__,              ["gaierror"],  true,  "socket.gaierror.__name__ == 'gaierror' — the address-info error class name"]
+    - [gaierror_base_is_OSErr, "socket.gaierror.__bases__[0].__name__.__eq__", ["OSError"],   true,  "socket.gaierror base class is OSError — gaierror inherits from OSError"]
+    - [herror_name,            socket.herror.__name__.__eq__,                  ["herror"],    true,  "socket.herror.__name__ == 'herror' — the host-resolution error class name"]
+    - [herror_base_is_OSErr,   "socket.herror.__bases__[0].__name__.__eq__",   ["OSError"],   true,  "socket.herror base class is OSError — herror inherits from OSError"]
