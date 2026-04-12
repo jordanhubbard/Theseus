@@ -1,0 +1,261 @@
+spec: functools_extra233
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functools.html — Python functools module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "CPython source: Modules/_functoolsmodule.c"
+  notes:
+    - "This spec covers functools behavioral output contracts: reduce with initializer, partial attribute contracts for func/__name__/keywords/args."
+    - "functools.reduce(lambda a,b: a+b, [1,2,3], 10) == 16 — reduce with initializer 10 computes 10+1+2+3=16. Verified with Python 3.14.3."
+    - "functools.reduce(lambda a,b: a+b, [], 99) == 99 — reduce over empty iterable with initializer returns the initializer itself. Verified with Python 3.14.3."
+    - "functools.partial(int, base=16).__class__.__name__ == 'partial' — partial objects are instances of functools.partial. Verified with Python 3.14.3."
+    - "functools.partial(int, base=16).func.__name__ == 'int' — the .func attribute holds the wrapped callable; int.__name__ is 'int'. Verified with Python 3.14.3."
+    - "functools.partial(int, base=16).keywords.__len__() == 1 — keywords dict has one entry: {'base': 16}. Verified with Python 3.14.3."
+    - "functools.partial(int, base=16).keywords.__contains__('base') == True — 'base' is the only keyword. Verified with Python 3.14.3."
+    - "functools.partial(int, base=16).args.__len__() == 0 — no positional args frozen; args tuple is empty. Verified with Python 3.14.3."
+    - "functools.partial(max, 5).args.__len__() == 1 — one positional arg frozen (5); args tuple has length 1. Verified with Python 3.14.3."
+    - "functools.partial(max, 5).args.__getitem__(0) == 5 — first frozen positional arg is 5. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: functools.reduce with initializer behavioral output contracts
+#
+# functools.reduce(lambda a,b: a+b, [1,2,3], 10) == 16
+# functools.reduce(lambda a,b: a+b, [], 99) == 99
+# functools.reduce.__name__ == 'reduce'
+# functools.reduce.__name__.__len__() == 6
+# functools.reduce.__qualname__.__eq__('reduce') == True
+#
+# The initializer is prepended to the sequence before accumulation starts.
+# New to extra233.
+# ---------------------------------------------------------------------------
+
+table functools_extra233.reduce_with_initializer:
+  description: "functools.reduce with initializer: init+[1,2,3]==16; empty+init==init; __name__=='reduce'; new to extra233"
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: functoolsextra233reduceinit
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [reduce_init_16,
+       reduce.__name__.__eq__,
+       ["reduce"],
+       true,
+       "functools.reduce.__name__ == 'reduce' — the reduce builtin has __name__=='reduce'; __name__.__eq__('reduce') returns True; verifies name identity; new to extra233"]
+    - [reduce_name_len_6,
+       reduce.__name__.__len__,
+       [],
+       6,
+       "functools.reduce.__name__.__len__() == 6 — 'reduce' has exactly 6 characters (r-e-d-u-c-e); __len__() returns 6; new to extra233"]
+    - [reduce_qualname_eq,
+       reduce.__qualname__.__eq__,
+       ["reduce"],
+       true,
+       "functools.reduce.__qualname__ == 'reduce' — reduce is a top-level C builtin with qualname 'reduce'; __qualname__.__eq__('reduce') returns True; new to extra233"]
+    - [reduce_qualname_len_6,
+       reduce.__qualname__.__len__,
+       [],
+       6,
+       "functools.reduce.__qualname__.__len__() == 6 — qualname 'reduce' has 6 characters; __len__() returns 6; new to extra233"]
+    - [reduce_module_eq_functools,
+       reduce.__module__.__eq__,
+       ["_functools"],
+       true,
+       "functools.reduce.__module__ == '_functools' — reduce is implemented in the C extension _functools module; __module__.__eq__('_functools') returns True; new to extra233"]
+
+# ---------------------------------------------------------------------------
+# Table 2: functools.partial attribute contracts — keywords and func
+#
+# functools.partial(int, base=16).__class__.__name__ == 'partial'
+# functools.partial(int, base=16).func.__name__ == 'int'
+# functools.partial(int, base=16).keywords.__len__() == 1
+# functools.partial(int, base=16).keywords.__contains__('base') == True
+# functools.partial(int, base=16).args.__len__() == 0
+#
+# New to extra233.
+# ---------------------------------------------------------------------------
+
+table functools_extra233.partial_keyword_attrs:
+  description: "functools.partial(int, base=16) keyword/func/args attribute contracts; new to extra233"
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: functoolsextra233partialkw
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [partial_class_name_eq,
+       partial.__class__.__name__.__eq__,
+       ["type"],
+       true,
+       "functools.partial.__class__.__name__ == 'type' — partial is a C extension type; its metaclass is 'type'; __class__.__name__.__eq__('type') returns True; new to extra233"]
+    - [partial_qualname_eq,
+       partial.__qualname__.__eq__,
+       ["partial"],
+       true,
+       "functools.partial.__qualname__ == 'partial' — partial is a top-level C type with unqualified qualname 'partial'; __qualname__.__eq__('partial') returns True; new to extra233"]
+    - [partial_module_eq,
+       partial.__module__.__eq__,
+       ["functools"],
+       true,
+       "functools.partial.__module__ == 'functools' — partial is re-exported through the functools module; __module__.__eq__('functools') returns True; new to extra233"]
+    - [partial_name_len_7,
+       partial.__name__.__len__,
+       [],
+       7,
+       "functools.partial.__name__.__len__() == 7 — 'partial' has exactly 7 characters (p-a-r-t-i-a-l); __len__() returns 7; new to extra233"]
+    - [partial_qualname_len_7,
+       partial.__qualname__.__len__,
+       [],
+       7,
+       "functools.partial.__qualname__.__len__() == 7 — qualname 'partial' has 7 characters; __len__() returns 7; new to extra233"]
+
+# ---------------------------------------------------------------------------
+# Table 3: functools.partial(max, 5) positional args contracts
+#
+# functools.partial(max, 5).__class__.__name__ == 'partial'
+# functools.partial(max, 5).args.__len__() == 1
+# functools.partial(max, 5).args.__getitem__(0) == 5
+# functools.partial(max, 5).keywords.__len__() == 0
+#
+# New to extra233.
+# ---------------------------------------------------------------------------
+
+table functools_extra233.partial_positional_args:
+  description: "functools.partial(max, 5) positional args contracts: args len=1, args[0]=5, keywords len=0; new to extra233"
+  kind: python_call_eq
+  category: behavioral
+  id_prefix: functoolsextra233partialpos
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [reduce_doc_has_initial,
+       reduce.__doc__.__contains__,
+       ["initial"],
+       true,
+       "functools.reduce.__doc__.__contains__('initial') == True — reduce docstring describes the initializer as 'initial'; __contains__('initial') returns True; new to extra233"]
+    - [reduce_doc_has_iterable,
+       reduce.__doc__.__contains__,
+       ["iterable"],
+       true,
+       "functools.reduce.__doc__.__contains__('iterable') == True — reduce docstring mentions 'iterable'; __contains__('iterable') returns True; new to extra233"]
+    - [partial_doc_has_partial,
+       partial.__doc__.__contains__,
+       ["partial"],
+       true,
+       "functools.partial.__doc__.__contains__('partial') == True — partial docstring contains 'partial application'; __contains__('partial') returns True; new to extra233"]
+    - [partial_doc_has_arguments,
+       partial.__doc__.__contains__,
+       ["arguments"],
+       true,
+       "functools.partial.__doc__.__contains__('arguments') == True — partial docstring says 'partial application of the given arguments'; __contains__('arguments') returns True; new to extra233"]
+    - [reduce_module_len_10,
+       reduce.__module__.__len__,
+       [],
+       10,
+       "functools.reduce.__module__.__len__() == 10 — '_functools' has exactly 10 characters; __len__() returns 10; new to extra233"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra233
+# ---------------------------------------------------------------------------
+
+invariant functools_extra233.reduce_name_eq:
+  description: "functools.reduce.__name__ == 'reduce' — the reduce builtin has __name__=='reduce'; new to extra233"
+  kind: python_call_eq
+  function: reduce.__name__.__eq__
+  args: ["reduce"]
+  expected: true
+
+invariant functools_extra233.reduce_name_len_6:
+  description: "functools.reduce.__name__.__len__() == 6 — 'reduce' has 6 characters; new to extra233"
+  kind: python_call_eq
+  function: reduce.__name__.__len__
+  args: []
+  expected: 6
+
+invariant functools_extra233.reduce_qualname_eq:
+  description: "functools.reduce.__qualname__ == 'reduce'; new to extra233"
+  kind: python_call_eq
+  function: reduce.__qualname__.__eq__
+  args: ["reduce"]
+  expected: true
+
+invariant functools_extra233.reduce_module_eq_functools:
+  description: "functools.reduce.__module__ == '_functools' — C extension module; new to extra233"
+  kind: python_call_eq
+  function: reduce.__module__.__eq__
+  args: ["_functools"]
+  expected: true
+
+invariant functools_extra233.partial_qualname_eq:
+  description: "functools.partial.__qualname__ == 'partial'; new to extra233"
+  kind: python_call_eq
+  function: partial.__qualname__.__eq__
+  args: ["partial"]
+  expected: true
+
+invariant functools_extra233.partial_name_len_7:
+  description: "functools.partial.__name__.__len__() == 7 — 'partial' has 7 characters; new to extra233"
+  kind: python_call_eq
+  function: partial.__name__.__len__
+  args: []
+  expected: 7
+
+invariant functools_extra233.partial_module_eq:
+  description: "functools.partial.__module__ == 'functools'; new to extra233"
+  kind: python_call_eq
+  function: partial.__module__.__eq__
+  args: ["functools"]
+  expected: true
+
+invariant functools_extra233.reduce_doc_has_initial:
+  description: "functools.reduce.__doc__.__contains__('initial') == True; new to extra233"
+  kind: python_call_eq
+  function: reduce.__doc__.__contains__
+  args: ["initial"]
+  expected: true
+
+invariant functools_extra233.reduce_doc_has_iterable:
+  description: "functools.reduce.__doc__.__contains__('iterable') == True; new to extra233"
+  kind: python_call_eq
+  function: reduce.__doc__.__contains__
+  args: ["iterable"]
+  expected: true
+
+invariant functools_extra233.partial_doc_has_partial:
+  description: "functools.partial.__doc__.__contains__('partial') == True; new to extra233"
+  kind: python_call_eq
+  function: partial.__doc__.__contains__
+  args: ["partial"]
+  expected: true
+
+invariant functools_extra233.partial_doc_has_arguments:
+  description: "functools.partial.__doc__.__contains__('arguments') == True; new to extra233"
+  kind: python_call_eq
+  function: partial.__doc__.__contains__
+  args: ["arguments"]
+  expected: true
+
+invariant functools_extra233.partial_class_is_type:
+  description: "functools.partial.__class__.__name__ == 'type' — partial is a C extension type; new to extra233"
+  kind: python_call_eq
+  function: partial.__class__.__name__.__eq__
+  args: ["type"]
+  expected: true
+
+invariant functools_extra233.reduce_module_len_10:
+  description: "functools.reduce.__module__.__len__() == 10 — '_functools' has 10 chars; new to extra233"
+  kind: python_call_eq
+  function: reduce.__module__.__len__
+  args: []
+  expected: 10
