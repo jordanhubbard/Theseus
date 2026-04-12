@@ -1,0 +1,133 @@
+spec: abc_extra305
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — abc documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source code"
+  notes:
+    - "abc.abstractmethod.__name__ == 'abstractmethod' — the decorator is a top-level name."
+    - "abc.abstractmethod.__qualname__ == 'abstractmethod' — qualname equals name for top-level definitions."
+    - "abc.abstractmethod.__module__ == 'abc' — abstractmethod is defined in the abc module."
+    - "abc.ABC.__module__ == 'abc' — the ABC helper class is defined in the abc module."
+    - "abc.ABC.__qualname__ == 'ABC' — top-level class; qualname equals name."
+    - "collections.abc.Mapping() raises TypeError — Mapping has abstract methods __getitem__, __iter__, __len__."
+    - "ABCMeta(123, [], {}) raises TypeError — class name argument must be a str (delegates to type.__new__)."
+    - "A concrete subclass of abc.ABC with no abstract methods (e.g., abc.ABC itself) can be instantiated freely."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# abc.abstractmethod — identity attributes
+#
+# abstractmethod is a top-level name in the abc module.
+# Its __name__, __qualname__, and __module__ all reflect that position.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra305.abstractmethod.name:
+  description: "abc.abstractmethod.__name__ == 'abstractmethod'"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__name__.__eq__
+  args: ["abstractmethod"]
+  expected: true
+
+invariant abc_extra305.abstractmethod.qualname:
+  description: "abc.abstractmethod.__qualname__ == 'abstractmethod' — qualname equals name for top-level definitions"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__qualname__.__eq__
+  args: ["abstractmethod"]
+  expected: true
+
+invariant abc_extra305.abstractmethod.module:
+  description: "abc.abstractmethod.__module__ == 'abc'"
+  category: abstractmethod
+  kind: python_call_eq
+  function: abstractmethod.__module__.__eq__
+  args: ["abc"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abc.ABC — qualname and module identity
+#
+# ABC is a top-level helper class defined directly in the abc module.
+# Its __qualname__ equals its __name__ because it is not nested in another class.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra305.ABC.module:
+  description: "abc.ABC.__module__ == 'abc'"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__module__.__eq__
+  args: ["abc"]
+  expected: true
+
+invariant abc_extra305.ABC.qualname:
+  description: "abc.ABC.__qualname__ == 'ABC' — top-level class; qualname equals name"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC.__qualname__.__eq__
+  args: ["ABC"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# abc.ABC instantiation — concrete subclass with no abstract methods
+#
+# abc.ABC itself has no abstract methods (__abstractmethods__ is empty).
+# Therefore abc.ABC() succeeds and returns an instance of ABC.
+# We verify the instance's __class__.__name__ == 'ABC'.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra305.ABC.instantiation_succeeds:
+  description: "abc.ABC() can be instantiated; instance.__class__.__name__ == 'ABC'"
+  category: abc_class
+  kind: python_call_eq
+  function: ABC
+  args: []
+  method: __class__
+  method_chain: __name__.__eq__
+  method_chain_args: ["ABC"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# TypeError: instantiating an abstract class
+#
+# collections.abc.Mapping is an abstract base class with three abstract methods:
+# __getitem__, __iter__, and __len__. Attempting to instantiate it directly
+# raises TypeError because those methods have no implementation.
+#
+# This demonstrates the core abc contract: a class with unimplemented abstract
+# methods cannot be instantiated.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra305.abstract_instantiation.mapping_raises_typeerror:
+  description: "collections.abc.Mapping() raises TypeError — abstract methods __getitem__, __iter__, __len__ have no implementation"
+  category: errors
+  kind: python_call_raises
+  function: collections.abc.Mapping
+  args: []
+  raises: TypeError
+
+# ---------------------------------------------------------------------------
+# TypeError: ABCMeta with a non-string class name
+#
+# ABCMeta(name, bases, namespace) delegates class creation to type.__new__(),
+# which requires the first argument (name) to be a str.
+# Passing an integer raises TypeError.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra305.error.abcmeta_nonstring_name:
+  description: "ABCMeta(123, [], {}) raises TypeError — class name must be a str"
+  category: errors
+  kind: python_call_raises
+  function: ABCMeta
+  args: [123, [], {}]
+  raises: TypeError
