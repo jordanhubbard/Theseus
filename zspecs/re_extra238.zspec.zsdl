@@ -1,0 +1,130 @@
+spec: re_extra238
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec covers: re.sub with count parameter contracts — count limits the number of substitutions made."
+    - "re.sub(r'\\w+', 'X', 'hello world foo') == 'X X X' — replaces all 3 word matches; count defaults to 0 meaning unlimited; verified Python 3.14.3 macOS."
+    - "re.sub(r'\\w+', 'X', 'hello world foo', count=1) == 'X world foo' — only first match replaced; verified Python 3.14.3 macOS."
+    - "re.sub(r'\\w+', 'X', 'hello world foo', count=2) == 'X X foo' — only first two matches replaced; verified Python 3.14.3 macOS."
+    - "re.sub(r'a', 'b', 'aaa', count=2) == 'bba' — replaces first 2 of 3 'a' occurrences; verified Python 3.14.3 macOS."
+    - "re.sub(r'a', 'b', 'aaa', count=0) == 'bbb' — count=0 means unlimited; all 3 'a' replaced; verified Python 3.14.3 macOS."
+    - "re.sub.__qualname__ == 'sub' — module-level function; covered in re_extra163; this spec covers count parameter behavioral contracts."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.sub() with default count (0 = unlimited) contracts
+# count=0 is the default, meaning all non-overlapping matches are replaced.
+# re.sub(r'\w+', 'X', 'hello world foo') == 'X X X'
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant re_extra238.sub.all_words_replaced:
+  description: "re.sub(r'\\w+', 'X', 'hello world foo') == 'X X X' — default count=0 replaces all 3 word tokens; verified Python 3.14.3 macOS"
+  category: sub_count
+  kind: python_call_eq
+  function: sub
+  args: ["\\w+", "X", "hello world foo"]
+  expected: "X X X"
+
+invariant re_extra238.sub.all_words_length:
+  description: "re.sub(r'\\w+', 'X', 'hello world foo').__len__() == 5 — 'X X X' has 5 characters; verified Python 3.14.3 macOS"
+  category: sub_count
+  kind: python_call_eq
+  function: sub
+  args: ["\\w+", "X", "hello world foo"]
+  method: __len__
+  expected: 5
+
+# ---------------------------------------------------------------------------
+# re.sub() with count=1 contracts
+# count=1 replaces only the first match; the rest of the string is unchanged.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant re_extra238.sub.count1_first_word:
+  description: "re.sub(r'\\w+', 'X', 'hello world foo', count=1) == 'X world foo' — only first word 'hello' replaced; count=1 limits substitutions to one; verified Python 3.14.3 macOS"
+  category: sub_count
+  kind: python_call_eq
+  function: sub
+  args: ["\\w+", "X", "hello world foo"]
+  kwargs: {count: 1}
+  expected: "X world foo"
+
+invariant re_extra238.sub.count1_single_a:
+  description: "re.sub(r'a', 'b', 'aaa', count=1) == 'baa' — only first 'a' replaced; remaining two 'a' unchanged; verified Python 3.14.3 macOS"
+  category: sub_count
+  kind: python_call_eq
+  function: sub
+  args: ["a", "b", "aaa"]
+  kwargs: {count: 1}
+  expected: "baa"
+
+# ---------------------------------------------------------------------------
+# re.sub() with count=2 contracts
+# count=2 replaces only the first two matches; subsequent matches unchanged.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant re_extra238.sub.count2_two_words:
+  description: "re.sub(r'\\w+', 'X', 'hello world foo', count=2) == 'X X foo' — first two words replaced, third unchanged; verified Python 3.14.3 macOS"
+  category: sub_count
+  kind: python_call_eq
+  function: sub
+  args: ["\\w+", "X", "hello world foo"]
+  kwargs: {count: 2}
+  expected: "X X foo"
+
+invariant re_extra238.sub.count2_two_as:
+  description: "re.sub(r'a', 'b', 'aaa', count=2) == 'bba' — first two 'a' replaced by 'b'; third 'a' unchanged; verified Python 3.14.3 macOS"
+  category: sub_count
+  kind: python_call_eq
+  function: sub
+  args: ["a", "b", "aaa"]
+  kwargs: {count: 2}
+  expected: "bba"
+
+# ---------------------------------------------------------------------------
+# re.sub() with count=0 contracts
+# count=0 is equivalent to the default: unlimited replacements.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant re_extra238.sub.count0_all_as:
+  description: "re.sub(r'a', 'b', 'aaa', count=0) == 'bbb' — count=0 means unlimited; all three 'a' replaced; verified Python 3.14.3 macOS"
+  category: sub_count
+  kind: python_call_eq
+  function: sub
+  args: ["a", "b", "aaa"]
+  kwargs: {count: 0}
+  expected: "bbb"
+
+# ---------------------------------------------------------------------------
+# re.sub count parameter result length spot-checks
+# Verify string lengths of re.sub results with various count values.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+table re_extra238.sub_no_count_defaults:
+  description: "re.sub with default count (0 = unlimited); replaces all matches; verified Python 3.14.3"
+  kind: python_call_eq
+  category: sub_count
+  id_prefix: resubcount238
+
+  columns: [id, function, args, expected]
+  rows:
+    - [bbb,       sub, ["a", "b", "aaa"],                    "bbb"]
+    - [X_X_X,     sub, ["\\w+", "X", "hello world foo"],    "X X X"]
+    - [no_match,  sub, ["z", "Q", "aaa"],                   "aaa"]

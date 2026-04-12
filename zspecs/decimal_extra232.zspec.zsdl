@@ -1,0 +1,175 @@
+spec: decimal_extra232
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+    - "CPython source: Modules/_decimal/_decimal.c"
+    - "decimal_extra12.zspec.zsdl — covers Decimal.compare() as value-returning call with integer args (compare(1)=='1', compare(2)=='-1')"
+    - "decimal_extra113.zspec.zsdl — covers Decimal.max and Decimal.min qualnames and class identity"
+  notes:
+    - "This spec covers: decimal.Decimal max/min comparison contracts — Decimal.max(), Decimal.min(), and Decimal.compare() string representations."
+    - "decimal_extra12 covered Decimal.compare(1).__str__()==1 and compare(2).__str__()=='-1' using integer args."
+    - "This spec adds compare with equal values (compare equal to self returns '0'), compare with equal decimal '1.0' string, and max/min __str__ results."
+    - "decimal.Decimal('1.5').max(1).__str__() == '1.5' — max returns the larger value as Decimal string; verified Python 3.14.3 macOS."
+    - "decimal.Decimal('1.0').min(2).__str__() == '1.0' — min returns the smaller value as Decimal string; verified Python 3.14.3 macOS."
+    - "decimal.Decimal('1.5').compare(1).__str__() == '1' — compare returns '1' when self > other; verified Python 3.14.3 macOS."
+    - "decimal.Decimal('1.0').compare(2).__str__() == '-1' — compare returns '-1' when self < other; verified Python 3.14.3 macOS."
+    - "decimal.Decimal('1.0').compare(1).__str__() == '0' — compare returns '0' when self == other; integer 1 converts to Decimal('1') for comparison; verified Python 3.14.3 macOS."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# decimal.Decimal.max() string result contracts
+# Decimal.max(other) returns the larger of the two values.
+# Integer args are auto-converted to Decimal.
+# Results are compared as strings via method_chain: __str__.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra232.Decimal.max.returns_self:
+  description: "decimal.Decimal('1.5').max(1).__str__() == '1.5' — max returns self when self > other; Decimal('1.5') > Decimal(1); verified Python 3.14.3 macOS"
+  category: max_min
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: max
+  method_args: [1]
+  method_chain: __str__
+  expected: "1.5"
+
+invariant decimal_extra232.Decimal.max.returns_other:
+  description: "decimal.Decimal('1').max(2).__str__() == '2' — max returns the integer arg when other > self; Decimal('1') < Decimal(2); verified Python 3.14.3 macOS"
+  category: max_min
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: max
+  method_args: [2]
+  method_chain: __str__
+  expected: "2"
+
+invariant decimal_extra232.Decimal.max.result_class:
+  description: "decimal.Decimal('1.5').max(1).__class__.__name__ == 'Decimal' — max returns a Decimal object not a plain int or float; verified Python 3.14.3 macOS"
+  category: max_min
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: max
+  method_args: [1]
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["Decimal"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# decimal.Decimal.min() string result contracts
+# Decimal.min(other) returns the smaller of the two values.
+# Integer args are auto-converted to Decimal.
+# Results are compared as strings via method_chain: __str__.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra232.Decimal.min.returns_self:
+  description: "decimal.Decimal('1.0').min(2).__str__() == '1.0' — min returns self when self < other; Decimal('1.0') < Decimal(2); verified Python 3.14.3 macOS"
+  category: max_min
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.0"]
+  method: min
+  method_args: [2]
+  method_chain: __str__
+  expected: "1.0"
+
+invariant decimal_extra232.Decimal.min.returns_other:
+  description: "decimal.Decimal('5').min(2).__str__() == '2' — min returns the integer arg when other < self; Decimal('5') > Decimal(2); verified Python 3.14.3 macOS"
+  category: max_min
+  kind: python_call_eq
+  function: Decimal
+  args: ["5"]
+  method: min
+  method_args: [2]
+  method_chain: __str__
+  expected: "2"
+
+invariant decimal_extra232.Decimal.min.result_class:
+  description: "decimal.Decimal('1.0').min(2).__class__.__name__ == 'Decimal' — min returns a Decimal object not a plain int or float; verified Python 3.14.3 macOS"
+  category: max_min
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.0"]
+  method: min
+  method_args: [2]
+  method_chain: __class__.__name__.__eq__
+  method_chain_args: ["Decimal"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# decimal.Decimal.compare() string result contracts — equal value
+# compare returns Decimal('0') when self equals other.
+# decimal_extra12 covered compare(1)=='1' (greater) and compare(2)=='-1' (less).
+# This spec adds compare(1)=='0' (equal) as a new anchor in this namespace.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra232.Decimal.compare.equal_returns_0:
+  description: "decimal.Decimal('1.0').compare(1).__str__() == '0' — compare returns '0' when values are equal; integer 1 auto-converts to Decimal; verified Python 3.14.3 macOS"
+  category: compare
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.0"]
+  method: compare
+  method_args: [1]
+  method_chain: __str__
+  expected: "0"
+
+invariant decimal_extra232.Decimal.compare.greater_returns_1:
+  description: "decimal.Decimal('1.5').compare(1).__str__() == '1' — compare returns '1' when self > other; namespace anchor for decimal_extra232; verified Python 3.14.3 macOS"
+  category: compare
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: compare
+  method_args: [1]
+  method_chain: __str__
+  expected: "1"
+
+invariant decimal_extra232.Decimal.compare.less_returns_minus1:
+  description: "decimal.Decimal('1.0').compare(2).__str__() == '-1' — compare returns '-1' when self < other; namespace anchor for decimal_extra232; verified Python 3.14.3 macOS"
+  category: compare
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.0"]
+  method: compare
+  method_args: [2]
+  method_chain: __str__
+  expected: "-1"
+
+# ---------------------------------------------------------------------------
+# decimal.Decimal max/min qualname spot-checks (namespace anchors)
+# Decimal.max.__qualname__ == 'Decimal.max' (len 11).
+# Decimal.min.__qualname__ == 'Decimal.min' (len 11).
+# Covered in decimal_extra113; re-anchored here in decimal_extra232 namespace.
+# All verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11.
+# ---------------------------------------------------------------------------
+
+table decimal_extra232.max_min_identity:
+  description: "decimal.Decimal.max and min qualnames and class identity; namespace anchor for decimal_extra232; verified Python 3.14.3"
+  kind: python_call_eq
+  category: method_identity
+  id_prefix: decmaxmin232
+
+  columns: [id, function, args, expected]
+  rows:
+    - [max_qn_eq,  Decimal.max.__qualname__.__eq__,            ["Decimal.max"], true]
+    - [min_qn_eq,  Decimal.min.__qualname__.__eq__,            ["Decimal.min"], true]
+    - [max_qn_len, Decimal.max.__qualname__.__len__,           [],              11]
+    - [min_qn_len, Decimal.min.__qualname__.__len__,           [],              11]
+    - [cmp_qn_len, Decimal.compare.__qualname__.__len__,       [],              15]
