@@ -1,0 +1,199 @@
+spec: itertools_extra216
+version: ">=3.9"
+backend: python_module(itertools)
+
+docs: https://docs.python.org/3/library/itertools.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/itertools.html — Python itertools module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Modules/itertoolsmodule.c"
+  notes:
+    - "This spec covers exception-raising behavior for itertools functions on bad inputs (wave 382, different errors from wave 381 / extra215)."
+    - "itertools.islice([1,2,3], 1.5) raises ValueError — Stop argument must be None or integer; float is not accepted. Verified with Python 3.14.3."
+    - "itertools.accumulate(42) raises TypeError — argument must be iterable; int 42 is not iterable. Verified with Python 3.14.3."
+    - "itertools.chain.from_iterable([1, 2]) raises TypeError — each element in the outer iterable must itself be iterable; int elements are not. Verified with Python 3.14.3."
+    - "itertools.cycle(42) raises TypeError — argument must be iterable; int 42 is not iterable. Verified with Python 3.14.3."
+    - "itertools.takewhile(42, [1,2,3]) raises TypeError — first argument must be callable; int 42 is not callable. Verified with Python 3.14.3."
+    - "itertools.filterfalse(42, [1,2,3]) raises TypeError — first argument must be callable; int 42 is not callable. Verified with Python 3.14.3."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# itertools.islice — exception on float stop argument
+#
+# itertools.islice(iterable, stop) requires stop to be None or a non-negative
+# integer. Passing a float raises ValueError because float is not an integer
+# type, even if the value is whole.
+# Verified: islice([1,2,3], 1.5) -> ValueError: Stop argument for islice()
+# must be None or an integer: 0 <= x <= sys.maxsize.
+# ---------------------------------------------------------------------------
+
+table itertools_extra216.islice_float_stop:
+  description: "islice(iterable, 1.5) raises ValueError — stop must be None or integer, not float; new to extra216"
+  kind: python_call_raises
+  category: errors
+  id_prefix: itertoolsextra216
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [islice_float_stop_raises_ValueError,
+       islice,
+       "[[1, 2, 3], 1.5]",
+       ValueError,
+       "itertools.islice([1,2,3], 1.5) raises ValueError — the stop argument to islice() must be None or an integer in the range 0 <= x <= sys.maxsize; 1.5 is a float and not an integer type so Python raises ValueError: Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize; exception fires at construction time; new to extra216"]
+
+# ---------------------------------------------------------------------------
+# itertools.accumulate — exception on non-iterable argument
+#
+# itertools.accumulate(iterable, func=operator.add) requires its first
+# argument to be iterable. Passing an integer raises TypeError because int
+# is not iterable.
+# Verified: accumulate(42) -> TypeError: 'int' object is not iterable.
+# ---------------------------------------------------------------------------
+
+table itertools_extra216.accumulate_non_iterable:
+  description: "accumulate(non-iterable) raises TypeError — first argument must be iterable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  id_prefix: itertoolsextra216
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [accumulate_int_raises_TypeError,
+       accumulate,
+       [42],
+       TypeError,
+       "itertools.accumulate(42) raises TypeError — accumulate() computes running totals over an iterable; its first argument must be iterable; 42 is an int and not iterable so Python raises TypeError: 'int' object is not iterable; exception fires when iteration begins; new to extra216"]
+
+# ---------------------------------------------------------------------------
+# itertools.chain.from_iterable — exception on non-iterable inner elements
+#
+# itertools.chain.from_iterable(iterable) chains together iterables from a
+# single outer iterable. Each element of the outer iterable must itself be
+# iterable. Passing an outer iterable whose elements are bare integers raises
+# TypeError when the inner element is first consumed.
+# Verified: chain.from_iterable([1, 2]) -> TypeError: 'int' object is not
+# iterable.
+# ---------------------------------------------------------------------------
+
+table itertools_extra216.chain_from_iterable_int_elements:
+  description: "chain.from_iterable([1, 2]) raises TypeError — inner elements must be iterable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  id_prefix: itertoolsextra216
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [chain_from_iterable_int_raises_TypeError,
+       chain.from_iterable,
+       "[[1, 2]]",
+       TypeError,
+       "itertools.chain.from_iterable([1, 2]) raises TypeError — from_iterable() takes a single iterable whose elements are themselves iterables and chains them end-to-end; the integers 1 and 2 are not iterable so Python raises TypeError: 'int' object is not iterable when the first inner element is consumed; new to extra216"]
+
+# ---------------------------------------------------------------------------
+# itertools.cycle — exception on non-iterable argument
+#
+# itertools.cycle(iterable) requires its argument to be iterable. Passing
+# a bare integer raises TypeError because int is not iterable.
+# Verified: cycle(42) -> TypeError: 'int' object is not iterable.
+# ---------------------------------------------------------------------------
+
+table itertools_extra216.cycle_non_iterable:
+  description: "cycle(non-iterable) raises TypeError — argument must be iterable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  id_prefix: itertoolsextra216
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [cycle_int_raises_TypeError,
+       cycle,
+       [42],
+       TypeError,
+       "itertools.cycle(42) raises TypeError — cycle() returns an iterator that cycles infinitely through the elements of its argument; the argument must be iterable; 42 is an int and not iterable so Python raises TypeError: 'int' object is not iterable; new to extra216"]
+
+# ---------------------------------------------------------------------------
+# itertools.takewhile and itertools.filterfalse — exception on non-callable predicate
+#
+# Both takewhile(predicate, iterable) and filterfalse(predicate, iterable)
+# require their first argument to be callable. Passing an integer as the
+# predicate raises TypeError when the predicate is first applied to an element.
+# Verified: takewhile(42, [1,2,3]) -> TypeError: 'int' object is not callable.
+# Verified: filterfalse(42, [1,2,3]) -> TypeError: 'int' object is not callable.
+# ---------------------------------------------------------------------------
+
+table itertools_extra216.takewhile_filterfalse_non_callable:
+  description: "takewhile/filterfalse(non-callable, iterable) raise TypeError — predicate must be callable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  id_prefix: itertoolsextra216
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [takewhile_int_predicate_raises_TypeError,
+       takewhile,
+       "[42, [1, 2, 3]]",
+       TypeError,
+       "itertools.takewhile(42, [1,2,3]) raises TypeError — takewhile() applies its predicate to each element and yields elements while the predicate is True; the predicate must be callable; 42 is an int and not callable so Python raises TypeError: 'int' object is not callable when it tries to call 42(element); new to extra216"]
+    - [filterfalse_int_predicate_raises_TypeError,
+       filterfalse,
+       "[42, [1, 2, 3]]",
+       TypeError,
+       "itertools.filterfalse(42, [1,2,3]) raises TypeError — filterfalse() applies its predicate to each element and yields elements for which the predicate is False; the predicate must be callable; 42 is an int and not callable so Python raises TypeError: 'int' object is not callable when it tries to call 42(element); new to extra216"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — extra216
+# ---------------------------------------------------------------------------
+
+invariant itertools_extra216.islice_float_stop_ValueError:
+  description: "itertools.islice([1,2,3], 1.5) raises ValueError — stop must be an integer, not a float; new to extra216"
+  kind: python_call_raises
+  category: errors
+  function: islice
+  args: "[[1, 2, 3], 1.5]"
+  expected: ValueError
+
+invariant itertools_extra216.accumulate_non_iterable_TypeError:
+  description: "itertools.accumulate(42) raises TypeError — argument must be iterable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  function: accumulate
+  args: [42]
+  expected: TypeError
+
+invariant itertools_extra216.chain_from_iterable_int_TypeError:
+  description: "itertools.chain.from_iterable([1, 2]) raises TypeError — inner elements must be iterable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  function: chain.from_iterable
+  args: "[[1, 2]]"
+  expected: TypeError
+
+invariant itertools_extra216.cycle_non_iterable_TypeError:
+  description: "itertools.cycle(42) raises TypeError — argument must be iterable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  function: cycle
+  args: [42]
+  expected: TypeError
+
+invariant itertools_extra216.takewhile_non_callable_TypeError:
+  description: "itertools.takewhile(42, [1,2,3]) raises TypeError — predicate must be callable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  function: takewhile
+  args: "[42, [1, 2, 3]]"
+  expected: TypeError
+
+invariant itertools_extra216.filterfalse_non_callable_TypeError:
+  description: "itertools.filterfalse(42, [1,2,3]) raises TypeError — predicate must be callable; new to extra216"
+  kind: python_call_raises
+  category: errors
+  function: filterfalse
+  args: "[42, [1, 2, 3]]"
+  expected: TypeError
