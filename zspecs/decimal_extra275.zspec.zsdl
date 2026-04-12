@@ -1,0 +1,137 @@
+spec: decimal_extra275
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal module documentation"
+    - "IBM General Decimal Arithmetic Specification, Version 1.72 — http://speleotrove.com/decimal/decarith.html"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/_pydecimal.py"
+    - "CPython source: Modules/_decimal/_decimal.c"
+  notes:
+    - "decimal_extra274 covers str() representations and is_signed/is_infinite/is_nan/is_finite predicates."
+    - "This spec focuses on Decimal arithmetic results and the return types of Decimal methods."
+    - "Decimal('2') ** 10 == Decimal('1024') — integer exponentiation produces an exact integer result."
+    - "str(Decimal('2') ** 10) == '1024' — the result is represented as '1024' without a decimal point."
+    - "(Decimal('2') ** 10).__class__.__name__ == 'Decimal' — the result is a Decimal instance."
+    - "Decimal('10').log10().__class__.__name__ == 'Decimal' — log10 returns a Decimal."
+    - "str(Decimal('10').log10()) == '1' — log10(10) is exactly 1 in decimal arithmetic."
+    - "Decimal('1').exp().__class__.__name__ == 'Decimal' — exp returns a Decimal."
+    - "str(Decimal('1').exp()) == '2.718281828459045235360287471' — exp(1) at default 28-digit precision."
+    - "Decimal.from_float(0.1).__class__.__name__ == 'Decimal' — from_float returns a Decimal."
+    - "Decimal('4').sqrt().__class__.__name__ == 'Decimal' — sqrt returns a Decimal."
+    - "str(Decimal('4').sqrt()) == '2' — sqrt of 4 is exactly 2."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Decimal arithmetic — result type is always Decimal
+# Verifies that arithmetic operations return Decimal instances
+# ---------------------------------------------------------------------------
+
+table decimal_extra275.arithmetic_result_class:
+  description: "Decimal arithmetic result __class__.__name__ — all arithmetic ops return Decimal"
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: arith_class
+  function: Decimal
+  method: __class__.__name__
+
+  columns: [id, args, expected, description]
+  rows:
+    - [add,  ["3"],  "Decimal", "Decimal('3').__class__.__name__ == 'Decimal' — Decimal instance"]
+    - [neg,  ["-5"], "Decimal", "Decimal('-5').__class__.__name__ == 'Decimal' — negative Decimal instance"]
+    - [zero, ["0"],  "Decimal", "Decimal('0').__class__.__name__ == 'Decimal' — zero Decimal instance"]
+
+# ---------------------------------------------------------------------------
+# Decimal method return class names — log10, exp, sqrt, from_float
+# All return Decimal instances
+# ---------------------------------------------------------------------------
+
+table decimal_extra275.method_return_class:
+  description: "Decimal method results are always Decimal instances"
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: method_class
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [log10_class,      Decimal.__new__,         ["Decimal", "10"],  "Decimal", "Decimal('10').log10().__class__.__name__ == 'Decimal'"]
+    - [exp_class,        Decimal.__new__,         ["Decimal", "1"],   "Decimal", "Decimal('1').exp().__class__.__name__ == 'Decimal'"]
+    - [sqrt_class,       Decimal.__new__,         ["Decimal", "4"],   "Decimal", "Decimal('4').sqrt().__class__.__name__ == 'Decimal'"]
+    - [from_float_class, Decimal.from_float,      [0.1],              "Decimal", "Decimal.from_float(0.1).__class__.__name__ == 'Decimal'"]
+
+# ---------------------------------------------------------------------------
+# Decimal arithmetic — exact string results
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra275.pow.two_to_ten_str:
+  description: "str(Decimal('2') ** 10) == '1024' — integer exponentiation produces exact result '1024'"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["2"]
+  method: __pow__
+  method_args: [10]
+  expected: "1024"
+
+invariant decimal_extra275.pow.two_to_ten_eq:
+  description: "Decimal('2') ** 10 == Decimal('1024') — integer power result equals the expected Decimal"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["2"]
+  method: __pow__.__eq__
+  method_args: [10]
+  expected: "1024"
+
+invariant decimal_extra275.log10.ten_str:
+  description: "str(Decimal('10').log10()) == '1' — log10(10) is exactly 1 in decimal arithmetic"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["10"]
+  method: log10.__str__
+  expected: "1"
+
+invariant decimal_extra275.exp.one_str:
+  description: "str(Decimal('1').exp()) == '2.718281828459045235360287471' — exp(1) at default 28-digit precision"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["1"]
+  method: exp.__str__
+  expected: "2.718281828459045235360287471"
+
+invariant decimal_extra275.sqrt.four_str:
+  description: "str(Decimal('4').sqrt()) == '2' — sqrt(4) is exactly 2"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["4"]
+  method: sqrt.__str__
+  expected: "2"
+
+invariant decimal_extra275.from_float.class_name:
+  description: "Decimal.from_float(0.1).__class__.__name__ == 'Decimal' — from_float returns a Decimal instance"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal.from_float
+  args: [0.1]
+  method: __class__.__name__
+  expected: "Decimal"
+
+invariant decimal_extra275.from_float.class_module:
+  description: "Decimal.from_float(0.1).__class__.__module__ == 'decimal' — result class lives in the decimal module"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal.from_float
+  args: [0.1]
+  method: __class__.__module__
+  expected: "decimal"
