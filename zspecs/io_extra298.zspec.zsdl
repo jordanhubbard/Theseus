@@ -1,0 +1,118 @@
+spec: io_extra298
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source code"
+  notes:
+    - "io.BytesIO(b'hello world').read(-1) returns all 11 bytes — any negative size reads to EOF."
+    - "io.BytesIO(b'hello world').read(-2) also returns all 11 bytes — negative values other than -1 behave identically."
+    - "io.StringIO().write(b'bytes') raises TypeError: string argument expected, got 'bytes'."
+    - "io.BytesIO().write('string') raises TypeError: a bytes-like object is required, not 'str'."
+    - "io.FileIO('/nonexistent/path/file.txt', 'r') raises FileNotFoundError, a subclass of OSError."
+    - "io.open('/nonexistent/path/file.txt', 'r') raises FileNotFoundError."
+    - "FileNotFoundError.__mro__[1].__name__ == 'OSError' — FileNotFoundError directly subclasses OSError."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# BytesIO read(-1) and read(-2) both read all remaining bytes
+#
+# Any negative size argument is treated as "read to EOF" by BytesIO.
+# Both read(-1) and read(-2) return the full contents of the buffer.
+# Tested by reading from BytesIO(b'hello world') and checking the byte count.
+# ---------------------------------------------------------------------------
+
+invariant io_extra298.bytesio_read_neg1_len:
+  description: "io.BytesIO(b'hello world').read(-1).__len__() == 11 — read(-1) reads all bytes to EOF"
+  category: behavior
+  kind: python_call_eq
+  function: BytesIO
+  args: [{type: bytes_ascii, value: "hello world"}]
+  method: read
+  method_args: [-1]
+  method_chain: __len__
+  expected: 11
+
+invariant io_extra298.bytesio_read_neg2_len:
+  description: "io.BytesIO(b'hello world').read(-2).__len__() == 11 — read(-2) reads all bytes to EOF, same as read(-1)"
+  category: behavior
+  kind: python_call_eq
+  function: BytesIO
+  args: [{type: bytes_ascii, value: "hello world"}]
+  method: read
+  method_args: [-2]
+  method_chain: __len__
+  expected: 11
+
+# ---------------------------------------------------------------------------
+# TypeError: writing the wrong type to StringIO or BytesIO
+#
+# io.StringIO accepts only str; io.BytesIO accepts only bytes-like objects.
+# Passing the wrong type raises TypeError immediately on write().
+# ---------------------------------------------------------------------------
+
+invariant io_extra298.stringio_write_bytes_raises_typeerror:
+  description: "io.StringIO().write(b'bytes') raises TypeError — StringIO only accepts str, not bytes"
+  category: errors
+  kind: python_call_raises
+  function: StringIO.write
+  args: [{type: bytes_ascii, value: "bytes"}]
+  raises: TypeError
+
+invariant io_extra298.bytesio_write_str_raises_typeerror:
+  description: "io.BytesIO().write('string') raises TypeError — BytesIO requires a bytes-like object, not str"
+  category: errors
+  kind: python_call_raises
+  function: BytesIO.write
+  args: ["string"]
+  raises: TypeError
+
+# ---------------------------------------------------------------------------
+# FileNotFoundError: opening paths that do not exist
+#
+# Both io.FileIO and io.open raise FileNotFoundError (errno ENOENT) when
+# the specified path does not exist on the filesystem.
+# FileNotFoundError is a subclass of OSError.
+# ---------------------------------------------------------------------------
+
+invariant io_extra298.fileio_nonexistent_raises:
+  description: "io.FileIO('/nonexistent/path/file.txt', 'r') raises FileNotFoundError — path does not exist"
+  category: errors
+  kind: python_call_raises
+  function: FileIO
+  args: ["/nonexistent/path/file.txt", "r"]
+  raises: FileNotFoundError
+
+invariant io_extra298.io_open_nonexistent_raises:
+  description: "io.open('/nonexistent/path/file.txt', 'r') raises FileNotFoundError — path does not exist"
+  category: errors
+  kind: python_call_raises
+  function: open
+  args: ["/nonexistent/path/file.txt", "r"]
+  raises: FileNotFoundError
+
+# ---------------------------------------------------------------------------
+# FileNotFoundError inherits from OSError
+#
+# Python 3.3+ maps errno ENOENT to FileNotFoundError.
+# FileNotFoundError.__mro__[1].__name__ == 'OSError' confirms direct inheritance.
+# ---------------------------------------------------------------------------
+
+invariant io_extra298.filenotfounderror_base_is_oserror:
+  description: "FileNotFoundError.__bases__[0].__name__ == 'OSError' — FileNotFoundError directly subclasses OSError"
+  category: hierarchy
+  kind: python_call_eq
+  function: FileNotFoundError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  method_args: []
+  expected: "OSError"
