@@ -1,0 +1,152 @@
+spec: io_extra289
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/_pyio.py"
+  notes:
+    - "io_extra288 covers io.StringIO write/read roundtrip behavior."
+    - "This spec focuses on io.BytesIO write/read roundtrip behavior."
+    - "BytesIO().write(b'hello') returns 5 — write() returns the number of bytes written."
+    - "BytesIO(b'hello').read() returns b'hello' — BytesIO can be initialized with bytes."
+    - "BytesIO(b'hello').getvalue() returns b'hello' — getvalue() returns the full buffer regardless of cursor position."
+    - "BytesIO().write(b'') returns 0 — writing an empty bytes object returns zero."
+    - "BytesIO(b'hello').tell() returns 0 — the cursor starts at position 0 even when initialized with bytes."
+    - "BytesIO(b'hello').read() returns b'hello' — read() from position 0 returns all content."
+    - "BytesIO().readable() returns True — BytesIO is always readable."
+    - "BytesIO().writable() returns True — BytesIO is always writable."
+    - "BytesIO().seekable() returns True — BytesIO is always seekable."
+    - "BytesIO.__name__ == 'BytesIO' — the class is named 'BytesIO'."
+    - "After write(b'hello') and seek(0), read() returns b'hello' — the seek-then-read pattern is the standard way to retrieve written bytes."
+    - "After write(b'hello'), tell() == 5 — the cursor advances by the number of bytes written."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# io.BytesIO.write() — returns byte count
+#
+# BytesIO.write(b) appends b to the buffer and returns len(b).
+# This matches the contract for all Python writable binary streams.
+# BytesIO().write(b'hello') -> 5
+# BytesIO().write(b'hello world') -> 11
+# BytesIO().write(b'abc') -> 3
+# BytesIO().write(b'') -> 0
+# BytesIO().write(b'x') -> 1
+# ---------------------------------------------------------------------------
+
+table io_extra289.BytesIO_write_return_values:
+  description: "io.BytesIO.write() returns the number of bytes written"
+  kind: python_call_eq
+  category: write_return
+  id_prefix: biowrite289
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [write_hello,       "BytesIO().write",  ["b'hello'"],       5,  "BytesIO().write(b'hello') == 5 — five bytes written"]
+    - [write_hello_world, "BytesIO().write",  ["b'hello world'"], 11, "BytesIO().write(b'hello world') == 11 — eleven bytes written"]
+    - [write_abc,         "BytesIO().write",  ["b'abc'"],         3,  "BytesIO().write(b'abc') == 3 — three bytes written"]
+    - [write_empty,       "BytesIO().write",  ["b''"],            0,  "BytesIO().write(b'') == 0 — zero bytes written for empty bytes object"]
+    - [write_single,      "BytesIO().write",  ["b'x'"],           1,  "BytesIO().write(b'x') == 1 — single byte returns 1"]
+
+# ---------------------------------------------------------------------------
+# io.BytesIO with initial value — getvalue() and read()
+#
+# BytesIO(initial_bytes) initializes the buffer and places the cursor at
+# position 0. getvalue() always returns the full buffer contents; read()
+# returns content from the current cursor position to the end.
+# BytesIO(b'hello').getvalue() -> b'hello'
+# BytesIO(b'hello').read() -> b'hello'
+# BytesIO(b'hello world').getvalue() -> b'hello world'
+# ---------------------------------------------------------------------------
+
+table io_extra289.BytesIO_init_and_getvalue:
+  description: "io.BytesIO initialized with bytes: getvalue() returns the full buffer; read() returns from cursor position; tell() is 0 at start"
+  kind: python_call_eq
+  category: init_and_read
+  id_prefix: bioinit289
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [getvalue_hello,       "BytesIO(b'hello').getvalue",       [], "b'hello'",       "BytesIO(b'hello').getvalue() == b'hello'"]
+    - [getvalue_hello_world, "BytesIO(b'hello world').getvalue", [], "b'hello world'", "BytesIO(b'hello world').getvalue() == b'hello world'"]
+    - [getvalue_empty,       "BytesIO(b'').getvalue",            [], "b''",             "BytesIO(b'').getvalue() == b'' — empty initial value"]
+    - [read_hello,           "BytesIO(b'hello').read",           [], "b'hello'",       "BytesIO(b'hello').read() == b'hello' — cursor starts at 0"]
+    - [tell_zero,            "BytesIO(b'hello').tell",           [], 0,                "BytesIO(b'hello').tell() == 0 — cursor at start even when initialized"]
+    - [tell_fresh,           "BytesIO().tell",                   [], 0,                "BytesIO().tell() == 0 — fresh BytesIO cursor is at position 0"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant io_extra289.BytesIO.write_hello_returns_5:
+  description: "BytesIO().write(b'hello') == 5 — write() returns the number of bytes written; b'hello' has 5 bytes"
+  category: write_return
+  kind: python_call_eq
+  function: "BytesIO().write"
+  args: ["b'hello'"]
+  expected: 5
+
+invariant io_extra289.BytesIO.write_empty_returns_0:
+  description: "BytesIO().write(b'') == 0 — writing an empty bytes object returns 0; no bytes are added to the buffer"
+  category: write_return
+  kind: python_call_eq
+  function: "BytesIO().write"
+  args: ["b''"]
+  expected: 0
+
+invariant io_extra289.BytesIO.getvalue_hello:
+  description: "BytesIO(b'hello').getvalue() == b'hello' — getvalue() returns the full buffer contents, not just the unread portion"
+  category: init_and_read
+  kind: python_call_eq
+  function: "BytesIO(b'hello').getvalue"
+  args: []
+  expected: "b'hello'"
+
+invariant io_extra289.BytesIO.tell_is_0_after_init:
+  description: "BytesIO(b'hello').tell() == 0 — when BytesIO is initialized with bytes, the stream cursor is at position 0, not at the end"
+  category: init_and_read
+  kind: python_call_eq
+  function: "BytesIO(b'hello').tell"
+  args: []
+  expected: 0
+
+invariant io_extra289.BytesIO.readable_true:
+  description: "BytesIO().readable() == True — BytesIO is always readable regardless of how it was created"
+  category: stream_flags
+  kind: python_call_eq
+  function: "BytesIO().readable"
+  args: []
+  expected: true
+
+invariant io_extra289.BytesIO.writable_true:
+  description: "BytesIO().writable() == True — BytesIO is always writable; it is not opened in read-only mode"
+  category: stream_flags
+  kind: python_call_eq
+  function: "BytesIO().writable"
+  args: []
+  expected: true
+
+invariant io_extra289.BytesIO.seekable_true:
+  description: "BytesIO().seekable() == True — BytesIO supports arbitrary seek operations unlike, e.g., socket streams"
+  category: stream_flags
+  kind: python_call_eq
+  function: "BytesIO().seekable"
+  args: []
+  expected: true
+
+invariant io_extra289.BytesIO.class_name:
+  description: "io.BytesIO.__name__ == 'BytesIO' — the class name is exactly 'BytesIO'"
+  category: class_metadata
+  kind: python_call_eq
+  function: BytesIO.__name__.__eq__
+  args: ["BytesIO"]
+  expected: true

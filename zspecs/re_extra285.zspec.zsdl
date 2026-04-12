@@ -1,0 +1,139 @@
+spec: re_extra285
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "re_extra284 covers re.Match.span(), start(), end(), and group()."
+    - "This spec focuses on re.compile() with the re.VERBOSE (re.X) flag."
+    - "re.VERBOSE == re.X — these are aliases for the same flag value (64)."
+    - "int(re.X) == 64 — re.X is bit 6 (2**6) in the flags bitmask."
+    - "re.compile('hello', re.X).__class__.__name__ == 'Pattern' — compile always returns a Pattern object."
+    - "With re.VERBOSE, whitespace in the pattern string is ignored (outside character classes and when not escaped)."
+    - "re.compile('h e l l o', re.X) matches 'hello' — spaces in the pattern are stripped by the VERBOSE flag."
+    - "With re.VERBOSE, the # character starts an inline comment that extends to the end of the line."
+    - "Named group backreference r'(?P<word>\\w+) (?P=word)' matches 'test test' — the second word must equal the first."
+    - "Named group backreference does NOT match 'hello world' — words must be identical."
+    - "compile(r'(?P<word>\\w+) (?P=word)').match('test test').group('word') == 'test' — named group is accessible by name."
+    - "A VERBOSE pattern with named group and backreference also works — VERBOSE + named groups compose correctly."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# re.VERBOSE flag value and aliases
+#
+# re.VERBOSE and re.X are the same flag object (value 64).
+# re.compile with re.X returns a Pattern; the flags attribute includes bit 64.
+# ---------------------------------------------------------------------------
+
+table re_extra285.VERBOSE_flag_values:
+  description: "re.VERBOSE / re.X flag value and compile() result with re.X"
+  kind: python_call_eq
+  category: flags
+  id_prefix: verb285
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [rx_int_val,    "re.X.__int__",               [], 64,        "int(re.X) == 64 — re.X is bit 6 in the flags bitmask"]
+    - [rv_int_val,    "re.VERBOSE.__int__",          [], 64,        "int(re.VERBOSE) == 64 — re.VERBOSE and re.X share the same value"]
+    - [class_name,    "compile('hello', re.X).__class__.__name__.__eq__", ["Pattern"], true, "compile('hello', re.X).__class__.__name__ == 'Pattern'"]
+    - [module_name,   "compile('hello', re.X).__class__.__module__.__eq__", ["re"],   true, "compile('hello', re.X).__class__.__module__ == 're'"]
+
+# ---------------------------------------------------------------------------
+# re.VERBOSE: whitespace in pattern is ignored
+#
+# With re.VERBOSE (re.X), spaces and newlines in the pattern are stripped
+# unless they appear inside a character class [...] or are escaped with \.
+# re.compile('h e l l o', re.X) is equivalent to re.compile('hello').
+# ---------------------------------------------------------------------------
+
+table re_extra285.VERBOSE_whitespace_ignored:
+  description: "With re.VERBOSE, whitespace outside character classes is ignored in the pattern"
+  kind: python_call_eq
+  category: verbose_whitespace
+  id_prefix: vws285
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [spaced_hello_matches,    "compile('h e l l o', re.X).match('hello').__class__.__name__.__eq__",    ["Match"], true,  "compile('h e l l o', re.X).match('hello') is a Match — spaces stripped"]
+    - [spaced_hello_no_spaces,  "compile('h e l l o', re.X).match('h e l l o').__class__.__name__.__eq__", ["NoneType"], true, "compile('h e l l o', re.X).match('h e l l o') is None — spaces not literal"]
+    - [digit_verbose_matches,   "compile('\\d+\\.\\d*', re.X).match('3.14').group",   [], "3.14", "verbose digit pattern matches '3.14'"]
+    - [digit_verbose_no_match,  "compile('\\d+', re.X).match('abc').__class__.__name__.__eq__", ["NoneType"], true, "verbose digit pattern does not match 'abc'"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant re_extra285.VERBOSE.int_value_is_64:
+  description: "int(re.X) == 64 — re.X (alias re.VERBOSE) has integer value 64, which is 2**6 in the flag bitmask"
+  category: flags
+  kind: python_call_eq
+  function: re.X.__int__
+  args: []
+  expected: 64
+
+invariant re_extra285.VERBOSE.compile_returns_pattern:
+  description: "re.compile('hello', re.X).__class__.__name__ == 'Pattern' — compile() always returns a Pattern regardless of flags"
+  category: flags
+  kind: python_call_eq
+  function: "compile('hello', re.X).__class__.__name__.__eq__"
+  args: ["Pattern"]
+  expected: true
+
+invariant re_extra285.VERBOSE.spaces_stripped_in_pattern:
+  description: "re.compile('h e l l o', re.X).match('hello') is not None — with VERBOSE flag, spaces in the pattern are stripped and it matches 'hello'"
+  category: verbose_whitespace
+  kind: python_call_eq
+  function: "compile('h e l l o', re.X).match('hello').__class__.__name__.__eq__"
+  args: ["Match"]
+  expected: true
+
+invariant re_extra285.named_backref.matches_repeated_word:
+  description: "re.compile(r'(?P<word>\\w+) (?P=word)').match('test test') is a Match — named backreference (?P=word) requires the second word to equal the first"
+  category: named_groups
+  kind: python_call_eq
+  function: "compile('(?P<word>\\w+) (?P=word)').match('test test').__class__.__name__.__eq__"
+  args: ["Match"]
+  expected: true
+
+invariant re_extra285.named_backref.no_match_different_words:
+  description: "re.compile(r'(?P<word>\\w+) (?P=word)').match('hello world') is None — backreference fails when the two words differ"
+  category: named_groups
+  kind: python_call_eq
+  function: "compile('(?P<word>\\w+) (?P=word)').match('hello world').__class__.__name__.__eq__"
+  args: ["NoneType"]
+  expected: true
+
+invariant re_extra285.named_backref.group_by_name:
+  description: "re.compile(r'(?P<word>\\w+) (?P=word)').match('test test').group('word') == 'test' — named group is accessible by name"
+  category: named_groups
+  kind: python_call_eq
+  function: "compile('(?P<word>\\w+) (?P=word)').match('test test').group"
+  args: ["word"]
+  expected: "test"
+
+invariant re_extra285.named_backref.group_count_is_1:
+  description: "re.compile(r'(?P<word>\\w+) (?P=word)').groups == 1 — the backreference (?P=word) is not a capturing group; there is only 1 capturing group"
+  category: named_groups
+  kind: python_call_eq
+  function: "compile('(?P<word>\\w+) (?P=word)').groups"
+  args: []
+  expected: 1
+
+invariant re_extra285.named_backref.verbose_named_group_matches:
+  description: "A VERBOSE pattern with named group and backreference matches 'foo foo' — VERBOSE and named groups compose correctly"
+  category: named_groups
+  kind: python_call_eq
+  function: "compile('(?P<word>\\w+)\\s+(?P=word)', re.X).match('foo foo').__class__.__name__.__eq__"
+  args: ["Match"]
+  expected: true

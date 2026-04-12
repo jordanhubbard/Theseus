@@ -1,0 +1,143 @@
+spec: decimal_extra279
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — Python decimal module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_decimal/_decimal.c"
+    - "CPython source: Lib/_pydecimal.py"
+  notes:
+    - "decimal_extra28 covers Decimal MRO depths and method qualname lengths."
+    - "This spec focuses on Decimal.as_tuple() — the DecimalTuple namedtuple representation."
+    - "Decimal.as_tuple() returns a DecimalTuple(sign, digits, exponent) namedtuple."
+    - "DecimalTuple.__class__.__name__ == 'DecimalTuple' — the namedtuple class has a distinctive name."
+    - "DecimalTuple._fields == ('sign', 'digits', 'exponent') — three fields in that order."
+    - "Decimal('3.14').as_tuple(): sign=0, digits=(3,1,4), exponent=-2."
+    - "Decimal('-3.14').as_tuple(): sign=1, digits=(3,1,4), exponent=-2 — sign distinguishes positive from negative."
+    - "Decimal('-0').as_tuple().sign == 1 — negative zero has sign bit 1; this is the canonical test for negative-zero detection."
+    - "Decimal('0').as_tuple().sign == 0 — positive zero has sign bit 0."
+    - "Decimal('1000').as_tuple(): sign=0, digits=(1,0,0,0), exponent=0 — integer with trailing zeros in digits."
+    - "Decimal('0.001').as_tuple(): sign=0, digits=(1,), exponent=-3 — leading zeros in value are not stored in digits."
+    - "Decimal('-42.5').as_tuple(): sign=1, digits=(4,2,5), exponent=-1."
+    - "Decimal('3.14').as_tuple() has exactly 3 digit fields via len(_fields) == 3."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Decimal.as_tuple() — sign field
+#
+# sign == 0 for non-negative numbers, sign == 1 for negative numbers.
+# This includes negative zero: Decimal('-0').as_tuple().sign == 1.
+# ---------------------------------------------------------------------------
+
+table decimal_extra279.as_tuple_sign:
+  description: "Decimal.as_tuple().sign field: 0 for non-negative, 1 for negative (including negative zero)"
+  kind: python_call_eq
+  category: as_tuple_sign
+  id_prefix: atsign279
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [sign_positive,   "Decimal('3.14').as_tuple().sign",    [], 0, "Decimal('3.14').as_tuple().sign == 0 — positive number"]
+    - [sign_negative,   "Decimal('-3.14').as_tuple().sign",   [], 1, "Decimal('-3.14').as_tuple().sign == 1 — negative number"]
+    - [sign_zero,       "Decimal('0').as_tuple().sign",       [], 0, "Decimal('0').as_tuple().sign == 0 — positive zero"]
+    - [sign_neg_zero,   "Decimal('-0').as_tuple().sign",      [], 1, "Decimal('-0').as_tuple().sign == 1 — negative zero has sign bit 1"]
+    - [sign_int,        "Decimal('42').as_tuple().sign",      [], 0, "Decimal('42').as_tuple().sign == 0 — positive integer"]
+    - [sign_neg_int,    "Decimal('-42').as_tuple().sign",     [], 1, "Decimal('-42').as_tuple().sign == 1 — negative integer"]
+
+# ---------------------------------------------------------------------------
+# Decimal.as_tuple() — exponent field
+#
+# exponent gives the scale: number of digits to the right of the decimal point
+# as a negative integer (-2 means two digits after the point).
+# An integer with no decimal point has exponent 0.
+# ---------------------------------------------------------------------------
+
+table decimal_extra279.as_tuple_exponent:
+  description: "Decimal.as_tuple().exponent field: negative for fractional values, 0 for integers"
+  kind: python_call_eq
+  category: as_tuple_exponent
+  id_prefix: atexp279
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [exp_pi,          "Decimal('3.14').as_tuple().exponent",   [], -2, "Decimal('3.14').as_tuple().exponent == -2 — two digits after the decimal point"]
+    - [exp_integer,     "Decimal('100').as_tuple().exponent",    [], 0,  "Decimal('100').as_tuple().exponent == 0 — integer has exponent 0"]
+    - [exp_thousandth,  "Decimal('0.001').as_tuple().exponent",  [], -3, "Decimal('0.001').as_tuple().exponent == -3 — three digits after the decimal point"]
+    - [exp_neg_half,    "Decimal('-42.5').as_tuple().exponent",  [], -1, "Decimal('-42.5').as_tuple().exponent == -1 — one digit after the decimal point"]
+    - [exp_zero,        "Decimal('0').as_tuple().exponent",      [], 0,  "Decimal('0').as_tuple().exponent == 0 — zero is an integer"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra279.as_tuple.class_name:
+  description: "Decimal('3.14').as_tuple().__class__.__name__ == 'DecimalTuple' — as_tuple() returns a namedtuple of class DecimalTuple"
+  category: as_tuple_class
+  kind: python_call_eq
+  function: "Decimal('3.14').as_tuple().__class__.__name__.__eq__"
+  args: ["DecimalTuple"]
+  expected: true
+
+invariant decimal_extra279.as_tuple.fields_count:
+  description: "Decimal('3.14').as_tuple()._fields has 3 elements — sign, digits, and exponent"
+  category: as_tuple_class
+  kind: python_call_eq
+  function: "Decimal('3.14').as_tuple()._fields.__len__"
+  args: []
+  expected: 3
+
+invariant decimal_extra279.as_tuple.sign_of_negative_zero:
+  description: "Decimal('-0').as_tuple().sign == 1 — negative zero is distinct from positive zero; sign bit is 1 for negative zero"
+  category: as_tuple_sign
+  kind: python_call_eq
+  function: "Decimal('-0').as_tuple().sign"
+  args: []
+  expected: 1
+
+invariant decimal_extra279.as_tuple.positive_zero_sign_is_0:
+  description: "Decimal('0').as_tuple().sign == 0 — positive zero has sign bit 0, unlike negative zero"
+  category: as_tuple_sign
+  kind: python_call_eq
+  function: "Decimal('0').as_tuple().sign"
+  args: []
+  expected: 0
+
+invariant decimal_extra279.as_tuple.pi_exponent:
+  description: "Decimal('3.14').as_tuple().exponent == -2 — two decimal digits means exponent is -2"
+  category: as_tuple_exponent
+  kind: python_call_eq
+  function: "Decimal('3.14').as_tuple().exponent"
+  args: []
+  expected: -2
+
+invariant decimal_extra279.as_tuple.thousandth_digits_len:
+  description: "len(Decimal('0.001').as_tuple().digits) == 1 — leading zeros in the value are not stored; only the significant digit (1) is kept"
+  category: as_tuple_digits
+  kind: python_call_eq
+  function: "Decimal('0.001').as_tuple().digits.__len__"
+  args: []
+  expected: 1
+
+invariant decimal_extra279.as_tuple.pi_digits_len:
+  description: "len(Decimal('3.14').as_tuple().digits) == 3 — three significant digits: 3, 1, and 4"
+  category: as_tuple_digits
+  kind: python_call_eq
+  function: "Decimal('3.14').as_tuple().digits.__len__"
+  args: []
+  expected: 3
+
+invariant decimal_extra279.as_tuple.neg_42_5_sign:
+  description: "Decimal('-42.5').as_tuple().sign == 1 — negative numbers always have sign 1"
+  category: as_tuple_sign
+  kind: python_call_eq
+  function: "Decimal('-42.5').as_tuple().sign"
+  args: []
+  expected: 1
