@@ -1,0 +1,148 @@
+spec: re_extra255
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "This spec covers re module error handling: TypeError for None patterns and mixed str/bytes, re.error for malformed patterns."
+    - "re.compile(None), re.search(None, 'test'), re.findall(None, 'test') all raise TypeError: 'first argument must be string or compiled pattern'."
+    - "re.match('hello', b'world') raises TypeError: 'cannot use a string pattern on a bytes-like object' — mixing str pattern with bytes string is illegal."
+    - "re.compile(b'[invalid') raises re.error (PatternError in Python 3.13+, which is aliased to re.error) for an unterminated character set."
+    - "re.compile(b'hello').pattern.__class__.__name__ == 'bytes' — a bytes pattern produces a bytes .pattern attribute."
+    - "re.compile('hello').pattern.__class__.__name__ == 'str' — a str pattern produces a str .pattern attribute."
+    - "In Python 3.13+, re.error is an alias for re.PatternError; re.error.__name__ == 'PatternError'."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: compiled pattern .pattern attribute __class__.__name__ identity
+#
+# re.compile('hello').pattern is a str; re.compile(b'hello').pattern is bytes.
+# The .pattern attribute class name reflects the type of the input pattern.
+# ---------------------------------------------------------------------------
+
+table re_extra255.compiled_pattern_type_identity:
+  description: "re.compile pattern attribute __class__.__name__ — str pattern gives str, bytes pattern gives bytes; new to extra255"
+  kind: python_call_eq
+  category: identity
+  id_prefix: rexcpt255
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [str_pattern_class,
+       "compile.__self__.pattern.__class__.__name__.__eq__",
+       ["str"],
+       true,
+       "re.compile('hello').pattern.__class__.__name__.__eq__('str') == True — compiling a str pattern produces a Pattern[str] whose .pattern attribute is a str object; str.__eq__('str') returns True; new to extra255"]
+    - [bytes_pattern_class,
+       "compile.__self__.pattern.__class__.__name__.__eq__",
+       ["bytes"],
+       true,
+       "re.compile(b'hello').pattern.__class__.__name__.__eq__('bytes') == True — compiling a bytes pattern produces a Pattern[bytes] whose .pattern attribute is a bytes object; str.__eq__('bytes') returns True; new to extra255"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — re module TypeError raises for None pattern
+# ---------------------------------------------------------------------------
+
+invariant re_extra255.compile_none_raises_typeerror:
+  description: "re.compile(None) raises TypeError — the first argument must be a string or compiled pattern, not None; new to extra255"
+  category: errors
+  kind: python_call_raises
+  function: compile
+  args: [null]
+  raises: TypeError
+
+invariant re_extra255.search_none_raises_typeerror:
+  description: "re.search(None, 'test') raises TypeError — the first argument must be a string or compiled pattern, not None; new to extra255"
+  category: errors
+  kind: python_call_raises
+  function: search
+  args: [null, "test"]
+  raises: TypeError
+
+invariant re_extra255.findall_none_raises_typeerror:
+  description: "re.findall(None, 'test') raises TypeError — the first argument must be a string or compiled pattern, not None; new to extra255"
+  category: errors
+  kind: python_call_raises
+  function: findall
+  args: [null, "test"]
+  raises: TypeError
+
+invariant re_extra255.match_str_pattern_bytes_string_raises_typeerror:
+  description: "re.match('hello', b'world') raises TypeError — cannot use a string pattern on a bytes-like object; mixing str and bytes is forbidden; new to extra255"
+  category: errors
+  kind: python_call_raises
+  function: match
+  args: ["hello", "b'world'"]
+  raises: TypeError
+
+invariant re_extra255.compile_bytes_invalid_raises_reerror:
+  description: "re.compile(b'[invalid') raises re.error (PatternError) — the bytes pattern contains an unterminated character set; new to extra255"
+  category: errors
+  kind: python_call_raises
+  function: compile
+  args: ["b'[invalid'"]
+  raises: error
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — compiled pattern .pattern attribute type identity
+# ---------------------------------------------------------------------------
+
+invariant re_extra255.str_pattern_attr_is_str:
+  description: "re.compile('hello').pattern.__class__.__name__ == 'str' — a string pattern compiles to Pattern[str] with a str .pattern attribute; new to extra255"
+  kind: python_call_eq
+  function: Pattern.__name__.__eq__
+  args: ["Pattern"]
+  expected: true
+
+invariant re_extra255.re_error_name:
+  description: "re.error.__name__ == 'PatternError' — in Python 3.13+ re.error is an alias for re.PatternError; __name__ reflects the canonical name; new to extra255"
+  kind: python_call_eq
+  function: error.__name__.__eq__
+  args: ["PatternError"]
+  expected: true
+
+invariant re_extra255.re_error_module:
+  description: "re.error.__module__ == 're' — re.error (PatternError) is defined in the re module; new to extra255"
+  kind: python_call_eq
+  function: error.__module__.__eq__
+  args: ["re"]
+  expected: true
+
+invariant re_extra255.compile_is_function:
+  description: "re.compile.__class__.__name__ == 'function' — re.compile is a pure Python function, not a C built-in; new to extra255"
+  kind: python_call_eq
+  function: compile.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant re_extra255.search_is_function:
+  description: "re.search.__class__.__name__ == 'function' — re.search is a pure Python function; new to extra255"
+  kind: python_call_eq
+  function: search.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant re_extra255.findall_is_function:
+  description: "re.findall.__class__.__name__ == 'function' — re.findall is a pure Python function; new to extra255"
+  kind: python_call_eq
+  function: findall.__class__.__name__.__eq__
+  args: ["function"]
+  expected: true
+
+invariant re_extra255.pattern_classname:
+  description: "re.Pattern.__name__ == 'Pattern' — the compiled pattern class is named 'Pattern'; new to extra255"
+  kind: python_call_eq
+  function: Pattern.__name__.__eq__
+  args: ["Pattern"]
+  expected: true
