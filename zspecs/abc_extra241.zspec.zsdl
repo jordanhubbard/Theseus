@@ -1,0 +1,139 @@
+spec: abc_extra241
+version: ">=3.4"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — Python abc module documentation"
+    - "https://docs.python.org/3/library/abc.html#abc.ABC — ABC class"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11"
+  not_derived_from:
+    - "CPython source: Lib/abc.py and Objects/typeobject.c (internal C implementation)"
+  notes:
+    - "This spec covers abc.ABC __weakref__, MRO, and __dict__ behavioral invariants."
+    - "abc.ABC.__mro__.__len__() == 2 — ABC has a two-entry MRO: [ABC, object]."
+    - "abc.ABC.__mro__[0].__name__ == 'ABC' — first entry is the class itself."
+    - "abc.ABC.__mro__[1].__name__ == 'object' — second entry is the root object."
+    - "abc.ABC.__dict__.__class__.__name__ == 'mappingproxy' (len=12) — read-only view."
+    - "abc.ABC.__dict__.__contains__('__abstractmethods__') == True — ABC defines __abstractmethods__."
+    - "abc.ABC.__dict__.__contains__('__weakref__') == False — ABC uses __slots__, no __weakref__ slot."
+    - "abc.ABC.__name__ == 'ABC' (len=3); abc.ABC.__module__ == 'abc' (len=3)."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-11."
+  created_at: "2026-04-11T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# abc.ABC class identity
+#
+# ABC.__name__ == 'ABC' (len=3)
+# ABC.__module__ == 'abc' (len=3)
+# ABC.__dict__.__class__.__name__ == 'mappingproxy' (len=12)
+# ---------------------------------------------------------------------------
+
+table abc_extra241.abc_class_identity:
+  description: "abc.ABC class identity — ABC.__name__.__eq__('ABC')==True (len=3); ABC.__module__.__eq__('abc')==True (len=3, same length as __name__.__len__()==3); ABC.__dict__.__class__.__name__.__eq__('mappingproxy')==True (len=12, read-only view of class namespace); ABC.__name__.__len__()==3; ABC.__module__.__len__()==3; ABC.__dict__.__class__.__name__.__len__()==12; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: abc_class_identity
+  id_prefix: abc241mro
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [abc_name_eq,    ABC.__name__.__eq__,                         ["ABC"],          true, "abc.ABC.__name__ == 'ABC'; verified with Python 3.14.3"]
+    - [abc_name_len,   ABC.__name__.__len__,                        [],               3,    "abc.ABC.__name__.__len__() == 3; verified with Python 3.14.3"]
+    - [abc_mod_eq,     ABC.__module__.__eq__,                       ["abc"],          true, "abc.ABC.__module__ == 'abc'; verified with Python 3.14.3"]
+    - [abc_mod_len,    ABC.__module__.__len__,                      [],               3,    "abc.ABC.__module__.__len__() == 3; verified with Python 3.14.3"]
+    - [dict_cls_eq,    ABC.__dict__.__class__.__name__.__eq__,      ["mappingproxy"], true, "abc.ABC.__dict__.__class__.__name__ == 'mappingproxy'; verified with Python 3.14.3"]
+    - [dict_cls_len,   ABC.__dict__.__class__.__name__.__len__,     [],               12,   "abc.ABC.__dict__.__class__.__name__.__len__() == 12 ('mappingproxy'); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# abc.ABC.__mro__ length and __dict__ membership checks
+#
+# ABC.__mro__.__len__() == 2 (ABC -> object)
+# ABC.__dict__.__contains__('__abstractmethods__') == True
+# ABC.__dict__.__contains__('__weakref__') == False
+# ---------------------------------------------------------------------------
+
+table abc_extra241.abc_mro_and_dict:
+  description: "abc.ABC MRO length and __dict__ membership checks — ABC.__mro__.__len__()==2 (two-entry MRO: [ABC, object], shortest possible MRO for a non-trivial class); ABC.__dict__.__contains__('__abstractmethods__')==True (ABC defines __abstractmethods__ as a class-level attribute); ABC.__dict__.__contains__('__weakref__')==False (ABC uses __slots__ to suppress weak reference support); verified with Python 3.14.3"
+  kind: python_call_eq
+  category: abc_mro_and_dict
+  id_prefix: abc241mro
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [mro_len,        ABC.__mro__.__len__,                         [],                       2,     "abc.ABC.__mro__.__len__() == 2 (MRO is [ABC, object]); verified with Python 3.14.3"]
+    - [dict_has_abst,  ABC.__dict__.__contains__,                   ["__abstractmethods__"],   true,  "abc.ABC.__dict__.__contains__('__abstractmethods__') == True; verified with Python 3.14.3"]
+    - [dict_no_wref,   ABC.__dict__.__contains__,                   ["__weakref__"],           false, "abc.ABC.__dict__.__contains__('__weakref__') == False (ABC uses __slots__); verified with Python 3.14.3"]
+
+# ---------------------------------------------------------------------------
+# Standalone invariants — abc_extra241
+# ---------------------------------------------------------------------------
+
+invariant abc_extra241.abc_mro_getitem_0_name:
+  description: "abc.ABC.__mro__[0].__name__ == 'ABC' — the first entry in ABC's MRO is the class itself; ABC.__mro__.__getitem__(0).__name__ == 'ABC' (len=3); the MRO starts with the class itself (C3 linearization invariant); ABC.__mro__.__len__()==2 so entries are at indices 0 and 1; entry 0 is ABC, entry 1 is object; ABC.__name__.__len__()==3; NEW in extra241: first standalone ABC MRO getitem(0) invariant in abc241mro namespace; verified with Python 3.14.3"
+  category: abc_mro_and_dict
+  kind: python_call_eq
+  function: ABC.__mro__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ABC"
+
+invariant abc_extra241.abc_mro_getitem_1_name:
+  description: "abc.ABC.__mro__[1].__name__ == 'object' — the second entry in ABC's MRO is the root object class; ABC.__mro__.__getitem__(1).__name__ == 'object' (len=6); every class ultimately inherits from object; ABC's MRO is [ABC, object] with len==2; entry 0 is ABC (len=3), entry 1 is object (len=6); NEW in extra241: first standalone ABC MRO getitem(1) invariant; verified with Python 3.14.3"
+  category: abc_mro_and_dict
+  kind: python_call_eq
+  function: ABC.__mro__.__getitem__
+  args: [1]
+  method: __name__
+  expected: "object"
+
+invariant abc_extra241.abc_mro_len_2:
+  description: "abc.ABC.__mro__.__len__() == 2 — ABC's MRO contains exactly 2 entries: [ABC, object]; this is the minimal non-trivial MRO (only object itself has len==1 MRO [object]); ABC directly subclasses object with no intermediate classes; ABC.__mro__.__getitem__(0).__name__ == 'ABC'; ABC.__mro__.__getitem__(1).__name__ == 'object'; NEW in extra241: first standalone ABC MRO length invariant in abc241mro namespace; verified with Python 3.14.3"
+  category: abc_mro_and_dict
+  kind: python_call_eq
+  function: ABC.__mro__.__len__
+  args: []
+  expected: 2
+
+invariant abc_extra241.abc_dict_class_is_mappingproxy:
+  description: "abc.ABC.__dict__.__class__.__name__.__eq__('mappingproxy') returns True — class __dict__ attributes are exposed as mappingproxy objects, a read-only dict-like view; __class__.__name__ == 'mappingproxy' (len=12); this prevents accidental modification of the class namespace through its __dict__; ABC.__dict__.__contains__('__abstractmethods__')==True; ABC.__name__ == 'ABC' (len=3); NEW in extra241: first standalone ABC dict class invariant; verified with Python 3.14.3"
+  category: abc_class_identity
+  kind: python_call_eq
+  function: ABC.__dict__.__class__.__name__.__eq__
+  args: ["mappingproxy"]
+  expected: true
+
+invariant abc_extra241.abc_dict_contains_abstractmethods:
+  description: "abc.ABC.__dict__.__contains__('__abstractmethods__') returns True — ABC defines __abstractmethods__ at the class level as a frozenset of abstract method names; this is the mechanism by which ABCMeta prevents instantiation of classes with unimplemented abstract methods; ABC.__dict__.__class__.__name__ == 'mappingproxy'; ABC.__mro__.__len__()==2; __abstractmethods__ is present in the class __dict__; NEW in extra241: first standalone ABC dict __abstractmethods__ invariant; verified with Python 3.14.3"
+  category: abc_mro_and_dict
+  kind: python_call_eq
+  function: ABC.__dict__.__contains__
+  args: ["__abstractmethods__"]
+  expected: true
+
+invariant abc_extra241.abc_dict_no_weakref:
+  description: "abc.ABC.__dict__.__contains__('__weakref__') returns False — ABC uses __slots__ to suppress the automatic creation of a __weakref__ slot; when a class defines __slots__, Python does not automatically add __weakref__ unless it is explicitly included in __slots__; ABC.__dict__.__contains__('__abstractmethods__')==True but __weakref__ is absent; ABC.__mro__.__len__()==2; NEW in extra241: first standalone ABC dict __weakref__ absence invariant; verified with Python 3.14.3"
+  category: abc_mro_and_dict
+  kind: python_call_eq
+  function: ABC.__dict__.__contains__
+  args: ["__weakref__"]
+  expected: false
+
+invariant abc_extra241.abc_module_len_3:
+  description: "abc.ABC.__module__.__len__() == 3 — 'abc' has 3 chars: a-b-c; coincidentally the same as ABC.__name__.__len__()==3 ('ABC' also 3 chars); ABC.__module__ == 'abc'; ABC.__name__ == 'ABC'; both the class name and module name have the same length (3); ABC.__dict__.__class__.__name__ == 'mappingproxy' (len=12); ABC.__mro__.__len__()==2; NEW in extra241: first standalone ABC module length invariant; verified with Python 3.14.3"
+  category: abc_class_identity
+  kind: python_call_eq
+  function: ABC.__module__.__len__
+  args: []
+  expected: 3
+
+invariant abc_extra241.abc_name_eq_ABC:
+  description: "abc.ABC.__name__.__eq__('ABC') returns True — the class is named 'ABC' (3 chars: A-B-C); ABC.__name__.__len__()==3; ABC.__module__ == 'abc' (also len=3); ABC.__mro__.__len__()==2 so the full MRO is [ABC, object]; ABC.__dict__.__class__.__name__ == 'mappingproxy'; the short name 'ABC' contrasts with the full module-qualified name 'abc.ABC'; NEW in extra241: first standalone ABC name equality invariant; verified with Python 3.14.3"
+  category: abc_class_identity
+  kind: python_call_eq
+  function: ABC.__name__.__eq__
+  args: ["ABC"]
+  expected: true
