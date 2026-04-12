@@ -1,0 +1,89 @@
+spec: decimal_extra370
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — decimal module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source code"
+  notes:
+    - "decimal.Decimal('1') / decimal.Decimal('0') raises decimal.DivisionByZero — the DivisionByZero trap is enabled by default in the thread-local context"
+    - "decimal.Decimal('Infinity') + decimal.Decimal('-Infinity') raises decimal.InvalidOperation — adding infinities of opposite sign is undefined"
+    - "decimal.DivisionByZero.__bases__[0].__name__ == 'DecimalException' — DivisionByZero is a subclass of DecimalException"
+    - "decimal.InvalidOperation.__bases__[0].__name__ == 'DecimalException' — InvalidOperation is a subclass of DecimalException"
+    - "Both decimal.DivisionByZero and decimal.InvalidOperation report __module__ == 'decimal'"
+    - "The default context has traps enabled for both DivisionByZero and InvalidOperation (verified: ctx.traps[decimal.DivisionByZero] == True, ctx.traps[decimal.InvalidOperation] == True)"
+    - "All values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# decimal arithmetic error behaviors — division by zero and invalid operation
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra370.div_by_zero_raises:
+  description: "decimal.Decimal('1') / decimal.Decimal('0') raises decimal.DivisionByZero — the DivisionByZero trap is enabled by default; dividing a finite nonzero number by zero triggers the DivisionByZero signal; verified with Python 3.14.3"
+  category: errors
+  kind: python_call_raises
+  function: decimal.Decimal.__truediv__
+  args: ["1", "0"]
+  raises: DivisionByZero
+
+invariant decimal_extra370.inf_plus_neginf_raises:
+  description: "decimal.Decimal('Infinity') + decimal.Decimal('-Infinity') raises decimal.InvalidOperation — adding infinities of opposite sign is an IEEE 754 invalid operation; the InvalidOperation trap is enabled by default; verified with Python 3.14.3"
+  category: errors
+  kind: python_call_raises
+  function: decimal.Decimal.__add__
+  args: ["Infinity", "-Infinity"]
+  raises: InvalidOperation
+
+# ---------------------------------------------------------------------------
+# decimal.DivisionByZero class identity
+# ---------------------------------------------------------------------------
+
+table decimal_extra370.division_by_zero_identity:
+  description: "decimal.DivisionByZero class identity — __name__, __module__, __bases__[0].__name__; DivisionByZero is a DecimalException subclass in the decimal module; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: decdivz370
+
+  columns: [id, function, args, expected]
+  rows:
+    - [divz_name,   decimal.DivisionByZero.__name__.__eq__,                    ["DivisionByZero"],   true]
+    - [divz_module, decimal.DivisionByZero.__module__.__eq__,                  ["decimal"],          true]
+
+invariant decimal_extra370.division_by_zero_base:
+  description: "decimal.DivisionByZero.__bases__[0].__name__ == 'DecimalException' — DivisionByZero directly subclasses DecimalException in the decimal exception hierarchy; verified with Python 3.14.3"
+  category: identity
+  kind: python_call_eq
+  function: "decimal.DivisionByZero.__bases__[0].__name__.__eq__"
+  args: ["DecimalException"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# decimal.InvalidOperation class identity
+# ---------------------------------------------------------------------------
+
+table decimal_extra370.invalid_operation_identity:
+  description: "decimal.InvalidOperation class identity — __name__, __module__, __bases__[0].__name__; InvalidOperation is a DecimalException subclass in the decimal module; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: decinvop370
+
+  columns: [id, function, args, expected]
+  rows:
+    - [invop_name,   decimal.InvalidOperation.__name__.__eq__,   ["InvalidOperation"], true]
+    - [invop_module, decimal.InvalidOperation.__module__.__eq__, ["decimal"],          true]
+
+invariant decimal_extra370.invalid_operation_base:
+  description: "decimal.InvalidOperation.__bases__[0].__name__ == 'DecimalException' — InvalidOperation directly subclasses DecimalException in the decimal exception hierarchy; verified with Python 3.14.3"
+  category: identity
+  kind: python_call_eq
+  function: "decimal.InvalidOperation.__bases__[0].__name__.__eq__"
+  args: ["DecimalException"]
+  expected: true
