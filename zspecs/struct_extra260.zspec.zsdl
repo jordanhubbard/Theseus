@@ -1,0 +1,172 @@
+spec: struct_extra260
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "struct_extra259.zspec.zsdl — covers struct module identity (__name__, __package__, __spec__, __loader__), __all__ type/len/members, pack error conditions."
+    - "struct_extra.zspec.zsdl — covers Struct format/size attrs; calcsize extra formats; pack_into/unpack_from/iter_unpack function names; error class name and base."
+    - "_struct.zspec.zsdl — covers Struct class name/module/size; pack/unpack/calcsize function names; Struct instance pack length."
+  notes:
+    - "struct.pack_into.__name__ == 'pack_into' — the module-level function name. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.pack_into.__class__.__name__ == 'builtin_function_or_method' — pack_into is a C-level function. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack_from.__name__ == 'unpack_from' — the module-level function name. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack_from.__class__.__name__ == 'builtin_function_or_method' — unpack_from is a C-level function. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.iter_unpack.__name__ == 'iter_unpack' — the module-level function name. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.iter_unpack.__class__.__name__ == 'builtin_function_or_method' — iter_unpack is a C-level function. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack_from('!I', bytearray(b'\\xde\\xad\\xbe\\xef'), 0)[0] == 3735928559 — 0xDEADBEEF as big-endian unsigned int. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.unpack_from('!I', bytearray(b'\\x00\\x00\\x00\\x00\\x12\\x34\\x56\\x78'), 4)[0] == 305419896 — 0x12345678 at offset 4. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.calcsize('!I') == 4 — big-endian unsigned int is always 4 bytes. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "struct.iter_unpack result is a struct.iter_unpack iterator object; its __class__.__name__ == 'unpack_iterator'. Verified Python 3.14.3 macOS/Darwin 25.4.0, 2026-04-12."
+    - "All expected values verified by running Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# pack_into / unpack_from / iter_unpack function identity
+# All three are C-level builtin_function_or_method objects.
+# ---------------------------------------------------------------------------
+
+table struct_extra260.buffer_function_identity:
+  description: "struct pack_into / unpack_from / iter_unpack function __name__ and __class__.__name__ — all are C-level builtins; verified with Python 3.14.3"
+  kind: python_call_eq
+  category: identity
+  id_prefix: structbuf260
+
+  columns: [id, function, args, expected, description]
+  rows:
+    - [pack_into_name,     pack_into.__name__.__eq__,               ["pack_into"],               true, "struct.pack_into.__name__ == 'pack_into'"]
+    - [pack_into_class,    pack_into.__class__.__name__.__eq__,      ["builtin_function_or_method"], true, "struct.pack_into.__class__.__name__ == 'builtin_function_or_method' — C-level function"]
+    - [unpack_from_name,   unpack_from.__name__.__eq__,             ["unpack_from"],             true, "struct.unpack_from.__name__ == 'unpack_from'"]
+    - [unpack_from_class,  unpack_from.__class__.__name__.__eq__,    ["builtin_function_or_method"], true, "struct.unpack_from.__class__.__name__ == 'builtin_function_or_method' — C-level function"]
+    - [iter_unpack_name,   iter_unpack.__name__.__eq__,             ["iter_unpack"],             true, "struct.iter_unpack.__name__ == 'iter_unpack'"]
+
+# ---------------------------------------------------------------------------
+# unpack_from with bytearray — offset parameter behavior
+# struct.unpack_from('!I', buf, offset) reads 4 bytes at the given offset.
+# 0xDEADBEEF == 3735928559 (decimal), 0x12345678 == 305419896 (decimal).
+# Verified with Python 3.14.3 macOS/Darwin 25.4.0.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra260.unpack_from_offset_0:
+  description: "struct.unpack_from('!I', bytearray(b'\\xde\\xad\\xbe\\xef'), 0)[0] == 3735928559 — 0xDEADBEEF at offset 0 unpacks to its decimal value 3735928559"
+  category: unpack_from
+  kind: python_call_eq
+  function: "unpack_from('!I', bytearray(b'\\xde\\xad\\xbe\\xef'), 0).__getitem__"
+  args: [0]
+  expected: 3735928559
+
+invariant struct_extra260.unpack_from_offset_4:
+  description: "struct.unpack_from('!I', bytearray(b'\\x00\\x00\\x00\\x00\\x12\\x34\\x56\\x78'), 4)[0] == 305419896 — 0x12345678 at offset 4 unpacks to its decimal value 305419896"
+  category: unpack_from
+  kind: python_call_eq
+  function: "unpack_from('!I', bytearray(b'\\x00\\x00\\x00\\x00\\x12\\x34\\x56\\x78'), 4).__getitem__"
+  args: [0]
+  expected: 305419896
+
+# ---------------------------------------------------------------------------
+# unpack_from result tuple — type and length
+# struct.unpack_from always returns a tuple; for '!I' it is a 1-tuple.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra260.unpack_from_result_type:
+  description: "struct.unpack_from('!I', bytearray(4), 0).__class__.__name__ == 'tuple' — unpack_from always returns a tuple"
+  category: unpack_from
+  kind: python_call_eq
+  function: "unpack_from('!I', bytearray(4), 0).__class__.__name__.__eq__"
+  args: ["tuple"]
+  expected: true
+
+invariant struct_extra260.unpack_from_result_len:
+  description: "len(struct.unpack_from('!I', bytearray(4), 0)) == 1 — unpack_from('!I', ...) returns a 1-tuple (one unsigned int)"
+  category: unpack_from
+  kind: python_call_eq
+  function: "unpack_from('!I', bytearray(4), 0).__len__"
+  args: []
+  expected: 1
+
+# ---------------------------------------------------------------------------
+# iter_unpack — iterator class name
+# struct.iter_unpack('!I', data) returns an unpack_iterator object.
+# Its __class__.__name__ is 'unpack_iterator'.
+# ---------------------------------------------------------------------------
+
+invariant struct_extra260.iter_unpack_result_class:
+  description: "struct.iter_unpack('!I', b'\\x00\\x00\\x00\\x01').__class__.__name__ == 'unpack_iterator' — iter_unpack returns an unpack_iterator object"
+  category: iter_unpack
+  kind: python_call_eq
+  function: "iter_unpack('!I', b'\\x00\\x00\\x00\\x01').__class__.__name__.__eq__"
+  args: ["unpack_iterator"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# calcsize for '!I' format — always 4 bytes
+# struct.calcsize('!I') == 4 (big-endian unsigned 32-bit integer)
+# ---------------------------------------------------------------------------
+
+invariant struct_extra260.calcsize_bang_I:
+  description: "struct.calcsize('!I') == 4 — big-endian network-order unsigned int is always 4 bytes"
+  category: calcsize
+  kind: python_call_eq
+  function: calcsize
+  args: ["!I"]
+  expected: 4
+
+# ---------------------------------------------------------------------------
+# Standalone identity invariants
+# ---------------------------------------------------------------------------
+
+invariant struct_extra260.pack_into_name_eq:
+  description: "struct.pack_into.__name__ == 'pack_into' — module-level function name"
+  category: identity
+  kind: python_call_eq
+  function: pack_into.__name__.__eq__
+  args: ["pack_into"]
+  expected: true
+
+invariant struct_extra260.pack_into_class_eq:
+  description: "struct.pack_into.__class__.__name__ == 'builtin_function_or_method' — pack_into is a C-level builtin"
+  category: identity
+  kind: python_call_eq
+  function: pack_into.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant struct_extra260.unpack_from_name_eq:
+  description: "struct.unpack_from.__name__ == 'unpack_from' — module-level function name"
+  category: identity
+  kind: python_call_eq
+  function: unpack_from.__name__.__eq__
+  args: ["unpack_from"]
+  expected: true
+
+invariant struct_extra260.unpack_from_class_eq:
+  description: "struct.unpack_from.__class__.__name__ == 'builtin_function_or_method' — unpack_from is a C-level builtin"
+  category: identity
+  kind: python_call_eq
+  function: unpack_from.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true
+
+invariant struct_extra260.iter_unpack_name_eq:
+  description: "struct.iter_unpack.__name__ == 'iter_unpack' — module-level function name"
+  category: identity
+  kind: python_call_eq
+  function: iter_unpack.__name__.__eq__
+  args: ["iter_unpack"]
+  expected: true
+
+invariant struct_extra260.iter_unpack_class_eq:
+  description: "struct.iter_unpack.__class__.__name__ == 'builtin_function_or_method' — iter_unpack is a C-level builtin"
+  category: identity
+  kind: python_call_eq
+  function: iter_unpack.__class__.__name__.__eq__
+  args: ["builtin_function_or_method"]
+  expected: true

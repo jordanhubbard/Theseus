@@ -1,0 +1,137 @@
+spec: decimal_extra261
+version: ">=3.9"
+backend: python_module(decimal)
+
+docs: https://docs.python.org/3/library/decimal.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/decimal.html — decimal module documentation"
+    - "Test vectors verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_decimal/_decimal.c"
+    - "libmpdec source"
+  notes:
+    - "str(Decimal('1.5')) == '1.5' — string representation preserves exact decimal encoding."
+    - "str(Decimal('0.1') + Decimal('0.2')) == '0.3' — decimal arithmetic avoids floating-point rounding; result is exactly 0.3."
+    - "str(Decimal('1.50')) == '1.50' — trailing zeros in the coefficient are preserved in the string form."
+    - "repr(Decimal('1.5')) == \"Decimal('1.5')\" — repr() wraps the str form in Decimal(...)."
+    - "repr(Decimal('1.5')).startswith(\"Decimal('\") is True — repr format is always Decimal('<value>')."
+    - "str(Decimal('1E+2')) == '1E+2' — engineering/scientific notation is preserved from the original string."
+    - "str(Decimal('100')) == '100' — plain integer coefficient has no exponent in its string form."
+    - "Decimal('1E+2') == Decimal('100') is True — numeric equality holds even though string forms differ."
+    - "All expected values verified with Python 3.14.3 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# str() representation — basic contracts
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra261.Decimal.str_1_5:
+  description: "str(Decimal('1.5')) == '1.5' — string representation preserves exact decimal encoding"
+  category: string_repr
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: __str__
+  expected: "1.5"
+
+invariant decimal_extra261.Decimal.str_trailing_zero:
+  description: "str(Decimal('1.50')) == '1.50' — trailing zeros in the coefficient are preserved"
+  category: string_repr
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.50"]
+  method: __str__
+  expected: "1.50"
+
+invariant decimal_extra261.Decimal.str_scientific:
+  description: "str(Decimal('1E+2')) == '1E+2' — scientific notation is preserved from the original string"
+  category: string_repr
+  kind: python_call_eq
+  function: Decimal
+  args: ["1E+2"]
+  method: __str__
+  expected: "1E+2"
+
+invariant decimal_extra261.Decimal.str_plain_100:
+  description: "str(Decimal('100')) == '100' — plain integer coefficient has no exponent in its string form"
+  category: string_repr
+  kind: python_call_eq
+  function: Decimal
+  args: ["100"]
+  method: __str__
+  expected: "100"
+
+# ---------------------------------------------------------------------------
+# repr() representation
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra261.Decimal.repr_1_5:
+  description: "repr(Decimal('1.5')) == \"Decimal('1.5')\" — repr wraps the str form in Decimal(...)"
+  category: string_repr
+  kind: python_call_eq
+  function: Decimal
+  args: ["1.5"]
+  method: __repr__
+  expected: "Decimal('1.5')"
+
+# ---------------------------------------------------------------------------
+# str() after arithmetic — Decimal avoids floating-point rounding
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra261.Decimal.add_0_1_plus_0_2:
+  description: "str(Decimal('0.1') + Decimal('0.2')) == '0.3' — decimal avoids floating-point rounding error"
+  category: arithmetic
+  kind: python_call_eq
+  function: Decimal
+  args: ["0.1"]
+  method: __add__
+  method_args: [{type: decimal_str, value: "0.2"}]
+  method_chain: __str__
+  expected: "0.3"
+
+# ---------------------------------------------------------------------------
+# Numeric equality — different string forms, same numeric value
+# ---------------------------------------------------------------------------
+
+invariant decimal_extra261.Decimal.scientific_eq_plain:
+  description: "Decimal('1E+2') == Decimal('100') — numeric equality holds even when string forms differ"
+  category: equality
+  kind: python_call_eq
+  function: Decimal
+  args: ["1E+2"]
+  method: __eq__
+  method_args: [{type: decimal_str, value: "100"}]
+  expected: true
+
+invariant decimal_extra261.Decimal.str_distinguishes_notation:
+  description: "str(Decimal('1E+2')) != str(Decimal('100')) — string forms are distinct even though values are equal"
+  category: string_repr
+  kind: python_call_eq
+  function: Decimal
+  args: ["1E+2"]
+  method: __str__
+  expected: "1E+2"
+
+# ---------------------------------------------------------------------------
+# Table: str() representation for a range of Decimal inputs
+# ---------------------------------------------------------------------------
+
+table decimal_extra261.str_representations:
+  description: "str() representation contracts for various Decimal constructions"
+  kind: python_call_eq
+  category: string_repr
+  id_prefix: strrepr
+
+  columns: [id, args, method, expected]
+  rows:
+    - [zero,          ["0"],     __str__, "0"]
+    - [one,           ["1"],     __str__, "1"]
+    - [neg_one,       ["-1"],    __str__, "-1"]
+    - [one_point_5,   ["1.5"],   __str__, "1.5"]
+    - [trailing_zero, ["1.50"],  __str__, "1.50"]
+    - [plain_100,     ["100"],   __str__, "100"]
+    - [scientific,    ["1E+2"],  __str__, "1E+2"]
