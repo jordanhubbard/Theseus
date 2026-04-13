@@ -1,0 +1,152 @@
+spec: cf3226
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 662 (cf3226): __radd__, __rsub__, __rmul__ dict-presence (reflected arithmetic) for concurrent.futures types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: concurrent.futures.Future, concurrent.futures.ThreadPoolExecutor, concurrent.futures.ProcessPoolExecutor."
+    - "Key finding (__radd__): all 3 concurrent.futures classes return false for __radd__. Reflected addition (__radd__) is invoked when the left operand's __add__ returns NotImplemented. concurrent.futures types define no __add__ (confirmed false in wave 658), so __radd__ is equally absent. concurrent.futures.Future is a result handle with a PENDING/RUNNING/CANCELLED/FINISHED state machine — not a numeric or sequence type; n + future is not a defined operation. ThreadPoolExecutor and ProcessPoolExecutor manage worker pools via submit()/map()/shutdown(); reflected addition is not defined for executor objects."
+    - "Key finding (__rsub__): all 3 concurrent.futures classes return false for __rsub__. Reflected subtraction (__rsub__) complements __sub__. concurrent.futures types define neither __sub__ (confirmed false in wave 658) nor __rsub__. There is no arithmetic data model for executor or future types — neither left-side nor right-side subtraction is defined."
+    - "Key finding (__rmul__): all 3 concurrent.futures classes return false for __rmul__. Reflected multiplication (__rmul__) is invoked when n * obj is attempted and int's __mul__ does not handle the right operand. concurrent.futures types define no __mul__ (confirmed false in wave 658), so __rmul__ is also absent. No executor or future type implements sequence repetition or numeric scaling."
+    - "All 9 values in this wave are false. concurrent.futures is a high-level parallel execution API operating entirely through method calls — submit(), map(), result(), cancel(), add_done_callback(), shutdown() — with no arithmetic or reflected arithmetic operator overloading of any kind."
+    - "Cross-wave summary for cf subjects:"
+    - "  Wave 658 (cf3166): __add__/__sub__/__mul__ — all false for all 3."
+    - "  Wave 659 (cf3181): __truediv__/__floordiv__/__mod__ — all false for all 3."
+    - "  Wave 660 (cf3196): __pow__/__lshift__/__rshift__ — all false for all 3."
+    - "  Wave 661 (cf3211): __and__/__or__/__xor__ — all false for all 3."
+    - "  Wave 662 (cf3226): __radd__/__rsub__/__rmul__ — all false for all 3."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __radd__ dict-presence — operator.contains(Cls.__dict__, '__radd__')
+#
+# All 3 concurrent.futures classes return false for __radd__.
+# concurrent.futures types are executor and future abstractions; they are
+#   not numeric or sequence types, so reflected addition is not defined.
+# concurrent.futures.Future: a result-handle with PENDING/RUNNING/CANCELLED/
+#   FINISHED states; n + future is not a valid Python expression.
+# ThreadPoolExecutor/ProcessPoolExecutor: worker-pool managers with an
+#   entirely method-based API; reflected addition is not defined for pools.
+# ---------------------------------------------------------------------------
+
+table cf3226.radd:
+  description: "concurrent.futures types __radd__ dict-presence checks; wave 662"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3226
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3226001", operator.contains, [concurrent.futures.Future.__dict__,              "__radd__"], false]
+    - ["cf3226002", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__radd__"], false]
+    - ["cf3226003", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__radd__"], false]
+
+# ---------------------------------------------------------------------------
+# __rsub__ dict-presence — operator.contains(Cls.__dict__, '__rsub__')
+#
+# All 3 concurrent.futures classes return false for __rsub__.
+# Reflected subtraction (__rsub__) is the mirror of __sub__; it is invoked
+#   when the left operand's __sub__ returns NotImplemented. concurrent.futures
+#   types define neither __sub__ (confirmed false in wave 658) nor __rsub__.
+# concurrent.futures.Future: a state-machine result handle; n - future is
+#   not a valid Python expression.
+# ThreadPoolExecutor/ProcessPoolExecutor: worker-pool lifecycle managers;
+#   reflected subtraction is entirely absent from their API.
+# ---------------------------------------------------------------------------
+
+table cf3226.rsub:
+  description: "concurrent.futures types __rsub__ dict-presence checks; wave 662"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3226
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3226004", operator.contains, [concurrent.futures.Future.__dict__,              "__rsub__"], false]
+    - ["cf3226005", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rsub__"], false]
+    - ["cf3226006", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rsub__"], false]
+
+# ---------------------------------------------------------------------------
+# __rmul__ dict-presence — operator.contains(Cls.__dict__, '__rmul__')
+#
+# All 3 concurrent.futures classes return false for __rmul__.
+# Reflected multiplication (__rmul__) is invoked when n * obj is attempted
+#   and the left operand does not handle the right operand type.
+# concurrent.futures types define no __mul__ (confirmed false in wave 658),
+#   so __rmul__ is equally absent. Executor and future types have no
+#   sequence-repetition or numeric-scaling semantics.
+# concurrent.futures.Future: a result handle, not a numeric or sequence type.
+# ThreadPoolExecutor/ProcessPoolExecutor: pool managers; n * executor is
+#   not a defined Python operation.
+# ---------------------------------------------------------------------------
+
+table cf3226.rmul:
+  description: "concurrent.futures types __rmul__ dict-presence checks; wave 662"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3226
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3226007", operator.contains, [concurrent.futures.Future.__dict__,              "__rmul__"], false]
+    - ["cf3226008", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rmul__"], false]
+    - ["cf3226009", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rmul__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __radd__, __rsub__, __rmul__ across all 3 cf subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __radd__: false for all 3 — no reflected addition defined.
+# __rsub__: false for all 3 — no reflected subtraction defined.
+# __rmul__: false for all 3 — no reflected multiplication defined.
+# All 9 values are false.
+# concurrent.futures is a high-level parallel execution API. Its entire
+#   public surface is method-based: submit(), map(), result(), cancel(),
+#   done(), running(), cancelled(), add_done_callback(), shutdown().
+#   Neither forward nor reflected arithmetic operator overloading appears
+#   anywhere in the concurrent.futures type hierarchy.
+# concurrent.futures.Future note: despite the name suggesting a value
+#   arriving in the future, Future is a state-machine result handle — not
+#   a numeric or collection type. __radd__, __rsub__, __rmul__ are all absent.
+# ThreadPoolExecutor/ProcessPoolExecutor note: executor types encapsulate
+#   a pool of worker threads or processes; they expose only lifecycle and
+#   dispatch methods. No reflected operator overloads are defined.
+# ---------------------------------------------------------------------------
+
+table cf3226.combined:
+  description: "concurrent.futures types combined __radd__/__rsub__/__rmul__; wave 662"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3226
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3226010", operator.contains, [concurrent.futures.Future.__dict__,              "__radd__"], false]
+    - ["cf3226011", operator.contains, [concurrent.futures.Future.__dict__,              "__rsub__"], false]
+    - ["cf3226012", operator.contains, [concurrent.futures.Future.__dict__,              "__rmul__"], false]
+    - ["cf3226013", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__radd__"], false]
+    - ["cf3226014", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rsub__"], false]
+    - ["cf3226015", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rmul__"], false]
+    - ["cf3226016", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__radd__"], false]
+    - ["cf3226017", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rsub__"], false]
+    - ["cf3226018", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rmul__"], false]
