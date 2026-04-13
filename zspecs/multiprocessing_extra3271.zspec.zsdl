@@ -1,0 +1,213 @@
+spec: mp3271
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html"
+    - "https://docs.python.org/3/library/multiprocessing.managers.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 665 (mp3271): __rand__, __ror__, __rxor__ dict-presence (reflected bitwise logical) for multiprocessing types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: multiprocessing.Process, pool.Pool, pool.AsyncResult, pool.MapResult, managers.SyncManager, managers.BaseListProxy, managers._BaseDictProxy, managers._BaseSetProxy."
+    - "Key finding (__rand__): all 8 multiprocessing classes return false for __rand__. multiprocessing.Process manages a subprocess lifecycle (start/join/terminate/kill); reflected bitwise AND is undefined for process objects. pool.Pool dispatches work to worker processes; n & pool is not a defined Python expression. pool.AsyncResult and pool.MapResult are result handles; reflected bitwise AND is absent. managers.BaseListProxy proxies list — list does NOT define __rand__ (list has no bitwise logical data model). managers._BaseDictProxy proxies dict — dict defines no __and__ or __rand__. managers._BaseSetProxy proxies set — CRITICAL NOTE: set defines __and__, __or__, __xor__ (set intersection, union, symmetric difference) but set does NOT define __rand__, __ror__, or __rxor__. Python's set bitwise operators are NOT reflected in the __rand__/__ror__/__rxor__ sense; they are forward-only symmetric operations. Therefore _BaseSetProxy has no __rand__. managers.SyncManager: server process hosting shared objects; no bitwise protocol defined."
+    - "Key finding (__ror__): all 8 multiprocessing classes return false for __ror__. Reflected bitwise OR (__ror__) is the mirror of __or__. multiprocessing types define no __or__ (confirmed false in wave 661), so __ror__ is also absent. CRITICAL NOTE on _BaseSetProxy: set defines __or__ (set union, s | t) but does NOT define __ror__. Python's set union operator is symmetric but not reflected — set.__or__ handles same-type operands only (returning NotImplemented otherwise), and set has never defined __ror__. Therefore _BaseSetProxy has no __ror__. managers._BaseDictProxy proxies dict — Python 3.9+ dict defines __or__ and __ror__ for mapping merge (PEP 584), but _BaseDictProxy does NOT forward these operators through its IPC callthrough mechanism; only explicitly proxied methods are forwarded. managers.BaseListProxy proxies list — list defines no __or__ or __ror__. Process/Pool/AsyncResult/MapResult/SyncManager: no bitwise semantics of any kind."
+    - "Key finding (__rxor__): all 8 multiprocessing classes return false for __rxor__. Reflected bitwise XOR (__rxor__) is invoked when n ^ obj is attempted and the left operand does not handle the right operand. multiprocessing types define no __xor__ (confirmed false in wave 661), so __rxor__ is equally absent. CRITICAL NOTE on _BaseSetProxy: set defines __xor__ (symmetric difference, s ^ t) but does NOT define __rxor__. Set's symmetric difference is a forward operation only; set has no __rxor__. Therefore _BaseSetProxy has no __rxor__. managers._BaseDictProxy: dict defines no __xor__ or __rxor__. managers.BaseListProxy: list defines no __xor__ or __rxor__. Process/Pool/AsyncResult/MapResult/SyncManager: none implement a bitwise XOR interface from either side."
+    - "_BaseSetProxy key note: set defines __and__/__or__/__xor__ (wave 661 found all false for _BaseSetProxy in the forward direction — the proxy class does not forward these operators via IPC callthrough). The reflected variants __rand__/__ror__/__rxor__ are also absent from set's own __dict__, so _BaseSetProxy equally lacks them. Set operations are symmetric but not reflected in the Python data model sense."
+    - "All 24 values in this wave are false. multiprocessing is a process-based concurrency library; its entire API is expressed through explicit method calls, subprocess lifecycle management, and IPC — never through Python's reflected bitwise logical operators."
+    - "Cross-wave summary for mp subjects:"
+    - "  Wave 658 (mp3166): __add__/__sub__/__mul__ — BaseListProxy __add__=true, __mul__=true; others false."
+    - "  Wave 659 (mp3181): __truediv__/__floordiv__/__mod__ — all false for all 8."
+    - "  Wave 660 (mp3196): __pow__/__lshift__/__rshift__ — all false for all 8."
+    - "  Wave 661 (mp3211): __and__/__or__/__xor__ — all false for all 8."
+    - "  Wave 662 (mp3226): __radd__/__rsub__/__rmul__ — all false for all 8."
+    - "  Wave 663 (mp3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 8."
+    - "  Wave 664 (mp3256): __rpow__/__rlshift__/__rrshift__ — all false for all 8."
+    - "  Wave 665 (mp3271): __rand__/__ror__/__rxor__ — all false for all 8."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __rand__ dict-presence — operator.contains(Cls.__dict__, '__rand__')
+#
+# All 8 multiprocessing classes return false for __rand__.
+# Process/Pool/AsyncResult/MapResult: process-management and result-handle
+#   types; reflected bitwise AND is not defined for any of them.
+# managers.BaseListProxy: proxies list — list does NOT define __rand__.
+#   Python's list has no bitwise logical data model; n & list triggers
+#   int's __and__ which rejects list, and list has no __rand__ fallback.
+# managers._BaseDictProxy: proxies dict — dict defines no __and__ or
+#   __rand__.
+# managers._BaseSetProxy: proxies set — set defines __and__ (intersection)
+#   but does NOT define __rand__. Set's intersection is a forward-only
+#   symmetric operation; Python's set type has never defined __rand__.
+#   Therefore _BaseSetProxy has no __rand__ to proxy.
+# managers.SyncManager: server process; no bitwise protocol defined.
+# ---------------------------------------------------------------------------
+
+table mp3271.rand:
+  description: "multiprocessing types __rand__ dict-presence checks; wave 665"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3271
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3271001", operator.contains, [multiprocessing.Process.__dict__,                 "__rand__"], false]
+    - ["mp3271002", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rand__"], false]
+    - ["mp3271003", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rand__"], false]
+    - ["mp3271004", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rand__"], false]
+    - ["mp3271005", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rand__"], false]
+    - ["mp3271006", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rand__"], false]
+    - ["mp3271007", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rand__"], false]
+    - ["mp3271008", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rand__"], false]
+
+# ---------------------------------------------------------------------------
+# __ror__ dict-presence — operator.contains(Cls.__dict__, '__ror__')
+#
+# All 8 multiprocessing classes return false for __ror__.
+# Process/Pool/AsyncResult/MapResult/SyncManager: process-management types
+#   with no bitwise semantics of any kind.
+# managers.BaseListProxy: proxies list — list defines no __or__ or __ror__.
+#   n | list is not a valid Python expression.
+# managers._BaseDictProxy: proxies dict — Python 3.9+ dict defines __ror__
+#   for mapping merge (PEP 584), but _BaseDictProxy does NOT forward __ror__
+#   through its IPC callthrough mechanism. Only methods explicitly registered
+#   in the proxy's _method list are forwarded; __ror__ is not among them.
+# managers._BaseSetProxy: proxies set — set defines __or__ (set union)
+#   but does NOT define __ror__. Set union is symmetric but not reflected
+#   in the Python data model sense. _BaseSetProxy therefore has no __ror__.
+# ---------------------------------------------------------------------------
+
+table mp3271.ror:
+  description: "multiprocessing types __ror__ dict-presence checks; wave 665"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3271
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3271009",  operator.contains, [multiprocessing.Process.__dict__,                 "__ror__"], false]
+    - ["mp3271010",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__ror__"], false]
+    - ["mp3271011",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__ror__"], false]
+    - ["mp3271012",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__ror__"], false]
+    - ["mp3271013",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__ror__"], false]
+    - ["mp3271014",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__ror__"], false]
+    - ["mp3271015",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__ror__"], false]
+    - ["mp3271016",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__ror__"], false]
+
+# ---------------------------------------------------------------------------
+# __rxor__ dict-presence — operator.contains(Cls.__dict__, '__rxor__')
+#
+# All 8 multiprocessing classes return false for __rxor__.
+# Process/Pool/AsyncResult/MapResult/SyncManager: process-management types;
+#   reflected bitwise XOR is not defined.
+# managers.BaseListProxy: proxies list — list does NOT define __rxor__.
+#   list has no bitwise logical semantics from either side.
+# managers._BaseDictProxy: proxies dict — dict defines no __xor__ or
+#   __rxor__ of any kind.
+# managers._BaseSetProxy: proxies set — set defines __xor__ (symmetric
+#   difference, s ^ t) but does NOT define __rxor__. Python's set symmetric
+#   difference is a forward operation only; set has never defined __rxor__.
+#   Therefore _BaseSetProxy has no __rxor__ to proxy.
+# ---------------------------------------------------------------------------
+
+table mp3271.rxor:
+  description: "multiprocessing types __rxor__ dict-presence checks; wave 665"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3271
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3271017",  operator.contains, [multiprocessing.Process.__dict__,                 "__rxor__"], false]
+    - ["mp3271018",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rxor__"], false]
+    - ["mp3271019",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rxor__"], false]
+    - ["mp3271020",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rxor__"], false]
+    - ["mp3271021",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rxor__"], false]
+    - ["mp3271022",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rxor__"], false]
+    - ["mp3271023",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rxor__"], false]
+    - ["mp3271024",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rxor__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __rand__, __ror__, __rxor__ across all 8 mp subjects
+#
+# Covers the full matrix: 8 classes x 3 methods = 24 rows.
+# __rand__: false for all 8 — not in any type's own __dict__.
+# __ror__: false for all 8 — not in any type's own __dict__.
+# __rxor__: false for all 8 — not in any type's own __dict__.
+# All 24 values are false.
+# _BaseSetProxy asymmetry — the central finding of this wave:
+#   Wave 661: _BaseSetProxy.__and__ = false (proxy does not forward __and__).
+#   Wave 661: _BaseSetProxy.__or__ = false (proxy does not forward __or__).
+#   Wave 661: _BaseSetProxy.__xor__ = false (proxy does not forward __xor__).
+#   Wave 665: _BaseSetProxy.__rand__ = false (set does not define __rand__).
+#   Wave 665: _BaseSetProxy.__ror__ = false (set does not define __ror__).
+#   Wave 665: _BaseSetProxy.__rxor__ = false (set does not define __rxor__).
+#   set defines __and__/__or__/__xor__ as symmetric intersection/union/
+#   symmetric-difference operators, but Python's set type has never defined
+#   the reflected variants __rand__/__ror__/__rxor__. Set operations are
+#   symmetric in practice (s & t == t & s for sets) but this symmetry is
+#   implemented by both operands defining the forward operator, not through
+#   Python's reflected operator dispatch mechanism.
+# _BaseDictProxy and __ror__: Python 3.9+ dict defines __ror__ for PEP 584
+#   merge (d2 | d1 where d2 is not a dict). _BaseDictProxy does NOT forward
+#   __ror__ because multiprocessing proxies only forward methods explicitly
+#   registered through the proxy's method list — operator dunders are not
+#   automatically proxied through the IPC callthrough mechanism.
+# BaseListProxy across waves:
+#   Wave 658: BaseListProxy.__add__ = true, BaseListProxy.__mul__ = true.
+#   Waves 662–665: all reflected operators false (list has no __radd__,
+#   __rmul__, __rand__, __ror__, __rxor__, etc.).
+# multiprocessing is a process-based concurrency library; its types interact
+#   exclusively through explicit method calls, subprocess lifecycle management,
+#   and IPC — never through Python's reflected bitwise logical operators.
+# ---------------------------------------------------------------------------
+
+table mp3271.combined:
+  description: "multiprocessing types combined __rand__/__ror__/__rxor__; wave 665"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3271
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3271025", operator.contains, [multiprocessing.Process.__dict__,                 "__rand__"], false]
+    - ["mp3271026", operator.contains, [multiprocessing.Process.__dict__,                 "__ror__"], false]
+    - ["mp3271027", operator.contains, [multiprocessing.Process.__dict__,                 "__rxor__"], false]
+    - ["mp3271028", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rand__"], false]
+    - ["mp3271029", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__ror__"], false]
+    - ["mp3271030", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rxor__"], false]
+    - ["mp3271031", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rand__"], false]
+    - ["mp3271032", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__ror__"], false]
+    - ["mp3271033", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rxor__"], false]
+    - ["mp3271034", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rand__"], false]
+    - ["mp3271035", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__ror__"], false]
+    - ["mp3271036", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rxor__"], false]
+    - ["mp3271037", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rand__"], false]
+    - ["mp3271038", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__ror__"], false]
+    - ["mp3271039", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rxor__"], false]
+    - ["mp3271040", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rand__"], false]
+    - ["mp3271041", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__ror__"], false]
+    - ["mp3271042", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rxor__"], false]
+    - ["mp3271043", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rand__"], false]
+    - ["mp3271044", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__ror__"], false]
+    - ["mp3271045", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rxor__"], false]
+    - ["mp3271046", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rand__"], false]
+    - ["mp3271047", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__ror__"], false]
+    - ["mp3271048", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rxor__"], false]
