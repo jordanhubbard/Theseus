@@ -1,0 +1,90 @@
+spec: multiprocessing_extra1681
+version: ">=3.9"
+backend: python_module(multiprocessing)
+error_model: python_exceptions
+
+provenance:
+  derived_from:
+    - "Python docs"
+    - "https://docs.python.org/3/library/multiprocessing.html"
+  not_derived_from:
+    - "any proprietary source"
+  notes:
+    - "Wave 559 (_extra1681): __call__ callable protocol dict-presence checks."
+    - "multiprocessing.Process: similar to threading.Thread, no __call__ in own dict."
+    - "multiprocessing.Pool: no __call__ in own dict."
+    - "multiprocessing.process.BaseProcess: no __call__ in own dict."
+    - "Related method presence checks: start, run, join, terminate on BaseProcess."
+    - "All values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# multiprocessing __call__ callable protocol — Process, Pool, BaseProcess — extra1681
+#
+# multiprocessing.Process.__dict__.__contains__("__call__")              == False
+# multiprocessing.Pool.__dict__.__contains__("__call__")                 == False
+# multiprocessing.process.BaseProcess.__dict__.__contains__("__call__")  == False
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra1681.callable_protocol:
+  description: "multiprocessing types __call__ dict-presence checks (wave 559 _extra1681) — multiprocessing.Process.__dict__.__contains__('__call__')==False (Process is a context-bound subclass of BaseProcess; it does not define __call__ in its own class dict; Process instances are not callable as functions — use Process.start() to launch the subprocess); multiprocessing.Pool.__dict__.__contains__('__call__')==False (Pool manages a pool of worker processes; it does not define __call__ in its own dict; Pool exposes map(), apply(), starmap(), etc. but is not itself callable); multiprocessing.process.BaseProcess.__dict__.__contains__('__call__')==False (BaseProcess defines all real process lifecycle logic; it does not define __call__; the callable target function is stored as self._target and invoked in run(), not via __call__); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: mp1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp1681001", "multiprocessing.Process.__dict__.__contains__",             ["__call__"], false]
+    - ["mp1681002", "multiprocessing.Pool.__dict__.__contains__",                ["__call__"], false]
+    - ["mp1681003", "multiprocessing.process.BaseProcess.__dict__.__contains__", ["__call__"], false]
+
+# ---------------------------------------------------------------------------
+# multiprocessing.process.BaseProcess own-dict method presence — extra1681
+#
+# multiprocessing.process.BaseProcess.__dict__.__contains__("start")     == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__("run")       == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__("join")      == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__("terminate") == True
+# multiprocessing.process.BaseProcess.__dict__.__contains__("kill")      == True
+# multiprocessing.Process.__dict__.__contains__("start")                 == False  (inherited from BaseProcess)
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra1681.baseprocess_method_presence:
+  description: "multiprocessing.process.BaseProcess own-dict method presence checks (wave 559 _extra1681) — multiprocessing.process.BaseProcess.__dict__.__contains__('start')==True (BaseProcess.start() launches the subprocess; it calls the platform-specific _Popen class to fork/spawn/forkserver; start() is in BaseProcess.__dict__); multiprocessing.process.BaseProcess.__dict__.__contains__('run')==True (BaseProcess.run() is the method executed in the child process; default implementation calls self._target with args and kwargs; run() is in BaseProcess.__dict__); multiprocessing.process.BaseProcess.__dict__.__contains__('join')==True (BaseProcess.join(timeout) blocks until the child process terminates; in BaseProcess.__dict__); multiprocessing.process.BaseProcess.__dict__.__contains__('terminate')==True (BaseProcess.terminate() sends SIGTERM on Unix or TerminateProcess on Windows; in BaseProcess.__dict__); multiprocessing.process.BaseProcess.__dict__.__contains__('kill')==True (BaseProcess.kill() sends SIGKILL on Unix; in BaseProcess.__dict__); ARCHITECTURAL FINDING: multiprocessing.Process.__dict__.__contains__('start')==False (Process inherits start from BaseProcess; start is NOT redefined in the context-bound subclass Process.__dict__); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: mp1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp1681004", "multiprocessing.process.BaseProcess.__dict__.__contains__", ["start"],     true]
+    - ["mp1681005", "multiprocessing.process.BaseProcess.__dict__.__contains__", ["run"],       true]
+    - ["mp1681006", "multiprocessing.process.BaseProcess.__dict__.__contains__", ["join"],      true]
+    - ["mp1681007", "multiprocessing.process.BaseProcess.__dict__.__contains__", ["terminate"], true]
+    - ["mp1681008", "multiprocessing.process.BaseProcess.__dict__.__contains__", ["kill"],      true]
+    - ["mp1681009", "multiprocessing.Process.__dict__.__contains__",             ["start"],     false]
+
+# ---------------------------------------------------------------------------
+# multiprocessing.Pool own-dict method presence — apply, map, starmap — extra1681
+#
+# multiprocessing.Pool.__dict__.__contains__("apply")    == True
+# multiprocessing.Pool.__dict__.__contains__("map")      == True
+# multiprocessing.Pool.__dict__.__contains__("starmap")  == True
+# multiprocessing.Pool.__dict__.__contains__("close")    == True
+# multiprocessing.Pool.__dict__.__contains__("terminate") == True
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra1681.pool_method_presence:
+  description: "multiprocessing.Pool own-dict method presence checks (wave 559 _extra1681) — multiprocessing.Pool.__dict__.__contains__('apply')==True (Pool.apply(func, args, kwds) calls func in a worker process and blocks until the result is ready; in Pool.__dict__); multiprocessing.Pool.__dict__.__contains__('map')==True (Pool.map(func, iterable) applies func to every item of iterable across the worker pool; in Pool.__dict__); multiprocessing.Pool.__dict__.__contains__('starmap')==True (Pool.starmap(func, iterable) is like map but unpacks iterable items as arguments; in Pool.__dict__); multiprocessing.Pool.__dict__.__contains__('close')==True (Pool.close() prevents any more tasks from being submitted to the pool; worker processes will finish their current tasks and exit; in Pool.__dict__); multiprocessing.Pool.__dict__.__contains__('terminate')==True (Pool.terminate() stops the worker processes immediately without completing outstanding work; in Pool.__dict__); multiprocessing.Pool.__dict__.__contains__('__call__')==False (cross-check: Pool is not callable; __call__ is not in Pool.__dict__); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: mp1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp1681010", "multiprocessing.Pool.__dict__.__contains__", ["apply"],     true]
+    - ["mp1681011", "multiprocessing.Pool.__dict__.__contains__", ["map"],       true]
+    - ["mp1681012", "multiprocessing.Pool.__dict__.__contains__", ["starmap"],   true]
+    - ["mp1681013", "multiprocessing.Pool.__dict__.__contains__", ["close"],     true]
+    - ["mp1681014", "multiprocessing.Pool.__dict__.__contains__", ["terminate"], true]
+    - ["mp1681015", "multiprocessing.Pool.__dict__.__contains__", ["__call__"],  false]

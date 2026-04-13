@@ -1,0 +1,88 @@
+spec: abc_extra1681
+version: ">=3.9"
+backend: python_module(abc)
+error_model: python_exceptions
+
+provenance:
+  derived_from:
+    - "Python docs"
+    - "https://docs.python.org/3/library/abc.html"
+  not_derived_from:
+    - "any proprietary source"
+  notes:
+    - "Wave 559 (_extra1681): __call__ callable protocol dict-presence checks."
+    - "abc.ABCMeta is a metaclass (subclass of type). It does NOT define __call__ in its own __dict__ — it inherits __call__ from type."
+    - "abc.ABC does not define __call__ in its own __dict__."
+    - "abc.abstractmethod does not define __call__ in its own __dict__ (abstractmethod is a function, not a callable class)."
+    - "abc.ABCMeta defines __new__ in its own __dict__ (collects abstractmethods at class creation time)."
+    - "Related checks: register, __instancecheck__, __subclasscheck__ on ABCMeta."
+    - "All values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# abc __call__ callable protocol — ABCMeta, ABC, abstractmethod — extra1681
+#
+# abc.ABCMeta.__dict__.__contains__("__call__")      == False  (inherits from type)
+# abc.ABC.__dict__.__contains__("__call__")          == False
+# abc.abstractmethod.__dict__.__contains__("__call__") == False  (abstractmethod is a function)
+# ---------------------------------------------------------------------------
+
+table abc_extra1681.callable_protocol:
+  description: "abc types __call__ dict-presence checks (wave 559 _extra1681) — abc.ABCMeta.__dict__.__contains__('__call__')==False (ABCMeta IS a metaclass — a subclass of type — but it does NOT define its own __call__ in its __dict__; ABCMeta inherits __call__ from type, which is responsible for calling __new__ and __init__ when a class is instantiated; ABCMeta's contribution is in __new__ (where it collects abstract methods) not in __call__); abc.ABC.__dict__.__contains__('__call__')==False (ABC is a plain helper class whose metaclass is ABCMeta; ABC does not define __call__ in its own dict; ABC is used as a base class, not as a callable); abc.abstractmethod.__dict__.__contains__('__call__')==False (abstractmethod is a Python function decorated as a descriptor; as a function object, abstractmethod.__dict__ is the function's attribute dict and does not include __call__; the function IS callable but its callability comes from the function type, not from __call__ in its own __dict__); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab1681001", "abc.ABCMeta.__dict__.__contains__",      ["__call__"], false]
+    - ["ab1681002", "abc.ABC.__dict__.__contains__",          ["__call__"], false]
+    - ["ab1681003", "abc.abstractmethod.__dict__.__contains__", ["__call__"], false]
+
+# ---------------------------------------------------------------------------
+# abc.ABCMeta own-dict attribute presence — register, __new__, __instancecheck__, __subclasscheck__ — extra1681
+#
+# abc.ABCMeta.__dict__.__contains__("register")          == True
+# abc.ABCMeta.__dict__.__contains__("__new__")           == True
+# abc.ABCMeta.__dict__.__contains__("__instancecheck__") == True
+# abc.ABCMeta.__dict__.__contains__("__subclasscheck__") == True
+# abc.ABCMeta.__dict__.__contains__("__call__")          == False
+# ---------------------------------------------------------------------------
+
+table abc_extra1681.abcmeta_own_attrs:
+  description: "abc.ABCMeta own-dict attribute presence checks (wave 559 _extra1681) — abc.ABCMeta.__dict__.__contains__('register')==True (ABCMeta defines register(subclass) in its own dict; register() allows registering a class as a virtual subclass of an ABC without actual inheritance; virtual subclasses pass isinstance/issubclass checks but do not inherit any methods); abc.ABCMeta.__dict__.__contains__('__new__')==True (ABCMeta defines __new__ in its own dict; ABCMeta.__new__ inspects the class body for abstract methods decorated with @abstractmethod and collects them into __abstractmethods__; this is the core mechanism that makes ABCs work); abc.ABCMeta.__dict__.__contains__('__instancecheck__')==True (ABCMeta defines __instancecheck__ to support isinstance() checks that include virtual subclasses registered via register()); abc.ABCMeta.__dict__.__contains__('__subclasscheck__')==True (ABCMeta defines __subclasscheck__ to support issubclass() checks that include virtual subclasses and the __subclasshook__ protocol); abc.ABCMeta.__dict__.__contains__('__call__')==False (cross-check: ABCMeta does NOT define __call__ in its own dict; __call__ is inherited from type); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab1681004", "abc.ABCMeta.__dict__.__contains__", ["register"],          true]
+    - ["ab1681005", "abc.ABCMeta.__dict__.__contains__", ["__new__"],           true]
+    - ["ab1681006", "abc.ABCMeta.__dict__.__contains__", ["__instancecheck__"], true]
+    - ["ab1681007", "abc.ABCMeta.__dict__.__contains__", ["__subclasscheck__"], true]
+    - ["ab1681008", "abc.ABCMeta.__dict__.__contains__", ["__call__"],          false]
+
+# ---------------------------------------------------------------------------
+# abc deprecated decorators __call__ and __isabstractmethod__ checks — extra1681
+#
+# abc.abstractproperty.__dict__.__contains__("__call__")          == False
+# abc.abstractclassmethod.__dict__.__contains__("__call__")       == False
+# abc.abstractstaticmethod.__dict__.__contains__("__call__")      == False
+# abc.abstractproperty.__dict__.__contains__("__isabstractmethod__") == True
+# ---------------------------------------------------------------------------
+
+table abc_extra1681.deprecated_decorators_call_check:
+  description: "abc deprecated decorator types __call__ and __isabstractmethod__ dict-presence checks (wave 559 _extra1681) — abc.abstractproperty.__dict__.__contains__('__call__')==False (abstractproperty inherits from property; property defines __call__ via its descriptor protocol but abstractproperty itself does not define __call__ in its own __dict__); abc.abstractclassmethod.__dict__.__contains__('__call__')==False (abstractclassmethod inherits from classmethod; classmethod defines __call__ internally but abstractclassmethod's own __dict__ does not include __call__); abc.abstractstaticmethod.__dict__.__contains__('__call__')==False (abstractstaticmethod inherits from staticmethod; its own __dict__ does not include __call__); abc.abstractproperty.__dict__.__contains__('__isabstractmethod__')==True (abstractproperty defines __isabstractmethod__ as a property/attribute in its own __dict__; this is the flag that ABCMeta reads to identify abstract methods; when True, ABCMeta adds the decorated method to __abstractmethods__); abc.abstractclassmethod.__dict__.__contains__('__isabstractmethod__')==True (abstractclassmethod also defines __isabstractmethod__ in own dict); abc.abstractstaticmethod.__dict__.__contains__('__isabstractmethod__')==True (abstractstaticmethod also defines __isabstractmethod__ in own dict); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab1681009", "abc.abstractproperty.__dict__.__contains__",    ["__call__"],             false]
+    - ["ab1681010", "abc.abstractclassmethod.__dict__.__contains__",  ["__call__"],             false]
+    - ["ab1681011", "abc.abstractstaticmethod.__dict__.__contains__", ["__call__"],             false]
+    - ["ab1681012", "abc.abstractproperty.__dict__.__contains__",     ["__isabstractmethod__"], true]
+    - ["ab1681013", "abc.abstractclassmethod.__dict__.__contains__",  ["__isabstractmethod__"], true]
+    - ["ab1681014", "abc.abstractstaticmethod.__dict__.__contains__", ["__isabstractmethod__"], true]

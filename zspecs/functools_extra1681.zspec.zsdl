@@ -1,0 +1,112 @@
+spec: functools_extra1681
+version: ">=3.9"
+backend: python_module(functools)
+
+docs: https://docs.python.org/3/library/functools.html
+
+provenance:
+  derived_from:
+    - "Python functools documentation — https://docs.python.org/3/library/functools.html"
+    - "Test vectors verified with Python 3.14 on macOS Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/functools.py"
+    - "functools.zspec.zsdl — covers WRAPPER_ASSIGNMENTS, WRAPPER_UPDATES, and callable type checks"
+    - "functools_extra.zspec.zsdl — covers __name__ and __module__ for public symbols"
+    - "functools_extra1666.zspec.zsdl — covers __new__/__init__ presence and callable type checks"
+  notes:
+    - "Wave 559 (_extra1681): __call__ callable protocol — which types define __call__ in their own __dict__."
+    - "functools.partial is a C extension type with tp_call → __call__ in __dict__ → True."
+    - "functools.cached_property is a pure Python descriptor class (defines __get__) — NOT callable → __call__ not in __dict__ → False."
+    - "functools._lru_cache_wrapper is a C extension type with tp_call → __call__ in __dict__ → True."
+    - "functools.partialmethod is a pure Python class — it is a descriptor, not a callable → __call__ not in __dict__ → False."
+    - "functools.lru_cache, cache, wraps, reduce, cmp_to_key, total_ordering, singledispatch are plain functions/builtins — function objects carry __call__ on their type, not in instance __dict__."
+    - "All values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: callable_protocol
+#
+# Records whether each functools type defines __call__ in its own __dict__.
+# Only class objects (type) are meaningful here; C types with tp_call expose
+# __call__ in the class __dict__; pure-Python classes that are descriptors
+# (not callables) do not.
+# ---------------------------------------------------------------------------
+
+table functools_extra1681.callable_protocol:
+  description: "functools types __call__ dict-presence checks"
+  kind: python_call_eq
+  category: callable_protocol
+  id_prefix: fu1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["fu1681001", "functools.partial.__dict__.__contains__",              ["__call__"], true]
+    - ["fu1681002", "functools.cached_property.__dict__.__contains__",      ["__call__"], false]
+    - ["fu1681003", "functools._lru_cache_wrapper.__dict__.__contains__",   ["__call__"], true]
+    - ["fu1681004", "functools.partialmethod.__dict__.__contains__",        ["__call__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 2: callable_vs_descriptor_attrs
+#
+# Contrasts the callable protocol (__call__) with the descriptor protocol
+# (__get__) for the same types.  partial is both callable and a descriptor;
+# cached_property and partialmethod are descriptors only; _lru_cache_wrapper
+# is callable and also exposes a descriptor __get__.
+# ---------------------------------------------------------------------------
+
+table functools_extra1681.callable_vs_descriptor_attrs:
+  description: "Callable vs descriptor protocol attr checks for functools types"
+  kind: python_call_eq
+  category: callable_vs_descriptor
+  id_prefix: fu1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["fu1681010", "functools.partial.__dict__.__contains__",              ["__call__"],  true]
+    - ["fu1681011", "functools.partial.__dict__.__contains__",              ["__get__"],   true]
+    - ["fu1681012", "functools.partial.__dict__.__contains__",              ["__repr__"],  true]
+    - ["fu1681013", "functools.partial.__dict__.__contains__",              ["__reduce__"], true]
+    - ["fu1681014", "functools.partial.__dict__.__contains__",              ["func"],      true]
+    - ["fu1681015", "functools.partial.__dict__.__contains__",              ["args"],      true]
+    - ["fu1681016", "functools.partial.__dict__.__contains__",              ["keywords"],  true]
+    - ["fu1681017", "functools.cached_property.__dict__.__contains__",      ["__call__"],  false]
+    - ["fu1681018", "functools.cached_property.__dict__.__contains__",      ["__get__"],   true]
+    - ["fu1681019", "functools.cached_property.__dict__.__contains__",      ["__set_name__"], true]
+    - ["fu1681020", "functools.cached_property.__dict__.__contains__",      ["__init__"],  true]
+    - ["fu1681021", "functools._lru_cache_wrapper.__dict__.__contains__",   ["__call__"],  true]
+    - ["fu1681022", "functools._lru_cache_wrapper.__dict__.__contains__",   ["__get__"],   true]
+    - ["fu1681023", "functools._lru_cache_wrapper.__dict__.__contains__",   ["cache_info"], true]
+    - ["fu1681024", "functools._lru_cache_wrapper.__dict__.__contains__",   ["cache_clear"], true]
+    - ["fu1681025", "functools.partialmethod.__dict__.__contains__",        ["__call__"],  false]
+    - ["fu1681026", "functools.partialmethod.__dict__.__contains__",        ["__get__"],   true]
+    - ["fu1681027", "functools.partialmethod.__dict__.__contains__",        ["__repr__"],  true]
+
+# ---------------------------------------------------------------------------
+# Table 3: module_and_type_identity
+#
+# Verifies __module__ and the metatype for the functools types in scope.
+# Confirms C extension types vs pure-Python types via __module__.
+# ---------------------------------------------------------------------------
+
+table functools_extra1681.module_and_type_identity:
+  description: "Module and metatype identity for functools types"
+  kind: python_call_eq
+  category: module_and_type_identity
+  id_prefix: fu1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["fu1681030", "functools.partial.__module__.__eq__",                  ["functools"],  true]
+    - ["fu1681031", "functools.partial.__name__.__eq__",                    ["partial"],    true]
+    - ["fu1681032", "functools.partial.__class__.__name__.__eq__",          ["type"],       true]
+    - ["fu1681033", "functools.cached_property.__module__.__eq__",          ["functools"],  true]
+    - ["fu1681034", "functools.cached_property.__name__.__eq__",            ["cached_property"], true]
+    - ["fu1681035", "functools.cached_property.__class__.__name__.__eq__",  ["type"],       true]
+    - ["fu1681036", "functools._lru_cache_wrapper.__module__.__eq__",       ["functools"],  true]
+    - ["fu1681037", "functools._lru_cache_wrapper.__name__.__eq__",         ["lru_cache"], true]
+    - ["fu1681038", "functools._lru_cache_wrapper.__class__.__name__.__eq__", ["type"],    true]
+    - ["fu1681039", "functools.partialmethod.__module__.__eq__",             ["functools"],  true]
+    - ["fu1681040", "functools.partialmethod.__name__.__eq__",               ["partialmethod"], true]
+    - ["fu1681041", "functools.partialmethod.__class__.__name__.__eq__",     ["type"],      true]

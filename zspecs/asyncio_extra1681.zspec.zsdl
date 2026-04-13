@@ -1,0 +1,94 @@
+spec: asyncio_extra1681
+version: ">=3.9"
+backend: python_module(asyncio)
+error_model: python_exceptions
+
+provenance:
+  derived_from:
+    - "Python docs"
+    - "https://docs.python.org/3/library/asyncio.html"
+    - "https://docs.python.org/3/library/asyncio-future.html"
+    - "https://docs.python.org/3/library/asyncio-task.html"
+    - "https://docs.python.org/3/library/asyncio-sync.html"
+    - "https://docs.python.org/3/library/asyncio-queue.html"
+  not_derived_from:
+    - "any proprietary source"
+  notes:
+    - "Wave 559 (_extra1681): __call__ callable protocol dict-presence checks."
+    - "asyncio types are pure Python async primitives; none define __call__ in own dict."
+    - "asyncio.Future defines __await__ in its own __dict__ (Future implements the awaitable protocol)."
+    - "asyncio.Task inherits from Future and does NOT define __await__ in its own __dict__."
+    - "asyncio.Lock, asyncio.Event, asyncio.Semaphore, asyncio.Queue: no __call__ in own dict."
+    - "Related async-protocol attrs checked: __await__, __aiter__, __anext__."
+    - "All values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# asyncio __call__ callable protocol — asyncio.Future, asyncio.Task — extra1681
+#
+# asyncio.Future.__dict__.__contains__("__call__")  == False
+# asyncio.Future.__dict__.__contains__("__await__") == True  (Future IS awaitable)
+# asyncio.Task.__dict__.__contains__("__call__")    == False
+# asyncio.Task.__dict__.__contains__("__await__")   == False  (Task inherits from Future)
+# ---------------------------------------------------------------------------
+
+table asyncio_extra1681.callable_protocol:
+  description: "asyncio types __call__ dict-presence checks (wave 559 _extra1681) — asyncio.Future.__dict__.__contains__('__call__')==False (Future is a pure-Python async type; it does not define __call__ in its own class dict; Future is not designed to be called as a function); asyncio.Task.__dict__.__contains__('__call__')==False (Task is a subclass of Future; it also does not define __call__ in its own dict); asyncio.Lock.__dict__.__contains__('__call__')==False (Lock is an async synchronization primitive with no __call__); asyncio.Event.__dict__.__contains__('__call__')==False (Event is an async synchronization primitive with no __call__); asyncio.Semaphore.__dict__.__contains__('__call__')==False (Semaphore is an async counting semaphore with no __call__); asyncio.Queue.__dict__.__contains__('__call__')==False (Queue is an async FIFO with no __call__); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as1681001", "asyncio.Future.__dict__.__contains__", ["__call__"], false]
+    - ["as1681002", "asyncio.Task.__dict__.__contains__",   ["__call__"], false]
+    - ["as1681003", "asyncio.Lock.__dict__.__contains__",   ["__call__"], false]
+    - ["as1681004", "asyncio.Event.__dict__.__contains__",  ["__call__"], false]
+    - ["as1681005", "asyncio.Semaphore.__dict__.__contains__", ["__call__"], false]
+    - ["as1681006", "asyncio.Queue.__dict__.__contains__",  ["__call__"], false]
+
+# ---------------------------------------------------------------------------
+# asyncio awaitable protocol — __await__, __aiter__, __anext__ — extra1681
+#
+# asyncio.Future.__dict__.__contains__("__await__") == True
+# asyncio.Task.__dict__.__contains__("__await__")   == False  (inherits from Future)
+# ---------------------------------------------------------------------------
+
+table asyncio_extra1681.async_protocol_attrs:
+  description: "asyncio types async protocol attribute dict-presence checks (wave 559 _extra1681) — asyncio.Future.__dict__.__contains__('__await__')==True (Future defines __await__ in its own __dict__; this makes Future directly awaitable via 'await future'; the __await__ method returns an iterator that the event loop drives to completion; Future.result() is called once the future is resolved); asyncio.Task.__dict__.__contains__('__await__')==False (Task inherits __await__ from Future; Task.__dict__ does not define its own __await__); asyncio.Future.__dict__.__contains__('__aiter__')==False (Future is not an async iterable; __aiter__ belongs to the async-iteration protocol, not the awaitable protocol); asyncio.Future.__dict__.__contains__('__anext__')==False (Future is not an async iterator; __anext__ is part of the async-iteration protocol); asyncio.Queue.__dict__.__contains__('__aiter__')==False (Queue is not an async iterable itself, though it provides async get/put coroutines); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as1681007", "asyncio.Future.__dict__.__contains__", ["__await__"], true]
+    - ["as1681008", "asyncio.Task.__dict__.__contains__",   ["__await__"], false]
+    - ["as1681009", "asyncio.Future.__dict__.__contains__", ["__aiter__"], false]
+    - ["as1681010", "asyncio.Future.__dict__.__contains__", ["__anext__"], false]
+    - ["as1681011", "asyncio.Queue.__dict__.__contains__",  ["__aiter__"], false]
+    - ["as1681012", "asyncio.Queue.__dict__.__contains__",  ["__anext__"], false]
+
+# ---------------------------------------------------------------------------
+# asyncio task/future cross-checks — cancel, result, done — extra1681
+#
+# asyncio.Future.__dict__.__contains__("cancel")  == True
+# asyncio.Future.__dict__.__contains__("result")  == True
+# asyncio.Task.__dict__.__contains__("cancel")    == True  (Task overrides cancel())
+# asyncio.Task.__dict__.__contains__("result")    == False (Task inherits result() from Future)
+# ---------------------------------------------------------------------------
+
+table asyncio_extra1681.future_task_own_methods:
+  description: "asyncio.Future and asyncio.Task own-dict method presence cross-checks (wave 559 _extra1681) — asyncio.Future.__dict__.__contains__('cancel')==True (Future defines cancel() in own dict; cancels the Future and schedules callbacks); asyncio.Future.__dict__.__contains__('result')==True (Future defines result() in own dict; returns the Future result or raises exception); asyncio.Task.__dict__.__contains__('cancel')==True (Task overrides Future.cancel() in its own __dict__ to add a cancellation message parameter and to propagate cancellation to the wrapped coroutine); asyncio.Task.__dict__.__contains__('result')==False (Task inherits result() from Future; Task.__dict__ does not define its own result() — the same method applies); asyncio.Future.__dict__.__contains__('done')==True (Future defines done() to check if the future is resolved); asyncio.Task.__dict__.__contains__('done')==False (Task inherits done() from Future); verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as1681
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as1681013", "asyncio.Future.__dict__.__contains__", ["cancel"], true]
+    - ["as1681014", "asyncio.Future.__dict__.__contains__", ["result"], true]
+    - ["as1681015", "asyncio.Future.__dict__.__contains__", ["done"],   true]
+    - ["as1681016", "asyncio.Task.__dict__.__contains__",   ["cancel"], true]
+    - ["as1681017", "asyncio.Task.__dict__.__contains__",   ["result"], false]
+    - ["as1681018", "asyncio.Task.__dict__.__contains__",   ["done"],   false]
