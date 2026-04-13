@@ -1,0 +1,95 @@
+spec: concurrent_futures_extra1486
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html — Python concurrent.futures documentation"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/concurrent/futures/_base.py"
+    - "CPython source: Lib/concurrent/futures/thread.py"
+    - "CPython source: Lib/concurrent/futures/process.py"
+  notes:
+    - "Wave 546 theme: __enter__/__exit__ context manager protocol checks."
+    - "concurrent.futures.Executor defines __enter__ and __exit__ directly in its own __dict__."
+    - "concurrent.futures.ThreadPoolExecutor does NOT define __enter__/__exit__ in its own __dict__ — it inherits from Executor."
+    - "concurrent.futures.ProcessPoolExecutor does NOT define __enter__/__exit__ in its own __dict__ — it inherits from Executor."
+    - "Executor.__enter__.__class__.__name__ == 'function' (plain Python function)."
+    - "Executor.__exit__.__class__.__name__ == 'function' (plain Python function)."
+    - "concurrent.futures.Future does NOT support the context manager protocol (__enter__ not in Future.__dict__)."
+    - "All expected values verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# concurrent.futures.Executor — context manager protocol presence
+#
+# Executor defines __enter__ and __exit__ directly in its own __dict__.
+# These are plain Python functions (class name 'function'). Subclasses
+# ThreadPoolExecutor and ProcessPoolExecutor inherit these without override.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra1486.executor_dict_contains:
+  description: "concurrent.futures.Executor.__dict__.__contains__ checks for sync context manager protocol in cf1486ex namespace — wave 546 theme: Executor.__dict__.__contains__('__enter__') == True (Executor defines __enter__ directly, enabling 'with executor:' usage); Executor.__dict__.__contains__('__exit__') == True (Executor defines __exit__ directly, which calls executor.shutdown(wait=True)); __enter__/__exit__ are plain Python functions (class name 'function'); verified with Python 3.12"
+  kind: python_call_eq
+  category: context_manager_protocol
+  id_prefix: cf1486ex
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cf1486ex001, concurrent.futures.Executor.__dict__.__contains__, ["__enter__"], true]
+    - [cf1486ex002, concurrent.futures.Executor.__dict__.__contains__, ["__exit__"],  true]
+    - [cf1486ex003, concurrent.futures.Executor.__enter__.__class__.__name__.__eq__, ["function"], true]
+    - [cf1486ex004, concurrent.futures.Executor.__exit__.__class__.__name__.__eq__,  ["function"], true]
+    - [cf1486ex005, concurrent.futures.Executor.__dict__.__contains__, ["__aenter__"], false]
+    - [cf1486ex006, concurrent.futures.Executor.__dict__.__contains__, ["__aexit__"],  false]
+
+# ---------------------------------------------------------------------------
+# ThreadPoolExecutor and ProcessPoolExecutor — inherit, do NOT override
+#
+# Neither subclass defines __enter__ or __exit__ in its own __dict__. They
+# inherit the context manager protocol from Executor. This table verifies
+# that the protocol is inherited, not duplicated.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra1486.subclass_dict_no_enter:
+  description: "concurrent.futures ThreadPoolExecutor and ProcessPoolExecutor do NOT define __enter__/__exit__ in their own __dict__ — wave 546: these executor subclasses inherit context manager support from Executor; __enter__ NOT in ThreadPoolExecutor.__dict__; __exit__ NOT in ThreadPoolExecutor.__dict__; __enter__ NOT in ProcessPoolExecutor.__dict__; __exit__ NOT in ProcessPoolExecutor.__dict__; they still support 'with' usage via inherited Executor.__enter__/__exit__; verified with Python 3.12"
+  kind: python_call_eq
+  category: context_manager_protocol
+  id_prefix: cf1486sc
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cf1486sc001, concurrent.futures.ThreadPoolExecutor.__dict__.__contains__,  ["__enter__"], false]
+    - [cf1486sc002, concurrent.futures.ThreadPoolExecutor.__dict__.__contains__,  ["__exit__"],  false]
+    - [cf1486sc003, concurrent.futures.ProcessPoolExecutor.__dict__.__contains__, ["__enter__"], false]
+    - [cf1486sc004, concurrent.futures.ProcessPoolExecutor.__dict__.__contains__, ["__exit__"],  false]
+    - [cf1486sc005, concurrent.futures.ThreadPoolExecutor.__dict__.__contains__,  ["__aenter__"], false]
+    - [cf1486sc006, concurrent.futures.ProcessPoolExecutor.__dict__.__contains__, ["__aenter__"], false]
+
+# ---------------------------------------------------------------------------
+# concurrent.futures.Future — no context manager support
+#
+# concurrent.futures.Future does NOT implement the context manager protocol.
+# It is not used as a 'with' target. This differs from asyncio.Future (also
+# no context manager) and distinguishes both from Executor.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra1486.future_dict_no_enter:
+  description: "concurrent.futures.Future does NOT have __enter__/__exit__ or __aenter__/__aexit__ in its __dict__ — wave 546: Future is not used as a context manager; it is a result-holder that can be awaited or inspected via .result() / .exception(); Future.__dict__.__contains__('__enter__') == False; Future.__dict__.__contains__('__exit__') == False; Future.__dict__.__contains__('__aenter__') == False; Future.__dict__.__contains__('__aexit__') == False; compare: Executor.__dict__.__contains__('__enter__') == True; verified with Python 3.12"
+  kind: python_call_eq
+  category: context_manager_protocol
+  id_prefix: cf1486fu
+
+  columns: [id, function, args, expected]
+  rows:
+    - [cf1486fu001, concurrent.futures.Future.__dict__.__contains__, ["__enter__"],  false]
+    - [cf1486fu002, concurrent.futures.Future.__dict__.__contains__, ["__exit__"],   false]
+    - [cf1486fu003, concurrent.futures.Future.__dict__.__contains__, ["__aenter__"], false]
+    - [cf1486fu004, concurrent.futures.Future.__dict__.__contains__, ["__aexit__"],  false]
+    - [cf1486fu005, concurrent.futures.Future.__dict__.__contains__, ["result"],     true]
+    - [cf1486fu006, concurrent.futures.Future.__dict__.__contains__, ["cancel"],     true]
