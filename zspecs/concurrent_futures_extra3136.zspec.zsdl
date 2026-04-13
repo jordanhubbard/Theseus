@@ -1,0 +1,141 @@
+spec: cf3136
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 656 (cf3136): __call__, __len__, __getitem__ dict-presence for concurrent.futures types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: concurrent.futures.Future, concurrent.futures.ThreadPoolExecutor, concurrent.futures.ProcessPoolExecutor, concurrent.futures.Executor."
+    - "Key finding (__call__): all 4 concurrent.futures classes return false for __call__. None define __call__ in their own __dict__. Executors are resource managers used via submit()/map(), not via direct call. concurrent.futures.Future is a result container, not a callable — it is awaited or inspected, never called."
+    - "Key finding (__len__): all 4 concurrent.futures classes return false for __len__. Executors manage a pool of workers but do not expose the worker count via len(). Future holds a single result and has no collection semantics."
+    - "Key finding (__getitem__): all 4 concurrent.futures classes return false for __getitem__. No subscript access is defined on any concurrent.futures type."
+    - "concurrent.futures.Executor is an abstract base class with only submit(), map(), and shutdown() in its interface. No callable, sized, or subscriptable protocol is part of the executor design."
+    - "concurrent.futures.Future encapsulates an asynchronous computation result; accessing the result is done via result(), exception(), or callbacks — not via len() or []."
+    - "This is the second consecutive wave (after wave 655) to yield all-false across all 4 concurrent.futures subjects."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __call__ dict-presence — operator.contains(Cls.__dict__, '__call__')
+#
+# All 4 concurrent.futures classes return false for __call__.
+# Executors expose submit() and map(), not a call protocol.
+# concurrent.futures.Future is a result handle, not a callable.
+# concurrent.futures.Executor is abstract with no callable protocol.
+# Consistent with earlier waves: no operator methods of any kind have been
+# found in this module's class __dict__s.
+# ---------------------------------------------------------------------------
+
+table cf3136.call:
+  description: "concurrent.futures types __call__ dict-presence checks; wave 656"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3136
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3136001", operator.contains, [concurrent.futures.Future.__dict__,              "__call__"], false]
+    - ["cf3136002", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__call__"], false]
+    - ["cf3136003", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__call__"], false]
+    - ["cf3136004", operator.contains, [concurrent.futures.Executor.__dict__,            "__call__"], false]
+
+# ---------------------------------------------------------------------------
+# __len__ dict-presence — operator.contains(Cls.__dict__, '__len__')
+#
+# All 4 concurrent.futures classes return false for __len__.
+# Executors manage thread/process pools but expose no size protocol.
+# The worker count is set at construction and not queryable via len().
+# Future holds a single result — there is no collection to measure.
+# ---------------------------------------------------------------------------
+
+table cf3136.len:
+  description: "concurrent.futures types __len__ dict-presence checks; wave 656"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3136
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3136005", operator.contains, [concurrent.futures.Future.__dict__,              "__len__"], false]
+    - ["cf3136006", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__len__"], false]
+    - ["cf3136007", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__len__"], false]
+    - ["cf3136008", operator.contains, [concurrent.futures.Executor.__dict__,            "__len__"], false]
+
+# ---------------------------------------------------------------------------
+# __getitem__ dict-presence — operator.contains(Cls.__dict__, '__getitem__')
+#
+# All 4 concurrent.futures classes return false for __getitem__.
+# Futures and executors are not indexed collections.
+# No subscript access is defined anywhere in the concurrent.futures hierarchy.
+# ---------------------------------------------------------------------------
+
+table cf3136.getitem:
+  description: "concurrent.futures types __getitem__ dict-presence checks; wave 656"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3136
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3136009",  operator.contains, [concurrent.futures.Future.__dict__,              "__getitem__"], false]
+    - ["cf3136010", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__getitem__"], false]
+    - ["cf3136011", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__getitem__"], false]
+    - ["cf3136012", operator.contains, [concurrent.futures.Executor.__dict__,            "__getitem__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __call__, __len__, __getitem__ across all 4 concurrent.futures subjects
+#
+# Covers the full matrix: 4 classes x 3 methods = 12 rows.
+# __call__:    false for all 4 — no callable protocol defined anywhere.
+# __len__:     false for all 4 — no sized protocol defined anywhere.
+# __getitem__: false for all 4 — no subscript protocol defined anywhere.
+# All 12 values in this matrix are false.
+# concurrent.futures is a minimal concurrency API: submit work, await results.
+# None of the three Python data-model protocols tested here (callable, sized,
+# subscriptable) are part of that API.
+# Cross-wave summary for cf subjects:
+#   Wave 652 (cf3076): __get__/__set__/__delete__ — all false for all 4.
+#   Wave 653 (cf3091): __hash__/__eq__/__bool__ — all false for all 4.
+#   Wave 654 (cf3106): __lt__/__le__/__gt__ — all false for all 4.
+#   Wave 655 (cf3121): __ge__ false; __repr__ true only for Future; __str__ false.
+#   Wave 656 (cf3136): __call__/__len__/__getitem__ — all false for all 4.
+# ---------------------------------------------------------------------------
+
+table cf3136.combined:
+  description: "concurrent.futures types combined __call__/__len__/__getitem__; wave 656"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3136
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3136013", operator.contains, [concurrent.futures.Future.__dict__,              "__call__"],    false]
+    - ["cf3136014", operator.contains, [concurrent.futures.Future.__dict__,              "__len__"],     false]
+    - ["cf3136015", operator.contains, [concurrent.futures.Future.__dict__,              "__getitem__"], false]
+    - ["cf3136016", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__call__"],    false]
+    - ["cf3136017", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__len__"],     false]
+    - ["cf3136018", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__getitem__"], false]
+    - ["cf3136019", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__call__"],    false]
+    - ["cf3136020", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__len__"],     false]
+    - ["cf3136021", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__getitem__"], false]
+    - ["cf3136022", operator.contains, [concurrent.futures.Executor.__dict__,            "__call__"],    false]
+    - ["cf3136023", operator.contains, [concurrent.futures.Executor.__dict__,            "__len__"],     false]
+    - ["cf3136024", operator.contains, [concurrent.futures.Executor.__dict__,            "__getitem__"], false]
