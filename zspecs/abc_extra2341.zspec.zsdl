@@ -1,0 +1,180 @@
+spec: abc_extra2341
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/abc.html"
+    - "Test vectors verified with Python 3.13 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/abc.py"
+    - "CPython source: Modules/_abc.c"
+  notes:
+    - "Theme: __slots__ contents — verifying which abc classes are slotted and which are not."
+    - "abc.ABC declares __slots__ = () — an empty tuple — to prevent a per-instance __dict__ in the slot-cooperative sense."
+    - "abc.ABC.__dict__.__contains__('__slots__') is True; abc.ABC.__slots__.__len__() is 0."
+    - "abc.ABCMeta does NOT declare __slots__; ABCMeta.__dict__.__contains__('__slots__') is False."
+    - "abc.abstractmethod does NOT declare __slots__; abstractmethod.__dict__.__contains__('__slots__') is False."
+    - "abc.ABC.__slots__ is a tuple (not a list), __slots__.__class__.__name__ == 'tuple'."
+    - "abc.ABC.__slots__.__contains__('anything') is always False — the tuple is empty."
+    - "All expected values verified with Python 3.13 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Slots presence — which abc classes declare __slots__ in their __dict__
+#
+# ABC is slotted (empty __slots__); ABCMeta and abstractmethod are not slotted.
+# ---------------------------------------------------------------------------
+
+table abc_extra2341.slots_in_dict:
+  kind: python_call_eq
+  category: slots_presence
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2341001", ABC.__dict__.__contains__,             ["__slots__"], true]
+    - ["ab2341002", ABCMeta.__dict__.__contains__,         ["__slots__"], false]
+    - ["ab2341003", abstractmethod.__dict__.__contains__,  ["__slots__"], false]
+
+# ---------------------------------------------------------------------------
+# abc.ABC.__slots__ — empty tuple with known properties
+#
+# ABC declares __slots__ = () to signal slot-cooperative inheritance; the
+# resulting tuple is empty, len is 0, and membership always returns False.
+# ---------------------------------------------------------------------------
+
+invariant abc_extra2341.ABC.slots_len:
+  description: "abc.ABC.__slots__.__len__() == 0 — ABC.__slots__ is an empty tuple"
+  category: abc_slots
+  kind: python_call_eq
+  function: ABC.__slots__.__len__
+  args: []
+  expected: 0
+
+invariant abc_extra2341.ABC.slots_contains_any_is_false:
+  description: "abc.ABC.__slots__.__contains__('anything') == False — empty tuple contains nothing"
+  category: abc_slots
+  kind: python_call_eq
+  function: ABC.__slots__.__contains__
+  args: ["anything"]
+  expected: false
+
+invariant abc_extra2341.ABC.slots_contains_slots_is_false:
+  description: "abc.ABC.__slots__.__contains__('__slots__') == False — '__slots__' is not itself a slot name"
+  category: abc_slots
+  kind: python_call_eq
+  function: ABC.__slots__.__contains__
+  args: ["__slots__"]
+  expected: false
+
+invariant abc_extra2341.ABC.slots_class_name:
+  description: "abc.ABC.__slots__.__class__.__name__ == 'tuple' — __slots__ is a tuple, not a list"
+  category: abc_slots
+  kind: python_call_eq
+  function: ABC.__slots__.__class__.__name__.__eq__
+  args: ["tuple"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Class __dict__ type — all abc class-level __dict__ are mappingproxy
+# ---------------------------------------------------------------------------
+
+table abc_extra2341.dict_type:
+  kind: python_call_eq
+  category: dict_presence
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2341004", ABC.__dict__.__class__.__name__.__eq__,            ["mappingproxy"], true]
+    - ["ab2341005", ABCMeta.__dict__.__class__.__name__.__eq__,        ["mappingproxy"], true]
+    - ["ab2341006", abstractmethod.__dict__.__class__.__name__.__eq__,  ["mappingproxy"], true]
+
+# ---------------------------------------------------------------------------
+# Class name identity
+# ---------------------------------------------------------------------------
+
+table abc_extra2341.class_names:
+  kind: python_call_eq
+  category: class_identity
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2341007", ABC.__name__.__eq__,            ["ABC"],            true]
+    - ["ab2341008", ABCMeta.__name__.__eq__,        ["ABCMeta"],        true]
+    - ["ab2341009", abstractmethod.__name__.__eq__,  ["abstractmethod"], true]
+
+# ---------------------------------------------------------------------------
+# Module affiliation — all three live in the abc module
+# ---------------------------------------------------------------------------
+
+table abc_extra2341.module_names:
+  kind: python_call_eq
+  category: module_identity
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2341010", ABC.__module__.__eq__,            ["abc"], true]
+    - ["ab2341011", ABCMeta.__module__.__eq__,        ["abc"], true]
+    - ["ab2341012", abstractmethod.__module__.__eq__,  ["abc"], true]
+
+# ---------------------------------------------------------------------------
+# ABCMeta key interface methods — present in ABCMeta.__dict__
+#
+# ABCMeta defines register, __instancecheck__, and __subclasscheck__ directly.
+# ---------------------------------------------------------------------------
+
+table abc_extra2341.abcmeta_methods:
+  kind: python_call_eq
+  category: abcmeta_interface
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2341013", ABCMeta.__dict__.__contains__, ["register"],          true]
+    - ["ab2341014", ABCMeta.__dict__.__contains__, ["__instancecheck__"],  true]
+    - ["ab2341015", ABCMeta.__dict__.__contains__, ["__subclasscheck__"],  true]
+
+# ---------------------------------------------------------------------------
+# ABC MRO — ABC.__mro__ has exactly 2 entries: ABC and object
+# ---------------------------------------------------------------------------
+
+invariant abc_extra2341.ABC.mro_len:
+  description: "len(abc.ABC.__mro__) == 2 — ABC -> object"
+  category: abc_mro
+  kind: python_call_eq
+  function: ABC.__mro__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# abc.ABC does NOT contain instance-dict-bearing inherited attributes
+# that would conflict with the empty __slots__ declaration.
+#
+# Confirm that certain common dunder attributes are absent from ABC.__dict__
+# (they resolve via object, not via ABC itself).
+# ---------------------------------------------------------------------------
+
+table abc_extra2341.abc_dict_absent:
+  kind: python_call_eq
+  category: abc_dict_contents
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2341016", ABC.__dict__.__contains__, ["__init__"],  false]
+    - ["ab2341017", ABC.__dict__.__contains__, ["__new__"],   false]
+    - ["ab2341018", ABC.__dict__.__contains__, ["__dict__"],  false]
+
+# ---------------------------------------------------------------------------
+# abstractmethod.__isabstractmethod__ — True at the class level
+# ---------------------------------------------------------------------------
+
+invariant abc_extra2341.abstractmethod.isabstractmethod:
+  description: "abc.abstractmethod.__isabstractmethod__ == True — the decorator marks itself abstract"
+  category: abstractmethod_flags
+  kind: python_call_eq
+  function: abstractmethod.__isabstractmethod__.__eq__
+  args: [true]
+  expected: true

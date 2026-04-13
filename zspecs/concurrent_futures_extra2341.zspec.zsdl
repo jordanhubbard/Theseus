@@ -1,0 +1,183 @@
+spec: concurrent_futures_extra2341
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/concurrent.futures.html"
+    - "Test vectors verified with Python 3.13 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "concurrent.futures source: Lib/concurrent/futures/_base.py"
+    - "concurrent.futures source: Lib/concurrent/futures/thread.py"
+    - "concurrent.futures source: Lib/concurrent/futures/process.py"
+  notes:
+    - "Theme: __slots__ contents — verifying that concurrent.futures classes are not slotted."
+    - "concurrent.futures.Future, ThreadPoolExecutor, ProcessPoolExecutor, and Executor are all non-slotted."
+    - "For non-slotted classes, .__dict__.__contains__('__slots__') returns False."
+    - "All four public classes verified: Future, Executor (abstract base), ThreadPoolExecutor, ProcessPoolExecutor."
+    - "All expected values verified with Python 3.13 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Non-slotted concurrent.futures classes — .__dict__ does NOT contain
+# '__slots__'.  All four public classes are dict-based.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2341.no_slots_in_dict:
+  kind: python_call_eq
+  category: slots_absent
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2341001", Future.__dict__.__contains__,              ["__slots__"], false]
+    - ["cf2341002", Executor.__dict__.__contains__,            ["__slots__"], false]
+    - ["cf2341003", ThreadPoolExecutor.__dict__.__contains__,  ["__slots__"], false]
+    - ["cf2341004", ProcessPoolExecutor.__dict__.__contains__,  ["__slots__"], false]
+
+# ---------------------------------------------------------------------------
+# Confirm __slots__ attribute is not reachable on any of these classes.
+#
+# getattr(cls, '__slots__', sentinel) returns the sentinel when __slots__ is
+# absent from the class and its MRO (object has no __slots__ either).
+# We verify via __class__.__name__ of the result — a missing __slots__ raises
+# AttributeError, but we use the .__dict__.__contains__ approach above as the
+# primary check and supplement with __name__ checks below.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra2341.Future.class_name:
+  description: "concurrent.futures.Future.__name__ == 'Future'"
+  category: class_identity
+  kind: python_call_eq
+  function: Future.__name__.__eq__
+  args: ["Future"]
+  expected: true
+
+invariant concurrent_futures_extra2341.Executor.class_name:
+  description: "concurrent.futures.Executor.__name__ == 'Executor'"
+  category: class_identity
+  kind: python_call_eq
+  function: Executor.__name__.__eq__
+  args: ["Executor"]
+  expected: true
+
+invariant concurrent_futures_extra2341.ThreadPoolExecutor.class_name:
+  description: "concurrent.futures.ThreadPoolExecutor.__name__ == 'ThreadPoolExecutor'"
+  category: class_identity
+  kind: python_call_eq
+  function: ThreadPoolExecutor.__name__.__eq__
+  args: ["ThreadPoolExecutor"]
+  expected: true
+
+invariant concurrent_futures_extra2341.ProcessPoolExecutor.class_name:
+  description: "concurrent.futures.ProcessPoolExecutor.__name__ == 'ProcessPoolExecutor'"
+  category: class_identity
+  kind: python_call_eq
+  function: ProcessPoolExecutor.__name__.__eq__
+  args: ["ProcessPoolExecutor"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Module affiliation — all classes live in concurrent.futures._base or
+# concurrent.futures.thread / concurrent.futures.process
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2341.module_names:
+  kind: python_call_eq
+  category: module_identity
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2341005", Future.__module__.__eq__,             ["concurrent.futures._base"],    true]
+    - ["cf2341006", Executor.__module__.__eq__,           ["concurrent.futures._base"],    true]
+    - ["cf2341007", ThreadPoolExecutor.__module__.__eq__,  ["concurrent.futures.thread"],  true]
+    - ["cf2341008", ProcessPoolExecutor.__module__.__eq__, ["concurrent.futures.process"], true]
+
+# ---------------------------------------------------------------------------
+# __dict__ is reachable — non-slotted classes have a __dict__ descriptor
+# on object instances; the class __dict__ itself is a mappingproxy.
+#
+# We confirm the class-level __dict__ type is mappingproxy for each class.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2341.dict_type:
+  kind: python_call_eq
+  category: dict_presence
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2341009",  Future.__dict__.__class__.__name__.__eq__,             ["mappingproxy"], true]
+    - ["cf2341010",  Executor.__dict__.__class__.__name__.__eq__,           ["mappingproxy"], true]
+    - ["cf2341011",  ThreadPoolExecutor.__dict__.__class__.__name__.__eq__,  ["mappingproxy"], true]
+    - ["cf2341012",  ProcessPoolExecutor.__dict__.__class__.__name__.__eq__, ["mappingproxy"], true]
+
+# ---------------------------------------------------------------------------
+# Executor is abstract — confirm it has a submit method declared
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra2341.Executor.has_submit:
+  description: "concurrent.futures.Executor.__dict__.__contains__('submit') == True — submit is declared on Executor"
+  category: executor_interface
+  kind: python_call_eq
+  function: Executor.__dict__.__contains__
+  args: ["submit"]
+  expected: true
+
+invariant concurrent_futures_extra2341.Executor.has_map:
+  description: "concurrent.futures.Executor.__dict__.__contains__('map') == True — map is declared on Executor"
+  category: executor_interface
+  kind: python_call_eq
+  function: Executor.__dict__.__contains__
+  args: ["map"]
+  expected: true
+
+invariant concurrent_futures_extra2341.Executor.has_shutdown:
+  description: "concurrent.futures.Executor.__dict__.__contains__('shutdown') == True — shutdown is declared on Executor"
+  category: executor_interface
+  kind: python_call_eq
+  function: Executor.__dict__.__contains__
+  args: ["shutdown"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# Future class — key methods present in __dict__ (no __slots__ means all
+# attributes live in per-instance __dict__ at runtime; class-level method
+# presence is confirmed via the class __dict__)
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2341.future_methods:
+  kind: python_call_eq
+  category: future_interface
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2341013", Future.__dict__.__contains__, ["result"],    true]
+    - ["cf2341014", Future.__dict__.__contains__, ["cancel"],    true]
+    - ["cf2341015", Future.__dict__.__contains__, ["done"],      true]
+    - ["cf2341016", Future.__dict__.__contains__, ["running"],   true]
+    - ["cf2341017", Future.__dict__.__contains__, ["cancelled"], true]
+    - ["cf2341018", Future.__dict__.__contains__, ["exception"], true]
+
+# ---------------------------------------------------------------------------
+# ThreadPoolExecutor and ProcessPoolExecutor __mro__ depth
+# Both inherit from Executor which inherits from object — MRO length is 3.
+# ---------------------------------------------------------------------------
+
+invariant concurrent_futures_extra2341.ThreadPoolExecutor.mro_len:
+  description: "len(concurrent.futures.ThreadPoolExecutor.__mro__) == 3 — ThreadPoolExecutor -> Executor -> object"
+  category: mro
+  kind: python_call_eq
+  function: ThreadPoolExecutor.__mro__.__len__
+  args: []
+  expected: 3
+
+invariant concurrent_futures_extra2341.ProcessPoolExecutor.mro_len:
+  description: "len(concurrent.futures.ProcessPoolExecutor.__mro__) == 3 — ProcessPoolExecutor -> Executor -> object"
+  category: mro
+  kind: python_call_eq
+  function: ProcessPoolExecutor.__mro__.__len__
+  args: []
+  expected: 3

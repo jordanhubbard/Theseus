@@ -1,0 +1,153 @@
+spec: asyncio_extra2341
+version: ">=3.9"
+backend: python_module(asyncio)
+
+docs: https://docs.python.org/3/library/asyncio.html
+
+provenance:
+  derived_from:
+    - "CPython docs — https://docs.python.org/3/library/asyncio.html"
+    - "CPython docs — https://docs.python.org/3/library/asyncio-task.html"
+    - "CPython docs — https://docs.python.org/3/library/asyncio-sync.html"
+    - "CPython docs — https://docs.python.org/3/library/asyncio-stream.html"
+    - "Test vectors verified with Python 3.13 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "asyncio source: Lib/asyncio/tasks.py"
+    - "asyncio source: Lib/asyncio/futures.py"
+    - "asyncio source: Lib/asyncio/locks.py"
+    - "asyncio source: Lib/asyncio/queues.py"
+    - "asyncio source: Lib/asyncio/streams.py"
+    - "asyncio source: Lib/asyncio/events.py"
+  notes:
+    - "Theme: __slots__ contents — verifying which asyncio classes are slotted and which are not."
+    - "Non-slotted classes: Task, Future, Event, Lock, Queue, Semaphore, StreamReader, StreamWriter."
+    - "For non-slotted classes, .__dict__.__contains__('__slots__') returns False."
+    - "Slotted classes: Handle (8 slots), TimerHandle (2 slots), Protocol (empty), BaseProtocol (empty)."
+    - "asyncio.Handle.__slots__ is a tuple of 8 members: _callback, _args, _cancelled, _loop, _source_traceback, _repr, __weakref__, _context."
+    - "asyncio.TimerHandle.__slots__ is a list of 2 members: _scheduled, _when."
+    - "asyncio.Protocol.__slots__ and asyncio.BaseProtocol.__slots__ are both empty tuples."
+    - "All expected values verified with Python 3.13 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Non-slotted asyncio classes — .__dict__ does NOT contain '__slots__'
+#
+# Task, Future, Event, Lock, Queue, Semaphore, StreamReader, StreamWriter are
+# all defined without __slots__, so '__slots__' is absent from their __dict__.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2341.no_slots_in_dict:
+  kind: python_call_eq
+  category: slots_absent
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2341001", Task.__dict__.__contains__,         ["__slots__"], false]
+    - ["as2341002", Future.__dict__.__contains__,       ["__slots__"], false]
+    - ["as2341003", Event.__dict__.__contains__,        ["__slots__"], false]
+    - ["as2341004", Lock.__dict__.__contains__,         ["__slots__"], false]
+    - ["as2341005", Queue.__dict__.__contains__,        ["__slots__"], false]
+    - ["as2341006", Semaphore.__dict__.__contains__,    ["__slots__"], false]
+    - ["as2341007", StreamReader.__dict__.__contains__,  ["__slots__"], false]
+    - ["as2341008", StreamWriter.__dict__.__contains__,  ["__slots__"], false]
+
+# ---------------------------------------------------------------------------
+# Slotted asyncio classes — .__dict__ CONTAINS '__slots__'
+#
+# Handle, TimerHandle, Protocol, and BaseProtocol all declare __slots__.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2341.has_slots_in_dict:
+  kind: python_call_eq
+  category: slots_present
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2341009", Handle.__dict__.__contains__,       ["__slots__"], true]
+    - ["as2341010", TimerHandle.__dict__.__contains__,  ["__slots__"], true]
+    - ["as2341011", Protocol.__dict__.__contains__,     ["__slots__"], true]
+    - ["as2341012", BaseProtocol.__dict__.__contains__,  ["__slots__"], true]
+
+# ---------------------------------------------------------------------------
+# asyncio.Handle slots — membership via .__slots__.__contains__
+#
+# Handle declares 8 slots: _callback, _args, _cancelled, _loop,
+# _source_traceback, _repr, __weakref__, _context.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2341.handle_slots_contains:
+  kind: python_call_eq
+  category: handle_slots
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2341013", Handle.__slots__.__contains__, ["_callback"],           true]
+    - ["as2341014", Handle.__slots__.__contains__, ["_args"],               true]
+    - ["as2341015", Handle.__slots__.__contains__, ["_cancelled"],          true]
+    - ["as2341016", Handle.__slots__.__contains__, ["_loop"],               true]
+    - ["as2341017", Handle.__slots__.__contains__, ["_source_traceback"],   true]
+    - ["as2341018", Handle.__slots__.__contains__, ["_repr"],               true]
+    - ["as2341019", Handle.__slots__.__contains__, ["__weakref__"],         true]
+    - ["as2341020", Handle.__slots__.__contains__, ["_context"],            true]
+    - ["as2341021", Handle.__slots__.__contains__, ["nonexistent"],         false]
+
+# ---------------------------------------------------------------------------
+# asyncio.Handle slots — total count via .__slots__.__len__
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra2341.handle_slots.len:
+  description: "asyncio.Handle.__slots__.__len__() == 8 — Handle declares exactly 8 slots"
+  category: handle_slots
+  kind: python_call_eq
+  function: Handle.__slots__.__len__
+  args: []
+  expected: 8
+
+# ---------------------------------------------------------------------------
+# asyncio.TimerHandle slots — membership and count
+#
+# TimerHandle adds 2 slots on top of Handle: _scheduled and _when.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2341.timerhandle_slots_contains:
+  kind: python_call_eq
+  category: timerhandle_slots
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2341022", TimerHandle.__slots__.__contains__, ["_scheduled"],   true]
+    - ["as2341023", TimerHandle.__slots__.__contains__, ["_when"],        true]
+    - ["as2341024", TimerHandle.__slots__.__contains__, ["nonexistent"],  false]
+
+invariant asyncio_extra2341.timerhandle_slots.len:
+  description: "asyncio.TimerHandle.__slots__.__len__() == 2 — TimerHandle declares exactly 2 own slots"
+  category: timerhandle_slots
+  kind: python_call_eq
+  function: TimerHandle.__slots__.__len__
+  args: []
+  expected: 2
+
+# ---------------------------------------------------------------------------
+# asyncio.Protocol and asyncio.BaseProtocol — empty __slots__
+#
+# Both declare __slots__ = () to prevent per-instance __dict__ on subclasses
+# that also use __slots__, but declare no named attributes themselves.
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra2341.protocol_slots.len:
+  description: "asyncio.Protocol.__slots__.__len__() == 0 — Protocol has empty __slots__"
+  category: protocol_slots
+  kind: python_call_eq
+  function: Protocol.__slots__.__len__
+  args: []
+  expected: 0
+
+invariant asyncio_extra2341.baseprotocol_slots.len:
+  description: "asyncio.BaseProtocol.__slots__.__len__() == 0 — BaseProtocol has empty __slots__"
+  category: protocol_slots
+  kind: python_call_eq
+  function: BaseProtocol.__slots__.__len__
+  args: []
+  expected: 0
