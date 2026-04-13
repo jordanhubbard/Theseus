@@ -1,0 +1,213 @@
+spec: mp3376
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html"
+    - "https://docs.python.org/3/library/multiprocessing.managers.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 672 (mp3376): __trunc__, __round__, __index__ dict-presence (math.trunc(x), round(x), operator.index(x)) for multiprocessing types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: multiprocessing.Process, pool.Pool, pool.AsyncResult, pool.MapResult, managers.SyncManager, managers.BaseListProxy, managers._BaseDictProxy, managers._BaseSetProxy."
+    - "Key finding (__trunc__): all 8 multiprocessing classes return false for __trunc__. math.trunc() delegates to __trunc__ (numbers.Real protocol) when defined. None of the 8 multiprocessing types model a numeric real value that can be truncated toward zero. multiprocessing.Process is a subprocess lifecycle manager; math.trunc(process) is not a defined Python expression. pool.Pool/AsyncResult/MapResult: work-dispatch and result-handle types with no numeric data model. managers.SyncManager: server process manager; math.trunc(manager) is undefined. managers.BaseListProxy: proxies list — list defines no __trunc__; list length is obtained via len(), not math.trunc(). managers._BaseDictProxy: proxies dict — dict defines no __trunc__. managers._BaseSetProxy: proxies set — set defines no __trunc__; set cardinality is len(), not math.trunc()."
+    - "Key finding (__round__): all 8 multiprocessing classes return false for __round__. round() delegates to __round__ (numbers.Real protocol). multiprocessing types define no arithmetic protocol — confirmed false across waves 658–671. managers._BaseSetProxy key note: set defines no __round__; set cardinality is len(s), not round(s, n). managers._BaseDictProxy: dict defines no __round__. managers.BaseListProxy: list defines no __round__; list length is len(l), not round(l, n). multiprocessing.Process/pool.Pool/pool.AsyncResult/pool.MapResult/managers.SyncManager: process-management types with no numeric rounding semantics whatsoever."
+    - "Key finding (__index__): all 8 multiprocessing classes return false for __index__. operator.index() requires __index__, signaling lossless integer conversion for use as a sequence index. multiprocessing types are not integer types. managers.BaseListProxy key note: BaseListProxy defines __getitem__ (wave 657 series), but __index__ is distinct — it signals that the proxy object itself can be used as a lossless integer index, which it cannot. managers._BaseDictProxy: dict defines no __index__; dict keys are not constrained to be integers and the dict object itself is not an integer. managers._BaseSetProxy: set defines no __index__; set is an unordered collection, not an integer. multiprocessing.Process: the process object is not an integer; even though Process.pid returns an int, Process itself does not define __index__. pool.Pool/AsyncResult/MapResult/SyncManager: none of these types represent an integer value."
+    - "All 24 values in this wave are false. multiprocessing is a process-based concurrency library; its types interact exclusively through explicit method calls, subprocess lifecycle management, and IPC — never through Python's numeric truncation, rounding, or integer-index operators."
+    - "Cross-wave summary for mp subjects:"
+    - "  Wave 658 (mp3166): __add__/__sub__/__mul__ — BaseListProxy __add__=true, __mul__=true; others false."
+    - "  Wave 659 (mp3181): __truediv__/__floordiv__/__mod__ — all false for all 8."
+    - "  Wave 660 (mp3196): __pow__/__lshift__/__rshift__ — all false for all 8."
+    - "  Wave 661 (mp3211): __and__/__or__/__xor__ — all false for all 8."
+    - "  Wave 662 (mp3226): __radd__/__rsub__/__rmul__ — all false for all 8."
+    - "  Wave 663 (mp3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 8."
+    - "  Wave 664 (mp3256): __rpow__/__rlshift__/__rrshift__ — all false for all 8."
+    - "  Wave 665 (mp3271): __rand__/__ror__/__rxor__ — all false for all 8."
+    - "  Wave 666 (mp3286): __iadd__/__isub__/__imul__ — all false for all 8."
+    - "  Wave 667 (mp3301): __itruediv__/__ifloordiv__/__imod__ — all false for all 8."
+    - "  Wave 668 (mp3316): __ipow__/__ilshift__/__irshift__ — all false for all 8."
+    - "  Wave 669 (mp3331): __iand__/__ior__/__ixor__ — all false for all 8."
+    - "  Wave 670 (mp3346): __neg__/__pos__/__abs__ — all false for all 8."
+    - "  Wave 671 (mp3361): __invert__/__floor__/__ceil__ — all false for all 8."
+    - "  Wave 672 (mp3376): __trunc__/__round__/__index__ — all false for all 8."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __trunc__ dict-presence — operator.contains(Cls.__dict__, '__trunc__')
+#
+# All 8 multiprocessing classes return false for __trunc__.
+# math.trunc() delegates to __trunc__ (numbers.Real protocol) when defined.
+# multiprocessing.Process: subprocess lifecycle manager; math.trunc(process)
+#   is not a valid Python expression.
+# pool.Pool/AsyncResult/MapResult: work-dispatch and result-handle types;
+#   no numeric real value is associated with any of them.
+# managers.SyncManager: server process manager; math.trunc(manager) is
+#   not defined.
+# managers.BaseListProxy: proxies list — list defines no __trunc__.
+#   List length is obtained via len(), not math.trunc().
+# managers._BaseDictProxy: proxies dict — dict defines no __trunc__.
+#   Dict size is len(d), not math.trunc(d).
+# managers._BaseSetProxy: proxies set — set defines no __trunc__.
+#   Set cardinality is len(s), not math.trunc(s).
+# ---------------------------------------------------------------------------
+
+table mp3376.trunc:
+  description: "multiprocessing types __trunc__ dict-presence checks; wave 672"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3376
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3376001", operator.contains, [multiprocessing.Process.__dict__,                 "__trunc__"], false]
+    - ["mp3376002", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__trunc__"], false]
+    - ["mp3376003", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__trunc__"], false]
+    - ["mp3376004", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__trunc__"], false]
+    - ["mp3376005", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__trunc__"], false]
+    - ["mp3376006", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__trunc__"], false]
+    - ["mp3376007", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__trunc__"], false]
+    - ["mp3376008", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__trunc__"], false]
+
+# ---------------------------------------------------------------------------
+# __round__ dict-presence — operator.contains(Cls.__dict__, '__round__')
+#
+# All 8 multiprocessing classes return false for __round__.
+# round() delegates to __round__ (numbers.Real protocol). multiprocessing
+#   types define no arithmetic protocol — confirmed false across waves 658–671.
+# managers._BaseSetProxy key note: set defines no __round__. Set cardinality
+#   is obtained via len(s), not round(s, n). The proxy does not define __round__.
+# managers._BaseDictProxy: dict defines no __round__. Dict size is len(d).
+# managers.BaseListProxy: list defines no __round__. List length is len(l).
+# multiprocessing.Process: subprocess lifecycle manager; round(process, n) is
+#   not a meaningful Python operation.
+# pool.Pool/AsyncResult/MapResult: task dispatchers and result handles;
+#   no numeric rounding semantics are defined.
+# managers.SyncManager: server process manager; round(manager, n) is not
+#   defined.
+# ---------------------------------------------------------------------------
+
+table mp3376.round:
+  description: "multiprocessing types __round__ dict-presence checks; wave 672"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3376
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3376009",  operator.contains, [multiprocessing.Process.__dict__,                 "__round__"], false]
+    - ["mp3376010",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__round__"], false]
+    - ["mp3376011",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__round__"], false]
+    - ["mp3376012",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__round__"], false]
+    - ["mp3376013",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__round__"], false]
+    - ["mp3376014",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__round__"], false]
+    - ["mp3376015",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__round__"], false]
+    - ["mp3376016",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__round__"], false]
+
+# ---------------------------------------------------------------------------
+# __index__ dict-presence — operator.contains(Cls.__dict__, '__index__')
+#
+# All 8 multiprocessing classes return false for __index__.
+# operator.index() requires __index__, which signals lossless integer
+#   conversion for use as a sequence index or in bin()/hex()/oct().
+# managers.BaseListProxy key note: BaseListProxy defines __getitem__
+#   (enabling item access by integer subscript), but __index__ is distinct —
+#   it signals that the proxy object itself is a lossless integer, which it is
+#   not. The list proxy is a list; a list is not an integer index.
+# managers._BaseDictProxy: dict defines no __index__. The dict object itself
+#   cannot be used as a slice index or passed to bin()/hex()/oct().
+# managers._BaseSetProxy: set defines no __index__. Set is an unordered
+#   collection; it is not an integer and cannot be used as a sequence index.
+# multiprocessing.Process: the process object is not an integer. Even though
+#   Process.pid returns an int, Process itself does not define __index__.
+# pool.Pool/AsyncResult/MapResult/SyncManager: none of these types represent
+#   an integer value; __index__ is absent from all four.
+# ---------------------------------------------------------------------------
+
+table mp3376.index:
+  description: "multiprocessing types __index__ dict-presence checks; wave 672"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3376
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3376017",  operator.contains, [multiprocessing.Process.__dict__,                 "__index__"], false]
+    - ["mp3376018",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__index__"], false]
+    - ["mp3376019",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__index__"], false]
+    - ["mp3376020",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__index__"], false]
+    - ["mp3376021",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__index__"], false]
+    - ["mp3376022",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__index__"], false]
+    - ["mp3376023",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__index__"], false]
+    - ["mp3376024",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__index__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __trunc__, __round__, __index__ across all 8 mp subjects
+#
+# Covers the full matrix: 8 classes x 3 methods = 24 rows.
+# __trunc__: false for all 8 — not in any type's own __dict__.
+# __round__: false for all 8 — not in any type's own __dict__.
+# __index__: false for all 8 — not in any type's own __dict__.
+# All 24 values are false.
+# The proxy types (_BaseSetProxy, _BaseDictProxy, BaseListProxy) are the most
+#   analytically interesting subjects here. _BaseSetProxy proxies set, which
+#   has no __trunc__, __round__, or __index__ — set is an unordered collection,
+#   not a number or integer. _BaseDictProxy proxies dict — dict has no numeric
+#   truncation, rounding, or integer-index operators. BaseListProxy proxies list
+#   — while list exposes __add__ and __mul__ (the only true results across mp
+#   waves 658–670), it defines neither __trunc__ nor __round__ nor __index__,
+#   because list items may have numeric values but the list container itself has
+#   no numeric truncation, rounding, or integer-index semantics.
+# multiprocessing is a process-based concurrency library; its types interact
+#   exclusively through explicit method calls, subprocess lifecycle management,
+#   and IPC — never through Python's numeric truncation, rounding, or
+#   integer-index data model operators.
+# ---------------------------------------------------------------------------
+
+table mp3376.combined:
+  description: "multiprocessing types combined __trunc__/__round__/__index__; wave 672"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3376
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3376025", operator.contains, [multiprocessing.Process.__dict__,                 "__trunc__"], false]
+    - ["mp3376026", operator.contains, [multiprocessing.Process.__dict__,                 "__round__"], false]
+    - ["mp3376027", operator.contains, [multiprocessing.Process.__dict__,                 "__index__"], false]
+    - ["mp3376028", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__trunc__"], false]
+    - ["mp3376029", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__round__"], false]
+    - ["mp3376030", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__index__"], false]
+    - ["mp3376031", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__trunc__"], false]
+    - ["mp3376032", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__round__"], false]
+    - ["mp3376033", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__index__"], false]
+    - ["mp3376034", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__trunc__"], false]
+    - ["mp3376035", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__round__"], false]
+    - ["mp3376036", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__index__"], false]
+    - ["mp3376037", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__trunc__"], false]
+    - ["mp3376038", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__round__"], false]
+    - ["mp3376039", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__index__"], false]
+    - ["mp3376040", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__trunc__"], false]
+    - ["mp3376041", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__round__"], false]
+    - ["mp3376042", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__index__"], false]
+    - ["mp3376043", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__trunc__"], false]
+    - ["mp3376044", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__round__"], false]
+    - ["mp3376045", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__index__"], false]
+    - ["mp3376046", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__trunc__"], false]
+    - ["mp3376047", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__round__"], false]
+    - ["mp3376048", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__index__"], false]
