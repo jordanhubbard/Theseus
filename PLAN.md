@@ -1,8 +1,9 @@
 # Theseus — Plan and State
 
-## Current State (2026-04-04)
+## Current State (2026-04-13)
 
 **70 Z-layer specs · 1118 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**+ Wave series 670–683: ~2720 additional dict-presence zspec files (committed, not yet compiled into invariant count)**
 
 ### What is built
 
@@ -178,3 +179,53 @@ All 23 specs score 100% (408/408 described). `make spec-vector-coverage`.
 - `schema_version` enum accepts `"0.1"` (compat) and `"0.2"` (current)
 - `validate_zspec.py`: programmatic `arg_types`/`args` length check
 - `zsdl_compile.py`: emits `schema_version: "0.2"` on all new compilations
+
+---
+
+## Wave Series (dict-presence zspecs)
+
+The wave series is a systematic set of dunder-method dict-presence checks across 16 Python stdlib modules: `abc`, `asyncio`, `concurrent.futures`, `decimal`, `functools`, `hashlib`, `inspect`, `io`, `itertools`, `multiprocessing`, `pathlib`, `re`, `socket`, `struct`, `threading`, `uuid`.
+
+Each wave covers 3 dunder methods × 16 modules = 16 zspec files, with suffix `_extraNNNN` where NNNN increments by 15 per wave.
+
+### Completed waves
+
+| Wave | Suffix | Theme |
+|------|--------|-------|
+| 670 | _extra3346 | `__neg__/__pos__/__abs__` — unary arithmetic |
+| 671 | _extra3361 | `__invert__/__floor__/__ceil__` — bitwise/rounding |
+| 672 | _extra3376 | `__trunc__/__round__/__index__` — numeric conversion |
+| 673 | _extra3391 | `__int__/__float__/__complex__` — type coercion |
+| 674 | _extra3406 | `__bool__/__str__/__repr__` — truth/string conversion |
+| 675 | _extra3421 | `__hash__/__eq__/__lt__` — hashing + comparison |
+| 676 | _extra3436 | `__le__/__gt__/__ge__` — ordering comparison |
+| 677 | _extra3451 | `__getitem__/__setitem__/__delitem__` — item access |
+| 678 | _extra3466 | `__iter__/__next__/__len__` — iterator/sequence protocol |
+| 679 | _extra3481 | `__enter__/__exit__/__call__` — context manager + callable |
+| 680 | _extra3496 | `__aenter__/__aexit__/__await__` — async protocol |
+| 681 | _extra3511 | `__get__/__set__/__delete__` — descriptor protocol |
+| 682 | _extra3526 | `__set_name__/__init_subclass__/__class_getitem__` — class creation hooks |
+| 683 | _extra3541 | `__format__/__sizeof__/__dir__` — object introspection |
+
+### Next wave to implement
+
+**Wave 684 — suffix `_extra3556`**
+
+Suggested theme: `__reduce__/__reduce_ex__/__getstate__` — pickle/copy serialization protocol dict-presence checks.
+
+This continues the object model coverage by checking whether each of the 16 stdlib module types defines these pickle-protocol methods in their own `__dict__`. Notable expected results:
+- Most types will have `__reduce_ex__` (inherited from `object`) as false (not in their own `__dict__`)
+- Some types like `decimal.Decimal` may override these
+
+**Subsequent waves (685+):**
+
+| Wave | Suffix | Suggested Theme |
+|------|--------|----------------|
+| 685 | _extra3571 | `__copy__/__deepcopy__/__setstate__` — copy protocol |
+| 686 | _extra3586 | `__init__/__new__/__del__` — object lifecycle |
+| 687 | _extra3601 | `__contains__/__missing__/__reversed__` — container extras |
+| 688 | _extra3616 | `__add__/__radd__/__iadd__` — binary addition |
+| 689 | _extra3631 | `__sub__/__rsub__/__isub__` — subtraction operators |
+| 690 | _extra3646 | `__mul__/__rmul__/__imul__` — multiplication operators |
+
+Each wave follows the same structure: 16 files, one per module, all verified with Python 3.14.x on macOS/Darwin.
