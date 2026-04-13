@@ -1,0 +1,121 @@
+spec: hashlib_extra2461
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified by running Python 3.14 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha256module.c"
+    - "CPython source: Modules/md5module.c"
+  notes:
+    - "This spec extends hashlib.zspec.zsdl, hashlib_extra.zspec.zsdl, and hashlib_extra2.zspec.zsdl; it does NOT duplicate invariants present in those files."
+    - "Theme: __len__ and __length_hint__ dict-presence — checking whether the HASH class defines the length protocol in its class __dict__."
+    - "HASH is the class returned by type(hashlib.md5()); its __name__ is 'HASH' and its __module__ is '_hashlib'."
+    - "HASH.__dict__.__contains__('__len__') == False — hash objects have no length; they are not sequences or collections."
+    - "HASH.__dict__.__contains__('__length_hint__') == False — hash objects do not implement __length_hint__ either."
+    - "HASH.__dict__.__contains__('digest_size') == True — digest_size is a class-level descriptor present in HASH.__dict__."
+    - "HASH.__dict__.__contains__('block_size') == True — block_size is a class-level descriptor present in HASH.__dict__."
+    - "HASH.__dict__.__contains__('digest') == True — digest is a method present in HASH.__dict__."
+    - "HASH.__dict__.__contains__('hexdigest') == True — hexdigest is a method present in HASH.__dict__."
+    - "HASH.__dict__.__contains__('update') == True — update is a method present in HASH.__dict__."
+    - "HASH.__dict__.__contains__('copy') == True — copy is a method present in HASH.__dict__."
+    - "HASH.__dict__.__contains__('name') == True — name is a descriptor present in HASH.__dict__."
+    - "All expected values verified by running Python 3.14 on macOS/Darwin 25.4.0, 2026-04-13."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __len__ and __length_hint__ absence — core theme of this spec
+# HASH (the type of hashlib hash objects) defines neither __len__ nor
+# __length_hint__ in its class __dict__. Hash objects are not sequences.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra2461.HASH.len_protocol:
+  description: "HASH class __dict__ does NOT contain __len__ or __length_hint__"
+  kind: python_call_eq
+  category: dict_presence
+  id_prefix: hl2461
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["hl2461-001", "HASH.__dict__.__contains__", ["__len__"],         false]
+    - ["hl2461-002", "HASH.__dict__.__contains__", ["__length_hint__"], false]
+
+# ---------------------------------------------------------------------------
+# Method presence — methods that ARE in HASH.__dict__
+# These contrast with the absent __len__/__length_hint__ above.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra2461.HASH.method_presence:
+  description: "HASH class __dict__ contains the core hash methods"
+  kind: python_call_eq
+  category: dict_presence
+  id_prefix: hl2461
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["hl2461-010", "HASH.__dict__.__contains__", ["digest"],     true]
+    - ["hl2461-011", "HASH.__dict__.__contains__", ["hexdigest"],  true]
+    - ["hl2461-012", "HASH.__dict__.__contains__", ["update"],     true]
+    - ["hl2461-013", "HASH.__dict__.__contains__", ["copy"],       true]
+
+# ---------------------------------------------------------------------------
+# Descriptor/attribute presence — digest_size, block_size, name
+# These are class-level descriptors that appear directly in HASH.__dict__.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra2461.HASH.attr_presence:
+  description: "HASH class __dict__ contains digest_size, block_size, and name descriptors"
+  kind: python_call_eq
+  category: dict_presence
+  id_prefix: hl2461
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["hl2461-020", "HASH.__dict__.__contains__", ["digest_size"], true]
+    - ["hl2461-021", "HASH.__dict__.__contains__", ["block_size"],  true]
+    - ["hl2461-022", "HASH.__dict__.__contains__", ["name"],        true]
+
+# ---------------------------------------------------------------------------
+# Negative presence — other protocol dunders absent from HASH.__dict__
+# __iter__, __bool__, __hash__ are not defined on the HASH class either.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra2461.HASH.absent_protocols:
+  description: "HASH class __dict__ does not contain __iter__, __bool__, or __hash__"
+  kind: python_call_eq
+  category: dict_presence
+  id_prefix: hl2461
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["hl2461-030", "HASH.__dict__.__contains__", ["__iter__"], false]
+    - ["hl2461-031", "HASH.__dict__.__contains__", ["__bool__"], false]
+    - ["hl2461-032", "HASH.__dict__.__contains__", ["__hash__"], false]
+
+# ---------------------------------------------------------------------------
+# HASH class identity checks
+# Confirm the class name and module for the HASH type.
+# ---------------------------------------------------------------------------
+
+invariant hashlib_extra2461.HASH.class_name:
+  description: "type(hashlib.md5()).__name__ == 'HASH' — the hash object class is named HASH"
+  category: class_metadata
+  kind: python_call_eq
+  function: HASH.__name__.__eq__
+  args: ["HASH"]
+  expected: true
+
+invariant hashlib_extra2461.HASH.module_name:
+  description: "type(hashlib.md5()).__module__ == '_hashlib' — HASH lives in the _hashlib C extension"
+  category: class_metadata
+  kind: python_call_eq
+  function: HASH.__module__.__eq__
+  args: ["_hashlib"]
+  expected: true
