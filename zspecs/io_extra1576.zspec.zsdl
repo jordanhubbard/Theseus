@@ -1,0 +1,167 @@
+spec: io_extra1576
+version: ">=3.9"
+error_model: python_exceptions
+
+provenance:
+  derived_from:
+    - "Python docs"
+    - "https://docs.python.org/3/library/io.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "any proprietary source"
+  notes:
+    - "behavioral invariants for __str__/__repr__/__bytes__ protocol"
+    - "Covers io.StringIO and io.BytesIO read/str/bytes conversion invariants."
+    - "Covers class __name__ attributes for io module classes."
+    - "Covers io module constants: DEFAULT_BUFFER_SIZE, SEEK_SET, SEEK_CUR, SEEK_END."
+    - "str(io.BytesIO(b'hello').read()) calls bytes.__str__ which delegates to bytes.__repr__."
+    - "io.BytesIO.read(n) returns the first n bytes as a bytes object."
+    - "io.StringIO.read(n) returns the first n characters as a str object."
+    - "io.DEFAULT_BUFFER_SIZE is 8192 on all supported platforms."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# StringIO — read and str conversion
+# ---------------------------------------------------------------------------
+
+table io_extra1576.stringio_read:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: io1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1576_001", "StringIO.read",     ["hello"],        "hello"]
+    - ["io1576_002", "StringIO.getvalue", ["world"],        "world"]
+    - ["io1576_003", "StringIO.read",     ["abc"],          "abc"]
+    - ["io1576_004", "StringIO.getvalue", [""],             ""]
+    - ["io1576_005", "StringIO.read",     [" "],            " "]
+
+# ---------------------------------------------------------------------------
+# BytesIO — read and bytes conversion
+# ---------------------------------------------------------------------------
+
+table io_extra1576.bytesio_read:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: io1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1576_010", "BytesIO.read",     [b"hello"],        b"hello"]
+    - ["io1576_011", "BytesIO.getvalue", [b"xyz"],          b"xyz"]
+    - ["io1576_012", "BytesIO.read",     [b"abc"],          b"abc"]
+    - ["io1576_013", "BytesIO.getvalue", [b""],             b""]
+    - ["io1576_014", "BytesIO.read",     [b"test"],         b"test"]
+
+# ---------------------------------------------------------------------------
+# Partial reads — read(n)
+# ---------------------------------------------------------------------------
+
+table io_extra1576.partial_reads:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: io1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1576_020", "StringIO.read1",  ["abc", 1],        "a"]
+    - ["io1576_021", "StringIO.read1",  ["abc", 2],        "ab"]
+    - ["io1576_022", "BytesIO.read1",   [b"abc", 1],       b"a"]
+    - ["io1576_023", "BytesIO.read1",   [b"abc", 2],       b"ab"]
+
+# ---------------------------------------------------------------------------
+# bytes.__repr__ and bytes.__str__ — str() of bytes object
+# ---------------------------------------------------------------------------
+
+invariant io_extra1576.bytes_repr_hello:
+  description: "repr(b'hello') == \"b'hello'\""
+  category: str_repr
+  kind: python_call_eq
+  function: bytes.__repr__
+  args: [b"hello"]
+  expected: "b'hello'"
+
+invariant io_extra1576.bytes_str_hello:
+  description: "str(b'hello') == \"b'hello'\" — bytes.__str__ delegates to __repr__"
+  category: str_repr
+  kind: python_call_eq
+  function: bytes.__str__
+  args: [b"hello"]
+  expected: "b'hello'"
+
+invariant io_extra1576.bytes_repr_empty:
+  description: "repr(b'') == \"b''\""
+  category: str_repr
+  kind: python_call_eq
+  function: bytes.__repr__
+  args: [b""]
+  expected: "b''"
+
+invariant io_extra1576.bytes_decode_test:
+  description: "io.BytesIO(b'test').read().decode() == 'test'"
+  category: str_repr
+  kind: python_call_eq
+  function: bytes.decode
+  args: [b"test"]
+  expected: "test"
+
+invariant io_extra1576.str_seek_set:
+  description: "str(io.SEEK_SET) == '0'"
+  category: constants
+  kind: python_call_eq
+  function: int.__str__
+  args: [0]
+  expected: "0"
+
+invariant io_extra1576.str_buffer_size:
+  description: "str(io.DEFAULT_BUFFER_SIZE) == '8192'"
+  category: constants
+  kind: python_call_eq
+  function: int.__str__
+  args: [8192]
+  expected: "8192"
+
+invariant io_extra1576.str_bytes_read_1:
+  description: "str(io.BytesIO(b'a').read(1)) == \"b'a'\""
+  category: str_repr
+  kind: python_call_eq
+  function: bytes.__str__
+  args: [b"a"]
+  expected: "b'a'"
+
+# ---------------------------------------------------------------------------
+# io module constants
+# ---------------------------------------------------------------------------
+
+table io_extra1576.constants:
+  kind: python_call_eq
+  category: constants
+  id_prefix: io1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1576_030", "SEEK_SET.__eq__",          [0],    true]
+    - ["io1576_031", "SEEK_CUR.__eq__",          [1],    true]
+    - ["io1576_032", "SEEK_END.__eq__",          [2],    true]
+    - ["io1576_033", "DEFAULT_BUFFER_SIZE.__eq__", [8192], true]
+
+# ---------------------------------------------------------------------------
+# Class __name__ attributes
+# ---------------------------------------------------------------------------
+
+table io_extra1576.class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: io1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1576_040", "StringIO.__name__.__eq__",         ["StringIO"],         true]
+    - ["io1576_041", "BytesIO.__name__.__eq__",          ["BytesIO"],          true]
+    - ["io1576_042", "TextIOWrapper.__name__.__eq__",    ["TextIOWrapper"],    true]
+    - ["io1576_043", "BufferedReader.__name__.__eq__",   ["BufferedReader"],   true]
+    - ["io1576_044", "BufferedWriter.__name__.__eq__",   ["BufferedWriter"],   true]
+    - ["io1576_045", "RawIOBase.__name__.__eq__",        ["RawIOBase"],        true]
+    - ["io1576_046", "IOBase.__name__.__eq__",           ["IOBase"],           true]
+    - ["io1576_047", "FileIO.__name__.__eq__",           ["FileIO"],           true]

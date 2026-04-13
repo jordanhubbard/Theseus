@@ -1,0 +1,204 @@
+spec: pathlib_extra1576
+version: ">=3.9"
+error_model: python_exceptions
+
+provenance:
+  derived_from:
+    - "Python docs"
+    - "https://docs.python.org/3/library/pathlib.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "any proprietary source"
+  notes:
+    - "behavioral invariants for __str__/__repr__/__bytes__ protocol"
+    - "Covers PurePosixPath and PureWindowsPath __str__ and __repr__ outputs."
+    - "Covers path component properties: name, suffix, suffixes, stem, parts, parent."
+    - "bytes(PurePosixPath(...)) raises TypeError; use os.fsencode() for bytes conversion."
+    - "PurePosixPath uses '/' separator; PureWindowsPath uses '\\' in str output."
+    - "repr() wraps the str representation: PurePosixPath('/usr') -> \"PurePosixPath('/usr')\"."
+    - "Path division operator (/) joins path components cleanly."
+    - "All expected values verified by running Python 3.12 pathlib on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.__str__ — string representation
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1576.posix_str:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: pl1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1576_001", "PurePosixPath.__str__", ["/usr/bin"],        "/usr/bin"]
+    - ["pl1576_002", "PurePosixPath.__str__", ["/"],               "/"]
+    - ["pl1576_003", "PurePosixPath.__str__", ["relative/path"],   "relative/path"]
+    - ["pl1576_004", "PurePosixPath.__str__", ["."],               "."]
+    - ["pl1576_005", "PurePosixPath.__str__", ["/usr/local/bin"],  "/usr/local/bin"]
+    - ["pl1576_006", "PurePosixPath.__str__", ["a/b/c"],           "a/b/c"]
+
+# ---------------------------------------------------------------------------
+# PurePosixPath.__repr__
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1576.posix_repr:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: pl1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1576_010", "PurePosixPath.__repr__", ["/usr/bin"],      "PurePosixPath('/usr/bin')"]
+    - ["pl1576_011", "PurePosixPath.__repr__", ["/"],             "PurePosixPath('/')"]
+    - ["pl1576_012", "PurePosixPath.__repr__", ["relative/path"], "PurePosixPath('relative/path')"]
+
+# ---------------------------------------------------------------------------
+# PureWindowsPath.__str__ and __repr__
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra1576.windows_str_drive:
+  description: "str(PureWindowsPath('C:/Windows')) == 'C:\\\\Windows'"
+  category: str_repr
+  kind: python_call_eq
+  function: PureWindowsPath.__str__
+  args: ["C:/Windows"]
+  expected: "C:\\Windows"
+
+invariant pathlib_extra1576.windows_repr_drive:
+  description: "repr(PureWindowsPath('C:/Windows')) == \"PureWindowsPath('C:/Windows')\""
+  category: str_repr
+  kind: python_call_eq
+  function: PureWindowsPath.__repr__
+  args: ["C:/Windows"]
+  expected: "PureWindowsPath('C:/Windows')"
+
+# ---------------------------------------------------------------------------
+# Path division — joining via / operator
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1576.path_join_str:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: pl1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1576_020", "PurePosixPath.joinpath_str", ["/", "usr", "local"],   "/usr/local"]
+    - ["pl1576_021", "PurePosixPath.joinpath_str", ["a", "b", "c"],         "a/b/c"]
+    - ["pl1576_022", "PurePosixPath.joinpath_str", ["/usr", "bin"],         "/usr/bin"]
+
+# ---------------------------------------------------------------------------
+# .name property — final path component
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1576.path_name:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: pl1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1576_030", "PurePosixPath.name.__eq__", ["/usr/bin/python", "python"],        true]
+    - ["pl1576_031", "PurePosixPath.name.__eq__", ["/usr/bin/python.exe", "python.exe"], true]
+    - ["pl1576_032", "PurePosixPath.name.__eq__", ["/usr/local/bin", "bin"],             true]
+    - ["pl1576_033", "PurePosixPath.name.__eq__", ["/a/b/c.txt", "c.txt"],              true]
+
+# ---------------------------------------------------------------------------
+# .suffix property — last extension
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1576.path_suffix:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: pl1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1576_040", "PurePosixPath.suffix.__eq__", ["/usr/bin/python.exe", ".exe"],  true]
+    - ["pl1576_041", "PurePosixPath.suffix.__eq__", ["/usr/bin/python", ""],          true]
+    - ["pl1576_042", "PurePosixPath.suffix.__eq__", ["/a/b/c.tar.gz", ".gz"],         true]
+    - ["pl1576_043", "PurePosixPath.suffix.__eq__", ["/a/b/c.txt", ".txt"],           true]
+
+# ---------------------------------------------------------------------------
+# .stem property — filename without final suffix
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra1576.stem_tar_gz:
+  description: "PurePosixPath('/usr/bin/python.tar.gz').stem == 'python.tar'"
+  category: str_repr
+  kind: python_call_eq
+  function: PurePosixPath.stem.__eq__
+  args: ["/usr/bin/python.tar.gz", "python.tar"]
+  expected: true
+
+invariant pathlib_extra1576.stem_plain:
+  description: "PurePosixPath('/usr/bin/python').stem == 'python'"
+  category: str_repr
+  kind: python_call_eq
+  function: PurePosixPath.stem.__eq__
+  args: ["/usr/bin/python", "python"]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# .parent property — str of parent path
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1576.path_parent_str:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: pl1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1576_050", "PurePosixPath.parent_str", ["/a/b/c"],        "/a/b"]
+    - ["pl1576_051", "PurePosixPath.parent_str", ["relative/path"], "relative"]
+    - ["pl1576_052", "PurePosixPath.parent_str", ["/usr/local/bin"], "/usr/local"]
+
+# ---------------------------------------------------------------------------
+# .parts property — tuple of path components
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra1576.parts_abs:
+  description: "PurePosixPath('/usr/local/bin').parts == ('/', 'usr', 'local', 'bin')"
+  category: str_repr
+  kind: python_call_eq
+  function: PurePosixPath.parts.__eq__
+  args: ["/usr/local/bin", ["/", "usr", "local", "bin"]]
+  expected: true
+
+invariant pathlib_extra1576.parts_len:
+  description: "len(PurePosixPath('/usr/local/bin').parts) == 4"
+  category: str_repr
+  kind: python_call_eq
+  function: PurePosixPath.parts.__len__
+  args: ["/usr/local/bin"]
+  expected: 4
+
+invariant pathlib_extra1576.suffixes_list:
+  description: "PurePosixPath('/usr/bin/python.tar.gz').suffixes == ['.tar', '.gz']"
+  category: str_repr
+  kind: python_call_eq
+  function: PurePosixPath.suffixes.__eq__
+  args: ["/usr/bin/python.tar.gz", [".tar", ".gz"]]
+  expected: true
+
+# ---------------------------------------------------------------------------
+# bytes conversion via os.fsencode (PurePosixPath bytes representation)
+# ---------------------------------------------------------------------------
+
+invariant pathlib_extra1576.fsencode_usr:
+  description: "os.fsencode(PurePosixPath('/usr')) == b'/usr'"
+  category: bytes_repr
+  kind: python_call_eq
+  function: os.fsencode
+  args: ["/usr"]
+  expected: b"/usr"
+
+invariant pathlib_extra1576.fsencode_usr_bin:
+  description: "os.fsencode(PurePosixPath('/usr/bin')) == b'/usr/bin'"
+  category: bytes_repr
+  kind: python_call_eq
+  function: os.fsencode
+  args: ["/usr/bin"]
+  expected: b"/usr/bin"

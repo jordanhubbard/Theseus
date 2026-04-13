@@ -1,0 +1,203 @@
+spec: asyncio_extra1576
+version: ">=3.9"
+backend: python_module(asyncio)
+error_model: python_exceptions
+
+provenance:
+  derived_from:
+    - "Python docs"
+    - "https://docs.python.org/3/library/asyncio-exceptions.html"
+    - "https://docs.python.org/3/library/asyncio-task.html"
+    - "Test vectors verified with Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "any proprietary source"
+  notes:
+    - "behavioral invariants for __str__/__repr__/__bytes__ protocol"
+    - "Tests focus on __name__, __str__, __repr__ of asyncio exception classes and inspection functions that do not require a running event loop."
+    - "asyncio.CancelledError is a subclass of BaseException (not Exception) since Python 3.8."
+    - "asyncio.TimeoutError is an alias for the builtin TimeoutError since Python 3.11."
+    - "asyncio.InvalidStateError is a ValueError subclass."
+    - "iscoroutine() is safe to call without a running loop."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# Exception class __name__ identity checks
+# Table uses [id, function, args, expected] schema — each row tests a
+# different class-level __name__ attribute via __eq__.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra1576.exception_class_names:
+  kind: python_call_eq
+  category: class_names
+  id_prefix: as1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as1576_001", "CancelledError.__name__.__eq__",    ["CancelledError"],    true]
+    - ["as1576_002", "TimeoutError.__name__.__eq__",      ["TimeoutError"],      true]
+    - ["as1576_003", "InvalidStateError.__name__.__eq__", ["InvalidStateError"], true]
+    - ["as1576_004", "QueueEmpty.__name__.__eq__",        ["QueueEmpty"],        true]
+    - ["as1576_005", "QueueFull.__name__.__eq__",         ["QueueFull"],         true]
+
+# ---------------------------------------------------------------------------
+# __repr__ of zero-argument exception instances
+# repr(ExcClass()) == "ExcClass()"  — the default BaseException.__repr__
+# ---------------------------------------------------------------------------
+
+table asyncio_extra1576.exception_repr:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: as1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as1576_010", "CancelledError.__repr__",    [], "CancelledError()"]
+    - ["as1576_011", "InvalidStateError.__repr__", [], "InvalidStateError()"]
+    - ["as1576_012", "QueueEmpty.__repr__",        [], "QueueEmpty()"]
+    - ["as1576_013", "QueueFull.__repr__",         [], "QueueFull()"]
+
+# ---------------------------------------------------------------------------
+# __str__ of zero-argument exception instances
+# str(ExcClass()) == ""  — BaseException with no args stringifies to ""
+# ---------------------------------------------------------------------------
+
+table asyncio_extra1576.exception_str_empty:
+  kind: python_call_eq
+  category: str_repr
+  id_prefix: as1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as1576_020", "CancelledError.__str__",    [], ""]
+    - ["as1576_021", "InvalidStateError.__str__", [], ""]
+    - ["as1576_022", "QueueEmpty.__str__",        [], ""]
+    - ["as1576_023", "QueueFull.__str__",         [], ""]
+
+# ---------------------------------------------------------------------------
+# __str__ of exception instances constructed with a message argument
+# str(ExcClass("msg")) == "msg"
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra1576.cancelled_error.str_with_msg:
+  description: "str(asyncio.CancelledError('cancelled')) == 'cancelled'"
+  category: str_repr
+  kind: python_call_eq
+  function: CancelledError
+  args: ["cancelled"]
+  method: __str__
+  expected: "cancelled"
+
+invariant asyncio_extra1576.invalid_state_error.str_with_msg:
+  description: "str(asyncio.InvalidStateError('bad state')) == 'bad state'"
+  category: str_repr
+  kind: python_call_eq
+  function: InvalidStateError
+  args: ["bad state"]
+  method: __str__
+  expected: "bad state"
+
+invariant asyncio_extra1576.queue_empty.str_with_msg:
+  description: "str(asyncio.QueueEmpty('queue is empty')) == 'queue is empty'"
+  category: str_repr
+  kind: python_call_eq
+  function: QueueEmpty
+  args: ["queue is empty"]
+  method: __str__
+  expected: "queue is empty"
+
+# ---------------------------------------------------------------------------
+# __repr__ of exception instances constructed with a message argument
+# repr(ExcClass("msg")) == "ExcClass('msg')"
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra1576.cancelled_error.repr_with_msg:
+  description: "repr(asyncio.CancelledError('cancelled')) == \"CancelledError('cancelled')\""
+  category: str_repr
+  kind: python_call_eq
+  function: CancelledError
+  args: ["cancelled"]
+  method: __repr__
+  expected: "CancelledError('cancelled')"
+
+invariant asyncio_extra1576.queue_empty.repr_with_msg:
+  description: "repr(asyncio.QueueEmpty('empty')) == \"QueueEmpty('empty')\""
+  category: str_repr
+  kind: python_call_eq
+  function: QueueEmpty
+  args: ["empty"]
+  method: __repr__
+  expected: "QueueEmpty('empty')"
+
+# ---------------------------------------------------------------------------
+# Inheritance structure — __bases__ first parent __name__
+# ---------------------------------------------------------------------------
+
+invariant asyncio_extra1576.cancelled_error.parent_is_base_exception:
+  description: "asyncio.CancelledError.__bases__[0].__name__ == 'BaseException'"
+  category: inheritance
+  kind: python_call_eq
+  function: CancelledError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "BaseException"
+
+invariant asyncio_extra1576.invalid_state_error.parent_is_value_error:
+  description: "asyncio.InvalidStateError.__bases__[0].__name__ == 'ValueError'"
+  category: inheritance
+  kind: python_call_eq
+  function: InvalidStateError.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "ValueError"
+
+invariant asyncio_extra1576.queue_empty.parent_is_exception:
+  description: "asyncio.QueueEmpty.__bases__[0].__name__ == 'Exception'"
+  category: inheritance
+  kind: python_call_eq
+  function: QueueEmpty.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+invariant asyncio_extra1576.queue_full.parent_is_exception:
+  description: "asyncio.QueueFull.__bases__[0].__name__ == 'Exception'"
+  category: inheritance
+  kind: python_call_eq
+  function: QueueFull.__bases__.__getitem__
+  args: [0]
+  method: __name__
+  expected: "Exception"
+
+# ---------------------------------------------------------------------------
+# Module membership — __module__ contains 'asyncio'
+# ---------------------------------------------------------------------------
+
+table asyncio_extra1576.exception_modules:
+  kind: python_call_eq
+  category: module
+  id_prefix: as1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as1576_030", "CancelledError.__module__.__contains__",    ["asyncio"], true]
+    - ["as1576_031", "InvalidStateError.__module__.__contains__", ["asyncio"], true]
+    - ["as1576_032", "QueueEmpty.__module__.__contains__",        ["asyncio"], true]
+    - ["as1576_033", "QueueFull.__module__.__contains__",         ["asyncio"], true]
+
+# ---------------------------------------------------------------------------
+# iscoroutine() — does not require a running event loop
+# Returns False for non-coroutine values.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra1576.iscoroutine_false:
+  kind: python_call_eq
+  category: protocol
+  id_prefix: as1576
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as1576_040", "iscoroutine", [42],      false]
+    - ["as1576_041", "iscoroutine", ["hello"], false]
+    - ["as1576_042", "iscoroutine", [null],    false]
+    - ["as1576_043", "iscoroutine", [true],    false]
+    - ["as1576_044", "iscoroutine", [3.14],    false]
