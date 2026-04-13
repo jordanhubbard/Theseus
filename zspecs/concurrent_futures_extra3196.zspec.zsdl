@@ -1,0 +1,137 @@
+spec: cf3196
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 660 (cf3196): __pow__, __lshift__, __rshift__ dict-presence for concurrent.futures types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: concurrent.futures.Future, concurrent.futures.ThreadPoolExecutor, concurrent.futures.ProcessPoolExecutor."
+    - "Key finding (__pow__): all 3 concurrent.futures classes return false for __pow__. Executor and future types are not numeric — they are abstractions for submitting work to thread/process pools and retrieving results. concurrent.futures.Future holds a pending computation result; raising it to a power is semantically undefined. ThreadPoolExecutor and ProcessPoolExecutor manage worker pools via submit()/map()/shutdown(); none of these operations involve exponentiation."
+    - "Key finding (__lshift__): all 3 concurrent.futures classes return false for __lshift__. Left-shift is a bitwise integer operator with no relevance to executor or future semantics. concurrent.futures.Future does not define << for queuing tasks — tasks are submitted via executor.submit(). ThreadPoolExecutor and ProcessPoolExecutor do not implement << as a task-dispatch shorthand; their API is entirely method-based."
+    - "Key finding (__rshift__): all 3 concurrent.futures classes return false for __rshift__. Right-shift is also absent. concurrent.futures.Future does not define >> for chaining callbacks — done callbacks are registered via add_done_callback(). ThreadPoolExecutor and ProcessPoolExecutor have no pipeline or bitshift operator in their API."
+    - "All 9 values in this wave are false. concurrent.futures is a high-level API for async parallel execution that operates entirely through method calls — submit(), map(), result(), cancel(), add_done_callback() — with no arithmetic or bitwise operator overloading of any kind."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __pow__ dict-presence — operator.contains(Cls.__dict__, '__pow__')
+#
+# All 3 concurrent.futures classes return false for __pow__.
+# concurrent.futures types are executor and future abstractions, not numeric
+#   types. concurrent.futures.Future holds a pending result; ** is not defined.
+# ThreadPoolExecutor and ProcessPoolExecutor manage worker pools via
+#   submit()/map()/shutdown() — no exponentiation protocol of any kind.
+# ---------------------------------------------------------------------------
+
+table cf3196.pow:
+  description: "concurrent.futures types __pow__ dict-presence checks; wave 660"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3196
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3196001", operator.contains, [concurrent.futures.Future.__dict__,              "__pow__"], false]
+    - ["cf3196002", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__pow__"], false]
+    - ["cf3196003", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__pow__"], false]
+
+# ---------------------------------------------------------------------------
+# __lshift__ dict-presence — operator.contains(Cls.__dict__, '__lshift__')
+#
+# All 3 concurrent.futures classes return false for __lshift__.
+# Left-shift (<<) has no meaning for executor or future objects.
+# concurrent.futures.Future does not define << for task queuing;
+#   tasks are submitted through the executor's submit() method.
+# ThreadPoolExecutor and ProcessPoolExecutor do not implement
+#   << as a task-dispatch shorthand; their API is entirely method-based.
+# ---------------------------------------------------------------------------
+
+table cf3196.lshift:
+  description: "concurrent.futures types __lshift__ dict-presence checks; wave 660"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3196
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3196004", operator.contains, [concurrent.futures.Future.__dict__,              "__lshift__"], false]
+    - ["cf3196005", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__lshift__"], false]
+    - ["cf3196006", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__lshift__"], false]
+
+# ---------------------------------------------------------------------------
+# __rshift__ dict-presence — operator.contains(Cls.__dict__, '__rshift__')
+#
+# All 3 concurrent.futures classes return false for __rshift__.
+# Right-shift (>>) has no meaning for executor or future objects.
+# concurrent.futures.Future does not define >> for callback chaining;
+#   done callbacks are registered via add_done_callback().
+# ThreadPoolExecutor and ProcessPoolExecutor have no pipeline or
+#   bitshift operator; results are retrieved by calling result() on
+#   the Future returned by submit().
+# ---------------------------------------------------------------------------
+
+table cf3196.rshift:
+  description: "concurrent.futures types __rshift__ dict-presence checks; wave 660"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3196
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3196007", operator.contains, [concurrent.futures.Future.__dict__,              "__rshift__"], false]
+    - ["cf3196008", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rshift__"], false]
+    - ["cf3196009", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rshift__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __pow__, __lshift__, __rshift__ across all 3 cf subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __pow__:    false for all 3 — no exponentiation defined.
+# __lshift__: false for all 3 — no left-shift defined.
+# __rshift__: false for all 3 — no right-shift defined.
+# All 9 values are false.
+# concurrent.futures is a high-level parallel execution API. Its entire public
+#   surface is method-based: submit(), map(), result(), cancel(), done(),
+#   running(), cancelled(), add_done_callback(), shutdown(). No arithmetic or
+#   bitwise operator overloading is defined anywhere in the type hierarchy.
+# concurrent.futures.Future is notable: despite the name (implying a value
+#   arriving "in the future"), it is not a numeric or collection type —
+#   it is a result handle with a state machine (PENDING/RUNNING/CANCELLED/
+#   FINISHED). ** / << / >> are all absent.
+# ---------------------------------------------------------------------------
+
+table cf3196.combined:
+  description: "concurrent.futures types combined __pow__/__lshift__/__rshift__; wave 660"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3196
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3196010", operator.contains, [concurrent.futures.Future.__dict__,              "__pow__"],    false]
+    - ["cf3196011", operator.contains, [concurrent.futures.Future.__dict__,              "__lshift__"], false]
+    - ["cf3196012", operator.contains, [concurrent.futures.Future.__dict__,              "__rshift__"], false]
+    - ["cf3196013", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__pow__"],    false]
+    - ["cf3196014", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__lshift__"], false]
+    - ["cf3196015", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rshift__"], false]
+    - ["cf3196016", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__pow__"],    false]
+    - ["cf3196017", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__lshift__"], false]
+    - ["cf3196018", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rshift__"], false]
