@@ -1,0 +1,132 @@
+spec: ab3076
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 652 (ab3076): __get__, __set__, __delete__ dict-presence for abc module types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: abc.ABC, abc.ABCMeta, and type(abc.abstractmethod(lambda: None)) — the built-in function type."
+    - "Key finding: type(abc.abstractmethod(lambda: None)) is <class 'function'>; function objects define __get__ in their own __dict__ (true) — this is how bound methods are created when functions are accessed as class attributes."
+    - "abc.ABC and abc.ABCMeta return false for all three methods; they are abstract base class infrastructure, not descriptors."
+    - "__set__ and __delete__ are false for all three subjects — function is a non-data descriptor (defines only __get__, not __set__ or __delete__)."
+    - "The __get__ on function objects is the CPython mechanism that wraps a function into a bound method when accessed via an instance."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __get__ dict-presence — operator.contains(Cls.__dict__, '__get__')
+#
+# abc.ABC:    false — plain convenience base class; no descriptor support.
+# abc.ABCMeta: false — metaclass for abstract base class tracking; no descriptor.
+# type(abc.abstractmethod(lambda: None)): TRUE — this is <class 'function'>.
+#   Function objects define __get__ in their own __dict__; it is the CPython
+#   mechanism by which accessing a function on an instance produces a bound method
+#   (i.e., function.__get__(instance, owner) returns a bound method object).
+#   This makes <class 'function'> a non-data descriptor.
+# ---------------------------------------------------------------------------
+
+table ab3076.get:
+  description: "abc types __get__ dict-presence checks; wave 652"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3076
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3076001", operator.contains, [abc.ABC.__dict__,                                 "__get__"], false]
+    - ["ab3076002", operator.contains, [abc.ABCMeta.__dict__,                             "__get__"], false]
+    - ["ab3076003", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__get__"], true]
+
+# ---------------------------------------------------------------------------
+# __set__ dict-presence — operator.contains(Cls.__dict__, '__set__')
+#
+# All three abc subjects return false for __set__; all results are false.
+# abc.ABC and abc.ABCMeta are class-infrastructure objects with no descriptor role.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>; function is a
+# non-data descriptor — it defines __get__ but NOT __set__ (wave 652 result: false).
+# Without __set__, Python's attribute lookup gives instance __dict__ priority
+# over the function descriptor on __get__-only lookups when an instance attribute
+# of the same name exists.
+# ---------------------------------------------------------------------------
+
+table ab3076.set:
+  description: "abc types __set__ dict-presence checks; wave 652"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3076
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3076004", operator.contains, [abc.ABC.__dict__,                                 "__set__"], false]
+    - ["ab3076005", operator.contains, [abc.ABCMeta.__dict__,                             "__set__"], false]
+    - ["ab3076006", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__set__"], false]
+
+# ---------------------------------------------------------------------------
+# __delete__ dict-presence — operator.contains(Cls.__dict__, '__delete__')
+#
+# All three abc subjects return false for __delete__; all results are false.
+# abc.ABC and abc.ABCMeta have no descriptor protocol involvement.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>; function objects
+# do not define __delete__ — confirming function is a non-data descriptor
+# (non-data descriptors define __get__ only, not __set__ or __delete__).
+# ---------------------------------------------------------------------------
+
+table ab3076.delete:
+  description: "abc types __delete__ dict-presence checks; wave 652"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3076
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3076007", operator.contains, [abc.ABC.__dict__,                                 "__delete__"], false]
+    - ["ab3076008", operator.contains, [abc.ABCMeta.__dict__,                             "__delete__"], false]
+    - ["ab3076009", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__delete__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __get__, __set__, __delete__ across all 3 abc subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __get__:    true only for type(abc.abstractmethod(lambda: None)) (<class 'function'>);
+#             false for abc.ABC and abc.ABCMeta.
+# __set__:    all false — function is a non-data descriptor (no __set__).
+# __delete__: all false — function is a non-data descriptor (no __delete__).
+# The single non-false result is the well-known CPython bound-method mechanism:
+# function.__get__(instance, owner) wraps the function into a bound method.
+# ---------------------------------------------------------------------------
+
+table ab3076.combined:
+  description: "abc types combined __get__/__set__/__delete__; wave 652"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3076
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3076010", operator.contains, [abc.ABC.__dict__,                                 "__get__"],    false]
+    - ["ab3076011", operator.contains, [abc.ABC.__dict__,                                 "__set__"],    false]
+    - ["ab3076012", operator.contains, [abc.ABC.__dict__,                                 "__delete__"], false]
+    - ["ab3076013", operator.contains, [abc.ABCMeta.__dict__,                             "__get__"],    false]
+    - ["ab3076014", operator.contains, [abc.ABCMeta.__dict__,                             "__set__"],    false]
+    - ["ab3076015", operator.contains, [abc.ABCMeta.__dict__,                             "__delete__"], false]
+    - ["ab3076016", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__get__"],    true]
+    - ["ab3076017", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__set__"],    false]
+    - ["ab3076018", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__delete__"], false]
