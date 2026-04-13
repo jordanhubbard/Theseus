@@ -1,0 +1,170 @@
+spec: cf3361
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 671 (cf3361): __invert__, __floor__, __ceil__ dict-presence (unary ~x, math.floor(x), math.ceil(x)) for concurrent.futures types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: concurrent.futures.Future, concurrent.futures.ThreadPoolExecutor, concurrent.futures.ProcessPoolExecutor."
+    - "Key finding (__invert__): all 3 concurrent.futures classes return false for __invert__. Bitwise inversion (__invert__, ~x) belongs to the integer numeric data model (numbers.Integral). concurrent.futures types are parallel execution handles and pool managers — not integer types. concurrent.futures.Future is a result handle with a PENDING/RUNNING/CANCELLED/FINISHED state machine; ~future is not a valid Python expression for a state-machine object. ThreadPoolExecutor and ProcessPoolExecutor manage worker pools via submit()/map()/shutdown(); ~executor is not defined."
+    - "Key finding (__floor__): all 3 concurrent.futures classes return false for __floor__. math.floor() delegates to __floor__ (numbers.Real protocol). concurrent.futures types define no arithmetic protocol of any kind — confirmed false across waves 658–670 for all arithmetic, bitwise, reflected, in-place augmented assignment, and unary numeric operators. math.floor(future) is not a valid Python expression for a state-machine result handle. math.floor(executor) is not defined for pool-manager objects."
+    - "Key finding (__ceil__): all 3 concurrent.futures classes return false for __ceil__. math.ceil() delegates to __ceil__ (numbers.Real protocol), analogously to __floor__. concurrent.futures types implement no numeric magnitude to round up. math.ceil(future), math.ceil(executor) are not meaningful operations — a Future represents a pending asynchronous computation, not a numeric value; ThreadPoolExecutor/ProcessPoolExecutor are lifecycle managers for worker pools, not numeric objects."
+    - "All 9 values in this wave are false. concurrent.futures is a high-level parallel execution API operating entirely through method calls — submit(), map(), result(), cancel(), add_done_callback(), shutdown() — with no arithmetic, bitwise, unary numeric, or numeric rounding protocol of any kind."
+    - "Cross-wave summary for cf subjects:"
+    - "  Wave 658 (cf3166): __add__/__sub__/__mul__ — all false for all 3."
+    - "  Wave 659 (cf3181): __truediv__/__floordiv__/__mod__ — all false for all 3."
+    - "  Wave 660 (cf3196): __pow__/__lshift__/__rshift__ — all false for all 3."
+    - "  Wave 661 (cf3211): __and__/__or__/__xor__ — all false for all 3."
+    - "  Wave 662 (cf3226): __radd__/__rsub__/__rmul__ — all false for all 3."
+    - "  Wave 663 (cf3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 3."
+    - "  Wave 664 (cf3256): __rpow__/__rlshift__/__rrshift__ — all false for all 3."
+    - "  Wave 665 (cf3271): __rand__/__ror__/__rxor__ — all false for all 3."
+    - "  Wave 666 (cf3286): __iadd__/__isub__/__imul__ — all false for all 3."
+    - "  Wave 667 (cf3301): __itruediv__/__ifloordiv__/__imod__ — all false for all 3."
+    - "  Wave 668 (cf3316): __ipow__/__ilshift__/__irshift__ — all false for all 3."
+    - "  Wave 669 (cf3331): __iand__/__ior__/__ixor__ — all false for all 3."
+    - "  Wave 670 (cf3346): __neg__/__pos__/__abs__ — all false for all 3."
+    - "  Wave 671 (cf3361): __invert__/__floor__/__ceil__ — all false for all 3."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __invert__ dict-presence — operator.contains(Cls.__dict__, '__invert__')
+#
+# All 3 concurrent.futures classes return false for __invert__.
+# Bitwise inversion (__invert__, ~x) belongs to the integer numeric data model.
+# concurrent.futures.Future: a result handle with PENDING/RUNNING/CANCELLED/
+#   FINISHED states; ~future is not a valid Python expression for a state-
+#   machine object. Future manages asynchronous results through callbacks and
+#   state transitions, not integer bitwise operators.
+# ThreadPoolExecutor/ProcessPoolExecutor: worker-pool lifecycle managers;
+#   ~executor is not a defined Python operation. Pool configuration is not
+#   exposed as an integer bitfield.
+# ---------------------------------------------------------------------------
+
+table cf3361.invert:
+  description: "concurrent.futures types __invert__ dict-presence checks; wave 671"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3361
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3361001", operator.contains, [concurrent.futures.Future.__dict__,              "__invert__"], false]
+    - ["cf3361002", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__invert__"], false]
+    - ["cf3361003", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__invert__"], false]
+
+# ---------------------------------------------------------------------------
+# __floor__ dict-presence — operator.contains(Cls.__dict__, '__floor__')
+#
+# All 3 concurrent.futures classes return false for __floor__.
+# math.floor() delegates to __floor__ (numbers.Real protocol). concurrent.futures
+#   types define no arithmetic protocol — confirmed false across waves 658–670
+#   for all arithmetic, bitwise, reflected, in-place augmented assignment, and
+#   unary numeric operators.
+# concurrent.futures.Future: a state-machine result handle; math.floor(future)
+#   is not a valid Python expression. The future's value is retrieved via
+#   result() or callbacks, not numeric rounding.
+# ThreadPoolExecutor/ProcessPoolExecutor: pool lifecycle managers with an
+#   entirely method-based API; math.floor(executor) is not defined.
+# ---------------------------------------------------------------------------
+
+table cf3361.floor:
+  description: "concurrent.futures types __floor__ dict-presence checks; wave 671"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3361
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3361004", operator.contains, [concurrent.futures.Future.__dict__,              "__floor__"], false]
+    - ["cf3361005", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__floor__"], false]
+    - ["cf3361006", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__floor__"], false]
+
+# ---------------------------------------------------------------------------
+# __ceil__ dict-presence — operator.contains(Cls.__dict__, '__ceil__')
+#
+# All 3 concurrent.futures classes return false for __ceil__.
+# math.ceil() delegates to __ceil__ (numbers.Real protocol), analogously to
+#   __floor__. concurrent.futures types implement no numeric magnitude.
+# concurrent.futures.Future: a state-machine result handle, not a numeric type;
+#   math.ceil(future) is not a meaningful operation. Future state is one of
+#   PENDING/RUNNING/CANCELLED/FINISHED — none of these are a scalar magnitude
+#   that can be rounded up.
+# ThreadPoolExecutor/ProcessPoolExecutor: executor types that encapsulate pools
+#   of worker threads or processes; math.ceil(executor) is not a defined Python
+#   operation. Pool configuration is accessed through constructor arguments
+#   and context manager protocol, not numeric rounding methods.
+# ---------------------------------------------------------------------------
+
+table cf3361.ceil:
+  description: "concurrent.futures types __ceil__ dict-presence checks; wave 671"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3361
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3361007", operator.contains, [concurrent.futures.Future.__dict__,              "__ceil__"], false]
+    - ["cf3361008", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__ceil__"], false]
+    - ["cf3361009", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__ceil__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __invert__, __floor__, __ceil__ across all 3 cf subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __invert__: false for all 3 — bitwise inversion is not defined.
+# __floor__: false for all 3 — numeric floor rounding is not defined.
+# __ceil__: false for all 3 — numeric ceiling rounding is not defined.
+# All 9 values are false.
+# concurrent.futures is a high-level parallel execution API. Its entire
+#   public surface is method-based: submit(), map(), result(), cancel(),
+#   done(), running(), cancelled(), add_done_callback(), shutdown().
+#   Waves 658–670 established that no arithmetic, bitwise, reflected, or
+#   in-place augmented assignment operator appears anywhere in the concurrent.
+#   futures type hierarchy. The integer inversion and rounding operators
+#   tested here follow the same pattern.
+# concurrent.futures.Future note: despite the name, Future is a state-machine
+#   result handle — not a numeric, set, or dict-like type. __invert__, __floor__,
+#   and __ceil__ are all absent from its __dict__.
+# ThreadPoolExecutor/ProcessPoolExecutor note: executor types encapsulate
+#   a pool of worker threads or processes; they expose only lifecycle and
+#   dispatch methods. No integer inversion or numeric rounding overloads are
+#   defined.
+# ---------------------------------------------------------------------------
+
+table cf3361.combined:
+  description: "concurrent.futures types combined __invert__/__floor__/__ceil__; wave 671"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3361
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3361010", operator.contains, [concurrent.futures.Future.__dict__,              "__invert__"], false]
+    - ["cf3361011", operator.contains, [concurrent.futures.Future.__dict__,              "__floor__"], false]
+    - ["cf3361012", operator.contains, [concurrent.futures.Future.__dict__,              "__ceil__"], false]
+    - ["cf3361013", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__invert__"], false]
+    - ["cf3361014", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__floor__"], false]
+    - ["cf3361015", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__ceil__"], false]
+    - ["cf3361016", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__invert__"], false]
+    - ["cf3361017", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__floor__"], false]
+    - ["cf3361018", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__ceil__"], false]
