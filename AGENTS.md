@@ -217,8 +217,9 @@ Example: `skip_if: 'platform == "freebsd" or not semver_satisfies(lib_version, "
 
 `.github/workflows/ci.yml` — runs on every push and PR to `main`:
 - **Matrix:** ubuntu-latest + macos-latest × Python 3.9–3.12 × Node 22
-- **FreeBSD:** FreeBSD 14.2 VM via `cross-platform-actions/action@v0.25.0`
 - **Pages:** `.github/workflows/pages.yml` — builds MkDocs and deploys to GitHub Pages on push to main
+
+FreeBSD Ports is a supported build recipe source but FreeBSD is not a CI target platform.
 
 When adding a spec for a library not available in the standard GitHub Actions runner,
 either install it in `ci.yml` or gate the test with `skip_if`.

@@ -2,12 +2,13 @@
 
 **Theseus** is a two-layer toolchain for working with OSS package metadata.
 
-**Layer 1** normalizes package recipes from [Nixpkgs](https://github.com/NixOS/nixpkgs)
-and [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) into a shared canonical
-JSON schema, then ranks and extracts the most important candidates.
+**Layer 1** normalizes package recipes from [Nixpkgs](https://github.com/NixOS/nixpkgs),
+PyPI, and npm into a shared canonical JSON schema, then ranks and extracts the most
+important candidates. [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) is also
+supported as a build recipe source — its 20,000+ port Makefiles complement Nixpkgs.
 
 **Layer 2** provides 70 machine-readable behavioral specs — one per OSS library —
-that are verified against the real installed library on macOS, Linux, and FreeBSD.
+that are verified against the real installed library on macOS and Linux.
 
 ---
 

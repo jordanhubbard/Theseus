@@ -4,13 +4,14 @@
 
 **Theseus** is a toolchain for normalizing package recipes from four ecosystems into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
 
-All four ecosystems are first-class citizens:
+Three ecosystems are first-class citizens on Linux and macOS:
 - [**Nixpkgs**](https://github.com/NixOS/nixpkgs) — traversed directly via `--nixpkgs`, dependency graphs filled by `fill_nixpkgs_deps.py`
-- [**FreeBSD Ports**](https://github.com/freebsd/freebsd-ports) — traversed directly via `--ports`
 - [**PyPI**](https://pypi.org/) — imported via the PyPI JSON API (`make import-pypi`); source repositories backtracked to GitHub via `project_urls`
 - [**npm**](https://www.npmjs.com/) — imported via the npm registry API (`make import-npm`); source repositories backtracked to GitHub via the `repository` field
 
-On top of that pipeline sits a **Z-layer behavioral spec system**: 10,807 machine-readable contracts, one per OSS library, verified against the real installed library across macOS, Linux, and FreeBSD. An **end-to-end validation harness** (`make validate-e2e`) goes further — fetching upstream source, building from scratch, and running the spec against the freshly built artifact on any configured target host.
+[**FreeBSD Ports**](https://github.com/freebsd/freebsd-ports) is supported as a **build recipe source** — its 20,000+ port Makefiles provide a rich collection of OSS build recipes that complement Nixpkgs. FreeBSD itself is not a CI target platform.
+
+On top of that pipeline sits a **Z-layer behavioral spec system**: 10,807 machine-readable contracts, one per OSS library, verified against the real installed library across macOS and Linux. An **end-to-end validation harness** (`make validate-e2e`) goes further — fetching upstream source, building from scratch, and running the spec against the freshly built artifact on any configured target host.
 
 [![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
@@ -214,7 +215,6 @@ The canonical record format (`schema/package-recipe.schema.json`) captures ident
 GitHub Actions runs on every push and pull request to `main`:
 
 - **Matrix job:** ubuntu-latest + macos-latest × Python 3.9–3.12 × Node 22
-- **FreeBSD job:** FreeBSD 14.2 VM (via cross-platform-actions) with Python 3.11 + Node 22
 
 The ubuntu/Python-3.12 job uploads `verify-all-specs-results.json` as an artifact.
 

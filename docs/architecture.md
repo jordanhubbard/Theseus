@@ -437,4 +437,4 @@ Tests live in `tests/`. Run with `make test` (requires `pytest`).
 
 **Matrix job** (`test`): ubuntu-latest + macos-latest × Python 3.9/3.10/3.11/3.12 × Node 22. Steps: checkout, setup-python, setup-node, `npm install`, `make validate-zspecs`, `make test`, `python3 tools/validate_record.py examples/ --quiet`.
 
-**FreeBSD job** (`freebsd`): ubuntu-latest runner with `cross-platform-actions/action@v0.25.0` launching a FreeBSD 14.2 VM. Installs Python 3.11, Node 22, npm packages via `pkg`, then runs `make validate-zspecs && make test`. Catches platform-specific divergences (LibreSSL vs OpenSSL, different libc errno values).
+CI targets are ubuntu-latest and macos-latest only. FreeBSD Ports is used as a build recipe source but FreeBSD is not a CI target platform.

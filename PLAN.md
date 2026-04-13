@@ -2,7 +2,7 @@
 
 ## Current State (2026-04-13)
 
-**70 Z-layer specs · 1118 invariants · 3 CI platforms (ubuntu, macos, freebsd)**
+**70 Z-layer specs · 1118 invariants · 2 CI platforms (ubuntu, macos)**
 **+ Wave series 670–683: ~2720 additional dict-presence zspec files (committed, not yet compiled into invariant count)**
 
 ### What is built
@@ -63,7 +63,7 @@
 | `zlib` | ctypes | 23 | compress/decompress roundtrip, crc32, adler32 |
 | `zstd` | ctypes | 15 | versionString, maxCLevel, compressBound, isError |
 
-**CI**: GitHub Actions matrix on ubuntu-latest + macos-latest (Python 3.9–3.12, Node 22) plus a separate FreeBSD 14.2 job. The ubuntu/3.12 job uploads `verify-all-specs-results.json` as a GitHub Actions artifact.
+**CI**: GitHub Actions matrix on ubuntu-latest + macos-latest (Python 3.9–3.12, Node 22). The ubuntu/3.12 job uploads `verify-all-specs-results.json` as a GitHub Actions artifact.
 
 **`skip_if` expression language:**
 - `lib_version` — library version string (e.g. `"1.2.12"`)
