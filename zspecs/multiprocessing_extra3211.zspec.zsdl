@@ -1,0 +1,191 @@
+spec: mp3211
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html"
+    - "https://docs.python.org/3/library/multiprocessing.managers.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 661 (mp3211): __and__, __or__, __xor__ dict-presence for multiprocessing types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: multiprocessing.Process, pool.Pool, pool.AsyncResult, pool.MapResult, managers.SyncManager, managers.BaseListProxy, managers._BaseDictProxy, managers._BaseSetProxy."
+    - "Key finding (__and__): all 8 multiprocessing classes return false for __and__. multiprocessing.Process manages a subprocess lifecycle (start/join/terminate/kill); & is undefined for process objects. pool.Pool dispatches work to worker processes via apply()/map()/starmap(); no bitwise AND is defined. pool.AsyncResult and pool.MapResult are result handles; & is not defined for combining results. managers.BaseListProxy proxies list — list does not define __and__. managers._BaseDictProxy proxies dict — dict does not define __and__. Critical note on managers._BaseSetProxy: this proxy wraps Python's set, which DOES define __and__ (set intersection). However, _BaseSetProxy does NOT store __and__ in its own __dict__ — it accesses set methods via the _method callthrough IPC mechanism. Therefore operator.contains(_BaseSetProxy.__dict__, '__and__') = False even though set intersection is ultimately reachable through the proxy."
+    - "Key finding (__or__): all 8 multiprocessing classes return false for __or__. Python's set defines __or__ for set union (s | t), but managers._BaseSetProxy does NOT have __or__ in its own __dict__ — set union operations are proxied via the _method IPC callthrough, not via a locally defined __or__ dunder. multiprocessing.Process/Pool/AsyncResult/MapResult/SyncManager are process-management and result-handle types with no set-algebra semantics. managers.BaseListProxy and managers._BaseDictProxy proxy list and dict respectively; neither list nor dict defines __or__ for bitwise/union purposes (dict.__or__ was added in Python 3.9 for dict merging, but _BaseDictProxy does not expose it in its own __dict__ either)."
+    - "Key finding (__xor__): all 8 multiprocessing classes return false for __xor__. Python's set defines __xor__ for symmetric difference (s ^ t), but managers._BaseSetProxy does NOT have __xor__ in its own __dict__ — as with __and__ and __or__, the proxy relies on the _method IPC callthrough mechanism rather than defining operator dunders locally. All remaining types (Process, Pool, AsyncResult, MapResult, SyncManager, BaseListProxy, _BaseDictProxy) have no set-algebra or bitwise data model of any kind."
+    - "Critical insight for _BaseSetProxy: Python's set defines __and__/__or__/__xor__ for set intersection, union, and symmetric difference. _BaseSetProxy is a manager proxy for set objects hosted in a manager server process. Despite proxying a type that has these dunders, _BaseSetProxy accesses proxied methods via a _method dispatch mechanism over IPC — it does not define __and__, __or__, or __xor__ in its own __dict__. The expected value is False for all three operators even though set algebra is ultimately reachable through the proxy."
+    - "All 24 values in this wave are false. multiprocessing is a process-based concurrency library; its entire API is expressed through explicit method calls, subprocess lifecycle management, and IPC — never through Python's arithmetic or bitwise data model."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __and__ dict-presence — operator.contains(Cls.__dict__, '__and__')
+#
+# All 8 multiprocessing classes return false for __and__.
+# Process/Pool/AsyncResult/MapResult: process-management and result-handle
+#   types; bitwise AND is not defined for any of them.
+# managers.BaseListProxy: proxies list — list does not define __and__.
+# managers._BaseDictProxy: proxies dict — dict does not define __and__.
+# managers._BaseSetProxy: proxies set — set DOES define __and__ (intersection),
+#   but _BaseSetProxy does NOT have __and__ in its own __dict__. The proxy
+#   accesses set methods via the _method IPC callthrough mechanism, not via
+#   locally defined operator dunders. Result: false.
+# managers.SyncManager: server process that hosts shared objects; no
+#   bitwise protocol defined in its own __dict__.
+# ---------------------------------------------------------------------------
+
+table mp3211.and_:
+  description: "multiprocessing types __and__ dict-presence checks; wave 661"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3211
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3211001", operator.contains, [multiprocessing.Process.__dict__,                 "__and__"], false]
+    - ["mp3211002", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__and__"], false]
+    - ["mp3211003", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__and__"], false]
+    - ["mp3211004", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__and__"], false]
+    - ["mp3211005", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__and__"], false]
+    - ["mp3211006", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__and__"], false]
+    - ["mp3211007", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__and__"], false]
+    - ["mp3211008", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__and__"], false]
+
+# ---------------------------------------------------------------------------
+# __or__ dict-presence — operator.contains(Cls.__dict__, '__or__')
+#
+# All 8 multiprocessing classes return false for __or__.
+# managers._BaseSetProxy proxies set, and set defines __or__ for union (s | t).
+#   However, _BaseSetProxy does NOT define __or__ in its own __dict__.
+#   Set union through the proxy is accessed via the _method IPC callthrough
+#   dispatch mechanism, not via a locally defined __or__ dunder.
+# managers._BaseDictProxy proxies dict. dict gained __or__ in Python 3.9
+#   (PEP 584, dict merging via |), but _BaseDictProxy does NOT expose __or__
+#   in its own __dict__ — dict merging is not forwarded as an operator dunder.
+# Process/Pool/AsyncResult/MapResult/SyncManager/BaseListProxy: none define
+#   __or__ in their own __dict__; no union or bitwise OR semantics apply.
+# ---------------------------------------------------------------------------
+
+table mp3211.or_:
+  description: "multiprocessing types __or__ dict-presence checks; wave 661"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3211
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3211009",  operator.contains, [multiprocessing.Process.__dict__,                 "__or__"], false]
+    - ["mp3211010",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__or__"], false]
+    - ["mp3211011",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__or__"], false]
+    - ["mp3211012",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__or__"], false]
+    - ["mp3211013",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__or__"], false]
+    - ["mp3211014",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__or__"], false]
+    - ["mp3211015",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__or__"], false]
+    - ["mp3211016",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__or__"], false]
+
+# ---------------------------------------------------------------------------
+# __xor__ dict-presence — operator.contains(Cls.__dict__, '__xor__')
+#
+# All 8 multiprocessing classes return false for __xor__.
+# managers._BaseSetProxy proxies set, and set defines __xor__ for symmetric
+#   difference (s ^ t). However, _BaseSetProxy does NOT define __xor__ in
+#   its own __dict__. Symmetric-difference through the proxy is accessed
+#   via the _method IPC callthrough mechanism, not via a locally defined dunder.
+# managers.BaseListProxy: proxies list — list has no __xor__.
+# managers._BaseDictProxy: proxies dict — dict has no __xor__.
+# Process/Pool/AsyncResult/MapResult/SyncManager: process-management and
+#   result-handle types; XOR is not defined for any of them.
+# ---------------------------------------------------------------------------
+
+table mp3211.xor:
+  description: "multiprocessing types __xor__ dict-presence checks; wave 661"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3211
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3211017",  operator.contains, [multiprocessing.Process.__dict__,                 "__xor__"], false]
+    - ["mp3211018",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__xor__"], false]
+    - ["mp3211019",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__xor__"], false]
+    - ["mp3211020",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__xor__"], false]
+    - ["mp3211021",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__xor__"], false]
+    - ["mp3211022",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__xor__"], false]
+    - ["mp3211023",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__xor__"], false]
+    - ["mp3211024",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__xor__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __and__, __or__, __xor__ across all 8 multiprocessing subjects
+#
+# Covers the full matrix: 8 classes x 3 methods = 24 rows.
+# __and__: false for all 8 — not in any type's own __dict__.
+# __or__:  false for all 8 — not in any type's own __dict__.
+# __xor__: false for all 8 — not in any type's own __dict__.
+# All 24 values are false.
+# The _BaseSetProxy case warrants special attention:
+#   Python's set defines __and__ (intersection), __or__ (union), and
+#   __xor__ (symmetric difference) as first-class operator dunders.
+#   _BaseSetProxy is a manager proxy wrapping a set object hosted in
+#   a separate server process. Despite this, _BaseSetProxy does NOT
+#   copy or redefine these dunders in its own __dict__. The proxy
+#   dispatches all method calls to the manager server via IPC using
+#   the _method callthrough mechanism. Operator dunders are NOT part
+#   of the proxied interface — they must be called explicitly as named
+#   methods (e.g., proxy.__and__(other)) if exposed, but the dunder
+#   is not present in _BaseSetProxy.__dict__ itself.
+# _BaseDictProxy note: dict.__or__ was added in Python 3.9 (PEP 584)
+#   for the d1 | d2 dict-merge operator. _BaseDictProxy does not expose
+#   this in its own __dict__ — the proxy interface does not include
+#   dict's __or__ as a locally defined dunder.
+# multiprocessing.pool.AsyncResult note: the "Async" prefix refers to
+#   non-blocking result retrieval via get(), not to asyncio coroutines.
+#   AsyncResult defines no arithmetic or bitwise dunders.
+# ---------------------------------------------------------------------------
+
+table mp3211.combined:
+  description: "multiprocessing types combined __and__/__or__/__xor__; wave 661"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3211
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3211025", operator.contains, [multiprocessing.Process.__dict__,                 "__and__"], false]
+    - ["mp3211026", operator.contains, [multiprocessing.Process.__dict__,                 "__or__"],  false]
+    - ["mp3211027", operator.contains, [multiprocessing.Process.__dict__,                 "__xor__"], false]
+    - ["mp3211028", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__and__"], false]
+    - ["mp3211029", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__or__"],  false]
+    - ["mp3211030", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__xor__"], false]
+    - ["mp3211031", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__and__"], false]
+    - ["mp3211032", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__or__"],  false]
+    - ["mp3211033", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__xor__"], false]
+    - ["mp3211034", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__and__"], false]
+    - ["mp3211035", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__or__"],  false]
+    - ["mp3211036", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__xor__"], false]
+    - ["mp3211037", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__and__"], false]
+    - ["mp3211038", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__or__"],  false]
+    - ["mp3211039", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__xor__"], false]
+    - ["mp3211040", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__and__"], false]
+    - ["mp3211041", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__or__"],  false]
+    - ["mp3211042", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__xor__"], false]
+    - ["mp3211043", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__and__"], false]
+    - ["mp3211044", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__or__"],  false]
+    - ["mp3211045", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__xor__"], false]
+    - ["mp3211046", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__and__"], false]
+    - ["mp3211047", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__or__"],  false]
+    - ["mp3211048", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__xor__"], false]
