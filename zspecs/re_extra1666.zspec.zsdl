@@ -1,0 +1,102 @@
+spec: re_extra1666
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re module documentation"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+    - "re.zspec.zsdl — covers sub, findall, split, escape, and compile error cases"
+    - "re_extra.zspec.zsdl — covers Pattern/Match class names, error hierarchy, flag constants, match/search/sub/split/findall"
+    - "re_patterns.zspec.zsdl — covers match, search, fullmatch, capture groups, compile"
+  notes:
+    - "Theme: __new__ object construction protocol — which re classes define custom __new__."
+    - "re.Pattern and re.Match are C extension types; they do NOT expose __new__ or __init__ in their __dict__. They are constructed internally by the _sre C module, not by Python-level __new__."
+    - "re.PatternError (aliased as re.error for backwards compatibility) is a Python exception class. It defines __init__ (to capture pos, pattern, lineno, colno, msg) but NOT __new__."
+    - "re.RegexFlag is an IntFlag enum subclass. IntFlag defines __new__ for member lookup by value; RegexFlag inherits this and exposes its own __new__ in its __dict__."
+    - "re.RegexFlag.__new__ is a Python function (not a builtin), provided by the enum metaclass machinery."
+    - "re.PatternError.__name__ == 'PatternError' in Python 3.13+; re.error is kept as an alias."
+    - "re.PatternError instance attributes pos, pattern, lineno, colno, msg are set in __init__ and live on the instance, not in the class __dict__."
+    - "All expected values verified by running Python 3.14.4 re module on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table re_extra1666.new_init_checks
+# Covers __new__ and __init__ presence for all major re types.
+# ---------------------------------------------------------------------------
+
+table re_extra1666.new_init_checks:
+  kind: python_call_eq
+  category: construction_protocol
+  id_prefix: re1666
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1666.Pattern.has_new",         Pattern.__dict__.__contains__,     ["__new__"],  false ]
+    - ["re1666.Pattern.has_init",        Pattern.__dict__.__contains__,     ["__init__"], false ]
+    - ["re1666.Match.has_new",           Match.__dict__.__contains__,       ["__new__"],  false ]
+    - ["re1666.Match.has_init",          Match.__dict__.__contains__,       ["__init__"], false ]
+    - ["re1666.PatternError.has_new",    PatternError.__dict__.__contains__, ["__new__"], false ]
+    - ["re1666.PatternError.has_init",   PatternError.__dict__.__contains__, ["__init__"], true ]
+    - ["re1666.RegexFlag.has_new",       RegexFlag.__dict__.__contains__,   ["__new__"],  true  ]
+    - ["re1666.RegexFlag.has_init",      RegexFlag.__dict__.__contains__,   ["__init__"], false ]
+    - ["re1666.Pattern.name",            Pattern.__name__.__eq__,           ["Pattern"],  true  ]
+    - ["re1666.Pattern.module",          Pattern.__module__.__eq__,         ["re"],       true  ]
+    - ["re1666.Match.name",              Match.__name__.__eq__,             ["Match"],    true  ]
+    - ["re1666.Match.module",            Match.__module__.__eq__,           ["re"],       true  ]
+    - ["re1666.PatternError.name",       PatternError.__name__.__eq__,      ["PatternError"], true ]
+    - ["re1666.PatternError.module",     PatternError.__module__.__eq__,    ["re"],       true  ]
+    - ["re1666.RegexFlag.new_is_func",   RegexFlag.__new__.__class__.__name__.__eq__, ["function"], true ]
+
+# ---------------------------------------------------------------------------
+# Table re_extra1666.error_init_attrs
+# re.PatternError (re.error) stores error context as instance attributes set
+# in __init__: pos, pattern, lineno, colno, msg. These are NOT class-level
+# descriptors — they live on each exception instance.
+# The table tests that the class itself does NOT have these as class attrs.
+# ---------------------------------------------------------------------------
+
+table re_extra1666.error_init_attrs:
+  kind: python_call_eq
+  category: construction_protocol
+  id_prefix: re1666
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1666.PatternError.pos_not_in_dict",     PatternError.__dict__.__contains__, ["pos"],     false ]
+    - ["re1666.PatternError.pattern_not_in_dict",  PatternError.__dict__.__contains__, ["pattern"], false ]
+    - ["re1666.PatternError.lineno_not_in_dict",   PatternError.__dict__.__contains__, ["lineno"],  false ]
+    - ["re1666.PatternError.colno_not_in_dict",    PatternError.__dict__.__contains__, ["colno"],   false ]
+    - ["re1666.PatternError.msg_not_in_dict",      PatternError.__dict__.__contains__, ["msg"],     false ]
+    - ["re1666.PatternError.init_in_dict",         PatternError.__dict__.__contains__, ["__init__"], true ]
+    - ["re1666.error_is_PatternError",             error.__eq__,                      [PatternError], true ]
+
+# ---------------------------------------------------------------------------
+# Table re_extra1666.regexflag_new
+# RegexFlag is an IntFlag subclass; it exposes __new__ for member construction.
+# Verifies the flag values and that __new__ exists in its own __dict__.
+# ---------------------------------------------------------------------------
+
+table re_extra1666.regexflag_new:
+  kind: python_call_eq
+  category: construction_protocol
+  id_prefix: re1666
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1666.RegexFlag.has_new",        RegexFlag.__dict__.__contains__,          ["__new__"],   true  ]
+    - ["re1666.RegexFlag.name",           RegexFlag.__name__.__eq__,                ["RegexFlag"], true  ]
+    - ["re1666.RegexFlag.IGNORECASE",     IGNORECASE.__eq__,                        [2],           true  ]
+    - ["re1666.RegexFlag.MULTILINE",      MULTILINE.__eq__,                         [8],           true  ]
+    - ["re1666.RegexFlag.DOTALL",         DOTALL.__eq__,                            [16],          true  ]
+    - ["re1666.RegexFlag.VERBOSE",        VERBOSE.__eq__,                           [64],          true  ]
+    - ["re1666.RegexFlag.ASCII",          ASCII.__eq__,                             [256],         true  ]
+    - ["re1666.RegexFlag.UNICODE",        UNICODE.__eq__,                           [32],          true  ]
+    - ["re1666.RegexFlag.LOCALE",         LOCALE.__eq__,                            [4],           true  ]

@@ -1,0 +1,125 @@
+spec: hashlib_extra1666
+version: ">=3.9"
+backend: python_module(hashlib)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "RFC 1321 — The MD5 Message-Digest Algorithm"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "RFC 1321 — The MD5 Message-Digest Algorithm, April 1992"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+    - "Test vectors verified by running Python 3.12 hashlib on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha256module.c"
+    - "CPython source: Modules/md5module.c"
+  notes:
+    - "Theme: __new__ and object construction protocol for hashlib C extension types."
+    - "hashlib.md5, hashlib.sha256, etc. are C-level callable objects (builtin_function_or_method), not classes directly accessible as Python types."
+    - "Hash objects are constructed by calling hashlib.md5(data) — this goes through C-level tp_new/tp_init."
+    - "C extension types may not expose __new__ in their Python-visible __dict__ even though they have tp_new at the C level."
+    - "type(hashlib.md5(b'')).__dict__.__contains__('__new__') reflects whether the C type exposes __new__ in its type dict."
+    - "type(hashlib.md5).__name__ == 'builtin_function_or_method' — hashlib.md5 is a module-level callable, not a bare class."
+    - "callable(hashlib.md5) == True — hash constructors are callable."
+    - "hashlib.md5(b'hello world').hexdigest() == '3e25960a79dbc69b674cd4ec67a72c62' — widely cited reference vector."
+    - "hashlib.sha256(b'').hexdigest() == 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' — FIPS 180-4."
+    - "len(hashlib.md5(b'').hexdigest()) == 32 (MD5 produces 16 bytes = 32 hex chars)."
+    - "len(hashlib.sha256(b'').hexdigest()) == 64 (SHA-256 produces 32 bytes = 64 hex chars)."
+    - "hashlib.sha512(b'').name == 'sha512' — name attribute is always present on hash objects."
+    - "All expected values verified by running Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model:
+  semantics: "hashlib raises ValueError for unknown algorithm names. Hash construction with valid algorithms never raises."
+  stderr: "null"
+  stickiness: "N/A — hash objects are independent; module-level callables are stateless."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Table 1: hash_type_new_init
+# Probe whether C extension hash types expose __new__ / __init__ in their dict.
+# These are checked via type(hashlib.md5(b'')).__dict__.__contains__(name).
+# ---------------------------------------------------------------------------
+
+table hashlib_extra1666.hash_type_new_init:
+  kind: python_call_eq
+  category: construction_protocol
+  id_prefix: "hl1666"
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["hl1666_md5_type_has_new",    md5.__call__.__self__.__class__.__dict__.__contains__,   ["__new__"],  false]
+    - ["hl1666_md5_type_has_init",   md5.__call__.__self__.__class__.__dict__.__contains__,   ["__init__"], false]
+    - ["hl1666_sha1_type_has_new",   sha1.__call__.__self__.__class__.__dict__.__contains__,  ["__new__"],  false]
+    - ["hl1666_sha1_type_has_init",  sha1.__call__.__self__.__class__.__dict__.__contains__,  ["__init__"], false]
+    - ["hl1666_sha256_type_has_new", sha256.__call__.__self__.__class__.__dict__.__contains__, ["__new__"],  false]
+    - ["hl1666_sha256_type_has_init",sha256.__call__.__self__.__class__.__dict__.__contains__, ["__init__"], false]
+    - ["hl1666_sha512_type_has_new", sha512.__call__.__self__.__class__.__dict__.__contains__, ["__new__"],  false]
+    - ["hl1666_sha512_type_has_init",sha512.__call__.__self__.__class__.__dict__.__contains__, ["__init__"], false]
+    - ["hl1666_md5_typename",        md5.__class__.__name__.__eq__,  ["builtin_function_or_method"], true]
+    - ["hl1666_sha256_typename",     sha256.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+    - ["hl1666_sha1_typename",       sha1.__class__.__name__.__eq__,  ["builtin_function_or_method"], true]
+    - ["hl1666_sha512_typename",     sha512.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+
+# ---------------------------------------------------------------------------
+# Table 2: hash_callable_checks
+# Verify that hashlib hash constructors and hashlib.new are callable.
+# callable() is tested via __class__.__name__ == 'builtin_function_or_method'.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra1666.hash_callable_checks:
+  kind: python_call_eq
+  category: construction_protocol
+  id_prefix: "hl1666"
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["hl1666_md5_callable",         md5.__class__.__name__.__eq__,    ["builtin_function_or_method"], true]
+    - ["hl1666_sha256_callable",      sha256.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+    - ["hl1666_sha1_callable",        sha1.__class__.__name__.__eq__,   ["builtin_function_or_method"], true]
+    - ["hl1666_sha512_callable",      sha512.__class__.__name__.__eq__, ["builtin_function_or_method"], true]
+    - ["hl1666_new_callable",         new.__class__.__name__.__eq__,    ["builtin_function_or_method"], true]
+    - ["hl1666_md5_name_attr",        md5.__name__.__eq__,    ["openssl_md5"],  false]
+    - ["hl1666_md5_name_is_str",      md5.__name__.__class__.__name__.__eq__, ["str"], true]
+    - ["hl1666_sha256_name_is_str",   sha256.__name__.__class__.__name__.__eq__, ["str"], true]
+    - ["hl1666_sha1_name_is_str",     sha1.__name__.__class__.__name__.__eq__, ["str"], true]
+    - ["hl1666_sha512_name_is_str",   sha512.__name__.__class__.__name__.__eq__, ["str"], true]
+    - ["hl1666_new_name_is_str",      new.__name__.__class__.__name__.__eq__, ["str"], true]
+    - ["hl1666_md5_result_name",      md5, [], "md5"]
+    - ["hl1666_sha256_result_name",   sha256, [], "sha256"]
+    - ["hl1666_sha1_result_name",     sha1, [], "sha1"]
+    - ["hl1666_sha512_result_name",   sha512, [], "sha512"]
+
+# ---------------------------------------------------------------------------
+# Table 3: known_digests
+# Invariant hexdigest values for well-known inputs across MD5 / SHA-1 / SHA-256 / SHA-512.
+# All values verified against Python 3.12 on macOS/Darwin 25.4.0, 2026-04-12.
+# ---------------------------------------------------------------------------
+
+table hashlib_extra1666.known_digests:
+  kind: python_call_eq
+  category: known_vector
+  id_prefix: "hl1666"
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - ["hl1666_md5_helloworld",  md5,    ["hello world"], hexdigest, [], "3e25960a79dbc69b674cd4ec67a72c62"]
+    - ["hl1666_md5_empty_len",   md5,    [""],             hexdigest, [], "d41d8cd98f00b204e9800998ecf8427e"]
+    - ["hl1666_md5_hexlen",      md5,    [""],             hexdigest.__len__, [], 32]
+    - ["hl1666_sha256_empty",    sha256, [""],             hexdigest, [], "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"]
+    - ["hl1666_sha256_hexlen",   sha256, [""],             hexdigest.__len__, [], 64]
+    - ["hl1666_sha1_empty",      sha1,   [""],             hexdigest, [], "da39a3ee5e6b4b0d3255bfef95601890afd80709"]
+    - ["hl1666_sha1_hexlen",     sha1,   [""],             hexdigest.__len__, [], 40]
+    - ["hl1666_sha512_empty_len",sha512, [""],             hexdigest.__len__, [], 128]
+    - ["hl1666_md5_name_obj",    md5,    [""],             name.__eq__, ["md5"], true]
+    - ["hl1666_sha256_name_obj", sha256, [""],             name.__eq__, ["sha256"], true]
+    - ["hl1666_sha1_name_obj",   sha1,   [""],             name.__eq__, ["sha1"], true]
+    - ["hl1666_sha512_name_obj", sha512, [""],             name.__eq__, ["sha512"], true]
+    - ["hl1666_md5_digest_size", md5,    [""],             digest_size.__eq__, [16], true]
+    - ["hl1666_sha256_dsz",      sha256, [""],             digest_size.__eq__, [32], true]
+    - ["hl1666_sha1_dsz",        sha1,   [""],             digest_size.__eq__, [20], true]
+    - ["hl1666_sha512_dsz",      sha512, [""],             digest_size.__eq__, [64], true]

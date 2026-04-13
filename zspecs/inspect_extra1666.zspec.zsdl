@@ -1,0 +1,148 @@
+spec: inspect_extra1666
+version: ">=3.9"
+backend: python_module(inspect)
+
+docs: https://docs.python.org/3/library/inspect.html
+
+provenance:
+  derived_from:
+    - "Python inspect documentation — https://docs.python.org/3/library/inspect.html"
+    - "Test vectors verified with Python 3.14 on macOS Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/inspect.py"
+    - "inspect.zspec.zsdl — covers isfunction, isbuiltin, isclass, ismodule, isroutine, signature, getmembers, getdoc, Parameter kind values and names, CO_* flag constants"
+    - "inspect_extra.zspec.zsdl — covers __name__ and __module__ tables, isclass/isbuiltin true/false cases, Parameter/Signature classnames"
+    - "inspect_signature.zspec.zsdl — covers BoundArguments/__module__, Signature/__module__, Parameter/__module__, Parameter kind names, Parameter.empty, Signature.empty"
+  notes:
+    - "Theme: __new__ — object construction protocol."
+    - "inspect.Parameter uses __init__ (not __new__) for construction; slots-based class."
+    - "inspect.Signature uses __init__ (not __new__) for construction; slots-based class."
+    - "inspect.BoundArguments uses __init__ (not __new__) for construction; slots-based class."
+    - "inspect._ParameterKind is an IntEnum subclass; IntEnum defines __new__ to wrap integer values as enum members."
+    - "inspect.FullArgSpec, Arguments, Traceback are namedtuple subclasses; namedtuple always generates a __new__ method."
+    - "inspect.FrameInfo inherits from a private _FrameInfo namedtuple base; __new__ is present via that namedtuple ancestry."
+    - "_ParameterKind.__new__ is used by the IntEnum metaclass to create each member (POSITIONAL_ONLY, POSITIONAL_OR_KEYWORD, etc.)."
+    - "Parameter.POSITIONAL_ONLY.__class__.__name__ == '_ParameterKind' — the class of an enum member is _ParameterKind, not IntEnum."
+    - "All expected values verified by running Python 3.14 on macOS Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12T00:00:00Z"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: new_init_presence
+#
+# Records whether each inspect class defines __new__ and/or __init__ in its
+# own __dict__.  Distinguishes slots-based classes (Parameter, Signature,
+# BoundArguments), the IntEnum subclass (_ParameterKind), and namedtuple
+# subclasses (FullArgSpec, FrameInfo, Traceback, Arguments).
+# ---------------------------------------------------------------------------
+
+table inspect_extra1666.new_init_presence:
+  kind: python_call_eq
+  category: new_init_presence
+  id_prefix: in1666
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["parameter_no_new",              Parameter.__dict__.__contains__,        ["__new__"],      false]
+    - ["parameter_has_init",            Parameter.__dict__.__contains__,        ["__init__"],     true]
+    - ["parameter_has_reduce",          Parameter.__dict__.__contains__,        ["__reduce__"],   true]
+    - ["parameter_has_setstate",        Parameter.__dict__.__contains__,        ["__setstate__"], true]
+    - ["parameter_has_replace",         Parameter.__dict__.__contains__,        ["replace"],      true]
+    - ["signature_no_new",              Signature.__dict__.__contains__,        ["__new__"],      false]
+    - ["signature_has_init",            Signature.__dict__.__contains__,        ["__init__"],     true]
+    - ["signature_has_hash",            Signature.__dict__.__contains__,        ["__hash__"],     true]
+    - ["signature_has_eq",              Signature.__dict__.__contains__,        ["__eq__"],       true]
+    - ["signature_has_from_callable",   Signature.__dict__.__contains__,        ["from_callable"], true]
+    - ["signature_has_replace",         Signature.__dict__.__contains__,        ["replace"],      true]
+    - ["boundarguments_no_new",         BoundArguments.__dict__.__contains__,   ["__new__"],      false]
+    - ["boundarguments_has_init",       BoundArguments.__dict__.__contains__,   ["__init__"],     true]
+    - ["boundarguments_has_apply_defaults", BoundArguments.__dict__.__contains__, ["apply_defaults"], true]
+    - ["paramkind_has_new",             _ParameterKind.__dict__.__contains__,   ["__new__"],      true]
+    - ["paramkind_no_init",             _ParameterKind.__dict__.__contains__,   ["__init__"],     false]
+    - ["paramkind_has_str",             _ParameterKind.__dict__.__contains__,   ["__str__"],      true]
+    - ["fullargspec_has_new",           FullArgSpec.__dict__.__contains__,      ["__new__"],      true]
+    - ["fullargspec_no_init",           FullArgSpec.__dict__.__contains__,      ["__init__"],     false]
+    - ["frameinfo_has_new",             FrameInfo.__dict__.__contains__,        ["__new__"],      true]
+    - ["frameinfo_no_init",             FrameInfo.__dict__.__contains__,        ["__init__"],     false]
+    - ["traceback_has_new",             Traceback.__dict__.__contains__,        ["__new__"],      true]
+    - ["traceback_no_init",             Traceback.__dict__.__contains__,        ["__init__"],     false]
+    - ["arguments_has_new",             Arguments.__dict__.__contains__,        ["__new__"],      true]
+    - ["arguments_no_init",             Arguments.__dict__.__contains__,        ["__init__"],     false]
+
+# ---------------------------------------------------------------------------
+# Table 2: parameter_kind_checks
+#
+# Verifies integer values and class membership of each _ParameterKind member.
+# _ParameterKind inherits from IntEnum which inherits from int; __new__ is
+# what converts the integer into a typed enum member on construction.
+# ---------------------------------------------------------------------------
+
+table inspect_extra1666.parameter_kind_checks:
+  kind: python_call_eq
+  category: parameter_kind_checks
+  id_prefix: in1666
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["positional_only_class",           Parameter.POSITIONAL_ONLY.__class__.__name__.__eq__,           ["_ParameterKind"], true]
+    - ["positional_or_keyword_class",     Parameter.POSITIONAL_OR_KEYWORD.__class__.__name__.__eq__,     ["_ParameterKind"], true]
+    - ["var_positional_class",            Parameter.VAR_POSITIONAL.__class__.__name__.__eq__,            ["_ParameterKind"], true]
+    - ["keyword_only_class",              Parameter.KEYWORD_ONLY.__class__.__name__.__eq__,              ["_ParameterKind"], true]
+    - ["var_keyword_class",               Parameter.VAR_KEYWORD.__class__.__name__.__eq__,               ["_ParameterKind"], true]
+    - ["positional_only_int_value",       Parameter.POSITIONAL_ONLY.__eq__,                             [0],                true]
+    - ["positional_or_keyword_int_value", Parameter.POSITIONAL_OR_KEYWORD.__eq__,                       [1],                true]
+    - ["var_positional_int_value",        Parameter.VAR_POSITIONAL.__eq__,                              [2],                true]
+    - ["keyword_only_int_value",          Parameter.KEYWORD_ONLY.__eq__,                                [3],                true]
+    - ["var_keyword_int_value",           Parameter.VAR_KEYWORD.__eq__,                                 [4],                true]
+    - ["positional_only_name",            Parameter.POSITIONAL_ONLY.name.__eq__,                        ["POSITIONAL_ONLY"],          true]
+    - ["positional_or_keyword_name",      Parameter.POSITIONAL_OR_KEYWORD.name.__eq__,                  ["POSITIONAL_OR_KEYWORD"],    true]
+    - ["var_positional_name",             Parameter.VAR_POSITIONAL.name.__eq__,                         ["VAR_POSITIONAL"],           true]
+    - ["keyword_only_name",               Parameter.KEYWORD_ONLY.name.__eq__,                           ["KEYWORD_ONLY"],             true]
+    - ["var_keyword_name",                Parameter.VAR_KEYWORD.name.__eq__,                            ["VAR_KEYWORD"],              true]
+    - ["paramkind_class_is_EnumType",     _ParameterKind.__class__.__name__.__eq__,                     ["EnumType"],                 true]
+    - ["paramkind_name",                  _ParameterKind.__name__.__eq__,                               ["_ParameterKind"],           true]
+    - ["paramkind_module",                _ParameterKind.__module__.__eq__,                             ["inspect"],                  true]
+    - ["positional_only_is_int",          Parameter.POSITIONAL_ONLY.__class__.__mro__.__contains__,     [int],                        true]
+    - ["paramkind_has_new",               _ParameterKind.__dict__.__contains__,                         ["__new__"],                  true]
+
+# ---------------------------------------------------------------------------
+# Table 3: inspect_class_methods
+#
+# Checks for key protocol methods on the three user-facing inspect classes
+# (Parameter, Signature, BoundArguments) that define __init__ but not __new__.
+# Documents the complete construction and protocol method picture for each.
+# ---------------------------------------------------------------------------
+
+table inspect_extra1666.inspect_class_methods:
+  kind: python_call_eq
+  category: inspect_class_methods
+  id_prefix: in1666
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["parameter_module",            Parameter.__module__.__eq__,         ["inspect"], true]
+    - ["parameter_name_str",          Parameter.__name__.__eq__,           ["Parameter"], true]
+    - ["signature_module",            Signature.__module__.__eq__,         ["inspect"], true]
+    - ["signature_name_str",          Signature.__name__.__eq__,           ["Signature"], true]
+    - ["boundarguments_module",       BoundArguments.__module__.__eq__,    ["inspect"], true]
+    - ["boundarguments_name_str",     BoundArguments.__name__.__eq__,      ["BoundArguments"], true]
+    - ["fullargspec_module",          FullArgSpec.__module__.__eq__,       ["inspect"], true]
+    - ["fullargspec_name_str",        FullArgSpec.__name__.__eq__,         ["FullArgSpec"], true]
+    - ["frameinfo_module",            FrameInfo.__module__.__eq__,         ["inspect"], true]
+    - ["frameinfo_name_str",          FrameInfo.__name__.__eq__,           ["FrameInfo"], true]
+    - ["traceback_module",            Traceback.__module__.__eq__,         ["inspect"], true]
+    - ["traceback_name_str",          Traceback.__name__.__eq__,           ["Traceback"], true]
+    - ["arguments_module",            Arguments.__module__.__eq__,         ["inspect"], true]
+    - ["arguments_name_str",          Arguments.__name__.__eq__,           ["Arguments"], true]
+    - ["parameter_is_type",           Parameter.__class__.__name__.__eq__, ["type"], true]
+    - ["signature_is_type",           Signature.__class__.__name__.__eq__, ["type"], true]
+    - ["boundarguments_is_type",      BoundArguments.__class__.__name__.__eq__, ["type"], true]
+    - ["fullargspec_is_type",         FullArgSpec.__class__.__name__.__eq__, ["type"], true]
+    - ["parameter_has_slots",         Parameter.__dict__.__contains__,     ["__slots__"], true]
+    - ["signature_has_slots",         Signature.__dict__.__contains__,     ["__slots__"], true]
+    - ["boundarguments_has_slots",    BoundArguments.__dict__.__contains__, ["__slots__"], true]
+    - ["signature_has_bind",          Signature.__dict__.__contains__,     ["bind"], true]
+    - ["signature_has_bind_partial",  Signature.__dict__.__contains__,     ["bind_partial"], true]
+    - ["boundarguments_has_getstate", BoundArguments.__dict__.__contains__, ["__getstate__"], true]
+    - ["boundarguments_has_setstate", BoundArguments.__dict__.__contains__, ["__setstate__"], true]
