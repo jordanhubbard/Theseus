@@ -1,0 +1,192 @@
+spec: asyncio_extra2236
+version: ">=3.9"
+backend: python_module(asyncio)
+error_model: python_exceptions
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio.html — Python asyncio module documentation"
+    - "https://docs.python.org/3/library/asyncio-task.html — asyncio Task and Future"
+    - "https://docs.python.org/3/library/asyncio-sync.html — asyncio synchronization primitives"
+    - "https://docs.python.org/3/library/asyncio-stream.html — asyncio streams"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_asynciomodule.c — C implementation of Task and Future"
+    - "CPython source: Lib/asyncio/tasks.py, Lib/asyncio/futures.py, Lib/asyncio/locks.py, Lib/asyncio/queues.py, Lib/asyncio/streams.py"
+  notes:
+    - "Wave 2236 (_extra2236): __slots__ and slot descriptor protocol — __slots__, __weakref__, __dict__, __abstractmethods__, __init__, __new__ presence in asyncio class dicts."
+    - "asyncio.Task and asyncio.Future are C extension types from _asynciomodule.c; they do NOT define __slots__ in their class dict (C types manage memory layout directly at the C level)."
+    - "asyncio.Task and asyncio.Future do NOT have __weakref__ or __dict__ in their class dict — C extension types handle these via C slots, not Python-level __slots__ machinery."
+    - "asyncio.Task and asyncio.Future DO have __init__ and __new__ in their class dict — both define custom construction in C."
+    - "asyncio.Event, Lock, Queue, Semaphore, Condition are pure Python classes without __slots__ defined — so __slots__ is NOT in their class dicts. They have __weakref__ and __dict__ descriptors inherited but NOT in their own class dicts."
+    - "asyncio.StreamReader is a pure Python class; its __dict__ is a mappingproxy that DOES contain __weakref__ and __dict__ as slot descriptors — StreamReader uses object-level instance dict but the class dict has those entries."
+    - "asyncio.Event, Lock, Queue, Semaphore, Condition, StreamReader all define __init__ in their class dict. None define __new__."
+    - "__abstractmethods__ is NOT in any of the 8 asyncio class dicts — none are abstract base classes that declare abstract methods on themselves."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# Table 1: __slots__ dict-presence — all 8 asyncio classes
+#
+# __slots__ is NOT in the __dict__ of any of the 8 asyncio classes. The C
+# extension types Task and Future use C-level slot machinery and do not store
+# a __slots__ tuple in their Python-level class dict. The pure Python classes
+# Event, Lock, Queue, Semaphore, Condition, and StreamReader do not define
+# __slots__ in their class body — they allow per-instance __dict__. All 8 False.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2236.slots_dict_presence:
+  description: "__slots__ dict-presence for asyncio Task/Future/Event/Lock/Queue/Semaphore/Condition/StreamReader — all False"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as2236
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2236001", "asyncio.Task.__dict__.__contains__", ["__slots__"], false]
+    - ["as2236002", "asyncio.Future.__dict__.__contains__", ["__slots__"], false]
+    - ["as2236003", "asyncio.Event.__dict__.__contains__", ["__slots__"], false]
+    - ["as2236004", "asyncio.Lock.__dict__.__contains__", ["__slots__"], false]
+    - ["as2236005", "asyncio.Queue.__dict__.__contains__", ["__slots__"], false]
+    - ["as2236006", "asyncio.Semaphore.__dict__.__contains__", ["__slots__"], false]
+    - ["as2236007", "asyncio.Condition.__dict__.__contains__", ["__slots__"], false]
+    - ["as2236008", "asyncio.StreamReader.__dict__.__contains__", ["__slots__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 2: __weakref__ dict-presence — all 8 asyncio classes
+#
+# __weakref__ is NOT in the __dict__ of most asyncio classes. C extension types
+# Task and Future handle weak reference support at the C level and do not
+# expose a __weakref__ slot descriptor in their Python class dict. Pure Python
+# classes Event, Lock, Queue, Semaphore, and Condition also do not have
+# __weakref__ in their own class dict — they inherit it from object.
+# asyncio.StreamReader is the exception: it defines a __weakref__ slot
+# descriptor in its class dict. Task/Future/Event/Lock/Queue/Semaphore/Condition=False;
+# StreamReader=True.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2236.weakref_dict_presence:
+  description: "__weakref__ dict-presence for asyncio Task/Future/Event/Lock/Queue/Semaphore/Condition/StreamReader — StreamReader True, rest False"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as2236
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2236009", "asyncio.Task.__dict__.__contains__", ["__weakref__"], false]
+    - ["as2236010", "asyncio.Future.__dict__.__contains__", ["__weakref__"], false]
+    - ["as2236011", "asyncio.Event.__dict__.__contains__", ["__weakref__"], false]
+    - ["as2236012", "asyncio.Lock.__dict__.__contains__", ["__weakref__"], false]
+    - ["as2236013", "asyncio.Queue.__dict__.__contains__", ["__weakref__"], false]
+    - ["as2236014", "asyncio.Semaphore.__dict__.__contains__", ["__weakref__"], false]
+    - ["as2236015", "asyncio.Condition.__dict__.__contains__", ["__weakref__"], false]
+    - ["as2236016", "asyncio.StreamReader.__dict__.__contains__", ["__weakref__"], true]
+
+# ---------------------------------------------------------------------------
+# Table 3: __dict__ dict-presence — all 8 asyncio classes
+#
+# A __dict__ descriptor in a class's own __dict__ indicates the class provides
+# per-instance attribute dicts for its direct instances. Task and Future are C
+# extension types — their instance storage is managed at C level and no
+# __dict__ descriptor appears in the Python class dict. Pure Python classes
+# Event, Lock, Queue, Semaphore, and Condition likewise do not carry a __dict__
+# entry in their own class dict (it is inherited from object). asyncio.StreamReader
+# alone has __dict__ in its class dict (paired with __weakref__). Task/Future/
+# Event/Lock/Queue/Semaphore/Condition=False; StreamReader=True.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2236.dict_dict_presence:
+  description: "__dict__ dict-presence for asyncio Task/Future/Event/Lock/Queue/Semaphore/Condition/StreamReader — StreamReader True, rest False"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as2236
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2236017", "asyncio.Task.__dict__.__contains__", ["__dict__"], false]
+    - ["as2236018", "asyncio.Future.__dict__.__contains__", ["__dict__"], false]
+    - ["as2236019", "asyncio.Event.__dict__.__contains__", ["__dict__"], false]
+    - ["as2236020", "asyncio.Lock.__dict__.__contains__", ["__dict__"], false]
+    - ["as2236021", "asyncio.Queue.__dict__.__contains__", ["__dict__"], false]
+    - ["as2236022", "asyncio.Semaphore.__dict__.__contains__", ["__dict__"], false]
+    - ["as2236023", "asyncio.Condition.__dict__.__contains__", ["__dict__"], false]
+    - ["as2236024", "asyncio.StreamReader.__dict__.__contains__", ["__dict__"], true]
+
+# ---------------------------------------------------------------------------
+# Table 4: __abstractmethods__ dict-presence — all 8 asyncio classes
+#
+# __abstractmethods__ is NOT in the __dict__ of any asyncio class. None of
+# Task, Future, Event, Lock, Queue, Semaphore, Condition, or StreamReader is
+# an abstract base class that carries unimplemented abstract methods.
+# All 8 return False.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2236.abstractmethods_dict_presence:
+  description: "__abstractmethods__ dict-presence for asyncio Task/Future/Event/Lock/Queue/Semaphore/Condition/StreamReader — all False"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as2236
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2236025", "asyncio.Task.__dict__.__contains__", ["__abstractmethods__"], false]
+    - ["as2236026", "asyncio.Future.__dict__.__contains__", ["__abstractmethods__"], false]
+    - ["as2236027", "asyncio.Event.__dict__.__contains__", ["__abstractmethods__"], false]
+    - ["as2236028", "asyncio.Lock.__dict__.__contains__", ["__abstractmethods__"], false]
+    - ["as2236029", "asyncio.Queue.__dict__.__contains__", ["__abstractmethods__"], false]
+    - ["as2236030", "asyncio.Semaphore.__dict__.__contains__", ["__abstractmethods__"], false]
+    - ["as2236031", "asyncio.Condition.__dict__.__contains__", ["__abstractmethods__"], false]
+    - ["as2236032", "asyncio.StreamReader.__dict__.__contains__", ["__abstractmethods__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 5: __init__ dict-presence — all 8 asyncio classes
+#
+# __init__ IS in the __dict__ of all 8 asyncio classes. The C extension types
+# Task and Future both define custom __init__ methods at C level, and these
+# appear as slot wrapper entries in their Python-level class dict. All pure
+# Python classes (Event, Lock, Queue, Semaphore, Condition, StreamReader)
+# define __init__ in their class body. All 8 return True.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2236.init_dict_presence:
+  description: "__init__ dict-presence for asyncio Task/Future/Event/Lock/Queue/Semaphore/Condition/StreamReader — all True"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as2236
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2236033", "asyncio.Task.__dict__.__contains__", ["__init__"], true]
+    - ["as2236034", "asyncio.Future.__dict__.__contains__", ["__init__"], true]
+    - ["as2236035", "asyncio.Event.__dict__.__contains__", ["__init__"], true]
+    - ["as2236036", "asyncio.Lock.__dict__.__contains__", ["__init__"], true]
+    - ["as2236037", "asyncio.Queue.__dict__.__contains__", ["__init__"], true]
+    - ["as2236038", "asyncio.Semaphore.__dict__.__contains__", ["__init__"], true]
+    - ["as2236039", "asyncio.Condition.__dict__.__contains__", ["__init__"], true]
+    - ["as2236040", "asyncio.StreamReader.__dict__.__contains__", ["__init__"], true]
+
+# ---------------------------------------------------------------------------
+# Table 6: __new__ dict-presence — all 8 asyncio classes
+#
+# __new__ IS in the __dict__ of Task and Future only. These C extension types
+# define a custom __new__ method to control allocation and initialization of C
+# instances. The pure Python classes Event, Lock, Queue, Semaphore, Condition,
+# and StreamReader do not define __new__ — they rely on object.__new__. Task=True;
+# Future=True; Event/Lock/Queue/Semaphore/Condition/StreamReader=False.
+# ---------------------------------------------------------------------------
+
+table asyncio_extra2236.new_dict_presence:
+  description: "__new__ dict-presence for asyncio Task/Future/Event/Lock/Queue/Semaphore/Condition/StreamReader — Task and Future True, rest False"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: as2236
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as2236041", "asyncio.Task.__dict__.__contains__", ["__new__"], true]
+    - ["as2236042", "asyncio.Future.__dict__.__contains__", ["__new__"], true]
+    - ["as2236043", "asyncio.Event.__dict__.__contains__", ["__new__"], false]
+    - ["as2236044", "asyncio.Lock.__dict__.__contains__", ["__new__"], false]
+    - ["as2236045", "asyncio.Queue.__dict__.__contains__", ["__new__"], false]
+    - ["as2236046", "asyncio.Semaphore.__dict__.__contains__", ["__new__"], false]
+    - ["as2236047", "asyncio.Condition.__dict__.__contains__", ["__new__"], false]
+    - ["as2236048", "asyncio.StreamReader.__dict__.__contains__", ["__new__"], false]
