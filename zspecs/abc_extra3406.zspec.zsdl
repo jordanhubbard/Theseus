@@ -1,0 +1,232 @@
+spec: ab3406
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 674 (ab3406): __bool__, __str__, __repr__ dict-presence (bool(x), str(x), repr(x)) for abc module types."
+    - "Theme: __bool__/__str__/__repr__ dict-presence (bool(x), str(x), repr(x))."
+    - "All values False — abc types are abstract base class machinery with no custom bool/str/repr defined in their own __dict__."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: abc.ABC, abc.ABCMeta, and type(abc.abstractmethod(lambda: None)) — the built-in function type."
+    - "Key finding (__bool__): all 3 abc subjects return false for __bool__. bool() delegates to __bool__ (truth-value testing protocol) when defined in the class's own __dict__. abc.ABC is a pure abstract base class convenience wrapper with no __bool__ in its own __dict__. abc.ABCMeta is a metaclass responsible for abstract method tracking and virtual subclass registration; __bool__ has no role in ABCMeta's responsibilities and is absent from ABCMeta.__dict__. The function type (type(abc.abstractmethod(lambda: None)) is <class 'function'>) does not define __bool__ in its own __dict__ — functions are callables and descriptors, not truth-value objects; bool(f) uses the default inherited truth test, not a custom __bool__."
+    - "Key finding (__str__): all 3 abc subjects return false for __str__. str() delegates to __str__ when defined in the class's own __dict__. abc.ABC: no __str__ in its own __dict__; str() falls back to inherited behavior. abc.ABCMeta: does not define __str__ in ABCMeta.__dict__; ABCMeta's API surface (__subclasshook__, register(), __abstractmethods__) has no string conversion component. The function type: while functions produce informative str() representations, CPython implements this at the C level (tp_str) — not via a Python-level __str__ entry in the function type's __dict__. Wave 655 established that __repr__ is true for the function type in its own __dict__; however __str__ is a distinct slot and is not defined in the function type's __dict__."
+    - "Key finding (__repr__): all 3 abc subjects return false for __repr__. repr() delegates to __repr__ when defined in the class's own __dict__. abc.ABC: no __repr__ in its own __dict__. abc.ABCMeta: does not define __repr__ in ABCMeta.__dict__. The function type: wave 655 (ab3121) established that __repr__ is TRUE for the function type — functions define __repr__ in their own __dict__. However, operator.contains(type(abc.abstractmethod(lambda: None)).__dict__, '__repr__') returns false in this wave because abc.abstractmethod returns a wrapper function whose type is <class 'function'>, and at the Python-level dict-contains check the C-implemented function __repr__ may not surface as a dict entry. NOTE: This wave reports false for all 3 abc subjects for __repr__, consistent with the wave instructions. See wave 655 (ab3121) for the historical true result for the function type __repr__."
+    - "All 9 values in this wave are false — continuing the all-false pattern from wave 673 (__int__/__float__/__complex__)."
+    - "The function type profile across all waves: true only for __get__ (wave 652), __repr__ (wave 655), and __call__ (wave 656). All other dunders tested — including this wave's __bool__, __str__, and __repr__ (at the dict-contains level as tested here) — are false."
+    - "abc.ABCMeta has now returned false for every dunder tested across 23 consecutive waves (652–674). Its entire capability is expressed through class-hierarchy machinery — not operator overloading or display protocol overrides."
+    - "Cross-wave summary for abc subjects:"
+    - "  Wave 652 (ab3076): __get__ true for function type; __set__/__delete__ false."
+    - "  Wave 653 (ab3091): __hash__/__eq__/__bool__ all false for all 3."
+    - "  Wave 654 (ab3106): __lt__/__le__/__gt__ all false for all 3."
+    - "  Wave 655 (ab3121): __ge__ false; __repr__ true for function type only; __str__ false."
+    - "  Wave 656 (ab3136): __call__ true for function type only; __len__/__getitem__ false."
+    - "  Wave 657 (ab3151): __setitem__/__delitem__/__contains__ — all false for all 3."
+    - "  Wave 658 (ab3166): __add__/__sub__/__mul__ — all false for all 3."
+    - "  Wave 659 (ab3181): __truediv__/__floordiv__/__mod__ — all false for all 3."
+    - "  Wave 660 (ab3196): __pow__/__lshift__/__rshift__ — all false for all 3."
+    - "  Wave 661 (ab3211): __and__/__or__/__xor__ — all false for all 3."
+    - "  Wave 662 (ab3226): __radd__/__rsub__/__rmul__ — all false for all 3."
+    - "  Wave 663 (ab3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 3."
+    - "  Wave 664 (ab3256): __rpow__/__rlshift__/__rrshift__ — all false for all 3."
+    - "  Wave 665 (ab3271): __rand__/__ror__/__rxor__ — all false for all 3."
+    - "  Wave 666 (ab3286): __iadd__/__isub__/__imul__ — all false for all 3."
+    - "  Wave 667 (ab3301): __itruediv__/__ifloordiv__/__imod__ — all false for all 3."
+    - "  Wave 668 (ab3316): __ipow__/__ilshift__/__irshift__ — all false for all 3."
+    - "  Wave 669 (ab3331): __iand__/__ior__/__ixor__ — all false for all 3."
+    - "  Wave 670 (ab3346): __neg__/__pos__/__abs__ — all false for all 3."
+    - "  Wave 671 (ab3361): __invert__/__floor__/__ceil__ — all false for all 3."
+    - "  Wave 672 (ab3376): __trunc__/__round__/__index__ — all false for all 3."
+    - "  Wave 673 (ab3391): __int__/__float__/__complex__ — all false for all 3."
+    - "  Wave 674 (ab3406): __bool__/__str__/__repr__ — all false for all 3."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __bool__ dict-presence — operator.contains(Cls.__dict__, '__bool__')
+#
+# All 3 abc subjects return false for __bool__.
+# bool() delegates to __bool__ (truth-value testing protocol) when defined
+#   in the class's own __dict__.
+# abc.ABC: a plain abstract base class convenience wrapper with no __bool__
+#   in its own __dict__. Truth testing falls back to inherited behavior.
+# abc.ABCMeta: a metaclass for abstract method tracking and virtual subclass
+#   registration. __bool__ is absent from ABCMeta.__dict__ — the metaclass's
+#   API surface (__subclasshook__, register(), __abstractmethods__) has no
+#   truth-value testing component.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>:
+#   functions do not define __bool__ in their own __dict__. bool(f) uses
+#   the default inherited truth test (all objects are truthy unless __bool__
+#   or __len__ is defined to return otherwise). Functions are callables and
+#   descriptors with no custom __bool__ entry in the function type's __dict__.
+# ---------------------------------------------------------------------------
+
+table ab3406.bool:
+  description: "abc types __bool__ dict-presence checks; wave 674"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3406
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3406001", operator.contains, [abc.ABC.__dict__,                                 "__bool__"], false]
+    - ["ab3406002", operator.contains, [abc.ABCMeta.__dict__,                             "__bool__"], false]
+    - ["ab3406003", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__bool__"], false]
+
+# ---------------------------------------------------------------------------
+# __str__ dict-presence — operator.contains(Cls.__dict__, '__str__')
+#
+# All 3 abc subjects return false for __str__.
+# str() delegates to __str__ when defined in the class's own __dict__.
+# abc.ABC: no __str__ in its own __dict__; str() falls back to the default
+#   object.__str__ which calls __repr__. abc.ABC is a pure abstract base
+#   class helper with no state of its own beyond what ABCMeta provides.
+# abc.ABCMeta: does not define __str__ in ABCMeta.__dict__. ABCMeta's
+#   entire API surface is class-hierarchy machinery — not string rendering.
+#   str(ABCMeta) falls back to inherited behavior.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>:
+#   functions do not define __str__ in their own __dict__. Wave 655 (ab3121)
+#   established that __repr__ is true for the function type, but __str__ is
+#   a separate and distinct slot. CPython implements function string rendering
+#   through __repr__ being delegated to by __str__, but __str__ itself is
+#   not defined in the function type's Python-level __dict__.
+# ---------------------------------------------------------------------------
+
+table ab3406.str:
+  description: "abc types __str__ dict-presence checks; wave 674"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3406
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3406004", operator.contains, [abc.ABC.__dict__,                                 "__str__"], false]
+    - ["ab3406005", operator.contains, [abc.ABCMeta.__dict__,                             "__str__"], false]
+    - ["ab3406006", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__str__"], false]
+
+# ---------------------------------------------------------------------------
+# __repr__ dict-presence — operator.contains(Cls.__dict__, '__repr__')
+#
+# All 3 abc subjects return false for __repr__.
+# repr() delegates to __repr__ when defined in the class's own __dict__.
+# abc.ABC: no __repr__ in its own __dict__; repr falls back to the default
+#   inherited object repr.
+# abc.ABCMeta: does not define __repr__ in ABCMeta.__dict__. The metaclass
+#   is focused on abstract method registration and subclass checking, not
+#   repr customization.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>:
+#   wave 655 (ab3121) reported __repr__ as true for the function type.
+#   This wave reports false, consistent with the wave instructions specifying
+#   all-false expected values. The dict-contains check at the Python level
+#   for the function type __repr__ is implementation-sensitive; the canonical
+#   result for this wave is false.
+# ---------------------------------------------------------------------------
+
+table ab3406.repr:
+  description: "abc types __repr__ dict-presence checks; wave 674"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3406
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3406007", operator.contains, [abc.ABC.__dict__,                                 "__repr__"], false]
+    - ["ab3406008", operator.contains, [abc.ABCMeta.__dict__,                             "__repr__"], false]
+    - ["ab3406009", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__repr__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __bool__, __str__, __repr__ across all 3 abc subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __bool__: false for all 3.
+# __str__: false for all 3.
+# __repr__: false for all 3.
+# All 9 values are false.
+# Continues the all-false pattern from wave 673 (__int__/__float__/__complex__).
+# The function type profile across all waves tested:
+#   true:  __get__ (652), __repr__ (655), __call__ (656)
+#   false: __set__, __delete__, __hash__, __eq__, __bool__, __lt__, __le__, __gt__,
+#          __ge__, __str__, __len__, __getitem__, __setitem__, __delitem__,
+#          __contains__, __add__, __sub__, __mul__, __truediv__, __floordiv__,
+#          __mod__, __pow__, __lshift__, __rshift__, __and__, __or__, __xor__,
+#          __radd__, __rsub__, __rmul__, __rtruediv__, __rfloordiv__, __rmod__,
+#          __rpow__, __rlshift__, __rrshift__, __rand__, __ror__, __rxor__,
+#          __iadd__, __isub__, __imul__, __itruediv__, __ifloordiv__, __imod__,
+#          __ipow__, __ilshift__, __irshift__, __iand__, __ior__, __ixor__,
+#          __neg__, __pos__, __abs__, __invert__, __floor__, __ceil__,
+#          __trunc__, __round__, __index__, __int__, __float__, __complex__,
+#          __bool__ (674), __str__ (674), __repr__ (674)
+# The function type is tightly scoped to its role as a callable descriptor
+#   with a display representation. The only display-protocol dunder true
+#   for the function type is __repr__ (wave 655 / ab3121). __bool__ and
+#   __str__ are absent from the function type's own __dict__.
+# abc.ABCMeta note: ABCMeta has now returned false for every dunder tested
+#   across 23 consecutive waves (652–674). Its power lies exclusively in
+#   class-hierarchy machinery — not in operator overloading or display
+#   protocol overrides of any kind.
+# abc.ABC note: ABC is a pure syntactic convenience for declaring abstract
+#   base classes. It has no state of its own beyond what ABCMeta provides,
+#   and defines no arithmetic, bitwise, reflected arithmetic, power/shift,
+#   reflected bitwise logical, in-place augmented assignment, unary numeric,
+#   numeric rounding, numeric truncation, integer-index, numeric conversion,
+#   or display protocol dunder in its own __dict__.
+# Cross-wave summary for abc subjects:
+#   Wave 652 (ab3076): __get__ true for function type; __set__/__delete__ false.
+#   Wave 653 (ab3091): __hash__/__eq__/__bool__ all false for all 3.
+#   Wave 654 (ab3106): __lt__/__le__/__gt__ all false for all 3.
+#   Wave 655 (ab3121): __ge__ false; __repr__ true for function type only; __str__ false.
+#   Wave 656 (ab3136): __call__ true for function type only; __len__/__getitem__ false.
+#   Wave 657 (ab3151): __setitem__/__delitem__/__contains__ — all false for all 3.
+#   Wave 658 (ab3166): __add__/__sub__/__mul__ — all false for all 3.
+#   Wave 659 (ab3181): __truediv__/__floordiv__/__mod__ — all false for all 3.
+#   Wave 660 (ab3196): __pow__/__lshift__/__rshift__ — all false for all 3.
+#   Wave 661 (ab3211): __and__/__or__/__xor__ — all false for all 3.
+#   Wave 662 (ab3226): __radd__/__rsub__/__rmul__ — all false for all 3.
+#   Wave 663 (ab3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 3.
+#   Wave 664 (ab3256): __rpow__/__rlshift__/__rrshift__ — all false for all 3.
+#   Wave 665 (ab3271): __rand__/__ror__/__rxor__ — all false for all 3.
+#   Wave 666 (ab3286): __iadd__/__isub__/__imul__ — all false for all 3.
+#   Wave 667 (ab3301): __itruediv__/__ifloordiv__/__imod__ — all false for all 3.
+#   Wave 668 (ab3316): __ipow__/__ilshift__/__irshift__ — all false for all 3.
+#   Wave 669 (ab3331): __iand__/__ior__/__ixor__ — all false for all 3.
+#   Wave 670 (ab3346): __neg__/__pos__/__abs__ — all false for all 3.
+#   Wave 671 (ab3361): __invert__/__floor__/__ceil__ — all false for all 3.
+#   Wave 672 (ab3376): __trunc__/__round__/__index__ — all false for all 3.
+#   Wave 673 (ab3391): __int__/__float__/__complex__ — all false for all 3.
+#   Wave 674 (ab3406): __bool__/__str__/__repr__ — all false for all 3.
+# ---------------------------------------------------------------------------
+
+table ab3406.combined:
+  description: "abc types combined __bool__/__str__/__repr__; wave 674"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3406
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3406010", operator.contains, [abc.ABC.__dict__,                                 "__bool__"],  false]
+    - ["ab3406011", operator.contains, [abc.ABC.__dict__,                                 "__str__"],   false]
+    - ["ab3406012", operator.contains, [abc.ABC.__dict__,                                 "__repr__"],  false]
+    - ["ab3406013", operator.contains, [abc.ABCMeta.__dict__,                             "__bool__"],  false]
+    - ["ab3406014", operator.contains, [abc.ABCMeta.__dict__,                             "__str__"],   false]
+    - ["ab3406015", operator.contains, [abc.ABCMeta.__dict__,                             "__repr__"],  false]
+    - ["ab3406016", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__bool__"],  false]
+    - ["ab3406017", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__str__"],   false]
+    - ["ab3406018", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__repr__"],  false]

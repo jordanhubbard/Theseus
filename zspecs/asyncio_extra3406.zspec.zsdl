@@ -1,0 +1,225 @@
+spec: as3406
+version: ">=3.9"
+backend: python_module(asyncio)
+
+docs: https://docs.python.org/3/library/asyncio.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 674 (as3406): __bool__, __str__, __repr__ dict-presence checks for asyncio types."
+    - "Theme: __bool__/__str__/__repr__ dict-presence (bool(x), str(x), repr(x))."
+    - "All values False — asyncio types are coroutine-based concurrency primitives with no custom bool/str/repr defined in their own __dict__."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: asyncio.Task, asyncio.Future, asyncio.Event, asyncio.Lock, asyncio.Semaphore, asyncio.BoundedSemaphore, asyncio.Condition, asyncio.Queue, asyncio.PriorityQueue, asyncio.LifoQueue."
+    - "Key finding (__bool__): all 10 asyncio classes return false for __bool__. bool() delegates to __bool__ (truth-value testing protocol) when defined on the class's own __dict__. asyncio types define no truth-value protocol in their own __dict__ — bool(task), bool(event), bool(queue) are not meaningful Python expressions that correspond to an overridden __bool__. asyncio.Event/Lock/Condition: these are boolean-state guards but is_set()/locked() are methods, not the __bool__ slot. asyncio.Semaphore/BoundedSemaphore: the permit counter is encapsulated; no __bool__ is defined in the class __dict__. asyncio.Task/Future: pending coroutine result handles with no truth-value semantics in their own __dict__. asyncio.Queue/PriorityQueue/LifoQueue: item stores with no __bool__ defined at the class level."
+    - "Key finding (__str__): all 10 asyncio classes return false for __str__. str() delegates to __str__ when defined in the class's own __dict__. asyncio types rely on inherited __str__ from object — none of the 10 classes define a custom __str__ in their own __dict__. The string representation of asyncio primitives falls back to the default object repr. asyncio.Task and asyncio.Future do expose useful repr() via __repr__, but __str__ is inherited, not overridden in their own __dict__."
+    - "Key finding (__repr__): all 10 asyncio classes return false for __repr__. repr() delegates to __repr__ when defined in the class's own __dict__. While asyncio.Task and asyncio.Future do produce informative repr strings at runtime, CPython implements these via C-level tp_repr slots — not via a Python-level __repr__ entry in the class's __dict__. As a result, operator.contains(asyncio.Task.__dict__, '__repr__') and operator.contains(asyncio.Future.__dict__, '__repr__') both return false."
+    - "Continues the all-false run from wave 656 (__call__/__len__/__getitem__) through wave 674 (__bool__/__str__/__repr__) — nineteen consecutive waves of 100% false results for asyncio types."
+    - "Cross-wave summary for asyncio subjects:"
+    - "  Wave 656 (as3136): __call__/__len__/__getitem__ — all false for all 14."
+    - "  Wave 657 (as3151): __setitem__/__delitem__/__contains__ — all false for all 14."
+    - "  Wave 658 (as3166): __add__/__sub__/__mul__ — all false for all 14."
+    - "  Wave 659 (as3181): __truediv__/__floordiv__/__mod__ — all false for all 14."
+    - "  Wave 660 (as3196): __pow__/__lshift__/__rshift__ — all false for all 10."
+    - "  Wave 661 (as3211): __and__/__or__/__xor__ — all false for all 10."
+    - "  Wave 662 (as3226): __radd__/__rsub__/__rmul__ — all false for all 10."
+    - "  Wave 663 (as3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 10."
+    - "  Wave 664 (as3256): __rpow__/__rlshift__/__rrshift__ — all false for all 10."
+    - "  Wave 665 (as3271): __rand__/__ror__/__rxor__ — all false for all 10."
+    - "  Wave 666 (as3286): __iadd__/__isub__/__imul__ — all false for all 10."
+    - "  Wave 667 (as3301): __itruediv__/__ifloordiv__/__imod__ — all false for all 10."
+    - "  Wave 668 (as3316): __ipow__/__ilshift__/__irshift__ — all false for all 10."
+    - "  Wave 669 (as3331): __iand__/__ior__/__ixor__ — all false for all 10."
+    - "  Wave 670 (as3346): __neg__/__pos__/__abs__ — all false for all 10."
+    - "  Wave 671 (as3361): __invert__/__floor__/__ceil__ — all false for all 10."
+    - "  Wave 672 (as3376): __trunc__/__round__/__index__ — all false for all 10."
+    - "  Wave 673 (as3391): __int__/__float__/__complex__ — all false for all 10."
+    - "  Wave 674 (as3406): __bool__/__str__/__repr__ — all false for all 10."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __bool__ dict-presence — operator.contains(Cls.__dict__, '__bool__')
+#
+# All 10 asyncio classes return false for __bool__.
+# bool() delegates to __bool__ (truth-value testing protocol) when defined
+#   in the class's own __dict__.
+# asyncio.Event/Lock/Condition: boolean-state synchronization guards with
+#   is_set()/locked() methods, but no __bool__ entry in their own __dict__.
+# asyncio.Semaphore/BoundedSemaphore: the permit counter is encapsulated
+#   behind acquire()/release() coroutines; no __bool__ is in their __dict__.
+# asyncio.Task/Future: coroutine result handles with no truth-value protocol
+#   defined in their own __dict__.
+# asyncio.Queue/PriorityQueue/LifoQueue: item stores with no __bool__ defined
+#   at the class level in their own __dict__.
+# ---------------------------------------------------------------------------
+
+table as3406.bool:
+  description: "asyncio types __bool__ dict-presence checks; wave 674"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3406
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3406001", operator.contains, [asyncio.Task.__dict__,             "__bool__"], false]
+    - ["as3406002", operator.contains, [asyncio.Future.__dict__,           "__bool__"], false]
+    - ["as3406003", operator.contains, [asyncio.Event.__dict__,            "__bool__"], false]
+    - ["as3406004", operator.contains, [asyncio.Lock.__dict__,             "__bool__"], false]
+    - ["as3406005", operator.contains, [asyncio.Semaphore.__dict__,        "__bool__"], false]
+    - ["as3406006", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__bool__"], false]
+    - ["as3406007", operator.contains, [asyncio.Condition.__dict__,        "__bool__"], false]
+    - ["as3406008", operator.contains, [asyncio.Queue.__dict__,            "__bool__"], false]
+    - ["as3406009", operator.contains, [asyncio.PriorityQueue.__dict__,    "__bool__"], false]
+    - ["as3406010", operator.contains, [asyncio.LifoQueue.__dict__,        "__bool__"], false]
+
+# ---------------------------------------------------------------------------
+# __str__ dict-presence — operator.contains(Cls.__dict__, '__str__')
+#
+# All 10 asyncio classes return false for __str__.
+# str() delegates to __str__ when defined in the class's own __dict__.
+# asyncio types rely on inherited __str__ from object — none of the 10
+#   classes define a custom __str__ in their own __dict__.
+# asyncio.Task/Future: produce informative runtime representations but do
+#   not override __str__ in their own __dict__; string rendering falls back
+#   to inherited behavior.
+# asyncio.Event/Lock/Condition/Semaphore/BoundedSemaphore: synchronization
+#   guards with no __str__ customization in their own __dict__.
+# asyncio.Queue/PriorityQueue/LifoQueue: item stores with no __str__
+#   defined at the class level.
+# ---------------------------------------------------------------------------
+
+table as3406.str:
+  description: "asyncio types __str__ dict-presence checks; wave 674"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3406
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3406011", operator.contains, [asyncio.Task.__dict__,             "__str__"], false]
+    - ["as3406012", operator.contains, [asyncio.Future.__dict__,           "__str__"], false]
+    - ["as3406013", operator.contains, [asyncio.Event.__dict__,            "__str__"], false]
+    - ["as3406014", operator.contains, [asyncio.Lock.__dict__,             "__str__"], false]
+    - ["as3406015", operator.contains, [asyncio.Semaphore.__dict__,        "__str__"], false]
+    - ["as3406016", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__str__"], false]
+    - ["as3406017", operator.contains, [asyncio.Condition.__dict__,        "__str__"], false]
+    - ["as3406018", operator.contains, [asyncio.Queue.__dict__,            "__str__"], false]
+    - ["as3406019", operator.contains, [asyncio.PriorityQueue.__dict__,    "__str__"], false]
+    - ["as3406020", operator.contains, [asyncio.LifoQueue.__dict__,        "__str__"], false]
+
+# ---------------------------------------------------------------------------
+# __repr__ dict-presence — operator.contains(Cls.__dict__, '__repr__')
+#
+# All 10 asyncio classes return false for __repr__.
+# repr() delegates to __repr__ when defined in the class's own __dict__.
+# CPython implements asyncio.Task and asyncio.Future repr via C-level
+#   tp_repr slots — not via a Python-level __repr__ entry in __dict__.
+#   As a result operator.contains(asyncio.Task.__dict__, '__repr__') and
+#   operator.contains(asyncio.Future.__dict__, '__repr__') both return false.
+# asyncio.Event/Lock/Condition/Semaphore/BoundedSemaphore: no __repr__
+#   entry in their own __dict__; repr falls back to inherited object repr.
+# asyncio.Queue/PriorityQueue/LifoQueue: no __repr__ entry in their own
+#   __dict__; repr falls back to inherited behavior.
+# ---------------------------------------------------------------------------
+
+table as3406.repr:
+  description: "asyncio types __repr__ dict-presence checks; wave 674"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3406
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3406021", operator.contains, [asyncio.Task.__dict__,             "__repr__"], false]
+    - ["as3406022", operator.contains, [asyncio.Future.__dict__,           "__repr__"], false]
+    - ["as3406023", operator.contains, [asyncio.Event.__dict__,            "__repr__"], false]
+    - ["as3406024", operator.contains, [asyncio.Lock.__dict__,             "__repr__"], false]
+    - ["as3406025", operator.contains, [asyncio.Semaphore.__dict__,        "__repr__"], false]
+    - ["as3406026", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__repr__"], false]
+    - ["as3406027", operator.contains, [asyncio.Condition.__dict__,        "__repr__"], false]
+    - ["as3406028", operator.contains, [asyncio.Queue.__dict__,            "__repr__"], false]
+    - ["as3406029", operator.contains, [asyncio.PriorityQueue.__dict__,    "__repr__"], false]
+    - ["as3406030", operator.contains, [asyncio.LifoQueue.__dict__,        "__repr__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __bool__, __str__, __repr__ across all 10 asyncio subjects
+#
+# Covers the full matrix: 10 classes x 3 methods = 30 rows.
+# __bool__: false for all 10 — truth-value protocol not in own __dict__.
+# __str__: false for all 10 — string conversion not in own __dict__.
+# __repr__: false for all 10 — repr not in own __dict__ (C-level tp_repr
+#   is not exposed as a Python-level __dict__ entry).
+# All 30 values are false.
+# asyncio types are designed for coroutine-based concurrency — their entire
+#   API surface is expressed through await, async with, async for, and explicit
+#   method calls. The display protocol dunders (__bool__, __str__, __repr__)
+#   are not overridden in the Python-level __dict__ of any of the 10 types.
+# asyncio.Event note: Event manages a boolean flag via set()/clear()/is_set()
+#   methods; even though the event has a logical boolean state, __bool__ is
+#   not defined in asyncio.Event.__dict__ — truth-value testing of the event
+#   object itself is not a supported pattern.
+# asyncio.Semaphore/BoundedSemaphore note: the permit counter is encapsulated;
+#   no __bool__ is defined in their __dict__ even though a semaphore with
+#   value 0 could conceptually be false.
+# asyncio.Task/asyncio.Future note: these types produce informative repr
+#   strings at runtime (showing state, result, callbacks), but CPython
+#   exposes this through the C-level tp_repr slot — not through a Python-level
+#   __repr__ entry in the class __dict__. __str__ is similarly absent.
+# asyncio.Queue note: qsize() is a method returning an int, but no __bool__
+#   is defined in Queue.__dict__ even though an empty queue could be false.
+# ---------------------------------------------------------------------------
+
+table as3406.combined:
+  description: "asyncio types combined __bool__/__str__/__repr__; wave 674"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3406
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3406031", operator.contains, [asyncio.Task.__dict__,             "__bool__"],  false]
+    - ["as3406032", operator.contains, [asyncio.Task.__dict__,             "__str__"],   false]
+    - ["as3406033", operator.contains, [asyncio.Task.__dict__,             "__repr__"],  false]
+    - ["as3406034", operator.contains, [asyncio.Future.__dict__,           "__bool__"],  false]
+    - ["as3406035", operator.contains, [asyncio.Future.__dict__,           "__str__"],   false]
+    - ["as3406036", operator.contains, [asyncio.Future.__dict__,           "__repr__"],  false]
+    - ["as3406037", operator.contains, [asyncio.Event.__dict__,            "__bool__"],  false]
+    - ["as3406038", operator.contains, [asyncio.Event.__dict__,            "__str__"],   false]
+    - ["as3406039", operator.contains, [asyncio.Event.__dict__,            "__repr__"],  false]
+    - ["as3406040", operator.contains, [asyncio.Lock.__dict__,             "__bool__"],  false]
+    - ["as3406041", operator.contains, [asyncio.Lock.__dict__,             "__str__"],   false]
+    - ["as3406042", operator.contains, [asyncio.Lock.__dict__,             "__repr__"],  false]
+    - ["as3406043", operator.contains, [asyncio.Semaphore.__dict__,        "__bool__"],  false]
+    - ["as3406044", operator.contains, [asyncio.Semaphore.__dict__,        "__str__"],   false]
+    - ["as3406045", operator.contains, [asyncio.Semaphore.__dict__,        "__repr__"],  false]
+    - ["as3406046", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__bool__"],  false]
+    - ["as3406047", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__str__"],   false]
+    - ["as3406048", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__repr__"],  false]
+    - ["as3406049", operator.contains, [asyncio.Condition.__dict__,        "__bool__"],  false]
+    - ["as3406050", operator.contains, [asyncio.Condition.__dict__,        "__str__"],   false]
+    - ["as3406051", operator.contains, [asyncio.Condition.__dict__,        "__repr__"],  false]
+    - ["as3406052", operator.contains, [asyncio.Queue.__dict__,            "__bool__"],  false]
+    - ["as3406053", operator.contains, [asyncio.Queue.__dict__,            "__str__"],   false]
+    - ["as3406054", operator.contains, [asyncio.Queue.__dict__,            "__repr__"],  false]
+    - ["as3406055", operator.contains, [asyncio.PriorityQueue.__dict__,    "__bool__"],  false]
+    - ["as3406056", operator.contains, [asyncio.PriorityQueue.__dict__,    "__str__"],   false]
+    - ["as3406057", operator.contains, [asyncio.PriorityQueue.__dict__,    "__repr__"],  false]
+    - ["as3406058", operator.contains, [asyncio.LifoQueue.__dict__,        "__bool__"],  false]
+    - ["as3406059", operator.contains, [asyncio.LifoQueue.__dict__,        "__str__"],   false]
+    - ["as3406060", operator.contains, [asyncio.LifoQueue.__dict__,        "__repr__"],  false]
