@@ -1,0 +1,219 @@
+spec: mp3166
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 658 (mp3166): __add__, __sub__, __mul__ dict-presence for multiprocessing types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: multiprocessing.Process, multiprocessing.pool.Pool, multiprocessing.pool.AsyncResult, multiprocessing.pool.MapResult, multiprocessing.managers.SyncManager, multiprocessing.managers.BaseListProxy, multiprocessing.managers._BaseDictProxy, multiprocessing.managers._BaseSetProxy."
+    - "Key finding (__add__): multiprocessing.managers.BaseListProxy defines __add__ (true) — the list proxy supports proxy_list + other_list (concatenation), forwarding the operation to the managed list in the server process. This mirrors Python's built-in list __add__. multiprocessing.managers._BaseDictProxy does NOT define __add__ (false) — dict does not support + concatenation in Python. multiprocessing.managers._BaseSetProxy does NOT define __add__ (false) — set uses | for union, not +. All other 5 classes return false."
+    - "Key finding (__sub__): multiprocessing.managers._BaseSetProxy defines __sub__ (true) — the set proxy supports proxy_set - other_set (set difference), forwarding to the managed set. This mirrors Python's built-in set __sub__. multiprocessing.managers.BaseListProxy does NOT define __sub__ (false) — list subtraction is not a Python operation. multiprocessing.managers._BaseDictProxy does NOT define __sub__ (false) — dict subtraction was not added until Python 3.9 for dict views, and is not present in the dict proxy class itself. All other 5 classes return false."
+    - "Key finding (__mul__): multiprocessing.managers.BaseListProxy defines __mul__ (true) — the list proxy supports proxy_list * n (repetition), forwarding to the managed list. This mirrors Python's built-in list __mul__. multiprocessing.managers._BaseDictProxy does NOT define __mul__ (false) — dict has no repetition. multiprocessing.managers._BaseSetProxy does NOT define __mul__ (false) — set has no repetition. All other 5 classes return false."
+    - "Proxy class arithmetic profile confirmed:"
+    - "  BaseListProxy  (proxies list): __add__=true, __sub__=false, __mul__=true  — list supports + and *, but not -."
+    - "  _BaseDictProxy (proxies dict): __add__=false, __sub__=false, __mul__=false — dict defines none of these."
+    - "  _BaseSetProxy  (proxies set):  __add__=false, __sub__=true,  __mul__=false — set supports - (difference) but not + or *."
+    - "This pattern precisely mirrors the arithmetic operators defined on Python's built-in list, dict, and set types. The proxy classes faithfully expose only the operators their underlying collection defines."
+    - "multiprocessing.managers.SyncManager, multiprocessing.Process, multiprocessing.pool.Pool, multiprocessing.pool.AsyncResult, multiprocessing.pool.MapResult: no arithmetic operators — these are process/pool/result management objects, not collections."
+    - "Cross-wave pattern for manager proxies (selected highlights):"
+    - "  Wave 654 (mp3106): __lt__/__le__/__gt__ — _BaseSetProxy true (set ordering operators)."
+    - "  Wave 656 (mp3136): __len__ — all 3 proxies true; __getitem__ — list+dict true, set false."
+    - "  Wave 657 (mp3151): __setitem__/__delitem__ — list+dict true, set false; __contains__ — all 3 true."
+    - "  Wave 658 (mp3166): __add__/__mul__ — list true, others false; __sub__ — set true, others false."
+    - "Cross-wave summary for all mp subjects:"
+    - "  Wave 652 (mp3076): __get__/__set__/__delete__ — all false for all 8."
+    - "  Wave 653 (mp3091): __hash__/__eq__/__bool__ — all false for all 8."
+    - "  Wave 654 (mp3106): __lt__/__le__/__gt__ — _BaseSetProxy true; others false."
+    - "  Wave 655 (mp3121): __ge__ — _BaseSetProxy true; __repr__ — Pool true; __str__ all false."
+    - "  Wave 656 (mp3136): __call__ all false; __len__ — 3 proxies true; __getitem__ — list+dict true."
+    - "  Wave 657 (mp3151): __setitem__/__delitem__ — list+dict proxies true; __contains__ — all 3 proxies true."
+    - "  Wave 658 (mp3166): __add__/__mul__ — BaseListProxy true; __sub__ — _BaseSetProxy true; others false."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __add__ dict-presence — operator.contains(Cls.__dict__, '__add__')
+#
+# multiprocessing.managers.BaseListProxy: TRUE — proxies list + list
+#   concatenation to the managed list in the server process.
+#   Python's built-in list defines __add__; the proxy faithfully mirrors it.
+# multiprocessing.managers._BaseDictProxy: FALSE — dict does not define __add__.
+#   Dict merging uses |= (update) or dict | dict (Python 3.9+), not +.
+# multiprocessing.managers._BaseSetProxy: FALSE — set uses | for union, not +.
+#   set.__add__ is not defined; set.__or__ handles union.
+# All other 5 classes: false — Process, Pool, AsyncResult, MapResult,
+#   and SyncManager are not collection types with concatenation semantics.
+# ---------------------------------------------------------------------------
+
+table mp3166.add:
+  description: "multiprocessing types __add__ dict-presence checks; wave 658"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3166
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3166001", operator.contains, [multiprocessing.Process.__dict__,                  "__add__"], false]
+    - ["mp3166002", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__add__"], false]
+    - ["mp3166003", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__add__"], false]
+    - ["mp3166004", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__add__"], false]
+    - ["mp3166005", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__add__"], false]
+    - ["mp3166006", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__add__"], true]
+    - ["mp3166007", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__add__"], false]
+    - ["mp3166008", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__add__"], false]
+
+# ---------------------------------------------------------------------------
+# __sub__ dict-presence — operator.contains(Cls.__dict__, '__sub__')
+#
+# multiprocessing.managers._BaseSetProxy: TRUE — proxies set - set (set
+#   difference) to the managed set in the server process.
+#   Python's built-in set defines __sub__ for difference; the proxy mirrors it.
+# multiprocessing.managers.BaseListProxy: FALSE — list does not define __sub__.
+#   List subtraction is not a Python operation; remove() removes a single item.
+# multiprocessing.managers._BaseDictProxy: FALSE — dict does not define __sub__
+#   in its own __dict__ (dict.__sub__ was not added even in Python 3.9;
+#   only dict views support -).
+# All other 5 classes: false — Process, Pool, AsyncResult, MapResult,
+#   and SyncManager have no subtraction semantics.
+# ---------------------------------------------------------------------------
+
+table mp3166.sub:
+  description: "multiprocessing types __sub__ dict-presence checks; wave 658"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3166
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3166009",  operator.contains, [multiprocessing.Process.__dict__,                  "__sub__"], false]
+    - ["mp3166010", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__sub__"], false]
+    - ["mp3166011", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__sub__"], false]
+    - ["mp3166012", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__sub__"], false]
+    - ["mp3166013", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__sub__"], false]
+    - ["mp3166014", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__sub__"], false]
+    - ["mp3166015", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__sub__"], false]
+    - ["mp3166016", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__sub__"], true]
+
+# ---------------------------------------------------------------------------
+# __mul__ dict-presence — operator.contains(Cls.__dict__, '__mul__')
+#
+# multiprocessing.managers.BaseListProxy: TRUE — proxies list * n (repetition)
+#   to the managed list in the server process.
+#   Python's built-in list defines __mul__ for repetition; the proxy mirrors it.
+# multiprocessing.managers._BaseDictProxy: FALSE — dict does not define __mul__.
+#   There is no dict * n operation in Python.
+# multiprocessing.managers._BaseSetProxy: FALSE — set does not define __mul__.
+#   There is no set * n operation in Python; sets are unordered and unique.
+# All other 5 classes: false — Process, Pool, AsyncResult, MapResult,
+#   and SyncManager have no repetition or multiplication semantics.
+# ---------------------------------------------------------------------------
+
+table mp3166.mul:
+  description: "multiprocessing types __mul__ dict-presence checks; wave 658"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3166
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3166017", operator.contains, [multiprocessing.Process.__dict__,                  "__mul__"], false]
+    - ["mp3166018", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__mul__"], false]
+    - ["mp3166019", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__mul__"], false]
+    - ["mp3166020", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__mul__"], false]
+    - ["mp3166021", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__mul__"], false]
+    - ["mp3166022", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__mul__"], true]
+    - ["mp3166023", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__mul__"], false]
+    - ["mp3166024", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__mul__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __add__, __sub__, __mul__ across all 8 mp subjects
+#
+# Covers the full matrix: 8 classes x 3 methods = 24 rows.
+# __add__: true for BaseListProxy only; false for all others.
+# __sub__: true for _BaseSetProxy only; false for all others.
+# __mul__: true for BaseListProxy only; false for all others.
+#
+# The manager proxy classes again expose the arithmetic profile of their
+# underlying Python collection type:
+#   BaseListProxy  (proxies list): __add__=true, __sub__=false, __mul__=true
+#   _BaseDictProxy (proxies dict): __add__=false, __sub__=false, __mul__=false
+#   _BaseSetProxy  (proxies set):  __add__=false, __sub__=true,  __mul__=false
+#
+# This precisely mirrors Python's built-in type arithmetic:
+#   list:  [1]+[2]=[1,2] (add), [1]*3=[1,1,1] (mul), no sub.
+#   dict:  no +, no -, no * in dict's own __dict__ (dict | is __or__, not __add__).
+#   set:   {1}-{2}={1} (sub via difference), no + (uses | for union), no *.
+#
+# BaseListProxy shows the characteristic list pattern: the same two operators
+# that make lists useful as sequences (__add__ for concatenation, __mul__ for
+# repetition) are faithfully proxied across the process boundary.
+#
+# _BaseSetProxy shows the set asymmetry: __sub__ for set difference is defined,
+# but __add__ (not defined on set) and __mul__ (not defined on set) are absent.
+# Sets use __or__/__and__/__xor__ for the other set-algebraic operators.
+#
+# Cross-wave pattern for manager proxies:
+#   Wave 656 (mp3136): __len__ — all 3 proxies true; __getitem__ — list+dict true.
+#   Wave 657 (mp3151): __setitem__/__delitem__ — list+dict true; __contains__ — all 3 true.
+#   Wave 658 (mp3166): __add__/__mul__ — list only; __sub__ — set only.
+#
+# Cross-wave summary for all mp subjects:
+#   Wave 652 (mp3076): __get__/__set__/__delete__ — all false for all 8.
+#   Wave 653 (mp3091): __hash__/__eq__/__bool__ — all false for all 8.
+#   Wave 654 (mp3106): __lt__/__le__/__gt__ — _BaseSetProxy true; others false.
+#   Wave 655 (mp3121): __ge__ — _BaseSetProxy true; __repr__ — Pool true; __str__ all false.
+#   Wave 656 (mp3136): __call__ all false; __len__ — 3 proxies true; __getitem__ — list+dict true.
+#   Wave 657 (mp3151): __setitem__/__delitem__ — list+dict proxies true; __contains__ — all 3 proxies true.
+#   Wave 658 (mp3166): __add__/__mul__ — BaseListProxy true; __sub__ — _BaseSetProxy true.
+# ---------------------------------------------------------------------------
+
+table mp3166.combined:
+  description: "multiprocessing types combined __add__/__sub__/__mul__; wave 658"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3166
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3166025", operator.contains, [multiprocessing.Process.__dict__,                  "__add__"], false]
+    - ["mp3166026", operator.contains, [multiprocessing.Process.__dict__,                  "__sub__"], false]
+    - ["mp3166027", operator.contains, [multiprocessing.Process.__dict__,                  "__mul__"], false]
+    - ["mp3166028", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__add__"], false]
+    - ["mp3166029", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__sub__"], false]
+    - ["mp3166030", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__mul__"], false]
+    - ["mp3166031", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__add__"], false]
+    - ["mp3166032", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__sub__"], false]
+    - ["mp3166033", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__mul__"], false]
+    - ["mp3166034", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__add__"], false]
+    - ["mp3166035", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__sub__"], false]
+    - ["mp3166036", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__mul__"], false]
+    - ["mp3166037", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__add__"], false]
+    - ["mp3166038", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__sub__"], false]
+    - ["mp3166039", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__mul__"], false]
+    - ["mp3166040", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__add__"], true]
+    - ["mp3166041", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__sub__"], false]
+    - ["mp3166042", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__mul__"], true]
+    - ["mp3166043", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__add__"], false]
+    - ["mp3166044", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__sub__"], false]
+    - ["mp3166045", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__mul__"], false]
+    - ["mp3166046", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__add__"], false]
+    - ["mp3166047", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__sub__"], true]
+    - ["mp3166048", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__mul__"], false]
