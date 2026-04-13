@@ -1,0 +1,175 @@
+spec: cf3421
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 675 (cf3421): __hash__, __eq__, __lt__ dict-presence (hash(x), x==y, x<y) for concurrent.futures types."
+    - "Theme: __hash__/__eq__/__lt__ dict-presence (hash(x), x==y, x<y)."
+    - "All values False — concurrent.futures types are high-level parallel execution primitives with no custom hash/eq/lt defined in their own __dict__."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: concurrent.futures.Future, concurrent.futures.ThreadPoolExecutor, concurrent.futures.ProcessPoolExecutor."
+    - "Key finding (__hash__): all 3 concurrent.futures classes return false for __hash__. hash() delegates to __hash__ when defined in the class's own __dict__. concurrent.futures.Future: a state-machine result handle (PENDING/RUNNING/CANCELLED/FINISHED) that does NOT define __hash__ in its own __dict__. Even though Future inherits __hash__ and __eq__ from object, it does not define them in its own __dict__ — operator.contains(Future.__dict__, '__hash__') is false. ThreadPoolExecutor/ProcessPoolExecutor: worker-pool lifecycle managers with no __hash__ in their own __dict__."
+    - "Key finding (__eq__): all 3 concurrent.futures classes return false for __eq__. == delegates to __eq__ when defined in the class's own __dict__. concurrent.futures.Future: even though Future inherits __eq__ from object (identity-based), it does NOT define __eq__ in its own Future.__dict__. Equality of Future objects is identity-based by inheritance; no value-based __eq__ override is present. ThreadPoolExecutor/ProcessPoolExecutor: no __eq__ defined in their own __dict__."
+    - "Key finding (__lt__): all 3 concurrent.futures classes return false for __lt__. < delegates to __lt__ when defined in the class's own __dict__. concurrent.futures types define no ordering protocol in their own __dict__. Future objects are unordered state-machine handles; no __lt__ is defined in Future.__dict__. ThreadPoolExecutor/ProcessPoolExecutor: executor types with no __lt__ in their own __dict__."
+    - "All 9 values in this wave are false. concurrent.futures is a high-level parallel execution API operating entirely through method calls — submit(), map(), result(), cancel(), add_done_callback(), shutdown() — with no comparison or hashing protocol overrides in any class __dict__."
+    - "Cross-wave summary for cf subjects:"
+    - "  Wave 658 (cf3166): __add__/__sub__/__mul__ — all false for all 3."
+    - "  Wave 659 (cf3181): __truediv__/__floordiv__/__mod__ — all false for all 3."
+    - "  Wave 660 (cf3196): __pow__/__lshift__/__rshift__ — all false for all 3."
+    - "  Wave 661 (cf3211): __and__/__or__/__xor__ — all false for all 3."
+    - "  Wave 662 (cf3226): __radd__/__rsub__/__rmul__ — all false for all 3."
+    - "  Wave 663 (cf3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 3."
+    - "  Wave 664 (cf3256): __rpow__/__rlshift__/__rrshift__ — all false for all 3."
+    - "  Wave 665 (cf3271): __rand__/__ror__/__rxor__ — all false for all 3."
+    - "  Wave 666 (cf3286): __iadd__/__isub__/__imul__ — all false for all 3."
+    - "  Wave 667 (cf3301): __itruediv__/__ifloordiv__/__imod__ — all false for all 3."
+    - "  Wave 668 (cf3316): __ipow__/__ilshift__/__irshift__ — all false for all 3."
+    - "  Wave 669 (cf3331): __iand__/__ior__/__ixor__ — all false for all 3."
+    - "  Wave 670 (cf3346): __neg__/__pos__/__abs__ — all false for all 3."
+    - "  Wave 671 (cf3361): __invert__/__floor__/__ceil__ — all false for all 3."
+    - "  Wave 672 (cf3376): __trunc__/__round__/__index__ — all false for all 3."
+    - "  Wave 673 (cf3391): __int__/__float__/__complex__ — all false for all 3."
+    - "  Wave 674 (cf3406): __bool__/__str__/__repr__ — all false for all 3."
+    - "  Wave 675 (cf3421): __hash__/__eq__/__lt__ — all false for all 3."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __hash__ dict-presence — operator.contains(Cls.__dict__, '__hash__')
+#
+# All 3 concurrent.futures classes return false for __hash__.
+# hash() delegates to __hash__ when defined in the class's own __dict__.
+# concurrent.futures.Future: a state-machine result handle that does not
+#   define __hash__ in its own __dict__. Even though Future inherits __hash__
+#   from object, operator.contains(Future.__dict__, '__hash__') is false —
+#   the inherited slot is not present in the class's own __dict__.
+# ThreadPoolExecutor/ProcessPoolExecutor: worker-pool lifecycle managers
+#   with no __hash__ in their own __dict__. Pool identity is not customized
+#   for hashing.
+# ---------------------------------------------------------------------------
+
+table cf3421.hash:
+  description: "concurrent.futures types __hash__ dict-presence checks; wave 675"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3421
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3421001", operator.contains, [concurrent.futures.Future.__dict__,              "__hash__"], false]
+    - ["cf3421002", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__hash__"], false]
+    - ["cf3421003", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__hash__"], false]
+
+# ---------------------------------------------------------------------------
+# __eq__ dict-presence — operator.contains(Cls.__dict__, '__eq__')
+#
+# All 3 concurrent.futures classes return false for __eq__.
+# == delegates to __eq__ when defined in the class's own __dict__.
+# concurrent.futures.Future: even though Future uses identity-based equality
+#   inherited from object, it does NOT define __eq__ in its own Future.__dict__.
+#   The PENDING/RUNNING/CANCELLED/FINISHED state is accessed via done()/
+#   cancelled()/running() methods, not through a custom __eq__ in __dict__.
+# ThreadPoolExecutor/ProcessPoolExecutor: executor types with no __eq__
+#   defined in their own __dict__. Pool equality is identity-based by
+#   inheritance, not through a dict-level override.
+# ---------------------------------------------------------------------------
+
+table cf3421.eq:
+  description: "concurrent.futures types __eq__ dict-presence checks; wave 675"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3421
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3421004", operator.contains, [concurrent.futures.Future.__dict__,              "__eq__"], false]
+    - ["cf3421005", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__eq__"], false]
+    - ["cf3421006", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__eq__"], false]
+
+# ---------------------------------------------------------------------------
+# __lt__ dict-presence — operator.contains(Cls.__dict__, '__lt__')
+#
+# All 3 concurrent.futures classes return false for __lt__.
+# < delegates to __lt__ when defined in the class's own __dict__.
+# concurrent.futures types define no ordering protocol in their own __dict__.
+# concurrent.futures.Future: an unordered state-machine result handle; no
+#   __lt__ is defined in Future.__dict__. Futures are not compared by order;
+#   they are queried via done()/result()/exception().
+# ThreadPoolExecutor/ProcessPoolExecutor: executor types with no __lt__
+#   defined in their own __dict__. Pool instances are not ordered.
+# ---------------------------------------------------------------------------
+
+table cf3421.lt:
+  description: "concurrent.futures types __lt__ dict-presence checks; wave 675"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3421
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3421007", operator.contains, [concurrent.futures.Future.__dict__,              "__lt__"], false]
+    - ["cf3421008", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__lt__"], false]
+    - ["cf3421009", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__lt__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __hash__, __eq__, __lt__ across all 3 cf subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __hash__: false for all 3 — hashing protocol not in own __dict__.
+# __eq__: false for all 3 — equality protocol not in own __dict__.
+# __lt__: false for all 3 — ordering protocol not in own __dict__.
+# All 9 values are false.
+# concurrent.futures is a high-level parallel execution API. Its entire
+#   public surface is method-based: submit(), map(), result(), cancel(),
+#   done(), running(), cancelled(), add_done_callback(), shutdown(). Waves
+#   658–674 established that no arithmetic, bitwise, reflected, in-place
+#   augmented assignment, unary numeric, rounding, numeric conversion, or
+#   display protocol dunder appears in the concurrent.futures type hierarchy.
+#   The comparison and hashing protocol dunders tested here follow the same
+#   pattern.
+# concurrent.futures.Future note: despite the name and its state-machine
+#   design, Future does not define __hash__, __eq__, or __lt__ in its own
+#   __dict__. Even though __hash__ and __eq__ are inherited from object,
+#   they do not appear as entries in Future.__dict__ — only overrides defined
+#   directly on the class appear in its __dict__.
+# ThreadPoolExecutor/ProcessPoolExecutor note: executor types encapsulate a
+#   pool of worker threads or processes; they expose only lifecycle and dispatch
+#   methods. No comparison or hashing protocol overloads are defined in their
+#   __dict__.
+# ---------------------------------------------------------------------------
+
+table cf3421.combined:
+  description: "concurrent.futures types combined __hash__/__eq__/__lt__; wave 675"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3421
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3421010", operator.contains, [concurrent.futures.Future.__dict__,              "__hash__"],  false]
+    - ["cf3421011", operator.contains, [concurrent.futures.Future.__dict__,              "__eq__"],    false]
+    - ["cf3421012", operator.contains, [concurrent.futures.Future.__dict__,              "__lt__"],    false]
+    - ["cf3421013", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__hash__"],  false]
+    - ["cf3421014", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__eq__"],    false]
+    - ["cf3421015", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__lt__"],    false]
+    - ["cf3421016", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__hash__"],  false]
+    - ["cf3421017", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__eq__"],    false]
+    - ["cf3421018", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__lt__"],    false]
