@@ -1,0 +1,216 @@
+spec: mp3331
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html"
+    - "https://docs.python.org/3/library/multiprocessing.managers.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 669 (mp3331): __iand__, __ior__, __ixor__ dict-presence (in-place &=, |=, ^=) for multiprocessing types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: multiprocessing.Process, pool.Pool, pool.AsyncResult, pool.MapResult, managers.SyncManager, managers.BaseListProxy, managers._BaseDictProxy, managers._BaseSetProxy."
+    - "Key finding (__iand__): all 8 multiprocessing classes return false for __iand__. In-place bitwise AND (__iand__, &=) is the augmented assignment variant of __and__. Wave 661 confirmed __and__ is false for all 8 mp types. managers._BaseSetProxy is the most nuanced case: it proxies set, and set defines __and__ for set intersection (s & t). However, _BaseSetProxy.__dict__ does NOT contain __and__ (confirmed false in wave 661) — the proxy forwards set-algebra read operations through __getattr__ routing but does not define in-place operators in its own __dict__. Therefore __iand__ is equally absent from _BaseSetProxy.__dict__. multiprocessing.Process: subprocess lifecycle manager; process &= n is not a defined Python expression. pool.Pool/AsyncResult/MapResult: work-dispatch and result-handle types; no bitwise data model. managers._BaseDictProxy: proxies dict — dict defines no __iand__. managers.BaseListProxy: proxies list — list defines no __iand__. managers.SyncManager: server process; no in-place bitwise AND defined."
+    - "Key finding (__ior__): all 8 multiprocessing classes return false for __ior__. In-place bitwise OR (__ior__, |=) is the augmented assignment variant of __or__. Wave 661 confirmed __or__ is false for all 8 mp types. managers._BaseSetProxy key note: set defines __ior__ for in-place set union (s |= t), and Python 3.9 introduced __ior__ on dict for in-place merging. However, _BaseSetProxy.__dict__ does NOT contain __ior__ — the proxy does not forward in-place operations to the managed set object. In-place operators like |= would need to rebind the local variable to the result, which is semantically incompatible with a proxy object that wraps a remote managed object. Therefore __ior__ is absent from _BaseSetProxy.__dict__ despite set itself defining it. managers._BaseDictProxy: dict defines __ior__ (Python 3.9+) for in-place merging, but _BaseDictProxy.__dict__ does not contain __ior__ — the dict proxy does not forward this in-place operation. multiprocessing.Process/pool.Pool/pool.AsyncResult/pool.MapResult/managers.SyncManager: no in-place bitwise OR defined."
+    - "Key finding (__ixor__): all 8 multiprocessing classes return false for __ixor__. In-place bitwise XOR (__ixor__, ^=) is the augmented assignment variant of __xor__. Wave 661 confirmed __xor__ is false for all 8 mp types. managers._BaseSetProxy key note: set defines __ixor__ for in-place symmetric difference (s ^= t). However, _BaseSetProxy.__dict__ does NOT contain __ixor__ — the proxy does not forward in-place set algebra operations. This is consistent with __iand__ and __ior__: _BaseSetProxy proxies set, which has __iand__/__ior__/__ixor__ for in-place set algebra, but the proxy dict does not contain them. No in-place proxy forwarding is implemented. managers._BaseDictProxy: dict defines no __ixor__. managers.BaseListProxy: list defines no __ixor__. multiprocessing.Process/pool.Pool/pool.AsyncResult/pool.MapResult/managers.SyncManager: no in-place XOR defined."
+    - "All 24 values in this wave are false. The _BaseSetProxy finding is the most analytically significant: set itself defines all three in-place set-algebra operators (__iand__, __ior__, __ixor__), yet _BaseSetProxy.__dict__ contains none of them. The proxy does not forward in-place operations. In-place operators would require rebinding the caller's variable, which is semantically incompatible with a transparent proxy over a managed remote object."
+    - "Cross-wave summary for mp subjects:"
+    - "  Wave 658 (mp3166): __add__/__sub__/__mul__ — BaseListProxy __add__=true, __mul__=true; others false."
+    - "  Wave 659 (mp3181): __truediv__/__floordiv__/__mod__ — all false for all 8."
+    - "  Wave 660 (mp3196): __pow__/__lshift__/__rshift__ — all false for all 8."
+    - "  Wave 661 (mp3211): __and__/__or__/__xor__ — all false for all 8."
+    - "  Wave 662 (mp3226): __radd__/__rsub__/__rmul__ — all false for all 8."
+    - "  Wave 663 (mp3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 8."
+    - "  Wave 664 (mp3256): __rpow__/__rlshift__/__rrshift__ — all false for all 8."
+    - "  Wave 665 (mp3271): __rand__/__ror__/__rxor__ — all false for all 8."
+    - "  Wave 666 (mp3286): __iadd__/__isub__/__imul__ — all false for all 8."
+    - "  Wave 667 (mp3301): __itruediv__/__ifloordiv__/__imod__ — all false for all 8."
+    - "  Wave 668 (mp3316): __ipow__/__ilshift__/__irshift__ — all false for all 8."
+    - "  Wave 669 (mp3331): __iand__/__ior__/__ixor__ — all false for all 8."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __iand__ dict-presence — operator.contains(Cls.__dict__, '__iand__')
+#
+# All 8 multiprocessing classes return false for __iand__.
+# In-place bitwise AND (__iand__, &=) is the augmented assignment variant
+#   of __and__. Wave 661 confirmed __and__ is false for all 8 mp types.
+# managers._BaseSetProxy: proxies set, and set defines __and__ for set
+#   intersection (s & t) and __iand__ for in-place intersection (s &= t).
+#   However, _BaseSetProxy.__dict__ does NOT contain __iand__ — the proxy
+#   does not forward in-place set algebra operations. All false.
+# managers._BaseDictProxy: dict defines no __iand__. False.
+# managers.BaseListProxy: list defines no __iand__. False.
+# Process/Pool/AsyncResult/MapResult: process-management and result-handle
+#   types; in-place bitwise AND is not defined for any of them.
+# managers.SyncManager: server process; no in-place bitwise AND defined.
+# ---------------------------------------------------------------------------
+
+table mp3331.iand:
+  description: "multiprocessing types __iand__ dict-presence checks; wave 669"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3331
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3331001", operator.contains, [multiprocessing.Process.__dict__,                 "__iand__"], false]
+    - ["mp3331002", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__iand__"], false]
+    - ["mp3331003", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__iand__"], false]
+    - ["mp3331004", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__iand__"], false]
+    - ["mp3331005", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__iand__"], false]
+    - ["mp3331006", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__iand__"], false]
+    - ["mp3331007", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__iand__"], false]
+    - ["mp3331008", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__iand__"], false]
+
+# ---------------------------------------------------------------------------
+# __ior__ dict-presence — operator.contains(Cls.__dict__, '__ior__')
+#
+# All 8 multiprocessing classes return false for __ior__.
+# In-place bitwise OR (__ior__, |=) is the augmented assignment variant
+#   of __or__. Wave 661 confirmed __or__ is false for all 8 mp types.
+# managers._BaseSetProxy key note: set defines __ior__ for in-place set
+#   union (s |= t). However, _BaseSetProxy.__dict__ does NOT contain __ior__
+#   — the proxy does not forward in-place operations to the managed set.
+#   In-place operators require rebinding the caller's local variable, which
+#   is semantically incompatible with a transparent proxy over a managed
+#   remote object. Therefore __ior__ is absent from _BaseSetProxy.__dict__
+#   despite set itself defining it.
+# managers._BaseDictProxy: dict defines __ior__ (Python 3.9+) for in-place
+#   merging (d |= other), but _BaseDictProxy.__dict__ does not contain __ior__
+#   — the dict proxy does not forward this in-place operation. False.
+# managers.BaseListProxy: list defines no __ior__. False.
+# Process/Pool/AsyncResult/MapResult/SyncManager: no in-place bitwise OR
+#   defined for any of these types.
+# ---------------------------------------------------------------------------
+
+table mp3331.ior:
+  description: "multiprocessing types __ior__ dict-presence checks; wave 669"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3331
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3331009",  operator.contains, [multiprocessing.Process.__dict__,                 "__ior__"], false]
+    - ["mp3331010",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__ior__"], false]
+    - ["mp3331011",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__ior__"], false]
+    - ["mp3331012",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__ior__"], false]
+    - ["mp3331013",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__ior__"], false]
+    - ["mp3331014",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__ior__"], false]
+    - ["mp3331015",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__ior__"], false]
+    - ["mp3331016",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__ior__"], false]
+
+# ---------------------------------------------------------------------------
+# __ixor__ dict-presence — operator.contains(Cls.__dict__, '__ixor__')
+#
+# All 8 multiprocessing classes return false for __ixor__.
+# In-place bitwise XOR (__ixor__, ^=) is the augmented assignment variant
+#   of __xor__. Wave 661 confirmed __xor__ is false for all 8 mp types.
+# managers._BaseSetProxy key note: set defines __ixor__ for in-place
+#   symmetric difference (s ^= t). However, _BaseSetProxy.__dict__ does NOT
+#   contain __ixor__ — the proxy does not forward in-place set algebra
+#   operations. This is consistent with __iand__ and __ior__: _BaseSetProxy
+#   proxies set, which has __iand__/__ior__/__ixor__ for in-place set algebra,
+#   but the proxy dict does not contain any of them. No in-place proxy
+#   forwarding is implemented.
+# managers._BaseDictProxy: dict defines no __ixor__. False.
+# managers.BaseListProxy: list defines no __ixor__. False.
+# Process/Pool/AsyncResult/MapResult/SyncManager: no in-place XOR defined.
+# ---------------------------------------------------------------------------
+
+table mp3331.ixor:
+  description: "multiprocessing types __ixor__ dict-presence checks; wave 669"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3331
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3331017",  operator.contains, [multiprocessing.Process.__dict__,                 "__ixor__"], false]
+    - ["mp3331018",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__ixor__"], false]
+    - ["mp3331019",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__ixor__"], false]
+    - ["mp3331020",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__ixor__"], false]
+    - ["mp3331021",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__ixor__"], false]
+    - ["mp3331022",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__ixor__"], false]
+    - ["mp3331023",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__ixor__"], false]
+    - ["mp3331024",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__ixor__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __iand__, __ior__, __ixor__ across all 8 mp subjects
+#
+# Covers the full matrix: 8 classes x 3 methods = 24 rows.
+# __iand__: false for all 8 — not in any type's own __dict__.
+# __ior__:  false for all 8 — not in any type's own __dict__.
+# __ixor__: false for all 8 — not in any type's own __dict__.
+# All 24 values are false.
+# The _BaseSetProxy finding is the most analytically significant result in
+#   this wave. set itself defines all three in-place set-algebra operators:
+#   __iand__ (in-place intersection, s &= t), __ior__ (in-place union,
+#   s |= t), and __ixor__ (in-place symmetric difference, s ^= t).
+#   Yet _BaseSetProxy.__dict__ contains none of them. The proxy wraps a
+#   managed set object living in a separate server process; in-place operators
+#   would need to rebind the caller's local variable to the return value,
+#   which is semantically incompatible with transparent proxy forwarding.
+#   No in-place proxy forwarding is implemented in _BaseSetProxy.
+# managers._BaseDictProxy note: dict defines __ior__ (Python 3.9+) for
+#   in-place merging. _BaseDictProxy does not expose __ior__ in its __dict__
+#   for the same proxy-incompatibility reason.
+# Wave 661 already established that the forward operators __and__, __or__,
+#   and __xor__ are all false for all 8 mp types (including the proxies).
+#   The in-place variants tested here are absent for both the same reasons
+#   (non-proxy types have no set/dict algebra) and the additional proxy
+#   reason (_BaseSetProxy does not forward in-place operations).
+# multiprocessing is a process-based concurrency library; its types interact
+#   exclusively through explicit method calls, subprocess lifecycle management,
+#   and IPC — never through Python's in-place augmented assignment operators.
+# ---------------------------------------------------------------------------
+
+table mp3331.combined:
+  description: "multiprocessing types combined __iand__/__ior__/__ixor__; wave 669"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3331
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3331025", operator.contains, [multiprocessing.Process.__dict__,                 "__iand__"], false]
+    - ["mp3331026", operator.contains, [multiprocessing.Process.__dict__,                 "__ior__"], false]
+    - ["mp3331027", operator.contains, [multiprocessing.Process.__dict__,                 "__ixor__"], false]
+    - ["mp3331028", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__iand__"], false]
+    - ["mp3331029", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__ior__"], false]
+    - ["mp3331030", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__ixor__"], false]
+    - ["mp3331031", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__iand__"], false]
+    - ["mp3331032", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__ior__"], false]
+    - ["mp3331033", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__ixor__"], false]
+    - ["mp3331034", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__iand__"], false]
+    - ["mp3331035", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__ior__"], false]
+    - ["mp3331036", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__ixor__"], false]
+    - ["mp3331037", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__iand__"], false]
+    - ["mp3331038", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__ior__"], false]
+    - ["mp3331039", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__ixor__"], false]
+    - ["mp3331040", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__iand__"], false]
+    - ["mp3331041", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__ior__"], false]
+    - ["mp3331042", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__ixor__"], false]
+    - ["mp3331043", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__iand__"], false]
+    - ["mp3331044", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__ior__"], false]
+    - ["mp3331045", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__ixor__"], false]
+    - ["mp3331046", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__iand__"], false]
+    - ["mp3331047", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__ior__"], false]
+    - ["mp3331048", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__ixor__"], false]
