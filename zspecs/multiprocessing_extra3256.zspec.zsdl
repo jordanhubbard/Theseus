@@ -1,0 +1,199 @@
+spec: mp3256
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html"
+    - "https://docs.python.org/3/library/multiprocessing.managers.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 664 (mp3256): __rpow__, __rlshift__, __rrshift__ dict-presence (reflected power/shift) for multiprocessing types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: multiprocessing.Process, pool.Pool, pool.AsyncResult, pool.MapResult, managers.SyncManager, managers.BaseListProxy, managers._BaseDictProxy, managers._BaseSetProxy."
+    - "Key finding (__rpow__): all 8 multiprocessing classes return false for __rpow__. multiprocessing.Process manages a subprocess lifecycle (start/join/terminate/kill); reflected power is undefined for process objects. pool.Pool dispatches work to worker processes; n ** pool is not a defined Python expression. pool.AsyncResult and pool.MapResult are result handles; reflected power is absent. managers.BaseListProxy proxies list — list does NOT define __rpow__ (list has no power data model from either side). managers._BaseDictProxy proxies dict — dict defines neither __pow__ nor __rpow__. managers._BaseSetProxy proxies set — set does not support power of any kind. managers.SyncManager: server process hosting shared objects; no power protocol defined."
+    - "Key finding (__rlshift__): all 8 multiprocessing classes return false for __rlshift__. Reflected left shift is the mirror of __lshift__. multiprocessing types define no __lshift__ (confirmed false in wave 660), so __rlshift__ is also absent. Process/Pool/AsyncResult/MapResult are process-management and result-handle types. managers.BaseListProxy proxies list — list defines no __lshift__ or __rlshift__. managers._BaseDictProxy proxies dict — dict defines no shift operators. managers._BaseSetProxy proxies set — set defines no left shift from either side. managers.SyncManager: no shift protocol defined."
+    - "Key finding (__rrshift__): all 8 multiprocessing classes return false for __rrshift__. Reflected right shift (__rrshift__) is invoked when n >> obj is attempted. multiprocessing types define no __rshift__ (confirmed false in wave 660), so __rrshift__ is equally absent. Critical note on managers.BaseListProxy and managers._BaseDictProxy: neither list nor dict defines __rrshift__. managers._BaseSetProxy proxies set — set defines no right shift operator from either side. managers.SyncManager, Process, Pool, AsyncResult, MapResult: none implement a right-shift or streaming interface. None of the 8 subjects expose the >> operator from either side."
+    - "Proxy class note — BaseListProxy: wave 658 found BaseListProxy.__add__ = true and BaseListProxy.__mul__ = true (forwarding list's + and * operators). Waves 662–663 confirmed all reflected arithmetic and division/modulo operators are false for BaseListProxy. This wave confirms BaseListProxy.__rpow__ = false, __rlshift__ = false, __rrshift__ = false (list has none of these reflected power or shift operators)."
+    - "All 24 values in this wave are false. multiprocessing is a process-based concurrency library; its entire API is expressed through explicit method calls, subprocess lifecycle management, and IPC — never through Python's reflected power or shift operators."
+    - "Cross-wave summary for mp subjects:"
+    - "  Wave 658 (mp3166): __add__/__sub__/__mul__ — BaseListProxy __add__=true, __mul__=true; others false."
+    - "  Wave 659 (mp3181): __truediv__/__floordiv__/__mod__ — all false for all 8."
+    - "  Wave 660 (mp3196): __pow__/__lshift__/__rshift__ — all false for all 8."
+    - "  Wave 661 (mp3211): __and__/__or__/__xor__ — all false for all 8."
+    - "  Wave 662 (mp3226): __radd__/__rsub__/__rmul__ — all false for all 8."
+    - "  Wave 663 (mp3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 8."
+    - "  Wave 664 (mp3256): __rpow__/__rlshift__/__rrshift__ — all false for all 8."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __rpow__ dict-presence — operator.contains(Cls.__dict__, '__rpow__')
+#
+# All 8 multiprocessing classes return false for __rpow__.
+# Process/Pool/AsyncResult/MapResult: process-management and result-handle
+#   types; reflected power is not defined for any of them.
+# managers.BaseListProxy: proxies list — list does NOT define __rpow__.
+#   Python's list has no power data model from either side; n ** list
+#   triggers int's __pow__ which rejects list, and list has no __rpow__
+#   fallback. Therefore BaseListProxy has no __rpow__.
+# managers._BaseDictProxy: proxies dict — dict defines no __pow__ or
+#   __rpow__.
+# managers._BaseSetProxy: proxies set — set does not support power
+#   from either side.
+# managers.SyncManager: server process; no arithmetic protocol defined.
+# ---------------------------------------------------------------------------
+
+table mp3256.rpow:
+  description: "multiprocessing types __rpow__ dict-presence checks; wave 664"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3256
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3256001", operator.contains, [multiprocessing.Process.__dict__,                 "__rpow__"], false]
+    - ["mp3256002", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rpow__"], false]
+    - ["mp3256003", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rpow__"], false]
+    - ["mp3256004", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rpow__"], false]
+    - ["mp3256005", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rpow__"], false]
+    - ["mp3256006", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rpow__"], false]
+    - ["mp3256007", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rpow__"], false]
+    - ["mp3256008", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rpow__"], false]
+
+# ---------------------------------------------------------------------------
+# __rlshift__ dict-presence — operator.contains(Cls.__dict__, '__rlshift__')
+#
+# All 8 multiprocessing classes return false for __rlshift__.
+# Process/Pool/AsyncResult/MapResult/SyncManager: process-management types
+#   with no bitwise or shift semantics of any kind.
+# managers.BaseListProxy: proxies list — list defines no __lshift__ or
+#   __rlshift__. n << list is not a valid Python expression.
+# managers._BaseDictProxy: proxies dict — dict defines no shift operators.
+# managers._BaseSetProxy: proxies set — set defines no left shift from
+#   either side. The proxy's _method IPC callthrough handles no shift ops.
+# ---------------------------------------------------------------------------
+
+table mp3256.rlshift:
+  description: "multiprocessing types __rlshift__ dict-presence checks; wave 664"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3256
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3256009",  operator.contains, [multiprocessing.Process.__dict__,                 "__rlshift__"], false]
+    - ["mp3256010",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rlshift__"], false]
+    - ["mp3256011",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rlshift__"], false]
+    - ["mp3256012",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rlshift__"], false]
+    - ["mp3256013",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rlshift__"], false]
+    - ["mp3256014",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rlshift__"], false]
+    - ["mp3256015",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rlshift__"], false]
+    - ["mp3256016",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rlshift__"], false]
+
+# ---------------------------------------------------------------------------
+# __rrshift__ dict-presence — operator.contains(Cls.__dict__, '__rrshift__')
+#
+# All 8 multiprocessing classes return false for __rrshift__.
+# Process/Pool/AsyncResult/MapResult/SyncManager: process-management types;
+#   reflected right shift is not defined.
+# managers.BaseListProxy: proxies list — list does NOT define __rrshift__.
+#   list has no shift semantics from either side.
+# managers._BaseDictProxy: proxies dict — dict defines no __rrshift__.
+# managers._BaseSetProxy: proxies set — set defines no right shift operator
+#   from either side; sets are not bitwise-shift types.
+# ---------------------------------------------------------------------------
+
+table mp3256.rrshift:
+  description: "multiprocessing types __rrshift__ dict-presence checks; wave 664"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3256
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3256017",  operator.contains, [multiprocessing.Process.__dict__,                 "__rrshift__"], false]
+    - ["mp3256018",  operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rrshift__"], false]
+    - ["mp3256019",  operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rrshift__"], false]
+    - ["mp3256020",  operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rrshift__"], false]
+    - ["mp3256021",  operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rrshift__"], false]
+    - ["mp3256022",  operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rrshift__"], false]
+    - ["mp3256023",  operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rrshift__"], false]
+    - ["mp3256024",  operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rrshift__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __rpow__, __rlshift__, __rrshift__ across all 8 mp subjects
+#
+# Covers the full matrix: 8 classes x 3 methods = 24 rows.
+# __rpow__: false for all 8 — not in any type's own __dict__.
+# __rlshift__: false for all 8 — not in any type's own __dict__.
+# __rrshift__: false for all 8 — not in any type's own __dict__.
+# All 24 values are false.
+# The BaseListProxy asymmetry across waves deserves emphasis:
+#   Wave 658: BaseListProxy.__add__ = true (list + list via __add__).
+#   Wave 658: BaseListProxy.__mul__ = true (list * n via __mul__).
+#   Wave 662: BaseListProxy.__radd__ = false (list has no __radd__).
+#   Wave 662: BaseListProxy.__rmul__ = false (list has no __rmul__).
+#   Wave 663: BaseListProxy.__rtruediv__ = false (list has no __rtruediv__).
+#   Wave 663: BaseListProxy.__rfloordiv__ = false (list has no __rfloordiv__).
+#   Wave 663: BaseListProxy.__rmod__ = false (list has no __rmod__).
+#   Wave 664: BaseListProxy.__rpow__ = false (list has no __rpow__).
+#   Wave 664: BaseListProxy.__rlshift__ = false (list has no __rlshift__).
+#   Wave 664: BaseListProxy.__rrshift__ = false (list has no __rrshift__).
+#   Python's list type defines __add__ and __mul__ but NOT their reflected
+#   counterparts and defines no power or shift operators at all.
+# _BaseSetProxy note: set defines __sub__ (set difference s - t) and bitwise
+#   set operators (__and__/__or__/__xor__/__ior__/__iand__/__ixor__), but set
+#   does NOT define __rpow__, __rlshift__, or __rrshift__. All reflected
+#   power and shift operators are absent from both set and _BaseSetProxy.
+# multiprocessing is a process-based concurrency library; its types interact
+#   exclusively through explicit method calls, subprocess lifecycle management,
+#   and IPC — never through Python's reflected power or shift operators.
+# ---------------------------------------------------------------------------
+
+table mp3256.combined:
+  description: "multiprocessing types combined __rpow__/__rlshift__/__rrshift__; wave 664"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3256
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3256025", operator.contains, [multiprocessing.Process.__dict__,                 "__rpow__"], false]
+    - ["mp3256026", operator.contains, [multiprocessing.Process.__dict__,                 "__rlshift__"], false]
+    - ["mp3256027", operator.contains, [multiprocessing.Process.__dict__,                 "__rrshift__"], false]
+    - ["mp3256028", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rpow__"], false]
+    - ["mp3256029", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rlshift__"], false]
+    - ["mp3256030", operator.contains, [multiprocessing.pool.Pool.__dict__,               "__rrshift__"], false]
+    - ["mp3256031", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rpow__"], false]
+    - ["mp3256032", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rlshift__"], false]
+    - ["mp3256033", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,        "__rrshift__"], false]
+    - ["mp3256034", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rpow__"], false]
+    - ["mp3256035", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rlshift__"], false]
+    - ["mp3256036", operator.contains, [multiprocessing.pool.MapResult.__dict__,          "__rrshift__"], false]
+    - ["mp3256037", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rpow__"], false]
+    - ["mp3256038", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rlshift__"], false]
+    - ["mp3256039", operator.contains, [multiprocessing.managers.SyncManager.__dict__,    "__rrshift__"], false]
+    - ["mp3256040", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rpow__"], false]
+    - ["mp3256041", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rlshift__"], false]
+    - ["mp3256042", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,  "__rrshift__"], false]
+    - ["mp3256043", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rpow__"], false]
+    - ["mp3256044", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rlshift__"], false]
+    - ["mp3256045", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__, "__rrshift__"], false]
+    - ["mp3256046", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rpow__"], false]
+    - ["mp3256047", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rlshift__"], false]
+    - ["mp3256048", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,  "__rrshift__"], false]
