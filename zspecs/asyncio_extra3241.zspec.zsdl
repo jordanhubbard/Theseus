@@ -1,0 +1,218 @@
+spec: as3241
+version: ">=3.9"
+backend: python_module(asyncio)
+
+docs: https://docs.python.org/3/library/asyncio.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 663 (as3241): __rtruediv__, __rfloordiv__, __rmod__ dict-presence (reflected division/modulo) for asyncio types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: asyncio.Task, asyncio.Future, asyncio.Event, asyncio.Lock, asyncio.Semaphore, asyncio.BoundedSemaphore, asyncio.Condition, asyncio.Queue, asyncio.PriorityQueue, asyncio.LifoQueue."
+    - "Key finding (__rtruediv__): all 10 asyncio classes return false for __rtruediv__. Reflected true division (__rtruediv__) is invoked when the left operand's __truediv__ returns NotImplemented — for example, n / obj triggers obj.__rtruediv__(n) if int's __truediv__ does not handle obj. asyncio types define no __truediv__ (confirmed false in wave 659), so __rtruediv__ is equally absent. asyncio types are coroutine-based concurrency primitives — not numeric types. asyncio.Event/Lock/Condition are boolean-state synchronization objects; n / event is not a defined Python expression. asyncio.Semaphore/BoundedSemaphore manage a permit counter entirely through acquire()/release() coroutines; the counter is not exposed for division. asyncio.Task/Future are pending coroutine result handles; reflected division is undefined for them. asyncio.Queue/PriorityQueue/LifoQueue are ordered item stores with no numeric data model."
+    - "Key finding (__rfloordiv__): all 10 asyncio classes return false for __rfloordiv__. Reflected floor division (__rfloordiv__) is the mirror of __floordiv__; it is invoked when the left operand's __floordiv__ returns NotImplemented. asyncio types define no __floordiv__ (confirmed false in wave 659), so __rfloordiv__ is also absent. No asyncio type exposes a floor-division interface from either side of the operator."
+    - "Key finding (__rmod__): all 10 asyncio classes return false for __rmod__. Reflected modulo (__rmod__) is invoked when the left operand's __mod__ returns NotImplemented. asyncio types define no __mod__ (confirmed false in wave 659), so __rmod__ is equally absent. asyncio.Queue is an ordered item store but does not support % format-string interpolation the way str does (str.__rmod__ handles the % operator for string formatting). asyncio.Semaphore/BoundedSemaphore manage a permit counter but expose no modulo interface. asyncio.Event/Lock/Condition/Task/Future have no arithmetic semantics of any kind."
+    - "Continues the all-false pattern from wave 662 (__radd__/__rsub__/__rmul__). asyncio is a pure coroutine concurrency library; its types interact exclusively through await, async with, async for, and explicit method calls — never through Python's arithmetic data model, including reflected division and modulo."
+    - "Cross-wave summary for asyncio subjects:"
+    - "  Wave 652 (as3076): __get__ — Task/Future/Queue/Handle true; others false."
+    - "  Wave 653 (as3091): __hash__/__eq__/__bool__ — selected true."
+    - "  Wave 654 (as3106): __lt__/__le__/__gt__ — TimerHandle true; others false."
+    - "  Wave 655 (as3121): __ge__ — TimerHandle true; __repr__ — 12 classes true."
+    - "  Wave 656 (as3136): __call__/__len__/__getitem__ — all false for all 14."
+    - "  Wave 657 (as3151): __setitem__/__delitem__/__contains__ — all false for all 14."
+    - "  Wave 658 (as3166): __add__/__sub__/__mul__ — all false for all 14."
+    - "  Wave 659 (as3181): __truediv__/__floordiv__/__mod__ — all false for all 14."
+    - "  Wave 660 (as3196): __pow__/__lshift__/__rshift__ — all false for all 10."
+    - "  Wave 661 (as3211): __and__/__or__/__xor__ — all false for all 10."
+    - "  Wave 662 (as3226): __radd__/__rsub__/__rmul__ — all false for all 10."
+    - "  Wave 663 (as3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 10."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __rtruediv__ dict-presence — operator.contains(Cls.__dict__, '__rtruediv__')
+#
+# All 10 asyncio classes return false for __rtruediv__.
+# Reflected true division (__rtruediv__) is invoked when the left operand's
+#   __truediv__ returns NotImplemented — e.g., n / obj triggers obj.__rtruediv__(n).
+# asyncio types define no __truediv__ (confirmed false in wave 659), so
+#   __rtruediv__ is equally absent.
+# asyncio.Event/Lock/Condition: boolean-state synchronization guards;
+#   n / event is not a defined Python expression.
+# asyncio.Semaphore/BoundedSemaphore: permit-counter objects; the counter is
+#   fully encapsulated behind acquire()/release() coroutines.
+# asyncio.Task/Future: pending coroutine result handles; reflected division
+#   is undefined for them.
+# asyncio.Queue/PriorityQueue/LifoQueue: ordered item stores with no numeric
+#   or division semantics of any kind.
+# ---------------------------------------------------------------------------
+
+table as3241.rtruediv:
+  description: "asyncio types __rtruediv__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3241001", operator.contains, [asyncio.Task.__dict__,             "__rtruediv__"], false]
+    - ["as3241002", operator.contains, [asyncio.Future.__dict__,           "__rtruediv__"], false]
+    - ["as3241003", operator.contains, [asyncio.Event.__dict__,            "__rtruediv__"], false]
+    - ["as3241004", operator.contains, [asyncio.Lock.__dict__,             "__rtruediv__"], false]
+    - ["as3241005", operator.contains, [asyncio.Semaphore.__dict__,        "__rtruediv__"], false]
+    - ["as3241006", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__rtruediv__"], false]
+    - ["as3241007", operator.contains, [asyncio.Condition.__dict__,        "__rtruediv__"], false]
+    - ["as3241008", operator.contains, [asyncio.Queue.__dict__,            "__rtruediv__"], false]
+    - ["as3241009", operator.contains, [asyncio.PriorityQueue.__dict__,    "__rtruediv__"], false]
+    - ["as3241010", operator.contains, [asyncio.LifoQueue.__dict__,        "__rtruediv__"], false]
+
+# ---------------------------------------------------------------------------
+# __rfloordiv__ dict-presence — operator.contains(Cls.__dict__, '__rfloordiv__')
+#
+# All 10 asyncio classes return false for __rfloordiv__.
+# Reflected floor division (__rfloordiv__) is the mirror of __floordiv__; it
+#   is invoked when the left operand's __floordiv__ returns NotImplemented.
+# asyncio types define no __floordiv__ (confirmed false in wave 659), so
+#   __rfloordiv__ is also absent.
+# asyncio.Event/Lock/Condition/Semaphore/BoundedSemaphore: synchronization
+#   primitives with no arithmetic semantics.
+# asyncio.Task/Future: pending coroutine results; floor division is undefined
+#   from either side of the operator.
+# asyncio.Queue/PriorityQueue/LifoQueue: ordered stores with no numeric
+#   or floor-division data model.
+# ---------------------------------------------------------------------------
+
+table as3241.rfloordiv:
+  description: "asyncio types __rfloordiv__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3241011", operator.contains, [asyncio.Task.__dict__,             "__rfloordiv__"], false]
+    - ["as3241012", operator.contains, [asyncio.Future.__dict__,           "__rfloordiv__"], false]
+    - ["as3241013", operator.contains, [asyncio.Event.__dict__,            "__rfloordiv__"], false]
+    - ["as3241014", operator.contains, [asyncio.Lock.__dict__,             "__rfloordiv__"], false]
+    - ["as3241015", operator.contains, [asyncio.Semaphore.__dict__,        "__rfloordiv__"], false]
+    - ["as3241016", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__rfloordiv__"], false]
+    - ["as3241017", operator.contains, [asyncio.Condition.__dict__,        "__rfloordiv__"], false]
+    - ["as3241018", operator.contains, [asyncio.Queue.__dict__,            "__rfloordiv__"], false]
+    - ["as3241019", operator.contains, [asyncio.PriorityQueue.__dict__,    "__rfloordiv__"], false]
+    - ["as3241020", operator.contains, [asyncio.LifoQueue.__dict__,        "__rfloordiv__"], false]
+
+# ---------------------------------------------------------------------------
+# __rmod__ dict-presence — operator.contains(Cls.__dict__, '__rmod__')
+#
+# All 10 asyncio classes return false for __rmod__.
+# Reflected modulo (__rmod__) is invoked when the left operand's __mod__
+#   returns NotImplemented — e.g., n % obj triggers obj.__rmod__(n).
+# asyncio types define no __mod__ (confirmed false in wave 659), so __rmod__
+#   is equally absent.
+# asyncio.Queue: an ordered item store but does NOT support % format-string
+#   interpolation the way str does (str defines __rmod__ to handle the
+#   % formatting operator from the right). asyncio.Queue is not a string type.
+# asyncio.Semaphore/BoundedSemaphore: permit-counter types with no modulo
+#   semantics exposed through any part of their API.
+# asyncio.Event/Lock/Condition: boolean-state synchronization objects;
+#   n % event is not a defined Python expression.
+# asyncio.Task/Future: pending result handles; reflected modulo is undefined.
+# asyncio.PriorityQueue/LifoQueue: queue subclasses with the same absence of
+#   arithmetic semantics as Queue.
+# ---------------------------------------------------------------------------
+
+table as3241.rmod:
+  description: "asyncio types __rmod__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3241021", operator.contains, [asyncio.Task.__dict__,             "__rmod__"], false]
+    - ["as3241022", operator.contains, [asyncio.Future.__dict__,           "__rmod__"], false]
+    - ["as3241023", operator.contains, [asyncio.Event.__dict__,            "__rmod__"], false]
+    - ["as3241024", operator.contains, [asyncio.Lock.__dict__,             "__rmod__"], false]
+    - ["as3241025", operator.contains, [asyncio.Semaphore.__dict__,        "__rmod__"], false]
+    - ["as3241026", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__rmod__"], false]
+    - ["as3241027", operator.contains, [asyncio.Condition.__dict__,        "__rmod__"], false]
+    - ["as3241028", operator.contains, [asyncio.Queue.__dict__,            "__rmod__"], false]
+    - ["as3241029", operator.contains, [asyncio.PriorityQueue.__dict__,    "__rmod__"], false]
+    - ["as3241030", operator.contains, [asyncio.LifoQueue.__dict__,        "__rmod__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __rtruediv__, __rfloordiv__, __rmod__ across all 10 asyncio subjects
+#
+# Covers the full matrix: 10 classes x 3 methods = 30 rows.
+# __rtruediv__: false for all 10 — reflected true division is not defined.
+# __rfloordiv__: false for all 10 — reflected floor division is not defined.
+# __rmod__: false for all 10 — reflected modulo is not defined.
+# All 30 values are false.
+# asyncio types are designed for coroutine-based concurrency — their entire
+#   API surface is expressed through await, async with, async for, and
+#   explicit method calls. Neither forward nor reflected division/modulo
+#   operators appear anywhere in the asyncio type hierarchy.
+# asyncio.Queue note: Queue is an ordered item store. It does not support
+#   format-string % interpolation (__rmod__) like str, nor does it support
+#   true division or floor division from either side.
+# asyncio.Semaphore note: the permit counter is a positive integer, but it is
+#   fully encapsulated. Reflected division/modulo on the semaphore itself is
+#   not exposed through any part of the API.
+# This wave continues the unbroken all-false run from wave 656 (__call__/
+#   __len__/__getitem__) through wave 663 (__rtruediv__/__rfloordiv__/__rmod__)
+#   — eight consecutive waves of 100% false results for asyncio types.
+# ---------------------------------------------------------------------------
+
+table as3241.combined:
+  description: "asyncio types combined __rtruediv__/__rfloordiv__/__rmod__; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3241031", operator.contains, [asyncio.Task.__dict__,             "__rtruediv__"], false]
+    - ["as3241032", operator.contains, [asyncio.Task.__dict__,             "__rfloordiv__"], false]
+    - ["as3241033", operator.contains, [asyncio.Task.__dict__,             "__rmod__"], false]
+    - ["as3241034", operator.contains, [asyncio.Future.__dict__,           "__rtruediv__"], false]
+    - ["as3241035", operator.contains, [asyncio.Future.__dict__,           "__rfloordiv__"], false]
+    - ["as3241036", operator.contains, [asyncio.Future.__dict__,           "__rmod__"], false]
+    - ["as3241037", operator.contains, [asyncio.Event.__dict__,            "__rtruediv__"], false]
+    - ["as3241038", operator.contains, [asyncio.Event.__dict__,            "__rfloordiv__"], false]
+    - ["as3241039", operator.contains, [asyncio.Event.__dict__,            "__rmod__"], false]
+    - ["as3241040", operator.contains, [asyncio.Lock.__dict__,             "__rtruediv__"], false]
+    - ["as3241041", operator.contains, [asyncio.Lock.__dict__,             "__rfloordiv__"], false]
+    - ["as3241042", operator.contains, [asyncio.Lock.__dict__,             "__rmod__"], false]
+    - ["as3241043", operator.contains, [asyncio.Semaphore.__dict__,        "__rtruediv__"], false]
+    - ["as3241044", operator.contains, [asyncio.Semaphore.__dict__,        "__rfloordiv__"], false]
+    - ["as3241045", operator.contains, [asyncio.Semaphore.__dict__,        "__rmod__"], false]
+    - ["as3241046", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__rtruediv__"], false]
+    - ["as3241047", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__rfloordiv__"], false]
+    - ["as3241048", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__rmod__"], false]
+    - ["as3241049", operator.contains, [asyncio.Condition.__dict__,        "__rtruediv__"], false]
+    - ["as3241050", operator.contains, [asyncio.Condition.__dict__,        "__rfloordiv__"], false]
+    - ["as3241051", operator.contains, [asyncio.Condition.__dict__,        "__rmod__"], false]
+    - ["as3241052", operator.contains, [asyncio.Queue.__dict__,            "__rtruediv__"], false]
+    - ["as3241053", operator.contains, [asyncio.Queue.__dict__,            "__rfloordiv__"], false]
+    - ["as3241054", operator.contains, [asyncio.Queue.__dict__,            "__rmod__"], false]
+    - ["as3241055", operator.contains, [asyncio.PriorityQueue.__dict__,    "__rtruediv__"], false]
+    - ["as3241056", operator.contains, [asyncio.PriorityQueue.__dict__,    "__rfloordiv__"], false]
+    - ["as3241057", operator.contains, [asyncio.PriorityQueue.__dict__,    "__rmod__"], false]
+    - ["as3241058", operator.contains, [asyncio.LifoQueue.__dict__,        "__rtruediv__"], false]
+    - ["as3241059", operator.contains, [asyncio.LifoQueue.__dict__,        "__rfloordiv__"], false]
+    - ["as3241060", operator.contains, [asyncio.LifoQueue.__dict__,        "__rmod__"], false]

@@ -1,0 +1,192 @@
+spec: ab3241
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 663 (ab3241): __rtruediv__, __rfloordiv__, __rmod__ dict-presence (reflected division/modulo) for abc module types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: abc.ABC, abc.ABCMeta, and type(abc.abstractmethod(lambda: None)) — the built-in function type."
+    - "Key finding (__rtruediv__): all 3 abc subjects return false for __rtruediv__. abc.ABC is a plain abstract base class convenience wrapper with no arithmetic semantics — n / ABC is not a defined Python operation and ABC has no __rtruediv__ to provide a fallback. abc.ABCMeta is a metaclass responsible for abstract method tracking and virtual subclass registration (__subclasshook__, register(), __abstractmethods__); none of these capabilities involve reflected true division. The function type (type(abc.abstractmethod(lambda: None)) is <class 'function'>) does not define __rtruediv__ — functions are callables and descriptors, not numeric types. n / f is not a valid Python expression for function objects."
+    - "Key finding (__rfloordiv__): all 3 abc subjects return false for __rfloordiv__. Reflected floor division (__rfloordiv__) is the complement of __floordiv__. abc.ABC defines no arithmetic operators — neither __floordiv__ nor __rfloordiv__ appear in its __dict__. abc.ABCMeta's entire capability is in class-hierarchy machinery; floor division is entirely absent. The function type does not define __rfloordiv__; n // f is not a valid Python expression for callable objects."
+    - "Key finding (__rmod__): all 3 abc subjects return false for __rmod__. Reflected modulo (__rmod__) is invoked when n % obj is attempted and the left operand does not handle the right operand. abc.ABC has no numeric or format-string data model. abc.ABCMeta handles abstract method tracking and class hierarchy; none of its responsibilities map to reflected modulo. The function type does not define __rmod__; n % f is not a valid Python expression for callable objects (unlike str, which defines __rmod__ to implement the % string formatting operator)."
+    - "All 9 values in this wave are false — continuing the all-false pattern from wave 662 (__radd__/__rsub__/__rmul__)."
+    - "The function type profile across all waves: true only for __get__ (wave 652), __repr__ (wave 655), and __call__ (wave 656). All other dunders tested — including this wave's __rtruediv__/__rfloordiv__/__rmod__ — are false."
+    - "abc.ABCMeta has now returned false for every arithmetic and reflected arithmetic dunder tested across 12 consecutive waves (652–663). Its entire capability is expressed through class-hierarchy machinery, not operator overloading."
+    - "Cross-wave summary for abc subjects:"
+    - "  Wave 652 (ab3076): __get__ true for function type; __set__/__delete__ false."
+    - "  Wave 653 (ab3091): __hash__/__eq__/__bool__ all false for all 3."
+    - "  Wave 654 (ab3106): __lt__/__le__/__gt__ all false for all 3."
+    - "  Wave 655 (ab3121): __ge__ false; __repr__ true for function type only; __str__ false."
+    - "  Wave 656 (ab3136): __call__ true for function type only; __len__/__getitem__ false."
+    - "  Wave 657 (ab3151): __setitem__/__delitem__/__contains__ — all false for all 3."
+    - "  Wave 658 (ab3166): __add__/__sub__/__mul__ — all false for all 3."
+    - "  Wave 659 (ab3181): __truediv__/__floordiv__/__mod__ — all false for all 3."
+    - "  Wave 660 (ab3196): __pow__/__lshift__/__rshift__ — all false for all 3."
+    - "  Wave 661 (ab3211): __and__/__or__/__xor__ — all false for all 3."
+    - "  Wave 662 (ab3226): __radd__/__rsub__/__rmul__ — all false for all 3."
+    - "  Wave 663 (ab3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 3."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __rtruediv__ dict-presence — operator.contains(Cls.__dict__, '__rtruediv__')
+#
+# All 3 abc subjects return false for __rtruediv__.
+# abc.ABC: a plain abstract base class convenience wrapper with no
+#   arithmetic or reflected-arithmetic semantics. n / ABC is not a defined
+#   Python operation; ABC has no __rtruediv__ to serve as a fallback.
+# abc.ABCMeta: a metaclass for abstract method tracking and virtual subclass
+#   registration. Reflected true division has no role in ABCMeta's
+#   responsibilities (__subclasshook__, register(), __abstractmethods__).
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>:
+#   functions do not define __rtruediv__. n / f is not a valid Python
+#   expression for callable objects. Functions are callables and descriptors
+#   with no numeric data model.
+# ---------------------------------------------------------------------------
+
+table ab3241.rtruediv:
+  description: "abc types __rtruediv__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3241001", operator.contains, [abc.ABC.__dict__,                                 "__rtruediv__"], false]
+    - ["ab3241002", operator.contains, [abc.ABCMeta.__dict__,                             "__rtruediv__"], false]
+    - ["ab3241003", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__rtruediv__"], false]
+
+# ---------------------------------------------------------------------------
+# __rfloordiv__ dict-presence — operator.contains(Cls.__dict__, '__rfloordiv__')
+#
+# All 3 abc subjects return false for __rfloordiv__.
+# abc.ABC: no arithmetic data model; neither __floordiv__ nor __rfloordiv__
+#   appear in abc.ABC's __dict__. ABC is a pure abstract base class helper
+#   with no state of its own beyond what ABCMeta provides.
+# abc.ABCMeta: does not define __rfloordiv__ for metaclass reflected floor
+#   division. ABCMeta's API surface (__subclasshook__, register(),
+#   __abstractmethods__) has no arithmetic or reflected arithmetic component.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>:
+#   functions do not define __rfloordiv__. n // f is not a valid Python
+#   expression for callable objects. The function type is tightly scoped to
+#   its role as a callable descriptor with a display representation.
+# ---------------------------------------------------------------------------
+
+table ab3241.rfloordiv:
+  description: "abc types __rfloordiv__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3241004", operator.contains, [abc.ABC.__dict__,                                 "__rfloordiv__"], false]
+    - ["ab3241005", operator.contains, [abc.ABCMeta.__dict__,                             "__rfloordiv__"], false]
+    - ["ab3241006", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__rfloordiv__"], false]
+
+# ---------------------------------------------------------------------------
+# __rmod__ dict-presence — operator.contains(Cls.__dict__, '__rmod__')
+#
+# All 3 abc subjects return false for __rmod__.
+# abc.ABC: no numeric or format-string data model; n % ABC is not a defined
+#   Python expression. abc.ABC is a bare metaclass convenience wrapper with
+#   no state of its own beyond what ABCMeta provides.
+# abc.ABCMeta: does not define __rmod__ for reflected modulo. ABCMeta is a
+#   powerful metaclass, but its entire power lies in class-hierarchy machinery
+#   — not in operator overloading. n % ABCMeta is not a valid Python expression.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>:
+#   functions do not define __rmod__. Unlike str (which defines __rmod__ to
+#   implement the % string formatting operator when used as the right operand),
+#   function objects have no format-string or modulo semantics. n % f is not a
+#   valid Python expression for callable objects.
+# ---------------------------------------------------------------------------
+
+table ab3241.rmod:
+  description: "abc types __rmod__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3241007", operator.contains, [abc.ABC.__dict__,                                 "__rmod__"], false]
+    - ["ab3241008", operator.contains, [abc.ABCMeta.__dict__,                             "__rmod__"], false]
+    - ["ab3241009", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__rmod__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __rtruediv__, __rfloordiv__, __rmod__ across all 3 abc subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __rtruediv__: false for all 3.
+# __rfloordiv__: false for all 3.
+# __rmod__: false for all 3.
+# All 9 values are false.
+# Continues the all-false pattern from wave 662 (__radd__/__rsub__/__rmul__).
+# The function type profile across all waves tested:
+#   true:  __get__ (652), __repr__ (655), __call__ (656)
+#   false: __set__, __delete__, __hash__, __eq__, __bool__, __lt__, __le__, __gt__,
+#          __ge__, __str__, __len__, __getitem__, __setitem__, __delitem__,
+#          __contains__, __add__, __sub__, __mul__, __truediv__, __floordiv__,
+#          __mod__, __pow__, __lshift__, __rshift__, __and__, __or__, __xor__,
+#          __radd__, __rsub__, __rmul__, __rtruediv__, __rfloordiv__, __rmod__
+# The function type is tightly scoped to its role as a callable descriptor with
+#   a display representation. All arithmetic, bitwise, reflected arithmetic, and
+#   reflected division/modulo operators are absent.
+# abc.ABCMeta note: ABCMeta has now returned false for every arithmetic and
+#   reflected arithmetic dunder tested across 12 consecutive waves (652–663).
+#   Its power lies exclusively in class-hierarchy machinery — not in operator
+#   overloading of any kind.
+# abc.ABC note: ABC is a pure syntactic convenience for declaring abstract base
+#   classes. It has no state of its own beyond what ABCMeta provides, and defines
+#   no arithmetic, bitwise, reflected arithmetic, or division/modulo protocol
+#   whatsoever.
+# Cross-wave summary for abc subjects:
+#   Wave 652 (ab3076): __get__ true for function type; __set__/__delete__ false.
+#   Wave 653 (ab3091): __hash__/__eq__/__bool__ all false for all 3.
+#   Wave 654 (ab3106): __lt__/__le__/__gt__ all false for all 3.
+#   Wave 655 (ab3121): __ge__ false; __repr__ true for function type only; __str__ false.
+#   Wave 656 (ab3136): __call__ true for function type only; __len__/__getitem__ false.
+#   Wave 657 (ab3151): __setitem__/__delitem__/__contains__ — all false for all 3.
+#   Wave 658 (ab3166): __add__/__sub__/__mul__ — all false for all 3.
+#   Wave 659 (ab3181): __truediv__/__floordiv__/__mod__ — all false for all 3.
+#   Wave 660 (ab3196): __pow__/__lshift__/__rshift__ — all false for all 3.
+#   Wave 661 (ab3211): __and__/__or__/__xor__ — all false for all 3.
+#   Wave 662 (ab3226): __radd__/__rsub__/__rmul__ — all false for all 3.
+#   Wave 663 (ab3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 3.
+# ---------------------------------------------------------------------------
+
+table ab3241.combined:
+  description: "abc types combined __rtruediv__/__rfloordiv__/__rmod__; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3241010", operator.contains, [abc.ABC.__dict__,                                 "__rtruediv__"], false]
+    - ["ab3241011", operator.contains, [abc.ABC.__dict__,                                 "__rfloordiv__"], false]
+    - ["ab3241012", operator.contains, [abc.ABC.__dict__,                                 "__rmod__"], false]
+    - ["ab3241013", operator.contains, [abc.ABCMeta.__dict__,                             "__rtruediv__"], false]
+    - ["ab3241014", operator.contains, [abc.ABCMeta.__dict__,                             "__rfloordiv__"], false]
+    - ["ab3241015", operator.contains, [abc.ABCMeta.__dict__,                             "__rmod__"], false]
+    - ["ab3241016", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__rtruediv__"], false]
+    - ["ab3241017", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__rfloordiv__"], false]
+    - ["ab3241018", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__rmod__"], false]

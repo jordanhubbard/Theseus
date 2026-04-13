@@ -1,0 +1,156 @@
+spec: cf3241
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 663 (cf3241): __rtruediv__, __rfloordiv__, __rmod__ dict-presence (reflected division/modulo) for concurrent.futures types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: concurrent.futures.Future, concurrent.futures.ThreadPoolExecutor, concurrent.futures.ProcessPoolExecutor."
+    - "Key finding (__rtruediv__): all 3 concurrent.futures classes return false for __rtruediv__. Reflected true division (__rtruediv__) is invoked when the left operand's __truediv__ returns NotImplemented. concurrent.futures types define no __truediv__ (confirmed false in wave 659), so __rtruediv__ is equally absent. concurrent.futures.Future is a result handle with a PENDING/RUNNING/CANCELLED/FINISHED state machine — not a numeric type; n / future is not a defined Python expression. ThreadPoolExecutor and ProcessPoolExecutor manage worker pools via submit()/map()/shutdown(); reflected division is not defined for executor objects."
+    - "Key finding (__rfloordiv__): all 3 concurrent.futures classes return false for __rfloordiv__. Reflected floor division (__rfloordiv__) complements __floordiv__. concurrent.futures types define neither __floordiv__ (confirmed false in wave 659) nor __rfloordiv__. There is no integer-division data model for executor or future types — neither left-side nor right-side floor division is defined."
+    - "Key finding (__rmod__): all 3 concurrent.futures classes return false for __rmod__. Reflected modulo (__rmod__) is invoked when the left operand's __mod__ returns NotImplemented. concurrent.futures types define no __mod__ (confirmed false in wave 659), so __rmod__ is also absent. No executor or future type implements a modulo or format-string interface. concurrent.futures.Future is not a str-like type and has no __rmod__ to support the % operator from the right side."
+    - "All 9 values in this wave are false. concurrent.futures is a high-level parallel execution API operating entirely through method calls — submit(), map(), result(), cancel(), add_done_callback(), shutdown() — with no arithmetic or reflected division/modulo operator overloading of any kind."
+    - "Cross-wave summary for cf subjects:"
+    - "  Wave 658 (cf3166): __add__/__sub__/__mul__ — all false for all 3."
+    - "  Wave 659 (cf3181): __truediv__/__floordiv__/__mod__ — all false for all 3."
+    - "  Wave 660 (cf3196): __pow__/__lshift__/__rshift__ — all false for all 3."
+    - "  Wave 661 (cf3211): __and__/__or__/__xor__ — all false for all 3."
+    - "  Wave 662 (cf3226): __radd__/__rsub__/__rmul__ — all false for all 3."
+    - "  Wave 663 (cf3241): __rtruediv__/__rfloordiv__/__rmod__ — all false for all 3."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __rtruediv__ dict-presence — operator.contains(Cls.__dict__, '__rtruediv__')
+#
+# All 3 concurrent.futures classes return false for __rtruediv__.
+# concurrent.futures types are executor and future abstractions; they are
+#   not numeric types, so reflected true division is not defined.
+# concurrent.futures.Future: a result-handle with PENDING/RUNNING/CANCELLED/
+#   FINISHED states; n / future is not a valid Python expression.
+# ThreadPoolExecutor/ProcessPoolExecutor: worker-pool managers with an
+#   entirely method-based API; reflected division is not defined for pools.
+# ---------------------------------------------------------------------------
+
+table cf3241.rtruediv:
+  description: "concurrent.futures types __rtruediv__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3241001", operator.contains, [concurrent.futures.Future.__dict__,              "__rtruediv__"], false]
+    - ["cf3241002", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rtruediv__"], false]
+    - ["cf3241003", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rtruediv__"], false]
+
+# ---------------------------------------------------------------------------
+# __rfloordiv__ dict-presence — operator.contains(Cls.__dict__, '__rfloordiv__')
+#
+# All 3 concurrent.futures classes return false for __rfloordiv__.
+# Reflected floor division (__rfloordiv__) is the mirror of __floordiv__; it
+#   is invoked when the left operand's __floordiv__ returns NotImplemented.
+# concurrent.futures types define neither __floordiv__ (confirmed false in
+#   wave 659) nor __rfloordiv__.
+# concurrent.futures.Future: a state-machine result handle; n // future is
+#   not a valid Python expression.
+# ThreadPoolExecutor/ProcessPoolExecutor: worker-pool lifecycle managers;
+#   reflected floor division is entirely absent from their API.
+# ---------------------------------------------------------------------------
+
+table cf3241.rfloordiv:
+  description: "concurrent.futures types __rfloordiv__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3241004", operator.contains, [concurrent.futures.Future.__dict__,              "__rfloordiv__"], false]
+    - ["cf3241005", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rfloordiv__"], false]
+    - ["cf3241006", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rfloordiv__"], false]
+
+# ---------------------------------------------------------------------------
+# __rmod__ dict-presence — operator.contains(Cls.__dict__, '__rmod__')
+#
+# All 3 concurrent.futures classes return false for __rmod__.
+# Reflected modulo (__rmod__) is invoked when n % obj is attempted and the
+#   left operand does not handle the right operand type.
+# concurrent.futures types define no __mod__ (confirmed false in wave 659),
+#   so __rmod__ is equally absent. Executor and future types have no modulo
+#   or format-string semantics.
+# concurrent.futures.Future: a result handle, not a str-like type; it does
+#   not implement the % format operator from either side.
+# ThreadPoolExecutor/ProcessPoolExecutor: pool managers; n % executor is
+#   not a defined Python operation.
+# ---------------------------------------------------------------------------
+
+table cf3241.rmod:
+  description: "concurrent.futures types __rmod__ dict-presence checks; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3241007", operator.contains, [concurrent.futures.Future.__dict__,              "__rmod__"], false]
+    - ["cf3241008", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rmod__"], false]
+    - ["cf3241009", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rmod__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __rtruediv__, __rfloordiv__, __rmod__ across all 3 cf subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __rtruediv__: false for all 3 — no reflected true division defined.
+# __rfloordiv__: false for all 3 — no reflected floor division defined.
+# __rmod__: false for all 3 — no reflected modulo defined.
+# All 9 values are false.
+# concurrent.futures is a high-level parallel execution API. Its entire
+#   public surface is method-based: submit(), map(), result(), cancel(),
+#   done(), running(), cancelled(), add_done_callback(), shutdown().
+#   Neither forward nor reflected division or modulo operator overloading
+#   appears anywhere in the concurrent.futures type hierarchy.
+# concurrent.futures.Future note: despite the name suggesting a value
+#   arriving in the future, Future is a state-machine result handle — not
+#   a numeric or str-like type. __rtruediv__, __rfloordiv__, __rmod__ are
+#   all absent.
+# ThreadPoolExecutor/ProcessPoolExecutor note: executor types encapsulate
+#   a pool of worker threads or processes; they expose only lifecycle and
+#   dispatch methods. No reflected operator overloads are defined.
+# ---------------------------------------------------------------------------
+
+table cf3241.combined:
+  description: "concurrent.futures types combined __rtruediv__/__rfloordiv__/__rmod__; wave 663"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: cf3241
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf3241010", operator.contains, [concurrent.futures.Future.__dict__,              "__rtruediv__"], false]
+    - ["cf3241011", operator.contains, [concurrent.futures.Future.__dict__,              "__rfloordiv__"], false]
+    - ["cf3241012", operator.contains, [concurrent.futures.Future.__dict__,              "__rmod__"], false]
+    - ["cf3241013", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rtruediv__"], false]
+    - ["cf3241014", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rfloordiv__"], false]
+    - ["cf3241015", operator.contains, [concurrent.futures.ThreadPoolExecutor.__dict__,  "__rmod__"], false]
+    - ["cf3241016", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rtruediv__"], false]
+    - ["cf3241017", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rfloordiv__"], false]
+    - ["cf3241018", operator.contains, [concurrent.futures.ProcessPoolExecutor.__dict__, "__rmod__"], false]
