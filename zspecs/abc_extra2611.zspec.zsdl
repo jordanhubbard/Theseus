@@ -1,0 +1,111 @@
+spec: abc_extra2611
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html — abc module documentation"
+    - "https://docs.python.org/3/reference/datamodel.html#customizing-class-creation — __init_subclass__ and __subclasshook__"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source: Lib/abc.py"
+    - "CPython source: Modules/_abc.c"
+  notes:
+    - "Wave 621 theme: __init_subclass__, __subclasshook__, and __class_getitem__ dict-presence checks."
+    - "Key finding: __subclasshook__ is defined in object.__dict__ (as a classmethod_descriptor), NOT in abc.ABCMeta.__dict__ or abc.ABC.__dict__. Despite abc.ABCMeta customizing isinstance/issubclass checks, it does NOT override __subclasshook__ in its own __dict__ — that method lives on object and is inherited via the MRO (ABCMeta -> type -> object)."
+    - "abc.ABCMeta defines __subclasscheck__ (not __subclasshook__) in its own __dict__. These are distinct: __subclasscheck__ is a metaclass hook; __subclasshook__ is a classmethod on normal classes."
+    - "abc.ABC, abc.abstractmethod, abc.abstractclassmethod, abc.abstractstaticmethod, and abc.abstractproperty do NOT define __init_subclass__, __subclasshook__, or __class_getitem__ in their own __dict__."
+    - "All expected values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+  created_at: "2026-04-13"
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __init_subclass__ dict-presence — abc classes
+#
+# ABCMeta, ABC, abstractmethod, abstractclassmethod, abstractstaticmethod,
+# and abstractproperty all do NOT define __init_subclass__ in their own
+# __dict__. It is inherited from object.
+# ---------------------------------------------------------------------------
+
+table abc_extra2611.init_subclass_checks:
+  description: "abc classes do NOT define __init_subclass__ in their own __dict__"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab2611
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2611001", "abc.ABCMeta.__dict__.__contains__",              ["__init_subclass__"], false]
+    - ["ab2611002", "abc.ABC.__dict__.__contains__",                  ["__init_subclass__"], false]
+    - ["ab2611003", "abc.abstractclassmethod.__dict__.__contains__",  ["__init_subclass__"], false]
+    - ["ab2611004", "abc.abstractstaticmethod.__dict__.__contains__", ["__init_subclass__"], false]
+    - ["ab2611005", "abc.abstractproperty.__dict__.__contains__",     ["__init_subclass__"], false]
+
+# ---------------------------------------------------------------------------
+# __subclasshook__ dict-presence — abc classes
+#
+# The critical finding: __subclasshook__ is in object.__dict__, NOT in
+# ABCMeta.__dict__ or ABC.__dict__. ABCMeta customizes subclass checking
+# via __subclasscheck__ (its own metaclass hook), not __subclasshook__.
+# ---------------------------------------------------------------------------
+
+table abc_extra2611.subclasshook_checks:
+  description: "abc classes do NOT define __subclasshook__ in their own __dict__; it lives on object"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab2611
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2611006", "abc.ABCMeta.__dict__.__contains__",              ["__subclasshook__"], false]
+    - ["ab2611007", "abc.ABC.__dict__.__contains__",                  ["__subclasshook__"], false]
+    - ["ab2611008", "abc.abstractclassmethod.__dict__.__contains__",  ["__subclasshook__"], false]
+    - ["ab2611009", "abc.abstractstaticmethod.__dict__.__contains__", ["__subclasshook__"], false]
+    - ["ab2611010", "abc.abstractproperty.__dict__.__contains__",     ["__subclasshook__"], false]
+
+# ---------------------------------------------------------------------------
+# __class_getitem__ dict-presence — abc classes
+#
+# None of the abc classes define __class_getitem__ in their own __dict__.
+# ---------------------------------------------------------------------------
+
+table abc_extra2611.class_getitem_checks:
+  description: "abc classes do NOT define __class_getitem__ in their own __dict__"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab2611
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2611011", "abc.ABCMeta.__dict__.__contains__",              ["__class_getitem__"], false]
+    - ["ab2611012", "abc.ABC.__dict__.__contains__",                  ["__class_getitem__"], false]
+    - ["ab2611013", "abc.abstractclassmethod.__dict__.__contains__",  ["__class_getitem__"], false]
+    - ["ab2611014", "abc.abstractstaticmethod.__dict__.__contains__", ["__class_getitem__"], false]
+    - ["ab2611015", "abc.abstractproperty.__dict__.__contains__",     ["__class_getitem__"], false]
+
+# ---------------------------------------------------------------------------
+# hook_semantics — ABCMeta defines __subclasscheck__ (not __subclasshook__)
+#
+# ABCMeta is a metaclass that customizes isinstance/issubclass checks.
+# It defines __subclasscheck__ and __instancecheck__ in its own __dict__ —
+# not __subclasshook__. The __subclasshook__ classmethod lives on object
+# and is called by ABCMeta's C-level __subclasscheck__ implementation.
+# This table documents the distinction.
+# ---------------------------------------------------------------------------
+
+table abc_extra2611.hook_semantics:
+  description: "ABCMeta defines __subclasscheck__ and __instancecheck__ (not __subclasshook__) in its own __dict__"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab2611
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab2611016", "abc.ABCMeta.__dict__.__contains__", ["__subclasscheck__"],  true]
+    - ["ab2611017", "abc.ABCMeta.__dict__.__contains__", ["__instancecheck__"],  true]
+    - ["ab2611018", "abc.ABCMeta.__dict__.__contains__", ["__subclasshook__"],   false]
+    - ["ab2611019", "abc.ABCMeta.__dict__.__contains__", ["register"],           true]
+    - ["ab2611020", "abc.ABCMeta.__dict__.__contains__", ["__new__"],            true]
+    - ["ab2611021", "abc.ABCMeta.__dict__.__contains__", ["__init_subclass__"],  false]
+    - ["ab2611022", "abc.ABCMeta.__dict__.__contains__", ["__class_getitem__"],  false]
+    - ["ab2611023", "abc.ABC.__dict__.__contains__",     ["_abc_impl"],          true]
+    - ["ab2611024", "abc.ABC.__dict__.__contains__",     ["__subclasshook__"],   false]
+    - ["ab2611025", "abc.ABC.__dict__.__contains__",     ["__subclasscheck__"],  false]
