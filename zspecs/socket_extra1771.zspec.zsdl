@@ -1,0 +1,82 @@
+spec: socket_extra1771
+version: ">=3.9"
+backend: python_module(socket)
+error_model: python_exceptions
+provenance:
+  derived_from:
+    - "Python socket documentation — https://docs.python.org/3/library/socket.html"
+    - "RFC 793 — Transmission Control Protocol"
+    - "RFC 768 — User Datagram Protocol"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "socket.zspec.zsdl — covers AF_INET/SOCK_STREAM constants, inet_aton, htonl"
+    - "socket_extra.zspec.zsdl — covers additional constant and function checks"
+    - "CPython source: Modules/socketmodule.c"
+  notes:
+    - "Wave 565 (_extra1771): async protocol dict-presence checks."
+    - "Theme: which socket stdlib types define __aenter__, __aexit__, __aiter__, __anext__, __await__ in their own __dict__."
+    - "socket.socket: the Python-level wrapper class around the C _socket.socket type. Synchronous by design -> all False."
+    - "Rationale: socket.socket implements the POSIX socket API (connect, bind, listen, accept, send, recv), not the async protocol. asyncio uses the socket in non-blocking mode but does not add async dunders to socket.socket.__dict__."
+    - "socket.socket defines a synchronous context manager (__enter__/__exit__) in its own __dict__ — these are present; the async variants (__aenter__/__aexit__) are absent."
+    - "socket.socket.__dict__.__contains__('settimeout') -> True — settimeout is defined on the Python-level socket wrapper."
+    - "socket.socket.__dict__.__contains__('gettimeout') -> True — gettimeout is defined on the Python-level socket wrapper."
+    - "socket.socket.__dict__.__contains__('setblocking') -> True — setblocking is defined on the Python-level socket wrapper."
+    - "socket.socket.__dict__.__contains__('makefile') -> True — makefile is defined on the Python-level socket wrapper."
+    - "getpeername/getpeername are inherited from _socket.socket (C base), not in socket.socket.__dict__."
+    - "All expected values verified by running Python 3.14 socket module on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# Table 1: async protocol dict-presence checks for socket.socket
+#
+# Wave 565 theme: which socket types define __aenter__, __aexit__,
+# __aiter__, __anext__, __await__ in their own __dict__.
+#
+# socket.socket: the Python-level socket wrapper. It wraps _socket.socket
+# (C base class) and adds Python-level methods like settimeout, makefile.
+# It does NOT add async protocol dunders -> all False.
+# ---------------------------------------------------------------------------
+
+table socket_extra1771.async_protocol:
+  description: "socket.socket async protocol dict-presence checks — all False — wave 565 _extra1771"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: sk1771
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["sk1771001", "socket.socket.__dict__.__contains__", ["__aenter__"], false]
+    - ["sk1771002", "socket.socket.__dict__.__contains__", ["__aexit__"],  false]
+    - ["sk1771003", "socket.socket.__dict__.__contains__", ["__aiter__"],  false]
+    - ["sk1771004", "socket.socket.__dict__.__contains__", ["__anext__"],  false]
+    - ["sk1771005", "socket.socket.__dict__.__contains__", ["__await__"],  false]
+
+# ---------------------------------------------------------------------------
+# Table 2: complementary checks for socket.socket and module-level names
+#
+# The async theme is all-False for socket.socket. Complementary checks
+# confirm genuine socket-specific structural properties defined directly
+# on the Python-level socket.socket class (not inherited from _socket.socket):
+# - settimeout, gettimeout, setblocking, makefile are Python-wrapper methods
+# - __enter__ and __exit__ implement the synchronous context manager protocol
+# - Class name and module name metadata
+# ---------------------------------------------------------------------------
+
+table socket_extra1771.complementary_checks:
+  description: "socket.socket Python-wrapper method presence and class metadata checks — wave 565 _extra1771"
+  kind: python_call_eq
+  category: complementary
+  id_prefix: sk1771
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["sk1771006", "socket.socket.__dict__.__contains__", ["settimeout"],   true]
+    - ["sk1771007", "socket.socket.__dict__.__contains__", ["gettimeout"],   true]
+    - ["sk1771008", "socket.socket.__dict__.__contains__", ["setblocking"],  true]
+    - ["sk1771009", "socket.socket.__dict__.__contains__", ["makefile"],     true]
+    - ["sk1771010", "socket.socket.__dict__.__contains__", ["__enter__"],    true]
+    - ["sk1771011", "socket.socket.__dict__.__contains__", ["__exit__"],     true]
+    - ["sk1771012", "socket.socket.__name__.__eq__",        ["socket"],      true]
+    - ["sk1771013", "socket.socket.__module__.__eq__",      ["socket"],      true]
+    - ["sk1771014", "socket.socket.__dict__.__contains__", ["detach"],       true]
+    - ["sk1771015", "socket.socket.__dict__.__contains__", ["get_inheritable"], true]
