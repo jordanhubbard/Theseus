@@ -1,0 +1,194 @@
+spec: as3091
+version: ">=3.9"
+backend: python_module(asyncio)
+
+docs: https://docs.python.org/3/library/asyncio.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/asyncio.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 653 (as3091): __hash__, __eq__, __bool__ dict-presence for asyncio types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: asyncio.Task, asyncio.Future, asyncio.Queue, asyncio.Event, asyncio.Semaphore, asyncio.Lock, asyncio.Condition, asyncio.BoundedSemaphore, asyncio.Handle, asyncio.TimerHandle, asyncio.Timeout, asyncio.TaskGroup, asyncio.StreamReader, asyncio.StreamWriter."
+    - "Key finding: asyncio.TimerHandle defines both __hash__ and __eq__ in its own __dict__ (both true). TimerHandle overrides __eq__ to compare scheduled times and __hash__ for use in sets/dicts (e.g. scheduler internals)."
+    - "All other 13 asyncio classes return false for __hash__, __eq__, and __bool__ — they inherit identity-based hashing and equality from object and define no custom boolean coercion."
+    - "__bool__ is false for all 14 asyncio classes — none define custom truthiness; they always evaluate as truthy by inheriting from object."
+    - "asyncio.Future does NOT define __hash__ = None in its own __dict__ on Python 3.14 — it inherits identity-based hashing from object rather than explicitly suppressing it."
+    - "asyncio.Task similarly does not override __hash__ or __eq__ in its own __dict__ on Python 3.14."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __hash__ dict-presence — operator.contains(Cls.__dict__, '__hash__')
+#
+# asyncio.TimerHandle: TRUE — defines __hash__ explicitly to support use
+#   in sets and dicts. TimerHandle objects can be compared and hashed by their
+#   scheduled time and internal state.
+# All other asyncio classes: false — they do not define __hash__ in their own
+#   __dict__ and rely on identity-based hashing inherited from object.
+# ---------------------------------------------------------------------------
+
+table as3091.hash:
+  description: "asyncio types __hash__ dict-presence checks; wave 653"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3091
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3091001", operator.contains, [asyncio.Task.__dict__,             "__hash__"], false]
+    - ["as3091002", operator.contains, [asyncio.Future.__dict__,           "__hash__"], false]
+    - ["as3091003", operator.contains, [asyncio.Queue.__dict__,            "__hash__"], false]
+    - ["as3091004", operator.contains, [asyncio.Event.__dict__,            "__hash__"], false]
+    - ["as3091005", operator.contains, [asyncio.Semaphore.__dict__,        "__hash__"], false]
+    - ["as3091006", operator.contains, [asyncio.Lock.__dict__,             "__hash__"], false]
+    - ["as3091007", operator.contains, [asyncio.Condition.__dict__,        "__hash__"], false]
+    - ["as3091008", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__hash__"], false]
+    - ["as3091009", operator.contains, [asyncio.Handle.__dict__,           "__hash__"], false]
+    - ["as3091010", operator.contains, [asyncio.TimerHandle.__dict__,      "__hash__"], true]
+    - ["as3091011", operator.contains, [asyncio.Timeout.__dict__,          "__hash__"], false]
+    - ["as3091012", operator.contains, [asyncio.TaskGroup.__dict__,        "__hash__"], false]
+    - ["as3091013", operator.contains, [asyncio.StreamReader.__dict__,     "__hash__"], false]
+    - ["as3091014", operator.contains, [asyncio.StreamWriter.__dict__,     "__hash__"], false]
+
+# ---------------------------------------------------------------------------
+# __eq__ dict-presence — operator.contains(Cls.__dict__, '__eq__')
+#
+# asyncio.TimerHandle: TRUE — defines __eq__ to compare timer handles by their
+#   scheduled time, enabling meaningful equality comparisons in the event loop
+#   scheduler.
+# All other asyncio classes: false — they do not define __eq__ in their own
+#   __dict__ and rely on identity-based equality inherited from object.
+# ---------------------------------------------------------------------------
+
+table as3091.eq:
+  description: "asyncio types __eq__ dict-presence checks; wave 653"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3091
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3091015", operator.contains, [asyncio.Task.__dict__,             "__eq__"], false]
+    - ["as3091016", operator.contains, [asyncio.Future.__dict__,           "__eq__"], false]
+    - ["as3091017", operator.contains, [asyncio.Queue.__dict__,            "__eq__"], false]
+    - ["as3091018", operator.contains, [asyncio.Event.__dict__,            "__eq__"], false]
+    - ["as3091019", operator.contains, [asyncio.Semaphore.__dict__,        "__eq__"], false]
+    - ["as3091020", operator.contains, [asyncio.Lock.__dict__,             "__eq__"], false]
+    - ["as3091021", operator.contains, [asyncio.Condition.__dict__,        "__eq__"], false]
+    - ["as3091022", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__eq__"], false]
+    - ["as3091023", operator.contains, [asyncio.Handle.__dict__,           "__eq__"], false]
+    - ["as3091024", operator.contains, [asyncio.TimerHandle.__dict__,      "__eq__"], true]
+    - ["as3091025", operator.contains, [asyncio.Timeout.__dict__,          "__eq__"], false]
+    - ["as3091026", operator.contains, [asyncio.TaskGroup.__dict__,        "__eq__"], false]
+    - ["as3091027", operator.contains, [asyncio.StreamReader.__dict__,     "__eq__"], false]
+    - ["as3091028", operator.contains, [asyncio.StreamWriter.__dict__,     "__eq__"], false]
+
+# ---------------------------------------------------------------------------
+# __bool__ dict-presence — operator.contains(Cls.__dict__, '__bool__')
+#
+# All 14 asyncio classes return false for __bool__.
+# No asyncio class defines custom boolean coercion; they all evaluate as truthy
+# by inheriting the default from object (which always returns True).
+# asyncio synchronization primitives (Lock, Semaphore, etc.) do not expose
+# their internal locked/unlocked state as a bool via __bool__.
+# ---------------------------------------------------------------------------
+
+table as3091.bool:
+  description: "asyncio types __bool__ dict-presence checks; wave 653"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3091
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3091029", operator.contains, [asyncio.Task.__dict__,             "__bool__"], false]
+    - ["as3091030", operator.contains, [asyncio.Future.__dict__,           "__bool__"], false]
+    - ["as3091031", operator.contains, [asyncio.Queue.__dict__,            "__bool__"], false]
+    - ["as3091032", operator.contains, [asyncio.Event.__dict__,            "__bool__"], false]
+    - ["as3091033", operator.contains, [asyncio.Semaphore.__dict__,        "__bool__"], false]
+    - ["as3091034", operator.contains, [asyncio.Lock.__dict__,             "__bool__"], false]
+    - ["as3091035", operator.contains, [asyncio.Condition.__dict__,        "__bool__"], false]
+    - ["as3091036", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__bool__"], false]
+    - ["as3091037", operator.contains, [asyncio.Handle.__dict__,           "__bool__"], false]
+    - ["as3091038", operator.contains, [asyncio.TimerHandle.__dict__,      "__bool__"], false]
+    - ["as3091039", operator.contains, [asyncio.Timeout.__dict__,          "__bool__"], false]
+    - ["as3091040", operator.contains, [asyncio.TaskGroup.__dict__,        "__bool__"], false]
+    - ["as3091041", operator.contains, [asyncio.StreamReader.__dict__,     "__bool__"], false]
+    - ["as3091042", operator.contains, [asyncio.StreamWriter.__dict__,     "__bool__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __hash__, __eq__, __bool__ across all 14 asyncio subjects
+#
+# Covers the full matrix: 14 classes x 3 methods = 42 rows.
+# __hash__: true only for asyncio.TimerHandle; false for all others.
+# __eq__:   true only for asyncio.TimerHandle; false for all others.
+# __bool__: false for all 14 classes.
+# asyncio.TimerHandle is the single outlier — it defines comparison and hashing
+# to support ordered scheduling (min-heap) in the event loop.
+# ---------------------------------------------------------------------------
+
+table as3091.combined:
+  description: "asyncio types combined __hash__/__eq__/__bool__; wave 653"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: as3091
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["as3091043", operator.contains, [asyncio.Task.__dict__,             "__hash__"], false]
+    - ["as3091044", operator.contains, [asyncio.Task.__dict__,             "__eq__"],   false]
+    - ["as3091045", operator.contains, [asyncio.Task.__dict__,             "__bool__"], false]
+    - ["as3091046", operator.contains, [asyncio.Future.__dict__,           "__hash__"], false]
+    - ["as3091047", operator.contains, [asyncio.Future.__dict__,           "__eq__"],   false]
+    - ["as3091048", operator.contains, [asyncio.Future.__dict__,           "__bool__"], false]
+    - ["as3091049", operator.contains, [asyncio.Queue.__dict__,            "__hash__"], false]
+    - ["as3091050", operator.contains, [asyncio.Queue.__dict__,            "__eq__"],   false]
+    - ["as3091051", operator.contains, [asyncio.Queue.__dict__,            "__bool__"], false]
+    - ["as3091052", operator.contains, [asyncio.Event.__dict__,            "__hash__"], false]
+    - ["as3091053", operator.contains, [asyncio.Event.__dict__,            "__eq__"],   false]
+    - ["as3091054", operator.contains, [asyncio.Event.__dict__,            "__bool__"], false]
+    - ["as3091055", operator.contains, [asyncio.Semaphore.__dict__,        "__hash__"], false]
+    - ["as3091056", operator.contains, [asyncio.Semaphore.__dict__,        "__eq__"],   false]
+    - ["as3091057", operator.contains, [asyncio.Semaphore.__dict__,        "__bool__"], false]
+    - ["as3091058", operator.contains, [asyncio.Lock.__dict__,             "__hash__"], false]
+    - ["as3091059", operator.contains, [asyncio.Lock.__dict__,             "__eq__"],   false]
+    - ["as3091060", operator.contains, [asyncio.Lock.__dict__,             "__bool__"], false]
+    - ["as3091061", operator.contains, [asyncio.Condition.__dict__,        "__hash__"], false]
+    - ["as3091062", operator.contains, [asyncio.Condition.__dict__,        "__eq__"],   false]
+    - ["as3091063", operator.contains, [asyncio.Condition.__dict__,        "__bool__"], false]
+    - ["as3091064", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__hash__"], false]
+    - ["as3091065", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__eq__"],   false]
+    - ["as3091066", operator.contains, [asyncio.BoundedSemaphore.__dict__, "__bool__"], false]
+    - ["as3091067", operator.contains, [asyncio.Handle.__dict__,           "__hash__"], false]
+    - ["as3091068", operator.contains, [asyncio.Handle.__dict__,           "__eq__"],   false]
+    - ["as3091069", operator.contains, [asyncio.Handle.__dict__,           "__bool__"], false]
+    - ["as3091070", operator.contains, [asyncio.TimerHandle.__dict__,      "__hash__"], true]
+    - ["as3091071", operator.contains, [asyncio.TimerHandle.__dict__,      "__eq__"],   true]
+    - ["as3091072", operator.contains, [asyncio.TimerHandle.__dict__,      "__bool__"], false]
+    - ["as3091073", operator.contains, [asyncio.Timeout.__dict__,          "__hash__"], false]
+    - ["as3091074", operator.contains, [asyncio.Timeout.__dict__,          "__eq__"],   false]
+    - ["as3091075", operator.contains, [asyncio.Timeout.__dict__,          "__bool__"], false]
+    - ["as3091076", operator.contains, [asyncio.TaskGroup.__dict__,        "__hash__"], false]
+    - ["as3091077", operator.contains, [asyncio.TaskGroup.__dict__,        "__eq__"],   false]
+    - ["as3091078", operator.contains, [asyncio.TaskGroup.__dict__,        "__bool__"], false]
+    - ["as3091079", operator.contains, [asyncio.StreamReader.__dict__,     "__hash__"], false]
+    - ["as3091080", operator.contains, [asyncio.StreamReader.__dict__,     "__eq__"],   false]
+    - ["as3091081", operator.contains, [asyncio.StreamReader.__dict__,     "__bool__"], false]
+    - ["as3091082", operator.contains, [asyncio.StreamWriter.__dict__,     "__hash__"], false]
+    - ["as3091083", operator.contains, [asyncio.StreamWriter.__dict__,     "__eq__"],   false]
+    - ["as3091084", operator.contains, [asyncio.StreamWriter.__dict__,     "__bool__"], false]
