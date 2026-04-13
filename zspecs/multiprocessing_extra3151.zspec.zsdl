@@ -1,0 +1,194 @@
+spec: mp3151
+version: ">=3.9"
+backend: python_module(multiprocessing)
+
+docs: https://docs.python.org/3/library/multiprocessing.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/multiprocessing.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 657 (mp3151): __setitem__, __delitem__, __contains__ dict-presence for multiprocessing types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: multiprocessing.Process, multiprocessing.pool.Pool, multiprocessing.pool.AsyncResult, multiprocessing.pool.MapResult, multiprocessing.managers.SyncManager, multiprocessing.managers.BaseListProxy, multiprocessing.managers._BaseDictProxy, multiprocessing.managers._BaseSetProxy."
+    - "Key finding (__setitem__): multiprocessing.managers.BaseListProxy defines __setitem__ (true) — the list proxy supports index and slice assignment, forwarding obj[i]=v to the managed list in the server process. multiprocessing.managers._BaseDictProxy defines __setitem__ (true) — the dict proxy supports key assignment, forwarding obj[k]=v to the managed dict. multiprocessing.managers._BaseSetProxy does NOT define __setitem__ (false) — sets have no item assignment semantics. All other 5 classes return false."
+    - "Key finding (__delitem__): multiprocessing.managers.BaseListProxy defines __delitem__ (true) — the list proxy supports index/slice deletion, forwarding del obj[i] to the server-side list. multiprocessing.managers._BaseDictProxy defines __delitem__ (true) — the dict proxy supports key deletion, forwarding del obj[k] to the server-side dict. multiprocessing.managers._BaseSetProxy does NOT define __delitem__ (false) — set items are removed via discard()/remove(), not del obj[x]. All other 5 classes return false."
+    - "Key finding (__contains__): multiprocessing.managers.BaseListProxy defines __contains__ (true) — the list proxy supports `x in proxy_list`, forwarding to the server-side list. multiprocessing.managers._BaseDictProxy defines __contains__ (true) — the dict proxy supports `k in proxy_dict` (key membership), forwarding to the server-side dict. multiprocessing.managers._BaseSetProxy defines __contains__ (true) — the set proxy supports `x in proxy_set`, forwarding to the server-side set. All other 5 classes return false."
+    - "_BaseSetProxy asymmetry confirmed: defines __contains__ (membership test — sets support `in`) and __len__ (cardinality — sets are sized) but NOT __setitem__ or __delitem__ (sets have no subscript-based mutation). This precisely mirrors Python's built-in set semantics."
+    - "BaseListProxy and _BaseDictProxy are fully mutable proxies: they define __setitem__, __delitem__, and __contains__ — the complete mutable-container triple. This is consistent with list and dict semantics (both support assignment, deletion, and membership test)."
+    - "multiprocessing.managers.SyncManager: the manager itself (which creates and tracks proxy objects) defines none of these — it is a server-process lifecycle manager, not a collection."
+    - "The proxy class triple confirms a faithful mapping of Python collection semantics across process boundaries: list and dict get all three; set gets only __contains__ (no mutation by key/index)."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __setitem__ dict-presence — operator.contains(Cls.__dict__, '__setitem__')
+#
+# multiprocessing.managers.BaseListProxy: TRUE — proxies obj[i]=v and
+#   slice assignment to the managed list in the server process.
+# multiprocessing.managers._BaseDictProxy: TRUE — proxies obj[k]=v
+#   to the managed dict in the server process.
+# multiprocessing.managers._BaseSetProxy: FALSE — sets have no item
+#   assignment protocol; items are added via add(), not obj[x]=v.
+# All other 5 classes: false — Process, Pool, AsyncResult, MapResult,
+#   and SyncManager have no subscript-assignment semantics.
+# ---------------------------------------------------------------------------
+
+table mp3151.setitem:
+  description: "multiprocessing types __setitem__ dict-presence checks; wave 657"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3151
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3151001", operator.contains, [multiprocessing.Process.__dict__,                  "__setitem__"], false]
+    - ["mp3151002", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__setitem__"], false]
+    - ["mp3151003", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__setitem__"], false]
+    - ["mp3151004", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__setitem__"], false]
+    - ["mp3151005", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__setitem__"], false]
+    - ["mp3151006", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__setitem__"], true]
+    - ["mp3151007", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__setitem__"], true]
+    - ["mp3151008", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__setitem__"], false]
+
+# ---------------------------------------------------------------------------
+# __delitem__ dict-presence — operator.contains(Cls.__dict__, '__delitem__')
+#
+# multiprocessing.managers.BaseListProxy: TRUE — proxies del obj[i] and
+#   del obj[slice] to the managed list in the server process.
+# multiprocessing.managers._BaseDictProxy: TRUE — proxies del obj[k]
+#   to the managed dict in the server process.
+# multiprocessing.managers._BaseSetProxy: FALSE — set items are removed
+#   via discard()/remove() methods, not via del obj[x].
+# All other 5 classes: false — no item deletion protocol defined.
+# ---------------------------------------------------------------------------
+
+table mp3151.delitem:
+  description: "multiprocessing types __delitem__ dict-presence checks; wave 657"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3151
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3151009",  operator.contains, [multiprocessing.Process.__dict__,                  "__delitem__"], false]
+    - ["mp3151010", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__delitem__"], false]
+    - ["mp3151011", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__delitem__"], false]
+    - ["mp3151012", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__delitem__"], false]
+    - ["mp3151013", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__delitem__"], false]
+    - ["mp3151014", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__delitem__"], true]
+    - ["mp3151015", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__delitem__"], true]
+    - ["mp3151016", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__delitem__"], false]
+
+# ---------------------------------------------------------------------------
+# __contains__ dict-presence — operator.contains(Cls.__dict__, '__contains__')
+#
+# multiprocessing.managers.BaseListProxy: TRUE — proxies `x in proxy_list`
+#   to the managed list (linear membership search in the server process).
+# multiprocessing.managers._BaseDictProxy: TRUE — proxies `k in proxy_dict`
+#   (key membership test) to the managed dict in the server process.
+# multiprocessing.managers._BaseSetProxy: TRUE — proxies `x in proxy_set`
+#   (set membership test) to the managed set. Sets define __contains__
+#   but NOT __setitem__ or __delitem__ — this matches Python's set semantics.
+# All other 5 classes: false — no membership test defined.
+# Note: _BaseSetProxy is the only proxy class that defines __contains__
+#   but not __setitem__ — reflecting the fundamental asymmetry of Python sets.
+# ---------------------------------------------------------------------------
+
+table mp3151.contains:
+  description: "multiprocessing types __contains__ dict-presence checks; wave 657"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3151
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3151017", operator.contains, [multiprocessing.Process.__dict__,                  "__contains__"], false]
+    - ["mp3151018", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__contains__"], false]
+    - ["mp3151019", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__contains__"], false]
+    - ["mp3151020", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__contains__"], false]
+    - ["mp3151021", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__contains__"], false]
+    - ["mp3151022", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__contains__"], true]
+    - ["mp3151023", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__contains__"], true]
+    - ["mp3151024", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__contains__"], true]
+
+# ---------------------------------------------------------------------------
+# combined — __setitem__, __delitem__, __contains__ across all 8 mp subjects
+#
+# Covers the full matrix: 8 classes x 3 methods = 24 rows.
+# __setitem__:  true for BaseListProxy, _BaseDictProxy; false for all others.
+# __delitem__:  true for BaseListProxy, _BaseDictProxy; false for all others.
+# __contains__: true for BaseListProxy, _BaseDictProxy, _BaseSetProxy; false for others.
+#
+# The manager proxy classes exhibit the precise collection protocol of their
+# underlying Python type:
+#   BaseListProxy  (proxies list): __setitem__=true, __delitem__=true, __contains__=true
+#   _BaseDictProxy (proxies dict): __setitem__=true, __delitem__=true, __contains__=true
+#   _BaseSetProxy  (proxies set):  __setitem__=false, __delitem__=false, __contains__=true
+#
+# This is the clearest wave yet to distinguish the three proxy classes.
+# _BaseSetProxy's pattern (__contains__=true, __setitem__/__delitem__=false)
+# precisely captures the read-only membership semantics of Python sets —
+# `x in s` works; `s[x]=v` and `del s[x]` do not. Set mutation goes through
+# add()/discard()/remove() methods, which the proxy also forwards.
+#
+# Cross-wave pattern for manager proxies (selected highlights):
+#   Wave 654 (mp3106): __lt__/__le__/__gt__ — _BaseSetProxy true (set ordering).
+#   Wave 656 (mp3136): __len__ — all 3 proxies true; __getitem__ — list+dict true, set false.
+#   Wave 657 (mp3151): __setitem__/__delitem__ — list+dict true, set false;
+#                      __contains__ — all 3 proxies true.
+#
+# Cross-wave summary for all mp subjects:
+#   Wave 652 (mp3076): __get__/__set__/__delete__ — all false for all 8.
+#   Wave 653 (mp3091): __hash__/__eq__/__bool__ — all false for all 8.
+#   Wave 654 (mp3106): __lt__/__le__/__gt__ — _BaseSetProxy true; others false.
+#   Wave 655 (mp3121): __ge__ — _BaseSetProxy true; __repr__ — Pool true; __str__ all false.
+#   Wave 656 (mp3136): __call__ all false; __len__ — 3 proxies true; __getitem__ — list+dict true.
+#   Wave 657 (mp3151): __setitem__/__delitem__ — list+dict proxies true; __contains__ — all 3 proxies true.
+# ---------------------------------------------------------------------------
+
+table mp3151.combined:
+  description: "multiprocessing types combined __setitem__/__delitem__/__contains__; wave 657"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: mp3151
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp3151025", operator.contains, [multiprocessing.Process.__dict__,                  "__setitem__"],  false]
+    - ["mp3151026", operator.contains, [multiprocessing.Process.__dict__,                  "__delitem__"],  false]
+    - ["mp3151027", operator.contains, [multiprocessing.Process.__dict__,                  "__contains__"], false]
+    - ["mp3151028", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__setitem__"],  false]
+    - ["mp3151029", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__delitem__"],  false]
+    - ["mp3151030", operator.contains, [multiprocessing.pool.Pool.__dict__,                "__contains__"], false]
+    - ["mp3151031", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__setitem__"],  false]
+    - ["mp3151032", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__delitem__"],  false]
+    - ["mp3151033", operator.contains, [multiprocessing.pool.AsyncResult.__dict__,         "__contains__"], false]
+    - ["mp3151034", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__setitem__"],  false]
+    - ["mp3151035", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__delitem__"],  false]
+    - ["mp3151036", operator.contains, [multiprocessing.pool.MapResult.__dict__,           "__contains__"], false]
+    - ["mp3151037", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__setitem__"],  false]
+    - ["mp3151038", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__delitem__"],  false]
+    - ["mp3151039", operator.contains, [multiprocessing.managers.SyncManager.__dict__,     "__contains__"], false]
+    - ["mp3151040", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__setitem__"],  true]
+    - ["mp3151041", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__delitem__"],  true]
+    - ["mp3151042", operator.contains, [multiprocessing.managers.BaseListProxy.__dict__,   "__contains__"], true]
+    - ["mp3151043", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__setitem__"],  true]
+    - ["mp3151044", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__delitem__"],  true]
+    - ["mp3151045", operator.contains, [multiprocessing.managers._BaseDictProxy.__dict__,  "__contains__"], true]
+    - ["mp3151046", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__setitem__"],  false]
+    - ["mp3151047", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__delitem__"],  false]
+    - ["mp3151048", operator.contains, [multiprocessing.managers._BaseSetProxy.__dict__,   "__contains__"], true]

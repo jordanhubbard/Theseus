@@ -1,0 +1,159 @@
+spec: ab3151
+version: ">=3.9"
+backend: python_module(abc)
+
+docs: https://docs.python.org/3/library/abc.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/abc.html"
+    - "Test vectors verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source code"
+    - "any proprietary source"
+  notes:
+    - "Wave 657 (ab3151): __setitem__, __delitem__, __contains__ dict-presence for abc module types."
+    - "All values verified with Python 3.14.4 on macOS/Darwin 25.4.0, 2026-04-13."
+    - "Classes covered: abc.ABC, abc.ABCMeta, and type(abc.abstractmethod(lambda: None)) — the built-in function type."
+    - "Key finding (__setitem__): all 3 abc subjects return false for __setitem__. abc.ABC and abc.ABCMeta are class/metaclass objects; neither is a mutable mapping. The function type (<class 'function'>) does not define __setitem__ — function attributes are set via the standard instance __dict__, not via a subscript protocol on the function class itself."
+    - "Key finding (__delitem__): all 3 abc subjects return false for __delitem__. Symmetric with __setitem__: no abc type defines item deletion by key. abc.ABCMeta supports class body definition and dynamic subclass registration (register()), but neither of these uses __delitem__."
+    - "Key finding (__contains__): all 3 abc subjects return false for __contains__. abc.ABC: not a container; `x in ABC` is not defined. abc.ABCMeta: membership could conceivably be used to test class hierarchy (`SubClass in ABCMeta`), but Python uses issubclass() or the ABCMeta API for that — __contains__ is not defined in ABCMeta.__dict__. The function type: functions are not containers and define no `in` operator."
+    - "abc.ABCMeta.__subclasshook__ and __subclasscheck__ provide virtual subclass testing via isinstance()/issubclass(), but these are class-level hooks on the metaclass, distinct from __contains__. operator.contains(ABCMeta.__dict__, '__contains__') is false."
+    - "The function type has now been tested for 6 waves (652–657) in the abc group. It has returned true only for __get__ (wave 652) and __call__ (wave 656) and __repr__ (wave 655). All other dunders — __set__, __delete__, __hash__, __eq__, __bool__, __lt__, __le__, __gt__, __ge__, __str__, __len__, __getitem__, __setitem__, __delitem__, __contains__ — are false. The function type is tightly scoped: it defines only the dunders essential to its role as a callable, displayable, descriptor."
+    - "All 9 values in this wave are false — the first fully all-false wave for abc subjects since wave 653."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# __setitem__ dict-presence — operator.contains(Cls.__dict__, '__setitem__')
+#
+# All 3 abc subjects return false for __setitem__.
+# abc.ABC: a plain abstract base class — not a mutable mapping.
+# abc.ABCMeta: a metaclass that manages abstract method tracking and
+#   virtual subclass registration; no subscript-assignment protocol.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>: functions
+#   support attribute assignment (f.x = v) via instance __dict__, but the
+#   function class itself does not define __setitem__ for subscript assignment.
+# ---------------------------------------------------------------------------
+
+table ab3151.setitem:
+  description: "abc types __setitem__ dict-presence checks; wave 657"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3151
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3151001", operator.contains, [abc.ABC.__dict__,                                 "__setitem__"], false]
+    - ["ab3151002", operator.contains, [abc.ABCMeta.__dict__,                             "__setitem__"], false]
+    - ["ab3151003", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__setitem__"], false]
+
+# ---------------------------------------------------------------------------
+# __delitem__ dict-presence — operator.contains(Cls.__dict__, '__delitem__')
+#
+# All 3 abc subjects return false for __delitem__.
+# abc.ABC: no deletion protocol; abstract base classes are not containers.
+# abc.ABCMeta: supports register() to add virtual subclasses but offers no
+#   subscript-deletion interface. Dynamic class manipulation goes through
+#   metaclass machinery, not del obj[key].
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>: the function
+#   type does not define __delitem__. Function attributes can be deleted via
+#   del f.attr (using __delattr__), but that is distinct from __delitem__.
+# ---------------------------------------------------------------------------
+
+table ab3151.delitem:
+  description: "abc types __delitem__ dict-presence checks; wave 657"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3151
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3151004", operator.contains, [abc.ABC.__dict__,                                 "__delitem__"], false]
+    - ["ab3151005", operator.contains, [abc.ABCMeta.__dict__,                             "__delitem__"], false]
+    - ["ab3151006", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__delitem__"], false]
+
+# ---------------------------------------------------------------------------
+# __contains__ dict-presence — operator.contains(Cls.__dict__, '__contains__')
+#
+# All 3 abc subjects return false for __contains__.
+# abc.ABC: `x in ABC` is not defined — ABC instances are not containers.
+# abc.ABCMeta: virtual subclass membership is tested via issubclass() /
+#   isinstance(), which internally calls __subclasscheck__ — a different slot
+#   from __contains__. operator.contains(ABCMeta.__dict__, '__contains__')
+#   is false even though `issubclass(X, ABC)` works.
+# type(abc.abstractmethod(lambda: None)) is <class 'function'>: functions
+#   do not define __contains__. `x in f` raises TypeError.
+# The ABCMeta distinction is noteworthy: ABCMeta.__subclasshook__ and
+#   ABCMeta.__subclasscheck__ provide virtual subclass testing, but these
+#   are triggered by issubclass()/isinstance(), not by the `in` operator.
+#   __contains__ is specifically the `in` membership protocol and is absent.
+# ---------------------------------------------------------------------------
+
+table ab3151.contains:
+  description: "abc types __contains__ dict-presence checks; wave 657"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3151
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3151007", operator.contains, [abc.ABC.__dict__,                                 "__contains__"], false]
+    - ["ab3151008", operator.contains, [abc.ABCMeta.__dict__,                             "__contains__"], false]
+    - ["ab3151009", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__contains__"], false]
+
+# ---------------------------------------------------------------------------
+# combined — __setitem__, __delitem__, __contains__ across all 3 abc subjects
+#
+# Covers the full matrix: 3 classes x 3 methods = 9 rows.
+# __setitem__:  false for all 3.
+# __delitem__:  false for all 3.
+# __contains__: false for all 3.
+# All 9 values are false.
+# This is the first fully all-false wave for all 3 abc subjects since wave 653.
+# The function type, which broke the all-false pattern in wave 655 (__repr__=true)
+# and wave 656 (__call__=true), returns false for all three methods here.
+# Summary of all non-false results for abc subjects across all waves:
+#   function type __get__:    true (wave 652, ab3076)
+#   function type __repr__:   true (wave 655, ab3121)
+#   function type __call__:   true (wave 656, ab3136)
+# Everything else, including this wave, has been false.
+# ABCMeta note: ABCMeta supports virtual subclass testing (__subclasscheck__,
+#   __subclasshook__) and class-body registration (register()), but none of
+#   these mechanisms involve __setitem__, __delitem__, or __contains__. The
+#   metaclass operates at the type level, not the container level.
+# Cross-wave summary for abc subjects:
+#   Wave 652 (ab3076): __get__ true for function type; __set__/__delete__ false.
+#   Wave 653 (ab3091): __hash__/__eq__/__bool__ all false for all 3.
+#   Wave 654 (ab3106): __lt__/__le__/__gt__ all false for all 3.
+#   Wave 655 (ab3121): __ge__ false; __repr__ true for function type only; __str__ false.
+#   Wave 656 (ab3136): __call__ true for function type only; __len__/__getitem__ false.
+#   Wave 657 (ab3151): __setitem__/__delitem__/__contains__ — all false for all 3.
+# ---------------------------------------------------------------------------
+
+table ab3151.combined:
+  description: "abc types combined __setitem__/__delitem__/__contains__; wave 657"
+  kind: python_call_eq
+  version: ">=3.9"
+  error_model: python_exceptions
+  category: dict_contains
+  id_prefix: ab3151
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab3151010", operator.contains, [abc.ABC.__dict__,                                 "__setitem__"],  false]
+    - ["ab3151011", operator.contains, [abc.ABC.__dict__,                                 "__delitem__"],  false]
+    - ["ab3151012", operator.contains, [abc.ABC.__dict__,                                 "__contains__"], false]
+    - ["ab3151013", operator.contains, [abc.ABCMeta.__dict__,                             "__setitem__"],  false]
+    - ["ab3151014", operator.contains, [abc.ABCMeta.__dict__,                             "__delitem__"],  false]
+    - ["ab3151015", operator.contains, [abc.ABCMeta.__dict__,                             "__contains__"], false]
+    - ["ab3151016", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__setitem__"],  false]
+    - ["ab3151017", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__delitem__"],  false]
+    - ["ab3151018", operator.contains, [type(abc.abstractmethod(lambda: None)).__dict__,  "__contains__"], false]
