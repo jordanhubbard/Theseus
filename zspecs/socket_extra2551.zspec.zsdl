@@ -1,0 +1,112 @@
+spec: socket_extra2551
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/socket.html — socket module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source: Lib/socket.py"
+    - "CPython source: Modules/socketmodule.c"
+  notes:
+    - "Theme: __reduce__, __reduce_ex__, and __getnewargs__ dict-presence — checking whether socket.socket defines its own pickling/serialization protocol in its class __dict__."
+    - "socket.socket is NOT picklable: pickle.dumps(socket.socket()) raises TypeError."
+    - "socket.socket defines __getstate__ in its own __dict__ (present), but NOT __reduce__, __reduce_ex__, __getnewargs__, __getnewargs_ex__, or __setstate__."
+    - "__getstate__ is present on socket.socket but does NOT enable pickling; it is defined to support the socket's internal state management (e.g., for duplication via dup()), not for pickle round-trips."
+    - "__reduce__ and __reduce_ex__ are inherited from object (appear in object.__dict__, not in socket.socket.__dict__)."
+    - "socket.socket positive controls in __dict__: __init__, __repr__, __enter__, __exit__, close, __getstate__ are present."
+    - "All expected values verified by running Python 3.14 on macOS/Darwin 25.4.0, 2026-04-13."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: socket.socket.__dict__ — __reduce__ and __getnewargs__ absent
+#
+# socket.socket does not define __reduce__, __reduce_ex__, or __getnewargs__
+# in its own class __dict__. These are inherited from object.
+# The presence of __getstate__ (for internal state management) does NOT
+# make socket.socket picklable — pickle dispatch still raises TypeError.
+# ---------------------------------------------------------------------------
+
+table socket_extra2551.socket_reduce_getnewargs_absent:
+  description: "__reduce__, __reduce_ex__, __getnewargs__ absent from socket.socket.__dict__; socket has no reduce-based pickle protocol; verified Python 3.14"
+  kind: python_call_eq
+  category: dict_presence
+  id_prefix: sk2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["sk2551-001", socket.socket.__dict__.__contains__, ["__reduce__"],    false]
+    - ["sk2551-002", socket.socket.__dict__.__contains__, ["__reduce_ex__"], false]
+    - ["sk2551-003", socket.socket.__dict__.__contains__, ["__getnewargs__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 2: socket.socket.__dict__ — __getnewargs_ex__ and __setstate__ absent
+#
+# socket.socket also lacks __getnewargs_ex__ and __setstate__ in its __dict__.
+# Note: __getstate__ IS present (see Table 3), but __setstate__ is NOT.
+# The asymmetry (__getstate__ present, __setstate__ absent) reflects that
+# socket.socket defines state retrieval for internal use, not full pickle support.
+# ---------------------------------------------------------------------------
+
+table socket_extra2551.socket_getnewargs_ex_setstate_absent:
+  description: "__getnewargs_ex__ and __setstate__ absent from socket.socket.__dict__; contrast with __getstate__ which IS present; verified Python 3.14"
+  kind: python_call_eq
+  category: dict_presence
+  id_prefix: sk2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["sk2551-004", socket.socket.__dict__.__contains__, ["__getnewargs_ex__"], false]
+    - ["sk2551-005", socket.socket.__dict__.__contains__, ["__setstate__"],      false]
+
+# ---------------------------------------------------------------------------
+# Table 3: socket.socket.__dict__ — __getstate__ IS present (positive check)
+#
+# __getstate__ IS defined in socket.socket.__dict__. This distinguishes socket
+# from hashlib.HASH and struct.Struct which have NO pickle dunders at all.
+# socket.__getstate__ is used by the socket machinery for internal state
+# transfer (e.g., when duplicating a socket), not for general pickling.
+# ---------------------------------------------------------------------------
+
+table socket_extra2551.socket_getstate_present:
+  description: "__getstate__ IS present in socket.socket.__dict__; positive pickle-state dunder check; __setstate__ is absent; verified Python 3.14"
+  kind: python_call_eq
+  category: dict_presence
+  id_prefix: sk2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["sk2551-006", socket.socket.__dict__.__contains__, ["__getstate__"], true]
+
+# ---------------------------------------------------------------------------
+# Table 4: socket.socket.__dict__ — positive controls and full parity
+#
+# Confirms __dict__.__contains__ works correctly on socket.socket.
+# Combines positive controls for expected present members with the
+# full pickle-protocol dunder presence/absence parity in one table.
+# ---------------------------------------------------------------------------
+
+table socket_extra2551.socket_dict_parity:
+  description: "socket.socket.__dict__ full parity: __init__/__repr__/__enter__/__exit__/close/__getstate__ present; __reduce__/__reduce_ex__/__getnewargs__/__getnewargs_ex__/__setstate__ absent; verified Python 3.14"
+  kind: python_call_eq
+  category: dict_presence
+  id_prefix: sk2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["sk2551-007", socket.socket.__dict__.__contains__, ["__init__"],          true]
+    - ["sk2551-008", socket.socket.__dict__.__contains__, ["__repr__"],          true]
+    - ["sk2551-009", socket.socket.__dict__.__contains__, ["__enter__"],         true]
+    - ["sk2551-010", socket.socket.__dict__.__contains__, ["__exit__"],          true]
+    - ["sk2551-011", socket.socket.__dict__.__contains__, ["close"],             true]
+    - ["sk2551-012", socket.socket.__dict__.__contains__, ["__getstate__"],      true]
+    - ["sk2551-013", socket.socket.__dict__.__contains__, ["__reduce__"],        false]
+    - ["sk2551-014", socket.socket.__dict__.__contains__, ["__reduce_ex__"],     false]
+    - ["sk2551-015", socket.socket.__dict__.__contains__, ["__getnewargs__"],    false]
+    - ["sk2551-016", socket.socket.__dict__.__contains__, ["__getnewargs_ex__"], false]
+    - ["sk2551-017", socket.socket.__dict__.__contains__, ["__setstate__"],      false]

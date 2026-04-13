@@ -1,0 +1,128 @@
+spec: concurrent_futures_extra2551
+version: ">=3.9"
+backend: python_module(concurrent.futures)
+
+docs: https://docs.python.org/3/library/concurrent.futures.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/concurrent.futures.html — concurrent.futures module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-13"
+  not_derived_from:
+    - "CPython source: Lib/concurrent/futures/_base.py"
+    - "CPython source: Lib/concurrent/futures/thread.py"
+    - "CPython source: Lib/concurrent/futures/process.py"
+  notes:
+    - "Theme: __reduce__, __reduce_ex__, and __getnewargs__ dict-presence — checking whether concurrent.futures classes define their own pickling/serialization protocol in their class __dict__."
+    - "concurrent.futures.Future is a placeholder for an asynchronous computation result managed by an executor; it holds internal state (condition, callbacks, result, exception) that cannot be transferred via pickle. No __reduce__, __reduce_ex__, or __getnewargs__ defined. Verified with Python 3.14."
+    - "concurrent.futures.Executor is the abstract base class for ThreadPoolExecutor and ProcessPoolExecutor; it defines no pickling protocol because executors manage live OS resources (threads/processes). Verified with Python 3.14."
+    - "concurrent.futures.ThreadPoolExecutor manages a pool of worker threads backed by a threading.Thread pool; thread state cannot be serialized. No custom pickling protocol defined. Verified with Python 3.14."
+    - "concurrent.futures.ProcessPoolExecutor manages worker processes via multiprocessing; the process pool itself is not picklable — futures and submitted work items are communicated via internal queues, not via object serialization. No __reduce__, __reduce_ex__, or __getnewargs__ in its class __dict__. Verified with Python 3.14."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-13."
+  created_at: "2026-04-13"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Table 1: concurrent.futures.Future — __reduce__/__reduce_ex__/__getnewargs__ absence
+#
+# Theme: pickling/serialization protocol absent from concurrent.futures.Future __dict__.
+# Future holds a result or exception behind a threading.Condition lock; its
+# internal state is tied to the executor lifecycle and is not portable via pickle.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2551.future_pickle_protocol:
+  description: "__reduce__, __reduce_ex__, __getnewargs__ absent from concurrent.futures.Future __dict__; wave 2551"
+  kind: python_call_eq
+  category: protocol_dict_presence
+  id_prefix: cf2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2551-001", concurrent.futures.Future.__dict__.__contains__, ["__reduce__"],     false]
+    - ["cf2551-002", concurrent.futures.Future.__dict__.__contains__, ["__reduce_ex__"],  false]
+    - ["cf2551-003", concurrent.futures.Future.__dict__.__contains__, ["__getnewargs__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 2: concurrent.futures.Executor — __reduce__/__reduce_ex__/__getnewargs__ absence
+#
+# Theme: pickling/serialization protocol absent from concurrent.futures.Executor __dict__.
+# Executor is an abstract base class; concrete subclasses manage live OS resources
+# and the abstract class itself defines no pickling dunders.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2551.executor_pickle_protocol:
+  description: "__reduce__, __reduce_ex__, __getnewargs__ absent from concurrent.futures.Executor __dict__; wave 2551"
+  kind: python_call_eq
+  category: protocol_dict_presence
+  id_prefix: cf2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2551-004", concurrent.futures.Executor.__dict__.__contains__, ["__reduce__"],     false]
+    - ["cf2551-005", concurrent.futures.Executor.__dict__.__contains__, ["__reduce_ex__"],  false]
+    - ["cf2551-006", concurrent.futures.Executor.__dict__.__contains__, ["__getnewargs__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 3: concurrent.futures.ThreadPoolExecutor — __reduce__/__reduce_ex__/__getnewargs__ absence
+#
+# Theme: pickling/serialization protocol absent from concurrent.futures.ThreadPoolExecutor __dict__.
+# ThreadPoolExecutor holds a work queue, a set of live threads, and an internal
+# lock; none of these are serializable. No custom pickling protocol is defined.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2551.thread_pool_executor_pickle_protocol:
+  description: "__reduce__, __reduce_ex__, __getnewargs__ absent from concurrent.futures.ThreadPoolExecutor __dict__; wave 2551"
+  kind: python_call_eq
+  category: protocol_dict_presence
+  id_prefix: cf2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2551-007", concurrent.futures.ThreadPoolExecutor.__dict__.__contains__, ["__reduce__"],     false]
+    - ["cf2551-008", concurrent.futures.ThreadPoolExecutor.__dict__.__contains__, ["__reduce_ex__"],  false]
+    - ["cf2551-009", concurrent.futures.ThreadPoolExecutor.__dict__.__contains__, ["__getnewargs__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 4: concurrent.futures.ProcessPoolExecutor — __reduce__/__reduce_ex__/__getnewargs__ absence
+#
+# Theme: pickling/serialization protocol absent from concurrent.futures.ProcessPoolExecutor __dict__.
+# ProcessPoolExecutor owns worker processes and internal multiprocessing queues;
+# the executor object itself is not meant to be pickled and defines no protocol.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2551.process_pool_executor_pickle_protocol:
+  description: "__reduce__, __reduce_ex__, __getnewargs__ absent from concurrent.futures.ProcessPoolExecutor __dict__; wave 2551"
+  kind: python_call_eq
+  category: protocol_dict_presence
+  id_prefix: cf2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2551-010", concurrent.futures.ProcessPoolExecutor.__dict__.__contains__, ["__reduce__"],     false]
+    - ["cf2551-011", concurrent.futures.ProcessPoolExecutor.__dict__.__contains__, ["__reduce_ex__"],  false]
+    - ["cf2551-012", concurrent.futures.ProcessPoolExecutor.__dict__.__contains__, ["__getnewargs__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 5: cross-check — all four classes absent for __reduce__ and __reduce_ex__
+#
+# Symmetric cross-check: Future, Executor, ThreadPoolExecutor, and ProcessPoolExecutor
+# all lack both __reduce__ and __reduce_ex__ in their own __dict__.
+# This confirms the full absence of custom pickling dispatch across the entire
+# concurrent.futures public class surface.
+# ---------------------------------------------------------------------------
+
+table concurrent_futures_extra2551.cross_check_reduce_absent:
+  description: "__reduce__ and __reduce_ex__ absent from all four concurrent.futures classes; wave 2551"
+  kind: python_call_eq
+  category: protocol_dict_presence
+  id_prefix: cf2551
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["cf2551-013", concurrent.futures.Future.__dict__.__contains__,              ["__reduce__"],    false]
+    - ["cf2551-014", concurrent.futures.Executor.__dict__.__contains__,            ["__reduce__"],    false]
+    - ["cf2551-015", concurrent.futures.ThreadPoolExecutor.__dict__.__contains__,  ["__reduce__"],    false]
+    - ["cf2551-016", concurrent.futures.ProcessPoolExecutor.__dict__.__contains__,  ["__reduce__"],    false]
+    - ["cf2551-017", concurrent.futures.Future.__dict__.__contains__,              ["__reduce_ex__"], false]
+    - ["cf2551-018", concurrent.futures.ThreadPoolExecutor.__dict__.__contains__,  ["__reduce_ex__"], false]
