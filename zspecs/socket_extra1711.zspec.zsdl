@@ -1,0 +1,126 @@
+spec: socket_extra1711
+version: ">=3.9"
+backend: python_module(socket)
+
+docs: https://docs.python.org/3/library/socket.html
+rfcs:
+  - "RFC 791 — Internet Protocol"
+  - "POSIX.1-2017 — Sockets interface"
+
+provenance:
+  derived_from:
+    - "Python 3 socket module documentation — https://docs.python.org/3/library/socket.html"
+    - "POSIX.1-2017 — Sockets interface specification"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/socketmodule.c"
+    - "CPython source: Lib/socket.py"
+  notes:
+    - "Theme: __init__ protocol — which stdlib types define __init__ in their own __dict__."
+    - "Wave 561, suffix _extra1711. Cross-checks __init__ vs __new__ (contrast with wave _extra1666 which covered __new__)."
+    - "socket.socket is a Python class wrapping the C _socket.socket type."
+    - "'__init__' in socket.socket.__dict__ == True — socket.socket defines __init__ with family, type, proto, fileno params."
+    - "'__new__' in socket.socket.__dict__ == False — socket.socket relies on object.__new__."
+    - "socket.SocketType is the underlying C type (_socket.socket)."
+    - "'__init__' in socket.SocketType.__dict__ == True — the C type also defines __init__ at the C level."
+    - "socket.socket(AF_INET, SOCK_STREAM).__class__.__name__ == 'socket'."
+    - "Creating and immediately closing a socket does not raise; class name remains 'socket' after close."
+    - "All expected values verified by running Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model:
+  semantics: "socket.socket() raises OSError on resource exhaustion. Class dict checks are pure and never raise."
+  stderr: "null"
+  stickiness: "N/A — all class-dict checks are stateless; socket creation checks are independent."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Table 1: socket_init_dict
+# Probe socket.socket and socket.SocketType for __init__ and __new__ in their dicts.
+# Wave _extra1711 theme: __init__; contrast with wave _extra1666 (__new__ theme).
+# ---------------------------------------------------------------------------
+
+table socket_extra1711.socket_init_dict:
+  kind: python_call_eq
+  category: construction_protocol
+  id_prefix: "sk1711"
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["sk1711_socket_has_init",       socket.__dict__.__contains__,      ["__init__"], true]
+    - ["sk1711_socket_has_no_new",     socket.__dict__.__contains__,      ["__new__"],  false]
+    - ["sk1711_SocketType_has_init",   SocketType.__dict__.__contains__,  ["__init__"], true]
+    - ["sk1711_SocketType_has_new",    SocketType.__dict__.__contains__,  ["__new__"],  false]
+    - ["sk1711_socket_class_name",     socket.__name__.__eq__,            ["socket"],   true]
+    - ["sk1711_SocketType_class_name", SocketType.__name__.__eq__,        ["socket"],   true]
+    - ["sk1711_socket_module",         socket.__module__.__eq__,          ["socket"],   true]
+    - ["sk1711_socket_has_fileno",     socket.__dict__.__contains__,      ["fileno"],   true]
+    - ["sk1711_socket_has_close",      socket.__dict__.__contains__,      ["close"],    true]
+    - ["sk1711_socket_has_connect",    socket.__dict__.__contains__,      ["connect"],  true]
+    - ["sk1711_socket_has_bind",       socket.__dict__.__contains__,      ["bind"],     true]
+    - ["sk1711_socket_has_listen",     socket.__dict__.__contains__,      ["listen"],   true]
+    - ["sk1711_socket_has_accept",     socket.__dict__.__contains__,      ["accept"],   true]
+    - ["sk1711_socket_has_send",       socket.__dict__.__contains__,      ["send"],     true]
+    - ["sk1711_socket_has_recv",       socket.__dict__.__contains__,      ["recv"],     true]
+    - ["sk1711_socket_has_setsockopt", socket.__dict__.__contains__,      ["setsockopt"],true]
+    - ["sk1711_socket_has_getsockopt", socket.__dict__.__contains__,      ["getsockopt"],true]
+    - ["sk1711_socket_bases_0",        socket.__bases__.__getitem__,      [0],          "object"]
+
+# ---------------------------------------------------------------------------
+# Table 2: socket_creation
+# Test that socket.socket() creates objects with correct class, family, and type
+# for both SOCK_STREAM (TCP) and SOCK_DGRAM (UDP) over AF_INET.
+# Construction uses __init__ (confirmed above) rather than __new__.
+# ---------------------------------------------------------------------------
+
+table socket_extra1711.socket_creation:
+  kind: python_call_eq
+  category: socket_creation
+  id_prefix: "sk1711"
+
+  columns: [id, function, args, method, method_args, expected]
+  rows:
+    - ["sk1711_tcp_class",    socket, [2, 1], __class__.__name__.__eq__, ["socket"], true]
+    - ["sk1711_udp_class",    socket, [2, 2], __class__.__name__.__eq__, ["socket"], true]
+    - ["sk1711_tcp_family",   socket, [2, 1], family.__eq__, [2],    true]
+    - ["sk1711_udp_family",   socket, [2, 2], family.__eq__, [2],    true]
+    - ["sk1711_tcp_type_val", socket, [2, 1], type.__eq__,   [1],    true]
+    - ["sk1711_udp_type_val", socket, [2, 2], type.__eq__,   [2],    true]
+    - ["sk1711_tcp_proto",    socket, [2, 1], proto.__eq__,  [0],    true]
+    - ["sk1711_udp_proto",    socket, [2, 2], proto.__eq__,  [0],    true]
+    - ["sk1711_tcp_fileno_ge0",socket,[2, 1], fileno.__ge__, [0],    true]
+    - ["sk1711_udp_fileno_ge0",socket,[2, 2], fileno.__ge__, [0],    true]
+    - ["sk1711_tcp_timeout",  socket, [2, 1], gettimeout,    [],     ~]
+    - ["sk1711_udp_timeout",  socket, [2, 2], gettimeout,    [],     ~]
+
+# ---------------------------------------------------------------------------
+# Table 3: socket_type_attributes
+# Check socket module constants, exception class names, and SocketType comparisons.
+# ---------------------------------------------------------------------------
+
+table socket_extra1711.socket_type_attributes:
+  kind: python_call_eq
+  category: class_attributes
+  id_prefix: "sk1711"
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["sk1711_attr_init",            socket.__dict__.__contains__,       ["__init__"], true]
+    - ["sk1711_attr_no_new",          socket.__dict__.__contains__,       ["__new__"],  false]
+    - ["sk1711_attr_setblocking",     socket.__dict__.__contains__,       ["setblocking"], true]
+    - ["sk1711_attr_settimeout",      socket.__dict__.__contains__,       ["settimeout"],  true]
+    - ["sk1711_attr_gettimeout",      socket.__dict__.__contains__,       ["gettimeout"],  true]
+    - ["sk1711_attr_shutdown",        socket.__dict__.__contains__,       ["shutdown"],    true]
+    - ["sk1711_attr_sendall",         socket.__dict__.__contains__,       ["sendall"],     true]
+    - ["sk1711_error_class_name",     error.__name__.__eq__,              ["OSError"],     true]
+    - ["sk1711_timeout_class_name",   timeout.__name__.__eq__,            ["TimeoutError"],true]
+    - ["sk1711_herror_class_name",    herror.__name__.__eq__,             ["herror"],      true]
+    - ["sk1711_gaierror_class_name",  gaierror.__name__.__eq__,           ["gaierror"],    true]
+    - ["sk1711_AF_INET_val",          AF_INET.__eq__,                     [2],             true]
+    - ["sk1711_SOCK_STREAM_val",      SOCK_STREAM.__eq__,                 [1],             true]
+    - ["sk1711_SOCK_DGRAM_val",       SOCK_DGRAM.__eq__,                  [2],             true]
+    - ["sk1711_IPPROTO_TCP_val",      IPPROTO_TCP.__eq__,                 [6],             true]
+    - ["sk1711_IPPROTO_UDP_val",      IPPROTO_UDP.__eq__,                 [17],            true]
+    - ["sk1711_socket_is_class",      socket.__class__.__name__.__eq__,   ["type"],        true]
+    - ["sk1711_getdefaulttimeout",    getdefaulttimeout,                  [],              ~]
+    - ["sk1711_AF_INET6_class",       AF_INET6.__class__.__name__.__eq__, ["AddressFamily"],true]

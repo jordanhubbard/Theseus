@@ -1,0 +1,133 @@
+spec: struct_extra1711
+version: ">=3.9"
+backend: python_module(struct)
+
+docs: https://docs.python.org/3/library/struct.html
+rfcs:
+  - "IEEE 754-2019 — Standard for Floating-Point Arithmetic (for float/double format strings)"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "Test vectors verified by running Python 3.14 struct module on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "Theme: __init__ protocol — which stdlib types define __init__ in their own __dict__."
+    - "Wave 561, suffix _extra1711. Cross-checks __init__ vs __new__ (contrast with wave _extra1666 which covered __new__)."
+    - "struct.Struct is a C extension type."
+    - "'__init__' in struct.Struct.__dict__ == True — Struct defines C-level tp_init to compile the format string."
+    - "'__new__' in struct.Struct.__dict__ == False — Struct does not expose __new__ in its Python-visible type dict."
+    - "struct.error is a pure Python exception subclass of Exception; '__init__' in struct.error.__dict__ == False."
+    - "struct.unpack(fmt, struct.pack(fmt, *values)) == tuple(values) — pack/unpack is a lossless round-trip."
+    - "struct.unpack('>H', struct.pack('>H', 1000)) == (1000,) — unsigned 16-bit round-trip."
+    - "struct.unpack('>h', struct.pack('>h', -1)) == (-1,) — signed 16-bit round-trip."
+    - "All expected values verified by running Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model:
+  semantics: "struct.error is raised for mismatched buffer sizes and invalid format strings. It is a subclass of Exception."
+  stderr: "null"
+  stickiness: "N/A — struct functions are pure; Struct objects are immutable after construction."
+  codes: {}
+
+# ---------------------------------------------------------------------------
+# Table 1: struct_init_dict
+# Probe whether struct.Struct C type exposes __init__ and __new__ in its dict.
+# Wave _extra1711 theme: __init__; contrast with wave _extra1666 which found neither.
+# Also checks struct.error for absence of custom __init__.
+# ---------------------------------------------------------------------------
+
+table struct_extra1711.struct_init_dict:
+  kind: python_call_eq
+  category: construction_protocol
+  id_prefix: "st1711"
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["st1711_struct_has_init",       Struct.__dict__.__contains__,       ["__init__"],   true]
+    - ["st1711_struct_has_new",        Struct.__dict__.__contains__,       ["__new__"],    false]
+    - ["st1711_error_no_init",         error.__dict__.__contains__,        ["__init__"],   false]
+    - ["st1711_error_no_new",          error.__dict__.__contains__,        ["__new__"],    false]
+    - ["st1711_struct_class_name",     Struct.__name__.__eq__,             ["Struct"],     true]
+    - ["st1711_struct_module",         Struct.__module__.__eq__,           ["struct"],     true]
+    - ["st1711_struct_bases_0",        Struct.__bases__.__getitem__,       [0],            "object"]
+    - ["st1711_error_class_name",      error.__name__.__eq__,              ["error"],      true]
+    - ["st1711_error_base",            error.__bases__.__getitem__,        [0],            "Exception"]
+    - ["st1711_struct_has_format",     Struct.__dict__.__contains__,       ["format"],     true]
+    - ["st1711_struct_has_size",       Struct.__dict__.__contains__,       ["size"],       true]
+    - ["st1711_struct_has_pack",       Struct.__dict__.__contains__,       ["pack"],       true]
+    - ["st1711_struct_has_unpack",     Struct.__dict__.__contains__,       ["unpack"],     true]
+    - ["st1711_struct_has_pack_into",  Struct.__dict__.__contains__,       ["pack_into"],  true]
+    - ["st1711_struct_has_unpack_from",Struct.__dict__.__contains__,       ["unpack_from"],true]
+    - ["st1711_struct_H_format",       Struct, [">H"],   ">H"]
+    - ["st1711_struct_H_size",         Struct, [">H"],   2]
+    - ["st1711_struct_I_size",         Struct, [">I"],   4]
+    - ["st1711_struct_Q_size",         Struct, [">Q"],   8]
+    - ["st1711_struct_BHI_size",       Struct, [">BHI"], 7]
+    - ["st1711_struct_d_size",         Struct, [">d"],   8]
+    - ["st1711_struct_f_size",         Struct, [">f"],   4]
+
+# ---------------------------------------------------------------------------
+# Table 2: pack_unpack_roundtrip
+# Standard pack/unpack round-trips: struct.unpack(fmt, struct.pack(fmt, v)) == (v,).
+# ---------------------------------------------------------------------------
+
+table struct_extra1711.pack_unpack_roundtrip:
+  kind: python_call_eq
+  category: roundtrip
+  id_prefix: "st1711"
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["st1711_rt_H_1000",   unpack, [">H", !hex 03e8],             [1000]]
+    - ["st1711_rt_I_0",      unpack, [">I", !hex 00000000],         [0]]
+    - ["st1711_rt_I_max32",  unpack, [">I", !hex ffffffff],         [4294967295]]
+    - ["st1711_rt_B_255",    unpack, [">B", !hex ff],               [255]]
+    - ["st1711_rt_B_0",      unpack, [">B", !hex 00],               [0]]
+    - ["st1711_rt_H_65535",  unpack, [">H", !hex ffff],             [65535]]
+    - ["st1711_rt_h_neg1",   unpack, [">h", !hex ffff],             [-1]]
+    - ["st1711_rt_h_min",    unpack, [">h", !hex 8000],             [-32768]]
+    - ["st1711_rt_q_0",      unpack, [">q", !hex 0000000000000000], [0]]
+    - ["st1711_rt_BB_1_2",   unpack, [">BB", !hex 0102],            [1, 2]]
+    - ["st1711_rt_H_1",      unpack, [">H", !hex 0001],             [1]]
+    - ["st1711_rt_H_256",    unpack, [">H", !hex 0100],             [256]]
+    - ["st1711_rt_I_1",      unpack, [">I", !hex 00000001],         [1]]
+    - ["st1711_rt_q_neg1",   unpack, [">q", !hex ffffffffffffffff], [-1]]
+    - ["st1711_rt_q_max",    unpack, [">q", !hex 7fffffffffffffff], [9223372036854775807]]
+    - ["st1711_rt_B_1",      unpack, [">B", !hex 01],               [1]]
+    - ["st1711_rt_h_max",    unpack, [">h", !hex 7fff],             [32767]]
+    - ["st1711_rt_H_0",      unpack, [">H", !hex 0000],             [0]]
+
+# ---------------------------------------------------------------------------
+# Table 3: struct_calcsize_and_edge
+# Edge cases: calcsize, pack lengths, signed extremes, and error class checks.
+# ---------------------------------------------------------------------------
+
+table struct_extra1711.struct_calcsize_and_edge:
+  kind: python_call_eq
+  category: edge_cases
+  id_prefix: "st1711"
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["st1711_calcsize_H",          calcsize, [">H"],  2]
+    - ["st1711_calcsize_I",          calcsize, [">I"],  4]
+    - ["st1711_calcsize_BB",         calcsize, [">BB"], 2]
+    - ["st1711_calcsize_BHI",        calcsize, [">BHI"],7]
+    - ["st1711_calcsize_q",          calcsize, [">q"],  8]
+    - ["st1711_edge_I_0_pack_len",   pack,   [">I", 0],     4]
+    - ["st1711_edge_H_0_pack_len",   pack,   [">H", 0],     2]
+    - ["st1711_edge_Q_0_pack_len",   pack,   [">Q", 0],     8]
+    - ["st1711_edge_b_neg1",         unpack, [">b", !hex ff],  [-1]]
+    - ["st1711_edge_b_min",          unpack, [">b", !hex 80],  [-128]]
+    - ["st1711_edge_b_max",          unpack, [">b", !hex 7f],  [127]]
+    - ["st1711_edge_i_neg1",         unpack, [">i", !hex ffffffff], [-1]]
+    - ["st1711_edge_i_max",          unpack, [">i", !hex 7fffffff], [2147483647]]
+    - ["st1711_edge_Q_max",          unpack, [">Q", !hex ffffffffffffffff], [18446744073709551615]]
+    - ["st1711_edge_H_max",          pack,   [">H", 65535],  !hex ffff]
+    - ["st1711_edge_I_max",          pack,   [">I", 4294967295], !hex ffffffff]
+    - ["st1711_edge_q_neg1_pack",    pack,   [">q", -1],     !hex ffffffffffffffff]
+    - ["st1711_edge_q_0_pack",       pack,   [">q", 0],      !hex 0000000000000000]

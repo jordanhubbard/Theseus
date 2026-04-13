@@ -1,0 +1,105 @@
+spec: pathlib_extra1711
+version: ">=3.9"
+backend: python_module(pathlib)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — pathlib module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/"
+    - "pathlib.zspec.zsdl — covers PurePosixPath components, joining, str, as_posix, relative_to"
+    - "pathlib_extra.zspec.zsdl — covers Path/PurePosixPath class names, module, component vectors"
+    - "pathlib_extra1516.zspec.zsdl — covers arithmetic operator __dict__ presence for PurePath hierarchy"
+  notes:
+    - "Wave 561 (_extra1711): __init__ protocol — which pathlib types define __init__ in their own __dict__."
+    - "pathlib.PurePath uses __new__ for object construction (it parses and normalises the path string in __new__). It does NOT define __init__ in its own __dict__."
+    - "pathlib.PurePosixPath, pathlib.PureWindowsPath, pathlib.Path, pathlib.PosixPath, and pathlib.WindowsPath all inherit the __new__-based construction from PurePath. None defines __init__ in its own __dict__."
+    - "This is the expected pattern for immutable-style objects in Python: __new__ allocates and initialises; __init__ is left to object (a no-op)."
+    - "Contrast: classes that accept mutable configuration typically define __init__. The entire pathlib class hierarchy opts for __new__ instead."
+    - "__new__ IS defined in pathlib.PurePath.__dict__ — it is the entry point for construction of all pathlib objects."
+    - "PurePosixPath, PureWindowsPath, Path, PosixPath, and WindowsPath do NOT define __new__ in their own __dict__ either — they inherit it from PurePath."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# No class in the pathlib hierarchy defines __init__ in its own __dict__
+# PurePath, PurePosixPath, PureWindowsPath, Path, PosixPath all rely on
+# __new__ for construction; __init__ is absent from every class __dict__.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1711.purepath_hierarchy_no_init:
+  description: "No pathlib class (PurePath, PurePosixPath, PureWindowsPath, Path, PosixPath) defines __init__ in its own __dict__ — the entire hierarchy uses __new__ for construction instead; wave 561"
+  kind: python_call_eq
+  category: init_protocol
+  id_prefix: pl1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1711001", pathlib.PurePath.__dict__.__contains__,        ["__init__"], false]
+    - ["pl1711002", pathlib.PurePosixPath.__dict__.__contains__,   ["__init__"], false]
+    - ["pl1711003", pathlib.PureWindowsPath.__dict__.__contains__,  ["__init__"], false]
+    - ["pl1711004", pathlib.Path.__dict__.__contains__,            ["__init__"], false]
+    - ["pl1711005", pathlib.PosixPath.__dict__.__contains__,       ["__init__"], false]
+
+# ---------------------------------------------------------------------------
+# __new__ contrast — PurePath defines __new__; subclasses inherit it
+# PurePath.__dict__ contains __new__ (the factory method that handles
+# construction). Its subclasses do NOT re-define __new__ in their own dicts.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1711.new_protocol:
+  description: "pathlib.PurePath defines __new__ in its own __dict__; all subclasses (PurePosixPath, PureWindowsPath, Path, PosixPath) inherit __new__ from PurePath and do NOT define it in their own __dict__; wave 561"
+  kind: python_call_eq
+  category: new_vs_init
+  id_prefix: pl1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1711006", pathlib.PurePath.__dict__.__contains__,        ["__new__"], true]
+    - ["pl1711007", pathlib.PurePosixPath.__dict__.__contains__,   ["__new__"], false]
+    - ["pl1711008", pathlib.PureWindowsPath.__dict__.__contains__,  ["__new__"], false]
+    - ["pl1711009", pathlib.Path.__dict__.__contains__,            ["__new__"], false]
+    - ["pl1711010", pathlib.PosixPath.__dict__.__contains__,       ["__new__"], false]
+
+# ---------------------------------------------------------------------------
+# Positive anchors — methods that ARE defined in each class's own __dict__
+# These confirm the __dict__ membership queries are working correctly.
+# PurePath defines 'name', 'stem', 'suffix', 'joinpath' in its own __dict__.
+# Path adds 'open', 'exists', 'stat', 'mkdir' in its own __dict__.
+# PurePosixPath and PosixPath have minimal own __dict__ entries.
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1711.positive_anchors:
+  description: "Positive anchor checks: methods/properties genuinely defined in each pathlib class own __dict__ — confirms __dict__.__contains__ queries are operating correctly; wave 561"
+  kind: python_call_eq
+  category: init_protocol
+  id_prefix: pl1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1711011", pathlib.PurePath.__dict__.__contains__,  ["name"],     true]
+    - ["pl1711012", pathlib.PurePath.__dict__.__contains__,  ["stem"],     true]
+    - ["pl1711013", pathlib.PurePath.__dict__.__contains__,  ["suffix"],   true]
+    - ["pl1711014", pathlib.PurePath.__dict__.__contains__,  ["joinpath"], true]
+    - ["pl1711015", pathlib.Path.__dict__.__contains__,      ["open"],     true]
+    - ["pl1711016", pathlib.Path.__dict__.__contains__,      ["exists"],   true]
+    - ["pl1711017", pathlib.Path.__dict__.__contains__,      ["stat"],     true]
+    - ["pl1711018", pathlib.Path.__dict__.__contains__,      ["mkdir"],    true]
+
+# ---------------------------------------------------------------------------
+# Class-name spot-checks
+# ---------------------------------------------------------------------------
+
+table pathlib_extra1711.class_names:
+  description: "Class __name__ identity spot-checks for the pathlib types examined in the __init__ protocol tables; wave 561"
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: pl1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["pl1711019", pathlib.PurePath.__name__.__eq__,       ["PurePath"],       true]
+    - ["pl1711020", pathlib.PurePosixPath.__name__.__eq__,  ["PurePosixPath"],  true]
+    - ["pl1711021", pathlib.Path.__name__.__eq__,           ["Path"],           true]
+    - ["pl1711022", pathlib.PosixPath.__name__.__eq__,      ["PosixPath"],      true]

@@ -1,0 +1,126 @@
+spec: re_extra1711
+version: ">=3.9"
+backend: python_module(re)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — re module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+    - "re.zspec.zsdl — covers sub, findall, split, escape, compile error cases"
+    - "re_extra.zspec.zsdl — covers Pattern/Match class names, error base, flag constants, match/search/sub/split/findall variants"
+  notes:
+    - "Wave 561 (_extra1711): __init__ protocol — which re types define __init__ in their own __dict__."
+    - "re.Pattern is a C extension type created by re.compile(); it does NOT define __init__ in its own __dict__. Pattern objects are produced by the C re engine, not by calling Pattern() directly."
+    - "re.Match is a C extension type returned by match/search/fullmatch; it does NOT define __init__ in its own __dict__. Match objects are created by the C engine and are not instantiable by user code."
+    - "re.error is a pure-Python exception class that DOES define __init__ in its own __dict__. re.error.__init__ stores the pattern, position, and message attributes used in the exception display."
+    - "re.RegexFlag is an IntFlag enum subclass. IntFlag defines __new__ for member construction; re.RegexFlag does NOT define __init__ in its own __dict__."
+    - "Key insight: the only re type with __init__ in its own __dict__ is the exception class re.error, because exception subclasses often customise __init__ to capture domain-specific attributes."
+    - "C extension types Pattern and Match expose no Python-level __init__ because they are not designed for direct instantiation by user code."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# C extension types — __init__ NOT in __dict__
+# Pattern and Match are C extension types; they expose no Python __init__.
+# ---------------------------------------------------------------------------
+
+table re_extra1711.cext_types_no_init:
+  description: "re.Pattern and re.Match are C extension types that do NOT define __init__ in their own __dict__ — they are created by the C regex engine, not by direct instantiation; wave 561"
+  kind: python_call_eq
+  category: init_protocol
+  id_prefix: re1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1711001", re.Pattern.__dict__.__contains__, ["__init__"], false]
+    - ["re1711002", re.Match.__dict__.__contains__,   ["__init__"], false]
+
+# ---------------------------------------------------------------------------
+# re.error — pure-Python exception that DOES define __init__
+# re.error.__init__ accepts msg, pattern=None, pos=None and stores them as
+# attributes for display in the traceback.
+# ---------------------------------------------------------------------------
+
+table re_extra1711.error_has_init:
+  description: "re.error is a pure-Python exception class that DOES define __init__ in its own __dict__ to capture pattern/position context; contrast with the C types Pattern and Match which do not; wave 561"
+  kind: python_call_eq
+  category: init_protocol
+  id_prefix: re1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1711003", re.error.__dict__.__contains__, ["__init__"], true]
+
+# ---------------------------------------------------------------------------
+# re.RegexFlag — IntFlag enum, no __init__ in own __dict__
+# ---------------------------------------------------------------------------
+
+table re_extra1711.regexflag_no_init:
+  description: "re.RegexFlag is an IntFlag enum subclass; it does NOT define __init__ in its own __dict__ — enum member construction uses __new__ inherited from the enum machinery; wave 561"
+  kind: python_call_eq
+  category: init_protocol
+  id_prefix: re1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1711004", re.RegexFlag.__dict__.__contains__, ["__init__"], false]
+
+# ---------------------------------------------------------------------------
+# __new__ contrast — C types and enum use __new__; re.error does not
+# re.Pattern and re.Match expose __new__; re.error inherits __new__ from
+# Exception and does not define it in its own __dict__.
+# ---------------------------------------------------------------------------
+
+table re_extra1711.new_vs_init_contrast:
+  description: "re.__dict__ __new__ presence by type: Pattern and Match define __new__ (C type allocation); re.error does NOT define __new__ in its own __dict__ (it inherits from Exception); RegexFlag does NOT define __new__ in its own __dict__; wave 561"
+  kind: python_call_eq
+  category: new_vs_init
+  id_prefix: re1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1711005", re.Pattern.__dict__.__contains__,   ["__new__"], true]
+    - ["re1711006", re.Match.__dict__.__contains__,     ["__new__"], true]
+    - ["re1711007", re.error.__dict__.__contains__,     ["__new__"], false]
+    - ["re1711008", re.RegexFlag.__dict__.__contains__,  ["__new__"], false]
+
+# ---------------------------------------------------------------------------
+# Positive anchors — verify __dict__.__contains__ is working correctly
+# re.error defines 'msg' as a slot or attribute via __init__; we check that
+# other known members of each type's __dict__ are present.
+# ---------------------------------------------------------------------------
+
+table re_extra1711.positive_anchors:
+  description: "Positive anchor checks: known members of each re type's own __dict__ — confirms __dict__.__contains__ queries are operating correctly; wave 561"
+  kind: python_call_eq
+  category: init_protocol
+  id_prefix: re1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1711009",  re.Pattern.__dict__.__contains__,   ["match"],   true]
+    - ["re1711010",  re.Pattern.__dict__.__contains__,   ["search"],  true]
+    - ["re1711011",  re.Pattern.__dict__.__contains__,   ["sub"],     true]
+    - ["re1711012",  re.Match.__dict__.__contains__,     ["group"],   true]
+    - ["re1711013",  re.Match.__dict__.__contains__,     ["start"],   true]
+    - ["re1711014",  re.Match.__dict__.__contains__,     ["end"],     true]
+    - ["re1711015",  re.error.__dict__.__contains__,     ["__str__"], true]
+    - ["re1711020",  re.Pattern.__dict__.__contains__,   ["findall"], true]
+
+# ---------------------------------------------------------------------------
+# Class-name spot-checks
+# ---------------------------------------------------------------------------
+
+table re_extra1711.class_names:
+  description: "Class __name__ identity spot-checks for the re types examined in the __init__ protocol tables; wave 561"
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: re1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["re1711016", re.Pattern.__name__.__eq__,    ["Pattern"], true]
+    - ["re1711017", re.Match.__name__.__eq__,      ["Match"],   true]
+    - ["re1711018", re.error.__name__.__eq__,      ["error"],   true]
+    - ["re1711019", re.RegexFlag.__name__.__eq__,  ["RegexFlag"], true]

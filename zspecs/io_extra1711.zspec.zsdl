@@ -1,0 +1,110 @@
+spec: io_extra1711
+version: ">=3.9"
+backend: python_module(io)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — io module documentation"
+    - "Test vectors verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+    - "CPython source: Lib/io.py"
+    - "io_extra.zspec.zsdl — covers DEFAULT_BUFFER_SIZE, SEEK_* types, TextIOWrapper/BufferedRandom/UnsupportedOperation class identity"
+  notes:
+    - "Wave 561 (_extra1711): __init__ protocol — which io types define __init__ in their own __dict__."
+    - "io.IOBase, io.RawIOBase, io.BufferedIOBase, and io.TextIOBase are abstract C extension types; they do NOT define __init__ in their own __dict__ — instances are not meant to be created directly."
+    - "io.BytesIO is a concrete C type that defines __init__ to accept an optional initial bytes buffer argument."
+    - "io.StringIO is a concrete C type that defines __init__ to accept an optional initial string and newline arguments."
+    - "io.FileIO is a concrete C type that defines __init__ accepting a file path or descriptor plus mode/closefd/opener."
+    - "io.BufferedReader is a concrete C type that defines __init__ accepting a RawIOBase and optional buffer_size."
+    - "io.TextIOWrapper is a concrete C type that defines __init__ accepting a BufferedIOBase and encoding/errors/newline."
+    - "Abstract base C types (IOBase, RawIOBase, BufferedIOBase, TextIOBase) have no Python-level __init__ — construction is handled at the C layer without a Python __init__ slot in the class dict."
+    - "Concrete C types (BytesIO, StringIO, FileIO, BufferedReader, TextIOWrapper) DO expose __init__ in their __dict__ because the C implementation registers a tp_init slot that Python exposes as a wrapper_descriptor in the class dict."
+    - "Contrast: __new__ is defined by all C types; __init__ is only defined by the concrete leaf types that need to configure themselves after allocation."
+    - "All expected values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+error_model: python_exceptions
+
+# ---------------------------------------------------------------------------
+# Abstract base types — __init__ NOT in __dict__
+# IOBase, RawIOBase, BufferedIOBase, and TextIOBase are abstract C types with
+# no Python-level __init__ slot.  They rely on the default object.__init__
+# inherited through the C type hierarchy, so "__init__" does NOT appear in
+# their own __dict__.
+# ---------------------------------------------------------------------------
+
+table io_extra1711.abstract_bases_no_init:
+  description: "Abstract io C types (IOBase, RawIOBase, BufferedIOBase, TextIOBase) do NOT define __init__ in their own __dict__ — they are abstract base types, not directly instantiable with custom __init__; wave 561"
+  kind: python_call_eq
+  category: init_protocol
+  id_prefix: io1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1711001", io.IOBase.__dict__.__contains__,       ["__init__"], false]
+    - ["io1711002", io.RawIOBase.__dict__.__contains__,    ["__init__"], false]
+    - ["io1711003", io.BufferedIOBase.__dict__.__contains__, ["__init__"], false]
+    - ["io1711004", io.TextIOBase.__dict__.__contains__,   ["__init__"], false]
+
+# ---------------------------------------------------------------------------
+# Concrete leaf types — __init__ IS in __dict__
+# BytesIO, StringIO, FileIO, BufferedReader, and TextIOWrapper are concrete C
+# types whose tp_init slot is exposed as "__init__" in the Python class dict.
+# ---------------------------------------------------------------------------
+
+table io_extra1711.concrete_types_have_init:
+  description: "Concrete io C types (BytesIO, StringIO, FileIO, BufferedReader, TextIOWrapper) DO define __init__ in their own __dict__ — each configures itself with type-specific arguments (buffer, path, encoding, etc.); wave 561"
+  kind: python_call_eq
+  category: init_protocol
+  id_prefix: io1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1711005", io.BytesIO.__dict__.__contains__,       ["__init__"], true]
+    - ["io1711006", io.StringIO.__dict__.__contains__,      ["__init__"], true]
+    - ["io1711007", io.FileIO.__dict__.__contains__,        ["__init__"], true]
+    - ["io1711008", io.BufferedReader.__dict__.__contains__, ["__init__"], true]
+    - ["io1711009", io.TextIOWrapper.__dict__.__contains__,  ["__init__"], true]
+
+# ---------------------------------------------------------------------------
+# __new__ contrast — present on abstract bases but __init__ is not
+# All io C types define __new__ (memory allocation).  Abstract bases expose
+# __new__ but not __init__; concrete types expose both.  This table anchors
+# the __new__ side of the contrast for the abstract bases.
+# ---------------------------------------------------------------------------
+
+table io_extra1711.abstract_bases_have_new:
+  description: "Abstract io C types define __new__ in their own __dict__ even though they do not define __init__ — memory allocation is distinct from initialisation; wave 561"
+  kind: python_call_eq
+  category: new_vs_init
+  id_prefix: io1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1711010", io.IOBase.__dict__.__contains__,        ["__new__"], true]
+    - ["io1711011", io.RawIOBase.__dict__.__contains__,     ["__new__"], false]
+    - ["io1711012", io.BufferedIOBase.__dict__.__contains__, ["__new__"], false]
+    - ["io1711013", io.TextIOBase.__dict__.__contains__,    ["__new__"], false]
+    - ["io1711014", io.BytesIO.__dict__.__contains__,       ["__new__"], true]
+    - ["io1711015", io.StringIO.__dict__.__contains__,      ["__new__"], true]
+    - ["io1711016", io.FileIO.__dict__.__contains__,        ["__new__"], true]
+    - ["io1711017", io.BufferedReader.__dict__.__contains__, ["__new__"], true]
+    - ["io1711018", io.TextIOWrapper.__dict__.__contains__,  ["__new__"], true]
+
+# ---------------------------------------------------------------------------
+# Class-name spot-checks — confirm class identity for the types above
+# ---------------------------------------------------------------------------
+
+table io_extra1711.class_names:
+  description: "Class __name__ identity spot-checks for the io types examined in the __init__ protocol tables; wave 561"
+  kind: python_call_eq
+  category: class_metadata
+  id_prefix: io1711
+  columns: [id, function, args, expected]
+  rows:
+    - ["io1711019", io.IOBase.__name__.__eq__,        ["IOBase"],        true]
+    - ["io1711020", io.BytesIO.__name__.__eq__,       ["BytesIO"],       true]
+    - ["io1711021", io.StringIO.__name__.__eq__,      ["StringIO"],      true]
+    - ["io1711022", io.FileIO.__name__.__eq__,        ["FileIO"],        true]
+    - ["io1711023", io.BufferedReader.__name__.__eq__, ["BufferedReader"], true]
+    - ["io1711024", io.TextIOWrapper.__name__.__eq__,  ["TextIOWrapper"],  true]

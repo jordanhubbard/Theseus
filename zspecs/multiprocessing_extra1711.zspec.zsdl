@@ -1,0 +1,105 @@
+spec: multiprocessing_extra1711
+version: ">=3.9"
+backend: python_module(multiprocessing)
+error_model: python_exceptions
+
+provenance:
+  derived_from:
+    - "Python docs"
+    - "https://docs.python.org/3/library/multiprocessing.html"
+  not_derived_from:
+    - "any proprietary source"
+  notes:
+    - "Wave 561 (_extra1711): __init__ protocol dict-presence checks."
+    - "multiprocessing.process.BaseProcess defines __init__ in its own __dict__ (the authoritative initializer for all process types, accepting group, target, name, args, kwargs, daemon) -> True."
+    - "multiprocessing.Process subclasses BaseProcess; it does NOT override __init__ in its own __dict__ — it inherits __init__ from BaseProcess -> False."
+    - "multiprocessing.Pool is a pure Python class defined in multiprocessing/pool.py; it defines __init__ in its own __dict__ (initializes worker pool, result handler, task handler, etc.) -> True."
+    - "Cross-check: BaseProcess defines __init__ but not __new__ in its own __dict__ (pure Python, inherits __new__ from object) -> False."
+    - "Cross-check: multiprocessing.Pool also does not define __new__ in its own __dict__ -> False."
+    - "multiprocessing.Process does not define __new__ in its own __dict__ either -> False."
+    - "__init_subclass__ is inherited from object; none of the multiprocessing classes add it to their own __dict__ -> False."
+    - "All values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# Table 1: __init__ dict-presence checks
+#
+# Wave 561 theme: which multiprocessing types define __init__ in their own
+# __dict__.
+#
+# multiprocessing.process.BaseProcess defines __init__ directly; it is the
+# root of the multiprocessing process class hierarchy and owns the canonical
+# __init__ that accepts group, target, name, args, kwargs, and daemon.
+#
+# multiprocessing.Process is a thin subclass of BaseProcess. On Python 3.9+
+# it does NOT override __init__ in its own __dict__; the inherited BaseProcess
+# __init__ is used as-is. Hence "__init__" in Process.__dict__ is False.
+#
+# multiprocessing.Pool is a pure Python class that defines a rich __init__
+# (processes, initializer, initargs, maxtasksperchild, context) directly in
+# its own __dict__ -> True.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra1711.init_protocol:
+  description: "multiprocessing types: __init__ dict-presence via __dict__.__contains__"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: mp1711
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp1711001", "multiprocessing.process.BaseProcess.__dict__.__contains__", ["__init__"], true]
+    - ["mp1711002", "multiprocessing.Process.__dict__.__contains__",             ["__init__"], false]
+    - ["mp1711003", "multiprocessing.Pool.__dict__.__contains__",                ["__init__"], true]
+
+# ---------------------------------------------------------------------------
+# Table 2: __new__ dict-presence cross-checks
+#
+# Wave 561 cross-check: all three multiprocessing types are pure Python and
+# inherit __new__ from object. None define __new__ in their own __dict__.
+# BaseProcess defines __init__ (not __new__) because it needs to initialize
+# instance attributes; it delegates object creation to object.__new__.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra1711.new_protocol:
+  description: "multiprocessing types: __new__ dict-presence cross-check (all pure Python — none define __new__ in own __dict__)"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: mp1711
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp1711004", "multiprocessing.process.BaseProcess.__dict__.__contains__", ["__new__"], false]
+    - ["mp1711005", "multiprocessing.Process.__dict__.__contains__",             ["__new__"], false]
+    - ["mp1711006", "multiprocessing.Pool.__dict__.__contains__",                ["__new__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 3: __init_subclass__, __class_getitem__, and __reduce__ cross-checks
+#
+# Wave 561 extension: related dunder attributes. __init_subclass__ is defined
+# on object and inherited; none of the multiprocessing process or pool classes
+# override it in their own __dict__. __class_getitem__ is not defined by
+# multiprocessing types. __reduce__ is defined by BaseProcess to support
+# pickling of process objects across process boundaries (needed for spawning
+# and forking) -> True for BaseProcess. Process inherits __reduce__ from
+# BaseProcess, so it does NOT have it in its own __dict__ -> False.
+# Pool does not define __reduce__ in its own __dict__ -> False.
+# ---------------------------------------------------------------------------
+
+table multiprocessing_extra1711.related_dunder_protocol:
+  description: "multiprocessing types: __init_subclass__, __class_getitem__, and __reduce__ dict-presence cross-checks"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: mp1711
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["mp1711007",  "multiprocessing.process.BaseProcess.__dict__.__contains__", ["__init_subclass__"], false]
+    - ["mp1711008",  "multiprocessing.Process.__dict__.__contains__",             ["__init_subclass__"], false]
+    - ["mp1711009",  "multiprocessing.Pool.__dict__.__contains__",                ["__init_subclass__"], false]
+    - ["mp1711010",  "multiprocessing.process.BaseProcess.__dict__.__contains__", ["__class_getitem__"], false]
+    - ["mp1711011",  "multiprocessing.Process.__dict__.__contains__",             ["__class_getitem__"], false]
+    - ["mp1711012",  "multiprocessing.Pool.__dict__.__contains__",                ["__class_getitem__"], false]
+    - ["mp1711013",  "multiprocessing.process.BaseProcess.__dict__.__contains__", ["__reduce__"],        true]
+    - ["mp1711014",  "multiprocessing.Process.__dict__.__contains__",             ["__reduce__"],        false]
+    - ["mp1711015",  "multiprocessing.Pool.__dict__.__contains__",                ["__reduce__"],        false]

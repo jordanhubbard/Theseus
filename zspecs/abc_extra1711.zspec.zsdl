@@ -1,0 +1,109 @@
+spec: abc_extra1711
+version: ">=3.9"
+backend: python_module(abc)
+error_model: python_exceptions
+
+provenance:
+  derived_from:
+    - "Python docs"
+    - "https://docs.python.org/3/library/abc.html"
+  not_derived_from:
+    - "any proprietary source"
+  notes:
+    - "Wave 561 (_extra1711): __init__ protocol dict-presence checks."
+    - "abc.ABCMeta is a metaclass; it defines __new__ in its own __dict__ (to set up the abstract method infrastructure on the new class) but does NOT define __init__ in its own __dict__ -> False."
+    - "abc.ABC is a plain helper class with no instance state; it defines neither __init__ nor __new__ in its own __dict__ -> both False."
+    - "abc.abstractmethod is a decorator class; it defines __init__ in its own __dict__ to store the wrapped function (self.func = funcobj; self.__isabstractmethod__ = True) -> True."
+    - "Cross-check for __new__: ABCMeta defines __new__ in its own __dict__ -> True; ABC and abstractmethod do not -> False."
+    - "__init_subclass__ is inherited from object or type; none of the abc types add it to their own __dict__ -> False."
+    - "__class_getitem__ is not defined by abc types in their own __dict__ -> False."
+    - "All values verified with Python 3.14 on macOS/Darwin 25.4.0, 2026-04-12."
+  created_at: "2026-04-12"
+
+# ---------------------------------------------------------------------------
+# Table 1: __init__ dict-presence checks
+#
+# Wave 561 theme: which abc types define __init__ in their own __dict__.
+#
+# abc.ABCMeta is a metaclass subclassing type. It defines __new__ (not __init__)
+# to intercept class creation and register abstract methods. ABCMeta does NOT
+# define __init__ in its own __dict__; class creation is fully handled by __new__.
+#
+# abc.ABC is the user-facing abstract base class helper. It has no instance
+# state and defines neither __init__ nor __new__ in its own __dict__.
+#
+# abc.abstractmethod is a decorator class. It stores the decorated function
+# in self.func and sets self.__isabstractmethod__ = True inside its __init__,
+# which is defined directly in the class __dict__ -> True.
+# ---------------------------------------------------------------------------
+
+table abc_extra1711.init_protocol:
+  description: "abc types: __init__ dict-presence via __dict__.__contains__"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab1711
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab1711001", "ABCMeta.__dict__.__contains__",      ["__init__"], false]
+    - ["ab1711002", "ABC.__dict__.__contains__",          ["__init__"], false]
+    - ["ab1711003", "abstractmethod.__dict__.__contains__", ["__init__"], true]
+
+# ---------------------------------------------------------------------------
+# Table 2: __new__ dict-presence cross-checks
+#
+# Wave 561 cross-check: ABCMeta defines __new__ in its own __dict__ (it must
+# intercept class creation at the __new__ stage to collect abstract methods
+# from the class namespace before the class object is finalized). This is the
+# defining characteristic of a metaclass that needs to modify the class being
+# created. ABC and abstractmethod, both plain Python classes, do not define
+# __new__ in their own __dict__ (they inherit it from object).
+# ---------------------------------------------------------------------------
+
+table abc_extra1711.new_protocol:
+  description: "abc types: __new__ dict-presence cross-check (ABCMeta defines __new__; ABC and abstractmethod do not)"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab1711
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab1711004", "ABCMeta.__dict__.__contains__",        ["__new__"], true]
+    - ["ab1711005", "ABC.__dict__.__contains__",            ["__new__"], false]
+    - ["ab1711006", "abstractmethod.__dict__.__contains__", ["__new__"], false]
+
+# ---------------------------------------------------------------------------
+# Table 3: __init_subclass__, __class_getitem__, and __subclasshook__
+#          dict-presence cross-checks
+#
+# Wave 561 extension: related dunder attributes.
+#
+# __init_subclass__ is defined on object and inherited; none of the abc types
+# override it in their own __dict__. ABCMeta as a metaclass does not add
+# __init_subclass__ to its own __dict__ either.
+#
+# __class_getitem__ is not defined by abc types in their own __dict__.
+#
+# __subclasshook__ is defined in ABC's own __dict__ to provide the default
+# NotImplemented return that signals ABCMeta to fall through to normal
+# subclass checking -> True for ABC. ABCMeta and abstractmethod do not
+# define __subclasshook__ in their own __dict__ -> False.
+# ---------------------------------------------------------------------------
+
+table abc_extra1711.related_dunder_protocol:
+  description: "abc types: __init_subclass__, __class_getitem__, and __subclasshook__ dict-presence cross-checks"
+  kind: python_call_eq
+  category: dict_contains
+  id_prefix: ab1711
+
+  columns: [id, function, args, expected]
+  rows:
+    - ["ab1711007",  "ABCMeta.__dict__.__contains__",        ["__init_subclass__"], false]
+    - ["ab1711008",  "ABC.__dict__.__contains__",            ["__init_subclass__"], false]
+    - ["ab1711009",  "abstractmethod.__dict__.__contains__", ["__init_subclass__"], false]
+    - ["ab1711010",  "ABCMeta.__dict__.__contains__",        ["__class_getitem__"], false]
+    - ["ab1711011",  "ABC.__dict__.__contains__",            ["__class_getitem__"], false]
+    - ["ab1711012",  "abstractmethod.__dict__.__contains__", ["__class_getitem__"], false]
+    - ["ab1711013",  "ABCMeta.__dict__.__contains__",        ["__subclasshook__"],  false]
+    - ["ab1711014",  "ABC.__dict__.__contains__",            ["__subclasshook__"],  true]
+    - ["ab1711015",  "abstractmethod.__dict__.__contains__", ["__subclasshook__"],  false]
