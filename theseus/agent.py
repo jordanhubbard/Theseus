@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import socket
 import subprocess
 import urllib.error
 import urllib.request
@@ -42,7 +43,7 @@ def run_prompt(prompt: str, config: dict, *, system: str = "", timeout: int = 0)
     """
     provider = config.get("provider", "auto")
     if provider == "openai":
-        return _openai(prompt, config, system=system, timeout=timeout or 120)
+        return _openai(prompt, config, system=system, timeout=timeout or 600)
     if provider == "claude" or (provider == "auto" and _claude_in_path()):
         return _claude(prompt, system=system, timeout=timeout or 300)
     if config.get("openai_base_url"):
@@ -85,7 +86,7 @@ def _openai(prompt: str, config: dict, *, system: str = "", timeout: int = 120) 
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    payload = json.dumps({"model": model, "messages": messages, "temperature": 0.2}).encode()
+    payload = json.dumps({"model": model, "messages": messages, "temperature": 0.2, "max_tokens": 16000}).encode()
     req = urllib.request.Request(
         f"{base}/chat/completions",
         data=payload,
@@ -96,7 +97,7 @@ def _openai(prompt: str, config: dict, *, system: str = "", timeout: int = 120) 
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read())
         return data["choices"][0]["message"]["content"].strip()
-    except urllib.error.URLError as exc:
+    except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
         raise RuntimeError(f"OpenAI API request failed: {exc}") from exc
     except (KeyError, IndexError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"OpenAI API unexpected response: {exc}") from exc

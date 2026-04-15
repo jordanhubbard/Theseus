@@ -28,7 +28,9 @@ Rules:
 3. Do NOT import or call the real library you are replacing (e.g. if the spec is
    for "hashlib", your implementation must NOT contain "import hashlib").
 4. Your code must be complete and self-contained — no TODO stubs.
-5. Output ONLY source file blocks in this exact format, with no explanation:
+5. CRITICAL — output format: your ENTIRE response must consist of ONLY source file
+   blocks in the exact format below.  No preamble.  No explanation.  No prose.
+   No markdown fences.  Start your response with the first <file ...> tag:
    <file name="FILENAME"><content>
    ...file content...
    </content></file>
@@ -76,8 +78,21 @@ class PromptBuilder:
     @staticmethod
     def extract_source_files(llm_response: str) -> dict[str, str]:
         """
-        Parse ``<file name="..."><content>...</content></file>`` blocks from the
-        LLM response.
+        Parse source file blocks from the LLM response.
+
+        Primary format (required by system prompt):
+            <file name="FILENAME"><content>
+            ...file content...
+            </content></file>
+
+        Fallback format (markdown fences with filename hint):
+            ```python
+            # filename.py
+            ...
+            ```
+            or ```python filename.py
+            ...
+            ```
 
         Returns:
             dict mapping filename → file content (stripped of leading/trailing
@@ -86,21 +101,48 @@ class PromptBuilder:
         Raises:
             ValueError: if no file blocks are found in the response.
         """
-        pattern = re.compile(
+        # Primary: XML file blocks
+        xml_pattern = re.compile(
             r'<file\s+name=["\']([^"\']+)["\']\s*>'
             r'\s*<content>(.*?)</content>\s*</file>',
             re.DOTALL,
         )
-        matches = pattern.findall(llm_response)
-        if not matches:
-            raise ValueError(
-                "No <file name=...><content>...</content></file> blocks found "
-                f"in LLM response. Response preview: {llm_response[:300]!r}"
-            )
-        result: dict[str, str] = {}
-        for filename, content in matches:
-            result[filename.strip()] = content.strip("\n")
-        return result
+        matches = xml_pattern.findall(llm_response)
+        if matches:
+            result: dict[str, str] = {}
+            for filename, content in matches:
+                result[filename.strip()] = content.strip("\n")
+            return result
+
+        # Fallback: markdown fences — try to recover a filename from the fence
+        # info string or a leading comment inside the block.
+        fence_pattern = re.compile(
+            r'```[a-zA-Z]*[ \t]*([^\n`]*)\n(.*?)```',
+            re.DOTALL,
+        )
+        recovered: dict[str, str] = {}
+        for fence_info, body in fence_pattern.findall(llm_response):
+            fence_info = fence_info.strip()
+            body = body.strip("\n")
+            # Derive filename: from fence info line, or first comment/shebang line
+            filename = ""
+            if re.match(r'[\w\-./]+\.\w+', fence_info):
+                filename = fence_info
+            else:
+                first_line = body.splitlines()[0] if body else ""
+                m = re.match(r'#\s*([\w\-./]+\.\w+)', first_line)
+                if m:
+                    filename = m.group(1)
+            if filename:
+                recovered[filename] = body
+
+        if recovered:
+            return recovered
+
+        raise ValueError(
+            "No <file name=...><content>...</content></file> blocks found "
+            f"in LLM response. Response preview: {llm_response[:300]!r}"
+        )
 
 
 # ---------------------------------------------------------------------------
