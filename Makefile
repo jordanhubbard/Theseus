@@ -88,7 +88,7 @@ sync:
 			--exclude='snapshots/' \
 			--exclude='output/' \
 			--exclude='stubs/' \
-			--exclude='/config.yaml' \
+			--exclude='/config.site.yaml' \
 			./ $$target; \
 	done
 

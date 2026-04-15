@@ -26,7 +26,7 @@ Options:
   --ecosystems      Comma-separated list of ecosystems to consider (default: all)
   --drivers         Comma-separated drivers to run (default: match ecosystem)
   --dry-run         Print what would be done without building
-  --config PATH     Path to config.yaml (default: ./config.yaml)
+  --config PATH     Path to config.yaml (site overrides in config.site.yaml)
   --jobs N          Parallel build jobs (default: 2, one per worker)
 """
 
@@ -249,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="Print actions without building")
     ap.add_argument("--config", type=Path, default=None,
-                    help="Path to config.yaml")
+                    help="Path to config.yaml (site overrides loaded from config.site.yaml alongside it)")
     ap.add_argument("--jobs", type=int, default=2,
                     help="Parallel build threads (default: 2)")
     args = ap.parse_args(argv)

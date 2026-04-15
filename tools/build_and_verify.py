@@ -7,7 +7,7 @@ permissive-licensed packages), builds and installs it into a temp prefix,
 then runs verify_behavior.py against the freshly built artifact.
 
 Supports local builds (macOS/Linux/FreeBSD) and remote builds via SSH
-using the targets defined in config.yaml.
+using the targets defined in config.yaml / config.site.yaml.
 
 Usage:
     python3 tools/build_and_verify.py --record specs/zlib.json \\
@@ -281,14 +281,14 @@ def main() -> int:
     ap.add_argument("--zspec", type=Path, required=True, metavar="PATH",
                     help="Compiled Z-spec JSON (_build/zspecs/<name>.zspec.json)")
     ap.add_argument("--target", metavar="NAME",
-                    help="Target name from config.yaml (default: local only)")
+                    help="Target name from config.yaml / config.site.yaml (default: local only)")
     ap.add_argument("--all-targets", action="store_true",
-                    help="Run on all targets in config.yaml plus local")
+                    help="Run on all targets in config.yaml / config.site.yaml plus local")
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--json-out", type=Path, metavar="PATH",
                     help="Write JSON results to this file")
     ap.add_argument("--config", type=Path, default=None, metavar="PATH",
-                    help="Path to config.yaml (default: repo root)")
+                    help="Path to config.yaml (site overrides loaded from config.site.yaml alongside it)")
     args = ap.parse_args()
 
     # Load record
@@ -322,7 +322,7 @@ def main() -> int:
     elif args.target:
         matched = [t for t in all_targets_cfg if t.get("name") == args.target]
         if not matched:
-            print(f"Error: target {args.target!r} not found in config.yaml", file=sys.stderr)
+            print(f"Error: target {args.target!r} not found in config.yaml / config.site.yaml", file=sys.stderr)
             return 2
         targets_to_run = matched
     else:
@@ -330,7 +330,7 @@ def main() -> int:
         targets_to_run = [{"name": "local", "local": True}]
 
     if not targets_to_run:
-        print("No targets configured. Add targets to config.yaml or use --target.", file=sys.stderr)
+        print("No targets configured. Add targets to config.yaml / config.site.yaml or use --target.", file=sys.stderr)
         return 2
 
     pkg_name = record.get("identity", {}).get("canonical_name", "?")

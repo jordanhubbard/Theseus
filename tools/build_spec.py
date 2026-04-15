@@ -12,10 +12,10 @@ Usage:
 
 Options:
   --driver   freebsd_ports or nixpkgs (default: both)
-  --target   Target name from config.yaml targets list (default: local only)
-  --store    Override artifact store URL from config.yaml
+  --target   Target name from config.yaml / config.site.yaml targets list (default: local only)
+  --store    Override artifact store URL from config.yaml / config.site.yaml
   --ai       Invoke AI agent to fill in missing fields before running driver
-  --config   Path to config.yaml (default: ./config.yaml)
+  --config   Path to config.yaml (site overrides in config.site.yaml)
 """
 from __future__ import annotations
 
@@ -47,11 +47,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--target",
-        help="Target name from config.yaml targets list",
+        help="Target name from config.yaml / config.site.yaml targets list",
     )
     parser.add_argument(
         "--store",
-        help="Override artifact store URL from config.yaml",
+        help="Override artifact store URL from config.yaml / config.site.yaml",
     )
     parser.add_argument(
         "--ai",
@@ -61,18 +61,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--config",
         default=None,
-        help="Path to config.yaml (default: ./config.yaml)",
+        help="Path to config.yaml (site overrides loaded from config.site.yaml alongside it)",
     )
     parser.add_argument(
         "--cache-sources",
         action="store_true",
         default=None,
-        help="Upload generated source files to artifact store (overrides config.yaml)",
+        help="Upload generated source files to artifact store (overrides config.yaml / config.site.yaml)",
     )
     parser.add_argument(
         "--no-cache-sources",
         action="store_true",
-        help="Do not upload generated source files (overrides config.yaml)",
+        help="Do not upload generated source files (overrides config.yaml / config.site.yaml)",
     )
     args = parser.parse_args(argv)
 
@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
         if name:
             t = next((t for t in all_targets if t.get("name") == name), None)
             if t is None:
-                print(f"WARNING: target '{name}' not found in config.yaml")
+                print(f"WARNING: target '{name}' not found in config.yaml / config.site.yaml")
             return t
         # Auto-route: find first target whose 'driver' field matches driver_name.
         return next((t for t in all_targets if t.get("driver") == driver_name), None)

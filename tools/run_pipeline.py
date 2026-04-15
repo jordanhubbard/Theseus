@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--config", type=Path, default=None, metavar="PATH",
-        help="Path to config.yaml.",
+        help="Path to config.yaml (site overrides loaded from config.site.yaml alongside it).",
     )
     args = parser.parse_args(argv)
 
@@ -144,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run and not agent_mod.available(ai_cfg):
         print(
             "error: no LLM provider configured. Install the claude CLI or set "
-            "ai.openai_base_url in config.yaml.",
+            "ai.openai_base_url in config.yaml / config.site.yaml.",
             file=sys.stderr,
         )
         return 3
