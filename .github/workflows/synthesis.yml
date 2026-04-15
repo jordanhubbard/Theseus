@@ -1,0 +1,153 @@
+name: Synthesis
+
+# Unified ZSpec pipeline: compile → verify_real → synthesize → gate → annotate.
+# Uses tools/run_pipeline.py as the single entry point for all synthesis work.
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: 'Spec name (e.g. "zlib") or "all"'
+        required: true
+        default: 'zlib'
+      max_iterations:
+        description: 'Max LLM synthesis iterations per spec'
+        required: false
+        default: '3'
+
+  schedule:
+    # Weekly on Mondays at 02:00 UTC — synthesise all specs
+    - cron: '0 2 * * 1'
+
+jobs:
+  synthesize:
+    name: "Synthesis / ${{ github.event.inputs.spec || 'weekly-all' }}"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libzstd-dev liblz4-dev libpcre2-dev gcc
+
+      - name: Install Python dependencies
+        run: |
+          pip install pytest pyyaml \
+            attrs certifi chardet filelock packaging pluggy \
+            setuptools tomli typing-extensions wrapt
+
+      - name: Compile Z-specs
+        run: make compile-zsdl
+
+      # --- Pipeline smoke test ---
+      # Run a dry-run compile of a known-good spec to confirm the pipeline
+      # toolchain is working before spending any LLM budget.
+      - name: Test pipeline (dry-run)
+        run: |
+          python3 tools/run_pipeline.py \
+            zspecs/zlib.zspec.zsdl \
+            --dry-run \
+            --skip-real-verify
+
+      # --- Single-spec synthesis ---
+      # Triggered by workflow_dispatch when spec != "all".
+      - name: Synthesise (single spec)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.spec != 'all' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          SPEC="${{ github.event.inputs.spec }}"
+          mkdir -p reports/synthesis
+          python3 tools/run_pipeline.py \
+            "zspecs/${SPEC}.zspec.zsdl" \
+            --max-iterations ${{ github.event.inputs.max_iterations || '3' }} \
+            --skip-real-verify \
+            --out "reports/synthesis/${SPEC}-result.json" \
+            --verbose
+
+      # --- All-specs synthesis (manual trigger) ---
+      # Triggered by workflow_dispatch when spec == "all".
+      - name: Synthesise (all specs — manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.spec == 'all' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mkdir -p reports/synthesis
+          python3 tools/run_pipeline.py \
+            --all \
+            --max-iterations ${{ github.event.inputs.max_iterations || '3' }} \
+            --skip-real-verify \
+            --jobs 2 \
+            --out reports/synthesis/pipeline_audit.json \
+            --verbose
+
+      # --- All-specs synthesis (weekly schedule) ---
+      # Runs every Monday at 02:00 UTC; processes every spec in zspecs/.
+      - name: Synthesise (all specs — weekly schedule)
+        if: ${{ github.event_name == 'schedule' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mkdir -p reports/synthesis
+          python3 tools/run_pipeline.py \
+            --all \
+            --max-iterations 3 \
+            --skip-real-verify \
+            --jobs 2 \
+            --out reports/synthesis/pipeline_audit.json \
+            --verbose
+
+      - name: Upload synthesis results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthesis-results-${{ github.run_id }}
+          path: reports/synthesis/
+          if-no-files-found: warn
+
+      # Print a human-readable summary.  Prefer the consolidated audit JSON
+      # written by --all runs; fall back to individual per-spec result files
+      # produced by single-spec runs.
+      - name: Print summary
+        if: always()
+        run: |
+          AUDIT="reports/synthesis/pipeline_audit.json"
+          if [ -f "$AUDIT" ]; then
+            python3 - <<'EOF'
+          import json, pathlib
+          d = json.loads(pathlib.Path("reports/synthesis/pipeline_audit.json").read_text())
+          s = d.get("summary", {})
+          total   = s.get("total_specs", "?")
+          success = s.get("success_count", "?")
+          partial = s.get("partial_count", "?")
+          failed  = s.get("failed_count", "?")
+          rate    = s.get("synthesizability_rate")
+          rate_str = f"{rate:.1%}" if isinstance(rate, float) else "?"
+          print(f"{total} specs | success={success} partial={partial} failed={failed} | rate={rate_str}")
+          EOF
+          else
+            # Single-spec run: report any individual result files found
+            RESULTS=$(ls reports/synthesis/*-result.json 2>/dev/null || true)
+            if [ -n "$RESULTS" ]; then
+              python3 - <<'EOF'
+          import json, pathlib, glob
+          for p in sorted(glob.glob("reports/synthesis/*-result.json")):
+              d = json.loads(pathlib.Path(p).read_text())
+              outcome = d.get("outcome", "unknown")
+              name    = pathlib.Path(p).stem.replace("-result", "")
+              print(f"  {name}: {outcome}")
+          EOF
+            else
+              echo "No synthesis result files found — check the run logs above."
+            fi
+          fi

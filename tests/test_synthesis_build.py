@@ -1,0 +1,199 @@
+"""
+Tests for theseus/synthesis/build.py — SynthesisBuildDriver and backend_lang_for_spec.
+"""
+import shutil
+import sys
+
+import pytest
+
+from theseus.synthesis.build import (
+    SynthesisBuildDriver,
+    SynthesisBuildResult,
+    backend_lang_for_spec,
+)
+
+
+@pytest.fixture
+def driver() -> SynthesisBuildDriver:
+    return SynthesisBuildDriver()
+
+
+# ---------------------------------------------------------------------------
+# backend_lang_for_spec
+# ---------------------------------------------------------------------------
+
+class TestBackendLangForSpec:
+    def test_python_module(self) -> None:
+        assert backend_lang_for_spec({"backend": "python_module"}) == "python"
+
+    def test_ctypes(self) -> None:
+        assert backend_lang_for_spec({"backend": "ctypes"}) == "c"
+
+    def test_cli_node(self) -> None:
+        assert backend_lang_for_spec({"backend": "cli", "command": "node"}) == "javascript"
+
+    def test_cli_non_node(self) -> None:
+        assert backend_lang_for_spec({"backend": "cli", "command": "curl"}) == "python"
+
+    def test_cli_python(self) -> None:
+        assert backend_lang_for_spec({"backend": "cli", "command": "python3"}) == "python"
+
+    def test_node_backend(self) -> None:
+        assert backend_lang_for_spec({"backend": "node"}) == "javascript"
+
+    def test_unknown_falls_back_to_python(self) -> None:
+        assert backend_lang_for_spec({"backend": "something_else"}) == "python"
+
+    def test_empty_dict(self) -> None:
+        # No backend field → defaults to ctypes (matches verify_behavior.py default) → "c"
+        assert backend_lang_for_spec({}) == "c"
+
+
+# ---------------------------------------------------------------------------
+# Python build
+# ---------------------------------------------------------------------------
+
+class TestBuildPython:
+    def test_valid_module_succeeds(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"testmod.py": "def hello():\n    return 'world'\n"}
+        result = driver.build(source, "python", "testmod", tmp_path)
+        assert result.success is True
+        assert result.backend_lang == "python"
+        assert result.artifact_path == str(tmp_path)
+
+    def test_syntax_error_fails(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"badmod.py": "def broken(\n"}
+        result = driver.build(source, "python", "badmod", tmp_path)
+        assert result.success is False
+        assert result.build_log != ""
+
+    def test_import_error_fails(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"errmod.py": "import this_does_not_exist_xyz\n"}
+        result = driver.build(source, "python", "errmod", tmp_path)
+        assert result.success is False
+
+    def test_underscore_module_fallback(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        # canonical_name = "_mymod" but file is mymod.py (without underscore)
+        source = {"mymod.py": "X = 1\n"}
+        result = driver.build(source, "python", "_mymod", tmp_path)
+        assert result.success is True
+
+    def test_files_written_to_work_dir(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"mymod.py": "X = 42\n"}
+        driver.build(source, "python", "mymod", tmp_path)
+        assert (tmp_path / "mymod.py").exists()
+
+    def test_work_dir_in_result(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"mymod.py": "X = 1\n"}
+        result = driver.build(source, "python", "mymod", tmp_path)
+        assert result.work_dir == str(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# C build
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(
+    shutil.which("cc") is None and shutil.which("gcc") is None and shutil.which("clang") is None,
+    reason="No C compiler available",
+)
+class TestBuildC:
+    def test_valid_c_succeeds(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {
+            "mylib.h": "int mylib_add(int a, int b);\n",
+            "mylib.c": "#include \"mylib.h\"\nint mylib_add(int a, int b) { return a + b; }\n",
+        }
+        result = driver.build(source, "c", "mylib", tmp_path)
+        assert result.success is True
+        assert result.backend_lang == "c"
+        # artifact_path should point to the compiled shared library
+        from pathlib import Path
+        assert Path(result.artifact_path).exists()
+
+    def test_compile_error_fails(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"broken.c": "this is not C code\n"}
+        result = driver.build(source, "c", "broken", tmp_path)
+        assert result.success is False
+        assert result.build_log != ""
+
+    def test_no_c_files_fails(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"readme.txt": "no source here\n"}
+        result = driver.build(source, "c", "nolib", tmp_path)
+        assert result.success is False
+        assert "No .c source" in result.build_log
+
+    def test_dylib_on_macos_so_elsewhere(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"trivial.c": "int trivial_one(void) { return 1; }\n"}
+        result = driver.build(source, "c", "trivial", tmp_path)
+        if result.success:
+            if sys.platform == "darwin":
+                assert result.artifact_path.endswith(".dylib")
+            else:
+                assert result.artifact_path.endswith(".so")
+
+
+# ---------------------------------------------------------------------------
+# JavaScript build
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(
+    shutil.which("node") is None and shutil.which("nodejs") is None,
+    reason="node not available",
+)
+class TestBuildJavaScript:
+    def test_valid_cjs_module_succeeds(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"index.js": "module.exports = { hello: () => 'world' };\n"}
+        result = driver.build(source, "javascript", "testpkg", tmp_path)
+        assert result.success is True
+        assert result.backend_lang == "javascript"
+        assert result.artifact_path == str(tmp_path)
+
+    def test_syntax_error_fails(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"index.js": "module.exports = {\n"}
+        result = driver.build(source, "javascript", "badpkg", tmp_path)
+        assert result.success is False
+        assert result.build_log != ""
+
+    def test_no_js_files_fails(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"readme.txt": "no JS here\n"}
+        result = driver.build(source, "javascript", "emptypkg", tmp_path)
+        assert result.success is False
+
+
+# ---------------------------------------------------------------------------
+# Unknown backend
+# ---------------------------------------------------------------------------
+
+class TestBuildUnknownBackend:
+    def test_unknown_backend_returns_failure(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        result = driver.build({}, "fortran", "prog", tmp_path)
+        assert result.success is False
+        assert "Unknown backend" in result.build_log

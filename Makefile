@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage validate-e2e release docs docs-serve help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -19,6 +19,7 @@ BULK_JOBS ?= 2
 PYPI_SEED ?= ./reports/pypi-seed.txt
 NPM_SEED ?= ./reports/npm-seed.txt
 NPM_TOP ?= 100
+CARGO_SEED ?= ./reports/cargo-seed.txt
 IMPORT_OUT ?= ./snapshots/$(shell date +%Y-%m-%d)
 IMPORT_TIMEOUT ?= 15
 PYTHON ?= python3
@@ -117,6 +118,11 @@ import-npm:
 	$(PYTHON) theseus/importer.py --npm-list "$(NPM_SEED)" \
 		--out "$(IMPORT_OUT)" --timeout "$(IMPORT_TIMEOUT)"
 
+import-cargo:
+	@test -f "$(CARGO_SEED)" || (echo "Create $(CARGO_SEED) with crate names (one per line), or run 'make seed-cargo'" && exit 1)
+	$(PYTHON) theseus/importer.py --cargo-list "$(CARGO_SEED)" \
+		--out "$(IMPORT_OUT)" --timeout "$(IMPORT_TIMEOUT)"
+
 validate-e2e: compile-zsdl
 	@test -n "$(E2E_RECORD)" || (echo "Usage: make validate-e2e E2E_RECORD=specs/zlib.json E2E_ZSPEC=_build/zspecs/zlib.zspec.json [E2E_TARGET=ubuntu.local] [E2E_JSON_OUT=out.json]" && exit 1)
 	@test -n "$(E2E_ZSPEC)" || (echo "Usage: make validate-e2e E2E_RECORD=specs/zlib.json E2E_ZSPEC=_build/zspecs/zlib.zspec.json [E2E_TARGET=ubuntu.local] [E2E_JSON_OUT=out.json]" && exit 1)
@@ -193,6 +199,111 @@ docs-serve:
 	pip install mkdocs-material --quiet
 	mkdocs serve
 
+# ── ZSpec pipeline (compile + verify_real + synthesize + gate + annotate) ─────
+# The pipeline is the canonical way to author and validate a spec.
+# Synthesis is step 3 — not a separate optional task.  A spec that cannot
+# produce any passing synthesis invariants is flagged and must be revised.
+#
+# Use make pipeline       for a single .zspec.zsdl
+# Use make pipeline-all   for every spec in zspecs/
+# Use make synthesize-*   for synthesis-only bulk/wave runs (no re-compile)
+# ─────────────────────────────────────────────────────────────────────────────
+SYNTH_SPEC     ?=
+SYNTH_ZSDL     ?=
+SYNTH_MAX_ITER ?= 3
+SYNTH_WORK_DIR ?= /tmp/theseus-synthesis
+SYNTH_OUT      ?= reports/synthesis/audit.json
+SYNTH_BACKEND  ?=
+SYNTH_TOP      ?=
+SYNTH_JOBS     ?= 1
+
+pipeline:
+	@test -n "$(SYNTH_ZSDL)" || \
+	  (echo "Usage: make pipeline SYNTH_ZSDL=zspecs/zlib.zspec.zsdl" && exit 1)
+	$(PYTHON) tools/run_pipeline.py \
+	  $(SYNTH_ZSDL) \
+	  --max-iterations $(SYNTH_MAX_ITER) \
+	  --work-dir $(SYNTH_WORK_DIR) \
+	  $(if $(SKIP_REAL_VERIFY),--skip-real-verify) \
+	  $(if $(NO_GATE),--no-gate) \
+	  $(if $(NO_ANNOTATE),--no-annotate) \
+	  $(if $(VERBOSE),--verbose) \
+	  $(if $(DRY_RUN),--dry-run) \
+	  $(if $(SYNTH_OUT),--out $(SYNTH_OUT))
+
+pipeline-all:
+	$(PYTHON) tools/run_pipeline.py \
+	  --all \
+	  --max-iterations $(SYNTH_MAX_ITER) \
+	  --work-dir $(SYNTH_WORK_DIR) \
+	  --jobs $(SYNTH_JOBS) \
+	  $(if $(SKIP_REAL_VERIFY),--skip-real-verify) \
+	  $(if $(NO_GATE),--no-gate) \
+	  $(if $(NO_ANNOTATE),--no-annotate) \
+	  $(if $(VERBOSE),--verbose) \
+	  $(if $(DRY_RUN),--dry-run) \
+	  $(if $(SYNTH_OUT),--out $(SYNTH_OUT))
+
+synthesize: compile-zsdl
+	@test -n "$(SYNTH_SPEC)" || \
+	  (echo "Usage: make synthesize SYNTH_SPEC=_build/zspecs/zlib.zspec.json" && exit 1)
+	$(PYTHON) tools/synthesize_spec.py \
+	  $(SYNTH_SPEC) \
+	  --max-iterations $(SYNTH_MAX_ITER) \
+	  --work-dir $(SYNTH_WORK_DIR) \
+	  $(if $(VERBOSE),--verbose) \
+	  $(if $(NO_ANNOTATE),--no-annotate) \
+	  $(if $(JSON_OUT),--json-out $(JSON_OUT)) \
+	  $(if $(DRY_RUN),--dry-run)
+
+synthesize-all: compile-zsdl
+	$(PYTHON) tools/synthesize_all_specs.py \
+	  --out $(SYNTH_OUT) \
+	  --max-iterations $(SYNTH_MAX_ITER) \
+	  --jobs $(SYNTH_JOBS) \
+	  $(if $(SYNTH_BACKEND),--filter-backend $(SYNTH_BACKEND)) \
+	  $(if $(SYNTH_TOP),--top $(SYNTH_TOP)) \
+	  $(if $(NO_ANNOTATE),--no-annotate) \
+	  $(if $(DRY_RUN),--dry-run)
+
+synthesize-report:
+	@test -f "$(SYNTH_OUT)" || (echo "Run 'make synthesize-all' first" && exit 1)
+	$(PYTHON) -c "\
+	  import json; d=json.load(open('$(SYNTH_OUT)')); s=d['summary']; \
+	  print(f\"{s['total_specs']} specs | success={s['success_count']} \
+	  partial={s['partial_count']} failed={s['failed_count']} \
+	  infeasible={s['infeasible_count']} | rate={s['synthesizability_rate']:.1%}\")"
+
+# Wave-based pipeline (mirrors the PLAN.md wave-series spec creation approach)
+SYNTH_WAVE     ?=
+SYNTH_TIMEOUT  ?= 0
+
+synthesize-waves-list: compile-zsdl
+	$(PYTHON) tools/synthesize_waves.py --list
+
+synthesize-waves-status:
+	$(PYTHON) tools/synthesize_waves.py --status
+
+synthesize-waves-next: compile-zsdl
+	$(PYTHON) tools/synthesize_waves.py --next \
+	  --max-iterations $(SYNTH_MAX_ITER) \
+	  --jobs $(SYNTH_JOBS) \
+	  --timeout $(SYNTH_TIMEOUT) \
+	  $(if $(NO_ANNOTATE),--no-annotate) \
+	  $(if $(VERBOSE),--verbose) \
+	  $(if $(FORCE),--force)
+
+synthesize-waves: compile-zsdl
+	@test -n "$(SYNTH_WAVE)" || \
+	  (echo "Usage: make synthesize-waves SYNTH_WAVE=s1   (use make synthesize-waves-list to see waves)" && exit 1)
+	$(PYTHON) tools/synthesize_waves.py --wave $(SYNTH_WAVE) \
+	  --max-iterations $(SYNTH_MAX_ITER) \
+	  --jobs $(SYNTH_JOBS) \
+	  --timeout $(SYNTH_TIMEOUT) \
+	  $(if $(NO_ANNOTATE),--no-annotate) \
+	  $(if $(VERBOSE),--verbose) \
+	  $(if $(FORCE),--force)
+
 help:
 	@echo "Theseus — canonical package recipe toolchain"
 	@echo ""
@@ -214,6 +325,7 @@ help:
 	@echo "  make seed           Generate PyPI/npm seed lists from freebsd_ports snapshot"
 	@echo "  make import-pypi    Fetch PyPI package metadata (requires pypi-seed.txt)"
 	@echo "  make import-npm     Fetch npm package metadata (requires npm-seed.txt)"
+	@echo "  make import-cargo   Fetch Cargo crate metadata from crates.io (requires cargo-seed.txt, skips GPL)"
 	@echo "  make compile-zsdl   Compile zspecs/*.zspec.zsdl → _build/zspecs/*.zspec.json (ZSDL=file for one)"
 	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: _build/zspecs/zlib.zspec.json)"
 	@echo "  make validate-e2e   Build from source and verify behavioral spec (E2E_RECORD=, E2E_ZSPEC=)"
@@ -226,6 +338,19 @@ help:
 	@echo "  make release        Cut a release (BUMP=major|minor|patch, default: patch)"
 	@echo "  make docs           Build user guide static site (requires mkdocs-material)"
 	@echo "  make docs-serve     Serve user guide locally at http://127.0.0.1:8000"
+	@echo ""
+	@echo "ZSpec pipeline (compile → verify_real → synthesize → gate → annotate):"
+	@echo "  make pipeline              Full pipeline for one spec (SYNTH_ZSDL=zspecs/zlib.zspec.zsdl)"
+	@echo "  make pipeline-all          Full pipeline for all specs in zspecs/"
+	@echo ""
+	@echo "Synthesis layer (synthesis-only, requires prior compile-zsdl):"
+	@echo "  make synthesize            Synthesise one compiled spec (SYNTH_SPEC=_build/zspecs/zlib.zspec.json)"
+	@echo "  make synthesize-all        Synthesise all compiled specs (SYNTH_BACKEND=, SYNTH_TOP=, SYNTH_JOBS=)"
+	@echo "  make synthesize-report     Print summary of last audit report"
+	@echo "  make synthesize-waves-list List all synthesis waves and their status"
+	@echo "  make synthesize-waves-status Per-spec synthesis status"
+	@echo "  make synthesize-waves-next Run the next pending synthesis wave"
+	@echo "  make synthesize-waves      Run a specific wave (SYNTH_WAVE=s1)"
 	@echo ""
 	@echo "Variables:"
 	@echo "  SNAPSHOT            Snapshot directory (default: ./snapshots/YYYY-MM-DD)"

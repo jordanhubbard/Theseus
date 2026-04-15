@@ -70,7 +70,7 @@ def test_run_prompt_calls_claude_when_provider_claude():
     cfg = {"provider": "claude"}
     with patch("theseus.agent._claude", return_value="response text") as mock_claude:
         result = agent.run_prompt("my prompt", cfg)
-    mock_claude.assert_called_once_with("my prompt", system="")
+    mock_claude.assert_called_once_with("my prompt", system="", timeout=300)
     assert result == "response text"
 
 
@@ -95,7 +95,7 @@ def test_run_prompt_calls_openai_when_provider_openai():
     }
     with patch("theseus.agent._openai", return_value="openai response") as mock_oi:
         result = agent.run_prompt("my prompt", cfg)
-    mock_oi.assert_called_once_with("my prompt", cfg, system="")
+    mock_oi.assert_called_once_with("my prompt", cfg, system="", timeout=120)
     assert result == "openai response"
 
 

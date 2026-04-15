@@ -27,18 +27,26 @@ def available(config: dict) -> bool:
     return False
 
 
-def run_prompt(prompt: str, config: dict, *, system: str = "") -> str:
+def run_prompt(prompt: str, config: dict, *, system: str = "", timeout: int = 0) -> str:
     """
     Send a prompt to the configured AI and return the text response.
+
+    Args:
+        prompt: the user-turn prompt text.
+        config: AI config dict (from theseus.config.load()["ai"]).
+        system: optional system prompt.
+        timeout: seconds before giving up (0 = use provider default:
+                 300s for claude CLI, 120s for OpenAI HTTP).
+
     Raises RuntimeError if no provider is available.
     """
     provider = config.get("provider", "auto")
     if provider == "openai":
-        return _openai(prompt, config, system=system)
+        return _openai(prompt, config, system=system, timeout=timeout or 120)
     if provider == "claude" or (provider == "auto" and _claude_in_path()):
-        return _claude(prompt, system=system)
+        return _claude(prompt, system=system, timeout=timeout or 300)
     if config.get("openai_base_url"):
-        return _openai(prompt, config, system=system)
+        return _openai(prompt, config, system=system, timeout=timeout or 120)
     raise RuntimeError(
         "No AI provider available. Install the claude CLI or set "
         "ai.openai_base_url in config.yaml."
@@ -49,17 +57,25 @@ def _claude_in_path() -> bool:
     return shutil.which("claude") is not None
 
 
-def _claude(prompt: str, *, system: str = "") -> str:
-    argv = ["claude", "--print", prompt]
+def _claude(prompt: str, *, system: str = "", timeout: int = 300) -> str:
+    # Pass the prompt via stdin ("-") to avoid OS argument-length limits on
+    # large synthesis prompts.  The system prompt is still passed as an arg
+    # since it is typically short.
+    argv = ["claude", "--print", "-"]
     if system:
         argv += ["--system-prompt", system]
-    r = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+    try:
+        r = subprocess.run(
+            argv, input=prompt, capture_output=True, text=True, timeout=timeout
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"claude CLI timed out after {timeout}s")
     if r.returncode != 0:
         raise RuntimeError(f"claude CLI failed: {r.stderr.strip()}")
     return r.stdout.strip()
 
 
-def _openai(prompt: str, config: dict, *, system: str = "") -> str:
+def _openai(prompt: str, config: dict, *, system: str = "", timeout: int = 120) -> str:
     base = config.get("openai_base_url", "http://localhost:11434/v1").rstrip("/")
     key = config.get("openai_api_key", "") or "none"
     model = config.get("openai_model", "gpt-4o")
@@ -77,7 +93,7 @@ def _openai(prompt: str, config: dict, *, system: str = "") -> str:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read())
         return data["choices"][0]["message"]["content"].strip()
     except urllib.error.URLError as exc:

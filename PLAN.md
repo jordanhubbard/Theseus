@@ -2,8 +2,9 @@
 
 ## Current State (2026-04-13)
 
-**70 Z-layer specs · 1118 invariants · 2 CI platforms (ubuntu, macos)**
-**+ Wave series 670–683: ~2720 additional dict-presence zspec files (committed, not yet compiled into invariant count)**
+**356 core specs · 10,480 wave-series specs · 10,836 total .zsdl files · 2 CI platforms (ubuntu, macos)**
+**Synthesis pipeline landed (theseus/pipeline.py) — compile→verify_real→synthesize→gate→annotate**
+**Synthesis gate not yet applied to any existing spec — full backlog pending (see Backlog section)**
 
 ### What is built
 
@@ -229,3 +230,189 @@ This continues the object model coverage by checking whether each of the 16 stdl
 | 690 | _extra3646 | `__mul__/__rmul__/__imul__` — multiplication operators |
 
 Each wave follows the same structure: 16 files, one per module, all verified with Python 3.14.x on macOS/Darwin.
+
+---
+
+## Backlog Plan (as of 2026-04-13)
+
+### Context
+
+The unified pipeline (`theseus/pipeline.py`) was established on 2026-04-13.  It
+runs five steps in sequence for every `.zspec.zsdl` source file:
+
+```
+compile → verify_real → synthesize → gate → annotate
+```
+
+The **gate** rejects specs whose synthesis status is `failed` or `build_failed`
+(zero passing invariants after all LLM iterations).  `partial` and `infeasible`
+pass through.  Every spec that existed before 2026-04-13 was authored without
+this gate — the entire repo is backlog.
+
+### Spec inventory (2026-04-13)
+
+| Group | Count | Description |
+|-------|------:|-------------|
+| Core specs | 356 | Full behavioral specs for real libraries (no `_extra` in name) |
+| Extra tier 0 | 216 | Per-module `_extra.zspec.zsdl` — first supplement per module |
+| Extra tier 1 | 3,592 | `_extra2` – `_extra99` — incremental per-module behaviors |
+| Extra tier 2 | 3,952 | `_extra100` – `_extra3105` — extended per-module coverage |
+| PLAN.md waves | ~480 | `_extra3346` – `_extra3541` (waves 670–683, dict-presence checks) |
+| **Total** | **~10,836** | |
+
+The core 356 specs are the highest-value targets.  The ~10,480 wave-series
+specs are simpler (dict-presence checks, incremental behaviors) and lower
+synthesis risk but much higher volume.
+
+### Phase 1 — Commit infrastructure  (target: 2026-04-14)
+
+Everything in the synthesis layer and pipeline is currently untracked.  Must
+be committed before any further pipeline work.
+
+| Item | Status |
+|------|--------|
+| `theseus/synthesis/` — runner, prompt, build, annotate, audit, __init__ | untracked |
+| `theseus/pipeline.py` — unified pipeline engine | untracked |
+| `tools/run_pipeline.py` — primary authoring CLI | untracked |
+| `tools/synthesize_spec.py` — single-spec synthesis CLI | untracked |
+| `tools/synthesize_all_specs.py` — bulk synthesis | untracked |
+| `tools/synthesize_waves.py` — wave-based synthesis | untracked |
+| `tools/synthesize_waves.py` — refactored to use ZSpecPipeline | done (2026-04-13) |
+| `tools/synthesize_all_specs.py` — refactored to use ZSpecPipeline | done (2026-04-13) |
+| `schema/synthesis-result.schema.json` | untracked |
+| `tests/test_synthesis_*.py` (6 files) | untracked |
+| `tests/test_synthesize_spec_cli.py` | untracked |
+| `.github/workflows/synthesis.yml` | untracked |
+| `zspecs/*_extra3511/3526/3541.zspec.zsdl` (48 files, waves 681–683) | untracked |
+| `Makefile` — pipeline/synthesize targets | modified |
+| `AGENTS.md`, `README.md`, docs — FreeBSD demotion, counter updates | modified |
+
+**Action:** `git add` all of the above and commit.  Run `make test` first to
+confirm the 6 new synthesis test modules pass.
+
+### Phase 2 — Compile all specs  (target: 2026-04-14, ~30 min)
+
+```bash
+make compile-zsdl   # compiles all 10,836 .zsdl → _build/zspecs/*.zspec.json
+```
+
+This is fast (no LLM).  Failures here mean the ZSDL source has syntax or
+schema errors that must be fixed before the pipeline can run on them.
+
+Expected: a handful of compile errors in older extra-tier specs that use
+syntax not yet in the compiler.  Fix or mark as `infeasible_reason: compile_error`
+in the source.
+
+### Phase 3 — Pipeline the 356 core specs  (target: 2026-04-15 → 2026-04-18)
+
+Core specs are the highest-value: full behavioral specs with many meaningful
+invariants.  These are the specs most likely to fail the synthesis gate (they
+describe complex library behavior).  Failures here are actionable — the spec
+needs revision.
+
+```bash
+# Process core specs only (exclude wave-series _extra files):
+python3 tools/run_pipeline.py $(ls zspecs/*.zspec.zsdl | grep -v '_extra') \
+  --jobs 4 --skip-real-verify --max-iterations 3 \
+  --out reports/synthesis/core_pipeline_audit.json
+```
+
+**Expected outcomes after Phase 3:**
+
+| Outcome | Likely count | Action |
+|---------|-------------:|--------|
+| `success` | ~80 | No action |
+| `partial` | ~120 | Review which invariants fail; may improve with more iterations |
+| `infeasible` | ~80 | Confirm and annotate with reason |
+| `gated` (failed synthesis) | ~76 | Revise spec or mark `infeasible_reason` |
+
+Specs that are gated must be addressed before they can be considered complete.
+The gate is the correctness signal the pipeline was built to provide.
+
+### Phase 4 — Pipeline the extra-tier specs  (target: 2026-04-19 → 2026-05-10)
+
+The ~10,480 wave-series specs are simpler (most invariants are dict-presence
+checks with `python_call_eq` returning bool).  Synthesis should be
+straightforward for the LLM.  However, the volume demands batched processing.
+
+**Strategy:** process by module prefix in alphabetical batches of ~20 modules
+at a time, using `--jobs 4` to parallelize LLM calls.
+
+```bash
+# Example: process all 'abc' extra specs
+python3 tools/run_pipeline.py zspecs/abc_extra*.zspec.zsdl \
+  --jobs 4 --skip-real-verify --max-iterations 2 \
+  --out reports/synthesis/abc_extras_audit.json
+```
+
+For the PLAN.md wave-series specs (`_extra3346`+), use the wave runner:
+
+```bash
+make synthesize-waves-next   # runs next pending wave through pipeline
+```
+
+**Automation note:** once Phase 3 is complete and the gate thresholds are
+calibrated, Phase 4 can run as a background job over several days.  The
+`synthesize_waves.py` state file (`reports/synthesis/wave_state.json`)
+persists progress so interrupted runs resume cleanly.
+
+### Phase 5 — Continue PLAN.md wave creation  (ongoing from 2026-04-18)
+
+New dunder-method waves can be created in parallel with Phase 4 synthesis.
+The next waves to implement:
+
+| Wave | Suffix | Theme |
+|------|--------|-------|
+| 684 | _extra3556 | `__reduce__/__reduce_ex__/__getstate__` — pickle protocol |
+| 685 | _extra3571 | `__copy__/__deepcopy__/__setstate__` — copy protocol |
+| 686 | _extra3586 | `__init__/__new__/__del__` — object lifecycle |
+| 687 | _extra3601 | `__contains__/__missing__/__reversed__` — container extras |
+| 688 | _extra3616 | `__add__/__radd__/__iadd__` — binary addition |
+| 689 | _extra3631 | `__sub__/__rsub__/__isub__` — subtraction operators |
+| 690 | _extra3646 | `__mul__/__rmul__/__imul__` — multiplication operators |
+
+Each new wave must go through `make pipeline` (not just `make compile-zsdl`)
+before it can be considered complete.  This is the enforcement point of the
+new pipeline design.
+
+### Phase 6 — CI integration  (target: 2026-04-20)
+
+Update `.github/workflows/synthesis.yml` to use `run_pipeline.py` instead of
+`synthesize_spec.py` so CI runs the full pipeline (not synthesis-only) on any
+changed `.zsdl` files:
+
+```yaml
+- name: Run pipeline on changed specs
+  run: |
+    python3 tools/run_pipeline.py ${{ steps.changed.outputs.specs }} \
+      --skip-real-verify --max-iterations 3 --no-annotate
+```
+
+Also add a `make test-pipeline` target that runs the pipeline in `--dry-run`
+mode on a sample of specs (no LLM call) to verify compile + real-verify work
+in CI without incurring LLM costs.
+
+### Gate calibration notes
+
+After Phase 3, review the gated specs and establish:
+
+1. **Threshold for `partial`** — if a spec consistently hits 80%+ pass rate, is
+   that good enough to commit?  Consider adding `--min-pass-rate` to the gate.
+
+2. **Infeasible categories** — some spec types are structurally infeasible for
+   synthesis (C library internals, OS-level calls).  Add a vocabulary of
+   `infeasible_reason` values to the ZSDL authoring guide so spec authors can
+   annotate proactively.
+
+3. **LLM timeout calibration** — complex specs (pcre2, libxml2) may need
+   `--timeout 600` for the synthesis step.  Track per-spec timings in the
+   audit report.
+
+### Success criteria
+
+The backlog is cleared when:
+- [ ] All 356 core specs have a `synthesis:` block in their `.zspec.zsdl`
+- [ ] No core spec is in `gated` state without a documented `infeasible_reason`
+- [ ] All PLAN.md waves (670–690+) have synthesis annotations
+- [ ] CI runs the pipeline on every `.zsdl` PR diff
+- [ ] `make test` passes including synthesis unit tests

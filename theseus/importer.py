@@ -1186,9 +1186,44 @@ _GPL_LICENSE_SUBSTRINGS = (
 
 
 def _license_is_permissive(license_str: str):
-    """Return True if license is permissive, False if GPL-family, None if unknown."""
+    """Return True if license is permissive, False if GPL-family, None if unknown.
+
+    Handles SPDX OR expressions: ``MIT OR Apache-2.0 OR LGPL-2.1`` is permissive
+    because at least one alternative (MIT) is permissive.  SPDX AND expressions
+    require all parts to be permissive.
+    """
     if not license_str:
         return None
+
+    # Split on " OR " first — if any alternative is permissive, the whole
+    # expression is permissive (licensor offers a choice).
+    if " OR " in license_str.upper():
+        alternatives = [a.strip() for a in license_str.split(" OR ") if a.strip()]
+        # Also handle lowercase " or "
+        if len(alternatives) == 1:
+            alternatives = [a.strip() for a in license_str.split(" or ") if a.strip()]
+        for alt in alternatives:
+            result = _license_is_permissive(alt)
+            if result is True:
+                return True
+        # None of the alternatives were permissive — check if any are copyleft
+        if any(_license_is_permissive(a) is False for a in alternatives):
+            return False
+        return None
+
+    # Split on " AND " — all parts must be permissive.
+    if " AND " in license_str.upper():
+        parts = [p.strip() for p in license_str.split(" AND ") if p.strip()]
+        if len(parts) == 1:
+            parts = [p.strip() for p in license_str.split(" and ") if p.strip()]
+        results = [_license_is_permissive(p) for p in parts]
+        if any(r is False for r in results):
+            return False
+        if all(r is True for r in results):
+            return True
+        return None
+
+    # Single license identifier
     upper = license_str.upper()
     if any(s.upper() in upper for s in _GPL_LICENSE_SUBSTRINGS):
         return False
@@ -1501,6 +1536,280 @@ def import_npm(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Cargo (crates.io) importer
+# ---------------------------------------------------------------------------
+
+_CARGO_API = "https://crates.io/api/v1/crates/{name}"
+_CARGO_DEPS_API = "https://crates.io/api/v1/crates/{name}/{version}/dependencies"
+
+# Maximum depth for transitive dependency license checks.
+_CARGO_MAX_DEP_DEPTH = 10
+
+
+def _cargo_get_latest_version(data: dict) -> tuple[str, dict]:
+    """Return (version_string, version_data) for the latest non-yanked version."""
+    crate = data.get("crate", {})
+    versions_list = data.get("versions", [])
+    latest_ver = crate.get("max_version", "")
+    latest_ver_data: dict = {}
+    for v in versions_list:
+        if v.get("num") == latest_ver and not v.get("yanked", False):
+            latest_ver_data = v
+            break
+    if not latest_ver_data and versions_list:
+        for v in versions_list:
+            if not v.get("yanked", False):
+                latest_ver = v.get("num", "")
+                latest_ver_data = v
+                break
+    return latest_ver, latest_ver_data
+
+
+def _cargo_fetch_deps(crate_name: str, version: str, timeout: int) -> list[dict]:
+    """Fetch the dependency list for a specific crate version."""
+    if not version:
+        return []
+    url = _CARGO_DEPS_API.format(name=crate_name, version=version)
+    data = _fetch_json(url, timeout=timeout)
+    if not data:
+        return []
+    return data.get("dependencies", [])
+
+
+def _cargo_check_dep_licenses(
+    crate_name: str,
+    version: str,
+    timeout: int,
+    _cache: dict[str, bool | None],
+) -> list[str]:
+    """Walk transitive runtime+build deps and return list of copyleft-tainted crate names.
+
+    Uses BFS with a shared cache across the entire import run.  The cache maps
+    crate names to their permissive status: True = permissive, False = copyleft,
+    None = unknown / could not be fetched.
+    """
+    copyleft_found: list[str] = []
+    # BFS frontier: (dep_name, depth)
+    queue: list[tuple[str, int]] = [(crate_name, 0)]
+    visited: set[str] = set()
+
+    while queue:
+        name, depth = queue.pop(0)
+        if name in visited or depth > _CARGO_MAX_DEP_DEPTH:
+            continue
+        visited.add(name)
+
+        # Skip the root crate itself (already checked by caller)
+        if name == crate_name and depth == 0:
+            # Still need to fetch its deps to seed the queue
+            deps = _cargo_fetch_deps(name, version, timeout)
+            for dep in deps:
+                dep_name = dep.get("crate_id", "")
+                kind = dep.get("kind", "normal")
+                optional = dep.get("optional", False)
+                if dep_name and kind in ("normal", "build") and not optional:
+                    queue.append((dep_name, depth + 1))
+            continue
+
+        # Check the cache first
+        if name in _cache:
+            if _cache[name] is False:
+                copyleft_found.append(name)
+            # If True or None, no need to flag; but still need to walk its deps
+            # unless we know it's copyleft (then the whole tree is tainted anyway)
+            if _cache[name] is False:
+                continue
+
+        # Fetch this dep's metadata to check its license
+        if name not in _cache:
+            dep_data = _fetch_json(_CARGO_API.format(name=name), timeout=timeout)
+            if not dep_data:
+                _cache[name] = None  # unfetchable — treat as unknown
+            else:
+                _, dep_ver_data = _cargo_get_latest_version(dep_data)
+                dep_license = (
+                    dep_ver_data.get("license")
+                    or dep_data.get("crate", {}).get("license")
+                    or ""
+                ).strip()
+                perm = _license_is_permissive(dep_license)
+                _cache[name] = perm  # True, False, or None
+                if perm is False:
+                    copyleft_found.append(name)
+                    continue  # no need to walk further down this subtree
+
+        # Walk this dep's own deps
+        dep_data_for_deps = _fetch_json(_CARGO_API.format(name=name), timeout=timeout)
+        if dep_data_for_deps:
+            dep_ver, _ = _cargo_get_latest_version(dep_data_for_deps)
+            child_deps = _cargo_fetch_deps(name, dep_ver, timeout)
+            for dep in child_deps:
+                dep_name = dep.get("crate_id", "")
+                kind = dep.get("kind", "normal")
+                optional = dep.get("optional", False)
+                if dep_name and kind in ("normal", "build") and not optional:
+                    queue.append((dep_name, depth + 1))
+
+    return copyleft_found
+
+
+def import_cargo(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int:
+    """Fetch metadata for each crate name from crates.io and write canonical records.
+
+    Crates with GPL/LGPL/AGPL or other copyleft licenses — either on the crate
+    itself or anywhere in its transitive runtime/build dependency tree — are
+    skipped.  License lookups are cached across the entire import run.
+
+    Returns the count of successfully imported packages.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    count = 0
+    skipped_license = 0
+    # Shared license cache across all crates in this import run.
+    # Maps crate_name → True (permissive), False (copyleft), or None (unknown).
+    license_cache: dict[str, bool | None] = {}
+
+    for crate_name in packages:
+        url = _CARGO_API.format(name=crate_name)
+        data = _fetch_json(url, timeout=timeout)
+        if not data:
+            print(f"  cargo: SKIP {crate_name} (fetch failed)", file=sys.stderr)
+            continue
+
+        crate = data.get("crate", {})
+
+        # Find latest non-yanked version
+        latest_ver, latest_ver_data = _cargo_get_latest_version(data)
+
+        # License check — skip copyleft on the crate itself
+        license_str = (latest_ver_data.get("license") or crate.get("license") or "").strip()
+        perm = _license_is_permissive(license_str)
+        license_cache[crate_name] = perm
+        if perm is False:
+            print(f"  cargo: SKIP {crate_name} (copyleft license: {license_str})",
+                  file=sys.stderr)
+            skipped_license += 1
+            continue
+
+        canonical_name = crate_name.replace("_", "-")
+
+        # Source tarball
+        dl_path = latest_ver_data.get("dl_path", "")
+        source_url = f"https://crates.io{dl_path}" if dl_path else ""
+        checksum = latest_ver_data.get("checksum") or ""
+
+        # Fetch direct dependencies
+        raw_deps = _cargo_fetch_deps(crate_name, latest_ver, timeout)
+        runtime_deps: list[str] = []
+        build_deps: list[str] = []
+        test_deps: list[str] = []
+        for dep in raw_deps:
+            dep_name = dep.get("crate_id", "")
+            if not dep_name:
+                continue
+            kind = dep.get("kind", "normal")
+            optional = dep.get("optional", False)
+            if kind == "normal" and not optional:
+                runtime_deps.append(dep_name)
+            elif kind == "build":
+                build_deps.append(dep_name)
+            elif kind == "dev":
+                test_deps.append(dep_name)
+
+        # Transitive license check — walk runtime+build dep tree
+        copyleft_deps = _cargo_check_dep_licenses(
+            crate_name, latest_ver, timeout, license_cache,
+        )
+        if copyleft_deps:
+            names = ", ".join(sorted(set(copyleft_deps)))
+            print(f"  cargo: SKIP {crate_name} (copyleft dependency: {names})",
+                  file=sys.stderr)
+            skipped_license += 1
+            continue
+
+        # Homepage / repository
+        homepage = (crate.get("homepage") or "").strip()
+        repository = (crate.get("repository") or "").strip()
+        source_repository = ""
+        if repository:
+            source_repository = _normalize_github_url(repository)
+
+        description = (crate.get("description") or "").strip()
+        categories = crate.get("categories") or []
+        keywords = crate.get("keywords") or []
+
+        # Rust edition and MSRV from version data
+        rust_version = (latest_ver_data.get("rust_version") or "").strip()
+        edition = (latest_ver_data.get("edition") or "").strip()
+
+        licenses = [license_str] if license_str else []
+
+        rec = {
+            "schema_version": SCHEMA_VERSION,
+            "identity": {
+                "canonical_name": canonical_name,
+                "canonical_id": f"pkg:{canonical_name}",
+                "version": latest_ver,
+                "ecosystem": "cargo",
+                "ecosystem_id": crate_name,
+            },
+            "descriptive": {
+                "summary": description,
+                "homepage": homepage or repository,
+                "license": licenses,
+                "categories": (categories or ["rust"])[:10],
+                "maintainers": [],
+            },
+            "conflicts": [],
+            "sources": ([{
+                "type": "crate",
+                "url": source_url,
+                "sha256": checksum,
+            }] if source_url else []),
+            "dependencies": {
+                "build": build_deps,
+                "host": [],
+                "runtime": runtime_deps,
+                "test": test_deps,
+            },
+            "build": {
+                "system_kind": "cargo",
+                "configure_args": [],
+                "make_args": [],
+            },
+            "features": {},
+            "platforms": {"include": [], "exclude": []},
+            "patches": [],
+            "tests": {},
+            "provenance": {
+                "generated_by": GENERATED_BY,
+                "imported_at": IMPORTED_AT,
+                "source_path": url,
+                "source_repo_commit": None,
+                "confidence": 0.9,
+                "unmapped": [],
+                "warnings": [],
+            },
+            "extensions": {
+                "cargo": {
+                    "keywords": keywords[:10],
+                    "source_repository": source_repository,
+                    "rust_version": rust_version,
+                    "edition": edition,
+                }
+            },
+        }
+
+        out_path = out_dir / f"{canonical_name}.json"
+        out_path.write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        count += 1
+
+    print(f"cargo: imported {count}/{len(packages)}"
+          f" (skipped {skipped_license} copyleft)", file=sys.stderr)
+    return count
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1518,7 +1827,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description=(
             "Bootstrap canonical package recipe records from Nixpkgs, "
-            "FreeBSD Ports, PyPI, and/or npm."
+            "FreeBSD Ports, PyPI, npm, and/or Cargo (crates.io)."
         )
     )
     ap.add_argument("--nixpkgs", type=Path, metavar="PATH",
@@ -1529,14 +1838,16 @@ def main() -> None:
                     help="File containing PyPI package names (one per line)")
     ap.add_argument("--npm-list", type=Path, metavar="FILE",
                     help="File containing npm package names (one per line)")
+    ap.add_argument("--cargo-list", type=Path, metavar="FILE",
+                    help="File containing Cargo crate names (one per line)")
     ap.add_argument("--out", type=Path, required=True, metavar="DIR",
                     help="Output snapshot directory")
     ap.add_argument("--timeout", type=int, default=15, metavar="SECS",
-                    help="HTTP timeout for PyPI/npm fetches (default: 15)")
+                    help="HTTP timeout for PyPI/npm/cargo fetches (default: 15)")
     args = ap.parse_args()
 
-    if not any([args.nixpkgs, args.ports, args.pypi_list, args.npm_list]):
-        ap.error("At least one of --nixpkgs, --ports, --pypi-list, or --npm-list must be provided.")
+    if not any([args.nixpkgs, args.ports, args.pypi_list, args.npm_list, args.cargo_list]):
+        ap.error("At least one of --nixpkgs, --ports, --pypi-list, --npm-list, or --cargo-list must be provided.")
 
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -1586,6 +1897,15 @@ def main() -> None:
         print(f"npm: fetching {len(packages)} packages...", file=sys.stderr)
         count = import_npm(packages, args.out / "npm", timeout=args.timeout)
         stats["ecosystems"]["npm"] = {"count": count, "requested": len(packages)}
+
+    if args.cargo_list:
+        if not args.cargo_list.is_file():
+            print(f"Error: --cargo-list path does not exist: {args.cargo_list}", file=sys.stderr)
+            sys.exit(1)
+        packages = _read_package_list(args.cargo_list)
+        print(f"cargo: fetching {len(packages)} crates...", file=sys.stderr)
+        count = import_cargo(packages, args.out / "cargo", timeout=args.timeout)
+        stats["ecosystems"]["cargo"] = {"count": count, "requested": len(packages)}
 
     manifest_path = args.out / "manifest.json"
     manifest_path.write_text(
