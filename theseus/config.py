@@ -25,15 +25,28 @@ _DEFAULTS: dict = {
 
 def load(path: Path | None = None) -> dict:
     """
-    Load config.yaml.  Returns merged defaults + file values.
-    If the file does not exist, returns defaults silently.
+    Load configuration with a two-layer merge:
+
+      1. config.yaml       — generic defaults, checked into git
+      2. config.site.yaml  — local overrides (secrets, IPs), never committed
+
+    If *path* is given it is used as the primary config file and the site
+    override is looked for alongside it (same directory, named
+    ``config.site.yaml``).  If neither file exists the built-in defaults
+    are returned silently.
     """
     if path is None:
-        path = _REPO_ROOT / "config.yaml"
+        primary = _REPO_ROOT / "config.yaml"
+        site    = _REPO_ROOT / "config.site.yaml"
+    else:
+        primary = path
+        site    = path.parent / "config.site.yaml"
+
     cfg = _deep_merge(_DEFAULTS, {})
-    if path.exists():
-        raw = _parse_yaml(path.read_text(encoding="utf-8"))
-        cfg = _deep_merge(cfg, raw)
+    for layer in (primary, site):
+        if layer.exists():
+            raw = _parse_yaml(layer.read_text(encoding="utf-8"))
+            cfg = _deep_merge(cfg, raw)
     return cfg
 
 
