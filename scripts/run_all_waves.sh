@@ -15,8 +15,8 @@ mkdir -p logs
 
 # Singleton guard — exit if another instance is already running
 if [ -f "$LOCKFILE" ]; then
-    other_pid=$(cat "$LOCKFILE" 2>/dev/null)
-    if kill -0 "$other_pid" 2>/dev/null; then
+    other_pid=$(cat "$LOCKFILE" 2>/dev/null || true)
+    if [[ -n "$other_pid" ]] && kill -0 "$other_pid" 2>/dev/null; then
         echo "Runner already running (PID $other_pid). Exiting." >&2
         exit 0
     fi
@@ -78,8 +78,8 @@ Waves completed in this batch ended with: $wave
 Total waves run so far in this session: $count
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" \
-                >> "$LOGFILE" 2>&1
-            git push >> "$LOGFILE" 2>&1
+                >> "$LOGFILE" 2>&1 || true
+            git push >> "$LOGFILE" 2>&1 || true
             log "  Committed and pushed."
         else
             log "  Nothing to commit."
