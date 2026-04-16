@@ -10,7 +10,19 @@ COMMIT_EVERY=${COMMIT_EVERY:-5}
 JOBS=${JOBS:-4}
 LLM_TIMEOUT=${LLM_TIMEOUT:-180}   # seconds per LLM call; prevents runaway stalls
 LOGFILE="logs/wave_runner.log"
+LOCKFILE="logs/wave_runner.lock"
 mkdir -p logs
+
+# Singleton guard — exit if another instance is already running
+if [ -f "$LOCKFILE" ]; then
+    other_pid=$(cat "$LOCKFILE" 2>/dev/null)
+    if kill -0 "$other_pid" 2>/dev/null; then
+        echo "Runner already running (PID $other_pid). Exiting." >&2
+        exit 0
+    fi
+fi
+echo $$ > "$LOCKFILE"
+trap 'rm -f "$LOCKFILE"' EXIT
 
 log() { echo "[$(date '+%H:%M:%S')] $*" >> "$LOGFILE"; echo "[$(date '+%H:%M:%S')] $*" >&2; }
 
