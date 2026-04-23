@@ -1,0 +1,97 @@
+spec: calendar_extra_rust
+version: ">=3.9"
+backend: rust_module(calendar_extra_rust)
+
+docs: https://docs.python.org/3/library/calendar.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/calendar.html — Python calendar documentation"
+  not_derived_from:
+    - "CPython source: Lib/calendar.py"
+  notes:
+    - "Additional calendar functions not covered in calendar_rust (isleap, weekday, leapdays)."
+    - "monthrange(year, month) returns (weekday_of_first_day, number_of_days_in_month)."
+    - "Weekdays: 0=Monday, 1=Tuesday, ..., 6=Sunday (same as datetime.weekday())."
+    - "monthrange(2024, 2) == (3, 29) — Feb 2024: leap year (29 days), starts Thursday (3)."
+    - "monthrange(2026, 4) == (2, 30) — April 2026: 30 days, starts Wednesday (2)."
+    - "monthrange(2025, 1) == (2, 31) — Jan 2025: 31 days, starts Wednesday (2)."
+    - "monthrange(2023, 12) == (4, 31) — Dec 2023: 31 days, starts Friday (4)."
+    - "month_name[1] == 'January', month_name[12] == 'December' (1-indexed, 0 is empty string)."
+    - "day_name[0] == 'Monday', day_name[6] == 'Sunday' (0-indexed)."
+    - "month_abbr[4] == 'Apr', month_abbr[12] == 'Dec'."
+    - "All test vectors verified against Python 3.14.3 calendar module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# monthrange — (weekday_of_first_day, days_in_month)
+table calendar_extra_rust.monthrange.vectors:
+  kind: python_call_eq
+  category: monthrange
+  id_prefix: cal_mr
+  function: monthrange
+
+  columns: [id, args, expected]
+  rows:
+    - [feb_2024_leap, [2024, 2],  [3, 29]]
+    - [apr_2026,      [2026, 4],  [2, 30]]
+    - [jan_2025,      [2025, 1],  [2, 31]]
+    - [dec_2023,      [2023, 12], [4, 31]]
+
+# month_name — English month names (1-indexed)
+table calendar_extra_rust.month_name.vectors:
+  kind: python_call_eq
+  category: month_name
+  id_prefix: cal_mn
+  function: month_name.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [january,   [1],  "January"]
+    - [june,      [6],  "June"]
+    - [december,  [12], "December"]
+    - [september, [9],  "September"]
+
+# day_name — English day names (0=Monday, 6=Sunday)
+table calendar_extra_rust.day_name.vectors:
+  kind: python_call_eq
+  category: day_name
+  id_prefix: cal_dn
+  function: day_name.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [monday,    [0], "Monday"]
+    - [friday,    [4], "Friday"]
+    - [sunday,    [6], "Sunday"]
+
+# month_abbr — abbreviated month names (1-indexed)
+invariant calendar_extra_rust.month_abbr.april:
+  description: "month_abbr[4] == 'Apr'"
+  category: month_abbr
+  kind: python_call_eq
+  function: month_abbr.__getitem__
+  args: [4]
+  expected: "Apr"
+
+invariant calendar_extra_rust.month_abbr.december:
+  description: "month_abbr[12] == 'Dec'"
+  category: month_abbr
+  kind: python_call_eq
+  function: month_abbr.__getitem__
+  args: [12]
+  expected: "Dec"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:55:46Z
+  iterations: 1
+  pass_count: 13
+  fail_count: 0
+  total_invariants: 13
+  notes: Synthesis succeeded in 1 iteration(s). 13 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

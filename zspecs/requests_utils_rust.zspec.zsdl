@@ -1,0 +1,91 @@
+spec: requests_utils_rust
+version: ">=3.9"
+backend: rust_module(requests_utils_rust)
+
+docs: https://requests.readthedocs.io/en/latest/api/#requests.utils
+
+provenance:
+  derived_from:
+    - "https://requests.readthedocs.io/ — requests library documentation"
+  not_derived_from:
+    - "requests source: requests/utils.py"
+  notes:
+    - "Clean-room Rust reimplementation of requests utility functions, exposed via PyO3."
+    - "Functions imported from requests.utils (non-network utilities)."
+    - "to_native_string(b'hello') == 'hello' — bytes decoded to str."
+    - "to_native_string('hello') == 'hello' — str passthrough."
+    - "requote_uri('http://example.com/hello%20world') == 'http://example.com/hello%20world'."
+    - "is_valid_cidr('192.168.1.0/24') == True."
+    - "is_valid_cidr('not-a-cidr') == False."
+    - "parse_dict_header('key=value, other=stuff') == {'key': 'value', 'other': 'stuff'}."
+    - "All test vectors verified against requests 2.32.5."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# to_native_string — decode bytes to str or pass str through
+table requests_utils_rust.to_native_string.vectors:
+  kind: python_call_eq
+  category: to_native_string
+  id_prefix: ru_tns
+  function: to_native_string
+
+  columns: [id, args, expected]
+  rows:
+    - [bytes_hello, [!b64 aGVsbG8=], "hello"]
+    - [str_hello,   ["hello"],       "hello"]
+    - [str_world,   ["world"],       "world"]
+
+# is_valid_cidr — validate CIDR notation
+table requests_utils_rust.is_valid_cidr.vectors:
+  kind: python_call_eq
+  category: is_valid_cidr
+  id_prefix: ru_cidr
+  function: is_valid_cidr
+
+  columns: [id, args, expected]
+  rows:
+    - [valid_24,  ["192.168.1.0/24"],    true]
+    - [valid_16,  ["10.0.0.0/16"],       true]
+    - [valid_32,  ["192.168.1.1/32"],    true]
+    - [invalid,   ["not-a-cidr"],        false]
+    - [no_mask,   ["192.168.1.1"],       false]
+
+# requote_uri — re-quote a URI
+invariant requests_utils_rust.requote_uri.already_quoted:
+  description: "requote_uri('http://example.com/hello%20world') returns same"
+  category: requote_uri
+  kind: python_call_eq
+  function: requote_uri
+  args: ["http://example.com/hello%20world"]
+  expected: "http://example.com/hello%20world"
+
+invariant requests_utils_rust.requote_uri.plain:
+  description: "requote_uri('http://example.com/path') returns same"
+  category: requote_uri
+  kind: python_call_eq
+  function: requote_uri
+  args: ["http://example.com/path"]
+  expected: "http://example.com/path"
+
+# parse_dict_header — parse 'key=value, ...' headers
+invariant requests_utils_rust.parse_dict_header.simple:
+  description: "parse_dict_header('key=value') == {'key': 'value'}"
+  category: parse_dict_header
+  kind: python_call_eq
+  function: parse_dict_header
+  args: ["key=value"]
+  expected: {key: "value"}
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:22:55Z
+  iterations: 1
+  pass_count: 11
+  fail_count: 0
+  total_invariants: 11
+  notes: Synthesis succeeded in 1 iteration(s). 11 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

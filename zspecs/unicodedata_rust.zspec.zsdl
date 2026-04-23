@@ -1,0 +1,223 @@
+spec: unicodedata_rust
+version: ">=3.9"
+backend: rust_module(unicodedata_rust)
+
+docs: https://docs.python.org/3/library/unicodedata.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/unicodedata.html — Python unicodedata documentation"
+    - "Unicode Standard — https://www.unicode.org/versions/latest/"
+  not_derived_from:
+    - "CPython source: Modules/unicodedata.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python unicodedata module, exposed via PyO3."
+    - "May use the 'unicode-properties' or 'ucd-trie' Rust crates, or the 'unicode_names2' crate."
+    - "name(char) returns the Unicode name in ALL CAPS; raises ValueError for unnamed code points."
+    - "lookup(name) is the inverse of name(); raises KeyError for unknown names."
+    - "category(char) returns a two-letter category code (e.g. Lu, Ll, Nd, Po, Zs)."
+    - "bidirectional(char) returns the bidi class string (e.g. L, EN, WS)."
+    - "combining(char) returns an int in [0, 240]; 0 means non-combining."
+    - "east_asian_width(char) returns one of: Na, N, W, F, H, A."
+    - "decomposition(char) returns empty string for characters with no decomposition mapping."
+    - "decimal(char) returns an int for decimal digits; raises ValueError otherwise."
+    - "numeric(char) returns a float for numeric characters; raises ValueError otherwise."
+    - "normalize(form, s) applies NFC, NFD, NFKC, or NFKD normalization."
+    - "All test vectors verified against Python 3.14.3 unicodedata module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# name() — Unicode character names
+table unicodedata_rust.name.vectors:
+  kind: python_call_eq
+  category: name
+  id_prefix: name
+  function: name
+
+  columns: [id, args, expected]
+  rows:
+    - [capital_a,  ["A"], "LATIN CAPITAL LETTER A"]
+    - [small_a,    ["a"], "LATIN SMALL LETTER A"]
+    - [digit_zero, ["0"], "DIGIT ZERO"]
+    - [euro_sign,  ["€"], "EURO SIGN"]
+
+# lookup() — character from Unicode name
+invariant unicodedata_rust.lookup.capital_a:
+  description: "lookup('LATIN CAPITAL LETTER A') == 'A'"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["LATIN CAPITAL LETTER A"]
+  expected: "A"
+
+invariant unicodedata_rust.lookup.digit_zero:
+  description: "lookup('DIGIT ZERO') == '0'"
+  category: lookup
+  kind: python_call_eq
+  function: lookup
+  args: ["DIGIT ZERO"]
+  expected: "0"
+
+invariant unicodedata_rust.lookup.unknown_raises:
+  description: "lookup('NONEXISTENT NAME') raises KeyError"
+  category: lookup
+  kind: python_call_raises
+  function: lookup
+  args: ["NONEXISTENT NAME"]
+  expected_exception: KeyError
+
+# category() — Unicode general category
+table unicodedata_rust.category.vectors:
+  kind: python_call_eq
+  category: category
+  id_prefix: category
+  function: category
+
+  columns: [id, args, expected]
+  rows:
+    - [uppercase_letter, ["A"], "Lu"]
+    - [lowercase_letter, ["a"], "Ll"]
+    - [decimal_digit,    ["0"], "Nd"]
+    - [other_punct,      ["!"], "Po"]
+    - [space_separator,  [" "], "Zs"]
+
+# bidirectional() — bidi class
+invariant unicodedata_rust.bidirectional.latin_letter:
+  description: "bidirectional('A') == 'L' (left-to-right)"
+  category: bidirectional
+  kind: python_call_eq
+  function: bidirectional
+  args: ["A"]
+  expected: "L"
+
+invariant unicodedata_rust.bidirectional.digit:
+  description: "bidirectional('0') == 'EN' (European number)"
+  category: bidirectional
+  kind: python_call_eq
+  function: bidirectional
+  args: ["0"]
+  expected: "EN"
+
+# combining() — combining class integer
+invariant unicodedata_rust.combining.ascii_letter:
+  description: "combining('A') == 0 (non-combining)"
+  category: combining
+  kind: python_call_eq
+  function: combining
+  args: ["A"]
+  expected: 0
+
+invariant unicodedata_rust.combining.digit:
+  description: "combining('0') == 0 (non-combining)"
+  category: combining
+  kind: python_call_eq
+  function: combining
+  args: ["0"]
+  expected: 0
+
+# east_asian_width() — width classification
+invariant unicodedata_rust.east_asian_width.narrow:
+  description: "east_asian_width('A') == 'Na' (narrow ASCII)"
+  category: east_asian_width
+  kind: python_call_eq
+  function: east_asian_width
+  args: ["A"]
+  expected: "Na"
+
+invariant unicodedata_rust.east_asian_width.wide:
+  description: "east_asian_width('中') == 'W' (wide CJK ideograph)"
+  category: east_asian_width
+  kind: python_call_eq
+  function: east_asian_width
+  args: ["中"]
+  expected: "W"
+
+# decomposition() — decomposition mapping
+invariant unicodedata_rust.decomposition.ascii_no_decomp:
+  description: "decomposition('A') == '' (ASCII has no decomposition)"
+  category: decomposition
+  kind: python_call_eq
+  function: decomposition
+  args: ["A"]
+  expected: ""
+
+# decimal() — decimal digit value
+invariant unicodedata_rust.decimal.zero:
+  description: "decimal('0') == 0"
+  category: decimal
+  kind: python_call_eq
+  function: decimal
+  args: ["0"]
+  expected: 0
+
+invariant unicodedata_rust.decimal.nine:
+  description: "decimal('9') == 9"
+  category: decimal
+  kind: python_call_eq
+  function: decimal
+  args: ["9"]
+  expected: 9
+
+invariant unicodedata_rust.decimal.letter_raises:
+  description: "decimal('A') raises ValueError (not a decimal digit)"
+  category: decimal
+  kind: python_call_raises
+  function: decimal
+  args: ["A"]
+  expected_exception: ValueError
+
+# numeric() — numeric value as float
+invariant unicodedata_rust.numeric.half:
+  description: "numeric('½') == 0.5 (VULGAR FRACTION ONE HALF)"
+  category: numeric
+  kind: python_call_eq
+  function: numeric
+  args: ["½"]
+  expected: 0.5
+
+invariant unicodedata_rust.numeric.digit_five:
+  description: "numeric('5') == 5.0"
+  category: numeric
+  kind: python_call_eq
+  function: numeric
+  args: ["5"]
+  expected: 5.0
+
+# normalize() — Unicode normalization
+invariant unicodedata_rust.normalize.nfc_ascii:
+  description: "normalize('NFC', 'A') == 'A' (ASCII unchanged)"
+  category: normalize
+  kind: python_call_eq
+  function: normalize
+  args: ["NFC", "A"]
+  expected: "A"
+
+invariant unicodedata_rust.normalize.nfd_ascii:
+  description: "normalize('NFD', 'A') == 'A' (ASCII unchanged under NFD)"
+  category: normalize
+  kind: python_call_eq
+  function: normalize
+  args: ["NFD", "A"]
+  expected: "A"
+
+invariant unicodedata_rust.normalize.nfc_e_acute:
+  description: "normalize('NFC', 'e\\u0301') == 'é' — combining acute accent composes to precomposed form"
+  category: normalize
+  kind: python_call_eq
+  function: normalize
+  args: ["NFC", "e\u0301"]
+  expected: "é"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: infeasible
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:14:14Z
+  iterations: 1
+  pass_count: 0
+  fail_count: 0
+  total_invariants: 27
+  notes: "LLM unavailable: OpenAI API request failed: HTTP Error 502: Bad Gateway"
+  infeasible_reason: llm_unavailable
+  invariant_annotations: {}

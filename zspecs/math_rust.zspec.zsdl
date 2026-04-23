@@ -1,0 +1,137 @@
+spec: math_rust
+version: ">=3.9"
+backend: rust_module(math_rust)
+
+docs: https://docs.python.org/3/library/math.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/math.html — Python math documentation (API surface)"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic"
+    - "ISO/IEC 80000-2:2019 — Quantities and units, Part 2: Mathematics"
+  not_derived_from:
+    - "CPython source: Modules/mathmodule.c"
+  notes:
+    - "Clean-room Rust reimplementation of the Python math module API, exposed via PyO3."
+    - "floor(x) -> int, ceil(x) -> int, fabs(x) -> float, sqrt(x) -> float."
+    - "log(x) -> float (natural log); log(x, base) -> float; log2(x), log10(x)."
+    - "exp(x) -> float, pow(x, y) -> float."
+    - "gcd(*integers) -> int, lcm(*integers) -> int (Python 3.9+)."
+    - "factorial(n) -> int; raises ValueError for negative n."
+    - "isnan(x), isinf(x), isfinite(x) -> bool."
+    - "Constants: pi, e, tau, inf, nan."
+    - "sqrt of negative number raises ValueError."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table math_rust.floor_ceil:
+  kind: python_call_eq
+  category: rounding
+  id_prefix: floor
+
+  columns: [id, function, args, expected]
+  rows:
+    - [floor_pos,       floor,  [3.7],  3 ]
+    - [floor_neg,       floor,  [-3.7], -4]
+    - [floor_zero,      floor,  [0.0],  0 ]
+    - [ceil_pos,        ceil,   [3.2],  4 ]
+    - [ceil_neg,        ceil,   [-3.2], -3]
+    - [ceil_exact,      ceil,   [4.0],  4 ]
+
+table math_rust.sqrt_fabs:
+  kind: python_call_eq
+  category: roots_abs
+  id_prefix: sqrt
+
+  columns: [id, function, args, expected]
+  rows:
+    - [sqrt_4,    sqrt,  [4.0],   2.0]
+    - [sqrt_9,    sqrt,  [9.0],   3.0]
+    - [sqrt_0,    sqrt,  [0.0],   0.0]
+    - [sqrt_2,    sqrt,  [2.0],   1.4142135623730951]
+    - [fabs_pos,  fabs,  [3.5],   3.5]
+    - [fabs_neg,  fabs,  [-3.5],  3.5]
+    - [fabs_zero, fabs,  [0.0],   0.0]
+
+table math_rust.log_exp:
+  kind: python_call_eq
+  category: logarithms
+  id_prefix: log
+
+  columns: [id, function, args, expected]
+  rows:
+    - [log_one,      log,   [1.0],       0.0]
+    - [log2_8,       log2,  [8.0],       3.0]
+    - [log10_1000,   log10, [1000.0],    3.0]
+    - [log10_1,      log10, [1.0],       0.0]
+    - [log_base10,   log,   [100.0, 10], 2.0]
+    - [exp_zero,     exp,   [0.0],       1.0]
+    - [pow_2_10,     pow,   [2.0, 10.0], 1024.0]
+    - [pow_3_0,      pow,   [3.0, 0.0],  1.0]
+
+table math_rust.gcd_lcm_factorial:
+  kind: python_call_eq
+  category: integer_math
+  id_prefix: gcd
+
+  columns: [id, function, args, expected]
+  rows:
+    - [gcd_12_8,      gcd,       [12, 8],  4  ]
+    - [gcd_0_5,       gcd,       [0, 5],   5  ]
+    - [gcd_same,      gcd,       [7, 7],   7  ]
+    - [lcm_4_6,       lcm,       [4, 6],   12 ]
+    - [lcm_3_5,       lcm,       [3, 5],   15 ]
+    - [factorial_0,   factorial, [0],      1  ]
+    - [factorial_5,   factorial, [5],      120]
+    - [factorial_10,  factorial, [10],     3628800]
+
+table math_rust.predicates:
+  kind: python_call_eq
+  category: predicates
+  id_prefix: isfinite
+
+  columns: [id, function, args, expected]
+  rows:
+    - [isfinite_yes,   isfinite, [3.14],  true ]
+    - [isfinite_zero,  isfinite, [0.0],   true ]
+    - [isnan_no,       isnan,    [3.14],  false]
+    - [isinf_no,       isinf,    [3.14],  false]
+
+invariant math_rust.sqrt.negative_raises:
+  description: "sqrt of negative number raises ValueError"
+  category: error
+  kind: python_call_raises
+  function: sqrt
+  args: [-1.0]
+  expected_exception: ValueError
+
+invariant math_rust.factorial.negative_raises:
+  description: "factorial of negative raises ValueError"
+  category: error
+  kind: python_call_raises
+  function: factorial
+  args: [-1]
+  expected_exception: ValueError
+
+invariant math_rust.log.zero_raises:
+  description: "log(0) raises ValueError"
+  category: error
+  kind: python_call_raises
+  function: log
+  args: [0.0]
+  expected_exception: ValueError
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:01:40Z
+  iterations: 1
+  pass_count: 36
+  fail_count: 0
+  total_invariants: 36
+  notes: Synthesis succeeded in 1 iteration(s). 36 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

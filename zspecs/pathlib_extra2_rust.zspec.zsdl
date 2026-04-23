@@ -1,0 +1,99 @@
+spec: pathlib_extra2_rust
+version: ">=3.9"
+backend: rust_module(pathlib_extra2_rust)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+  notes:
+    - "Additional PurePosixPath methods not covered in pathlib_extra_rust."
+    - "PurePosixPath('/foo/bar.txt').is_absolute() == True."
+    - "PurePosixPath('relative').is_absolute() == False."
+    - "PurePosixPath('/foo/bar.txt').with_suffix('.py') → '/foo/bar.py' via __str__."
+    - "PurePosixPath('/foo/bar.txt').with_name('baz.py') → '/foo/baz.py' via __str__."
+    - "PurePosixPath('/foo/bar/baz.txt').parts == ('/', 'foo', 'bar', 'baz.txt') as list."
+    - "All test vectors verified against Python 3.14.3 pathlib.PurePosixPath."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# is_absolute — check if path is absolute
+table pathlib_extra2_rust.is_absolute.vectors:
+  kind: python_call_eq
+  category: is_absolute
+  id_prefix: pp_isabs
+  function: PurePosixPath
+  method: is_absolute
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [abs_slash,  ["/foo/bar.txt"],  true]
+    - [abs_root,   ["/"],             true]
+    - [rel_simple, ["relative"],      false]
+    - [rel_dot,    ["./foo"],         false]
+
+# with_suffix — replace file extension, chained via __str__
+table pathlib_extra2_rust.with_suffix.vectors:
+  kind: python_call_eq
+  category: with_suffix
+  id_prefix: pp_wsuf
+  function: PurePosixPath
+  method: with_suffix
+  method_chain: __str__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [txt_to_py,  ["/foo/bar.txt"], [".py"],  "/foo/bar.py"]
+    - [py_to_md,   ["/a/b/c.py"],   [".md"],  "/a/b/c.md"]
+    - [remove_ext, ["/foo/bar.txt"], [""],     "/foo/bar"]
+
+# with_name — replace filename, chained via __str__
+table pathlib_extra2_rust.with_name.vectors:
+  kind: python_call_eq
+  category: with_name
+  id_prefix: pp_wnam
+  function: PurePosixPath
+  method: with_name
+  method_chain: __str__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [new_name, ["/foo/bar.txt"], ["baz.py"],    "/foo/baz.py"]
+    - [new_file, ["/a/b/c.py"],   ["main.rs"],   "/a/b/main.rs"]
+
+# parts — tuple of path components (compared as list)
+invariant pathlib_extra2_rust.parts.three:
+  description: "PurePosixPath('/foo/bar/baz.txt').parts == ['/', 'foo', 'bar', 'baz.txt']"
+  category: parts
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo/bar/baz.txt"]
+  method: parts
+  expected: ["/", "foo", "bar", "baz.txt"]
+
+invariant pathlib_extra2_rust.parts.one:
+  description: "PurePosixPath('/foo').parts == ['/', 'foo']"
+  category: parts
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo"]
+  method: parts
+  expected: ["/", "foo"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:28:19Z
+  iterations: 1
+  pass_count: 11
+  fail_count: 0
+  total_invariants: 11
+  notes: Synthesis succeeded in 1 iteration(s). 11 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

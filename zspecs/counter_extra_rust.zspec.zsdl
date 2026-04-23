@@ -1,0 +1,84 @@
+spec: counter_extra_rust
+version: ">=3.9"
+backend: rust_module(counter_extra_rust)
+
+docs: https://docs.python.org/3/library/collections.html#collections.Counter
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html#collections.Counter — Python Counter documentation"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+  notes:
+    - "Additional Counter methods not covered in collections_rust."
+    - "Counter('hello').total() == 5 — sum of all counts (Python 3.10+)."
+    - "Counter('hello').get('l', 0) == 2 — dict-style access with default."
+    - "Counter('hello').get('z', 0) == 0 — missing key returns default."
+    - "Counter([1,1,2,2,2]).total() == 5."
+    - "Counter({}).total() == 0."
+    - "All test vectors verified against Python 3.14.3 collections module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# Counter.total — sum of all counts
+table counter_extra_rust.total.vectors:
+  kind: python_call_eq
+  category: total
+  id_prefix: ctr_tot
+  function: Counter
+  method: total
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,    ["hello"],         5]
+    - [aabbbc,   ["aabbbc"],        6]
+    - [empty,    [""],              0]
+    - [list_ints, [[1, 1, 2, 2, 2]], 5]
+
+# Counter.get — dict-style access with default
+table counter_extra_rust.get.vectors:
+  kind: python_call_eq
+  category: get
+  id_prefix: ctr_get
+  function: Counter
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [present_l, ["hello"], get, ["l", 0], 2]
+    - [present_h, ["hello"], get, ["h", 0], 1]
+    - [missing_z, ["hello"], get, ["z", 0], 0]
+    - [missing_default, ["hello"], get, ["x", -1], -1]
+
+# Counter.keys — returns view of counted keys
+invariant counter_extra_rust.len.hello:
+  description: "len(Counter('hello')) == 4 — unique characters"
+  category: len
+  kind: python_call_eq
+  function: Counter
+  args: ["hello"]
+  method: __len__
+  expected: 4
+
+invariant counter_extra_rust.len.empty:
+  description: "len(Counter('')) == 0"
+  category: len
+  kind: python_call_eq
+  function: Counter
+  args: [""]
+  method: __len__
+  expected: 0
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:21:46Z
+  iterations: 1
+  pass_count: 10
+  fail_count: 0
+  total_invariants: 10
+  notes: Synthesis succeeded in 1 iteration(s). 10 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

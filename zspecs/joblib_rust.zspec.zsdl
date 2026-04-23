@@ -1,0 +1,73 @@
+spec: joblib_rust
+version: ">=3.9"
+backend: rust_module(joblib_rust)
+
+docs: https://joblib.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "https://joblib.readthedocs.io/ — joblib library documentation"
+  not_derived_from:
+    - "joblib source: joblib/parallel.py"
+  notes:
+    - "joblib provides lightweight pipelining, caching, and parallelism."
+    - "joblib.dump/load — fast numpy-aware serialization."
+    - "Expose joblib_roundtrip_int(n) -> int: via dump/load to temp file."
+    - "Expose joblib_roundtrip_list(lst) -> list: via dump/load to temp file."
+    - "Expose joblib_hash_str(s) -> str: joblib.hash(s) — deterministic hash string."
+    - "Expose joblib_hash_eq(a, b) -> bool: joblib.hash(a) == joblib.hash(b)."
+    - "joblib.hash(42) == joblib.hash(42) — deterministic."
+    - "joblib.hash(42) != joblib.hash(43) — distinct values hash differently."
+    - "joblib.hash('hello') == joblib.hash('hello')."
+    - "All test vectors verified against joblib 1.4.2."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# joblib_hash — deterministic hash
+table joblib_rust.hash.consistent:
+  kind: python_call_eq
+  category: hash
+  id_prefix: jbl_hash
+  function: joblib_hash_eq
+
+  columns: [id, args, expected]
+  rows:
+    - [same_int,  [42, 42],         true]
+    - [diff_int,  [42, 43],         false]
+    - [same_str,  ["hello", "hello"], true]
+    - [diff_str,  ["hello", "world"], false]
+
+# joblib_roundtrip — serialization roundtrip
+table joblib_rust.roundtrip.int:
+  kind: python_call_eq
+  category: roundtrip
+  id_prefix: jbl_rt_int
+  function: joblib_roundtrip_int
+
+  columns: [id, args, expected]
+  rows:
+    - [zero,    [0],   0]
+    - [forty2,  [42],  42]
+    - [neg,     [-5], -5]
+
+invariant joblib_rust.roundtrip.list:
+  description: "joblib dump/load roundtrip of [1,2,3] == [1,2,3]"
+  category: roundtrip
+  kind: python_call_eq
+  function: joblib_roundtrip_list
+  args: [[1, 2, 3]]
+  expected: [1, 2, 3]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-20T00:27:02Z
+  iterations: 2
+  pass_count: 8
+  fail_count: 0
+  total_invariants: 8
+  notes: Synthesis succeeded in 2 iteration(s). 8 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

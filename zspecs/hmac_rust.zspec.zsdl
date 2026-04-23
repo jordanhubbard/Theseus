@@ -1,0 +1,166 @@
+spec: hmac_rust
+version: ">=3.9"
+backend: rust_module(hmac_rust)
+
+docs: https://docs.python.org/3/library/hmac.html
+rfcs:
+  - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication"
+  - "FIPS 198-1 — The Keyed-Hash Message Authentication Code (HMAC)"
+
+provenance:
+  derived_from:
+    - "RFC 2104 — HMAC: Keyed-Hashing for Message Authentication, February 1997"
+    - "FIPS 198-1 — The Keyed-Hash Message Authentication Code (HMAC), July 2008"
+    - "https://docs.python.org/3/library/hmac.html — Python hmac documentation (API surface)"
+  not_derived_from:
+    - "CPython source: Lib/hmac.py"
+    - "OpenSSL HMAC implementation"
+  notes:
+    - "Clean-room Rust reimplementation of Python hmac module API, exposed via PyO3."
+    - "May use the 'hmac' + 'sha2' Rust crates (ring or RustCrypto ecosystem)."
+    - "new(key: bytes, msg: bytes, digestmod: str) -> HMAC — create HMAC object."
+    - "HMAC.hexdigest() -> str — hex digest string."
+    - "HMAC.digest_size -> int — digest length in bytes."
+    - "HMAC.block_size -> int — hash block size in bytes."
+    - "HMAC.name -> str — 'hmac-sha256' or 'hmac-sha1' etc."
+    - "compare_digest(a: str, b: str) -> bool — constant-time string comparison (RFC 2104 §3)."
+    - "HMAC-SHA256 vector: new(b'key', b'msg', 'sha256').hexdigest() == '2d93cbc1be167bcb1637a4a23cbff01a7878f0c50ee833954ea5221bb1b8c628'."
+    - "HMAC-SHA1 vector: new(b'key', b'msg', 'sha1').hexdigest() == '102900b72b7bf1031eec76b4804b66052376896b'."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# compare_digest — constant-time string comparison
+table hmac_rust.compare_digest.strings:
+  kind: python_call_eq
+  category: compare_digest
+  id_prefix: compare_digest
+  function: compare_digest
+  rfc: "RFC 2104"
+
+  columns: [id, args, expected]
+  rows:
+    - [equal_abc,        ["abc",   "abc"],   true ]
+    - [unequal_abc_abd,  ["abc",   "abd"],   false]
+    - [empty_equal,      ["",      ""],      true ]
+    - [hello_equal,      ["hello", "hello"], true ]
+    - [hello_world,      ["hello", "world"], false]
+    - [one_char_equal,   ["x",     "x"],     true ]
+    - [one_char_unequal, ["x",     "y"],     false]
+
+# new — HMAC-SHA256 known test vector
+invariant hmac_rust.new.sha256.hexdigest:
+  description: "new(b'key', b'msg', 'sha256').hexdigest() — RFC 2104 known vector"
+  category: known_vector
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha256"
+  method: hexdigest
+  expected: "2d93cbc1be167bcb1637a4a23cbff01a7878f0c50ee833954ea5221bb1b8c628"
+
+invariant hmac_rust.new.sha256.digest_size:
+  description: "new(b'key', b'msg', 'sha256').digest_size == 32 — SHA-256 produces 32 bytes"
+  category: properties
+  rfc: "FIPS 198-1"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha256"
+  method: digest_size
+  expected: 32
+
+invariant hmac_rust.new.sha256.block_size:
+  description: "new(b'key', b'msg', 'sha256').block_size == 64 — SHA-256 uses 64-byte blocks"
+  category: properties
+  rfc: "FIPS 198-1"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha256"
+  method: block_size
+  expected: 64
+
+invariant hmac_rust.new.sha256.name:
+  description: "new(b'key', b'msg', 'sha256').name == 'hmac-sha256'"
+  category: properties
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha256"
+  method: name
+  expected: "hmac-sha256"
+
+# new — HMAC-SHA1 known test vector
+invariant hmac_rust.new.sha1.hexdigest:
+  description: "new(b'key', b'msg', 'sha1').hexdigest() — RFC 2104 known vector"
+  category: known_vector
+  rfc: "RFC 2104"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha1"
+  method: hexdigest
+  expected: "102900b72b7bf1031eec76b4804b66052376896b"
+
+invariant hmac_rust.new.sha1.digest_size:
+  description: "new(b'key', b'msg', 'sha1').digest_size == 20 — SHA-1 produces 20 bytes"
+  category: properties
+  rfc: "FIPS 198-1"
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: "key"}
+    - {type: bytes_ascii, value: "msg"}
+    - "sha1"
+  method: digest_size
+  expected: 20
+
+# new — empty key and message (well-defined HMAC over empty inputs)
+invariant hmac_rust.new.sha256.empty_key_msg:
+  description: "new(b'', b'', 'sha256').hexdigest() — well-defined HMAC over empty inputs"
+  category: known_vector
+  kind: python_call_eq
+  function: new
+  args:
+    - {type: bytes_ascii, value: ""}
+    - {type: bytes_ascii, value: ""}
+    - "sha256"
+  method: hexdigest
+  expected: "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad"
+
+# error — mixed types raise TypeError
+invariant hmac_rust.compare_digest.type_mismatch_raises:
+  description: "compare_digest(str, bytes) raises TypeError — mixed types are rejected"
+  category: error
+  kind: python_call_raises
+  function: compare_digest
+  args:
+    - "abc"
+    - {type: bytes_ascii, value: "abc"}
+  expected_exception: TypeError
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:48:53Z
+  iterations: 1
+  pass_count: 15
+  fail_count: 0
+  total_invariants: 15
+  notes: Synthesis succeeded in 1 iteration(s). 15 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

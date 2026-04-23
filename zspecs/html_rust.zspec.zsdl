@@ -1,0 +1,164 @@
+spec: html_rust
+version: ">=3.9"
+backend: rust_module(html_rust)
+
+docs: https://docs.python.org/3/library/html.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/html.html — Python html module documentation (API surface)"
+    - "HTML 5 specification — HTML character references"
+  not_derived_from:
+    - "CPython source: Lib/html/__init__.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python html module API, exposed via PyO3."
+    - "escape(s: str, quote: bool = True) -> str — converts <, >, & to HTML entities."
+    - "With quote=True (default), also converts \" to &quot; and ' to &#x27;."
+    - "With quote=False, leaves \" and ' unchanged."
+    - "unescape(s: str) -> str — converts named and numeric HTML entities to characters."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# escape — special characters → HTML entities
+table html_rust.escape.special:
+  kind: python_call_eq
+  function: escape
+  category: escape
+  id_prefix: esc
+
+  columns: [id, args, expected]
+  rows:
+    - [lt,         ["<"],                            "&lt;"]
+    - [gt,         [">"],                            "&gt;"]
+    - [amp,        ["&"],                            "&amp;"]
+    - [lt_gt_amp,  ["<b>Hello & World</b>"],         "&lt;b&gt;Hello &amp; World&lt;/b&gt;"]
+    - [lt_b,       ["a < b"],                        "a &lt; b"]
+    - [gt_b,       ["a > b"],                        "a &gt; b"]
+    - [amp_b,      ["a & b"],                        "a &amp; b"]
+    - [compound,   ["a < b && b > c"],               "a &lt; b &amp;&amp; b &gt; c"]
+    - [script_tag, ["<script>alert(1)</script>"],    "&lt;script&gt;alert(1)&lt;/script&gt;"]
+
+# escape — quote=True (default) converts " and '
+invariant html_rust.escape.dquote_default:
+  description: "escape('\"quoted\"') with default quote=True encodes double-quote as &quot;"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["\"quoted\""]
+  expected: "&quot;quoted&quot;"
+
+invariant html_rust.escape.squote_quoted:
+  description: "escape(\"'single'\", quote=True) encodes single-quote as &#x27;"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["'single'"]
+  kwargs: {quote: true}
+  expected: "&#x27;single&#x27;"
+
+# escape — quote=False leaves " and ' unchanged
+invariant html_rust.escape.dquote_noquote:
+  description: "escape('\"test\"', quote=False) leaves double-quote unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["\"test\""]
+  kwargs: {quote: false}
+  expected: "\"test\""
+
+invariant html_rust.escape.squote_noquote:
+  description: "escape(\"'test'\", quote=False) leaves single-quote unchanged"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["'test'"]
+  kwargs: {quote: false}
+  expected: "'test'"
+
+invariant html_rust.escape.lt_noquote:
+  description: "escape('a < b', quote=False) still encodes <"
+  category: escape
+  kind: python_call_eq
+  function: escape
+  args: ["a < b"]
+  kwargs: {quote: false}
+  expected: "a &lt; b"
+
+# escape — edge cases
+table html_rust.escape.edge:
+  kind: python_call_eq
+  function: escape
+  category: escape_edge
+  id_prefix: esc_edge
+
+  columns: [id, args, expected]
+  rows:
+    - [normal, ["hello"], "hello"]
+    - [empty,  [""],      ""]
+    - [digits, ["123"],   "123"]
+    - [space,  [" "],     " "]
+
+# unescape — named entities → characters
+table html_rust.unescape.named:
+  kind: python_call_eq
+  function: unescape
+  category: unescape_named
+  id_prefix: unesc_named
+
+  columns: [id, args, expected]
+  rows:
+    - [lt,    ["&lt;"],   "<"]
+    - [gt,    ["&gt;"],   ">"]
+    - [amp,   ["&amp;"],  "&"]
+    - [quot,  ["&quot;"], "\""]
+    - [apos,  ["&apos;"], "'"]
+    - [lt_gt, ["&lt;&gt;"], "<>"]
+
+# unescape — numeric character references
+table html_rust.unescape.numeric:
+  kind: python_call_eq
+  function: unescape
+  category: unescape_numeric
+  id_prefix: unesc_num
+
+  columns: [id, args, expected]
+  rows:
+    - [decimal_65, ["&#65;"],  "A"]
+    - [hex_41,     ["&#x41;"], "A"]
+    - [hex_26,     ["&#x26;"], "&"]
+
+# unescape — roundtrip and edge cases
+invariant html_rust.unescape.roundtrip:
+  description: "unescape('&lt;b&gt;Hello&lt;/b&gt;') == '<b>Hello</b>'"
+  category: unescape_roundtrip
+  kind: python_call_eq
+  function: unescape
+  args: ["&lt;b&gt;Hello&lt;/b&gt;"]
+  expected: "<b>Hello</b>"
+
+table html_rust.unescape.edge:
+  kind: python_call_eq
+  function: unescape
+  category: unescape_edge
+  id_prefix: unesc_edge
+
+  columns: [id, args, expected]
+  rows:
+    - [normal, ["normal"], "normal"]
+    - [empty,  [""],       ""]
+    - [digits, ["123"],    "123"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: infeasible
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:49:37Z
+  iterations: 1
+  pass_count: 0
+  fail_count: 0
+  total_invariants: 31
+  notes: "LLM unavailable: OpenAI API request failed: HTTP Error 502: Bad Gateway"
+  infeasible_reason: llm_unavailable
+  invariant_annotations: {}

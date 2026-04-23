@@ -1,0 +1,107 @@
+spec: stat_rust
+version: ">=3.9"
+backend: rust_module(stat_rust)
+
+docs: https://docs.python.org/3/library/stat.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/stat.html — Python stat documentation"
+    - "POSIX.1-2017 — File mode constants"
+  not_derived_from:
+    - "CPython source: Lib/stat.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python stat module, exposed via PyO3."
+    - "S_ISREG(mode) returns True if mode indicates a regular file."
+    - "S_ISDIR(mode) returns True if mode indicates a directory."
+    - "S_ISLNK(mode) returns True if mode indicates a symbolic link."
+    - "S_IMODE(mode) returns the file permission bits from the mode."
+    - "S_IRWXU == 0o700 == 448 — user read/write/execute mask."
+    - "S_IRUSR == 0o400 == 256 — user read permission."
+    - "S_IWUSR == 0o200 == 128 — user write permission."
+    - "S_IXUSR == 0o100 == 64 — user execute permission."
+    - "S_IRWXG == 0o70 == 56 — group read/write/execute mask."
+    - "S_IRWXO == 0o7 == 7 — other read/write/execute mask."
+    - "All test vectors verified against Python 3.14.3 stat module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# S_ISREG — test if mode is a regular file
+table stat_rust.S_ISREG.vectors:
+  kind: python_call_eq
+  category: S_ISREG
+  id_prefix: isreg
+  function: S_ISREG
+
+  columns: [id, args, expected]
+  rows:
+    - [regular,    [33188], true]
+    - [directory,  [16877], false]
+    - [symlink,    [41453], false]
+
+# S_ISDIR — test if mode is a directory
+table stat_rust.S_ISDIR.vectors:
+  kind: python_call_eq
+  category: S_ISDIR
+  id_prefix: isdir
+  function: S_ISDIR
+
+  columns: [id, args, expected]
+  rows:
+    - [directory, [16877], true]
+    - [regular,   [33188], false]
+    - [symlink,   [41453], false]
+
+# S_ISLNK — test if mode is a symbolic link
+table stat_rust.S_ISLNK.vectors:
+  kind: python_call_eq
+  category: S_ISLNK
+  id_prefix: islnk
+  function: S_ISLNK
+
+  columns: [id, args, expected]
+  rows:
+    - [symlink,  [41453], true]
+    - [regular,  [33188], false]
+    - [directory,[16877], false]
+
+# S_IMODE — extract permission bits
+table stat_rust.S_IMODE.vectors:
+  kind: python_call_eq
+  category: S_IMODE
+  id_prefix: imode
+  function: S_IMODE
+
+  columns: [id, args, expected]
+  rows:
+    - [rw_r_r,  [33188], 420]
+    - [rwx_r_x, [16877], 493]
+
+# Mode constant values (permission masks)
+table stat_rust.constants.values:
+  kind: python_call_eq
+  category: constants
+  id_prefix: stconst
+
+  columns: [id, function, args, expected]
+  rows:
+    - [irwxu, S_IRWXU.__eq__, [448], true]
+    - [irusr, S_IRUSR.__eq__, [256], true]
+    - [iwusr, S_IWUSR.__eq__, [128], true]
+    - [ixusr, S_IXUSR.__eq__, [64],  true]
+    - [irwxg, S_IRWXG.__eq__, [56],  true]
+    - [irwxo, S_IRWXO.__eq__, [7],   true]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T21:39:24Z
+  iterations: 1
+  pass_count: 17
+  fail_count: 0
+  total_invariants: 17
+  notes: Synthesis succeeded in 1 iteration(s). 17 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

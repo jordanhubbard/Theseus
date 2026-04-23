@@ -1,0 +1,110 @@
+spec: statistics_extra_rust
+version: ">=3.9"
+backend: rust_module(statistics_extra_rust)
+
+docs: https://docs.python.org/3/library/statistics.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/statistics.html — Python statistics documentation"
+  not_derived_from:
+    - "CPython source: Lib/statistics.py"
+  notes:
+    - "Additional statistics module functions not covered in statistics_rust."
+    - "fmean([1,2,3,4,5]) == 3.0 — fast floating-point mean."
+    - "multimode([1,1,2,2,3]) == [1, 2] — all modes (more than one when tied)."
+    - "multimode([1,2,3]) == [1, 2, 3] — all unique elements are modes."
+    - "NormalDist(0, 1).mean == 0.0 — standard normal distribution mean."
+    - "NormalDist(0, 1).stdev == 1.0 — standard normal distribution std deviation."
+    - "NormalDist(0, 1).cdf(0) == 0.5 — CDF at mean equals 0.5."
+    - "NormalDist(0, 1).zscore(1) == 1.0 — z-score of mean + 1 stdev."
+    - "All test vectors verified against Python 3.14.3 statistics module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# fmean — fast floating-point mean
+table statistics_extra_rust.fmean.vectors:
+  kind: python_call_eq
+  category: fmean
+  id_prefix: stat_fm
+  function: fmean
+
+  columns: [id, args, expected]
+  rows:
+    - [one_to_five, [[1, 2, 3, 4, 5]], 3.0]
+    - [symmetric,   [[1.0, 3.0, 5.0]], 3.0]
+    - [single,      [[7.0]],           7.0]
+    - [zeros,       [[0, 0, 0]],       0.0]
+
+# multimode — all most-common values (new in 3.8)
+invariant statistics_extra_rust.multimode.tied:
+  description: "multimode([1,1,2,2,3]) == [1, 2]"
+  category: multimode
+  kind: python_call_eq
+  function: multimode
+  args: [[1, 1, 2, 2, 3]]
+  expected: [1, 2]
+
+invariant statistics_extra_rust.multimode.all_unique:
+  description: "multimode([1,2,3]) == [1, 2, 3]"
+  category: multimode
+  kind: python_call_eq
+  function: multimode
+  args: [[1, 2, 3]]
+  expected: [1, 2, 3]
+
+invariant statistics_extra_rust.multimode.single:
+  description: "multimode([1,1,1,2,3]) == [1]"
+  category: multimode
+  kind: python_call_eq
+  function: multimode
+  args: [[1, 1, 1, 2, 3]]
+  expected: [1]
+
+# NormalDist — standard normal distribution (Python 3.8+)
+table statistics_extra_rust.normaldist.properties:
+  kind: python_call_eq
+  category: normaldist
+  id_prefix: stat_nd
+
+  columns: [id, function, args, method, expected]
+  rows:
+    - [std_mean,    NormalDist, [0, 1], mean,     0.0]
+    - [std_stdev,   NormalDist, [0, 1], stdev,    1.0]
+    - [std_var,     NormalDist, [0, 1], variance, 1.0]
+    - [loc_mean,    NormalDist, [5, 2], mean,     5.0]
+    - [loc_stdev,   NormalDist, [5, 2], stdev,    2.0]
+
+invariant statistics_extra_rust.normaldist.cdf_at_mean:
+  description: "NormalDist(0, 1).cdf(0) == 0.5"
+  category: normaldist
+  kind: python_call_eq
+  function: NormalDist
+  args: [0, 1]
+  method: cdf
+  method_args: [0]
+  expected: 0.5
+
+invariant statistics_extra_rust.normaldist.zscore:
+  description: "NormalDist(0, 1).zscore(1) == 1.0"
+  category: normaldist
+  kind: python_call_eq
+  function: NormalDist
+  args: [0, 1]
+  method: zscore
+  method_args: [1]
+  expected: 1.0
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:32:44Z
+  iterations: 2
+  pass_count: 14
+  fail_count: 0
+  total_invariants: 14
+  notes: Synthesis succeeded in 2 iteration(s). 14 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

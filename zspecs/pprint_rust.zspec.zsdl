@@ -1,0 +1,105 @@
+spec: pprint_rust
+version: ">=3.9"
+backend: rust_module(pprint_rust)
+
+docs: https://docs.python.org/3/library/pprint.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pprint.html — Python pprint documentation"
+  not_derived_from:
+    - "CPython source: Lib/pprint.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python pprint module, exposed via PyO3."
+    - "pformat(obj) returns a string representation of obj, using repr for simple scalars."
+    - "pformat(42) == '42' — integers format like repr."
+    - "pformat('hello') == \"'hello'\" — strings include quotes."
+    - "pformat([1, 2, 3]) == '[1, 2, 3]' — short lists fit on one line (default width=80)."
+    - "pformat({'a': 1}) == \"{'a': 1}\" — short dicts fit on one line."
+    - "isreadable(obj) returns True if pformat output can be parsed back by eval()."
+    - "isrecursive(obj) returns True if obj contains recursive structures."
+    - "All test vectors verified against Python 3.14.3 pprint module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# pformat — format simple scalars
+table pprint_rust.pformat.scalars:
+  kind: python_call_eq
+  category: pformat
+  id_prefix: pformat
+  function: pformat
+
+  columns: [id, args, expected]
+  rows:
+    - [integer,    [42],     "42"]
+    - [string,     ["hello"], "'hello'"]
+    - [true,       [true],   "True"]
+    - [false,      [false],  "False"]
+    - [none,       [null],   "None"]
+
+# pformat — format collections
+table pprint_rust.pformat.collections:
+  kind: python_call_eq
+  category: pformat
+  id_prefix: pformat
+  function: pformat
+
+  columns: [id, args, expected]
+  rows:
+    - [empty_list, [[]], "[]"]
+    - [int_list,   [[1, 2, 3]], "[1, 2, 3]"]
+    - [single_dict, [{"a": 1}], "{'a': 1}"]
+    - [empty_dict, [{}], "{}"]
+    - [empty_tuple, [[]], "[]"]
+
+# pformat — nested short tuple
+invariant pprint_rust.pformat.nested_list:
+  description: "pformat([1, [2, 3]]) == '[1, [2, 3]]'"
+  category: pformat
+  kind: python_call_eq
+  function: pformat
+  args: [[1, [2, 3]]]
+  expected: "[1, [2, 3]]"
+
+# isreadable — returns True for simple readable objects
+table pprint_rust.isreadable.readable:
+  kind: python_call_eq
+  category: isreadable
+  id_prefix: isreadable
+  function: isreadable
+
+  columns: [id, args, expected]
+  rows:
+    - [integer,    [42],         true]
+    - [string,     ["hello"],    true]
+    - [int_list,   [[1, 2, 3]], true]
+    - [empty_dict, [{}],         true]
+    - [none_val,   [null],       true]
+
+# isrecursive — returns False for non-recursive structures
+table pprint_rust.isrecursive.non_recursive:
+  kind: python_call_eq
+  category: isrecursive
+  id_prefix: isrecursive
+  function: isrecursive
+
+  columns: [id, args, expected]
+  rows:
+    - [integer,  [42],         false]
+    - [string,   ["hello"],    false]
+    - [int_list, [[1, 2, 3]], false]
+    - [empty,    [[]],         false]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:33:18Z
+  iterations: 1
+  pass_count: 20
+  fail_count: 0
+  total_invariants: 20
+  notes: Synthesis succeeded in 1 iteration(s). 20 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

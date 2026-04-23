@@ -1,0 +1,103 @@
+spec: string_rust
+version: ">=3.9"
+backend: rust_module(string_rust)
+
+docs: https://docs.python.org/3/library/string.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/string.html — Python string module documentation"
+  not_derived_from:
+    - "CPython source: Lib/string.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python string module constants and capwords, via PyO3."
+    - "ascii_lowercase, ascii_uppercase, ascii_letters, digits, hexdigits, octdigits, punctuation, whitespace, printable are module-level str constants."
+    - "ascii_letters = ascii_lowercase + ascii_uppercase = 52 chars."
+    - "hexdigits includes lowercase a-f and uppercase A-F: 22 chars (10 digits + 12 letters)."
+    - "whitespace: space, tab, newline, CR, vertical tab, form feed = 6 chars."
+    - "printable = digits + ascii_letters + punctuation + whitespace = 100 chars."
+    - "capwords(s) splits on whitespace, capitalizes each word, rejoins with a single space."
+    - "capwords(s, sep) splits on sep, capitalizes, rejoins with sep."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# constant lengths
+table string_rust.constants.lengths:
+  kind: python_call_eq
+  category: constants
+  id_prefix: const_len
+
+  columns: [id, function, args, expected]
+  rows:
+    - [ascii_lowercase_len, ascii_lowercase.__len__, [], 26]
+    - [ascii_uppercase_len, ascii_uppercase.__len__, [], 26]
+    - [ascii_letters_len,   ascii_letters.__len__,   [], 52]
+    - [digits_len,          digits.__len__,          [], 10]
+    - [hexdigits_len,       hexdigits.__len__,       [], 22]
+    - [octdigits_len,       octdigits.__len__,       [], 8]
+    - [punctuation_len,     punctuation.__len__,     [], 32]
+    - [whitespace_len,      whitespace.__len__,      [], 6]
+    - [printable_len,       printable.__len__,       [], 100]
+
+# constant membership tests
+table string_rust.constants.contains:
+  kind: python_call_eq
+  category: constants
+  id_prefix: const_contains
+
+  columns: [id, function, args, expected]
+  rows:
+    - [lowercase_has_a,  ascii_lowercase.__contains__, ["a"], true]
+    - [lowercase_not_A,  ascii_lowercase.__contains__, ["A"], false]
+    - [uppercase_has_A,  ascii_uppercase.__contains__, ["A"], true]
+    - [uppercase_not_a,  ascii_uppercase.__contains__, ["a"], false]
+    - [digits_has_0,     digits.__contains__,          ["0"], true]
+    - [digits_has_9,     digits.__contains__,          ["9"], true]
+    - [hexdigits_has_a,  hexdigits.__contains__,       ["a"], true]
+    - [hexdigits_has_F,  hexdigits.__contains__,       ["F"], true]
+    - [hexdigits_not_g,  hexdigits.__contains__,       ["g"], false]
+    - [octdigits_has_7,  octdigits.__contains__,       ["7"], true]
+    - [octdigits_not_8,  octdigits.__contains__,       ["8"], false]
+
+# capwords — capitalize each word, collapse whitespace
+table string_rust.capwords.basic:
+  kind: python_call_eq
+  category: capwords
+  id_prefix: capwords
+  function: capwords
+
+  columns: [id, args, expected]
+  rows:
+    - [simple,        ["hello world"],      "Hello World"]
+    - [already_upper, ["HELLO WORLD"],      "Hello World"]
+    - [three_words,   ["one two three"],    "One Two Three"]
+    - [extra_spaces,  ["  hello  world  "], "Hello World"]
+    - [single_word,   ["hello"],            "Hello"]
+    - [mixed_case,    ["hElLo WoRlD"],      "Hello World"]
+
+# capwords with separator
+table string_rust.capwords.sep:
+  kind: python_call_eq
+  category: capwords
+  id_prefix: capwords_sep
+  function: capwords
+
+  columns: [id, args, expected]
+  rows:
+    - [hyphen_sep, ["hello-world", "-"],   "Hello-World"]
+    - [comma_sep,  ["one,two,three", ","], "One,Two,Three"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:10:44Z
+  iterations: 1
+  pass_count: 28
+  fail_count: 0
+  total_invariants: 28
+  notes: Synthesis succeeded in 1 iteration(s). 28 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

@@ -1,0 +1,117 @@
+spec: types_rust
+version: ">=3.9"
+backend: rust_module(types_rust)
+
+docs: https://docs.python.org/3/library/types.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/types.html — Python types documentation"
+  not_derived_from:
+    - "CPython source: Lib/types.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python types module, exposed via PyO3."
+    - "SimpleNamespace(**kwargs) creates an object with arbitrary attributes set from kwargs."
+    - "SimpleNamespace MUST expose __dict__ as a property returning a plain Python dict of stored attrs."
+    - "SimpleNamespace(x=1, y=2).__dict__ == {'x': 1, 'y': 2}."
+    - "MappingProxyType(d) wraps a dict in a read-only proxy."
+    - "MappingProxyType(d).__getitem__(key) returns d[key]."
+    - "MappingProxyType(d).__len__() returns len(d)."
+    - "MappingProxyType(d).__contains__(key) returns key in d."
+    - "MappingProxyType(d).get(key, default) returns d.get(key, default)."
+    - "All test vectors verified against Python 3.14.3 types module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# SimpleNamespace — verify attribute storage via __dict__ property
+invariant types_rust.SimpleNamespace.xy_dict:
+  description: "SimpleNamespace(x=1, y=2).__dict__ == {'x': 1, 'y': 2}"
+  category: SimpleNamespace
+  kind: python_call_eq
+  function: SimpleNamespace
+  kwargs: {x: 1, y: 2}
+  method: __dict__
+  expected: {x: 1, y: 2}
+
+invariant types_rust.SimpleNamespace.name_dict:
+  description: "SimpleNamespace(name='hello').__dict__ == {'name': 'hello'}"
+  category: SimpleNamespace
+  kind: python_call_eq
+  function: SimpleNamespace
+  kwargs: {name: "hello"}
+  method: __dict__
+  expected: {name: "hello"}
+
+invariant types_rust.SimpleNamespace.empty_dict:
+  description: "SimpleNamespace().__dict__ == {}"
+  category: SimpleNamespace
+  kind: python_call_eq
+  function: SimpleNamespace
+  kwargs: {}
+  method: __dict__
+  expected: {}
+
+invariant types_rust.SimpleNamespace.bool_dict:
+  description: "SimpleNamespace(flag=true).__dict__ == {'flag': True}"
+  category: SimpleNamespace
+  kind: python_call_eq
+  function: SimpleNamespace
+  kwargs: {flag: true}
+  method: __dict__
+  expected: {flag: true}
+
+# MappingProxyType — read-only dict proxy
+table types_rust.MappingProxyType.getitem:
+  kind: python_call_eq
+  category: MappingProxyType
+  id_prefix: proxy_get
+  function: MappingProxyType
+  method: __getitem__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [str_key,  [{"a": 1, "b": 2}], ["a"], 1]
+    - [str_key2, [{"a": 1, "b": 2}], ["b"], 2]
+    - [int_val,  [{"x": 42}],        ["x"], 42]
+
+table types_rust.MappingProxyType.len:
+  kind: python_call_eq
+  category: MappingProxyType
+  id_prefix: proxy_len
+  function: MappingProxyType
+  method: __len__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [empty,   [{}],              0]
+    - [one,     [{"a": 1}],        1]
+    - [two,     [{"a": 1, "b": 2}], 2]
+
+table types_rust.MappingProxyType.contains:
+  kind: python_call_eq
+  category: MappingProxyType
+  id_prefix: proxy_has
+  function: MappingProxyType
+  method: __contains__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [has_key,     [{"a": 1, "b": 2}], ["a"],   true]
+    - [has_key2,    [{"a": 1, "b": 2}], ["b"],   true]
+    - [missing_key, [{"a": 1}],         ["z"],   false]
+
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:47:16Z
+  iterations: 1
+  pass_count: 13
+  fail_count: 0
+  total_invariants: 13
+  notes: Synthesis succeeded in 1 iteration(s). 13 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

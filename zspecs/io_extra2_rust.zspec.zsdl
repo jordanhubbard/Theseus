@@ -1,0 +1,94 @@
+spec: io_extra2_rust
+version: ">=3.9"
+backend: rust_module(io_extra2_rust)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io documentation"
+  not_derived_from:
+    - "CPython source: Modules/_io/_iomodule.c"
+  notes:
+    - "io.StringIO and BytesIO operations not covered in io_extra_rust (SEEK_*, BytesIO.seek)."
+    - "Expose stringio_read(s) -> str: io.StringIO(s).read() == s."
+    - "Expose stringio_getvalue(s) -> str: io.StringIO(s).getvalue() == s."
+    - "Expose bytesio_read(b) -> bytes: io.BytesIO(b).read() == b."
+    - "Expose bytesio_getvalue(b) -> bytes: io.BytesIO(b).getvalue() == b."
+    - "Expose stringio_tell_start(s) -> int: io.StringIO(s).tell() == 0 initially."
+    - "Expose stringio_len_after_write(s) -> int: write s to StringIO, return tell()."
+    - "stringio_read('hello') == 'hello', stringio_getvalue('hello') == 'hello'."
+    - "All test vectors verified against Python 3.14.3 io module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# stringio_read — read from StringIO initialized with string
+table io_extra2_rust.stringio.read:
+  kind: python_call_eq
+  category: stringio
+  id_prefix: io2_sr
+  function: stringio_read
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,   ["hello"],    "hello"]
+    - [empty,   [""],         ""]
+    - [spaces,  ["  hi  "],   "  hi  "]
+    - [unicode, ["café"],     "café"]
+
+# stringio_getvalue — getvalue from StringIO
+table io_extra2_rust.stringio.getvalue:
+  kind: python_call_eq
+  category: stringio
+  id_prefix: io2_sv
+  function: stringio_getvalue
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,  ["hello"], "hello"]
+    - [empty,  [""],      ""]
+    - [lines,  ["a\nb"],  "a\nb"]
+
+# bytesio_read — read from BytesIO initialized with bytes
+table io_extra2_rust.bytesio.read:
+  kind: python_call_eq
+  category: bytesio
+  id_prefix: io2_br
+  function: bytesio_read
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,  [b"hello"],  b"hello"]
+    - [empty,  [b""],       b""]
+    - [bytes,  [b"\x00\xff"], b"\x00\xff"]
+
+# stringio tell position
+invariant io_extra2_rust.stringio.tell_zero:
+  description: "io.StringIO('hello').tell() == 0 at start"
+  category: tell
+  kind: python_call_eq
+  function: stringio_tell_start
+  args: ["hello"]
+  expected: 0
+
+invariant io_extra2_rust.stringio.len_after_write:
+  description: "writing 5 chars to StringIO, tell() == 5"
+  category: tell
+  kind: python_call_eq
+  function: stringio_len_after_write
+  args: ["hello"]
+  expected: 5
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T23:49:18Z
+  iterations: 1
+  pass_count: 12
+  fail_count: 0
+  total_invariants: 12
+  notes: Synthesis succeeded in 1 iteration(s). 12 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

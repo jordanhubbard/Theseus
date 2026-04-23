@@ -1,0 +1,71 @@
+spec: errno_rust
+version: ">=3.9"
+backend: rust_module(errno_rust)
+
+docs: https://docs.python.org/3/library/errno.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/errno.html — Python errno documentation"
+    - "POSIX.1-2017 — error number definitions"
+  not_derived_from:
+    - "CPython source: Modules/errnomodule.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python errno module, exposed via PyO3."
+    - "Exposes POSIX error number constants as module-level integer attributes AND as 'errorcode' dict."
+    - "errorcode is a Python dict mapping int → str, e.g. {1: 'EPERM', 2: 'ENOENT', ...}."
+    - "Module-level constants: EPERM=1, ENOENT=2, EINTR=4, EBADF=9, ENOMEM=12, EACCES=13."
+    - "Module-level constants: EINVAL=22, ENOSPC=28, EPIPE=32, EDOM=33, ERANGE=34."
+    - "Values are stable POSIX constants identical on Linux and macOS."
+    - "In PyO3, expose constants with m.add('EPERM', 1_i32)? and build errorcode as a PyDict."
+    - "All test vectors verified against Python 3.14.3 errno module on POSIX."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# errorcode dict — maps integer error number to name string
+table errno_rust.errorcode.forward:
+  kind: python_call_eq
+  category: errorcode
+  id_prefix: errorcode
+  function: errorcode.__getitem__
+
+  columns: [id, args, expected]
+  rows:
+    - [EPERM,   [1],  "EPERM"]
+    - [ENOENT,  [2],  "ENOENT"]
+    - [EINTR,   [4],  "EINTR"]
+    - [EBADF,   [9],  "EBADF"]
+    - [ENOMEM,  [12], "ENOMEM"]
+    - [EACCES,  [13], "EACCES"]
+    - [EINVAL,  [22], "EINVAL"]
+    - [ENOSPC,  [28], "ENOSPC"]
+    - [EPIPE,   [32], "EPIPE"]
+    - [EDOM,    [33], "EDOM"]
+    - [ERANGE,  [34], "ERANGE"]
+
+# errorcode __contains__ — error numbers are present as keys
+table errno_rust.errorcode.contains:
+  kind: python_call_eq
+  category: errorcode
+  id_prefix: errorcode_has
+
+  columns: [id, function, args, expected]
+  rows:
+    - [has_1,  errorcode.__contains__, [1],  true]
+    - [has_2,  errorcode.__contains__, [2],  true]
+    - [has_22, errorcode.__contains__, [22], true]
+
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:37:37Z
+  iterations: 1
+  pass_count: 14
+  fail_count: 0
+  total_invariants: 14
+  notes: Synthesis succeeded in 1 iteration(s). 14 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

@@ -1,0 +1,94 @@
+spec: urllib3_rust
+version: ">=3.9"
+backend: rust_module(urllib3_rust)
+
+docs: https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.url.html
+
+provenance:
+  derived_from:
+    - "https://urllib3.readthedocs.io/ — urllib3 documentation"
+  not_derived_from:
+    - "urllib3 source: src/urllib3/util/url.py"
+  notes:
+    - "Clean-room Rust reimplementation of urllib3 URL parsing utilities, exposed via PyO3."
+    - "parse_url is imported from urllib3.util.url."
+    - "parse_url('http://example.com/path').scheme == 'http'."
+    - "parse_url('http://example.com/path').host == 'example.com'."
+    - "parse_url('http://example.com/path').path == '/path'."
+    - "parse_url('http://example.com:8080/').port == 8080."
+    - "parse_url('http://example.com/path?q=test').query == 'q=test'."
+    - "All test vectors verified against urllib3 2.5.0."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# parse_url — parse URL into components
+table urllib3_rust.parse_url.scheme:
+  kind: python_call_eq
+  category: scheme
+  id_prefix: u3_scheme
+  function: parse_url
+  method: scheme
+
+  columns: [id, args, expected]
+  rows:
+    - [http,  ["http://example.com/"],  "http"]
+    - [https, ["https://example.com/"], "https"]
+    - [ftp,   ["ftp://files.example.com/"], "ftp"]
+
+table urllib3_rust.parse_url.host:
+  kind: python_call_eq
+  category: host
+  id_prefix: u3_host
+  function: parse_url
+  method: host
+
+  columns: [id, args, expected]
+  rows:
+    - [example,   ["http://example.com/"],         "example.com"]
+    - [subdomain, ["https://api.example.com/v1"],  "api.example.com"]
+    - [ip,        ["http://192.168.1.1/"],          "192.168.1.1"]
+
+table urllib3_rust.parse_url.path:
+  kind: python_call_eq
+  category: path
+  id_prefix: u3_path
+  function: parse_url
+  method: path
+
+  columns: [id, args, expected]
+  rows:
+    - [root,    ["http://example.com/"],           "/"]
+    - [slash,   ["http://example.com/path/here"],  "/path/here"]
+    - [nested,  ["https://x.com/a/b/c"],           "/a/b/c"]
+
+invariant urllib3_rust.parse_url.port:
+  description: "parse_url('http://example.com:8080/').port == 8080"
+  category: port
+  kind: python_call_eq
+  function: parse_url
+  args: ["http://example.com:8080/"]
+  method: port
+  expected: 8080
+
+invariant urllib3_rust.parse_url.query:
+  description: "parse_url('http://example.com/p?q=test').query == 'q=test'"
+  category: query
+  kind: python_call_eq
+  function: parse_url
+  args: ["http://example.com/p?q=test"]
+  method: query
+  expected: "q=test"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:33:52Z
+  iterations: 1
+  pass_count: 11
+  fail_count: 0
+  total_invariants: 11
+  notes: Synthesis succeeded in 1 iteration(s). 11 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

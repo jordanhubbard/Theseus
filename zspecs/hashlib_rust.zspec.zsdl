@@ -1,0 +1,175 @@
+spec: hashlib_rust
+version: ">=3.9"
+backend: rust_module(hashlib_rust)
+
+docs: https://docs.python.org/3/library/hashlib.html
+rfcs:
+  - "FIPS 180-4 — Secure Hash Standard (SHS)"
+  - "RFC 1321 — The MD5 Message-Digest Algorithm"
+
+provenance:
+  derived_from:
+    - "FIPS 180-4 — Secure Hash Standard (SHS), NIST, August 2015"
+    - "RFC 1321 — The MD5 Message-Digest Algorithm, April 1992"
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation (API surface and semantics)"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+    - "CPython source: Modules/_sha256module.c"
+    - "CPython source: Modules/_sha512module.c"
+    - "CPython source: Modules/md5module.c"
+    - "OpenSSL source code"
+  notes:
+    - "Clean-room Rust reimplementation of the Python hashlib module API, exposed via PyO3."
+    - "May use the sha2, sha1, md5, sha3 Rust crates (independent implementations of FIPS 180-4/RFC 1321; not derived from CPython)."
+    - "sha256(data=b'', usedforsecurity=True) -> hash_object — constructs a SHA-256 hasher."
+    - "sha1(data=b'', usedforsecurity=True) -> hash_object — constructs a SHA-1 hasher."
+    - "sha512(data=b'', usedforsecurity=True) -> hash_object — constructs a SHA-512 hasher."
+    - "md5(data=b'', usedforsecurity=True) -> hash_object — constructs an MD5 hasher."
+    - "new(name: str, data=b'', usedforsecurity=True) -> hash_object — constructs a hasher by name."
+    - "hash_object API: update(data: bytes), digest() -> bytes, hexdigest() -> str, copy() -> hash_object, digest_size: int, block_size: int, name: str."
+    - "algorithms_guaranteed: frozenset[str] — set of guaranteed algorithm names."
+    - "usedforsecurity is accepted as a keyword argument and ignored (no FIPS enforcement)."
+    - "SHA-256('') = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (FIPS 180-4)."
+    - "SHA-256('abc') = ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad (FIPS 180-4)."
+    - "MD5('') = d41d8cd98f00b204e9800998ecf8427e (RFC 1321 A.5)."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table hashlib_rust.sha256.known_vectors:
+  kind: hash_known_vector
+  category: known_vector
+  algorithm: sha256
+  id_prefix: sha256
+
+  columns: [id, data_b64, expected_hex, rfc]
+  rows:
+    - [empty,        "",       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "FIPS 180-4"]
+    - [abc,          "YWJj",   "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "FIPS 180-4"]
+    - [fips_message2,"YWJjZGJjZGVjZGVmZGVmZ2VmZ2hmZ2hpZ2hpamhpamtpamtsamtsbWtsbW5sbW5vbW5vcG5vcHE=",
+       "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1", "FIPS 180-4 Appendix B"]
+
+table hashlib_rust.sha1.known_vectors:
+  kind: hash_known_vector
+  category: known_vector
+  algorithm: sha1
+  id_prefix: sha1
+
+  columns: [id, data_b64, expected_hex, rfc]
+  rows:
+    - [empty, "",     "da39a3ee5e6b4b0d3255bfef95601890afd80709", "FIPS 180-4"]
+    - [abc,   "YWJj", "a9993e364706816aba3e25717850c26c9cd0d89d", "FIPS 180-4"]
+
+table hashlib_rust.md5.known_vectors:
+  kind: hash_known_vector
+  category: known_vector
+  algorithm: md5
+  id_prefix: md5
+
+  columns: [id, data_b64, expected_hex, rfc]
+  rows:
+    - [empty, "",     "d41d8cd98f00b204e9800998ecf8427e", "RFC 1321 A.5"]
+    - [abc,   "YWJj", "900150983cd24fb0d6963f7d28e17f72", "RFC 1321 A.5"]
+
+invariant hashlib_rust.md5.quick_brown_fox:
+  description: "MD5 of the quick-brown-fox test string"
+  category: known_vector
+  kind: hash_known_vector
+  algorithm: md5
+  data_b64: "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw=="
+  expected_hex: "9e107d9d372bb6826bd81d3542a419d6"
+
+table hashlib_rust.sha512.known_vectors:
+  kind: hash_known_vector
+  category: known_vector
+  algorithm: sha512
+  id_prefix: sha512
+
+  columns: [id, data_b64, expected_hex, rfc]
+  rows:
+    - [empty, "", "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
+       "FIPS 180-4"]
+    - [abc,   "YWJj", "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
+       "FIPS 180-4"]
+
+table hashlib_rust.incremental:
+  kind: hash_incremental
+  category: incremental
+
+  columns: [id, algorithm, chunks, full_data_b64]
+  rows:
+    - [sha256.incremental, sha256, [SGVs, "bG8="], "SGVsbG8="]
+    - [sha1.incremental,   sha1,   [SGVs, "bG8="], "SGVsbG8="]
+    - [md5.incremental,    md5,    [SGVs, "bG8="], "SGVsbG8="]
+
+table hashlib_rust.sha256.attrs:
+  kind: hash_object_attr
+  category: properties
+  algorithm: sha256
+  rfc: "FIPS 180-4 Section 1"
+  id_prefix: sha256
+
+  columns: [id, attr, expected]
+  rows:
+    - [digest_size, digest_size, 32]
+    - [block_size,  block_size,  64]
+
+table hashlib_rust.attrs_no_rfc:
+  kind: hash_object_attr
+  category: properties
+
+  columns: [id, algorithm, attr, expected]
+  rows:
+    - [sha1.digest_size,   sha1,   digest_size, 20]
+    - [md5.digest_size,    md5,    digest_size, 16]
+    - [sha512.digest_size, sha512, digest_size, 64]
+
+invariant hashlib_rust.sha256.name_attr:
+  description: "SHA-256 hash object .name must be 'sha256'"
+  category: properties
+  kind: hash_object_attr
+  algorithm: sha256
+  attr: name
+  expected: "sha256"
+
+invariant hashlib_rust.algorithms_guaranteed.core_set:
+  description: "algorithms_guaranteed must contain sha1, sha256, sha512, md5"
+  category: algorithms
+  kind: python_set_contains
+  attribute: algorithms_guaranteed
+  must_contain: [sha1, sha256, sha512, md5]
+
+invariant hashlib_rust.sha256.digest_consistency:
+  description: "h.digest() must equal bytes.fromhex(h.hexdigest())"
+  category: consistency
+  kind: hash_digest_consistency
+  algorithm: sha256
+  data_b64: "SGVsbG8gV29ybGQ="
+
+invariant hashlib_rust.sha256.copy_independence:
+  description: "h.copy() must produce an independent object"
+  category: copy_semantics
+  kind: hash_copy_independence
+  algorithm: sha256
+  initial_data_b64: "SGVs"
+  extra_data_b64: "bG8="
+
+invariant hashlib_rust.sha256.new_equals_constructor:
+  description: "hashlib_rust.new('sha256', data) must produce same digest as hashlib_rust.sha256(data)"
+  category: api_equivalence
+  kind: hash_api_equivalence
+  algorithm: sha256
+  data_b64: "SGVsbG8gV29ybGQ="
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:45:50Z
+  iterations: 2
+  pass_count: 23
+  fail_count: 0
+  total_invariants: 23
+  notes: Synthesis succeeded in 2 iteration(s). 23 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

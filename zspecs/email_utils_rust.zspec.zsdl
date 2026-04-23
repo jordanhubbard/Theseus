@@ -1,0 +1,86 @@
+spec: email_utils_rust
+version: ">=3.9"
+backend: rust_module(email_utils_rust)
+
+docs: https://docs.python.org/3/library/email.utils.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/email.utils.html — Python email.utils documentation"
+    - "RFC 5322 — Internet Message Format"
+  not_derived_from:
+    - "CPython source: Lib/email/utils.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python email.utils module, exposed via PyO3."
+    - "parseaddr(addr) parses a display-name + email address string."
+    - "parseaddr('User <user@example.com>') returns ('User', 'user@example.com')."
+    - "parseaddr('user@example.com') returns ('', 'user@example.com') — no display name."
+    - "parseaddr('') returns ('', '') — empty string."
+    - "formataddr((realname, address)) formats back to RFC 5322 form."
+    - "formataddr(('User', 'user@example.com')) == 'User <user@example.com>'."
+    - "formataddr(('', 'user@example.com')) == 'user@example.com' — no display name."
+    - "parseaddr and formataddr are inverse for simple cases."
+    - "All test vectors verified against Python 3.14.3 email.utils module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# parseaddr — parse realname and email
+table email_utils_rust.parseaddr.vectors:
+  kind: python_call_eq
+  category: parseaddr
+  id_prefix: parse
+  function: parseaddr
+
+  columns: [id, args, expected]
+  rows:
+    - [full,       ["User <user@example.com>"], ["User", "user@example.com"]]
+    - [no_name,    ["user@example.com"],         ["", "user@example.com"]]
+    - [with_name2, ["Alice <alice@foo.org>"],    ["Alice", "alice@foo.org"]]
+
+# parseaddr — individual tuple components
+invariant email_utils_rust.parseaddr.full_name:
+  description: "parseaddr('User <user@example.com>')[0] == 'User'"
+  category: parseaddr
+  kind: python_call_eq
+  function: parseaddr
+  args: ["User <user@example.com>"]
+  method: __getitem__
+  method_args: [0]
+  expected: "User"
+
+invariant email_utils_rust.parseaddr.full_addr:
+  description: "parseaddr('User <user@example.com>')[1] == 'user@example.com'"
+  category: parseaddr
+  kind: python_call_eq
+  function: parseaddr
+  args: ["User <user@example.com>"]
+  method: __getitem__
+  method_args: [1]
+  expected: "user@example.com"
+
+# formataddr — format (realname, address) tuple
+table email_utils_rust.formataddr.vectors:
+  kind: python_call_eq
+  category: formataddr
+  id_prefix: format
+  function: formataddr
+
+  columns: [id, args, expected]
+  rows:
+    - [with_name,    [["User", "user@example.com"]], "User <user@example.com>"]
+    - [no_name,      [["", "user@example.com"]],     "user@example.com"]
+    - [alice,        [["Alice", "alice@foo.org"]],   "Alice <alice@foo.org>"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T21:05:27Z
+  iterations: 1
+  pass_count: 8
+  fail_count: 0
+  total_invariants: 8
+  notes: Synthesis succeeded in 1 iteration(s). 8 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

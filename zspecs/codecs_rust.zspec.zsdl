@@ -1,0 +1,106 @@
+spec: codecs_rust
+version: ">=3.9"
+backend: rust_module(codecs_rust)
+
+docs: https://docs.python.org/3/library/codecs.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/codecs.html — Python codecs documentation"
+  not_derived_from:
+    - "CPython source: Lib/codecs.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python codecs module, exposed via PyO3."
+    - "encode(s, encoding) encodes str to bytes using the named codec."
+    - "decode(b, encoding) decodes bytes to str using the named codec."
+    - "encode('hello', 'utf-8') == b'hello' (ASCII subset is identical)."
+    - "decode(b'hello', 'utf-8') == 'hello'."
+    - "encode('ABC', 'ascii') == b'ABC'; decode(b'ABC', 'ascii') == 'ABC'."
+    - "encode('hello', 'latin-1') == b'hello' (Latin-1 = bytes 0-255 identity)."
+    - "UnicodeDecodeError raised for invalid byte sequences with strict error handler."
+    - "All test vectors verified against Python 3.14.3 codecs module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# encode → bytes, verified via roundtrip decode
+table codecs_rust.encode.utf8_roundtrip:
+  kind: python_call_eq
+  category: encode
+  id_prefix: enc_utf8
+  function: encode
+  method: decode
+  method_args: ["utf-8"]
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,    ["hello",      "utf-8"], "hello"]
+    - [empty,    ["",           "utf-8"], ""]
+    - [abc,      ["abc",        "utf-8"], "abc"]
+    - [digits,   ["0123456789", "utf-8"], "0123456789"]
+
+table codecs_rust.encode.ascii_roundtrip:
+  kind: python_call_eq
+  category: encode
+  id_prefix: enc_ascii
+  function: encode
+  method: decode
+  method_args: ["ascii"]
+
+  columns: [id, args, expected]
+  rows:
+    - [upper,  ["ABC",   "ascii"], "ABC"]
+    - [lower,  ["xyz",   "ascii"], "xyz"]
+    - [empty,  ["",      "ascii"], ""]
+
+# encode length — byte length matches char length for ASCII
+table codecs_rust.encode.utf8_len:
+  kind: python_call_eq
+  category: encode
+  id_prefix: enc_len
+  function: encode
+  method: __len__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [hello_len,  ["hello",      "utf-8"], 5]
+    - [empty_len,  ["",           "utf-8"], 0]
+    - [three_len,  ["abc",        "utf-8"], 3]
+
+# decode — bytes to str
+table codecs_rust.decode.utf8:
+  kind: python_call_eq
+  category: decode
+  id_prefix: dec_utf8
+  function: decode
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,  [!b64 aGVsbG8=,  "utf-8"], "hello"]
+    - [empty,  [!b64 "",        "utf-8"], ""]
+    - [abc,    [!b64 YWJj,      "utf-8"], "abc"]
+
+table codecs_rust.decode.ascii:
+  kind: python_call_eq
+  category: decode
+  id_prefix: dec_ascii
+  function: decode
+
+  columns: [id, args, expected]
+  rows:
+    - [upper, [!b64 QUJD, "ascii"], "ABC"]
+    - [lower, [!b64 eHl6, "ascii"], "xyz"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:42:16Z
+  iterations: 1
+  pass_count: 15
+  fail_count: 0
+  total_invariants: 15
+  notes: Synthesis succeeded in 1 iteration(s). 15 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

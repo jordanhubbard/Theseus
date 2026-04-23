@@ -1,0 +1,88 @@
+spec: csv_rust
+version: ">=3.9"
+backend: rust_module(csv_rust)
+
+docs: https://docs.python.org/3/library/csv.html
+rfcs:
+  - "RFC 4180 — Common Format and MIME Type for Comma-Separated Values (CSV) Files"
+
+provenance:
+  derived_from:
+    - "RFC 4180 — Common Format and MIME Type for Comma-Separated Values (CSV) Files, October 2005"
+    - "https://docs.python.org/3/library/csv.html — Python csv documentation (API surface)"
+  not_derived_from:
+    - "CPython source: Modules/_csv.c"
+  notes:
+    - "Clean-room Rust reimplementation of CSV parsing and formatting, exposed via PyO3."
+    - "May use the 'csv' Rust crate (independent RFC 4180 implementation)."
+    - "parse(csv_string: str) -> list[list[str]] — parse CSV text into rows of fields."
+    - "format_row(fields: list[str]) -> str — format a single row as a CSV line (no trailing newline)."
+    - "format_rows(rows: list[list[str]]) -> str — format multiple rows separated by CRLF or LF."
+    - "Fields containing commas, double-quotes, or newlines are quoted per RFC 4180."
+    - "Embedded double-quotes are escaped by doubling: '\"\"' represents one '\"'."
+    - "parse handles both LF and CRLF line endings."
+    - "Empty string parse returns empty list."
+    - "All test vectors verified against Python 3.14.3 csv module."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table csv_rust.parse.simple:
+  kind: python_call_eq
+  category: parse
+  id_prefix: parse
+  function: parse
+
+  columns: [id, args, expected]
+  rows:
+    - [single_row,        ["a,b,c\n"],              [["a","b","c"]]               ]
+    - [two_rows,          ["1,2,3\n4,5,6\n"],        [["1","2","3"],["4","5","6"]] ]
+    - [empty_string,      [""],                      []                            ]
+    - [single_field,      ["hello\n"],               [["hello"]]                   ]
+    - [quoted_field,      ["\"hello, world\"\n"],     [["hello, world"]]            ]
+    - [escaped_quote,     ["\"a\"\"b\"\n"],           [["a\"b"]]                   ]
+    - [no_trailing_nl,    ["a,b,c"],                  [["a","b","c"]]               ]
+
+table csv_rust.format_row:
+  kind: python_call_eq
+  category: format
+  id_prefix: format_row
+  function: format_row
+
+  columns: [id, args, expected]
+  rows:
+    - [simple,        [["a", "b", "c"]],           "a,b,c"          ]
+    - [with_space,    [["hello", "world"]],          "hello,world"    ]
+    - [needs_quotes,  [["a,b", "c"]],               "\"a,b\",c"      ]
+    - [empty_field,   [["a", "", "c"]],              "a,,c"           ]
+    - [quote_in_val,  [["say \"hi\""]],              "\"say \"\"hi\"\"\""  ]
+    - [single,        [["only"]],                    "only"           ]
+
+invariant csv_rust.roundtrip.parse_format:
+  description: "format_row then parse is lossless for simple fields"
+  category: roundtrip
+  kind: python_call_eq
+  function: parse
+  args: ["name,age,city\nAlice,30,NYC\nBob,25,LA\n"]
+  expected: [["name","age","city"],["Alice","30","NYC"],["Bob","25","LA"]]
+
+invariant csv_rust.parse.quoted_with_newline:
+  description: "parse handles embedded newline in quoted field"
+  category: parse
+  kind: python_call_eq
+  function: parse
+  args: ["\"line1\nline2\",b\n"]
+  expected: [["line1\nline2","b"]]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:06:12Z
+  iterations: 1
+  pass_count: 15
+  fail_count: 0
+  total_invariants: 15
+  notes: Synthesis succeeded in 1 iteration(s). 15 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

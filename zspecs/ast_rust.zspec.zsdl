@@ -1,0 +1,93 @@
+spec: ast_rust
+version: ">=3.9"
+backend: rust_module(ast_rust)
+
+docs: https://docs.python.org/3/library/ast.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/ast.html — Python ast documentation"
+  not_derived_from:
+    - "CPython source: Lib/ast.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python ast.literal_eval, exposed via PyO3."
+    - "literal_eval(s) safely evaluates a string containing a Python literal."
+    - "literal_eval('42') == 42 — integer literal."
+    - "literal_eval(\"'hello'\") == 'hello' — string literal."
+    - "literal_eval('[1, 2, 3]') == [1, 2, 3] — list literal."
+    - "literal_eval('True') == True — boolean literal."
+    - "literal_eval('None') == None — None literal."
+    - "literal_eval('(3, 2)') returns (3, 2) — tuple literal (compared as list)."
+    - "All test vectors verified against Python 3.14.3 ast module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# literal_eval — safe evaluation of Python literal expressions
+table ast_rust.literal_eval.scalars:
+  kind: python_call_eq
+  category: literal_eval
+  id_prefix: liteval
+  function: literal_eval
+
+  columns: [id, args, expected]
+  rows:
+    - [integer,  ["42"],    42]
+    - [neg_int,  ["-7"],    -7]
+    - [zero,     ["0"],      0]
+    - [string,   ["'hello'"], "hello"]
+    - [empty_s,  ["''"],    ""]
+    - [true,     ["True"],  true]
+    - [false,    ["False"], false]
+    - [none,     ["None"],  null]
+
+# literal_eval — list and tuple literals
+invariant ast_rust.literal_eval.list123:
+  description: "literal_eval('[1, 2, 3]') == [1, 2, 3]"
+  category: literal_eval
+  kind: python_call_eq
+  function: literal_eval
+  args: ["[1, 2, 3]"]
+  expected: [1, 2, 3]
+
+invariant ast_rust.literal_eval.list_empty:
+  description: "literal_eval('[]') == []"
+  category: literal_eval
+  kind: python_call_eq
+  function: literal_eval
+  args: ["[]"]
+  expected: []
+
+invariant ast_rust.literal_eval.tuple_as_list:
+  description: "literal_eval('(3, 2)') is a 2-tuple, compared as [3, 2]"
+  category: literal_eval
+  kind: python_call_eq
+  function: literal_eval
+  args: ["(3, 2)"]
+  expected: [3, 2]
+
+# literal_eval — numeric formats
+table ast_rust.literal_eval.numbers:
+  kind: python_call_eq
+  category: literal_eval
+  id_prefix: litnum
+  function: literal_eval
+
+  columns: [id, args, expected]
+  rows:
+    - [float_pi,  ["3.14"],   3.14]
+    - [neg_float, ["-2.5"],  -2.5]
+    - [big_int,   ["1000"], 1000]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T21:26:40Z
+  iterations: 1
+  pass_count: 14
+  fail_count: 0
+  total_invariants: 14
+  notes: Synthesis succeeded in 1 iteration(s). 14 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

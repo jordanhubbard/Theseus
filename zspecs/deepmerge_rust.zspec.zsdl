@@ -1,0 +1,67 @@
+spec: deepmerge_rust
+version: ">=3.9"
+backend: rust_module(deepmerge_rust)
+
+docs: https://deepmerge.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "https://deepmerge.readthedocs.io/ — deepmerge documentation"
+  not_derived_from:
+    - "deepmerge source: deepmerge/merger.py"
+  notes:
+    - "deepmerge merges nested Python data structures."
+    - "deepmerge.always_merger.merge({'a': 1}, {'b': 2}) == {'a': 1, 'b': 2}."
+    - "deepmerge.always_merger.merge({'a': {'x': 1}}, {'a': {'y': 2}}) == {'a': {'x': 1, 'y': 2}}."
+    - "Expose merge_flat(d1, d2) -> dict: always_merger.merge(d1, d2)."
+    - "Expose merge_nested(outer_key, inner1, inner2) -> dict: nested merge."
+    - "merge_flat({'a': 1}, {'b': 2}) == {'a': 1, 'b': 2}."
+    - "merge_flat({'x': 10}, {'x': 20}) == {'x': 20} — right side wins for scalars."
+    - "All test vectors verified against deepmerge 2.0."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# merge_flat — flat dict merge
+table deepmerge_rust.flat.merge:
+  kind: python_call_eq
+  category: flat
+  id_prefix: dm_flat
+  function: merge_flat
+
+  columns: [id, args, expected]
+  rows:
+    - [disjoint,  [{"a": 1}, {"b": 2}],       {"a": 1, "b": 2}]
+    - [overlap,   [{"x": 10}, {"x": 20}],     {"x": 20}]
+    - [empty_r,   [{"a": 1}, {}],              {"a": 1}]
+    - [empty_l,   [{}, {"b": 2}],              {"b": 2}]
+
+# merge_nested — nested dict merge
+invariant deepmerge_rust.nested.merge_inner:
+  description: "merge({'a': {'x': 1}}, {'a': {'y': 2}}) == {'a': {'x': 1, 'y': 2}}"
+  category: nested
+  kind: python_call_eq
+  function: merge_nested
+  args: [{"a": {"x": 1}}, {"a": {"y": 2}}]
+  expected: {"a": {"x": 1, "y": 2}}
+
+invariant deepmerge_rust.nested.merge_extend:
+  description: "merge({'a': {'x': 1}}, {'b': 2}) == {'a': {'x': 1}, 'b': 2}"
+  category: nested
+  kind: python_call_eq
+  function: merge_nested
+  args: [{"a": {"x": 1}}, {"b": 2}]
+  expected: {"a": {"x": 1}, "b": 2}
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-20T00:43:58Z
+  iterations: 1
+  pass_count: 6
+  fail_count: 0
+  total_invariants: 6
+  notes: Synthesis succeeded in 1 iteration(s). 6 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

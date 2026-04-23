@@ -1,0 +1,148 @@
+spec: pathlib_rust
+version: ">=3.9"
+backend: rust_module(pathlib_rust)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation (API surface)"
+    - "IEEE Std 1003.1-2017 (POSIX) — Path resolution rules for pure path manipulation"
+  not_derived_from:
+    - "CPython source: Lib/pathlib/__init__.py"
+    - "CPython source: Lib/pathlib/_local.py"
+  notes:
+    - "Clean-room Rust reimplementation of POSIX pure path manipulation, exposed via PyO3."
+    - "All functions operate on path strings only — no filesystem access."
+    - "name(path) -> str — final component of path (e.g. 'baz.txt')."
+    - "stem(path) -> str — name without extension (e.g. 'baz')."
+    - "suffix(path) -> str — extension including dot (e.g. '.txt'), or '' if none."
+    - "suffixes(path) -> list[str] — all extensions (e.g. ['.tar', '.gz'])."
+    - "parent(path) -> str — parent directory as string."
+    - "parts(path) -> list[str] — path components (e.g. ['/', 'foo', 'bar'])."
+    - "join(base, *parts) -> str — join path components (POSIX semantics)."
+    - "is_absolute(path) -> bool — True if path starts with '/'."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table pathlib_rust.name:
+  kind: python_call_eq
+  category: components
+  id_prefix: name
+  function: name
+
+  columns: [id, args, expected]
+  rows:
+    - [simple_file,    ["/foo/bar/baz.txt"],   "baz.txt"]
+    - [no_extension,   ["/foo/bar/baz"],        "baz"    ]
+    - [root_only,      ["/"],                   ""       ]
+    - [just_filename,  ["file.py"],             "file.py"]
+    - [dotfile,        ["/home/.bashrc"],        ".bashrc"]
+
+table pathlib_rust.stem:
+  kind: python_call_eq
+  category: components
+  id_prefix: stem
+  function: stem
+
+  columns: [id, args, expected]
+  rows:
+    - [with_ext,       ["/foo/bar/baz.txt"],    "baz"   ]
+    - [no_ext,         ["/foo/bar/baz"],         "baz"   ]
+    - [dotfile,        ["/home/.bashrc"],         ".bashrc"]
+    - [multi_ext,      ["/foo/archive.tar.gz"],  "archive.tar"]
+
+table pathlib_rust.suffix:
+  kind: python_call_eq
+  category: components
+  id_prefix: suffix
+  function: suffix
+
+  columns: [id, args, expected]
+  rows:
+    - [txt,            ["/foo/bar/baz.txt"],    ".txt"]
+    - [py,             ["/foo/bar/baz.py"],     ".py" ]
+    - [no_ext,         ["/foo/bar/baz"],         ""   ]
+    - [dotfile,        ["/home/.bashrc"],         ""   ]
+
+table pathlib_rust.suffixes:
+  kind: python_call_eq
+  category: components
+  id_prefix: suffixes
+  function: suffixes
+
+  columns: [id, args, expected]
+  rows:
+    - [single,        ["/foo/bar/baz.txt"],    [".txt"]         ]
+    - [double,        ["/foo/archive.tar.gz"], [".tar", ".gz"]  ]
+    - [none,          ["/foo/bar/baz"],         []              ]
+
+table pathlib_rust.parent:
+  kind: python_call_eq
+  category: components
+  id_prefix: parent
+  function: parent
+
+  columns: [id, args, expected]
+  rows:
+    - [deep_path,     ["/foo/bar/baz.txt"],  "/foo/bar"]
+    - [one_level,     ["/foo/bar"],           "/foo"    ]
+    - [root_child,    ["/foo"],               "/"       ]
+    - [relative,      ["foo/bar.txt"],        "foo"     ]
+
+table pathlib_rust.parts:
+  kind: python_call_eq
+  category: components
+  id_prefix: parts
+  function: parts
+
+  columns: [id, args, expected]
+  rows:
+    - [absolute,   ["/foo/bar/baz"],     ["/", "foo", "bar", "baz"]]
+    - [relative,   ["foo/bar/baz"],      ["foo", "bar", "baz"]     ]
+    - [root,       ["/"],                ["/"]                      ]
+    - [single,     ["file.txt"],         ["file.txt"]               ]
+
+table pathlib_rust.join:
+  kind: python_call_eq
+  category: join
+  id_prefix: join
+  function: join
+
+  columns: [id, args, expected]
+  rows:
+    - [simple,        ["/foo/bar", "baz.txt"],  "/foo/bar/baz.txt"]
+    - [abs_override,  ["/foo/bar", "/baz"],      "/baz"            ]
+    - [multi,         ["/foo", "bar", "baz"],    "/foo/bar/baz"    ]
+    - [relative,      ["foo", "bar"],            "foo/bar"         ]
+
+invariant pathlib_rust.is_absolute.true:
+  description: "is_absolute('/foo/bar') is True"
+  category: predicates
+  kind: python_call_eq
+  function: is_absolute
+  args: ["/foo/bar"]
+  expected: true
+
+invariant pathlib_rust.is_absolute.false:
+  description: "is_absolute('foo/bar') is False"
+  category: predicates
+  kind: python_call_eq
+  function: is_absolute
+  args: ["foo/bar"]
+  expected: false
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:06:22Z
+  iterations: 1
+  pass_count: 30
+  fail_count: 0
+  total_invariants: 30
+  notes: Synthesis succeeded in 1 iteration(s). 30 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

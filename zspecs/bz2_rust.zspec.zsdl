@@ -1,0 +1,97 @@
+spec: bz2_rust
+version: ">=3.9"
+backend: rust_module(bz2_rust)
+
+docs: https://docs.python.org/3/library/bz2.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/bz2.html — Python bz2 documentation (API surface)"
+    - "bzip2 file format specification — Burrows-Wheeler block-sorting compression"
+  not_derived_from:
+    - "CPython source: Modules/_bz2module.c"
+    - "CPython source: Lib/bz2.py"
+    - "bzip2 C source: bzlib.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python bz2 module API, exposed via PyO3."
+    - "May use the 'bzip2' Rust crate (independent bzip2 implementation)."
+    - "compress(data: bytes, compresslevel: int = 9) -> bytes — bzip2-compress data."
+    - "decompress(data: bytes) -> bytes — decompress bzip2-compressed data."
+    - "bz2_rust.error is raised for corrupt or invalid compressed data."
+    - "Compressed output starts with magic bytes 0x42 ('B'), 0x5A ('Z'), 0x68 ('h') — the bzip2 magic 'BZh'."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# compress/decompress roundtrip
+invariant bz2_rust.roundtrip.compress_decompress:
+  description: "compress then decompress is lossless for arbitrary data"
+  category: roundtrip
+  kind: python_encode_decode_roundtrip
+  encode_fn: compress
+  decode_fn: decompress
+  inputs_b64: ["", SGVsbG8gV29ybGQ=, AAAAAAAAAAAAAAAA, /wEB/wEB]
+
+# compress — output must start with bzip2 magic bytes (B=0x42, Z=0x5A)
+invariant bz2_rust.compress.magic_B:
+  description: "compress(b'hello')[0] == 66 — first byte is 0x42 ('B'), part of bzip2 magic"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __getitem__
+  method_args: [0]
+  expected: 66
+
+invariant bz2_rust.compress.magic_Z:
+  description: "compress(b'hello')[1] == 90 — second byte is 0x5A ('Z'), part of bzip2 magic"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __getitem__
+  method_args: [1]
+  expected: 90
+
+invariant bz2_rust.compress.returns_bytes:
+  description: "compress(b'hello') returns bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant bz2_rust.compress.nonempty:
+  description: "len(compress(b'hello')) > 0 — compressed output is never empty"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __len__.__gt__
+  method_args: [0]
+  expected: true
+
+# error — invalid bzip2 input raises bz2_rust.error
+invariant bz2_rust.error.bad_data:
+  description: "decompress of non-bzip2 data raises bz2_rust.error"
+  category: error
+  kind: python_call_raises
+  function: decompress
+  args: [{type: bytes_ascii, value: "not compressed data at all"}]
+  expected_exception: "bz2_rust.error"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: infeasible
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:01:40Z
+  iterations: 1
+  pass_count: 0
+  fail_count: 0
+  total_invariants: 6
+  notes: "LLM unavailable: OpenAI API request failed: HTTP Error 502: Bad Gateway"
+  infeasible_reason: llm_unavailable
+  invariant_annotations: {}

@@ -1,0 +1,102 @@
+spec: xml_etree_rust
+version: ">=3.9"
+backend: rust_module(xml_etree_rust)
+
+docs: https://docs.python.org/3/library/xml.etree.elementtree.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/xml.etree.elementtree.html — Python ElementTree documentation"
+  not_derived_from:
+    - "CPython source: Lib/xml/etree/ElementTree.py"
+  notes:
+    - "Clean-room Rust reimplementation of xml.etree.ElementTree.fromstring, exposed via PyO3."
+    - "fromstring(xml_string) parses an XML string and returns the root Element."
+    - "Element.tag is the element tag name string."
+    - "Element.text is the text content string, or None if absent."
+    - "Element.findtext(match) returns the text content of the first matching subelement."
+    - "fromstring('<a>hello</a>').tag == 'a'."
+    - "fromstring('<a>hello</a>').text == 'hello'."
+    - "fromstring('<root><item>42</item></root>').findtext('item') == '42'."
+    - "All test vectors verified against Python 3.14.3 xml.etree.ElementTree module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# fromstring — element tag
+table xml_etree_rust.fromstring.tag:
+  kind: python_call_eq
+  category: fromstring
+  id_prefix: xml_tag
+  function: fromstring
+  method: tag
+
+  columns: [id, args, expected]
+  rows:
+    - [simple,  ["<a>hello</a>"],               "a"]
+    - [root,    ["<root><child/></root>"],       "root"]
+    - [item,    ["<item>42</item>"],             "item"]
+    - [nested,  ["<outer><inner/></outer>"],     "outer"]
+
+# fromstring — element text content
+invariant xml_etree_rust.fromstring.text_hello:
+  description: "fromstring('<a>hello</a>').text == 'hello'"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<a>hello</a>"]
+  method: text
+  expected: "hello"
+
+invariant xml_etree_rust.fromstring.text_number:
+  description: "fromstring('<n>42</n>').text == '42' — text is always string"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<n>42</n>"]
+  method: text
+  expected: "42"
+
+# fromstring — findtext for child element text
+invariant xml_etree_rust.fromstring.findtext_item:
+  description: "fromstring('<root><item>42</item></root>').findtext('item') == '42'"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<root><item>42</item></root>"]
+  method: findtext
+  method_args: ["item"]
+  expected: "42"
+
+invariant xml_etree_rust.fromstring.findtext_name:
+  description: "fromstring('<data><name>Alice</name></data>').findtext('name') == 'Alice'"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<data><name>Alice</name></data>"]
+  method: findtext
+  method_args: ["name"]
+  expected: "Alice"
+
+invariant xml_etree_rust.fromstring.findtext_missing:
+  description: "fromstring('<root/>').findtext('x') == None — no such child"
+  category: fromstring
+  kind: python_call_eq
+  function: fromstring
+  args: ["<root/>"]
+  method: findtext
+  method_args: ["x"]
+  expected: null
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T21:31:17Z
+  iterations: 1
+  pass_count: 9
+  fail_count: 0
+  total_invariants: 9
+  notes: Synthesis succeeded in 1 iteration(s). 9 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

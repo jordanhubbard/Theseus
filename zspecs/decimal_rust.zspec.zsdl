@@ -1,0 +1,143 @@
+spec: decimal_rust
+version: ">=3.9"
+backend: rust_module(decimal_rust)
+
+docs: https://docs.python.org/3/library/decimal.html
+rfcs:
+  - "IEEE 754-2008 — Standard for Floating-Point Arithmetic (decimal interchange formats)"
+
+provenance:
+  derived_from:
+    - "IEEE 754-2008 — Standard for Floating-Point Arithmetic, section on decimal floating-point"
+    - "https://docs.python.org/3/library/decimal.html — Python decimal documentation (API surface)"
+    - "General Decimal Arithmetic Specification, Mike Cowlishaw, IBM, 2009"
+  not_derived_from:
+    - "CPython source: Modules/_decimal/_decimal.c"
+    - "mpdecimal library source"
+  notes:
+    - "Clean-room Rust reimplementation of decimal arithmetic, exposed via PyO3."
+    - "May use the 'rust_decimal' crate (independent IEEE 754-2008 decimal implementation)."
+    - "All functions accept decimal values as strings to avoid float imprecision."
+    - "add(a: str, b: str) -> str — exact decimal addition."
+    - "sub(a: str, b: str) -> str — exact decimal subtraction."
+    - "mul(a: str, b: str) -> str — exact decimal multiplication."
+    - "div(a: str, b: str) -> str — decimal division (28 significant digits)."
+    - "quantize(a: str, exp: str) -> str — round to given exponent (ROUND_HALF_EVEN)."
+    - "compare(a: str, b: str) -> int — -1 if a<b, 0 if a==b, 1 if a>b."
+    - "is_nan(a: str) -> bool, is_infinite(a: str) -> bool, is_finite(a: str) -> bool."
+    - "to_str(a: str) -> str — canonical string representation."
+    - "div by zero raises decimal_rust.DecimalError (or ValueError)."
+    - "Decimal('0.1') + Decimal('0.2') == Decimal('0.3') — exact (unlike float)."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table decimal_rust.add:
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: add
+  function: add
+
+  columns: [id, args, expected]
+  rows:
+    - [tenth_plus_fifth,    ["0.1", "0.2"],    "0.3"   ]
+    - [integers,            ["3", "4"],         "7"     ]
+    - [negative,            ["-1.5", "0.5"],   "-1.0"  ]
+    - [large,               ["999", "1"],       "1000"  ]
+    - [zero_identity,       ["0", "42.5"],      "42.5"  ]
+
+table decimal_rust.sub:
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: sub
+  function: sub
+
+  columns: [id, args, expected]
+  rows:
+    - [simple,      ["1.5", "0.5"],    "1.0"]
+    - [exact,       ["0.3", "0.1"],    "0.2"]
+    - [negative,    ["1", "2"],        "-1" ]
+    - [zero,        ["5", "5"],        "0"  ]
+
+table decimal_rust.mul:
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: mul
+  function: mul
+
+  columns: [id, args, expected]
+  rows:
+    - [simple,       ["3", "4"],        "12"  ]
+    - [decimal,      ["0.5", "0.4"],    "0.20"]
+    - [by_zero,      ["42", "0"],       "0"   ]
+    - [by_one,       ["99.9", "1"],     "99.9"]
+    - [negative,     ["-3", "4"],       "-12" ]
+
+table decimal_rust.div:
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: div
+  function: div
+
+  columns: [id, args, expected]
+  rows:
+    - [exact,        ["10", "4"],   "2.5"       ]
+    - [integer,      ["12", "3"],   "4"         ]
+    - [by_two,       ["1", "2"],    "0.5"       ]
+
+table decimal_rust.quantize:
+  kind: python_call_eq
+  category: rounding
+  id_prefix: quantize
+  function: quantize
+
+  columns: [id, args, expected]
+  rows:
+    - [two_places,       ["3.14159", "0.01"],  "3.14"]
+    - [one_place,        ["3.14",    "0.1"],   "3.1" ]
+    - [to_integer,       ["3.7",     "1"],     "4"   ]
+    - [already_exact,    ["3.10",    "0.01"],  "3.10"]
+    - [half_even_up,     ["2.45",    "0.1"],   "2.4" ]
+
+table decimal_rust.compare:
+  kind: python_call_eq
+  category: comparison
+  id_prefix: compare
+  function: compare
+
+  columns: [id, args, expected]
+  rows:
+    - [less,     ["1.0", "2.0"],  -1]
+    - [equal,    ["1.5", "1.5"],  0 ]
+    - [greater,  ["3.0", "1.0"],  1 ]
+    - [int_eq,   ["1", "1.00"],   0 ]
+
+invariant decimal_rust.error.div_by_zero:
+  description: "div by zero raises DecimalError or ValueError"
+  category: error
+  kind: python_call_raises
+  function: div
+  args: ["1", "0"]
+  expected_exception: ValueError
+
+invariant decimal_rust.exactness:
+  description: "0.1 + 0.2 == 0.3 exactly (unlike float)"
+  category: exactness
+  kind: python_call_eq
+  function: add
+  args: ["0.1", "0.2"]
+  expected: "0.3"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: infeasible
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:06:52Z
+  iterations: 1
+  pass_count: 0
+  fail_count: 0
+  total_invariants: 28
+  notes: "LLM unavailable: OpenAI API request failed: timed out"
+  infeasible_reason: llm_unavailable
+  invariant_annotations: {}

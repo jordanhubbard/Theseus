@@ -1,0 +1,294 @@
+spec: builtins_rust
+version: ">=3.9"
+backend: rust_module(builtins_rust)
+
+docs: https://docs.python.org/3/library/functions.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/functions.html — Python built-in functions documentation"
+  not_derived_from:
+    - "CPython source: Python/bltinmodule.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python built-in functions, exposed via PyO3."
+    - "abs(-42) == 42; abs(0) == 0."
+    - "chr(65) == 'A'; ord('A') == 65."
+    - "hex(255) == '0xff'; oct(8) == '0o10'; bin(10) == '0b1010'."
+    - "divmod(17, 5) == (3, 2); divmod(10, 2) == (5, 0)."
+    - "pow(2, 10) == 1024; pow(2, 10, 100) == 24 (modular exponentiation)."
+    - "round(3.14159, 2) == 3.14; round(1.5) == 2 (banker's rounding — round half to even)."
+    - "round(2.5) == 2; round(-3.5) == -4."
+    - "sorted([3, 1, 2]) == [1, 2, 3]; sorted(['b', 'a', 'c']) == ['a', 'b', 'c']."
+    - "all([True, True]) == True; all([True, False]) == False."
+    - "any([False, True]) == True; any([False, False]) == False."
+    - "sum([1, 2, 3, 4, 5]) == 15; sum([]) == 0."
+    - "min([3, 1, 2]) == 1; max([3, 1, 2]) == 3."
+    - "len([1, 2, 3]) == 3; len('hello') == 5."
+    - "bool(0) == False; bool(1) == True; bool('') == False; bool('x') == True."
+    - "int('42') == 42; int(3.7) == 3."
+    - "str(42) == '42'; str(True) == 'True'; str(None) == 'None'."
+    - "All test vectors verified against Python 3.14.3 built-in functions."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# abs — absolute value
+table builtins_rust.abs.vectors:
+  kind: python_call_eq
+  category: abs
+  id_prefix: abs
+  function: abs
+
+  columns: [id, args, expected]
+  rows:
+    - [neg,  [-42], 42]
+    - [pos,  [42],  42]
+    - [zero, [0],    0]
+
+# chr — integer to character
+table builtins_rust.chr.vectors:
+  kind: python_call_eq
+  category: chr
+  id_prefix: chr
+  function: chr
+
+  columns: [id, args, expected]
+  rows:
+    - [upper_a, [65], "A"]
+    - [lower_a, [97], "a"]
+    - [digit_0, [48], "0"]
+
+# ord — character to integer
+table builtins_rust.ord.vectors:
+  kind: python_call_eq
+  category: ord
+  id_prefix: ord
+  function: ord
+
+  columns: [id, args, expected]
+  rows:
+    - [upper_a, ["A"], 65]
+    - [lower_a, ["a"], 97]
+    - [digit_0, ["0"], 48]
+
+# hex — integer to hex string
+table builtins_rust.hex.vectors:
+  kind: python_call_eq
+  category: hex
+  id_prefix: hex
+  function: hex
+
+  columns: [id, args, expected]
+  rows:
+    - [ff,   [255], "0xff"]
+    - [zero, [0],   "0x0"]
+    - [ten,  [10],  "0xa"]
+
+# oct — integer to octal string
+table builtins_rust.oct.vectors:
+  kind: python_call_eq
+  category: oct
+  id_prefix: oct
+  function: oct
+
+  columns: [id, args, expected]
+  rows:
+    - [eight, [8], "0o10"]
+    - [zero,  [0], "0o0"]
+    - [seven, [7], "0o7"]
+
+# bin — integer to binary string
+table builtins_rust.bin.vectors:
+  kind: python_call_eq
+  category: bin
+  id_prefix: bin
+  function: bin
+
+  columns: [id, args, expected]
+  rows:
+    - [ten,  [10], "0b1010"]
+    - [zero, [0],  "0b0"]
+    - [one,  [1],  "0b1"]
+
+# divmod — quotient and remainder
+table builtins_rust.divmod.vectors:
+  kind: python_call_eq
+  category: divmod
+  id_prefix: divmod
+  function: divmod
+
+  columns: [id, args, expected]
+  rows:
+    - [basic, [17, 5], [3, 2]]
+    - [exact, [10, 2], [5, 0]]
+    - [one,   [1, 7],  [0, 1]]
+
+# pow — exponentiation and modular pow
+table builtins_rust.pow.vectors:
+  kind: python_call_eq
+  category: pow
+  id_prefix: pow
+  function: pow
+
+  columns: [id, args, expected]
+  rows:
+    - [two_ten,  [2, 10],      1024]
+    - [three_sq, [3, 2],          9]
+    - [modular,  [2, 10, 100],   24]
+
+# round — rounding with banker's rounding (round half to even)
+table builtins_rust.round.vectors:
+  kind: python_call_eq
+  category: round
+  id_prefix: rnd
+  function: round
+
+  columns: [id, args, expected]
+  rows:
+    - [two_places, [3.14159, 2], 3.14]
+    - [half_up,    [1.5],           2]
+    - [half_even,  [2.5],           2]
+    - [neg_half,   [-3.5],         -4]
+
+# sorted — return sorted list
+table builtins_rust.sorted.vectors:
+  kind: python_call_eq
+  category: sorted
+  id_prefix: srt
+  function: sorted
+
+  columns: [id, args, expected]
+  rows:
+    - [ints,    [[3, 1, 2]],        [1, 2, 3]]
+    - [strings, [["b", "a", "c"]], ["a", "b", "c"]]
+    - [already, [[1, 2, 3]],        [1, 2, 3]]
+
+# all — True iff all elements are truthy
+table builtins_rust.all.vectors:
+  kind: python_call_eq
+  category: all
+  id_prefix: all
+  function: all
+
+  columns: [id, args, expected]
+  rows:
+    - [all_true,  [[true, true, true]],  true]
+    - [has_false, [[true, false, true]], false]
+    - [empty,     [[]],                  true]
+
+# any — True iff any element is truthy
+table builtins_rust.any.vectors:
+  kind: python_call_eq
+  category: any
+  id_prefix: any
+  function: any
+
+  columns: [id, args, expected]
+  rows:
+    - [all_false, [[false, false]], false]
+    - [has_true,  [[false, true]],  true]
+    - [empty,     [[]],             false]
+
+# sum — sum of iterable
+table builtins_rust.sum.vectors:
+  kind: python_call_eq
+  category: sum
+  id_prefix: sum
+  function: sum
+
+  columns: [id, args, expected]
+  rows:
+    - [basic,  [[1, 2, 3, 4, 5]], 15]
+    - [empty,  [[]],               0]
+    - [single, [[42]],            42]
+
+# min — minimum of iterable
+table builtins_rust.min.vectors:
+  kind: python_call_eq
+  category: min
+  id_prefix: min
+  function: min
+
+  columns: [id, args, expected]
+  rows:
+    - [basic, [[3, 1, 2]],  1]
+    - [neg,   [[-5, 0, 5]], -5]
+
+# max — maximum of iterable
+table builtins_rust.max.vectors:
+  kind: python_call_eq
+  category: max
+  id_prefix: max
+  function: max
+
+  columns: [id, args, expected]
+  rows:
+    - [basic, [[3, 1, 2]],  3]
+    - [neg,   [[-5, 0, 5]], 5]
+
+# len — length of sequence
+table builtins_rust.len.vectors:
+  kind: python_call_eq
+  category: len
+  id_prefix: len
+  function: len
+
+  columns: [id, args, expected]
+  rows:
+    - [list,   [[1, 2, 3]], 3]
+    - [string, ["hello"],   5]
+    - [empty,  [[]],        0]
+
+# bool — boolean conversion
+table builtins_rust.bool.vectors:
+  kind: python_call_eq
+  category: bool
+  id_prefix: bool
+  function: bool
+
+  columns: [id, args, expected]
+  rows:
+    - [zero,     [0],   false]
+    - [one,      [1],   true]
+    - [neg,      [-1],  true]
+    - [empty_s,  [""],  false]
+    - [nonempty, ["x"], true]
+
+# int — integer conversion
+table builtins_rust.int.vectors:
+  kind: python_call_eq
+  category: int
+  id_prefix: int
+  function: int
+
+  columns: [id, args, expected]
+  rows:
+    - [from_str,   ["42"], 42]
+    - [from_float, [3.7],   3]
+    - [zero,       [0],     0]
+
+# str — string conversion
+table builtins_rust.str.vectors:
+  kind: python_call_eq
+  category: str
+  id_prefix: str
+  function: str
+
+  columns: [id, args, expected]
+  rows:
+    - [from_int,  [42],   "42"]
+    - [from_true, [true], "True"]
+    - [from_none, [null], "None"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T21:17:57Z
+  iterations: 2
+  pass_count: 58
+  fail_count: 0
+  total_invariants: 58
+  notes: Synthesis succeeded in 2 iteration(s). 58 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

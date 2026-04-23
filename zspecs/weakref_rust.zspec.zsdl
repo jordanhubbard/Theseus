@@ -1,0 +1,79 @@
+spec: weakref_rust
+version: ">=3.9"
+backend: rust_module(weakref_rust)
+
+docs: https://docs.python.org/3/library/weakref.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/weakref.html — Python weakref documentation"
+  not_derived_from:
+    - "CPython source: Modules/_weakref.c"
+  notes:
+    - "weakref.ref(obj)() returns the object if alive, None if collected."
+    - "Expose weak_ref_val(val) -> val: creates object with .val=val, weakref.ref(obj)().val."
+    - "Expose weak_ref_alive(val) -> bool: weakref.ref(obj)() is not None (True while obj alive)."
+    - "weakref.getweakrefcount(obj) returns number of weak references to obj."
+    - "Expose ref_count_zero(val) -> int: getweakrefcount(obj) before creating ref == 0."
+    - "Expose ref_count_one(val) -> int: getweakrefcount(obj) after creating ref == 1."
+    - "All test vectors verified against Python 3.14.3 weakref module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# weak_ref_val — dereference weakref and get .val attribute
+table weakref_rust.ref.dereference:
+  kind: python_call_eq
+  category: ref
+  id_prefix: wr_rd
+  function: weak_ref_val
+
+  columns: [id, args, expected]
+  rows:
+    - [int_42,    [42],     42]
+    - [int_zero,  [0],      0]
+    - [negative,  [-1],    -1]
+    - [large,     [1000],   1000]
+    - [str_hello, ["hi"],   "hi"]
+
+# weak_ref_alive — object stays alive while referenced
+table weakref_rust.ref.alive:
+  kind: python_call_eq
+  category: alive
+  id_prefix: wr_al
+  function: weak_ref_alive
+
+  columns: [id, args, expected]
+  rows:
+    - [int_42,    [42],    true]
+    - [str_hello, ["hi"],  true]
+
+# getweakrefcount — count weak references
+invariant weakref_rust.count.before_ref:
+  description: "getweakrefcount returns 0 before creating ref"
+  category: count
+  kind: python_call_eq
+  function: ref_count_zero
+  args: [42]
+  expected: 0
+
+invariant weakref_rust.count.after_one_ref:
+  description: "getweakrefcount returns 1 after creating one ref"
+  category: count
+  kind: python_call_eq
+  function: ref_count_one
+  args: [42]
+  expected: 1
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T23:52:01Z
+  iterations: 1
+  pass_count: 9
+  fail_count: 0
+  total_invariants: 9
+  notes: Synthesis succeeded in 1 iteration(s). 9 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

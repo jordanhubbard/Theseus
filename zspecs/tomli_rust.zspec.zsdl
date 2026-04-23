@@ -1,0 +1,164 @@
+spec: tomli_rust
+version: ">=3.9"
+backend: rust_module(tomli_rust)
+
+docs: https://toml.io/en/v1.0.0
+
+provenance:
+  derived_from:
+    - "TOML specification v1.0.0 — https://toml.io/en/v1.0.0"
+    - "https://github.com/hukkin/tomli — tomli Python package (API surface)"
+  not_derived_from:
+    - "tomli source: src/tomli/_parser.py"
+    - "CPython source: Lib/tomllib/_parser.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python tomllib/tomli API, exposed via PyO3."
+    - "May use the 'toml' Rust crate (https://crates.io/crates/toml) implementing TOML v1.0."
+    - "loads(s: str) -> dict — parse TOML string, return Python dict."
+    - "tomli_rust.TOMLDecodeError is raised on invalid TOML syntax."
+    - "Empty TOML string parses to empty dict {}."
+    - "TOML integer, string, boolean, array, table all map to Python native types."
+    - "loads returns a PyDict — .get(key) works since PyDict is a Python dict."
+    - "All test vectors verified against Python tomllib (stdlib, 3.14.3)."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# loads — basic TOML parsing returns dict
+table tomli_rust.loads.basic:
+  kind: python_call_eq
+  category: loads
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected]
+  rows:
+    - [integer,       ["x = 42"],       {x: 42}      ]
+    - [string,        ['x = "hello"'],  {x: "hello"} ]
+    - [empty_string,  [""],             {}            ]
+    - [bool_true,     ["x = true"],     {x: true}    ]
+    - [bool_false,    ["x = false"],    {x: false}   ]
+
+# loads — key access on returned dict
+invariant tomli_rust.loads.key_access.integer:
+  description: "loads('x = 42').get('x') == 42 — integer accessible by key"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = 42"]
+  method: get
+  method_args: ["x"]
+  expected: 42
+
+invariant tomli_rust.loads.key_access.string:
+  description: "loads('x = \"hello\"').get('x') == 'hello'"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ['x = "hello"']
+  method: get
+  method_args: ["x"]
+  expected: "hello"
+
+invariant tomli_rust.loads.key_access.bool_true:
+  description: "loads('x = true').get('x') == True"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = true"]
+  method: get
+  method_args: ["x"]
+  expected: true
+
+invariant tomli_rust.loads.key_access.bool_false:
+  description: "loads('x = false').get('x') == False"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = false"]
+  method: get
+  method_args: ["x"]
+  expected: false
+
+# loads — structures (array, section, inline table)
+invariant tomli_rust.loads.structures.array:
+  description: "loads('x = [1, 2, 3]').get('x') == [1, 2, 3]"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["x = [1, 2, 3]"]
+  method: get
+  method_args: ["x"]
+  expected: [1, 2, 3]
+
+invariant tomli_rust.loads.structures.section:
+  description: "loads('[s]\\nk = 1') returns {'s': {'k': 1}}"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["[s]\nk = 1"]
+  expected: {s: {k: 1}}
+
+invariant tomli_rust.loads.structures.section_key:
+  description: "loads('[s]\\nk = 1').get('s') == {'k': 1}"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["[s]\nk = 1"]
+  method: get
+  method_args: ["s"]
+  expected: {k: 1}
+
+invariant tomli_rust.loads.structures.inline_table:
+  description: "loads('p = {x=1, y=2}') returns {'p': {'x': 1, 'y': 2}}"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["p = {x=1, y=2}"]
+  expected: {p: {x: 1, y: 2}}
+
+invariant tomli_rust.loads.structures.multi_key_section:
+  description: "Multi-key TOML section parses to correct nested dict"
+  category: loads
+  kind: python_call_eq
+  function: loads
+  args: ["[meta]\nname = \"test\"\nversion = \"1.0\""]
+  expected: {meta: {name: "test", version: "1.0"}}
+
+# errors — invalid TOML syntax raises tomli_rust.TOMLDecodeError
+invariant tomli_rust.errors.invalid_syntax:
+  description: "loads('= invalid') raises tomli_rust.TOMLDecodeError"
+  category: errors
+  kind: python_call_raises
+  function: loads
+  args: ["= invalid"]
+  expected_exception: "tomli_rust.TOMLDecodeError"
+
+invariant tomli_rust.errors.double_equals:
+  description: "loads('invalid = = toml') raises tomli_rust.TOMLDecodeError"
+  category: errors
+  kind: python_call_raises
+  function: loads
+  args: ["invalid = = toml"]
+  expected_exception: "tomli_rust.TOMLDecodeError"
+
+invariant tomli_rust.errors.bare_string:
+  description: "loads('not valid toml !') raises tomli_rust.TOMLDecodeError"
+  category: errors
+  kind: python_call_raises
+  function: loads
+  args: ["not valid toml !"]
+  expected_exception: "tomli_rust.TOMLDecodeError"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:12:33Z
+  iterations: 1
+  pass_count: 17
+  fail_count: 0
+  total_invariants: 17
+  notes: Synthesis succeeded in 1 iteration(s). 17 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

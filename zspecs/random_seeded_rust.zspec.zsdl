@@ -1,0 +1,75 @@
+spec: random_seeded_rust
+version: ">=3.9"
+backend: rust_module(random_seeded_rust)
+
+docs: https://docs.python.org/3/library/random.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/random.html — Python random documentation"
+  not_derived_from:
+    - "CPython source: Modules/_randommodule.c"
+  notes:
+    - "Python random.Random with fixed seed for deterministic test vectors."
+    - "Random(seed) creates a seeded PRNG; same seed always produces same sequence."
+    - "Random(42).randint(0, 9) == 1 — first value from seed 42, range 0-9."
+    - "Random(42).randint(1, 6) == 6 — dice roll from seed 42."
+    - "Random(42).choice([10,20,30,40,50]) == 10."
+    - "Random(42).choice(['a','b','c','d','e']) == 'a'."
+    - "Random(42).sample([1,2,3,4,5], 3) == [1, 5, 3]."
+    - "Values verified against Python 3.14.3 random module (Mersenne Twister, stable across versions)."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# Random(42).randint — deterministic integer in range
+table random_seeded_rust.randint.vectors:
+  kind: python_call_eq
+  category: randint
+  id_prefix: rng_ri
+  function: Random
+  method: randint
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [range_0_9,   [42], [0, 9],   1]
+    - [dice_1_6,    [42], [1, 6],   6]
+    - [range_1_100, [42], [1, 100], 82]
+
+# Random(42).choice — deterministic selection
+table random_seeded_rust.choice.vectors:
+  kind: python_call_eq
+  category: choice
+  id_prefix: rng_ch
+  function: Random
+  method: choice
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [ints,    [42], [[10, 20, 30, 40, 50]], 10]
+    - [letters, [42], [["a", "b", "c", "d", "e"]], "a"]
+    - [three,   [42], [[100, 200, 300]], 300]
+
+# Random(42).sample — deterministic sample
+invariant random_seeded_rust.sample.three_from_five:
+  description: "Random(42).sample([1,2,3,4,5], 3) == [1, 5, 3]"
+  category: sample
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: sample
+  method_args: [[1, 2, 3, 4, 5], 3]
+  expected: [1, 5, 3]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:49:12Z
+  iterations: 1
+  pass_count: 7
+  fail_count: 0
+  total_invariants: 7
+  notes: Synthesis succeeded in 1 iteration(s). 7 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

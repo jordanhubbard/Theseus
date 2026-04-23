@@ -1,0 +1,121 @@
+spec: fnmatch_rust
+version: ">=3.9"
+backend: rust_module(fnmatch_rust)
+
+docs: https://docs.python.org/3/library/fnmatch.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/fnmatch.html — Python fnmatch documentation (API surface)"
+    - "POSIX.1-2017 — shell pattern matching specification"
+  not_derived_from:
+    - "CPython source: Lib/fnmatch.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python fnmatch module API, exposed via PyO3."
+    - "fnmatch(name: str, pattern: str) -> bool — Unix shell wildcard matching, case-sensitive."
+    - "fnmatchcase(name: str, pattern: str) -> bool — always case-sensitive wildcard matching."
+    - "filter(names: list[str], pattern: str) -> list[str] — return matching subset."
+    - "* matches any sequence of characters (including empty and /). ? matches exactly one character."
+    - "[seq] matches any character in seq; [a-z] matches character ranges."
+    - "translate() is not exposed — it produces Python-specific regex syntax."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# fnmatch — wildcard star (*)
+table fnmatch_rust.fnmatch.star:
+  kind: python_call_eq
+  function: fnmatch
+  id_prefix: star
+
+  columns: [id, args, expected]
+  rows:
+    - [py_match,      ["hello.py",  "*.py"],   true ]
+    - [js_no_match,   ["hello.js",  "*.py"],   false]
+    - [md_match,      ["README.md", "*.md"],   true ]
+    - [star_all,      ["hello",     "*"],       true ]
+    - [star_empty,    ["",          "*"],       true ]
+    - [file_dot_star, ["file.py",   "file.*"], true ]
+    - [file_nodot,    ["file",      "file.*"], false]
+    - [slash_match,   ["a/b",       "*"],       true ]
+
+# fnmatch — question mark (?)
+table fnmatch_rust.fnmatch.question:
+  kind: python_call_eq
+  function: fnmatch
+  id_prefix: question
+
+  columns: [id, args, expected]
+  rows:
+    - [prefix_match, ["hello",    "?ello"],    true ]
+    - [mid_match,    ["hello",    "h?llo"],    true ]
+    - [too_short,    ["hllo",     "h?llo"],    false]
+    - [single_match, ["a",        "?"],        true ]
+    - [too_long,     ["ab",       "?"],        false]
+    - [ext_match,    ["hello.py", "hello.p?"], true ]
+    - [mixed_match,  ["test.txt", "*.t?t"],    true ]
+
+# fnmatch — character classes [seq]
+table fnmatch_rust.fnmatch.charclass:
+  kind: python_call_eq
+  function: fnmatch
+  id_prefix: charclass
+
+  columns: [id, args, expected]
+  rows:
+    - [lower_h,   ["hello", "[hH]ello"],  true ]
+    - [upper_H,   ["Hello", "[hH]ello"],  true ]
+    - [not_in,    ["xello", "[hH]ello"],  false]
+    - [range_a,   ["abc",   "[a-c]bc"],   true ]
+    - [range_out, ["dbc",   "[a-c]bc"],   false]
+
+# fnmatch — empty pattern/name edge cases
+table fnmatch_rust.fnmatch.empty:
+  kind: python_call_eq
+  function: fnmatch
+  id_prefix: empty
+
+  columns: [id, args, expected]
+  rows:
+    - [both_empty,    ["",  ""], true ]
+    - [name_nonempty, ["a", ""], false]
+
+# fnmatchcase — always case-sensitive
+table fnmatch_rust.fnmatchcase.case:
+  kind: python_call_eq
+  function: fnmatchcase
+  id_prefix: fnmatchcase
+
+  columns: [id, args, expected]
+  rows:
+    - [lower_match, ["hello.py", "*.py"],  true ]
+    - [mixed_match, ["Hello.py", "*.py"],  true ]
+    - [upper_no,    ["HELLO.PY", "*.py"],  false]
+    - [upper_yes,   ["HELLO.PY", "*.PY"],  true ]
+
+# filter — returns matching subset of names list
+table fnmatch_rust.filter.lists:
+  kind: python_call_eq
+  function: filter
+  id_prefix: filter
+
+  columns: [id, args, expected]
+  rows:
+    - [py_files,    [["a.py", "b.js", "c.py", "d.txt"], "*.py"],  ["a.py", "c.py"]]
+    - [no_match,    [["a.py", "b.js"], "*.rb"],                    []             ]
+    - [empty_input, [[], "*.py"],                                   []             ]
+    - [star_all,    [["hello", "world"], "*"],                      ["hello", "world"]]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:42:34Z
+  iterations: 1
+  pass_count: 30
+  fail_count: 0
+  total_invariants: 30
+  notes: Synthesis succeeded in 1 iteration(s). 30 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

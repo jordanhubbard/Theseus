@@ -1,0 +1,100 @@
+spec: pathlib_extra_rust
+version: ">=3.9"
+backend: rust_module(pathlib_extra_rust)
+
+docs: https://docs.python.org/3/library/pathlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/pathlib.html — Python pathlib documentation"
+  not_derived_from:
+    - "CPython source: Lib/pathlib.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python PurePosixPath properties, exposed via PyO3."
+    - "PurePosixPath('/foo/bar.txt').suffix == '.txt' — file extension including dot."
+    - "PurePosixPath('/foo/bar.txt').stem == 'bar' — final component without suffix."
+    - "PurePosixPath('/foo/bar.txt').name == 'bar.txt' — final path component."
+    - "str(PurePosixPath('/foo/bar.txt').parent) == '/foo' — parent directory."
+    - "PurePosixPath('/test').suffix == '' — no extension."
+    - "PurePosixPath('/test').stem == 'test' — stem of path without extension."
+    - "All test vectors verified against Python 3.14.3 pathlib.PurePosixPath."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# PurePosixPath.suffix — file extension including dot
+table pathlib_extra_rust.suffix.vectors:
+  kind: python_call_eq
+  category: suffix
+  id_prefix: pp_suf
+  function: PurePosixPath
+  method: suffix
+
+  columns: [id, args, expected]
+  rows:
+    - [txt,  ["/foo/bar.txt"],    ".txt"]
+    - [py,   ["/a/b/c.py"],      ".py"]
+    - [md,   ["/doc/readme.md"], ".md"]
+    - [none, ["/test"],          ""]
+
+# PurePosixPath.stem — final component without suffix
+table pathlib_extra_rust.stem.vectors:
+  kind: python_call_eq
+  category: stem
+  id_prefix: pp_stem
+  function: PurePosixPath
+  method: stem
+
+  columns: [id, args, expected]
+  rows:
+    - [txt,  ["/foo/bar.txt"],    "bar"]
+    - [py,   ["/a/b/c.py"],      "c"]
+    - [none, ["/test"],          "test"]
+
+# PurePosixPath.name — final path component (filename with extension)
+table pathlib_extra_rust.name.vectors:
+  kind: python_call_eq
+  category: name
+  id_prefix: pp_name
+  function: PurePosixPath
+  method: name
+
+  columns: [id, args, expected]
+  rows:
+    - [txt,  ["/foo/bar.txt"],    "bar.txt"]
+    - [py,   ["/a/b/c.py"],      "c.py"]
+    - [none, ["/test"],          "test"]
+
+# PurePosixPath.parent — parent directory as PurePosixPath, tested via __str__
+invariant pathlib_extra_rust.parent.foo:
+  description: "str(PurePosixPath('/foo/bar.txt').parent) == '/foo'"
+  category: parent
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/foo/bar.txt"]
+  method: parent
+  method_chain: __str__
+  expected: "/foo"
+
+invariant pathlib_extra_rust.parent.nested:
+  description: "str(PurePosixPath('/a/b/c.py').parent) == '/a/b'"
+  category: parent
+  kind: python_call_eq
+  function: PurePosixPath
+  args: ["/a/b/c.py"]
+  method: parent
+  method_chain: __str__
+  expected: "/a/b"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T21:59:19Z
+  iterations: 1
+  pass_count: 12
+  fail_count: 0
+  total_invariants: 12
+  notes: Synthesis succeeded in 1 iteration(s). 12 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

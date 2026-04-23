@@ -1,0 +1,264 @@
+spec: fractions_rust
+version: ">=3.9"
+backend: rust_module(fractions_rust)
+
+docs: https://docs.python.org/3/library/fractions.html
+
+provenance:
+  derived_from:
+    - "Python fractions documentation — https://docs.python.org/3/library/fractions.html"
+  not_derived_from:
+    - "CPython source: Lib/fractions.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python fractions.Fraction, exposed via PyO3."
+    - "May use the 'num-rational' Rust crate (https://crates.io/crates/num-rational)."
+    - "Fraction(n, d) stores in lowest terms (auto-reduced via GCD); denominator is always positive."
+    - "Fraction(2, 4) reduces to 1/2; __str__ returns '1/2'."
+    - "Fraction('3/4') and Fraction('0.25') parse ratio and decimal string forms."
+    - "Fraction(0.5) == Fraction(1, 2) because 0.5 is exactly representable in binary float."
+    - "Arithmetic operators return Fraction results; __str__ converts to string representation."
+    - "limit_denominator(max_denom) returns the closest Fraction whose denominator <= max_denom."
+    - "ZeroDivisionError raised for Fraction(1, 0); ValueError raised for Fraction('bad')."
+    - "All test vectors verified against Python 3.14.3 fractions module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# constructor — from two ints, with auto-reduction
+table fractions_rust.Fraction.constructor_two_ints:
+  kind: python_call_eq
+  category: constructor
+  id_prefix: ctor_str
+  function: Fraction
+  method: __str__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [one_third,    [1, 3],  "1/3" ]
+    - [auto_reduced, [2, 4],  "1/2" ]
+    - [zero,         [0],     "0"   ]
+    - [whole_number, [5],     "5"   ]
+    - [negative,     [-3, 4], "-3/4"]
+
+# constructor — from string
+invariant fractions_rust.Fraction.from_ratio_string:
+  description: "Fraction('3/4').__str__() == '3/4'"
+  category: constructor
+  kind: python_call_eq
+  function: Fraction
+  args: ["3/4"]
+  method: __str__
+  method_args: []
+  expected: "3/4"
+
+invariant fractions_rust.Fraction.from_decimal_string:
+  description: "Fraction('0.25').__str__() == '1/4'"
+  category: constructor
+  kind: python_call_eq
+  function: Fraction
+  args: ["0.25"]
+  method: __str__
+  method_args: []
+  expected: "1/4"
+
+# constructor — from float (exact binary fractions)
+invariant fractions_rust.Fraction.from_float_half:
+  description: "Fraction(0.5).__str__() == '1/2' — 0.5 is exactly representable in binary"
+  category: constructor
+  kind: python_call_eq
+  function: Fraction
+  args: [0.5]
+  method: __str__
+  method_args: []
+  expected: "1/2"
+
+# numerator and denominator properties
+invariant fractions_rust.Fraction.numerator:
+  description: "Fraction(1, 4).numerator == 1"
+  category: properties
+  kind: python_call_eq
+  function: Fraction
+  args: [1, 4]
+  method: numerator
+  expected: 1
+
+invariant fractions_rust.Fraction.denominator:
+  description: "Fraction(1, 4).denominator == 4"
+  category: properties
+  kind: python_call_eq
+  function: Fraction
+  args: [1, 4]
+  method: denominator
+  expected: 4
+
+# arithmetic — __add__, __sub__, __mul__, __truediv__ with int operands
+invariant fractions_rust.Fraction.add_int:
+  description: "Fraction(1, 4).__add__(1).__str__() == '5/4'"
+  category: arithmetic
+  kind: python_call_eq
+  function: Fraction
+  args: [1, 4]
+  method: __add__
+  method_args: [1]
+  method_chain: __str__
+  expected: "5/4"
+
+invariant fractions_rust.Fraction.sub_int:
+  description: "Fraction(5, 4).__sub__(1).__str__() == '1/4'"
+  category: arithmetic
+  kind: python_call_eq
+  function: Fraction
+  args: [5, 4]
+  method: __sub__
+  method_args: [1]
+  method_chain: __str__
+  expected: "1/4"
+
+invariant fractions_rust.Fraction.mul_int:
+  description: "Fraction(3, 4).__mul__(4).__str__() == '3'"
+  category: arithmetic
+  kind: python_call_eq
+  function: Fraction
+  args: [3, 4]
+  method: __mul__
+  method_args: [4]
+  method_chain: __str__
+  expected: "3"
+
+invariant fractions_rust.Fraction.truediv_int:
+  description: "Fraction(3, 4).__truediv__(3).__str__() == '1/4'"
+  category: arithmetic
+  kind: python_call_eq
+  function: Fraction
+  args: [3, 4]
+  method: __truediv__
+  method_args: [3]
+  method_chain: __str__
+  expected: "1/4"
+
+invariant fractions_rust.Fraction.neg:
+  description: "Fraction(3, 4).__neg__().__str__() == '-3/4'"
+  category: arithmetic
+  kind: python_call_eq
+  function: Fraction
+  args: [3, 4]
+  method: __neg__
+  method_args: []
+  method_chain: __str__
+  expected: "-3/4"
+
+invariant fractions_rust.Fraction.abs:
+  description: "Fraction(-3, 4).__abs__().__str__() == '3/4'"
+  category: arithmetic
+  kind: python_call_eq
+  function: Fraction
+  args: [-3, 4]
+  method: __abs__
+  method_args: []
+  method_chain: __str__
+  expected: "3/4"
+
+# comparison — __lt__, __le__, __eq__, __gt__ with integer operands
+invariant fractions_rust.Fraction.lt_int_true:
+  description: "Fraction(1, 2).__lt__(1) == True — 1/2 < 1"
+  category: comparison
+  kind: python_call_eq
+  function: Fraction
+  args: [1, 2]
+  method: __lt__
+  method_args: [1]
+  expected: true
+
+invariant fractions_rust.Fraction.le_equal:
+  description: "Fraction(2, 4).__le__(1) == True — 2/4 = 1/2 ≤ 1"
+  category: comparison
+  kind: python_call_eq
+  function: Fraction
+  args: [2, 4]
+  method: __le__
+  method_args: [1]
+  expected: true
+
+invariant fractions_rust.Fraction.eq_int:
+  description: "Fraction(4, 2).__eq__(2) == True — auto-reduced 4/2 == 2"
+  category: comparison
+  kind: python_call_eq
+  function: Fraction
+  args: [4, 2]
+  method: __eq__
+  method_args: [2]
+  expected: true
+
+invariant fractions_rust.Fraction.gt_int_true:
+  description: "Fraction(3, 2).__gt__(1) == True — 3/2 > 1"
+  category: comparison
+  kind: python_call_eq
+  function: Fraction
+  args: [3, 2]
+  method: __gt__
+  method_args: [1]
+  expected: true
+
+invariant fractions_rust.Fraction.lt_int_false:
+  description: "Fraction(1, 2).__lt__(0) == False — 1/2 is not less than 0"
+  category: comparison
+  kind: python_call_eq
+  function: Fraction
+  args: [1, 2]
+  method: __lt__
+  method_args: [0]
+  expected: false
+
+# limit_denominator — best rational approximation within denominator bound
+invariant fractions_rust.Fraction.limit_denominator_fits:
+  description: "Fraction(1, 3).limit_denominator(10).__str__() == '1/3'"
+  category: limit_denominator
+  kind: python_call_eq
+  function: Fraction
+  args: [1, 3]
+  method: limit_denominator
+  method_args: [10]
+  method_chain: __str__
+  expected: "1/3"
+
+invariant fractions_rust.Fraction.limit_denominator_approx:
+  description: "Fraction(355, 113).limit_denominator(10).__str__() == '22/7' — best approx of pi with denominator ≤ 10"
+  category: limit_denominator
+  kind: python_call_eq
+  function: Fraction
+  args: [355, 113]
+  method: limit_denominator
+  method_args: [10]
+  method_chain: __str__
+  expected: "22/7"
+
+# error cases
+invariant fractions_rust.Fraction.zero_denominator_raises:
+  description: "Fraction(1, 0) raises ZeroDivisionError"
+  category: error
+  kind: python_call_raises
+  function: Fraction
+  args: [1, 0]
+  expected_exception: ZeroDivisionError
+
+invariant fractions_rust.Fraction.invalid_string_raises:
+  description: "Fraction('bad') raises ValueError"
+  category: error
+  kind: python_call_raises
+  function: Fraction
+  args: ["bad"]
+  expected_exception: ValueError
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:42:57Z
+  iterations: 1
+  pass_count: 25
+  fail_count: 0
+  total_invariants: 25
+  notes: Synthesis succeeded in 1 iteration(s). 25 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

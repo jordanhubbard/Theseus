@@ -1,0 +1,117 @@
+spec: bisect_rust
+version: ">=3.9"
+backend: rust_module(bisect_rust)
+
+docs: https://docs.python.org/3/library/bisect.html
+
+provenance:
+  derived_from:
+    - "Python bisect documentation — https://docs.python.org/3/library/bisect.html"
+  not_derived_from:
+    - "CPython source: Lib/bisect.py"
+    - "CPython source: Modules/_bisectmodule.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python bisect module, exposed via PyO3."
+    - "bisect_left(a, x) returns leftmost index i such that a[i-1] < x <= a[i]."
+    - "bisect_right(a, x) returns rightmost index i such that a[i-1] <= x < a[i]."
+    - "bisect(a, x) is an alias for bisect_right."
+    - "When x appears multiple times, bisect_left returns index of first occurrence, bisect_right one past last."
+    - "All test vectors verified against Python 3.14.3 bisect module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# bisect_left — sorted list [1, 3, 5, 7, 9]
+table bisect_rust.bisect_left.basic:
+  kind: python_call_eq
+  function: bisect_left
+  id_prefix: bisect_left
+  category: bisect_left
+
+  columns: [id, args, expected]
+  rows:
+    - [present,    [[1, 3, 5, 7, 9], 5],  2]
+    - [before_all, [[1, 3, 5, 7, 9], 0],  0]
+    - [after_all,  [[1, 3, 5, 7, 9], 10], 5]
+    - [first_elem, [[1, 3, 5, 7, 9], 1],  0]
+    - [last_elem,  [[1, 3, 5, 7, 9], 9],  4]
+    - [mid_gap,    [[1, 3, 5, 7, 9], 3],  1]
+    - [empty,      [[], 5],               0]
+    - [single_eq,  [[5], 5],              0]
+    - [single_lt,  [[5], 3],              0]
+    - [single_gt,  [[5], 7],              1]
+
+# bisect_right — sorted list [1, 3, 5, 7, 9]
+table bisect_rust.bisect_right.basic:
+  kind: python_call_eq
+  function: bisect_right
+  id_prefix: bisect_right
+  category: bisect_right
+
+  columns: [id, args, expected]
+  rows:
+    - [present,    [[1, 3, 5, 7, 9], 5],  3]
+    - [before_all, [[1, 3, 5, 7, 9], 0],  0]
+    - [after_all,  [[1, 3, 5, 7, 9], 10], 5]
+    - [first_elem, [[1, 3, 5, 7, 9], 1],  1]
+    - [last_elem,  [[1, 3, 5, 7, 9], 9],  5]
+    - [mid_gap,    [[1, 3, 5, 7, 9], 3],  2]
+    - [empty,      [[], 5],               0]
+    - [single_eq,  [[5], 5],              1]
+    - [single_lt,  [[5], 3],              0]
+    - [single_gt,  [[5], 7],              1]
+
+# duplicates — left vs right differ when x appears multiple times
+invariant bisect_rust.bisect_left.duplicates_first:
+  description: "bisect_left([1,3,5,5,5,7], 5) == 2 — index of first 5"
+  category: duplicates
+  kind: python_call_eq
+  function: bisect_left
+  args: [[1, 3, 5, 5, 5, 7], 5]
+  expected: 2
+
+invariant bisect_rust.bisect_right.duplicates_last:
+  description: "bisect_right([1,3,5,5,5,7], 5) == 5 — one past the last 5"
+  category: duplicates
+  kind: python_call_eq
+  function: bisect_right
+  args: [[1, 3, 5, 5, 5, 7], 5]
+  expected: 5
+
+# bisect — alias for bisect_right
+invariant bisect_rust.bisect.alias_eq_bisect_right:
+  description: "bisect([1,3,5,7,9], 5) == 3 — same as bisect_right"
+  category: alias
+  kind: python_call_eq
+  function: bisect
+  args: [[1, 3, 5, 7, 9], 5]
+  expected: 3
+
+invariant bisect_rust.bisect.alias_before_all:
+  description: "bisect([1,3,5,7,9], 0) == 0"
+  category: alias
+  kind: python_call_eq
+  function: bisect
+  args: [[1, 3, 5, 7, 9], 0]
+  expected: 0
+
+invariant bisect_rust.bisect.alias_after_all:
+  description: "bisect([1,3,5,7,9], 10) == 5"
+  category: alias
+  kind: python_call_eq
+  function: bisect
+  args: [[1, 3, 5, 7, 9], 10]
+  expected: 5
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:01:28Z
+  iterations: 1
+  pass_count: 25
+  fail_count: 0
+  total_invariants: 25
+  notes: Synthesis succeeded in 1 iteration(s). 25 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

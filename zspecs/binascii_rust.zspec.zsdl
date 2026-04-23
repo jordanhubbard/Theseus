@@ -1,0 +1,117 @@
+spec: binascii_rust
+version: ">=3.9"
+backend: rust_module(binascii_rust)
+
+docs: https://docs.python.org/3/library/binascii.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/binascii.html — Python binascii documentation (API surface)"
+    - "IEEE 802.3 — CRC-32 polynomial specification"
+  not_derived_from:
+    - "CPython source: Modules/binascii.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python binascii module API, exposed via PyO3."
+    - "crc32(data: bytes) -> int — unsigned 32-bit CRC-32 checksum."
+    - "hexlify(data: bytes) -> bytes — lowercase ASCII hex encoding, returned as bytes."
+    - "unhexlify(data: bytes | str) -> bytes — hex string decoded to bytes."
+    - "binascii_rust.error is raised for invalid hex input (odd length, non-hex chars)."
+    - "crc32(b'') == 0 (identity element)."
+    - "crc32(b'hello') == 907060870 (verified against Python 3.14.3)."
+    - "hexlify(b'hello') == b'68656c6c6f' (verified against Python 3.14.3)."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# crc32 — unsigned 32-bit checksum
+table binascii_rust.crc32.vectors:
+  kind: python_call_eq
+  category: crc32
+  id_prefix: crc32
+  function: crc32
+
+  columns: [id, args, expected]
+  rows:
+    - [empty,       [{type: bytes_ascii, value: ""}],             0         ]
+    - [hello,       [{type: bytes_ascii, value: "hello"}],        907060870 ]
+    - [hello_world, [{type: bytes_ascii, value: "hello world"}],  222957957 ]
+    - [abc,         [{type: bytes_ascii, value: "abc"}],          891568578 ]
+
+# hexlify — bytes → lowercase hex bytes
+table binascii_rust.hexlify.values:
+  kind: python_call_eq
+  category: hexlify
+  id_prefix: hexlify
+  function: hexlify
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,    [{type: bytes_ascii, value: "hello"}],      {type: bytes_ascii, value: "68656c6c6f"}]
+    - [ff,       [{type: bytes_hex, value: "ff"}],           {type: bytes_ascii, value: "ff"}]
+    - [deadbeef, [{type: bytes_hex, value: "deadbeef"}],     {type: bytes_ascii, value: "deadbeef"}]
+    - [empty,    [{type: bytes_ascii, value: ""}],           {type: bytes_ascii, value: ""}]
+
+table binascii_rust.hexlify.lengths:
+  kind: python_call_eq
+  category: hexlify
+  id_prefix: hexlify_len
+  function: hexlify
+
+  columns: [id, args, method, expected]
+  rows:
+    - [hello_len,    [{type: bytes_ascii, value: "hello"}],    __len__, 10]
+    - [empty_len,    [{type: bytes_ascii, value: ""}],         __len__, 0 ]
+    - [deadbeef_len, [{type: bytes_hex, value: "deadbeef"}],  __len__, 8 ]
+
+# unhexlify — hex → bytes
+table binascii_rust.unhexlify.values:
+  kind: python_call_eq
+  category: unhexlify
+  id_prefix: unhexlify
+  function: unhexlify
+
+  columns: [id, args, expected]
+  rows:
+    - [hello, [{type: bytes_ascii, value: "68656c6c6f"}], {type: bytes_ascii, value: "hello"}]
+    - [empty, [{type: bytes_ascii, value: ""}],           {type: bytes_ascii, value: ""}]
+
+invariant binascii_rust.unhexlify.hello_length:
+  description: "unhexlify(b'68656c6c6f').__len__() == 5"
+  category: unhexlify
+  kind: python_call_eq
+  function: unhexlify
+  args: [{type: bytes_ascii, value: "68656c6c6f"}]
+  method: __len__
+  expected: 5
+
+# hexlify/unhexlify roundtrip
+invariant binascii_rust.roundtrip.hex_unhex:
+  description: "unhexlify(hexlify(data)) == data for ASCII bytes"
+  category: roundtrip
+  kind: python_encode_decode_roundtrip
+  encode_fn: hexlify
+  decode_fn: unhexlify
+  inputs_b64: ["", SGVsbG8=, AAEC]
+
+# error case
+invariant binascii_rust.error.odd_hex:
+  description: "unhexlify('fff') raises binascii_rust.error — odd-length hex string is invalid"
+  category: error
+  kind: python_call_raises
+  function: unhexlify
+  args: ["fff"]
+  expected_exception: "binascii_rust.error"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:01:13Z
+  iterations: 1
+  pass_count: 16
+  fail_count: 0
+  total_invariants: 16
+  notes: Synthesis succeeded in 1 iteration(s). 16 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

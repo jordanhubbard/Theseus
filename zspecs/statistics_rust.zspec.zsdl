@@ -1,0 +1,128 @@
+spec: statistics_rust
+version: ">=3.9"
+backend: rust_module(statistics_rust)
+
+docs: https://docs.python.org/3/library/statistics.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/statistics.html — Python statistics documentation (API surface and semantics)"
+    - "ISO 3534-1:2006 — Statistics — Vocabulary and symbols — Part 1: General statistical terms and terms used in probability"
+  not_derived_from:
+    - "CPython source: Lib/statistics.py"
+  notes:
+    - "Clean-room Rust reimplementation of the Python statistics module API, exposed via PyO3."
+    - "mean(data: list) -> float — arithmetic mean."
+    - "fmean(data: list) -> float — fast floating-point mean."
+    - "median(data: list) -> float — median value (average of two middle values for even-length)."
+    - "mode(data: list) -> value — most common data point; raises StatisticsError if no unique mode."
+    - "pvariance(data: list) -> float — population variance (N denominator)."
+    - "pstdev(data: list) -> float — population standard deviation (sqrt of pvariance)."
+    - "variance(data: list) -> float — sample variance (N-1 denominator, Bessel's correction)."
+    - "stdev(data: list) -> float — sample standard deviation."
+    - "Empty data raises statistics_rust.StatisticsError."
+    - "pstdev([2,4,4,4,5,5,7,9]) = 2.0 (population stdev, mean=5, sum_sq=32, pvar=4.0)."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table statistics_rust.mean:
+  kind: python_call_eq
+  category: mean
+  id_prefix: mean
+  function: mean
+
+  columns: [id, args, expected]
+  rows:
+    - [ints_1_5,       [[1, 2, 3, 4, 5]],      3.0]
+    - [evens,          [[2, 4, 6, 8]],           5.0]
+    - [single,         [[42]],                   42.0]
+    - [floats,         [[1.0, 2.0, 3.0]],        2.0]
+    - [with_zero,      [[0, 10]],                5.0]
+
+table statistics_rust.median:
+  kind: python_call_eq
+  category: median
+  id_prefix: median
+  function: median
+
+  columns: [id, args, expected]
+  rows:
+    - [odd_count,   [[1, 3, 5]],         3.0]
+    - [even_count,  [[1, 2, 3, 4]],      2.5]
+    - [single,      [[7]],               7.0]
+    - [two,         [[3, 7]],            5.0]
+    - [unsorted,    [[5, 1, 3]],         3.0]
+
+table statistics_rust.mode:
+  kind: python_call_eq
+  category: mode
+  id_prefix: mode
+  function: mode
+
+  columns: [id, args, expected]
+  rows:
+    - [clear_winner,   [[1, 1, 2, 3]],      1]
+    - [single,         [[5]],               5]
+    - [str_mode,       [["a","a","b","c"]], "a"]
+
+table statistics_rust.pstdev_pvariance:
+  kind: python_call_eq
+  category: population_stats
+  id_prefix: pstdev
+
+  columns: [id, function, args, expected]
+  rows:
+    - [pstdev_classic,    pstdev,    [[2,4,4,4,5,5,7,9]], 2.0]
+    - [pvariance_classic, pvariance, [[2,4,4,4,5,5,7,9]], 4.0]
+    - [pstdev_uniform,    pstdev,    [[1,1,1,1]],          0.0]
+    - [pvariance_single,  pvariance, [[5]],                0.0]
+
+table statistics_rust.stdev_variance:
+  kind: python_call_eq
+  category: sample_stats
+  id_prefix: stdev
+
+  columns: [id, function, args, expected]
+  rows:
+    - [stdev_simple,    stdev,    [[2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]], 2.138089935299395]
+    - [variance_two,    variance, [[1, 3]],     2.0]
+    - [stdev_two,       stdev,    [[1, 3]],     1.4142135623730951]
+
+invariant statistics_rust.error.empty_mean:
+  description: "mean([]) raises StatisticsError"
+  category: error
+  kind: python_call_raises
+  function: mean
+  args: [[]]
+  expected_exception: "statistics_rust.StatisticsError"
+
+invariant statistics_rust.error.empty_median:
+  description: "median([]) raises StatisticsError"
+  category: error
+  kind: python_call_raises
+  function: median
+  args: [[]]
+  expected_exception: "statistics_rust.StatisticsError"
+
+invariant statistics_rust.error.stdev_single:
+  description: "stdev([x]) raises StatisticsError (needs at least 2 data points)"
+  category: error
+  kind: python_call_raises
+  function: stdev
+  args: [[5]]
+  expected_exception: "statistics_rust.StatisticsError"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:10:25Z
+  iterations: 1
+  pass_count: 23
+  fail_count: 0
+  total_invariants: 23
+  notes: Synthesis succeeded in 1 iteration(s). 23 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

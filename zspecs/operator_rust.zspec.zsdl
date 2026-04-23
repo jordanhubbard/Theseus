@@ -1,0 +1,220 @@
+spec: operator_rust
+version: ">=3.9"
+backend: rust_module(operator_rust)
+
+docs: https://docs.python.org/3/library/operator.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/operator.html — Python operator module documentation"
+  not_derived_from:
+    - "CPython source: Modules/_operator.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python operator module, exposed via PyO3."
+    - "May use Rust closures or native operators; all semantics match Python operator module."
+    - "truediv() always returns float (true division); floordiv() returns int for int args."
+    - "and_(), or_() use trailing underscores to avoid Rust keyword conflicts."
+    - "not_() returns bool; truth() is equivalent to bool()."
+    - "contains(a, b) tests 'b in a' (container first, item second)."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# arithmetic operators
+table operator_rust.arithmetic.vectors:
+  kind: python_call_eq
+  category: arithmetic
+  id_prefix: arith
+
+  columns: [id, function, args, expected]
+  rows:
+    - [add_ints,    add,      [3, 4],    7]
+    - [sub_ints,    sub,      [10, 3],   7]
+    - [mul_ints,    mul,      [3, 4],    12]
+    - [truediv,     truediv,  [7, 2],    3.5]
+    - [floordiv,    floordiv, [7, 2],    3]
+    - [mod_ints,    mod,      [10, 3],   1]
+    - [pow_ints,    pow,      [2, 10],   1024]
+
+# unary operators
+invariant operator_rust.neg.positive_input:
+  description: "neg(5) == -5"
+  category: unary
+  kind: python_call_eq
+  function: neg
+  args: [5]
+  expected: -5
+
+invariant operator_rust.neg.negative_input:
+  description: "neg(-3) == 3"
+  category: unary
+  kind: python_call_eq
+  function: neg
+  args: [-3]
+  expected: 3
+
+invariant operator_rust.abs.negative:
+  description: "abs(-7) == 7"
+  category: unary
+  kind: python_call_eq
+  function: abs
+  args: [-7]
+  expected: 7
+
+invariant operator_rust.abs.positive:
+  description: "abs(7) == 7"
+  category: unary
+  kind: python_call_eq
+  function: abs
+  args: [7]
+  expected: 7
+
+# comparison operators
+table operator_rust.comparison.vectors:
+  kind: python_call_eq
+  category: comparison
+  id_prefix: cmp
+
+  columns: [id, function, args, expected]
+  rows:
+    - [lt_true,  lt, [3, 5],  true]
+    - [lt_false, lt, [5, 3],  false]
+    - [le_equal, le, [5, 5],  true]
+    - [le_less,  le, [4, 5],  true]
+    - [eq_true,  eq, [4, 4],  true]
+    - [eq_false, eq, [4, 5],  false]
+    - [ne_true,  ne, [3, 4],  true]
+    - [ne_false, ne, [4, 4],  false]
+    - [gt_true,  gt, [5, 3],  true]
+    - [gt_false, gt, [3, 5],  false]
+    - [ge_equal, ge, [5, 5],  true]
+    - [ge_great, ge, [6, 5],  true]
+
+# bitwise operators
+invariant operator_rust.and_.basic:
+  description: "and_(10, 12) == 8 (bitwise AND: 0b1010 & 0b1100)"
+  category: bitwise
+  kind: python_call_eq
+  function: and_
+  args: [10, 12]
+  expected: 8
+
+invariant operator_rust.or_.basic:
+  description: "or_(10, 5) == 15 (bitwise OR: 0b1010 | 0b0101)"
+  category: bitwise
+  kind: python_call_eq
+  function: or_
+  args: [10, 5]
+  expected: 15
+
+invariant operator_rust.xor.basic:
+  description: "xor(10, 12) == 6 (bitwise XOR: 0b1010 ^ 0b1100)"
+  category: bitwise
+  kind: python_call_eq
+  function: xor
+  args: [10, 12]
+  expected: 6
+
+# logical operators
+invariant operator_rust.not_.false_input:
+  description: "not_(False) == True"
+  category: logical
+  kind: python_call_eq
+  function: not_
+  args: [false]
+  expected: true
+
+invariant operator_rust.not_.true_input:
+  description: "not_(True) == False"
+  category: logical
+  kind: python_call_eq
+  function: not_
+  args: [true]
+  expected: false
+
+invariant operator_rust.truth.zero:
+  description: "truth(0) == False"
+  category: logical
+  kind: python_call_eq
+  function: truth
+  args: [0]
+  expected: false
+
+invariant operator_rust.truth.one:
+  description: "truth(1) == True"
+  category: logical
+  kind: python_call_eq
+  function: truth
+  args: [1]
+  expected: true
+
+# sequence operators
+invariant operator_rust.contains.member:
+  description: "contains([1,2,3], 2) == True"
+  category: sequence
+  kind: python_call_eq
+  function: contains
+  args: [[1, 2, 3], 2]
+  expected: true
+
+invariant operator_rust.contains.non_member:
+  description: "contains([1,2,3], 5) == False"
+  category: sequence
+  kind: python_call_eq
+  function: contains
+  args: [[1, 2, 3], 5]
+  expected: false
+
+invariant operator_rust.length_hint.list:
+  description: "length_hint([1,2,3]) == 3"
+  category: sequence
+  kind: python_call_eq
+  function: length_hint
+  args: [[1, 2, 3]]
+  expected: 3
+
+invariant operator_rust.concat.strings:
+  description: "concat('foo', 'bar') == 'foobar'"
+  category: sequence
+  kind: python_call_eq
+  function: concat
+  args: ["foo", "bar"]
+  expected: "foobar"
+
+invariant operator_rust.getitem.string_first:
+  description: "getitem('hello', 0) == 'h'"
+  category: sequence
+  kind: python_call_eq
+  function: getitem
+  args: ["hello", 0]
+  expected: "h"
+
+invariant operator_rust.getitem.string_last:
+  description: "getitem('hello', 4) == 'o'"
+  category: sequence
+  kind: python_call_eq
+  function: getitem
+  args: ["hello", 4]
+  expected: "o"
+
+invariant operator_rust.index.integer:
+  description: "index(42) == 42"
+  category: sequence
+  kind: python_call_eq
+  function: index
+  args: [42]
+  expected: 42
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:03:21Z
+  iterations: 1
+  pass_count: 37
+  fail_count: 0
+  total_invariants: 37
+  notes: Synthesis succeeded in 1 iteration(s). 37 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

@@ -1,0 +1,189 @@
+spec: calendar_rust
+version: ">=3.9"
+backend: rust_module(calendar_rust)
+
+docs: https://docs.python.org/3/library/calendar.html
+
+provenance:
+  derived_from:
+    - "Python calendar documentation — https://docs.python.org/3/library/calendar.html"
+  not_derived_from:
+    - "CPython source: Lib/calendar.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python calendar module API, exposed via PyO3."
+    - "isleap(year) -> bool: Gregorian leap year rule (divisible by 4, not by 100, or by 400)."
+    - "weekday(year, month, day) -> int: 0=Monday … 6=Sunday (Zeller / Tomohiko Sakamoto algorithm)."
+    - "leapdays(y1, y2) -> int: count of leap years in the half-open range [y1, y2)."
+    - "month_name: indexable object; index 0 is empty string, 1='January', 12='December'."
+    - "month_abbr: indexable object; index 0 is empty string, 1='Jan', 12='Dec'."
+    - "day_name: indexable object; index 0='Monday' … 6='Sunday'."
+    - "day_abbr: indexable object; index 0='Mon' … 6='Sun'."
+    - "MONDAY=0, TUESDAY=1, WEDNESDAY=2, THURSDAY=3, FRIDAY=4, SATURDAY=5, SUNDAY=6 integer constants."
+    - "JANUARY=1, DECEMBER=12 integer constants."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# isleap — Gregorian leap year predicate
+table calendar_rust.isleap.vectors:
+  kind: python_call_eq
+  category: isleap
+  id_prefix: isleap
+  function: isleap
+
+  columns: [id, args, expected]
+  rows:
+    - [divisible_by_400,  [2000], true ]
+    - [divisible_by_4,    [2024], true ]
+    - [divisible_by_100,  [1900], false]
+    - [century_2100,      [2100], false]
+    - [common_year,       [2023], false]
+    - [common_year_2026,  [2026], false]
+
+# weekday — day of week (0=Monday … 6=Sunday)
+invariant calendar_rust.weekday.wednesday_2026_04_08:
+  description: "weekday(2026, 4, 8) == 2 — 8 April 2026 is a Wednesday"
+  category: weekday
+  kind: python_call_eq
+  function: weekday
+  args: [2026, 4, 8]
+  expected: 2
+
+invariant calendar_rust.weekday.monday_2024_01_01:
+  description: "weekday(2024, 1, 1) == 0 — 1 January 2024 is a Monday"
+  category: weekday
+  kind: python_call_eq
+  function: weekday
+  args: [2024, 1, 1]
+  expected: 0
+
+invariant calendar_rust.weekday.thursday_leap_day_2024:
+  description: "weekday(2024, 2, 29) == 3 — leap day 2024 is a Thursday"
+  category: weekday
+  kind: python_call_eq
+  function: weekday
+  args: [2024, 2, 29]
+  expected: 3
+
+# leapdays — count leap years in [y1, y2)
+invariant calendar_rust.leapdays.2000_to_2025:
+  description: "leapdays(2000, 2025) == 7 — leap years 2000,2004,2008,2012,2016,2020,2024"
+  category: leapdays
+  kind: python_call_eq
+  function: leapdays
+  args: [2000, 2025]
+  expected: 7
+
+invariant calendar_rust.leapdays.single_leap_year:
+  description: "leapdays(2000, 2001) == 1 — range contains only 2000 which is a leap year"
+  category: leapdays
+  kind: python_call_eq
+  function: leapdays
+  args: [2000, 2001]
+  expected: 1
+
+invariant calendar_rust.leapdays.excludes_century_non_leap:
+  description: "leapdays(1900, 1901) == 0 — 1900 is not a leap year"
+  category: leapdays
+  kind: python_call_eq
+  function: leapdays
+  args: [1900, 1901]
+  expected: 0
+
+# month_name — full month names (1-indexed; index 0 is empty string)
+invariant calendar_rust.month_name.january:
+  description: "month_name[1] == 'January'"
+  category: month_name
+  kind: python_call_eq
+  function: month_name.__getitem__
+  args: [1]
+  expected: "January"
+
+invariant calendar_rust.month_name.june:
+  description: "month_name[6] == 'June'"
+  category: month_name
+  kind: python_call_eq
+  function: month_name.__getitem__
+  args: [6]
+  expected: "June"
+
+invariant calendar_rust.month_name.december:
+  description: "month_name[12] == 'December'"
+  category: month_name
+  kind: python_call_eq
+  function: month_name.__getitem__
+  args: [12]
+  expected: "December"
+
+# month_abbr — abbreviated month names (1-indexed)
+invariant calendar_rust.month_abbr.jan:
+  description: "month_abbr[1] == 'Jan'"
+  category: month_abbr
+  kind: python_call_eq
+  function: month_abbr.__getitem__
+  args: [1]
+  expected: "Jan"
+
+invariant calendar_rust.month_abbr.dec:
+  description: "month_abbr[12] == 'Dec'"
+  category: month_abbr
+  kind: python_call_eq
+  function: month_abbr.__getitem__
+  args: [12]
+  expected: "Dec"
+
+# day_name — full day names (0=Monday … 6=Sunday)
+invariant calendar_rust.day_name.monday:
+  description: "day_name[0] == 'Monday'"
+  category: day_name
+  kind: python_call_eq
+  function: day_name.__getitem__
+  args: [0]
+  expected: "Monday"
+
+invariant calendar_rust.day_name.friday:
+  description: "day_name[4] == 'Friday'"
+  category: day_name
+  kind: python_call_eq
+  function: day_name.__getitem__
+  args: [4]
+  expected: "Friday"
+
+invariant calendar_rust.day_name.sunday:
+  description: "day_name[6] == 'Sunday'"
+  category: day_name
+  kind: python_call_eq
+  function: day_name.__getitem__
+  args: [6]
+  expected: "Sunday"
+
+# day_abbr — abbreviated day names (0=Monday … 6=Sunday)
+invariant calendar_rust.day_abbr.mon:
+  description: "day_abbr[0] == 'Mon'"
+  category: day_abbr
+  kind: python_call_eq
+  function: day_abbr.__getitem__
+  args: [0]
+  expected: "Mon"
+
+invariant calendar_rust.day_abbr.sun:
+  description: "day_abbr[6] == 'Sun'"
+  category: day_abbr
+  kind: python_call_eq
+  function: day_abbr.__getitem__
+  args: [6]
+  expected: "Sun"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:04:11Z
+  iterations: 1
+  pass_count: 22
+  fail_count: 0
+  total_invariants: 22
+  notes: Synthesis succeeded in 1 iteration(s). 22 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

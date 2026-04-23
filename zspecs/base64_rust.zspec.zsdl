@@ -1,0 +1,132 @@
+spec: base64_rust
+version: ">=3.9"
+backend: rust_module(base64_rust)
+
+docs: https://docs.python.org/3/library/base64.html
+rfcs:
+  - "RFC 4648 — The Base16, Base32, and Base64 Data Encodings"
+
+provenance:
+  derived_from:
+    - "RFC 4648 — The Base16, Base32, and Base64 Data Encodings, October 2006"
+    - "RFC 4648 Section 10 — Test vectors for Base64, Base32, Base16"
+    - "https://docs.python.org/3/library/base64.html — Python base64 documentation (API surface only)"
+  not_derived_from:
+    - "CPython source: Lib/base64.py"
+    - "CPython source: Modules/binascii.c"
+  notes:
+    - "Clean-room Rust reimplementation of the Python base64 module API, exposed via PyO3."
+    - "b64encode(data: bytes) -> bytes — encodes bytes to standard Base64 with padding."
+    - "b64decode(s: str | bytes, validate: bool = False) -> bytes — decodes Base64 to bytes. If validate=True, raises ValueError on non-alphabet characters."
+    - "urlsafe_b64encode(data: bytes) -> bytes — uses '-' and '_' instead of '+' and '/' (RFC 4648 §5)."
+    - "urlsafe_b64decode(s: str | bytes) -> bytes — decodes URL-safe Base64."
+    - "b32encode(data: bytes) -> bytes — encodes to Base32 uppercase with '=' padding (RFC 4648 §6)."
+    - "b16encode(data: bytes) -> bytes — encodes to uppercase hex (RFC 4648 §8)."
+    - "Errors raise ValueError (not binascii.Error)."
+    - "All RFC 4648 §10 test vectors verified against Python 3.14.3."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table base64_rust.b64encode.rfc4648:
+  kind: python_call_eq
+  category: encode_vector
+  rfc: "RFC 4648 §10"
+  id_prefix: b64encode
+  function: b64encode
+
+  columns: [id, args, expected]
+  rows:
+    - [rfc4648_empty,  [!b64 ""],         !ascii ""]
+    - [rfc4648_f,      [!b64 Zg==],       !ascii Zg==]
+    - [rfc4648_fo,     [!b64 Zm8=],       !ascii Zm8=]
+    - [rfc4648_foo,    [!b64 Zm9v],       !ascii Zm9v]
+    - [rfc4648_foob,   [!b64 Zm9vYg==],   !ascii Zm9vYg==]
+    - [rfc4648_fooba,  [!b64 Zm9vYmE=],   !ascii Zm9vYmE=]
+    - [rfc4648_foobar, [!b64 Zm9vYmFy],   !ascii Zm9vYmFy]
+
+table base64_rust.b64decode.vectors:
+  kind: python_call_eq
+  category: decode_vector
+  id_prefix: b64decode
+  function: b64decode
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [rfc4648_f,      ["Zg=="],     !ascii f,      "RFC 4648 §10"]
+    - [rfc4648_foo,    ["Zm9v"],     !ascii foo,    "RFC 4648 §10"]
+    - [rfc4648_foobar, ["Zm9vYmFy"], !ascii foobar, "RFC 4648 §10"]
+    - [binary_input,   ["+//+"],     !hex fbfffe,   ~]
+
+table base64_rust.urlsafe:
+  kind: python_call_eq
+  category: urlsafe
+
+  columns: [id, function, args, expected, rfc]
+  rows:
+    - [urlsafe_b64encode.replaces_plus_slash, urlsafe_b64encode, [!hex fbfffe], !ascii "-__-", "RFC 4648 §5"]
+    - [urlsafe_b64decode.accepts_dash_underscore, urlsafe_b64decode, ["-__-"], !hex fbfffe,    "RFC 4648 §5"]
+
+table base64_rust.b32encode.rfc4648:
+  kind: python_call_eq
+  category: b32
+  rfc: "RFC 4648 §10"
+  id_prefix: b32encode
+  function: b32encode
+
+  columns: [id, args, expected]
+  rows:
+    - [rfc4648_foo,    [!ascii foo],    !ascii MZXW6===]
+    - [rfc4648_foobar, [!ascii foobar], !ascii MZXW6YTBOI======]
+
+table base64_rust.b16encode:
+  kind: python_call_eq
+  category: b16
+  id_prefix: b16encode
+  function: b16encode
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [rfc4648_foo, [!ascii foo],    !ascii 666F6F,   "RFC 4648 §10"]
+    - [binary,      [!hex deadbeef], !ascii DEADBEEF, ~]
+
+invariant base64_rust.roundtrip.standard:
+  description: "b64encode then b64decode is lossless for arbitrary binary data"
+  category: roundtrip
+  kind: python_encode_decode_roundtrip
+  encode_fn: b64encode
+  decode_fn: b64decode
+  inputs_b64: ["", Zg==, Zm9v, Zm9vYmFy, /wEB, +//+]
+
+invariant base64_rust.roundtrip.urlsafe:
+  description: "urlsafe_b64encode then urlsafe_b64decode is lossless for arbitrary binary data"
+  category: roundtrip
+  rfc: "RFC 4648 §5"
+  kind: python_encode_decode_roundtrip
+  encode_fn: urlsafe_b64encode
+  decode_fn: urlsafe_b64decode
+  inputs_b64: ["", Zg==, Zm9v, +//+, /wEB]
+
+invariant base64_rust.b64decode.invalid_raises:
+  description: "b64decode with validate=True raises ValueError on non-base64 characters"
+  category: error
+  rfc: "RFC 4648 §3.3"
+  kind: python_call_raises
+  function: b64decode
+  args: ["not!valid@base64#data"]
+  kwargs:
+    validate: true
+  expected_exception: ValueError
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:00:42Z
+  iterations: 1
+  pass_count: 20
+  fail_count: 0
+  total_invariants: 20
+  notes: Synthesis succeeded in 1 iteration(s). 20 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

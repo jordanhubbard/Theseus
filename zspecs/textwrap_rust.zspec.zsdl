@@ -1,0 +1,162 @@
+spec: textwrap_rust
+version: ">=3.9"
+backend: rust_module(textwrap_rust)
+
+docs: https://docs.python.org/3/library/textwrap.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/textwrap.html — Python textwrap documentation (API surface)"
+  not_derived_from:
+    - "CPython source: Lib/textwrap.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python textwrap module API, exposed via PyO3."
+    - "May use the 'textwrap' Rust crate (https://crates.io/crates/textwrap)."
+    - "wrap(text: str, width: int) -> list[str] — split text into lines of at most width chars."
+    - "fill(text: str, width: int) -> str — wrap and join lines with newlines."
+    - "dedent(text: str) -> str — remove common leading whitespace from all lines."
+    - "indent(text: str, prefix: str) -> str — add prefix to each non-empty line."
+    - "shorten(text: str, width: int) -> str — collapse whitespace and truncate with '[...]'."
+    - "wrap('') returns [] — empty input yields no lines."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# wrap — returns list of strings
+invariant textwrap_rust.wrap.basic:
+  description: "wrap('hello world foo bar', 10) splits at word boundaries"
+  category: wrap
+  kind: python_call_eq
+  function: wrap
+  args: ["hello world foo bar", 10]
+  expected: ["hello", "world foo", "bar"]
+
+invariant textwrap_rust.wrap.empty_string:
+  description: "wrap('', 10) returns [] — no lines for empty input"
+  category: wrap
+  kind: python_call_eq
+  function: wrap
+  args: ["", 10]
+  expected: []
+
+invariant textwrap_rust.wrap.short_string_wide_width:
+  description: "wrap('short', 80) returns ['short'] — fits in width"
+  category: wrap
+  kind: python_call_eq
+  function: wrap
+  args: ["short", 80]
+  expected: ["short"]
+
+invariant textwrap_rust.wrap.multi_word_narrow:
+  description: "wrap('a b c d e f g', 5) wraps short words"
+  category: wrap
+  kind: python_call_eq
+  function: wrap
+  args: ["a b c d e f g", 5]
+  expected: ["a b c", "d e f", "g"]
+
+invariant textwrap_rust.wrap.single_line_fits:
+  description: "wrap('hello world', 20) returns single element — both words fit"
+  category: wrap
+  kind: python_call_eq
+  function: wrap
+  args: ["hello world", 20]
+  expected: ["hello world"]
+
+# fill — returns single wrapped string
+invariant textwrap_rust.fill.basic:
+  description: "fill('hello world', 5) wraps into two lines"
+  category: fill
+  kind: python_call_eq
+  function: fill
+  args: ["hello world", 5]
+  expected: "hello\nworld"
+
+invariant textwrap_rust.fill.wide_width:
+  description: "fill('hello world foo', 10) wraps at word boundary"
+  category: fill
+  kind: python_call_eq
+  function: fill
+  args: ["hello world foo", 10]
+  expected: "hello\nworld foo"
+
+# dedent — removes common leading whitespace
+invariant textwrap_rust.dedent.common_indent:
+  description: "dedent('    hello\\n    world') removes 4-space common indent"
+  category: dedent
+  kind: python_call_eq
+  function: dedent
+  args: ["    hello\n    world"]
+  expected: "hello\nworld"
+
+invariant textwrap_rust.dedent.no_indent:
+  description: "dedent('no indent') returns string unchanged"
+  category: dedent
+  kind: python_call_eq
+  function: dedent
+  args: ["no indent"]
+  expected: "no indent"
+
+invariant textwrap_rust.dedent.uniform_two_space:
+  description: "dedent('  foo\\n  bar\\n  baz') removes 2-space common indent"
+  category: dedent
+  kind: python_call_eq
+  function: dedent
+  args: ["  foo\n  bar\n  baz"]
+  expected: "foo\nbar\nbaz"
+
+# indent — adds prefix to lines
+invariant textwrap_rust.indent.basic:
+  description: "indent('hello\\nworld', '>> ') prepends prefix to each line"
+  category: indent
+  kind: python_call_eq
+  function: indent
+  args: ["hello\nworld", ">> "]
+  expected: ">> hello\n>> world"
+
+invariant textwrap_rust.indent.empty_string:
+  description: "indent('', '--') returns '' — no lines to prefix"
+  category: indent
+  kind: python_call_eq
+  function: indent
+  args: ["", "--"]
+  expected: ""
+
+invariant textwrap_rust.indent.two_space_prefix:
+  description: "indent('hello\\nworld', '  ') adds two-space indent"
+  category: indent
+  kind: python_call_eq
+  function: indent
+  args: ["hello\nworld", "  "]
+  expected: "  hello\n  world"
+
+# shorten — truncates with placeholder
+invariant textwrap_rust.shorten.truncates:
+  description: "shorten('The quick brown fox', 15) truncates with '[...]'"
+  category: shorten
+  kind: python_call_eq
+  function: shorten
+  args: ["The quick brown fox", 15]
+  expected: "The quick [...]"
+
+invariant textwrap_rust.shorten.fits_without_truncation:
+  description: "shorten('short', 80) returns string unchanged when it fits"
+  category: shorten
+  kind: python_call_eq
+  function: shorten
+  args: ["short", 80]
+  expected: "short"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:12:01Z
+  iterations: 1
+  pass_count: 15
+  fail_count: 0
+  total_invariants: 15
+  notes: Synthesis succeeded in 1 iteration(s). 15 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

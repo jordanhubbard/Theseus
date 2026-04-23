@@ -1,0 +1,111 @@
+spec: re_rust
+version: ">=3.9"
+backend: rust_module(re_rust)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re documentation (API surface and semantics)"
+    - "ECMA-262 §21.2 — ECMAScript RegExp specification (shared regex syntax foundation)"
+  not_derived_from:
+    - "CPython source: Lib/re/__init__.py"
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "Clean-room Rust reimplementation of the Python re module API, exposed via PyO3."
+    - "May use the Rust 'regex' crate (an independent NFA-based engine, not derived from CPython's SRE engine)."
+    - "sub(pattern, repl, string) -> str — replaces all matches of pattern in string with repl."
+    - "findall(pattern, string) -> list[str] — returns all non-overlapping matches."
+    - "split(pattern, string) -> list[str] — splits string at pattern matches."
+    - "escape(pattern) -> str — escapes all regex special characters in pattern."
+    - "compile(pattern) — raises re_rust.error (a ValueError subclass) for invalid patterns."
+    - "This spec avoids backreference substitution (\\1, \\g<name>) which requires the 'fancy-regex' crate; plain replacement strings are used."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table re_rust.sub:
+  kind: python_call_eq
+  category: substitution
+  id_prefix: sub
+  function: sub
+
+  columns: [id, args, expected]
+  rows:
+    - [whitespace_to_dash,    ["\\s+", "-",    "hello world foo"], "hello-world-foo"  ]
+    - [digit_to_X,            ["\\d",  "X",    "a1b2c3"         ], "aXbXcX"          ]
+    - [no_match_noop,         ["x",    "y",    "no match here"  ], "no match here"    ]
+    - [empty_string_input,    ["\\d",  "X",    ""               ], ""                ]
+
+table re_rust.findall:
+  kind: python_call_eq
+  category: findall
+  id_prefix: findall
+  function: findall
+
+  columns: [id, args, expected]
+  rows:
+    - [digits_multiple,         ["\\d+",  "a1b22c333"     ], ["1", "22", "333"]      ]
+    - [uppercase_letters,       ["[A-Z]", "Hello World"   ], ["H", "W"]              ]
+    - [no_match_empty_list,     ["\\d+",  "no digits"     ], []                      ]
+    - [word_chars,              ["\\w+",  "one two three" ], ["one", "two", "three"] ]
+
+table re_rust.split:
+  kind: python_call_eq
+  category: split
+  id_prefix: split
+  function: split
+
+  columns: [id, args, expected]
+  rows:
+    - [whitespace,                      ["\\s+", "hello world foo"], ["hello", "world", "foo"]]
+    - [comma,                           [",",    "a,b,c"          ], ["a", "b", "c"]          ]
+    - [pipe_delimiter,                  ["\\|",  "one|two|three"  ], ["one", "two", "three"]  ]
+    - [leading_delimiter_produces_empty_first, ["\\s+", "  leading"], ["", "leading"]         ]
+
+table re_rust.escape:
+  kind: python_call_eq
+  category: escape
+  id_prefix: escape
+  function: escape
+
+  columns: [id, args, expected]
+  rows:
+    - [dot_parens,              ["foo.bar(baz)"], "foo\\.bar\\(baz\\)"  ]
+    - [math_operators,          ["1+1=2"       ], "1\\+1=2"            ]
+    - [plain_alphanumeric_unchanged, ["abc123" ], "abc123"             ]
+
+invariant re_rust.error.invalid_pattern_compile:
+  kind: python_call_raises
+  category: error
+  function: compile
+  args: ["[invalid"]
+  expected_exception: "re_rust.error"
+
+invariant re_rust.error.unmatched_paren:
+  kind: python_call_raises
+  category: error
+  function: compile
+  args: ["(unclosed"]
+  expected_exception: "re_rust.error"
+
+invariant re_rust.error.invalid_quantifier:
+  kind: python_call_raises
+  category: error
+  function: compile
+  args: ["*foo"]
+  expected_exception: "re_rust.error"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:06:42Z
+  iterations: 2
+  pass_count: 18
+  fail_count: 0
+  total_invariants: 18
+  notes: Synthesis succeeded in 2 iteration(s). 18 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

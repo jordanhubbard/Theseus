@@ -1,0 +1,155 @@
+spec: struct_rust
+version: ">=3.9"
+backend: rust_module(struct_rust)
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html — Python struct module documentation (API surface and format string semantics)"
+    - "IEEE 754-2019 — Standard for Floating-Point Arithmetic (for half/float/double format strings)"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+    - "CPython source: Lib/struct.py"
+  notes:
+    - "Clean-room Rust reimplementation of the Python struct module API, exposed via PyO3."
+    - "pack(fmt: str, *values) -> bytes — packs values into bytes using the format string."
+    - "unpack(fmt: str, buffer: bytes) -> tuple — unpacks bytes into a tuple of values."
+    - "calcsize(fmt: str) -> int — returns the byte size of the packed format."
+    - "Format string prefixes: '>' = big-endian, '<' = little-endian, '!' = network (big-endian), '=' = native without alignment."
+    - "Format characters: B=uint8, b=int8, H=uint16, h=int16, I=uint32, i=int32, Q=uint64, q=int64, f=float32 (IEEE 754), d=float64 (IEEE 754), e=float16 (IEEE 754), ?=bool, x=pad byte."
+    - "Repeat count prefix: '2H' means two uint16 values."
+    - "Errors (wrong buffer size, invalid format, overflow) raise ValueError."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table struct_rust.pack.vectors:
+  kind: python_call_eq
+  category: pack_vector
+  id_prefix: pack
+  function: pack
+
+  columns: [id, args, expected]
+  rows:
+    - [big_endian_uint16_zero,              [">H", 0],         !hex 0000      ]
+    - [big_endian_uint16_256,               [">H", 256],       !hex 0100      ]
+    - [little_endian_uint16_256,            ["<H", 256],       !hex 0001      ]
+    - [network_byte_order_equals_big_endian,["!H", 256],       !hex 0100      ]
+    - [big_endian_uint32,                   [">I", 305419896], !hex 12345678  ]
+    - [little_endian_uint32,                ["<I", 305419896], !hex 78563412  ]
+    - [uint8_max,                           [">B", 255],       !hex ff        ]
+    - [int8_minus1,                         [">b", -1],        !hex ff        ]
+    - [big_endian_uint16_max,               [">H", 65535],     !hex ffff      ]
+    - [big_endian_uint64_zero,              [">Q", 0],         !hex 0000000000000000]
+    - [big_endian_int64_minus1,             [">q", -1],        !hex ffffffffffffffff]
+    - [big_endian_int64_one,                [">q", 1],         !hex 0000000000000001]
+    - [big_endian_short_one,                [">h", 1],         !hex 0001      ]
+    - [big_endian_short_minus1,             [">h", -1],        !hex ffff      ]
+    - [bool_true,                           ["?", true],       !hex 01        ]
+    - [bool_false,                          ["?", false],      !hex 00        ]
+    - [half_float_zero,                     [">e", 0.0],       !hex 0000      ]
+    - [pad_bytes_3x,                        ["3x"],            !hex 000000    ]
+
+table struct_rust.calcsize.vectors:
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: calcsize
+
+  columns: [id, args, expected]
+  rows:
+    - [H,   [">H"],   2]
+    - [I,   [">I"],   4]
+    - [Q,   [">Q"],   8]
+    - [HI,  [">HI"],  6]
+    - [HIQ, [">HIQ"], 14]
+    - [q,   [">q"],   8]
+    - [h,   [">h"],   2]
+    - [b,   [">b"],   1]
+    - [bool_fmt, ["?"], 1]
+    - [half_float, [">e"], 2]
+
+table struct_rust.unpack.vectors:
+  kind: python_call_eq
+  category: unpack_vector
+  id_prefix: unpack
+  function: unpack
+
+  columns: [id, args, expected]
+  rows:
+    - [big_endian_uint16,       [">H",  !hex 0100],             [256]          ]
+    - [little_endian_uint16,    ["<H",  !hex 0001],             [256]          ]
+    - [big_endian_uint32,       [">I",  !hex 12345678],         [305419896]    ]
+    - [two_uint16,              [">2H", !hex 00010002],         [1, 2]         ]
+    - [mixed_BH,                [">BH", !hex ff0100],           [255, 256]     ]
+    - [uint64_zero,             [">Q",  !hex 0000000000000000], [0]            ]
+    - [int64_minus1,            [">q",  !hex ffffffffffffffff], [-1]           ]
+    - [short_one,               [">h",  !hex 0001],             [1]            ]
+    - [bool_true,               ["?",   !hex 01],               [true]         ]
+    - [bool_false,              ["?",   !hex 00],               [false]        ]
+
+invariant struct_rust.roundtrip.int64_big_endian:
+  description: "pack then unpack is lossless for '>q' (signed 64-bit) across representative values"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: ">q"
+  test_cases: [[0], [1], [-1], [-9223372036854775808], [9223372036854775807]]
+
+invariant struct_rust.roundtrip.uint64_big_endian:
+  description: "pack then unpack is lossless for '>Q' (unsigned 64-bit)"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: ">Q"
+  test_cases: [[0], [1], [18446744073709551615]]
+
+invariant struct_rust.roundtrip.uint16_big_endian:
+  description: "pack then unpack is lossless for '>H' across representative values"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: ">H"
+  test_cases: [[0], [1], [256], [1000], [65535]]
+
+invariant struct_rust.roundtrip.uint32_little_endian:
+  description: "pack then unpack is lossless for '<I'"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: "<I"
+  test_cases: [[0], [1], [305419896], [4294967295]]
+
+invariant struct_rust.roundtrip.mixed_BHI:
+  description: "pack then unpack is lossless for '>BHI'"
+  category: roundtrip
+  kind: python_struct_roundtrip
+  format: ">BHI"
+  values: [255, 1000, 305419896]
+
+invariant struct_rust.unpack.wrong_size_raises:
+  description: "unpack('>H', b'\\x00') raises ValueError — buffer must be exactly calcsize('>H')=2 bytes"
+  category: error
+  kind: python_call_raises
+  function: unpack
+  args: [">H", !hex 00]
+  expected_exception: ValueError
+
+invariant struct_rust.unpack.too_many_bytes_raises:
+  description: "unpack('>H', b'\\x00\\x01\\x02') raises ValueError — buffer has 3 bytes but format requires exactly 2"
+  category: error
+  kind: python_call_raises
+  function: unpack
+  args: [">H", !hex 000102]
+  expected_exception: ValueError
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:10:59Z
+  iterations: 1
+  pass_count: 45
+  fail_count: 0
+  total_invariants: 45
+  notes: Synthesis succeeded in 1 iteration(s). 45 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

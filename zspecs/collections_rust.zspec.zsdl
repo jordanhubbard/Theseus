@@ -1,0 +1,138 @@
+spec: collections_rust
+version: ">=3.9"
+backend: rust_module(collections_rust)
+
+docs: https://docs.python.org/3/library/collections.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/collections.html — Python collections documentation"
+  not_derived_from:
+    - "CPython source: Lib/collections/__init__.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python collections module, exposed via PyO3."
+    - "Counter(iterable_or_mapping) counts elements; elements not present return 0."
+    - "Counter([1,1,2,3,3,3])[1] == 2, Counter([1,1,2,3,3,3])[3] == 3."
+    - "Counter({'a': 3, 'b': 2})['a'] == 3."
+    - "Counter([1,1,2,3,3,3]).__len__() == 3 (three distinct elements)."
+    - "Counter missing keys return 0 (not KeyError): Counter({'a': 1})['z'] == 0."
+    - "deque(iterable) creates a double-ended queue; supports __getitem__ by index."
+    - "deque([10, 20, 30])[0] == 10, deque([10, 20, 30])[-1] == 30."
+    - "deque supports __contains__: 20 in deque([10, 20, 30]) == True."
+    - "All test vectors verified against Python 3.14.3 collections module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# Counter — from list
+table collections_rust.Counter.from_list:
+  kind: python_call_eq
+  category: Counter
+  id_prefix: counter_list
+  function: Counter
+  method: __getitem__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [count_1,    [[1, 1, 2, 3, 3, 3]], [1], 2]
+    - [count_3,    [[1, 1, 2, 3, 3, 3]], [3], 3]
+    - [count_2,    [[1, 1, 2, 3, 3, 3]], [2], 1]
+    - [missing_0,  [[1, 1, 2, 3, 3, 3]], [9], 0]
+
+# Counter — from dict
+table collections_rust.Counter.from_dict:
+  kind: python_call_eq
+  category: Counter
+  id_prefix: counter_dict
+  function: Counter
+  method: __getitem__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [key_a,   [{"a": 3, "b": 2}], ["a"], 3]
+    - [key_b,   [{"a": 3, "b": 2}], ["b"], 2]
+    - [missing, [{"a": 3}],         ["z"], 0]
+
+# Counter — __len__ (distinct elements)
+table collections_rust.Counter.len:
+  kind: python_call_eq
+  category: Counter
+  id_prefix: counter_len
+  function: Counter
+  method: __len__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [three_distinct, [[1, 1, 2, 3, 3, 3]], 3]
+    - [all_same,       [[5, 5, 5]],          1]
+    - [empty,          [[]],                  0]
+
+# Counter — __contains__
+table collections_rust.Counter.contains:
+  kind: python_call_eq
+  category: Counter
+  id_prefix: counter_has
+  function: Counter
+  method: __contains__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [has_1,   [[1, 2, 3]], [1], true]
+    - [miss_99, [[1, 2, 3]], [99], false]
+
+# deque — __len__
+table collections_rust.deque.len:
+  kind: python_call_eq
+  category: deque
+  id_prefix: deque_len
+  function: deque
+  method: __len__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [three, [[10, 20, 30]], 3]
+    - [empty, [[]], 0]
+    - [one,   [[42]], 1]
+
+# deque — __getitem__
+table collections_rust.deque.getitem:
+  kind: python_call_eq
+  category: deque
+  id_prefix: deque_idx
+  function: deque
+  method: __getitem__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [first,  [[10, 20, 30]], [0],  10]
+    - [middle, [[10, 20, 30]], [1],  20]
+    - [last,   [[10, 20, 30]], [2],  30]
+    - [neg,    [[10, 20, 30]], [-1], 30]
+
+# deque — __contains__
+table collections_rust.deque.contains:
+  kind: python_call_eq
+  category: deque
+  id_prefix: deque_has
+  function: deque
+  method: __contains__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [found,   [[10, 20, 30]], [20], true]
+    - [missing, [[10, 20, 30]], [99], false]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:50:44Z
+  iterations: 2
+  pass_count: 21
+  fail_count: 0
+  total_invariants: 21
+  notes: Synthesis succeeded in 2 iteration(s). 21 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

@@ -1,0 +1,130 @@
+spec: os_path_rust
+version: ">=3.9"
+backend: rust_module(os_path_rust)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.path.html — Python os.path documentation"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python os.path module, exposed via PyO3."
+    - "All functions operate on POSIX paths (forward slash separator)."
+    - "join('a', 'b', 'c') == 'a/b/c'; join('/foo', 'bar') == '/foo/bar'."
+    - "basename('/foo/bar.txt') == 'bar.txt'."
+    - "dirname('/foo/bar.txt') == '/foo'."
+    - "split('/foo/bar.txt') returns ('/foo', 'bar.txt') as a tuple."
+    - "splitext('foo.txt') returns ('foo', '.txt') as a tuple."
+    - "splitext('archive.tar.gz') returns ('archive.tar', '.gz')."
+    - "isabs('/foo') == True; isabs('foo') == False."
+    - "normpath('foo//bar/../baz') == 'foo/baz'."
+    - "normpath('/foo/./bar') == '/foo/bar'."
+    - "All test vectors verified against Python 3.14.3 os.path module on POSIX."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# join — path segment concatenation
+table os_path_rust.join.basic:
+  kind: python_call_eq
+  category: join
+  id_prefix: join
+  function: join
+
+  columns: [id, args, expected]
+  rows:
+    - [two_segs,    ["a", "b"],        "a/b"]
+    - [three_segs,  ["a", "b", "c"],   "a/b/c"]
+    - [abs_prefix,  ["/foo", "bar"],   "/foo/bar"]
+    - [abs_mid,     ["a", "/b", "c"],  "/b/c"]
+    - [empty_first, ["", "b"],         "b"]
+
+# basename — final component
+table os_path_rust.basename.paths:
+  kind: python_call_eq
+  category: basename
+  id_prefix: basename
+  function: basename
+
+  columns: [id, args, expected]
+  rows:
+    - [file,      ["/foo/bar.txt"],  "bar.txt"]
+    - [no_ext,    ["/foo/bar"],      "bar"]
+    - [root_file, ["/bar"],          "bar"]
+    - [trailing,  ["/foo/"],         ""]
+    - [simple,    ["bar.txt"],       "bar.txt"]
+
+# dirname — parent directory
+table os_path_rust.dirname.paths:
+  kind: python_call_eq
+  category: dirname
+  id_prefix: dirname
+  function: dirname
+
+  columns: [id, args, expected]
+  rows:
+    - [nested,    ["/foo/bar.txt"],  "/foo"]
+    - [root_file, ["/bar"],          "/"]
+    - [relative,  ["foo/bar"],       "foo"]
+    - [no_slash,  ["bar"],           ""]
+
+# splitext — extension split
+table os_path_rust.splitext.extensions:
+  kind: python_call_eq
+  category: splitext
+  id_prefix: splitext
+  function: splitext
+  method: __getitem__
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [base_txt,     ["foo.txt"],       [0], "foo"]
+    - [ext_txt,      ["foo.txt"],       [1], ".txt"]
+    - [base_tar_gz,  ["archive.tar.gz"], [0], "archive.tar"]
+    - [ext_tar_gz,   ["archive.tar.gz"], [1], ".gz"]
+    - [no_ext_base,  ["foo"],           [0], "foo"]
+    - [no_ext_ext,   ["foo"],           [1], ""]
+
+# isabs — absolute path detection
+table os_path_rust.isabs.paths:
+  kind: python_call_eq
+  category: isabs
+  id_prefix: isabs
+  function: isabs
+
+  columns: [id, args, expected]
+  rows:
+    - [absolute,  ["/foo"],    true]
+    - [abs_root,  ["/"],       true]
+    - [relative,  ["foo"],     false]
+    - [relative2, ["foo/bar"], false]
+    - [empty,     [""],        false]
+
+# normpath — normalize redundant separators and up-level refs
+table os_path_rust.normpath.paths:
+  kind: python_call_eq
+  category: normpath
+  id_prefix: normpath
+  function: normpath
+
+  columns: [id, args, expected]
+  rows:
+    - [double_slash,  ["foo//bar"],         "foo/bar"]
+    - [parent_ref,    ["foo/bar/../baz"],    "foo/baz"]
+    - [dot_segment,   ["/foo/./bar"],        "/foo/bar"]
+    - [simple,        ["foo/bar"],           "foo/bar"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:52:35Z
+  iterations: 2
+  pass_count: 29
+  fail_count: 0
+  total_invariants: 29
+  notes: Synthesis succeeded in 2 iteration(s). 29 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

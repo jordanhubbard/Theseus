@@ -1,0 +1,131 @@
+spec: random_rust
+version: ">=3.9"
+backend: rust_module(random_rust)
+
+docs: https://docs.python.org/3/library/random.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/random.html — Python random documentation"
+  not_derived_from:
+    - "CPython source: Lib/random.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python random module, exposed via PyO3."
+    - "Implements Python-compatible Mersenne Twister (MT19937) with identical seeding."
+    - "Random(seed) creates a seeded PRNG; results must match CPython for the same seed."
+    - "randint(a, b) returns int N such that a <= N <= b (inclusive on both ends)."
+    - "randrange(stop) returns int in [0, stop)."
+    - "choice(seq) returns a random element from seq."
+    - "random() returns float in [0.0, 1.0)."
+    - "uniform(a, b) returns float N such that a <= N <= b."
+    - "randint(x, x) always returns x; choice([x]) always returns x."
+    - "Random(42).randint(0, 100) == 81 — verified against CPython 3.14.3."
+    - "Random(0).randint(0, 9) == 6 — verified against CPython 3.14.3."
+    - "Random(1).choice([10, 20, 30]) == 10 — verified against CPython 3.14.3."
+    - "Random(42).randrange(100) == 81 — verified against CPython 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# Deterministic boundary invariants — do not depend on PRNG sequence
+table random_rust.Random.degenerate:
+  kind: python_call_eq
+  category: randint
+  id_prefix: degenerate
+  function: Random
+  method: randint
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [equal_range_5,  [42], [5,  5],  5]
+    - [equal_range_0,  [0],  [0,  0],  0]
+    - [equal_range_99, [99], [99, 99], 99]
+
+table random_rust.Random.choice_single:
+  kind: python_call_eq
+  category: choice
+  id_prefix: choice_one
+  function: Random
+  method: choice
+
+  columns: [id, args, method_args, expected]
+  rows:
+    - [only_42,   [42], [[42]],  42]
+    - [only_zero, [0],  [[0]],   0]
+    - [only_str,  [1],  [["x"]], "x"]
+
+# Seeded PRNG values — verified against CPython 3.14.3 MT19937
+invariant random_rust.Random.randint_seed42:
+  description: "Random(42).randint(0, 100) == 81"
+  category: seeded
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: randint
+  method_args: [0, 100]
+  expected: 81
+
+invariant random_rust.Random.randint_seed0:
+  description: "Random(0).randint(0, 9) == 6"
+  category: seeded
+  kind: python_call_eq
+  function: Random
+  args: [0]
+  method: randint
+  method_args: [0, 9]
+  expected: 6
+
+invariant random_rust.Random.randrange_seed42:
+  description: "Random(42).randrange(100) == 81"
+  category: seeded
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: randrange
+  method_args: [100]
+  expected: 81
+
+invariant random_rust.Random.choice_seed1:
+  description: "Random(1).choice([10, 20, 30]) == 10"
+  category: seeded
+  kind: python_call_eq
+  function: Random
+  args: [1]
+  method: choice
+  method_args: [[10, 20, 30]]
+  expected: 10
+
+# randbelow — always 0 for below 1
+invariant random_rust.Random.randbelow_one:
+  description: "Random(42).randbelow(1) == 0"
+  category: randbelow
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: randbelow
+  method_args: [1]
+  expected: 0
+
+# sample — single element list
+invariant random_rust.Random.sample_single:
+  description: "Random(42).sample([99], 1) == [99]"
+  category: sample
+  kind: python_call_eq
+  function: Random
+  args: [42]
+  method: sample
+  method_args: [[99], 1]
+  expected: [99]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:43:24Z
+  iterations: 1
+  pass_count: 12
+  fail_count: 0
+  total_invariants: 12
+  notes: Synthesis succeeded in 1 iteration(s). 12 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

@@ -1,0 +1,173 @@
+spec: packaging_rust
+version: ">=3.9"
+backend: rust_module(packaging_rust)
+
+docs: https://packaging.pypa.io/en/stable/
+
+rfcs:
+  - "PEP 440 — Version Identification and Dependency Specification"
+  - "PEP 508 — Dependency specification for Python Software Packages"
+  - "PEP 503 — Simple Repository API (canonicalize_name normalisation)"
+
+provenance:
+  derived_from:
+    - "packaging documentation — https://packaging.pypa.io/en/stable/"
+    - "PEP 440 — Version Identification and Dependency Specification"
+    - "PEP 503 — Simple Repository API"
+  not_derived_from:
+    - "packaging source: packaging/version.py"
+    - "packaging source: packaging/specifiers.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python packaging library, exposed via PyO3."
+    - "May use the 'pep440_rs' Rust crate or custom PEP 440 parser."
+    - "Version(str) constructs a PEP 440 version object; .major/.minor/.micro are integer fields."
+    - "Version('1.0a1').is_prerelease == True; Version('1.0.dev1').is_devrelease == True."
+    - "SpecifierSet(str) parses a version specifier set; .contains(ver_str) tests membership."
+    - "canonicalize_name(name) normalises per PEP 503: lowercase, runs of [-_.] become '-'."
+    - "All test vectors verified against packaging 24.x + Python 3.14.3."
+    - "Flat module API: Version and SpecifierSet are top-level classes; canonicalize_name is top-level function."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# Version — field extraction (PEP 440)
+table packaging_rust.version.fields:
+  kind: python_call_eq
+  category: version
+  id_prefix: version
+  function: Version
+  args: ["1.2.3"]
+
+  columns: [id, method, expected]
+  rows:
+    - [major, major, 1]
+    - [minor, minor, 2]
+    - [micro, micro, 3]
+
+invariant packaging_rust.version.is_prerelease_stable:
+  description: "Version('1.2.3').is_prerelease == False — stable release"
+  category: version
+  kind: python_call_eq
+  function: Version
+  args: ["1.2.3"]
+  method: is_prerelease
+  expected: false
+
+invariant packaging_rust.version.is_devrelease_stable:
+  description: "Version('1.2.3').is_devrelease == False — stable release"
+  category: version
+  kind: python_call_eq
+  function: Version
+  args: ["1.2.3"]
+  method: is_devrelease
+  expected: false
+
+# Version — pre-release and dev-release detection (PEP 440)
+invariant packaging_rust.version.alpha_is_prerelease:
+  description: "Version('1.0a1').is_prerelease == True — alpha tags are pre-releases"
+  category: prerelease
+  kind: python_call_eq
+  function: Version
+  args: ["1.0a1"]
+  method: is_prerelease
+  expected: true
+
+invariant packaging_rust.version.dev_is_devrelease:
+  description: "Version('1.0.dev1').is_devrelease == True — .devN suffix marks dev release"
+  category: prerelease
+  kind: python_call_eq
+  function: Version
+  args: ["1.0.dev1"]
+  method: is_devrelease
+  expected: true
+
+invariant packaging_rust.version.dev_is_prerelease:
+  description: "Version('1.0.dev1').is_prerelease == True — dev releases are also pre-releases"
+  category: prerelease
+  kind: python_call_eq
+  function: Version
+  args: ["1.0.dev1"]
+  method: is_prerelease
+  expected: true
+
+invariant packaging_rust.version.rc_is_prerelease:
+  description: "Version('2.0rc1').is_prerelease == True — rc tags are pre-releases"
+  category: prerelease
+  kind: python_call_eq
+  function: Version
+  args: ["2.0rc1"]
+  method: is_prerelease
+  expected: true
+
+# SpecifierSet — .contains() evaluation (PEP 440)
+table packaging_rust.specifier.range:
+  kind: python_call_eq
+  category: specifier
+  id_prefix: specifier
+  function: SpecifierSet
+  args: [">=1.0,<2.0"]
+  method: contains
+
+  columns: [id, method_args, expected]
+  rows:
+    - [in_range,    ["1.5"], true ]
+    - [below_range, ["0.9"], false]
+    - [at_upper,    ["2.0"], false]
+    - [at_lower,    ["1.0"], true ]
+
+invariant packaging_rust.specifier.exact_match:
+  description: "SpecifierSet('==1.2.3').contains('1.2.3') == True"
+  category: specifier
+  kind: python_call_eq
+  function: SpecifierSet
+  args: ["==1.2.3"]
+  method: contains
+  method_args: ["1.2.3"]
+  expected: true
+
+invariant packaging_rust.specifier.exact_mismatch:
+  description: "SpecifierSet('==1.2.3').contains('1.2.4') == False"
+  category: specifier
+  kind: python_call_eq
+  function: SpecifierSet
+  args: ["==1.2.3"]
+  method: contains
+  method_args: ["1.2.4"]
+  expected: false
+
+invariant packaging_rust.specifier.empty_matches_all:
+  description: "SpecifierSet('').contains('99.0') == True — empty specifier accepts any version"
+  category: specifier
+  kind: python_call_eq
+  function: SpecifierSet
+  args: [""]
+  method: contains
+  method_args: ["99.0"]
+  expected: true
+
+# canonicalize_name — PEP 503 name normalization
+table packaging_rust.utils.canonicalize:
+  kind: python_call_eq
+  category: utils
+  id_prefix: canonicalize
+  function: canonicalize_name
+
+  columns: [id, args, expected]
+  rows:
+    - [uppercase,   ["Pillow"],      "pillow"     ]
+    - [underscore,  ["my_package"],  "my-package" ]
+    - [django,      ["Django"],      "django"     ]
+    - [mixed_seps,  ["Foo_Bar-Baz"], "foo-bar-baz"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:03:57Z
+  iterations: 2
+  pass_count: 20
+  fail_count: 0
+  total_invariants: 20
+  notes: Synthesis succeeded in 2 iteration(s). 20 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

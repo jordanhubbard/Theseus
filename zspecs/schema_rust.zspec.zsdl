@@ -1,0 +1,97 @@
+spec: schema_rust
+version: ">=3.9"
+backend: rust_module(schema_rust)
+
+docs: https://github.com/keleshev/schema
+
+provenance:
+  derived_from:
+    - "https://github.com/keleshev/schema — schema library documentation"
+  not_derived_from:
+    - "schema source: schema.py"
+  notes:
+    - "schema is a library for validating Python data structures."
+    - "Schema({'name': str, 'age': int}).validate({'name': 'Alice', 'age': 30}) succeeds."
+    - "Schema(int).validate(42) == 42."
+    - "Schema(str).validate('hello') == 'hello'."
+    - "Expose schema_validate_int(n) -> int: Schema(int).validate(n)."
+    - "Expose schema_validate_str(s) -> str: Schema(str).validate(s)."
+    - "Expose schema_is_valid_int(n) -> bool: Schema(int).is_valid(n)."
+    - "Expose schema_is_valid_str(s) -> bool: Schema(str).is_valid(s)."
+    - "Schema(int).is_valid(42) == True, Schema(int).is_valid('oops') == False."
+    - "Schema([int]).is_valid([1, 2, 3]) == True, Schema([int]).is_valid([1, 'x']) == False."
+    - "Expose schema_is_valid_list_int(lst) -> bool: Schema([int]).is_valid(lst)."
+    - "All test vectors verified against schema 0.7.7."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# schema_is_valid_int — integer schema validation
+table schema_rust.type.integer:
+  kind: python_call_eq
+  category: integer
+  id_prefix: sch_int
+  function: schema_is_valid_int
+
+  columns: [id, args, expected]
+  rows:
+    - [valid_42,    [42],       true]
+    - [valid_0,     [0],        true]
+    - [invalid_str, ["hello"],  false]
+    - [invalid_f,   [3.14],     false]
+
+# schema_is_valid_str — string schema validation
+table schema_rust.type.string:
+  kind: python_call_eq
+  category: string
+  id_prefix: sch_str
+  function: schema_is_valid_str
+
+  columns: [id, args, expected]
+  rows:
+    - [valid_hello, ["hello"], true]
+    - [valid_empty, [""],      true]
+    - [invalid_int, [42],      false]
+
+# schema_is_valid_list_int — list of int schema
+table schema_rust.type.list_int:
+  kind: python_call_eq
+  category: list_int
+  id_prefix: sch_li
+  function: schema_is_valid_list_int
+
+  columns: [id, args, expected]
+  rows:
+    - [all_ints,   [[1, 2, 3]],      true]
+    - [empty,      [[]],             true]
+    - [has_str,    [[1, "x", 3]],    false]
+
+# schema_validate — passthrough for valid values
+invariant schema_rust.validate.int_passthrough:
+  description: "Schema(int).validate(42) == 42"
+  category: validate
+  kind: python_call_eq
+  function: schema_validate_int
+  args: [42]
+  expected: 42
+
+invariant schema_rust.validate.str_passthrough:
+  description: "Schema(str).validate('hello') == 'hello'"
+  category: validate
+  kind: python_call_eq
+  function: schema_validate_str
+  args: ["hello"]
+  expected: "hello"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-20T00:20:59Z
+  iterations: 1
+  pass_count: 12
+  fail_count: 0
+  total_invariants: 12
+  notes: Synthesis succeeded in 1 iteration(s). 12 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

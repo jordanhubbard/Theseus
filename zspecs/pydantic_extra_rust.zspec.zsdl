@@ -1,0 +1,82 @@
+spec: pydantic_extra_rust
+version: ">=3.9"
+backend: rust_module(pydantic_extra_rust)
+
+docs: https://docs.pydantic.dev/
+
+provenance:
+  derived_from:
+    - "https://docs.pydantic.dev/ — Pydantic v2 documentation"
+  not_derived_from:
+    - "pydantic source: pydantic/main.py"
+  notes:
+    - "Additional Pydantic operations not in pydantic_rust (validators, field constraints)."
+    - "pydantic.EmailStr validates email format."
+    - "pydantic.TypeAdapter(list[int]).validate_python([1,2,3]) == [1,2,3]."
+    - "pydantic.TypeAdapter(int).validate_python('42') == 42 (coercion)."
+    - "Expose validate_list_int(lst) -> list: TypeAdapter(list[int]).validate_python(lst)."
+    - "Expose validate_int_str(s) -> int: TypeAdapter(int).validate_python(s) (coercion)."
+    - "Expose is_valid_list_int(lst) -> bool: TypeAdapter validates without error."
+    - "validate_list_int([1,2,3]) == [1,2,3]."
+    - "validate_int_str('42') == 42."
+    - "All test vectors verified against pydantic 2.11.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# validate_list_int — validate list of ints
+table pydantic_extra_rust.adapter.list_int:
+  kind: python_call_eq
+  category: list_int
+  id_prefix: pyd2_li
+  function: validate_list_int
+
+  columns: [id, args, expected]
+  rows:
+    - [three,   [[1, 2, 3]],   [1, 2, 3]]
+    - [empty,   [[]],          []]
+    - [single,  [[42]],        [42]]
+    - [negatives, [[-1, -2]],  [-1, -2]]
+
+# validate_int_str — string to int coercion
+table pydantic_extra_rust.adapter.int_str:
+  kind: python_call_eq
+  category: int_str
+  id_prefix: pyd2_is
+  function: validate_int_str
+
+  columns: [id, args, expected]
+  rows:
+    - [forty2,  ["42"],  42]
+    - [zero,    ["0"],   0]
+    - [neg,     ["-5"], -5]
+
+# is_valid_list_int — list type validation
+invariant pydantic_extra_rust.valid.list_passes:
+  description: "validate_list_int([1,2,3]) passes"
+  category: valid
+  kind: python_call_eq
+  function: is_valid_list_int
+  args: [[1, 2, 3]]
+  expected: true
+
+invariant pydantic_extra_rust.valid.mixed_fails:
+  description: "validate_list_int([1,'x']) raises (not valid)"
+  category: valid
+  kind: python_call_eq
+  function: is_valid_list_int
+  args: [[1, "x"]]
+  expected: false
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-20T00:33:57Z
+  iterations: 1
+  pass_count: 9
+  fail_count: 0
+  total_invariants: 9
+  notes: Synthesis succeeded in 1 iteration(s). 9 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

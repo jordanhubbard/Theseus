@@ -1,0 +1,81 @@
+spec: pydantic_rust
+version: ">=3.9"
+backend: rust_module(pydantic_rust)
+
+docs: https://docs.pydantic.dev/latest/
+
+provenance:
+  derived_from:
+    - "https://docs.pydantic.dev/ — Pydantic documentation"
+  not_derived_from:
+    - "pydantic source: pydantic/main.py"
+  notes:
+    - "Pydantic v2 BaseModel with pre-wired Point(x, y) and User(name, age) models."
+    - "Expose point_model_dump(x, y) -> dict: Point(x=x, y=y).model_dump()."
+    - "Expose user_model_dump(name, age) -> dict: User(name=name, age=age).model_dump()."
+    - "Expose point_field_names() -> list[str]: list(Point.model_fields.keys()) == ['x', 'y']."
+    - "Expose user_field_count() -> int: len(User.model_fields) == 2."
+    - "Expose point_model_json_keys() -> list[str]: keys from Point model_json_schema()['properties']."
+    - "point_model_dump(1.0, 2.0) == {'x': 1.0, 'y': 2.0}."
+    - "user_model_dump('Alice', 30) == {'name': 'Alice', 'age': 30}."
+    - "All test vectors verified against pydantic 2.11.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# point_model_dump — Point(x, y).model_dump()
+table pydantic_rust.point.model_dump:
+  kind: python_call_eq
+  category: model_dump
+  id_prefix: pyd_pd
+  function: point_model_dump
+
+  columns: [id, args, expected]
+  rows:
+    - [origin,   [0.0, 0.0],   {x: 0.0, y: 0.0}]
+    - [unit,     [1.0, 2.0],   {x: 1.0, y: 2.0}]
+    - [negative, [-3.0, 4.0],  {x: -3.0, y: 4.0}]
+    - [ints,     [10, 20],     {x: 10.0, y: 20.0}]
+
+# user_model_dump — User(name, age).model_dump()
+table pydantic_rust.user.model_dump:
+  kind: python_call_eq
+  category: model_dump
+  id_prefix: pyd_ud
+  function: user_model_dump
+
+  columns: [id, args, expected]
+  rows:
+    - [alice,  ["Alice", 30], {name: "Alice", age: 30}]
+    - [bob,    ["Bob", 25],   {name: "Bob", age: 25}]
+    - [empty,  ["", 0],       {name: "", age: 0}]
+
+# point field metadata
+invariant pydantic_rust.point.field_names:
+  description: "Point model has fields ['x', 'y']"
+  category: fields
+  kind: python_call_eq
+  function: point_field_names
+  args: []
+  expected: ["x", "y"]
+
+invariant pydantic_rust.user.field_count:
+  description: "User model has 2 fields"
+  category: fields
+  kind: python_call_eq
+  function: user_field_count
+  args: []
+  expected: 2
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T23:19:09Z
+  iterations: 1
+  pass_count: 9
+  fail_count: 0
+  total_invariants: 9
+  notes: Synthesis succeeded in 1 iteration(s). 9 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

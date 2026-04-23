@@ -1,0 +1,116 @@
+spec: json_rust
+version: ">=3.9"
+backend: rust_module(json_rust)
+
+docs: https://docs.python.org/3/library/json.html
+rfcs:
+  - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format"
+  - "ECMA-404 — The JSON Data Interchange Syntax"
+
+provenance:
+  derived_from:
+    - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format, December 2017"
+    - "ECMA-404 2nd Edition — The JSON Data Interchange Syntax, December 2017"
+    - "https://docs.python.org/3/library/json.html — Python json module documentation (API surface and behavior)"
+  not_derived_from:
+    - "CPython source: Lib/json/__init__.py"
+    - "CPython source: Lib/json/encoder.py"
+    - "CPython source: Lib/json/decoder.py"
+    - "CPython source: Modules/_json.c"
+    - "Any other CPython or Python json implementation source"
+  notes:
+    - "This is a clean-room Rust reimplementation of the Python json module API, exposed as a Python extension module via PyO3."
+    - "The module must expose: dumps(obj, *, separators=None, sort_keys=False, indent=None) -> str"
+    - "The module must expose: loads(s: str) -> object"
+    - "dumps default separators: (', ', ': ') — produces spaces after commas and colons."
+    - "dumps with separators=(',', ':') produces compact output with no spaces."
+    - "loads must raise json.JSONDecodeError (subclass of ValueError) on invalid input."
+    - "JSON object key order must be preserved (insertion order, as per Python 3.7+)."
+    - "NaN and Infinity are not valid JSON per RFC 8259 §6 — loads must reject them."
+    - "RFC 8259 requires JSON text be encoded in UTF-8; ensure_ascii=True (default) converts non-ASCII to \\uXXXX escapes."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table json_rust.dumps.primitives:
+  kind: python_call_eq
+  category: dumps_primitives
+  rfc: "RFC 8259 §3"
+  id_prefix: dumps
+  function: dumps
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - ["null",   [~],     "null",   ~]
+    - ["true",   [true],  "true",   ~]
+    - ["false",  [false], "false",  ~]
+    - [zero,     [0],     "0",      "RFC 8259 §6"]
+    - [integer,  [42],    "42",     "RFC 8259 §6"]
+    - [negative, [-7],    "-7",     "RFC 8259 §6"]
+    - [string,   ["hello"], "\"hello\"", "RFC 8259 §7"]
+
+table json_rust.dumps.compound:
+  kind: python_call_eq
+  category: dumps_compound
+  id_prefix: dumps
+  function: dumps
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [empty_array, [[]],       "[]",        "RFC 8259 §5"]
+    - [array,       [[1, 2, 3]], "[1, 2, 3]", "RFC 8259 §5"]
+    - [object,      [{a: 1}],   "{\"a\": 1}", "RFC 8259 §4"]
+    - [compact_separators, [[1, 2, 3]], "[1,2,3]", "RFC 8259 §2", {kwargs: {separators: !tuple [",", ":"]}}]
+
+table json_rust.loads.primitives:
+  kind: python_call_eq
+  category: loads_primitives
+  rfc: "RFC 8259 §3"
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - ["null",   ["null"],  ~,     ~]
+    - ["true",   ["true"],  true,  ~]
+    - ["false",  ["false"], false, ~]
+    - [integer,  ["42"],    42,    "RFC 8259 §6"]
+    - [string,   ["\"hello\""], "hello", "RFC 8259 §7"]
+
+table json_rust.loads.compound:
+  kind: python_call_eq
+  category: loads_compound
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [array,  ["[1, 2, 3]"],   [1, 2, 3],  "RFC 8259 §5"]
+    - [object, ["{\"a\": 1}"],  {a: 1},     "RFC 8259 §4"]
+
+table json_rust.loads.errors:
+  kind: python_call_raises
+  category: error
+  id_prefix: loads
+  function: loads
+  expected_exception: json_rust.JSONDecodeError
+
+  columns: [id, args, rfc]
+  rows:
+    - [empty_string_raises,   [""],              "RFC 8259 §2"]
+    - [truncated_raises,      ["{"],             "RFC 8259 §4"]
+    - [nan_raises,            ["nan"],           "RFC 8259 §6"]
+    - [trailing_garbage_raises, ["{\"a\": 1} extra"], "RFC 8259 §2"]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:55:51Z
+  iterations: 3
+  pass_count: 22
+  fail_count: 0
+  total_invariants: 22
+  notes: Synthesis succeeded in 3 iteration(s). 22 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

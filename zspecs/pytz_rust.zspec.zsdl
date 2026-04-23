@@ -1,0 +1,85 @@
+spec: pytz_rust
+version: ">=3.9"
+backend: rust_module(pytz_rust)
+
+docs: https://pythonhosted.org/pytz/
+
+provenance:
+  derived_from:
+    - "https://pythonhosted.org/pytz/ — pytz library documentation"
+    - "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"
+  not_derived_from:
+    - "pytz source: pytz/__init__.py"
+  notes:
+    - "pytz provides accurate and cross-platform timezone calculations."
+    - "pytz.timezone('UTC') returns the UTC timezone object."
+    - "Expose tz_zone(name) -> str: pytz.timezone(name).zone — the zone name."
+    - "Expose tz_utcoffset_seconds(name) -> int: UTC offset in seconds for DST-free zones."
+    - "Expose utc_offset_utc() -> int: pytz.UTC utcoffset(datetime) in seconds == 0."
+    - "Expose tz_is_valid(name) -> bool: True if pytz.timezone(name) does not raise."
+    - "Expose utc_zone_name() -> str: pytz.UTC.zone == 'UTC'."
+    - "pytz.timezone('UTC').zone == 'UTC'."
+    - "pytz.timezone('US/Eastern').zone == 'US/Eastern'."
+    - "pytz.timezone('Europe/London').zone == 'Europe/London'."
+    - "All test vectors verified against pytz 2024.2."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# tz_zone — zone name roundtrip
+table pytz_rust.timezone.zone:
+  kind: python_call_eq
+  category: zone
+  id_prefix: ptz_zone
+  function: tz_zone
+
+  columns: [id, args, expected]
+  rows:
+    - [utc,     ["UTC"],            "UTC"]
+    - [eastern, ["US/Eastern"],     "US/Eastern"]
+    - [london,  ["Europe/London"],  "Europe/London"]
+    - [tokyo,   ["Asia/Tokyo"],     "Asia/Tokyo"]
+    - [paris,   ["Europe/Paris"],   "Europe/Paris"]
+
+# tz_is_valid — valid timezone names
+table pytz_rust.timezone.is_valid:
+  kind: python_call_eq
+  category: is_valid
+  id_prefix: ptz_valid
+  function: tz_is_valid
+
+  columns: [id, args, expected]
+  rows:
+    - [utc_valid,     ["UTC"],           true]
+    - [eastern_valid, ["US/Eastern"],    true]
+    - [invalid,       ["Not/ATimezone"], false]
+
+# UTC offset for DST-free zones
+invariant pytz_rust.utc.offset_zero:
+  description: "UTC zone has utcoffset of 0 seconds"
+  category: utcoffset
+  kind: python_call_eq
+  function: utc_offset_utc
+  args: []
+  expected: 0
+
+invariant pytz_rust.utc.zone_name:
+  description: "pytz.UTC.zone == 'UTC'"
+  category: utcoffset
+  kind: python_call_eq
+  function: utc_zone_name
+  args: []
+  expected: "UTC"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T23:56:53Z
+  iterations: 1
+  pass_count: 10
+  fail_count: 0
+  total_invariants: 10
+  notes: Synthesis succeeded in 1 iteration(s). 10 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

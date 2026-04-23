@@ -1,0 +1,78 @@
+spec: os_path_extra_rust
+version: ">=3.9"
+backend: rust_module(os_path_extra_rust)
+
+docs: https://docs.python.org/3/library/os.path.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/os.path.html — Python os.path documentation"
+  not_derived_from:
+    - "CPython source: Lib/posixpath.py"
+  notes:
+    - "os.path functions not covered in os_path_rust (join, basename, dirname, splitext, isabs, normpath)."
+    - "commonprefix(list) returns the longest common character prefix (not path-aware)."
+    - "commonprefix(['/foo/bar', '/foo/baz']) == '/foo/ba' — character-by-character."
+    - "commonprefix(['hello', 'help']) == 'hel' — 3-char common prefix."
+    - "commonpath(list) returns the longest common sub-path (path-aware, POSIX)."
+    - "commonpath(['/foo/bar', '/foo/baz']) == '/foo' — path-level common ancestor."
+    - "relpath('/foo/bar/baz', '/foo') == 'bar/baz' — relative path."
+    - "splitdrive('/foo/bar') == ('', '/foo/bar') — no drive on POSIX."
+    - "All test vectors verified against Python 3.14.3 os.path module on POSIX."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# commonprefix — longest common character prefix (character-based)
+table os_path_extra_rust.commonprefix.vectors:
+  kind: python_call_eq
+  category: commonprefix
+  id_prefix: opa_cp
+  function: commonprefix
+
+  columns: [id, args, expected]
+  rows:
+    - [partial,    [["/foo/bar", "/foo/baz"]],          "/foo/ba"]
+    - [full_match, [["/foo/bar", "/foo/bar/baz"]],      "/foo/bar"]
+    - [words,      [["hello", "help"]],                 "hel"]
+    - [no_common,  [["abc", "xyz"]],                    ""]
+    - [single,     [["/foo/bar"]],                      "/foo/bar"]
+
+# commonpath — longest common sub-path (path-aware)
+table os_path_extra_rust.commonpath.vectors:
+  kind: python_call_eq
+  category: commonpath
+  id_prefix: opa_cpa
+  function: commonpath
+
+  columns: [id, args, expected]
+  rows:
+    - [siblings,  [["/foo/bar", "/foo/baz"]],      "/foo"]
+    - [nested,    [["/foo/bar/baz", "/foo/bar"]],  "/foo/bar"]
+    - [deep,      [["/a/b/c", "/a/b/d"]],          "/a/b"]
+
+# relpath — relative path
+table os_path_extra_rust.relpath.vectors:
+  kind: python_call_eq
+  category: relpath
+  id_prefix: opa_rp
+  function: relpath
+
+  columns: [id, args, expected]
+  rows:
+    - [basic,   ["/foo/bar/baz", "/foo"], "bar/baz"]
+    - [sibling, ["/foo/bar", "/foo/baz"], "../bar"]
+    - [same,    ["/foo", "/foo"],         "."]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T23:43:26Z
+  iterations: 1
+  pass_count: 11
+  fail_count: 0
+  total_invariants: 11
+  notes: Synthesis succeeded in 1 iteration(s). 11 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

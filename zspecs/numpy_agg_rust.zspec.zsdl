@@ -1,0 +1,165 @@
+spec: numpy_agg_rust
+version: ">=3.9"
+backend: rust_module(numpy_agg_rust)
+
+docs: https://numpy.org/doc/stable/reference/routines.statistics.html
+
+provenance:
+  derived_from:
+    - "https://numpy.org/doc/stable/reference/routines.statistics.html — NumPy statistics routines"
+  not_derived_from:
+    - "NumPy source: numpy/core/fromnumeric.py"
+  notes:
+    - "NumPy aggregate functions accept Python lists as input (auto-converted to arrays)."
+    - "sum([1,2,3,4,5]) == 15."
+    - "mean([1.0,2.0,3.0,4.0,5.0]) == 3.0."
+    - "prod([1,2,3,4,5]) == 120."
+    - "min([3,1,4,1,5,9,2,6]) == 1."
+    - "max([3,1,4,1,5,9,2,6]) == 9."
+    - "std([2.0,4.0,4.0,4.0,5.0,5.0,7.0,9.0]) == 2.0."
+    - "var([2.0,4.0,4.0,4.0,5.0,5.0,7.0,9.0]) == 4.0."
+    - "median([1.0,3.0,5.0]) == 3.0."
+    - "any([False, True, False]) == True."
+    - "all([True, True, True]) == True."
+    - "All test vectors verified against numpy 2.4.2."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# sum — sum of all elements
+table numpy_agg_rust.sum.vectors:
+  kind: python_call_eq
+  category: sum
+  id_prefix: np_sum
+  function: sum
+
+  columns: [id, args, expected]
+  rows:
+    - [one_to_five, [[1, 2, 3, 4, 5]], 15]
+    - [all_zeros,   [[0, 0, 0]],        0]
+    - [single,      [[42]],             42]
+    - [negatives,   [[-1, -2, -3]],     -6]
+
+# mean — arithmetic mean
+table numpy_agg_rust.mean.vectors:
+  kind: python_call_eq
+  category: mean
+  id_prefix: np_mean
+  function: mean
+
+  columns: [id, args, expected]
+  rows:
+    - [one_to_five, [[1.0, 2.0, 3.0, 4.0, 5.0]], 3.0]
+    - [symmetric,   [[1.0, 3.0, 5.0]],            3.0]
+    - [single,      [[7.0]],                       7.0]
+
+# prod — product of all elements
+table numpy_agg_rust.prod.vectors:
+  kind: python_call_eq
+  category: prod
+  id_prefix: np_prod
+  function: prod
+
+  columns: [id, args, expected]
+  rows:
+    - [factorial5, [[1, 2, 3, 4, 5]], 120]
+    - [factorial4, [[1, 2, 3, 4]],    24]
+    - [single,     [[7]],             7]
+    - [with_one,   [[1, 1, 5]],       5]
+
+# min and max
+table numpy_agg_rust.min.vectors:
+  kind: python_call_eq
+  category: min
+  id_prefix: np_min
+  function: min
+
+  columns: [id, args, expected]
+  rows:
+    - [mixed, [[3, 1, 4, 1, 5, 9, 2, 6]], 1]
+    - [neg,   [[-5, -1, -3]],             -5]
+    - [equal, [[4, 4, 4]],               4]
+
+table numpy_agg_rust.max.vectors:
+  kind: python_call_eq
+  category: max
+  id_prefix: np_max
+  function: max
+
+  columns: [id, args, expected]
+  rows:
+    - [mixed, [[3, 1, 4, 1, 5, 9, 2, 6]], 9]
+    - [neg,   [[-5, -1, -3]],             -1]
+    - [equal, [[4, 4, 4]],               4]
+
+# std and var
+invariant numpy_agg_rust.std.canonical:
+  description: "std([2,4,4,4,5,5,7,9]) == 2.0"
+  category: std
+  kind: python_call_eq
+  function: std
+  args: [[2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]]
+  expected: 2.0
+
+invariant numpy_agg_rust.var.canonical:
+  description: "var([2,4,4,4,5,5,7,9]) == 4.0"
+  category: var
+  kind: python_call_eq
+  function: var
+  args: [[2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]]
+  expected: 4.0
+
+# median
+invariant numpy_agg_rust.median.odd:
+  description: "median([1.0,3.0,5.0]) == 3.0"
+  category: median
+  kind: python_call_eq
+  function: median
+  args: [[1.0, 3.0, 5.0]]
+  expected: 3.0
+
+invariant numpy_agg_rust.median.even:
+  description: "median([1.0,2.0,3.0,4.0]) == 2.5"
+  category: median
+  kind: python_call_eq
+  function: median
+  args: [[1.0, 2.0, 3.0, 4.0]]
+  expected: 2.5
+
+# any and all
+table numpy_agg_rust.any.vectors:
+  kind: python_call_eq
+  category: any
+  id_prefix: np_any
+  function: any
+
+  columns: [id, args, expected]
+  rows:
+    - [one_true,  [[false, true, false]], true]
+    - [all_false, [[false, false]],       false]
+    - [all_true,  [[true, true, true]],   true]
+
+table numpy_agg_rust.all.vectors:
+  kind: python_call_eq
+  category: all
+  id_prefix: np_all
+  function: all
+
+  columns: [id, args, expected]
+  rows:
+    - [all_true,  [[true, true, true]],   true]
+    - [one_false, [[true, false, true]],  false]
+    - [all_false, [[false, false]],       false]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:27:33Z
+  iterations: 2
+  pass_count: 27
+  fail_count: 0
+  total_invariants: 27
+  notes: Synthesis succeeded in 2 iteration(s). 27 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

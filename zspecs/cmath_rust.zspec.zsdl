@@ -1,0 +1,191 @@
+spec: cmath_rust
+version: ">=3.9"
+backend: rust_module(cmath_rust)
+
+docs: https://docs.python.org/3/library/cmath.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/cmath.html — Python cmath documentation"
+  not_derived_from:
+    - "CPython source: Modules/cmathmodule.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python cmath module, exposed via PyO3."
+    - "All functions operate on complex numbers; inputs may be real (int/float) or complex."
+    - "sqrt(4).__abs__() == 2.0 — magnitude of sqrt(4+0j) is 2.0."
+    - "phase(1) == 0.0 — phase of positive real is 0."
+    - "polar(1) returns (r, theta) as a tuple; r==1.0, theta==0.0 for input 1."
+    - "rect(r, theta) returns complex(r*cos(theta), r*sin(theta))."
+    - "exp(0).__abs__() == 1.0 — e^0 = 1."
+    - "log(1).__abs__() == 0.0 — ln(1) = 0."
+    - "pi == 3.141592653589793, e == 2.718281828459045."
+    - "isfinite(1) == True, isfinite(0) == True for finite inputs."
+    - "All test vectors verified against Python 3.14.3 cmath module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# sqrt — magnitude of sqrt for perfect squares
+table cmath_rust.sqrt.perfect_squares:
+  kind: python_call_eq
+  category: sqrt
+  id_prefix: sqrt
+  function: sqrt
+  method: __abs__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [sqrt_four, [4], 2.0]
+    - [sqrt_nine, [9], 3.0]
+    - [sqrt_one,  [1], 1.0]
+    - [sqrt_zero, [0], 0.0]
+
+# phase — argument (angle) of complex number
+table cmath_rust.phase.values:
+  kind: python_call_eq
+  category: phase
+  id_prefix: phase
+  function: phase
+
+  columns: [id, args, expected]
+  rows:
+    - [phase_one,  [1],  0.0]
+    - [phase_zero, [0],  0.0]
+
+# polar — (r, theta) decomposition
+invariant cmath_rust.polar.unit_r:
+  description: "polar(1)[0] == 1.0 — magnitude of 1+0j is 1.0"
+  category: polar
+  kind: python_call_eq
+  function: polar
+  args: [1]
+  method: __getitem__
+  method_args: [0]
+  expected: 1.0
+
+invariant cmath_rust.polar.unit_theta:
+  description: "polar(1)[1] == 0.0 — angle of 1+0j is 0.0"
+  category: polar
+  kind: python_call_eq
+  function: polar
+  args: [1]
+  method: __getitem__
+  method_args: [1]
+  expected: 0.0
+
+invariant cmath_rust.polar.zero_r:
+  description: "polar(0)[0] == 0.0 — magnitude of 0+0j is 0.0"
+  category: polar
+  kind: python_call_eq
+  function: polar
+  args: [0]
+  method: __getitem__
+  method_args: [0]
+  expected: 0.0
+
+# rect — reconstruct complex from (r, theta)
+invariant cmath_rust.rect.unit_zero_abs:
+  description: "rect(1.0, 0.0).__abs__() == 1.0 — unit vector on real axis"
+  category: rect
+  kind: python_call_eq
+  function: rect
+  args: [1.0, 0.0]
+  method: __abs__
+  method_args: []
+  expected: 1.0
+
+invariant cmath_rust.rect.zero_abs:
+  description: "rect(0.0, 0.0).__abs__() == 0.0 — zero has zero magnitude"
+  category: rect
+  kind: python_call_eq
+  function: rect
+  args: [0.0, 0.0]
+  method: __abs__
+  method_args: []
+  expected: 0.0
+
+# exp — complex exponential
+invariant cmath_rust.exp.zero_abs:
+  description: "exp(0).__abs__() == 1.0 — e^0 = 1+0j, magnitude 1"
+  category: exp
+  kind: python_call_eq
+  function: exp
+  args: [0]
+  method: __abs__
+  method_args: []
+  expected: 1.0
+
+# log — complex logarithm
+invariant cmath_rust.log.one_abs:
+  description: "log(1).__abs__() == 0.0 — ln(1) = 0+0j, magnitude 0"
+  category: log
+  kind: python_call_eq
+  function: log
+  args: [1]
+  method: __abs__
+  method_args: []
+  expected: 0.0
+
+# sin, cos — trigonometric functions
+invariant cmath_rust.sin.zero_abs:
+  description: "sin(0).__abs__() == 0.0 — sin(0) = 0+0j"
+  category: trig
+  kind: python_call_eq
+  function: sin
+  args: [0]
+  method: __abs__
+  method_args: []
+  expected: 0.0
+
+invariant cmath_rust.cos.zero_abs:
+  description: "cos(0).__abs__() == 1.0 — cos(0) = 1+0j"
+  category: trig
+  kind: python_call_eq
+  function: cos
+  args: [0]
+  method: __abs__
+  method_args: []
+  expected: 1.0
+
+# isfinite — finite check
+table cmath_rust.isfinite.finite_values:
+  kind: python_call_eq
+  category: isfinite
+  id_prefix: isfinite
+  function: isfinite
+
+  columns: [id, args, expected]
+  rows:
+    - [one,  [1], true]
+    - [zero, [0], true]
+
+# module constants pi and e
+invariant cmath_rust.pi.exact:
+  description: "pi == 3.141592653589793"
+  category: constants
+  kind: python_call_eq
+  function: pi.__eq__
+  args: [3.141592653589793]
+  expected: true
+
+invariant cmath_rust.e.exact:
+  description: "e == 2.718281828459045"
+  category: constants
+  kind: python_call_eq
+  function: e.__eq__
+  args: [2.718281828459045]
+  expected: true
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:30:12Z
+  iterations: 2
+  pass_count: 19
+  fail_count: 0
+  total_invariants: 19
+  notes: Synthesis succeeded in 2 iteration(s). 19 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

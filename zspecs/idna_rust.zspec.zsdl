@@ -1,0 +1,139 @@
+spec: idna_rust
+version: ">=3.9"
+backend: rust_module(idna_rust)
+
+docs: https://github.com/kjd/idna
+rfcs:
+  - "RFC 5891 — Internationalized Domain Names in Applications (IDNA) 2008"
+  - "RFC 3492 — Punycode: A Bootstring encoding of Unicode for IDNA"
+
+provenance:
+  derived_from:
+    - "RFC 5891 — Internationalized Domain Names in Applications (IDNA) 2008"
+    - "RFC 3492 — Punycode: A Bootstring encoding of Unicode, March 2003"
+    - "https://github.com/kjd/idna — idna Python package (API surface)"
+  not_derived_from:
+    - "idna source: idna/core.py"
+  notes:
+    - "Clean-room Rust reimplementation of the Python idna module API, exposed via PyO3."
+    - "May use the 'idna' Rust crate (https://crates.io/crates/idna) implementing IDNA 2008."
+    - "encode(domain: str) -> bytes — encodes a Unicode domain to ACE bytes."
+    - "decode(ace_bytes: bytes) -> str — decodes ACE bytes to Unicode domain string."
+    - "alabel(label: str) -> bytes — encodes a single domain label (no dots) to ACE bytes."
+    - "ulabel(label: bytes | str) -> str — decodes a single ACE label to Unicode string."
+    - "valid_label_length(label: str) -> bool — True if label length <= 63 chars (RFC 5891)."
+    - "idna_rust.error is raised for invalid IDNA input (e.g., A-label ending with hyphen)."
+    - "Pure ASCII labels pass through encode/decode unchanged."
+    - "All test vectors verified against Python idna 3.x on Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# encode — Unicode domain → ACE bytes
+table idna_rust.encode.vectors:
+  kind: python_call_eq
+  category: encode
+  id_prefix: encode
+  function: encode
+  rfc: "RFC 5891"
+
+  columns: [id, args, expected]
+  rows:
+    - [ascii_passthrough, ["python.org"],       !b64 cHl0aG9uLm9yZw==]
+    - [umlaut_german,     ["münchen.de"],        !b64 eG4tLW1uY2hlbi0zeWEuZGU=]
+    - [cjk_japanese,      ["例え.jp"],           !b64 eG4tLXI4ano0NWcuanA=]
+    - [ace_passthrough,   ["xn--nxasmq6b.com"], !b64 eG4tLW54YXNtcTZiLmNvbQ==]
+
+# decode — ACE bytes → Unicode domain
+table idna_rust.decode.vectors:
+  kind: python_call_eq
+  category: decode
+  id_prefix: decode
+  function: decode
+  rfc: "RFC 5891"
+
+  columns: [id, args, expected]
+  rows:
+    - [ascii_passthrough, [!b64 cHl0aG9uLm9yZw==],      "python.org"]
+    - [umlaut_german,     [!b64 eG4tLW1uY2hlbi0zeWEuZGU=], "münchen.de"]
+    - [cjk_japanese,      [!b64 eG4tLXI4ano0NWcuanA=],    "例え.jp"]
+
+# alabel — single label encode (no dots)
+invariant idna_rust.alabel.ascii_passthrough:
+  description: "alabel('python') returns b'python' — ASCII label passes through"
+  category: alabel
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: alabel
+  args: ["python"]
+  expected: !b64 cHl0aG9u
+
+invariant idna_rust.alabel.unicode_to_ace:
+  description: "alabel('münchen') returns b'xn--mnchen-3ya' — RFC 5891 Punycode encoding"
+  category: alabel
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: alabel
+  args: ["münchen"]
+  expected: !b64 eG4tLW1uY2hlbi0zeWE=
+
+# ulabel — single label decode
+invariant idna_rust.ulabel.ascii_passthrough:
+  description: "ulabel(b'python') returns 'python' — ASCII ACE label passes through"
+  category: ulabel
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: ulabel
+  args: [!b64 cHl0aG9u]
+  expected: "python"
+
+invariant idna_rust.ulabel.ace_to_unicode:
+  description: "ulabel(b'xn--mnchen-3ya') returns 'münchen' — ACE decoded to Unicode"
+  category: ulabel
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: ulabel
+  args: [!b64 eG4tLW1uY2hlbi0zeWE=]
+  expected: "münchen"
+
+# valid_label_length — label length validation (RFC 5891: max 63 chars)
+invariant idna_rust.valid_label_length.short:
+  description: "valid_label_length('python') returns True — 6 chars is within limit"
+  category: valid_label_length
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: valid_label_length
+  args: ["python"]
+  expected: true
+
+invariant idna_rust.valid_label_length.overlength:
+  description: "valid_label_length of 64-char label returns False — exceeds RFC 5891 63-char limit"
+  category: valid_label_length
+  rfc: "RFC 5891"
+  kind: python_call_eq
+  function: valid_label_length
+  args: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+  expected: false
+
+# error — invalid IDNA input raises idna_rust.error
+invariant idna_rust.error.trailing_hyphen:
+  description: "encode('xn--nxasmq6b-.com') raises idna_rust.error — A-label ending with hyphen"
+  category: error
+  rfc: "RFC 5891"
+  kind: python_call_raises
+  function: encode
+  args: ["xn--nxasmq6b-.com"]
+  expected_exception: "idna_rust.error"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:52:07Z
+  iterations: 2
+  pass_count: 14
+  fail_count: 0
+  total_invariants: 14
+  notes: Synthesis succeeded in 2 iteration(s). 14 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

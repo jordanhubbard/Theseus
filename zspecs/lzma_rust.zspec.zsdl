@@ -1,0 +1,89 @@
+spec: lzma_rust
+version: ">=3.9"
+backend: rust_module(lzma_rust)
+
+docs: https://docs.python.org/3/library/lzma.html
+rfcs:
+  - "XZ file format specification — https://tukaani.org/xz/xz-file-format.txt"
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/lzma.html — Python lzma documentation (API surface)"
+    - "XZ file format specification — https://tukaani.org/xz/xz-file-format.txt"
+  not_derived_from:
+    - "CPython source: Modules/_lzmamodule.c"
+    - "CPython source: Lib/lzma.py"
+    - "liblzma C source"
+  notes:
+    - "Clean-room Rust reimplementation of Python lzma module API, exposed via PyO3."
+    - "May use the 'xz2' or 'lzma-sys' Rust crate."
+    - "compress(data: bytes) -> bytes — XZ-format lzma compression (RFC XZ §2)."
+    - "decompress(data: bytes) -> bytes — decompress XZ-format data."
+    - "lzma_rust.error is raised for invalid or corrupt compressed data."
+    - "Compressed output starts with XZ magic bytes fd 37 7a 58 5a 00."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# compress/decompress roundtrip
+invariant lzma_rust.roundtrip.compress_decompress:
+  description: "compress then decompress is lossless for arbitrary data"
+  category: roundtrip
+  kind: python_encode_decode_roundtrip
+  encode_fn: compress
+  decode_fn: decompress
+  inputs_b64: ["", SGVsbG8gV29ybGQ=, AAAAAAAAAAAAAAAA, /wEB/wEB]
+
+# compress — output starts with XZ magic bytes fd377a585a00
+invariant lzma_rust.compress.returns_bytes:
+  description: "compress(b'hello') returns bytes"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __class__.__name__.__eq__
+  method_args: ["bytes"]
+  expected: true
+
+invariant lzma_rust.compress.magic_fd:
+  description: "compress(b'hello')[0] == 253 — first byte is 0xFD, part of XZ magic"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __getitem__
+  method_args: [0]
+  expected: 253
+
+invariant lzma_rust.compress.magic_37:
+  description: "compress(b'hello')[1] == 55 — second byte is 0x37, part of XZ magic"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __getitem__
+  method_args: [1]
+  expected: 55
+
+# error — invalid lzma input raises lzma_rust.error
+invariant lzma_rust.error.bad_data:
+  description: "decompress of non-lzma data raises lzma_rust.error"
+  category: error
+  kind: python_call_raises
+  function: decompress
+  args: [{type: bytes_ascii, value: "not compressed data at all"}]
+  expected_exception: "lzma_rust.error"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: infeasible
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:59:09Z
+  iterations: 1
+  pass_count: 0
+  fail_count: 0
+  total_invariants: 5
+  notes: "LLM unavailable: OpenAI API request failed: HTTP Error 502: Bad Gateway"
+  infeasible_reason: llm_unavailable
+  invariant_annotations: {}

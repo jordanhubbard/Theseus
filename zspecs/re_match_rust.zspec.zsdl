@@ -1,0 +1,96 @@
+spec: re_match_rust
+version: ">=3.9"
+backend: rust_module(re_match_rust)
+
+docs: https://docs.python.org/3/library/re.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/re.html — Python re documentation"
+  not_derived_from:
+    - "CPython source: Modules/_sre.c"
+  notes:
+    - "re.match and re.search with group/span access — not covered in re_rust or re_extra_rust."
+    - "re.match(pattern, string) matches at the start of string; returns match object or None."
+    - "re.search(pattern, string) scans through string; returns first match or None."
+    - "match.group(0) returns the entire match; group(n) returns nth captured group."
+    - "match.start() returns index of match start; match.end() returns index of match end."
+    - "re.match(r'\\d+', '123abc').group(0) == '123'."
+    - "re.match(r'(\\w+) (\\w+)', 'Hello World').group(1) == 'Hello'."
+    - "re.search(r'\\d+', 'abc123def').start() == 3, .end() == 6."
+    - "All test vectors verified against Python 3.14.3 re module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# match.group(0) — the full matched string
+table re_match_rust.match.group0:
+  kind: python_call_eq
+  category: match
+  id_prefix: rem_g0
+  function: match
+  method: group
+  method_args: [0]
+
+  columns: [id, args, expected]
+  rows:
+    - [digits,    ["\\d+", "123abc"],          "123"]
+    - [word,      ["\\w+", "hello world"],     "hello"]
+    - [alpha,     ["[a-z]+", "abc123"],        "abc"]
+    - [full_str,  [".*", "hello"],             "hello"]
+
+# match.group(n) — capture groups
+table re_match_rust.match.groups:
+  kind: python_call_eq
+  category: match
+  id_prefix: rem_grp
+  function: match
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [first_word,  ["(\\w+) (\\w+)", "Hello World"],  group, [1], "Hello"]
+    - [second_word, ["(\\w+) (\\w+)", "Hello World"],  group, [2], "World"]
+    - [digits_cap,  ["(\\d+)-(\\d+)", "12-34"],        group, [1], "12"]
+    - [second_cap,  ["(\\d+)-(\\d+)", "12-34"],        group, [2], "34"]
+
+# search — scan through string for pattern
+table re_match_rust.search.basic:
+  kind: python_call_eq
+  category: search
+  id_prefix: rem_sr
+  function: search
+  method: group
+  method_args: [0]
+
+  columns: [id, args, expected]
+  rows:
+    - [mid_digits, ["\\d+", "abc123def"],   "123"]
+    - [end_word,   ["\\w+$", "foo bar baz"], "baz"]
+    - [inner,      ["[A-Z]", "aaBBcc"],      "B"]
+
+# search span — start/end positions
+table re_match_rust.search.span:
+  kind: python_call_eq
+  category: search
+  id_prefix: rem_sp
+  function: search
+
+  columns: [id, args, method, method_args, expected]
+  rows:
+    - [start_pos,  ["\\d+", "abc123def"], start, [], 3]
+    - [end_pos,    ["\\d+", "abc123def"], end,   [], 6]
+    - [start_zero, ["\\d+", "123abc"],    start, [], 0]
+    - [end_three,  ["\\d+", "123abc"],    end,   [], 3]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T23:12:47Z
+  iterations: 3
+  pass_count: 15
+  fail_count: 0
+  total_invariants: 15
+  notes: Synthesis succeeded in 3 iteration(s). 15 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

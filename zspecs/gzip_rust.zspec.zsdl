@@ -1,0 +1,122 @@
+spec: gzip_rust
+version: ">=3.9"
+backend: rust_module(gzip_rust)
+
+docs: https://docs.python.org/3/library/gzip.html
+rfcs:
+  - "RFC 1952 — GZIP file format specification version 4.3"
+  - "RFC 1951 — DEFLATE Compressed Data Format Specification version 1.3"
+
+provenance:
+  derived_from:
+    - "RFC 1952 — GZIP file format specification version 4.3, May 1996"
+    - "RFC 1951 — DEFLATE Compressed Data Format Specification version 1.3, May 1996"
+    - "https://docs.python.org/3/library/gzip.html — Python gzip documentation (API surface)"
+  not_derived_from:
+    - "CPython source: Lib/gzip.py"
+    - "zlib C source"
+  notes:
+    - "Clean-room Rust reimplementation of Python gzip module API, exposed via PyO3."
+    - "May use the 'flate2' Rust crate (independent DEFLATE/gzip implementation)."
+    - "compress(data: bytes, compresslevel: int = 9) -> bytes — gzip-compress data (RFC 1952)."
+    - "decompress(data: bytes) -> bytes — decompress gzip-compressed data."
+    - "gzip_rust.error is raised for invalid or truncated gzip data (equivalent to BadGzipFile)."
+    - "Compressed output starts with gzip magic bytes 1f8b (RFC 1952 §2.3.1)."
+    - "Decompression of Python-produced gzip data works since both follow RFC 1952."
+    - "Pre-computed hex vectors produced with Python 3.14.3 gzip.compress(..., compresslevel=9)."
+    - "hello compressed: 1f8b08000000000002ffcb48cdc9c9070086a6103605000000"
+    - "hello world compressed: 1f8b08000000000002ffcb48cdc9c95728cf2fca49010085114a0d0b000000"
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# compress/decompress roundtrip
+invariant gzip_rust.roundtrip.compress_decompress:
+  description: "compress then decompress is lossless for arbitrary data"
+  category: roundtrip
+  kind: python_encode_decode_roundtrip
+  encode_fn: compress
+  decode_fn: decompress
+  inputs_b64: ["", SGVsbG8gV29ybGQ=, AAAAAAAAAAAAAAAA, /wEB/wEB]
+
+# decompress — pre-computed Python gzip vectors (all valid RFC 1952 streams)
+invariant gzip_rust.decompress.hello:
+  description: "decompress of Python-compressed b'hello' returns b'hello'"
+  category: decompress
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ffcb48cdc9c9070086a6103605000000"}]
+  method: decode
+  method_args: ["ascii"]
+  expected: "hello"
+
+invariant gzip_rust.decompress.hello_world:
+  description: "decompress of Python-compressed b'hello world' returns b'hello world'"
+  category: decompress
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ffcb48cdc9c95728cf2fca49010085114a0d0b000000"}]
+  method: decode
+  method_args: ["ascii"]
+  expected: "hello world"
+
+invariant gzip_rust.decompress.hello_length:
+  description: "decompress of compressed b'hello' returns exactly 5 bytes"
+  category: decompress
+  kind: python_call_eq
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b08000000000002ffcb48cdc9c9070086a6103605000000"}]
+  method: __len__
+  expected: 5
+
+# compress — output starts with gzip magic byte 0x1f (RFC 1952 §2.3.1)
+invariant gzip_rust.compress.magic_byte_1f:
+  description: "compress(b'hello')[0] == 31 — first byte is 0x1f (gzip magic, RFC 1952)"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __getitem__
+  method_args: [0]
+  expected: 31
+
+invariant gzip_rust.compress.magic_byte_8b:
+  description: "compress(b'hello')[1] == 139 — second byte is 0x8b (gzip magic, RFC 1952)"
+  category: compress
+  kind: python_call_eq
+  function: compress
+  args: [{type: bytes_ascii, value: "hello"}]
+  method: __getitem__
+  method_args: [1]
+  expected: 139
+
+# error — invalid gzip input raises gzip_rust.error
+invariant gzip_rust.error.bad_data:
+  description: "decompress of non-gzip data raises gzip_rust.error"
+  category: error
+  kind: python_call_raises
+  function: decompress
+  args: [{type: bytes_ascii, value: "not gzip data"}]
+  expected_exception: "gzip_rust.error"
+
+invariant gzip_rust.error.truncated:
+  description: "decompress of truncated gzip data raises gzip_rust.error"
+  category: error
+  kind: python_call_raises
+  function: decompress
+  args: [{type: bytes_hex, value: "1f8b"}]
+  expected_exception: "gzip_rust.error"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:44:00Z
+  iterations: 2
+  pass_count: 8
+  fail_count: 0
+  total_invariants: 8
+  notes: Synthesis succeeded in 2 iteration(s). 8 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

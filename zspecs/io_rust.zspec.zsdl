@@ -1,0 +1,142 @@
+spec: io_rust
+version: ">=3.9"
+backend: rust_module(io_rust)
+
+docs: https://docs.python.org/3/library/io.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/io.html — Python io documentation"
+  not_derived_from:
+    - "CPython source: Modules/_io/*.c"
+  notes:
+    - "Clean-room Rust reimplementation of Python io module, exposed via PyO3."
+    - "BytesIO(initial_bytes=b'') is an in-memory bytes stream."
+    - "BytesIO(b'hello').read() == b'hello' — reading from start returns all bytes."
+    - "BytesIO(b'hello').getvalue() == b'hello' — getvalue() returns full buffer."
+    - "BytesIO(b'hello').tell() == 0 — new BytesIO starts at position 0."
+    - "BytesIO().write(b'abc') == 3 — returns bytes written."
+    - "StringIO(initial_value='') is an in-memory text stream."
+    - "StringIO('hello').read() == 'hello' — reading from start returns full string."
+    - "StringIO('hello').getvalue() == 'hello' — getvalue() returns full buffer."
+    - "StringIO('hello').tell() == 0 — new StringIO starts at position 0."
+    - "StringIO().write('abc') == 3 — returns chars written."
+    - "All test vectors verified against Python 3.14.3 io module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# BytesIO — read returns all bytes from start
+table io_rust.BytesIO.read:
+  kind: python_call_eq
+  category: BytesIO
+  id_prefix: bytesio_read
+  function: BytesIO
+  method: read
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,   [!b64 aGVsbG8=],        !b64 aGVsbG8=]
+    - [empty,   [!b64 ""],              !b64 ""]
+    - [abc,     [!b64 YWJj],            !b64 YWJj]
+
+# BytesIO — getvalue returns full buffer regardless of position
+table io_rust.BytesIO.getvalue:
+  kind: python_call_eq
+  category: BytesIO
+  id_prefix: bytesio_val
+  function: BytesIO
+  method: getvalue
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,   [!b64 aGVsbG8=],        !b64 aGVsbG8=]
+    - [empty,   [!b64 ""],              !b64 ""]
+
+# BytesIO — tell returns 0 for new buffer
+invariant io_rust.BytesIO.tell_zero:
+  description: "BytesIO(b'hello').tell() == 0"
+  category: BytesIO
+  kind: python_call_eq
+  function: BytesIO
+  args: [!b64 aGVsbG8=]
+  method: tell
+  method_args: []
+  expected: 0
+
+# BytesIO — write returns bytes written
+invariant io_rust.BytesIO.write_len:
+  description: "BytesIO().write(b'abc') == 3"
+  category: BytesIO
+  kind: python_call_eq
+  function: BytesIO
+  args: [!b64 ""]
+  method: write
+  method_args: [!b64 YWJj]
+  expected: 3
+
+# StringIO — read returns full string from start
+table io_rust.StringIO.read:
+  kind: python_call_eq
+  category: StringIO
+  id_prefix: stringio_read
+  function: StringIO
+  method: read
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,  ["hello"],       "hello"]
+    - [empty,  [""],            ""]
+    - [words,  ["hello world"], "hello world"]
+
+# StringIO — getvalue returns full buffer
+table io_rust.StringIO.getvalue:
+  kind: python_call_eq
+  category: StringIO
+  id_prefix: stringio_val
+  function: StringIO
+  method: getvalue
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,  ["hello"],       "hello"]
+    - [empty,  [""],            ""]
+
+# StringIO — tell returns 0 for new buffer
+invariant io_rust.StringIO.tell_zero:
+  description: "StringIO('hello').tell() == 0"
+  category: StringIO
+  kind: python_call_eq
+  function: StringIO
+  args: ["hello"]
+  method: tell
+  method_args: []
+  expected: 0
+
+# StringIO — write returns chars written
+invariant io_rust.StringIO.write_len:
+  description: "StringIO('').write('abc') == 3"
+  category: StringIO
+  kind: python_call_eq
+  function: StringIO
+  args: [""]
+  method: write
+  method_args: ["abc"]
+  expected: 3
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:51:28Z
+  iterations: 2
+  pass_count: 14
+  fail_count: 0
+  total_invariants: 14
+  notes: Synthesis succeeded in 2 iteration(s). 14 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

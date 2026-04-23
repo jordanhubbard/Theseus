@@ -1,0 +1,80 @@
+spec: xmltodict_rust
+version: ">=3.9"
+backend: rust_module(xmltodict_rust)
+
+docs: https://github.com/martinblech/xmltodict
+
+provenance:
+  derived_from:
+    - "https://github.com/martinblech/xmltodict — xmltodict documentation"
+  not_derived_from:
+    - "xmltodict source: xmltodict.py"
+  notes:
+    - "xmltodict converts XML to Python dicts and back."
+    - "xmltodict.parse('<root><name>Alice</name></root>') == {'root': {'name': 'Alice'}}."
+    - "xmltodict.parse('<a><b>1</b><c>2</c></a>') == {'a': {'b': '1', 'c': '2'}}."
+    - "xmltodict.unparse({'root': {'name': 'Alice'}}) produces valid XML."
+    - "Expose parse_get(xml, *keys) -> any: xmltodict.parse(xml)[key1][key2]..."
+    - "Expose parse_root_key(xml) -> str: list(xmltodict.parse(xml).keys())[0]."
+    - "Expose unparse_contains(d, s) -> bool: s in xmltodict.unparse(d)."
+    - "parse('<root><name>Alice</name></root>')['root']['name'] == 'Alice'."
+    - "All test vectors verified against xmltodict 0.14.2."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# parse_get — parse XML and retrieve nested value
+table xmltodict_rust.parse.values:
+  kind: python_call_eq
+  category: parse
+  id_prefix: xtd_get
+  function: parse_get
+
+  columns: [id, args, expected]
+  rows:
+    - [name,   ["<root><name>Alice</name></root>", "root", "name"], "Alice"]
+    - [value,  ["<a><b>42</b></a>", "a", "b"],                     "42"]
+    - [nested, ["<x><y><z>hi</z></y></x>", "x", "y", "z"],        "hi"]
+
+# parse_root_key — extract root element name
+table xmltodict_rust.parse.root_key:
+  kind: python_call_eq
+  category: root_key
+  id_prefix: xtd_rk
+  function: parse_root_key
+
+  columns: [id, args, expected]
+  rows:
+    - [root,  ["<root><x>1</x></root>"],  "root"]
+    - [doc,   ["<doc><y>2</y></doc>"],    "doc"]
+    - [item,  ["<item>hello</item>"],     "item"]
+
+# unparse_contains — round-trip contains expected substring
+invariant xmltodict_rust.unparse.contains_alice:
+  description: "unparse({'root': {'name': 'Alice'}}) contains 'Alice'"
+  category: unparse
+  kind: python_call_eq
+  function: unparse_contains
+  args: [{"root": {"name": "Alice"}}, "Alice"]
+  expected: true
+
+invariant xmltodict_rust.unparse.contains_root:
+  description: "unparse({'root': {'name': 'Alice'}}) contains '<root>'"
+  category: unparse
+  kind: python_call_eq
+  function: unparse_contains
+  args: [{"root": {"name": "Alice"}}, "root"]
+  expected: true
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-20T00:21:29Z
+  iterations: 1
+  pass_count: 8
+  fail_count: 0
+  total_invariants: 8
+  notes: Synthesis succeeded in 1 iteration(s). 8 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

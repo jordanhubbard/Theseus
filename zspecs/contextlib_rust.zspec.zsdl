@@ -1,0 +1,91 @@
+spec: contextlib_rust
+version: ">=3.9"
+backend: rust_module(contextlib_rust)
+
+docs: https://docs.python.org/3/library/contextlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/contextlib.html — Python contextlib documentation"
+  not_derived_from:
+    - "CPython source: Lib/contextlib.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python contextlib module, exposed via PyO3."
+    - "nullcontext(enter_result=None) returns a no-op context manager."
+    - "nullcontext(x).__enter__() returns x (the enter_result argument)."
+    - "nullcontext().__enter__() returns None (default enter_result)."
+    - "nullcontext(x).__exit__(None, None, None) returns None (does not suppress)."
+    - "suppress(*exceptions) is a context manager that suppresses the given exceptions."
+    - "suppress(E).__enter__() returns None."
+    - "suppress(E).__exit__(None, None, None) returns None (no exception to suppress)."
+    - "All test vectors verified against Python 3.14.3 contextlib module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# nullcontext — enter returns the enter_result arg
+table contextlib_rust.nullcontext.enter:
+  kind: python_call_eq
+  category: nullcontext
+  id_prefix: null_enter
+  function: nullcontext
+  method: __enter__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [int_42,   [42],     42]
+    - [int_99,   [99],     99]
+    - [str_val,  ["hello"], "hello"]
+    - [zero,     [0],       0]
+    - [no_arg,   [],        null]
+
+# nullcontext — exit returns None (no suppression)
+invariant contextlib_rust.nullcontext.exit_none:
+  description: "nullcontext(42).__exit__(None, None, None) == None"
+  category: nullcontext
+  kind: python_call_eq
+  function: nullcontext
+  args: [42]
+  method: __exit__
+  method_args: [null, null, null]
+  expected: null
+
+# suppress — enter returns None
+table contextlib_rust.suppress.enter:
+  kind: python_call_eq
+  category: suppress
+  id_prefix: suppress_enter
+  function: suppress
+  method: __enter__
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [ValueError,   [ValueError],   null]
+    - [KeyError,     [KeyError],     null]
+    - [RuntimeError, [RuntimeError], null]
+
+# suppress — exit with no exception returns None
+invariant contextlib_rust.suppress.exit_no_exc:
+  description: "suppress(ValueError).__exit__(None, None, None) == None"
+  category: suppress
+  kind: python_call_eq
+  function: suppress
+  args: [ValueError]
+  method: __exit__
+  method_args: [null, null, null]
+  expected: null
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:42:38Z
+  iterations: 1
+  pass_count: 10
+  fail_count: 0
+  total_invariants: 10
+  notes: Synthesis succeeded in 1 iteration(s). 10 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

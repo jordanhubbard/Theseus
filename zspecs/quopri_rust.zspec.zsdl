@@ -1,0 +1,85 @@
+spec: quopri_rust
+version: ">=3.9"
+backend: rust_module(quopri_rust)
+
+docs: https://docs.python.org/3/library/quopri.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/quopri.html — Python quopri documentation"
+    - "RFC 2045 §6.7 — Quoted-Printable Content Transfer Encoding"
+  not_derived_from:
+    - "CPython source: Lib/quopri.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python quopri module, exposed via PyO3."
+    - "encodestring(s, header=False, quotetabs=False) encodes bytes as Quoted-Printable."
+    - "decodestring(s) decodes Quoted-Printable bytes back to original bytes."
+    - "ASCII printable characters (0x21-0x7e, excluding '=') are passed through unchanged."
+    - "Bytes with value >= 128 are encoded as =XX where XX is the uppercase hex value."
+    - "encodestring(b'hello') == b'hello' — ASCII unchanged."
+    - "encodestring(b'\\x80\\x81') == b'=80=81' — non-ASCII encoded."
+    - "decodestring(b'=80=81') == b'\\x80\\x81' — decode reverses encode."
+    - "All test vectors verified against Python 3.14.3 quopri module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# encodestring — ASCII passthrough
+table quopri_rust.encodestring.ascii:
+  kind: python_call_eq
+  category: encodestring
+  id_prefix: encode
+  function: encodestring
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,      [!b64 aGVsbG8=],        !b64 aGVsbG8=]
+    - [empty,      [!b64 ""],              !b64 ""]
+    - [test_value, [!b64 dGVzdCB2YWx1ZQ==], !b64 dGVzdCB2YWx1ZQ==]
+
+# encodestring — non-ASCII encoded as =XX
+table quopri_rust.encodestring.nonascii:
+  kind: python_call_eq
+  category: encodestring
+  id_prefix: encode_nonascii
+  function: encodestring
+
+  columns: [id, args, expected]
+  rows:
+    - [two_bytes, [!b64 gIE=], !b64 PTgwPTgx]
+
+# decodestring — decode QP back to original bytes
+table quopri_rust.decodestring.ascii:
+  kind: python_call_eq
+  category: decodestring
+  id_prefix: decode
+  function: decodestring
+
+  columns: [id, args, expected]
+  rows:
+    - [hello, [!b64 aGVsbG8=], !b64 aGVsbG8=]
+    - [empty, [!b64 ""],       !b64 ""]
+
+# decodestring — decode encoded bytes
+table quopri_rust.decodestring.encoded:
+  kind: python_call_eq
+  category: decodestring
+  id_prefix: decode_encoded
+  function: decodestring
+
+  columns: [id, args, expected]
+  rows:
+    - [two_bytes, [!b64 PTgwPTgx], !b64 gIE=]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:42:57Z
+  iterations: 1
+  pass_count: 7
+  fail_count: 0
+  total_invariants: 7
+  notes: Synthesis succeeded in 1 iteration(s). 7 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

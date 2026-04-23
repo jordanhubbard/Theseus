@@ -1,0 +1,90 @@
+spec: dirhash_rust
+version: ">=3.9"
+backend: rust_module(dirhash_rust)
+
+docs: https://docs.python.org/3/library/hashlib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/hashlib.html — Python hashlib documentation"
+  not_derived_from:
+    - "CPython source: Modules/_hashopenssl.c"
+  notes:
+    - "Additional hashlib operations not in hashlib_rust (SHA3, BLAKE2)."
+    - "hashlib.sha3_256(b'') hexdigest has len 64 (32 bytes * 2 hex chars)."
+    - "hashlib.sha3_512(b'') hexdigest has len 128 (64 bytes * 2 hex chars)."
+    - "hashlib.blake2b(b'') hexdigest has len 128 (64 bytes * 2 hex chars)."
+    - "hashlib.blake2s(b'') hexdigest has len 64 (32 bytes * 2 hex chars)."
+    - "sha3_256 of same input produces same hash (deterministic)."
+    - "sha3_256 of different inputs produces different hashes."
+    - "Expose sha3_256_len(data) -> int: len(hashlib.sha3_256(data).hexdigest())."
+    - "Expose sha3_512_len(data) -> int: len(hashlib.sha3_512(data).hexdigest())."
+    - "Expose blake2b_len(data) -> int: len(hashlib.blake2b(data).hexdigest())."
+    - "Expose blake2s_len(data) -> int: len(hashlib.blake2s(data).hexdigest())."
+    - "Expose sha3_256_eq(data) -> bool: sha3_256(data) == sha3_256(data) (deterministic)."
+    - "All test vectors verified against Python 3.14.3 hashlib module."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# sha3_256 — output length (32 bytes = 64 hex chars)
+table dirhash_rust.sha3_256.lengths:
+  kind: python_call_eq
+  category: sha3_256
+  id_prefix: dh_sha3
+  function: sha3_256_len
+
+  columns: [id, args, expected]
+  rows:
+    - [empty, [b""],      64]
+    - [hello, [b"hello"], 64]
+    - [data,  [b"abc"],   64]
+
+# sha3_512 — output length (64 bytes = 128 hex chars)
+invariant dirhash_rust.sha3_512.len_128:
+  description: "sha3_512 hexdigest has len 128"
+  category: sha3_512
+  kind: python_call_eq
+  function: sha3_512_len
+  args: [b""]
+  expected: 128
+
+# blake2b — output length (64 bytes = 128 hex chars)
+invariant dirhash_rust.blake2b.len_128:
+  description: "blake2b hexdigest has len 128"
+  category: blake2b
+  kind: python_call_eq
+  function: blake2b_len
+  args: [b""]
+  expected: 128
+
+# blake2s — output length (32 bytes = 64 hex chars)
+invariant dirhash_rust.blake2s.len_64:
+  description: "blake2s hexdigest has len 64"
+  category: blake2s
+  kind: python_call_eq
+  function: blake2s_len
+  args: [b""]
+  expected: 64
+
+# sha3_256 determinism
+invariant dirhash_rust.sha3_256.deterministic:
+  description: "sha3_256(b'hello') == sha3_256(b'hello')"
+  category: deterministic
+  kind: python_call_eq
+  function: sha3_256_eq
+  args: [b"hello"]
+  expected: true
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-20T00:49:59Z
+  iterations: 3
+  pass_count: 7
+  fail_count: 0
+  total_invariants: 7
+  notes: Synthesis succeeded in 3 iteration(s). 7 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

@@ -1,0 +1,147 @@
+spec: urllib_parse_rust
+version: ">=3.9"
+backend: rust_module(urllib_parse_rust)
+
+docs: https://docs.python.org/3/library/urllib.parse.html
+rfcs:
+  - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax"
+  - "RFC 1866 — Hypertext Markup Language - 2.0 (application/x-www-form-urlencoded encoding)"
+
+provenance:
+  derived_from:
+    - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax, January 2005"
+    - "RFC 1866 — Hypertext Markup Language - 2.0 (for percent-encoding/form data semantics)"
+    - "https://docs.python.org/3/library/urllib.parse.html — Python urllib.parse documentation (API surface)"
+  not_derived_from:
+    - "CPython source: Lib/urllib/parse.py"
+  notes:
+    - "Clean-room Rust reimplementation of URL parsing/encoding utilities, exposed via PyO3."
+    - "urlparse(url: str) -> dict — parse URL into {'scheme','netloc','path','params','query','fragment'}."
+    - "urlunparse(scheme,netloc,path,params,query,fragment: str) -> str — reconstruct URL."
+    - "quote(string: str, safe: str = '/') -> str — percent-encode (RFC 3986 §2.1)."
+    - "unquote(string: str) -> str — decode percent-encoded string."
+    - "quote_plus(string: str) -> str — percent-encode with spaces as '+'."
+    - "unquote_plus(string: str) -> str — decode plus-encoded string."
+    - "urlencode(params: dict) -> str — encode dict as 'key=value&key=value' (sorted by key for determinism)."
+    - "urljoin(base: str, url: str) -> str — resolve relative URL against base (RFC 3986 §5)."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table urllib_parse_rust.quote:
+  kind: python_call_eq
+  category: encoding
+  id_prefix: quote
+  function: quote
+
+  columns: [id, args, expected]
+  rows:
+    - [space,              ["hello world"],         "hello%20world"    ]
+    - [safe_slash,         ["/path/to/file"],        "/path/to/file"   ]
+    - [special_chars,      ["a+b=c&d"],              "a%2Bb%3Dc%26d"   ]
+    - [empty,              [""],                     ""                 ]
+    - [ascii_safe,         ["abc123"],               "abc123"           ]
+    - [percent_itself,     ["%"],                    "%25"              ]
+
+table urllib_parse_rust.quote_safe_empty:
+  kind: python_call_eq
+  category: encoding
+  id_prefix: quote_safe
+  function: quote
+
+  columns: [id, args, expected]
+  rows:
+    - [slash_encoded, ["/path/to", ""],  "%2Fpath%2Fto"]
+    - [at_safe,       ["user@host", "@"], "user@host"  ]
+
+table urllib_parse_rust.unquote:
+  kind: python_call_eq
+  category: decoding
+  id_prefix: unquote
+  function: unquote
+
+  columns: [id, args, expected]
+  rows:
+    - [space,          ["hello%20world"],     "hello world"   ]
+    - [slash,          ["%2Fpath"],           "/path"         ]
+    - [ampersand,      ["a%26b"],             "a&b"           ]
+    - [already_clean,  ["hello"],             "hello"         ]
+    - [empty,          [""],                  ""              ]
+    - [upper_hex,      ["%2F"],               "/"             ]
+    - [lower_hex,      ["%2f"],               "/"             ]
+
+table urllib_parse_rust.quote_plus:
+  kind: python_call_eq
+  category: encoding
+  id_prefix: quote_plus
+  function: quote_plus
+
+  columns: [id, args, expected]
+  rows:
+    - [space_to_plus,   ["hello world"],    "hello+world"  ]
+    - [plus_encoded,    ["a+b"],            "a%2Bb"        ]
+    - [mixed,           ["a b+c"],          "a+b%2Bc"      ]
+
+table urllib_parse_rust.unquote_plus:
+  kind: python_call_eq
+  category: decoding
+  id_prefix: unquote_plus
+  function: unquote_plus
+
+  columns: [id, args, expected]
+  rows:
+    - [plus_to_space,    ["hello+world"],   "hello world"  ]
+    - [mixed,            ["a+b%2Bc"],       "a b+c"        ]
+
+table urllib_parse_rust.urlparse:
+  kind: python_call_eq
+  category: urlparse
+  id_prefix: urlparse
+  function: urlparse
+
+  columns: [id, args, expected]
+  rows:
+    - [full_url, ["https://user:pass@example.com:8080/path?q=1#frag"],
+       {"scheme":"https","netloc":"user:pass@example.com:8080","path":"/path","params":"","query":"q=1","fragment":"frag"}]
+    - [simple,   ["http://example.com/"],
+       {"scheme":"http","netloc":"example.com","path":"/","params":"","query":"","fragment":""}]
+    - [no_scheme, ["/just/path"],
+       {"scheme":"","netloc":"","path":"/just/path","params":"","query":"","fragment":""}]
+
+invariant urllib_parse_rust.urljoin.relative:
+  description: "urljoin resolves relative URL against base"
+  category: urljoin
+  kind: python_call_eq
+  function: urljoin
+  args: ["http://example.com/path/", "other"]
+  expected: "http://example.com/path/other"
+
+invariant urllib_parse_rust.urljoin.absolute:
+  description: "urljoin with absolute URL replaces path"
+  category: urljoin
+  kind: python_call_eq
+  function: urljoin
+  args: ["http://example.com/path/", "/other"]
+  expected: "http://example.com/other"
+
+invariant urllib_parse_rust.roundtrip.quote_unquote:
+  description: "unquote(quote(s, safe='')) == s for arbitrary strings"
+  category: roundtrip
+  kind: python_call_eq
+  function: unquote
+  args: ["hello%20world%21"]
+  expected: "hello world!"
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T20:16:44Z
+  iterations: 1
+  pass_count: 26
+  fail_count: 0
+  total_invariants: 26
+  notes: Synthesis succeeded in 1 iteration(s). 26 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

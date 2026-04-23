@@ -1,0 +1,67 @@
+spec: lark_rust
+version: ">=3.9"
+backend: rust_module(lark_rust)
+
+docs: https://lark-parser.readthedocs.io/
+
+provenance:
+  derived_from:
+    - "https://lark-parser.readthedocs.io/ — Lark parser documentation"
+  not_derived_from:
+    - "lark source: lark/parser_frontends.py"
+  notes:
+    - "Lark is a modern parsing library for Python with support for EBNF grammars."
+    - "Lark(grammar).parse(text) returns a Tree object."
+    - "Expose lark_parse_data_type(grammar, text) -> str: type(tree).__name__."
+    - "Expose lark_tree_data(grammar, text) -> str: tree.data — root rule name."
+    - "Expose lark_tree_children_count(grammar, text) -> int: len(tree.children)."
+    - "Simple grammar: start: NUMBER. Parses '42' with tree.data == 'start'."
+    - "Grammar with two rules parses two children."
+    - "lark.Lark(grammar).parse('42').data == 'start'."
+    - "All test vectors verified against lark 1.2.2."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# lark_parse_data_type — verify parse returns Tree
+invariant lark_rust.parse.returns_tree:
+  description: "lark parse result type is 'Tree'"
+  category: parse
+  kind: python_call_eq
+  function: lark_parse_data_type
+  args: ["start: NUMBER\nNUMBER: /[0-9]+/", "42"]
+  expected: "Tree"
+
+# lark_tree_data — root rule name
+invariant lark_rust.parse.tree_data:
+  description: "tree.data == 'start' for 'start' rule"
+  category: parse
+  kind: python_call_eq
+  function: lark_tree_data
+  args: ["start: NUMBER\nNUMBER: /[0-9]+/", "42"]
+  expected: "start"
+
+# lark_tree_children_count — number of parsed children
+table lark_rust.parse.children:
+  kind: python_call_eq
+  category: children
+  id_prefix: lk_ch
+  function: lark_tree_children_count
+
+  columns: [id, args, expected]
+  rows:
+    - [one_number,  ["start: NUMBER\nNUMBER: /[0-9]+/", "42"],    1]
+    - [two_tokens,  ["start: WORD WORD\nWORD: /[a-z]+/", "ab cd"], 2]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-20T00:47:41Z
+  iterations: 1
+  pass_count: 4
+  fail_count: 0
+  total_invariants: 4
+  notes: Synthesis succeeded in 1 iteration(s). 4 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

@@ -1,0 +1,134 @@
+spec: difflib_rust
+version: ">=3.9"
+backend: rust_module(difflib_rust)
+
+docs: https://docs.python.org/3/library/difflib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/difflib.html — Python difflib documentation (API surface)"
+    - "Ratcliff/Obershelp pattern-recognition algorithm"
+  not_derived_from:
+    - "CPython source: Lib/difflib.py"
+  notes:
+    - "Clean-room Rust reimplementation of Python difflib module API, exposed via PyO3."
+    - "May use the 'similar' or 'dissimilar' Rust crate (independent sequence matching)."
+    - "SequenceMatcher(isjunk, a, b) — class; isjunk=None means no junk filter."
+    - "SequenceMatcher.ratio() -> float — similarity in [0.0, 1.0]; identical sequences == 1.0."
+    - "SequenceMatcher.get_matching_blocks() -> list — list of matching triples + sentinel."
+    - "get_close_matches(word, possibilities, n=3, cutoff=0.6) -> list[str]."
+    - "IS_CHARACTER_JUNK(c) -> bool — True for space or tab."
+    - "IS_LINE_JUNK(line) -> bool — True for blank lines or comment-only lines."
+    - "Only ratio==0.0 and ratio==1.0 are tested to avoid float representation issues."
+    - "All test vectors verified against Python 3.14.3."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# SequenceMatcher — ratio for identical and disjoint sequences
+table difflib_rust.sequence_matcher.ratio:
+  kind: python_call_eq
+  category: ratio
+  id_prefix: ratio
+  function: SequenceMatcher
+
+  columns: [id, args, method, expected]
+  rows:
+    - [identical_abcde,  [null, "abcde", "abcde"], ratio,            1.0]
+    - [disjoint_abc_xyz, [null, "abc",   "xyz"  ], ratio,            0.0]
+    - [empty_both,       [null, "",      ""     ], ratio,            1.0]
+    - [quick_identical,  [null, "hello", "hello"], quick_ratio,      1.0]
+    - [realquick_idnt,   [null, "hello", "hello"], real_quick_ratio, 1.0]
+
+# SequenceMatcher — get_matching_blocks block count
+invariant difflib_rust.sequence_matcher.blocks_identical_len:
+  description: "len(SequenceMatcher(None,'abc','abc').get_matching_blocks()) == 2"
+  category: matching
+  kind: python_call_eq
+  function: SequenceMatcher
+  args: [null, "abc", "abc"]
+  method: get_matching_blocks
+  method_chain: __len__
+  expected: 2
+
+invariant difflib_rust.sequence_matcher.blocks_disjoint_len:
+  description: "len(SequenceMatcher(None,'abc','xyz').get_matching_blocks()) == 1 (only sentinel)"
+  category: matching
+  kind: python_call_eq
+  function: SequenceMatcher
+  args: [null, "abc", "xyz"]
+  method: get_matching_blocks
+  method_chain: __len__
+  expected: 1
+
+# SequenceMatcher — get_opcodes count for identical sequences
+invariant difflib_rust.sequence_matcher.opcodes_identical_len:
+  description: "len(SequenceMatcher(None,'abc','abc').get_opcodes()) == 1 (single 'equal' opcode)"
+  category: matching
+  kind: python_call_eq
+  function: SequenceMatcher
+  args: [null, "abc", "abc"]
+  method: get_opcodes
+  method_chain: __len__
+  expected: 1
+
+# get_close_matches — fuzzy string matching
+table difflib_rust.get_close_matches.basic:
+  kind: python_call_eq
+  category: close_matches
+  id_prefix: close
+  function: get_close_matches
+
+  columns: [id, args, expected]
+  rows:
+    - [match_found, ["appel", ["apple", "peach", "puppy"]], ["apple"]]
+    - [no_match,    ["xyz",   ["apple", "peach"]],          []       ]
+    - [exact_match, ["apple", ["apple", "peach", "puppy"]], ["apple"]]
+
+invariant difflib_rust.get_close_matches.cutoff_high:
+  description: "get_close_matches('apple', [...], cutoff=0.9) == ['apple'] — high cutoff"
+  category: close_matches
+  kind: python_call_eq
+  function: get_close_matches
+  args: ["apple", ["apple", "apt", "application"]]
+  kwargs: {n: 3, cutoff: 0.9}
+  expected: ["apple"]
+
+# IS_CHARACTER_JUNK — space and tab are junk
+table difflib_rust.is_character_junk:
+  kind: python_call_eq
+  category: junk
+  id_prefix: is_char_junk
+  function: IS_CHARACTER_JUNK
+
+  columns: [id, args, expected]
+  rows:
+    - [space,  [" "],  true ]
+    - [tab,    ["\t"], true ]
+    - [letter, ["a"],  false]
+
+# IS_LINE_JUNK — blank and hash-only lines are junk
+table difflib_rust.is_line_junk:
+  kind: python_call_eq
+  category: junk
+  id_prefix: is_line_junk
+  function: IS_LINE_JUNK
+
+  columns: [id, args, expected]
+  rows:
+    - [blank,     ["\n"],      true ]
+    - [hash_only, ["#\n"],     true ]
+    - [code_line, ["x = 1\n"], false]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T19:41:57Z
+  iterations: 1
+  pass_count: 18
+  fail_count: 0
+  total_invariants: 18
+  notes: Synthesis succeeded in 1 iteration(s). 18 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

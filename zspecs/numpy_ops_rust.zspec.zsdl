@@ -1,0 +1,118 @@
+spec: numpy_ops_rust
+version: ">=3.9"
+backend: rust_module(numpy_ops_rust)
+
+docs: https://numpy.org/doc/stable/reference/routines.html
+
+provenance:
+  derived_from:
+    - "https://numpy.org/doc/stable/reference/routines.html — NumPy routines documentation"
+  not_derived_from:
+    - "NumPy source: numpy/core/"
+  notes:
+    - "NumPy array operations: dot product, sort, unique, concatenate, reshape."
+    - "dot([1,2,3],[4,5,6]) == 32 — vector dot product."
+    - "sort([3,1,4,1,5]).tolist() == [1,1,3,4,5] — sorted list."
+    - "unique([3,1,4,1,5]).tolist() == [1,3,4,5] — unique sorted values."
+    - "concatenate([[1,2],[3,4]]).tolist() == [1,2,3,4] — joined arrays."
+    - "array([1,2,3,4,5,6]).reshape(2,3).tolist() == [[1,2,3],[4,5,6]]."
+    - "All functions accept Python lists as input (auto-converted to arrays)."
+    - "All test vectors verified against numpy 2.4.2."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# dot — vector/matrix dot product
+table numpy_ops_rust.dot.vectors:
+  kind: python_call_eq
+  category: dot
+  id_prefix: npo_dot
+  function: dot
+
+  columns: [id, args, expected]
+  rows:
+    - [simple_3, [[1, 2, 3], [4, 5, 6]],    32]
+    - [unit_vec, [[1, 0, 0], [1, 0, 0]],     1]
+    - [ortho,    [[1, 0, 0], [0, 1, 0]],     0]
+    - [scale,    [[2, 4, 6], [1, 2, 3]],     28]
+
+# sort — sorted array as list
+table numpy_ops_rust.sort.tolist:
+  kind: python_call_eq
+  category: sort
+  id_prefix: npo_sort
+  function: sort
+  method: tolist
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [mixed,     [[3, 1, 4, 1, 5, 9, 2, 6]], [1, 1, 2, 3, 4, 5, 6, 9]]
+    - [negatives, [[-3, -1, -4, -1]],          [-4, -3, -1, -1]]
+    - [already,   [[1, 2, 3, 4, 5]],           [1, 2, 3, 4, 5]]
+
+# unique — unique sorted values as list
+table numpy_ops_rust.unique.tolist:
+  kind: python_call_eq
+  category: unique
+  id_prefix: npo_uniq
+  function: unique
+  method: tolist
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [with_dups, [[3, 1, 4, 1, 5, 9, 2, 6, 5, 3]], [1, 2, 3, 4, 5, 6, 9]]
+    - [no_dups,   [[1, 2, 3]],                        [1, 2, 3]]
+    - [single,    [[7, 7, 7]],                         [7]]
+
+# concatenate — join arrays as list
+table numpy_ops_rust.concatenate.tolist:
+  kind: python_call_eq
+  category: concatenate
+  id_prefix: npo_cat
+  function: concatenate
+  method: tolist
+  method_args: []
+
+  columns: [id, args, expected]
+  rows:
+    - [two_parts,   [[[1, 2], [3, 4]]],         [1, 2, 3, 4]]
+    - [three_parts, [[[1, 2], [3, 4], [5]]],     [1, 2, 3, 4, 5]]
+    - [single,      [[[1, 2, 3]]],               [1, 2, 3]]
+
+# reshape — 2D reshape via tolist (method chain)
+invariant numpy_ops_rust.reshape.two_by_three:
+  description: "array([1,2,3,4,5,6]).reshape(2,3).tolist() == [[1,2,3],[4,5,6]]"
+  category: reshape
+  kind: python_call_eq
+  function: array
+  args: [[1, 2, 3, 4, 5, 6]]
+  method: reshape
+  method_args: [2, 3]
+  method_chain: tolist
+  expected: [[1, 2, 3], [4, 5, 6]]
+
+invariant numpy_ops_rust.reshape.three_by_two:
+  description: "array([1,2,3,4,5,6]).reshape(3,2).tolist() == [[1,2],[3,4],[5,6]]"
+  category: reshape
+  kind: python_call_eq
+  function: array
+  args: [[1, 2, 3, 4, 5, 6]]
+  method: reshape
+  method_args: [3, 2]
+  method_chain: tolist
+  expected: [[1, 2], [3, 4], [5, 6]]
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T22:40:44Z
+  iterations: 1
+  pass_count: 15
+  fail_count: 0
+  total_invariants: 15
+  notes: Synthesis succeeded in 1 iteration(s). 15 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}

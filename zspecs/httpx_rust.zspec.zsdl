@@ -1,0 +1,98 @@
+spec: httpx_rust
+version: ">=3.9"
+backend: rust_module(httpx_rust)
+
+docs: https://www.python-httpx.org/
+
+provenance:
+  derived_from:
+    - "https://www.python-httpx.org/ — HTTPX library documentation"
+  not_derived_from:
+    - "httpx source: httpx/_models.py"
+  notes:
+    - "httpx is a modern HTTP client for Python with sync and async support."
+    - "httpx.URL('https://example.com/path?q=1') — URL parsing."
+    - "Expose url_scheme(url) -> str: httpx.URL(url).scheme."
+    - "Expose url_host(url) -> str: httpx.URL(url).host."
+    - "Expose url_path(url) -> str: httpx.URL(url).path."
+    - "Expose url_query(url) -> str: httpx.URL(url).query (bytes decoded to str)."
+    - "Expose url_port(url) -> int | None: httpx.URL(url).port."
+    - "httpx.URL('https://example.com/path?q=1').scheme == 'https'."
+    - "httpx.URL('https://example.com/path?q=1').host == 'example.com'."
+    - "httpx.URL('https://example.com/path?q=1').path == '/path'."
+    - "httpx.URL('https://example.com/path?q=1').query == b'q=1' (bytes)."
+    - "httpx.URL('https://example.com:8080/').port == 8080."
+    - "httpx.URL('https://example.com/').port == None."
+    - "Expose query_as_str — return query decoded as UTF-8 str."
+    - "All test vectors verified against httpx 0.28.1."
+  created_at: "2026-04-19T00:00:00Z"
+
+error_model: python_exceptions
+
+# url_scheme — scheme extraction
+table httpx_rust.url.scheme:
+  kind: python_call_eq
+  category: scheme
+  id_prefix: hx_sch
+  function: url_scheme
+
+  columns: [id, args, expected]
+  rows:
+    - [https, ["https://example.com/"], "https"]
+    - [http,  ["http://example.com/"],  "http"]
+
+# url_host — host extraction
+table httpx_rust.url.host:
+  kind: python_call_eq
+  category: host
+  id_prefix: hx_host
+  function: url_host
+
+  columns: [id, args, expected]
+  rows:
+    - [example,  ["https://example.com/path"],    "example.com"]
+    - [api,      ["https://api.github.com/v1"],   "api.github.com"]
+    - [localhost, ["http://localhost:8080/"],      "localhost"]
+
+# url_path — path extraction
+table httpx_rust.url.path:
+  kind: python_call_eq
+  category: path
+  id_prefix: hx_path
+  function: url_path
+
+  columns: [id, args, expected]
+  rows:
+    - [root,     ["https://example.com/"],        "/"]
+    - [subpath,  ["https://example.com/a/b"],     "/a/b"]
+    - [deep,     ["https://example.com/v1/users"],"/v1/users"]
+
+# url_port — port extraction (None for default)
+invariant httpx_rust.url.port_explicit:
+  description: "URL with explicit port 8080 returns 8080"
+  category: port
+  kind: python_call_eq
+  function: url_port
+  args: ["http://localhost:8080/"]
+  expected: 8080
+
+invariant httpx_rust.url.port_none:
+  description: "URL with no explicit port returns None"
+  category: port
+  kind: python_call_eq
+  function: url_port
+  args: ["https://example.com/"]
+  expected: null
+
+# ── Synthesis layer annotation ───────────────────────────────────────────────
+synthesis:
+  status: success
+  model: azure/anthropic/claude-sonnet-4-6
+  attempted_at: 2026-04-19T23:54:37Z
+  iterations: 1
+  pass_count: 10
+  fail_count: 0
+  total_invariants: 10
+  notes: Synthesis succeeded in 1 iteration(s). 10 invariants passing.
+  infeasible_reason: null
+  invariant_annotations: {}
