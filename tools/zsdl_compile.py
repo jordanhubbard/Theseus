@@ -258,7 +258,7 @@ class ZSDLCompiler:
         errmod   = self._compile_error_model(doc.get("error_model"))
         invs     = self._compile_all_invariants(doc, canonical_name)
 
-        return {
+        out: dict = {
             "schema_version": "0.2",
             "identity": identity,
             "provenance": prov,
@@ -271,6 +271,23 @@ class ZSDLCompiler:
             "error_model": errmod,
         }
 
+        # Cleanroom backends: annotate top-level backend_lang and cleanroom_path
+        backend_str = doc.get("backend", "")
+        if backend_str.startswith("python_cleanroom(") and backend_str.endswith(")"):
+            name = backend_str[len("python_cleanroom("):-1]
+            out["backend_lang"] = "python_cleanroom"
+            out["cleanroom_path"] = f"cleanroom/python/{name}"
+        elif backend_str.startswith("node_cleanroom(") and backend_str.endswith(")"):
+            name = backend_str[len("node_cleanroom("):-1]
+            out["backend_lang"] = "node_cleanroom"
+            out["cleanroom_path"] = f"cleanroom/node/{name}"
+
+        # Propagate the optional `blocks` field (original package to block in isolation)
+        if "blocks" in doc:
+            out["blocks"] = doc["blocks"]
+
+        return out
+
     # ------------------------------------------------------------------
     # Header: identity
     # ------------------------------------------------------------------
@@ -280,8 +297,8 @@ class ZSDLCompiler:
         backend_str = doc.get("backend", "")
 
         # Determine default api_header from backend type
-        if backend_str.startswith("python_module"):
-            default_api_header = "N/A — Python stdlib"
+        if backend_str.startswith("python_module") or backend_str.startswith("rust_module"):
+            default_api_header = "N/A — Python module"
         else:
             default_api_header = ""
 
@@ -367,6 +384,33 @@ class ZSDLCompiler:
             if doc.get("esm"):
                 lib["esm"] = True
             return lib
+
+        if backend_str.startswith("rust_module(") and backend_str.endswith(")"):
+            module_name = backend_str[len("rust_module("):-1]
+            return {
+                "backend": "rust_module",
+                "module_name": module_name,
+                "soname_patterns": [],
+                **extra,
+            }
+
+        if backend_str.startswith("python_cleanroom(") and backend_str.endswith(")"):
+            module_name = backend_str[len("python_cleanroom("):-1]
+            return {
+                "backend": "python_cleanroom",
+                "module_name": module_name,
+                "soname_patterns": [],
+                **extra,
+            }
+
+        if backend_str.startswith("node_cleanroom(") and backend_str.endswith(")"):
+            module_name = backend_str[len("node_cleanroom("):-1]
+            return {
+                "backend": "node_cleanroom",
+                "module_name": module_name,
+                "soname_patterns": [],
+                **extra,
+            }
 
         # Fallback: ctypes with no known pattern
         return {"soname_patterns": [], **extra}

@@ -105,13 +105,14 @@ class LibraryLoader:
 
     def load(self, lib_spec: dict):
         backend = lib_spec.get("backend", "ctypes")
-        if backend == "python_module":
+        if backend in ("python_module", "rust_module"):
             module_name = lib_spec["module_name"]
             try:
                 mod = importlib.import_module(module_name)
             except ImportError as exc:
                 raise LibraryNotFoundError(
-                    f"Cannot import Python module {module_name!r}: {exc}"
+                    f"Cannot import {'Rust' if backend == 'rust_module' else 'Python'} "
+                    f"module {module_name!r}: {exc}"
                 ) from exc
             # Pre-import well-known submodules so they are accessible as attributes
             # of the top-level module via getattr (side-effect of import).
@@ -1447,12 +1448,12 @@ def _get_lib_version(lib_spec: dict, lib) -> str:
     backend = lib_spec.get("backend", "ctypes")
     module_name = lib_spec.get("module_name", "")
 
-    if backend == "python_module":
+    if backend in ("python_module", "rust_module"):
         try:
             return importlib.metadata.version(module_name)
         except importlib.metadata.PackageNotFoundError:
             pass
-        # stdlib modules don't appear in metadata; use the Python version as a proxy
+        # stdlib and synthesized Rust modules don't appear in metadata; use Python version as proxy
         vi = sys.version_info
         return f"{vi.major}.{vi.minor}.{vi.micro}"
 

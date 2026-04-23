@@ -136,6 +136,27 @@ _TIER1_7_WAVES: list[dict] = [
         "match": {"names": ["zlib", "pcre2", "libpng", "libsodium", "libxml2",
                             "libyaml", "expat"]},
     },
+    # ------------------------------------------------------------------
+    # Tier 8 — Rust PyO3 extension module synthesis targets
+    # ------------------------------------------------------------------
+    {
+        "name": "s8",
+        "title": "Rust PyO3 extension modules — first targets (json_rust, …)",
+        "match": {"backend_lang": "rust"},
+    },
+    # ------------------------------------------------------------------
+    # Tier 9 — Clean-room package synthesis (python_cleanroom / node_cleanroom)
+    # ------------------------------------------------------------------
+    {
+        "name": "cr1",
+        "title": "Clean-room Python and Node.js package reimplementations",
+        "match": {"backend_lang": "python_cleanroom"},
+    },
+    {
+        "name": "cr2",
+        "title": "Clean-room Node.js package reimplementations",
+        "match": {"backend_lang": "node_cleanroom"},
+    },
 ]
 
 
@@ -420,6 +441,37 @@ def cmd_run_wave(
     for i, meta in enumerate(pending, 1):
         name = meta["canonical_name"]
         print(f"  [{i}/{len(pending)}] {name} …", end=" ", flush=True)
+
+        # Clean-room backends dispatch to synthesize_cleanroom instead of the
+        # standard ZSpecPipeline (which targets rust/python/c/js wrappers).
+        if meta["backend_lang"] in ("python_cleanroom", "node_cleanroom"):
+            from tools.synthesize_cleanroom import synthesize as _cr_synthesize
+            try:
+                result = _cr_synthesize(
+                    str(meta["path"]),
+                    ai_cfg=ai_cfg,
+                    max_iterations=max_iterations,
+                )
+            except Exception as exc:
+                result = SynthesisResult(
+                    canonical_name=name,
+                    backend_lang=meta["backend_lang"],
+                    status="infeasible",
+                    model="",
+                    attempted_at="",
+                    iterations=0,
+                    notes=f"Clean-room synthesizer exception: {exc}",
+                    infeasible_reason="runner_exception",
+                )
+            print(
+                f"{result.status}"
+                + (f" ({result.final_pass_count}/{result.total_invariants})"
+                   if result.total_invariants else "")
+            )
+            _record_spec_result(state, result)
+            _save_state(state)
+            results.append(result)
+            continue
 
         # Prefer the .zsdl source so the pipeline can re-compile + synthesize
         # in one shot.  Fall back to synthesis-only on the compiled spec when
