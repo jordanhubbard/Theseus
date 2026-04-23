@@ -57,10 +57,14 @@ restart: stop start
 
 test: compile-zsdl
 	$(PYTHON) tools/validate_zspec.py
+	$(PYTHON) tools/lint_cleanroom.py --new-only
 	$(PYTHON) -m pytest tests/ -v
 
 validate-zspecs: compile-zsdl
 	$(PYTHON) tools/validate_zspec.py $(ZSPECS)
+
+lint-cleanroom:
+	$(PYTHON) tools/lint_cleanroom.py --new-only
 
 clean:
 	rm -rf _build/ snapshots/ reports/demo-overlap reports/demo-candidates.json

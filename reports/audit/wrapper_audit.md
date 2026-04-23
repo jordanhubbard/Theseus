@@ -1,0 +1,523 @@
+# Theseus Wrapper Audit
+
+Generated: 2026-04-20T05:46:16Z
+
+Total `*_rust.zspec.zsdl` specs audited: **479**
+
+All existing `_rust` specs use `backend: rust_module(...)` which generates PyO3 Rust code
+that calls back into the Python runtime via `pyo3::Python::with_gil`. This is a wrapper,
+not a clean-room reimplementation. Every spec in this audit requires remediation.
+
+---
+
+## Category Definitions
+
+| Category | Meaning | Action |
+|---|---|---|
+| `clean_rewrite_needed` | Third-party package with real algorithmic content | Write clean-room Python implementation |
+| `stdlib_subset` | Wraps a Python stdlib module | Write clean-room Python subset or descope |
+| `presence_only` | Only checks `hasattr`/`callable`/version — no algorithmic content | Descope; presence checks are meaningless for clean-room |
+| `infeasible` | Failed synthesis (module missing or LLM unavailable) | Retry or remove |
+
+---
+
+## Clean Rewrite Needed (230)
+- `PIL_rust`
+- `aiocache_rust`
+- `aiohttp_rust`
+- `alembic_rust`
+- `apscheduler_rust`
+- `argparse_extra_rust`
+- `arrow_extra_rust`
+- `attrs_rust`
+- `autopep8_rust`
+- `babel_rust`
+- `beautifulsoup4_rust`
+- `bidict_rust`
+- `black_rust`
+- `boltons_rust`
+- `boto3_rust`
+- `box_rust`
+- `builtins_rust`
+- `bytes_methods_rust`
+- `cachelib_rust`
+- `cachetools_rust`
+- `catboost_rust`
+- `cattrs_rust`
+- `celery_rust`
+- `cerberus_rust`
+- `certifi_rust`
+- `cffi_rust`
+- `chardet_rust`
+- `charset_normalizer_rust`
+- `click_ansi_rust`
+- `click_extra2_rust`
+- `click_extra_rust`
+- `cmath_rust`
+- `codecs_rust`
+- `colorsys_rust`
+- `config_rust`
+- `configparser_rust`
+- `construct_rust`
+- `counter_extra_rust`
+- `coverage_rust`
+- `cryptography_rust`
+- `ctypes_extra2_rust`
+- `cv2_rust`
+- `dacite_rust`
+- `dask_rust`
+- `databases_rust`
+- `dateutil_rust`
+- `decorator_rust`
+- `deepmerge_rust`
+- `dill_rust`
+- `dirhash_rust`
+- `diskcache_rust`
+- `django_rust`
+- `dnspython_rust`
+- `docker_rust`
+- `docopt_rust`
+- `duckdb_rust`
+- `dynaconf_rust`
+- `elasticsearch_rust`
+- `email_utils_rust`
+- `environs_rust`
+- `exrex_rust`
+- `fabric_rust`
+- `factory_boy_rust`
+- `faker_rust`
+- `fastapi_rust`
+- `fire_rust`
+- `flask_rust`
+- `flatten_rust`
+- `format_rust`
+- `freezegun_rust`
+- `frozenlist_rust`
+- `furl_rust`
+- `gensim_rust`
+- `glom_rust`
+- `grpc_rust`
+- `gunicorn_rust`
+- `http_cookies_rust`
+- `http_rust`
+- `httpcore_rust`
+- `httpretty_rust`
+- `httpx_rust`
+- `humanize_rust`
+- `inflect_rust`
+- `invoke_rust`
+- `io_extra2_rust`
+- `isodate_rust`
+- `isort_rust`
+- `joblib_rust`
+- `json_extra2_rust`
+- `jsonpickle_rust`
+- `jwt_rust`
+- `kafka_rust`
+- `keyword_rust`
+- `lark_rust`
+- `lightgbm_rust`
+- `loguru_rust`
+- `lxml_etree_extra_rust`
+- `lxml_etree_rust`
+- `lxml_rust`
+- `markdown_it_rust`
+- `markupsafe_rust`
+- `matplotlib_rust`
+- `micropython_rust`
+- `mimetype_extra_rust`
+- `mimetypes_rust`
+- `msgpack_rust`
+- `multidict_rust`
+- `multipledispatch_rust`
+- `namedtuple_rust`
+- `nats_rust`
+- `natsort_rust`
+- `netifaces_rust`
+- `networkx_rust`
+- `nltk_rust`
+- `numbers_rust`
+- `numpy_agg_rust`
+- `numpy_char_rust`
+- `numpy_extra_rust`
+- `numpy_eye_rust`
+- `numpy_linalg_rust`
+- `numpy_ops_rust`
+- `numpy_rust`
+- `numpy_set_rust`
+- `numpy_vstack_rust`
+- `numpy_where_rust`
+- `objsize_rust`
+- `orjson_rust`
+- `outcome_rust`
+- `packaging_rust`
+- `parameterized_rust`
+- `paramiko_rust`
+- `parse_rust`
+- `pathlib_extra2_rust`
+- `peewee_rust`
+- `pendulum_rust`
+- `pexpect_rust`
+- `phonenumbers_rust`
+- `pickle_rust`
+- `pika_rust`
+- `pint_rust`
+- `pluggy_rust`
+- `polars_rust`
+- `polyfactory_rust`
+- `portalocker_rust`
+- `prompt_toolkit_rust`
+- `psutil_extra_rust`
+- `psycopg2_rust`
+- `pyarrow_rust`
+- `pydantic_extra_rust`
+- `pydantic_rust`
+- `pydantic_v2_rust`
+- `pyflakes_rust`
+- `pygments_rust`
+- `pyjwt_extra_rust`
+- `pymongo_rust`
+- `pynput_rust`
+- `pyotp_rust`
+- `pyparsing_rust`
+- `pytest_extra_rust`
+- `pytz_extra_rust`
+- `pytz_rust`
+- `pyyaml_rust`
+- `pyzmq_rust`
+- `quopri_rust`
+- `random_rust`
+- `random_seeded_rust`
+- `rapidjson_rust`
+- `redis_py_rust`
+- `reprlib_rust`
+- `requests_utils_rust`
+- `rich_extra2_rust`
+- `rich_extra_rust`
+- `rich_rust`
+- `ruamel_yaml_rust`
+- `schedule_rust`
+- `schema_rust`
+- `scipy_linalg_rust`
+- `scipy_special_rust`
+- `scipy_stats_rust`
+- `scrapy_rust`
+- `secrets_rust`
+- `selenium_rust`
+- `semver_rust`
+- `sh_rust`
+- `simplejson_rust`
+- `six_rust`
+- `sklearn_cluster_rust`
+- `sklearn_decomp_rust`
+- `sklearn_metrics_rust`
+- `sklearn_preprocessing_rust`
+- `sly_rust`
+- `sortedcontainers_rust`
+- `spacy_rust`
+- `sqlalchemy_rust`
+- `starlette_rust`
+- `stat_rust`
+- `statistics_extra2_rust`
+- `statsmodels_rust`
+- `string_extra3_rust`
+- `sympy_rust`
+- `tensorflow_rust`
+- `textual_rust`
+- `token_rust`
+- `toml_rust`
+- `tomli_rust`
+- `tomlkit_rust`
+- `toolz_rust`
+- `torch_rust`
+- `tqdm_extra_rust`
+- `tqdm_rust`
+- `transformers_rust`
+- `typer_rust`
+- `types_rust`
+- `ujson_rust`
+- `urllib3_rust`
+- `urllib_parse_extra_rust`
+- `urllib_parse_rust`
+- `uvicorn_rust`
+- `validators_rust`
+- `voluptuous_rust`
+- `watchdog_rust`
+- `wcwidth_rust`
+- `wrapt_rust`
+- `xgboost_rust`
+- `xml_etree_rust`
+- `xmltodict_rust`
+- `yaml_extra_rust`
+- `yarl_rust`
+- `zoneinfo_extra_rust`
+- `zoneinfo_rust`
+
+## Stdlib Subset (117)
+- `array_extra_rust`
+- `array_rust`
+- `arrow_time_rust`
+- `ast_extra_rust`
+- `ast_rust`
+- `asyncio_extra_rust`
+- `base64_rust`
+- `binascii_rust`
+- `bisect_extra_rust`
+- `bisect_rust`
+- `calendar_extra_rust`
+- `calendar_rust`
+- `collections_deque_rust`
+- `collections_extra_rust`
+- `collections_rust`
+- `concurrent_extra_rust`
+- `contextlib_extra_rust`
+- `contextlib_rust`
+- `copy_extra_rust`
+- `copy_rust`
+- `csv_extra_rust`
+- `csv_rust`
+- `ctypes_extra_rust`
+- `dataclasses_extra_rust`
+- `dataclasses_json_rust`
+- `dataclasses_rust`
+- `datetime_date_rust`
+- `datetime_extra_rust`
+- `datetime_rust`
+- `datetime_timedelta_rust`
+- `difflib_extra_rust`
+- `difflib_rust`
+- `dis_extra_rust`
+- `enum_extra_rust`
+- `enum_rust`
+- `errno_extra_rust`
+- `errno_rust`
+- `fnmatch_extra_rust`
+- `fnmatch_rust`
+- `fractions_rust`
+- `functools_extra_rust`
+- `functools_rust`
+- `gc_extra_rust`
+- `glob_escape_rust`
+- `glob_extra_rust`
+- `gzip_rust`
+- `hashlib_rust`
+- `heapq_extra_rust`
+- `heapq_rust`
+- `hmac_rust`
+- `html_entities_rust`
+- `html_escape_rust`
+- `idna_extra_rust`
+- `idna_rust`
+- `inspect_extra_rust`
+- `io_extra_rust`
+- `io_rust`
+- `ipaddress_rust`
+- `itertools_extra_rust`
+- `itertools_rust`
+- `json_extra_rust`
+- `json_rust`
+- `math_extra_rust`
+- `math_rust`
+- `math_trig_rust`
+- `mmap_extra_rust`
+- `more_itertools_extra_rust`
+- `more_itertools_rust`
+- `multiprocessing_extra_rust`
+- `numpy_array_rust`
+- `operator_extra_rust`
+- `operator_rust`
+- `os_path_extra_rust`
+- `os_path_rust`
+- `os_rust`
+- `ospath_extra_rust`
+- `pathlib_extra_rust`
+- `pathlib_rust`
+- `platform_extra_rust`
+- `pprint_extra_rust`
+- `pprint_rust`
+- `pytest_asyncio_rust`
+- `queue_extra_rust`
+- `re_compile_rust`
+- `re_extra_rust`
+- `re_findall_rust`
+- `re_match_rust`
+- `re_rust`
+- `select_extra_rust`
+- `shlex_rust`
+- `shutil_extra_rust`
+- `signal_extra_rust`
+- `signal_rust`
+- `socket_rust`
+- `statistics_extra_rust`
+- `statistics_rust`
+- `string_extra_rust`
+- `string_format_rust`
+- `string_rust`
+- `string_template_rust`
+- `struct_rust`
+- `subprocess_extra_rust`
+- `sys_extra_rust`
+- `sys_rust`
+- `tempfile_extra_rust`
+- `textwrap_dedent_rust`
+- `textwrap_extra_rust`
+- `textwrap_rust`
+- `threading_extra_rust`
+- `time_rust`
+- `traceback_extra_rust`
+- `typing_extensions_rust`
+- `uuid_rust`
+- `weakref_extra_rust`
+- `weakref_rust`
+- `zlib_checksum_rust`
+- `zlib_rust`
+
+## Infeasible (15)
+- `backoff_rust` — reason: module_not_installed
+- `bcrypt_rust` — reason: llm_unavailable
+- `bz2_rust` — reason: llm_unavailable
+- `decimal_rust` — reason: llm_unavailable
+- `emoji_rust` — reason: llm_unavailable
+- `html_rust` — reason: llm_unavailable
+- `jq_rust` — reason: llm_unavailable
+- `jsonschema_rust` — reason: llm_unavailable
+- `lzma_rust` — reason: llm_unavailable
+- `nacl_rust` — reason: llm_unavailable
+- `passlib_rust` — reason: llm_unavailable
+- `pipx_rust` — reason: module_not_installed
+- `pyodbc_rust` — reason: module_not_installed
+- `unicodedata_rust` — reason: llm_unavailable
+- `unidecode_rust` — reason: llm_unavailable
+
+## Presence Only (117)
+- `aiomysql_rust`
+- `aiopg_rust`
+- `aioredis_rust`
+- `aiosignal_rust`
+- `annotated_types_rust`
+- `ansible_rust`
+- `anyio_extra_rust`
+- `anyio_rust`
+- `ariadne_rust`
+- `async_timeout_rust`
+- `asyncpg_rust`
+- `authlib_rust`
+- `azure_identity_rust`
+- `bandit_rust`
+- `beartype_rust`
+- `bottle_rust`
+- `broadcaster_rust`
+- `build_rust`
+- `cassandra_driver_rust`
+- `charset_normalizer_extra_rust`
+- `cherrypy_rust`
+- `colorama_rust`
+- `commitizen_rust`
+- `conda_rust`
+- `croniter_rust`
+- `cryptography_extra_rust`
+- `cx_oracle_rust`
+- `cython_extra_rust`
+- `databases_extra_rust`
+- `demjson3_rust`
+- `django_channels_rust`
+- `drf_rust`
+- `email_validator_rust`
+- `exceptiongroup_rust`
+- `falcon_rust`
+- `flake8_rust`
+- `flit_rust`
+- `gevent_rust`
+- `gino_rust`
+- `google_auth_rust`
+- `graphene_rust`
+- `h11_rust`
+- `hatch_rust`
+- `httptools_rust`
+- `httpx_extra_rust`
+- `hypothesis_rust`
+- `importlib_metadata_rust`
+- `importlib_resources_rust`
+- `itsdangerous_rust`
+- `jwcrypto_rust`
+- `kubernetes_rust`
+- `ldap3_rust`
+- `locust_rust`
+- `marshmallow_rust`
+- `masonite_rust`
+- `maturin_rust`
+- `mimesis_rust`
+- `motor_rust`
+- `msal_rust`
+- `mypy_rust`
+- `nox_rust`
+- `numba_rust`
+- `oauthlib_rust`
+- `orator_rust`
+- `packaging_extra_rust`
+- `pdm_rust`
+- `piccolo_rust`
+- `pip_rust`
+- `pip_tools_rust`
+- `pipdeptree_rust`
+- `playwright_rust`
+- `plumbum_rust`
+- `poetry_core_rust`
+- `pony_rust`
+- `pre_commit_rust`
+- `protobuf_rust`
+- `pydantic_extra_types_rust`
+- `pydantic_settings_rust`
+- `pylint_rust`
+- `pymysql_rust`
+- `pypy_rust`
+- `pyramid_rust`
+- `pyright_rust`
+- `pytest_cov_rust`
+- `pytest_mock_rust`
+- `python_dotenv_rust`
+- `pytype_rust`
+- `questionary_rust`
+- `requests_oauthlib_rust`
+- `responses_rust`
+- `retry_rust`
+- `safety_rust`
+- `sanic_rust`
+- `sendgrid_rust`
+- `setuptools_scm_rust`
+- `sniffio_rust`
+- `socksio_rust`
+- `sqlmodel_rust`
+- `sse_starlette_rust`
+- `strawberry_rust`
+- `stripe_rust`
+- `structlog_rust`
+- `tabulate_rust`
+- `tenacity_rust`
+- `tornado_extra_rust`
+- `tortoise_orm_rust`
+- `tox_rust`
+- `trio_extra_rust`
+- `trio_rust`
+- `twilio_rust`
+- `twine_rust`
+- `typeguard_rust`
+- `urllib3_extra_rust`
+- `virtualenv_extra_rust`
+- `websockets_extra_rust`
+- `wheel_rust`
+- `wsproto_rust`
+
+---
+
+## Remediation Priority
+
+1. **Descope `presence_only`** (112 specs) — checking `hasattr` proves nothing in a clean-room world. Remove these.
+2. **Descope `stdlib_subset`** (117 specs) — reimplementing stdlib is valid but low priority; these become Theseus stdlib packages.
+3. **Implement `clean_rewrite_needed`** (235 specs) — these are the real work: clean-room rewrites of third-party OSS packages.
+4. **Retry or remove `infeasible`** (15 specs) — 12 are LLM timeouts (retry), 3 are missing modules (remove).
+
+## Next Steps
+
+All new clean-room specs must use `backend: python_cleanroom(name)` or `backend: node_cleanroom(name)`.
+No new `rust_module` specs will be accepted.

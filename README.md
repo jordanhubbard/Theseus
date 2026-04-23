@@ -2,7 +2,28 @@
 
 > *You start with a ship. You replace the planks. You replace the mast. You replace the hull. At what point does it become a different ship? Theseus answered this question by not caring and sailing anyway.*
 
-**Theseus** is a toolchain for normalizing package recipes from four ecosystems into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
+**Theseus** is a clean-room package synthesis engine. It takes behavioral specifications (ZSDL) describing what a package must do, then synthesizes complete reimplementations from scratch — no wrapping the original, no cross-language call-backs, no runtime dependency on the OSS source. Python packages are reimplemented in Python. Node.js packages in JavaScript. Only other Theseus-verified packages may serve as dependencies, forming a completely self-contained ecosystem.
+
+### Core Principles
+
+- **No wrapping.** A clean-room implementation must not `import` (or `require`) the original package.
+- **No cross-language boundaries.** Python packages → Python. Node.js packages → JavaScript.
+- **Spec-first.** Every package has a ZSDL behavioral spec before any implementation begins.
+- **Isolation-verified.** Invariants are verified with the original package actively blocked via `THESEUS_BLOCKED_PACKAGE`.
+- **Registry-only dependencies.** Only Theseus-verified packages (in `theseus_registry.json`) may be imported.
+
+### Clean-Room Packages (verified)
+
+| Package | Language | Invariants | Replaces |
+|---|---|---|---|
+| `theseus_json` | Python | 3/3 | `json` |
+| `theseus_re` | Python | 3/3 | `re` |
+| `theseus_pathlib` | Python | 3/3 | `pathlib` / `os.path` |
+| `theseus_path_node` | Node.js | 3/3 | Node `path` |
+
+---
+
+**Theseus** also provides a toolchain for normalizing package recipes from four ecosystems into a shared canonical intermediate representation — a common schema that lets you compare, rank, and reason about packages across ecosystems without losing track of where they came from.
 
 Three ecosystems are first-class citizens on Linux and macOS:
 - [**Nixpkgs**](https://github.com/NixOS/nixpkgs) — traversed directly via `--nixpkgs`, dependency graphs filled by `fill_nixpkgs_deps.py`

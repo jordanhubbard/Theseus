@@ -2,11 +2,13 @@
 
 ## Overview
 
-Theseus is a batch analysis toolchain. There is no server, no database, and no persistent state beyond the files you write to disk. The pipeline has two layers:
+Theseus is a batch analysis toolchain. There is no server, no database, and no persistent state beyond the files you write to disk. The pipeline has three layers:
 
 **Layer 1 — Package recipe pipeline:** normalizes Nixpkgs and FreeBSD Ports records into a shared canonical schema, ranks candidates, and produces merged extraction records.
 
-**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness.
+**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 935 specs covering 5 backend types (rust_module, python_module, python_cleanroom, node, ctypes, cli).
+
+**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. 100 Python packages verified as of the current registry.
 
 ```
 Source Trees (Nixpkgs, FreeBSD Ports)
@@ -28,6 +30,7 @@ Source Trees (Nixpkgs, FreeBSD Ports)
                 │
                 └─► tools/spec_coverage.py  ← report covered vs gap candidates
 
+── Layer 2: Behavioral Verification ─────────────────────────────────────────
 zspecs/*.zspec.zsdl                      ← behavioral contract sources (one per library, committed)
 _build/zspecs/*.zspec.json               ← compiled from ZSDL (build artifact, not committed)
         │
@@ -35,6 +38,24 @@ _build/zspecs/*.zspec.json               ← compiled from ZSDL (build artifact,
         ├─► tools/validate_zspec.py      ← static JSON schema validation of spec files
         ├─► tools/verify_all_specs.py    ← run all specs; write JSON results file
         └─► make verify-all-specs        ← aggregate text report across all specs
+
+── Layer 3: Clean-Room Synthesis ────────────────────────────────────────────
+zspecs/theseus_*.zspec.zsdl              ← clean-room specs (python_cleanroom backend)
+        │
+        ▼
+  tools/synthesize_waves.py --wave cr1  ← LLM synthesis of implementations
+        │
+        ▼
+  cleanroom/python/<name>/__init__.py   ← synthesized implementation
+        │
+        ▼
+  tools/cleanroom_verify.py             ← isolation-verified: original blocked via THESEUS_BLOCKED_PACKAGE
+        │
+        ▼
+  tools/registry.py verify <name>       ← register in theseus_registry.json
+        │
+        ▼
+  theseus_registry.json                 ← 100 verified packages; gating dependency graph
 ```
 
 ---
@@ -428,6 +449,112 @@ Tests live in `tests/`. Run with `make test` (requires `pytest`).
 | `tests/test_validate_zspec.py` | Z-spec static validator |
 | `tests/test_spec_coverage.py` | spec_coverage.py report generation |
 | `tests/test_verify_all_specs.py` | verify_all_specs.py, integration: all 19 specs pass |
+
+---
+
+## Layer 3 — Clean-Room Synthesis System
+
+### Purpose
+
+A clean-room package is a complete reimplementation of an existing library written in the target language from scratch, satisfying a set of behavioral invariants, without ever importing the original. The goal is a fully self-contained ecosystem where every dependency is a Theseus-verified package.
+
+Key constraints:
+- **No wrapping.** `import json` (or `require('semver')`) is forbidden inside a `python_cleanroom` (or `node_cleanroom`) implementation.
+- **No cross-language calls.** Python packages → Python only. Node packages → JS only.
+- **Registry-only deps.** A package may only import other entries from `theseus_registry.json` (status=verified).
+- **Isolation-verified.** The original package is actively blocked via `THESEUS_BLOCKED_PACKAGE` during every verification run. Any import of the blocked name raises `ImportError` immediately.
+
+### Directory Structure
+
+```
+cleanroom/
+  python/
+    sitecustomize.py              ← isolation blocker (auto-loaded when PYTHONPATH includes this dir)
+    theseus_json/
+      __init__.py                 ← implementation
+    theseus_hashlib/
+      __init__.py
+    ...                           ← one directory per verified package
+
+theseus_registry.json             ← registry of verified packages
+reports/synthesis/
+  wave_state.json                 ← synthesis progress; persisted across runs
+```
+
+### Isolation Mechanism
+
+`cleanroom/python/sitecustomize.py` is Python's standard startup hook. When `PYTHONPATH` includes `cleanroom/python/`, Python imports this file before any user code. If `THESEUS_BLOCKED_PACKAGE` is set, the file installs a meta path finder that raises `ImportError` on any attempt to import the named package or its submodules.
+
+`tools/cleanroom_verify.py` sets this env var automatically before running invariant functions.
+
+### Synthesis Workflow
+
+```bash
+# 1. Write spec
+$EDITOR zspecs/theseus_mylib.zspec.zsdl
+
+# 2. Compile
+python3 tools/zsdl_compile.py zspecs/theseus_mylib.zspec.zsdl
+
+# 3. Synthesize (LLM writes the implementation)
+python3 tools/synthesize_waves.py --wave cr1
+
+# 4. Fix any failures (see docs/cleanroom-spec-format.md for common pitfalls)
+# Most common: LLM generates parameterized invariant functions instead of zero-arg wrappers
+
+# 5. Verify in isolation
+python3 tools/cleanroom_verify.py _build/zspecs/theseus_mylib.zspec.json
+
+# 6. Register
+python3 tools/registry.py register theseus_mylib cleanroom/python/theseus_mylib \
+    _build/zspecs/theseus_mylib.zspec.json
+python3 tools/registry.py verify theseus_mylib
+```
+
+See `docs/cleanroom-spec-format.md` for spec authoring rules and the critical invariant function constraint.
+
+### Wave System
+
+Synthesis is organized into named waves tracked in `reports/synthesis/wave_state.json`. The primary clean-room wave is `cr1` (matching `backend_lang: python_cleanroom`).
+
+```bash
+python3 tools/synthesize_waves.py --list          # show all waves and status
+python3 tools/synthesize_waves.py --wave cr1      # run cr1 wave (skips already-done specs)
+python3 tools/synthesize_waves.py --status        # summary of completion
+```
+
+**Wave state management:** A wave in `waves_completed` is considered finished and will not re-run. To re-run a wave after adding new specs:
+
+```python
+import json
+with open('reports/synthesis/wave_state.json') as f:
+    state = json.load(f)
+state['waves_completed'] = [w for w in state['waves_completed'] if w != 'cr1']
+with open('reports/synthesis/wave_state.json', 'w') as f:
+    json.dump(state, f, indent=2)
+```
+
+Do **not** add new specs to `wave_state.json` with `status: "pending"` — the runner treats any entry in the `specs` dict as already processed. Instead, leave new specs absent from the dict and clear `waves_completed`.
+
+### Registry
+
+`theseus_registry.json` is the gating dependency graph. Only `status: "verified"` packages may be imported by other clean-room implementations.
+
+```bash
+python3 tools/registry.py list                         # list all packages
+python3 tools/registry.py register <name> <path> <spec>  # register (status=pending)
+python3 tools/registry.py verify <name>               # promote to verified
+python3 tools/registry.py check <name>                # exits 0 if verified, 1 if not
+```
+
+### Current Status
+
+| Wave | Description | Specs | Status |
+|------|-------------|-------|--------|
+| `cr1` | Python clean-room packages | 100 | DONE (99/100 passing) |
+| `cr2` | Node.js clean-room packages | 1 | DONE |
+
+Total verified packages: **100 Python** (see `theseus_registry.json`).
 
 ---
 

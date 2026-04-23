@@ -1,215 +1,321 @@
 # AGENTS.md — AI Agent Guide for Theseus
 
-This file describes the Theseus codebase for AI coding agents (Claude Code, Codex, etc.).
-Read this before making changes. It is also useful for any new human contributor.
+This file is the primary orientation document for AI coding agents (Claude Code, Codex, etc.) working in this repository. Read it before making changes. Human contributors will also find it useful.
+
+For deeper documentation on any topic, follow the links into `docs/`.
 
 ---
 
 ## What This Project Does
 
-Theseus is a two-layer toolchain:
+Theseus is a three-layer toolchain:
 
 **Layer 1 — Package Recipe Pipeline**
-Walks Nixpkgs and FreeBSD Ports source trees, normalizes package metadata into a
-canonical JSON schema, ranks packages by importance, and produces merged extraction
-records for the top candidates.
+Walks Nixpkgs and FreeBSD Ports source trees, normalizes package metadata into a canonical JSON schema, ranks packages by importance, and produces merged extraction records for the top candidates. See `docs/architecture.md §Layer 1`.
 
 **Layer 2 — Z-Layer Behavioral Spec System**
-70 machine-readable behavioral specs (one per OSS library), each a YAML-based ZSDL
-file that compiles to JSON and is verified against the real installed library. Specs
-are derived from public documentation only — never from source code.
+935 machine-readable behavioral specs (ZSDL files), covering Python stdlib, npm, ctypes C libraries, and Rust PyO3 extension modules. Each spec defines invariants verified against the real installed library. See `docs/architecture.md §Layer 2` and `docs/writing-specs.md`.
+
+**Layer 3 — Clean-Room Synthesis System** *(current primary focus)*
+Given a behavioral spec with a `python_cleanroom` backend, synthesizes a complete reimplementation of the package from scratch — no importing the original, no cross-language wrappers. 100 Python packages are verified in `theseus_registry.json`. See `docs/architecture.md §Layer 3` and `docs/cleanroom-spec-format.md`.
 
 ---
 
 ## Repository Map
 
 ```
-theseus/                Python package (importer, drivers, store, agent)
-  importer.py           Bootstrap importer: walks Nixpkgs/FreeBSD Ports trees
-  drivers/              Nixpkgs, FreeBSD Ports, PyPI, npm output renderers
-  store.py              Artifact store interface (S3/MinIO-compatible)
-  agent.py              AI provider wrapper (urllib only, no third-party HTTP)
+theseus/                  Python package (importer, drivers, store, agent)
+  importer.py             Bootstrap importer: walks Nixpkgs/FreeBSD Ports trees
+  drivers/                Nixpkgs, FreeBSD Ports, PyPI, npm output renderers
+  store.py                Artifact store interface (S3/MinIO-compatible)
+  agent.py                AI provider wrapper (urllib only, no third-party HTTP)
 
-tools/                  CLI scripts (all stdlib-only except pytest for test suite)
+tools/                    CLI scripts (mostly stdlib-only)
+  zsdl_compile.py         ZSDL → JSON compiler (requires pyyaml)
+  verify_behavior.py      Layer 2 harness: run invariants vs. installed library
+  verify_all_specs.py     Run all specs; write JSON results
+  validate_zspec.py       Static schema validation of spec files
+  cleanroom_verify.py     Layer 3 harness: verify clean-room impl in isolation
+  synthesize_waves.py     Wave-based LLM synthesis of clean-room implementations
+  registry.py             Manage theseus_registry.json (register/verify/check)
   bootstrap_canonical_recipes.py  Entry-point shim → theseus/importer.py
-  overlap_report.py               Compare ecosystems; write reports/overlap/
-  top_candidates.py               Rank packages by composite score
-  extract_candidates.py           Phase Z: merge top-N candidates
-  validate_record.py              Validate records; run behavioral specs
-  diff_snapshots.py               Diff two snapshot directories
-  build_spec.py                   Run a canonical record through a driver; dispatch to target; store artifact
-  generate_stub.py                Walk a snapshot, merge per-ecosystem data into stub records (stubs/)
-  seed_from_ports.py              Generate PyPI/npm seed lists from a FreeBSD Ports snapshot
-  verify_behavior.py              Z-spec harness: run invariants vs. installed library
-  verify_all_specs.py             Run all specs; write JSON results
-  validate_zspec.py               Static schema validation of spec files
-  zsdl_compile.py                 ZSDL → JSON compiler
-  spec_coverage.py                Coverage report: covered vs. gap candidates
-  orphan_specs.py                 Reverse coverage: specs without extraction records
-  spec_vector_coverage.py         Per-spec invariant description coverage
-  rank_by_deps.py                 Rank packages by reverse-dependency fan-in
-  fill_nixpkgs_deps.py            Fill nixpkgs dep lists via nix-instantiate
-  bulk_build.py                   Full pipeline: ranked list → specs/
+  overlap_report.py       Compare ecosystems; write reports/overlap/
+  top_candidates.py       Rank packages by composite score
+  extract_candidates.py   Phase Z: merge top-N candidates
+  validate_record.py      Validate records; run behavioral specs
+  diff_snapshots.py       Diff two snapshot directories
+  spec_coverage.py        Coverage report: covered vs. gap candidates
+  build_and_verify.py     End-to-end harness: fetch → build → install → verify
 
-zspecs/                 ZSDL spec sources (*.zspec.zsdl) — COMMITTED to git
-  schema/               JSON Schema for Z-spec files
-_build/zspecs/          Compiled JSON specs — BUILD ARTIFACT, never committed
-                        Regenerated by: make compile-zsdl
+zspecs/                   ZSDL spec sources (*.zspec.zsdl) — COMMITTED to git
+  theseus_*.zspec.zsdl    Clean-room specs (python_cleanroom backend)
+  schema/                 JSON Schema for Z-spec files
+_build/zspecs/            Compiled JSON specs — BUILD ARTIFACT, never committed
+                          Regenerated by: make compile-zsdl
 
-schema/                 JSON Schema for canonical package records
-specs/                  239 canonical package records (JSON)
-examples/               Sample records: curl, openssl, zlib (nixpkgs + freebsd_ports)
-tests/                  Test suite — 3,203 tests, all pytest
-docs/                   Architecture, ZSDL design, spec-authoring guide
-docs/guide/             User guide (MkDocs source; built to GitHub Pages)
-scripts/                Release automation (scripts/release.sh)
+cleanroom/                Clean-room implementations — COMMITTED to git
+  python/
+    sitecustomize.py      Isolation blocker (auto-loaded when PYTHONPATH set)
+    theseus_<name>/
+      __init__.py         Clean-room implementation of <name>
+  node/
+    theseus_<name>/
+      index.js            Clean-room Node.js implementation
+
+theseus_registry.json     Registry of verified clean-room packages
+reports/synthesis/
+  wave_state.json         Synthesis wave progress (persisted across runs)
+
+schema/                   JSON Schema for canonical package records
+specs/                    239 canonical package records (JSON)
+examples/                 Sample records: curl, openssl, zlib
+tests/                    Test suite (pytest)
+docs/                     Architecture, ZSDL design, spec-authoring guides
+scripts/                  Release automation (scripts/release.sh)
 ```
 
 ---
 
 ## Before You Change Anything
 
-1. **Run the tests first:** `make test` — all 3,203 tests must pass before and after your change.
+1. **Run the tests first:** `make test` — all tests must pass before and after your change.
 2. **Never commit `_build/`** — compiled JSON specs are build artifacts.
 3. **Never commit `node_modules/`, `snapshots/`, `reports/`** — all gitignored.
 4. **ZSDL is the source of truth** — edit `zspecs/*.zspec.zsdl`, not the compiled JSON.
+5. **Understand which layer you're working in** — Layer 2 (verification) and Layer 3 (synthesis) have different workflows and constraints.
 
 ---
 
-## Python
+## Layer 3 — Clean-Room Synthesis (Primary Current Work)
 
-- **Tools have minimal external deps**: `tools/zsdl_compile.py` requires `pyyaml`
-  (the ZSDL source format is YAML). All other tools are stdlib-only. Do not add
-  further pip dependencies to tools/ without strong justification.
-- Test dependencies: `pytest` and `pyyaml` (both needed for `make test`).
-- Python 3.9 compatibility required throughout (no walrus operator, no `match`, no
-  `str | None` union syntax in annotations).
-- Tests go in `tests/`. Mirror the source structure.
-- Code coverage must stay above 70%.
+This is the main ongoing activity. The goal is to grow the registry of verified Python packages.
 
-## Node.js
+### The one rule you must not break
 
-- npm packages are declared in `package.json`. `node_modules/` is gitignored.
+**Invariant functions must be zero-argument wrappers returning hardcoded values.** This is the most common LLM failure mode, causing `TypeError: fn() missing 1 required positional argument`.
+
+```python
+# WRONG — has a parameter
+def json_loads_int(s):
+    return loads(s)["a"]
+
+# WRONG — alias to parameterized function
+json_loads_int = loads
+
+# RIGHT — zero-arg wrapper, hardcoded input
+def json_loads_int():
+    return loads('{"a": 1}')["a"]
+```
+
+The harness calls every invariant function as `fn()` with no arguments. If the function has a parameter, the call fails. Always fix these manually after synthesis.
+
+### Standard synthesis loop (one batch of 4 packages)
+
+```bash
+# 1. Write 4 specs in zspecs/theseus_*.zspec.zsdl
+
+# 2. Compile all 4
+python3 tools/zsdl_compile.py zspecs/theseus_a.zspec.zsdl zspecs/theseus_b.zspec.zsdl ...
+
+# 3. Clear cr1 from waves_completed
+python3 -c "
+import json
+with open('reports/synthesis/wave_state.json') as f: s=json.load(f)
+s['waves_completed']=[w for w in s.get('waves_completed',[]) if w!='cr1']
+with open('reports/synthesis/wave_state.json','w') as f: json.dump(s,f,indent=2)
+"
+
+# 4. Synthesize
+python3 tools/synthesize_waves.py --wave cr1
+
+# 5. Check for failures; fix any parameterized invariant functions
+python3 tools/cleanroom_verify.py _build/zspecs/theseus_a.zspec.json
+# ... for each package
+
+# 6. Register verified packages
+for pkg in theseus_a theseus_b theseus_c theseus_d; do
+  python3 tools/registry.py register $pkg cleanroom/python/$pkg \
+      _build/zspecs/${pkg}.zspec.json
+  python3 tools/registry.py verify $pkg
+done
+
+# 7. Update wave_state.json manually for any packages fixed after synthesis
+python3 -c "
+import json
+with open('reports/synthesis/wave_state.json') as f: s=json.load(f)
+for pkg in ['theseus_a','theseus_b','theseus_c','theseus_d']:
+    s.setdefault('specs',{})[pkg]={'status':'success','invariants_passed':3,'invariants_total':3}
+with open('reports/synthesis/wave_state.json','w') as f: json.dump(s,f,indent=2)
+"
+
+# 8. Commit (do NOT include _build/)
+git add cleanroom/python/theseus_a/ ... zspecs/theseus_*.zspec.zsdl \
+    theseus_registry.json reports/synthesis/wave_state.json
+git commit -m "feat: add N clean-room packages ..."
+```
+
+### Spec format for clean-room packages
+
+Full reference: `docs/cleanroom-spec-format.md`
+
+Minimal template:
+
+```yaml
+spec: theseus_mylib
+version: ">=3.9"
+backend: python_cleanroom(theseus_mylib)
+blocks: mylib                          # module name to block during verification
+
+docs: https://docs.python.org/3/library/mylib.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/mylib.html"
+  notes:
+    - "Clean-room mylib. Do NOT import mylib."
+    - "mylib_foo(): mylib.foo('input') == 'expected'."   # describe each invariant fn
+    - "Export: foo, bar, Baz."
+  created_at: "2026-04-20T00:00:00Z"
+
+error_model: python_exceptions
+
+invariant theseus_mylib.foo:
+  description: "foo('input') == 'expected'"
+  category: basic
+  kind: python_call_eq
+  function: mylib_foo            # must be a zero-arg function in __init__.py
+  args: []
+  expected: "expected"
+```
+
+The `provenance.notes` list is passed to the synthesis LLM as context. Include the exact invariant function signatures to reduce parameterization failures.
+
+### Isolation mechanism
+
+`cleanroom/python/sitecustomize.py` installs a meta path finder that raises `ImportError` for the blocked package. It is automatically loaded when `PYTHONPATH` includes `cleanroom/python/`. `cleanroom_verify.py` sets `THESEUS_BLOCKED_PACKAGE=<blocks>` before running each invariant.
+
+To test isolation manually:
+
+```bash
+THESEUS_BLOCKED_PACKAGE=json PYTHONPATH=cleanroom/python python3 -c "
+from theseus_json import json_loads_int
+print(json_loads_int())
+"
+```
+
+### Wave state rules
+
+- **Never add specs to `wave_state.json` with `status: "pending"`** — any entry in the `specs` dict is treated as already done.
+- **To re-run cr1 after adding new specs**, remove `"cr1"` from `waves_completed`. The runner will then synthesize only specs absent from the `specs` dict.
+- Wave state is committed to git as part of each batch.
+
+### Common fixes reference
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `TypeError: fn() missing 1 required positional argument` | Invariant function has a parameter | Rewrite as zero-arg wrapper with hardcoded input |
+| `AssertionError: got X, expected Y` | Wrong expected value in spec, or wrong implementation | Verify with Python/spec docs; fix whichever is wrong |
+| `ImportError: THESEUS ISOLATION VIOLATION` | Implementation imports the blocked package | Remove the import; rewrite without it |
+| Empty directory (no `__init__.py`) | Synthesis timed out | Write the implementation manually |
+| `No implementation found at .../__init__.py` | Directory created but file missing | Write manually or re-run synthesis |
+
+---
+
+## Layer 2 — Z-Layer Behavioral Specs
+
+Full reference: `docs/writing-specs.md`, `docs/zsdl-design.md`, `docs/architecture.md §Layer 2`
+
+### Quick workflow
+
+```bash
+$EDITOR zspecs/mylib.zspec.zsdl               # author the spec
+make compile-zsdl ZSDL=zspecs/mylib.zspec.zsdl  # compile
+python3 tools/verify_behavior.py _build/zspecs/mylib.zspec.json   # verify vs installed lib
+python3 tools/verify_behavior.py _build/zspecs/mylib.zspec.json --watch  # TDD loop
+```
+
+### Backend types
+
+| Backend value | ZSDL example | Used for |
+|---------------|--------------|----------|
+| `python_module(hashlib)` | `backend: python_module(hashlib)` | Python stdlib/pip packages |
+| `ctypes(zlib)` | `backend: ctypes(zlib)` | C shared libraries via ctypes |
+| `cli(curl)` | `backend: cli(curl)` | CLI tools (subprocess) |
+| `node(semver)` | `backend: node(semver)` | npm packages (Node.js) |
+| `rust_module(json_rust)` | `backend: rust_module(json_rust)` | Rust PyO3 extension modules |
+| `python_cleanroom(theseus_json)` | `backend: python_cleanroom(theseus_json)` | Clean-room Python reimplementations |
+| `node_cleanroom(theseus_path)` | `backend: node_cleanroom(theseus_path)` | Clean-room Node.js reimplementations |
+
+Current spec counts by backend: rust_module (479), python_module (318), python_cleanroom (100), node (24), ctypes (10), cli (4), node_cleanroom (1).
+
+### Invariant kinds (python_module)
+
+- `python_call_eq` — call function, compare result. Supports `method`/`method_args`/`method_chain`.
+- `python_call_raises` — verify exception raised.
+- `python_encode_decode_roundtrip` — encode then decode, verify equality.
+- `python_struct_roundtrip` — pack then unpack struct bytes.
+- `python_sqlite_roundtrip` — SQLite in-memory roundtrip.
+- `python_set_contains` — value is member of a module-level set.
+
+See `docs/architecture.md §Invariant Kinds` for ctypes and cli/node kinds.
+
+### `method_chain` pitfall
+
+`method_chain` calls the chained attribute as a **zero-argument method**. Do not use it for dunders requiring arguments (`__contains__`, `__bool__`). Use `method_args` instead.
+
+### `skip_if` expression language
+
+Available variables: `lib_version` (str), `platform` (str: `"darwin"`, `"linux"`, etc.), `semver_satisfies(v, c)` (bool).
+
+```yaml
+skip_if: 'platform == "freebsd" or not semver_satisfies(lib_version, ">=3.9")'
+```
+
+### Submodule preloads
+
+`_SUBMODULE_PRELOADS` in `tools/verify_behavior.py` pre-imports required submodules for packages that don't expose them on bare import (pygments, packaging, setuptools, defusedxml, docutils, dns, tornado, fontTools, google.protobuf). Add to this dict when a new spec needs the same treatment.
+
+---
+
+## Python Conventions
+
+- **Tools have minimal external deps**: `tools/zsdl_compile.py` requires `pyyaml`. All other tools are stdlib-only. Do not add pip dependencies to `tools/` or `theseus/` without strong justification.
+- **Python 3.9 compatibility required** throughout (no walrus operator, no `match`, no `str | None` union syntax in annotations).
+- Tests go in `tests/`. Mirror the source structure. Coverage must stay above 70%.
+- Test dependencies: `pytest` and `pyyaml`.
+
+## Node.js Conventions
+
+- npm packages declared in `package.json`. `node_modules/` is gitignored.
 - Run `npm install` before running Node.js-backed specs or tests.
 - Node.js specs use `node -e` one-liners; never require a server or daemon.
 
 ---
 
-## The Z-Layer Spec System
-
-### ZSDL authoring
-
-Specs are authored in ZSDL (YAML) and compiled to JSON:
+## Testing
 
 ```bash
-# Edit
-$EDITOR zspecs/mylib.zspec.zsdl
-
-# Compile one spec
-make compile-zsdl ZSDL=zspecs/mylib.zspec.zsdl
-
-# Compile all
-make compile-zsdl
-
-# Verify against installed library
-python3 tools/verify_behavior.py _build/zspecs/mylib.zspec.json
-
-# TDD loop (recompile + rerun on every save)
-make compile-zsdl ZSDL=zspecs/mylib.zspec.zsdl && \
-  python3 tools/verify_behavior.py _build/zspecs/mylib.zspec.json --watch
+make test                   # run all tests (requires pytest)
+make compile-zsdl           # recompile all ZSDL specs
+make validate-zspecs        # static validate all compiled specs
+make verify-all-specs       # run all Layer 2 specs vs installed libraries
 ```
 
-### Backends
-
-| Backend | ZSDL header | Loads library via |
-|---------|-------------|-------------------|
-| `ctypes` | `ctypes(zlib)` | `ctypes.CDLL` via `ctypes.util.find_library` |
-| `python_module` | `python_module(hashlib)` | `importlib.import_module` |
-| `cli` | `cli(curl)` | `subprocess.run` |
-| `node/CJS` | `node(semver)` | `node -e "require('semver')..."` |
-| `node/ESM` | `node(chalk)` + `esm: true` | `node -e "await import('chalk')..."` |
-
-### Submodule preloads
-
-Some packages don't expose submodules on bare import. The `_SUBMODULE_PRELOADS` dict
-in `tools/verify_behavior.py` pre-imports required submodules before running specs.
-Current entries (9): `pygments`, `packaging`, `setuptools`, `defusedxml`, `docutils`,
-`dns`, `tornado`, `fontTools`, `google.protobuf`. Add to this dict when adding a spec for a library
-with the same characteristic.
-
-### Package name aliasing
-
-`tools/spec_coverage.py` has a `_PACKAGE_ALIASES` dict mapping PyPI package names
-(with dashes or unusual casing) to spec file stems. Current entries include
-`python-dotenv → dotenv`, `dnspython → dns`, `fonttools → fontTools`, etc.
-Add entries here when PyPI name ≠ import name ≠ spec file stem.
-
-### `method_chain` pitfall
-
-In `python_call_eq` invariants, `method_chain` calls the chained attribute as a
-**zero-argument method**. This is broken for:
-- `__bool__` — returns `None` on Python 3.14+ strings via getattr
-- `__contains__` — requires an argument; zero-arg call raises TypeError
-- `__class__` + `method_chain: __name__` — `__class__()` returns an empty instance
-
-Use instead:
-- Type checking: dotted `function` path (e.g. `"function": "PurePosixPath"`) then `method: is_absolute`
-- `__contains__`: use `method: __contains__` + `method_args: [value]`
-- Never use `method_chain` for dunder methods that require arguments
-
----
-
-## Invariant Kinds Reference (summary)
-
-### python_module backend
-- `python_call_eq` — call function, compare result (supports `method`/`method_args`/`method_chain`)
-- `python_call_raises` — call function, verify exception raised
-- `python_encode_decode_roundtrip` — encode then decode, verify equality
-- `python_struct_roundtrip` — pack then unpack struct bytes
-- `python_sqlite_roundtrip` — SQLite in-memory roundtrip
-- `python_set_contains` — value is member of a module-level set
-
-### ctypes backend
-- `call_eq`, `call_ge`, `call_returns` — compare or check C function return value
-- `roundtrip` — compress/decompress or encode/decode in C
-- `wire_bytes` — verify exact byte output at specific offsets
-- `constant_eq` — named constant equals expected
-- `version_prefix` — version string starts with prefix
-- `hash_known_vector`, `hash_incremental`, `hash_object_attr`, etc. — hash family
-- `error_on_bad_input` — C function returns error code on invalid input
-
-### cli / node backends
-- `cli_exits_with`, `cli_stdout_eq`, `cli_stdout_contains`, `cli_stdout_matches`, `cli_stderr_contains`
-- `node_module_call_eq` — `require(mod)[fn](...args)` comparison
-- `node_constructor_call_eq` — `new mod.Class(ctorArgs).method(args)` comparison
-- `node_factory_call_eq` — factory function call pattern
-- `lz4_roundtrip` — LZ4 compress/decompress roundtrip (ctypes variant)
-- `pcre2_match` — PCRE2 compile+match via ctypes
-
----
-
-## `skip_if` Expression Language
-
-Available in any invariant's `skip_if` field:
-
-| Name | Description |
-|------|-------------|
-| `lib_version` | Library version string (e.g. `"1.2.12"`) |
-| `platform` | OS: `"darwin"`, `"linux"`, `"freebsd"`, `"win32"` |
-| `semver_satisfies(v, c)` | True if version `v` satisfies semver constraint `c` |
-
-Example: `skip_if: 'platform == "freebsd" or not semver_satisfies(lib_version, ">=3.9")'`
-
----
-
-## Testing Conventions
-
-- Test files mirror source: `tests/test_verify_behavior_hashlib.py` tests the hashlib spec.
-- Each new spec should have a corresponding test file in `tests/`.
-- Harness integration tests use `subprocess.run` to call `verify_behavior.py` directly.
 - Do not mock the library under test — specs run against the real installed library.
-- When adding a spec for a library not installed in CI, add it to the `skipif` condition
-  in the test using `pytest.importorskip` or `shutil.which`.
+- When adding a spec for a library not installed in CI, gate the test with `pytest.importorskip` or `shutil.which`, or install it in `ci.yml`.
+
+---
+
+## Source Code Inspection Policy
+
+**Specs must be derived from public documentation only — not from library source code.**
+
+AI agents **may** inspect source code only when:
+1. The license is permissive (BSD, MIT, Apache 2.0, ISC). Check `descriptive.license` in the canonical record.
+2. The purpose is spec validation or harness development — not the sole basis for an invariant.
+3. The package is not GPL/LGPL/AGPL-licensed in any option.
+
+**Explicitly prohibited for GPL/LGPL/AGPL packages**: do not `git clone`, `make extract`, `nix build`, or otherwise access implementation source files.
 
 ---
 
@@ -219,10 +325,7 @@ Example: `skip_if: 'platform == "freebsd" or not semver_satisfies(lib_version, "
 - **Matrix:** ubuntu-latest + macos-latest × Python 3.9–3.12 × Node 22
 - **Pages:** `.github/workflows/pages.yml` — builds MkDocs and deploys to GitHub Pages on push to main
 
-FreeBSD Ports is a supported build recipe source but FreeBSD is not a CI target platform.
-
-When adding a spec for a library not available in the standard GitHub Actions runner,
-either install it in `ci.yml` or gate the test with `skip_if`.
+FreeBSD is a supported build recipe source but not a CI target platform.
 
 ---
 
@@ -234,53 +337,7 @@ make release BUMP=minor
 make release BUMP=major
 ```
 
-The script (`scripts/release.sh`) requires: clean working tree, on `main` branch,
-`gh` CLI authenticated. It runs `make test`, updates `CHANGELOG.md`, creates an
-annotated git tag, pushes, and creates a GitHub release.
-
----
-
-## Provenance Rule
-
-**Specs must be derived from public documentation only — not from library source code.**
-
-The `provenance.not_derived_from` list in each spec is a clean-room attestation.
-When writing or reviewing specs, do not read the implementation source files listed there.
-If you are unsure whether a value could only be known from source, it should not be in
-the spec. Stick to RFC test vectors, official API documentation, and `man` pages.
-
----
-
-## Source Code Inspection Policy
-
-AI agents working in this repository **may** clone and read the source code of packages
-when all of the following conditions hold:
-
-1. **License is permissive** — the package is licensed under BSD (any clause), MIT,
-   Apache 2.0, ISC, or another license that grants inspection rights without copyleft
-   obligations. Check the `license` field in the canonical record or the package
-   registry metadata.
-
-2. **Purpose is spec validation or harness development** — reading source is permitted
-   to understand API shape, build system, or test vectors when those facts are also
-   visible in public documentation. Source inspection must not be the *sole* basis for
-   a spec invariant.
-
-3. **The package is not dual-licensed with a GPL-family option** — if any license in
-   the `license` list includes GPL, LGPL, AGPL, or any copyleft variant (including
-   dual-licensing where GPL is one choice), **do not inspect the implementation source**.
-   API headers, man pages, and official documentation remain available.
-
-**Explicitly prohibited for GPL/LGPL/AGPL packages:** do not `git clone`, `make
-extract`, `nix build`, or in any other way access the C/Python/JS implementation
-source. This includes `deflate.c`, `inflate.c`, and similar implementation files
-listed in a spec's `provenance.not_derived_from` block.
-
-**How to check before cloning:**
-- npm: check `extensions.npm.source_repository` and `descriptive.license` in the canonical record
-- PyPI: check `extensions.pypi.source_repository` and `descriptive.license`
-- Nixpkgs: check `descriptive.license` (mapped to SPDX in the importer)
-- FreeBSD Ports: run `make -C /usr/ports/<cat>/<port> -V LICENSE` before `make extract`
+`scripts/release.sh` requires: clean working tree, on `main` branch, `gh` CLI authenticated. It runs `make test`, updates `CHANGELOG.md`, creates an annotated git tag, pushes, and creates a GitHub release.
 
 ---
 
@@ -288,7 +345,70 @@ listed in a spec's `provenance.not_derived_from` block.
 
 - Do not add runtime pip dependencies to `tools/` or `theseus/`
 - Do not commit `_build/`, `node_modules/`, `snapshots/`, `stubs/`, `output/`
+- Do not write clean-room invariant functions with parameters — always zero-arg
+- Do not add new specs to `wave_state.json` with `status: "pending"` — leave them absent
 - Do not use `method_chain` for dunders that require arguments (`__contains__`, `__bool__`)
 - Do not write specs that test implementation details not visible in public docs
 - Do not push with failing tests
 - Do not amend published commits (create new commits instead)
+
+---
+
+## Documentation Index
+
+| Document | What it covers |
+|----------|---------------|
+| `docs/architecture.md` | Full pipeline diagram, all three layers, tools reference, test file index |
+| `docs/cleanroom-spec-format.md` | Clean-room spec authoring, zero-arg invariant rule, workflow, common fixes |
+| `docs/writing-specs.md` | Layer 2 spec authoring: backend selection, invariant kinds, tables, skip_if, test vector discipline |
+| `docs/zsdl-design.md` | ZSDL language reference: complete syntax for headers, tables, invariants, all field types |
+| `docs/schema-evolution.md` | Package recipe schema versioning rules and version history |
+| `PLAN.md` | Implementation plan for the clean-room initiative; wave series history |
+| `CHANGELOG.md` | Release history |
+
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+## Beads Issue Tracker
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+
+### Quick Reference
+
+```bash
+bd ready              # Find available work
+bd show <id>          # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>         # Complete work
+```
+
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Run `bd prime` for detailed command reference and session close protocol
+- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+
+## Session Completion
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **PUSH TO REMOTE** - This is MANDATORY:
+   ```bash
+   git pull --rebase
+   bd dolt push
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+<!-- END BEADS INTEGRATION -->

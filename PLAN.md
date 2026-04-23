@@ -1,418 +1,618 @@
-# Theseus — Plan and State
+# Theseus Clean-Room Rewrite Initiative — Implementation Plan
 
-## Current State (2026-04-13)
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**356 core specs · 10,480 wave-series specs · 10,836 total .zsdl files · 2 CI platforms (ubuntu, macos)**
-**Synthesis pipeline landed (theseus/pipeline.py) — compile→verify_real→synthesize→gate→annotate**
-**Synthesis gate not yet applied to any existing spec — full backlog pending (see Backlog section)**
+**Goal:** Transform Theseus from a behavioral spec verification system (which wraps existing packages) into a clean-room package synthesis engine that produces fully self-contained, dependency-clean reimplementations of OSS packages — no cross-language wrappers, no runtime dependencies on the original package.
 
-### What is built
+**Architecture:** Each target package gets a ZSDL behavioral spec expressing what it must do (invariants, input/output contracts), then a clean-room implementation written entirely in the target language (Python for Python packages, Node.js for Node.js packages, etc.) that satisfies all invariants without importing the original library. Only other Theseus-rewritten packages may be used as dependencies.
 
-**Core pipeline** (original): bootstrap importer, overlap report, candidate ranker, phase-Z extractor, snapshot diff, record validator.
-
-**Z-layer behavioral spec system:**
-
-| Component | Description |
-|-----------|-------------|
-| `zspecs/*.zspec.zsdl` | 20 ZSDL spec sources (committed); compiled to `_build/zspecs/` |
-| `zspecs/schema/` | JSON Schema for spec files (schema_version 0.1) |
-| `_build/zspecs/*.zspec.json` | Compiled specs (build artifacts, gitignored; `make compile-zsdl` regenerates) |
-| `tools/verify_behavior.py` | Harness: loads a spec, runs every invariant against the installed library |
-| `tools/validate_zspec.py` | Static validation of spec files against the JSON Schema |
-| `tools/verify_all_specs.py` | Runs all specs in one pass; writes a JSON results file for CI dashboards |
-| `tools/spec_coverage.py` | Reads extraction output, reports which candidates have a spec |
-| `tools/orphan_specs.py` | Reports specs with no matching extraction record (reverse of spec_coverage) |
-| `tools/zsdl_compile.py` | ZSDL → JSON compiler |
-| `docs/zsdl-design.md` | ZSDL language design document |
-| `docs/writing-specs.md` | Spec authoring guide (practical, with examples) |
-
-**Backends** supported by the harness:
-
-| Backend | How it loads the library | Used by |
-|---------|--------------------------|---------|
-| `ctypes` | `ctypes.CDLL` via `find_library` | zlib, zstd, libcrypto |
-| `python_module` | `importlib.import_module` | base64, datetime, difflib, hashlib, json, pathlib, re, sqlite3, struct, urllib_parse |
-| `cli` | subprocess (openssl, curl) | curl, openssl |
-| `node` (CJS) | `require()` via `node -e` | ajv, minimist, semver, uuid |
-| `node` (ESM) | `await import()` via `node -e` | chalk |
-
-**Specs in `zspecs/`:**
-
-| Spec | Backend | Invariants | Notes |
-|------|---------|-----------|-------|
-| `ajv` | node/CJS | 12 | `node_constructor_call_eq`; compile+validate pattern |
-| `base64` | python_module | 20 | encode/decode roundtrips, padding |
-| `chalk` | node/ESM | 10 | ANSI color codes, level:0 stripping; ESM (`esm: true`) |
-| `curl` | cli | 12 | offline-safe: version, --help, flag parsing |
-| `datetime` | python_module | 15 | date/datetime attrs, strftime, method chaining |
-| `difflib` | python_module | 17 | SequenceMatcher, get_close_matches, junk predicates |
-| `hashlib` | python_module | 41 | SHA-256/SHA-1/MD5/SHA-512 + SHA-3/BLAKE2 extensions |
-| `json` | python_module | 22 | dumps/loads roundtrip, indent, sort_keys, error cases |
-| `libcrypto` | ctypes | 14 | OpenSSL version, RAND_bytes/status, OID/NID registry |
-| `minimist` | node/CJS | 9 | arg parsing, `function: null` direct-call pattern |
-| `openssl` | cli | 16 | version, hash, rand, enc; cross-spec with hashlib |
-| `pathlib` | python_module | 17 | PurePosixPath: components, predicates, manipulation |
-| `numpy` | python_module | 20 | dtype/itemsize, shape/ndim, constants, arithmetic, array ops, errors |
-| `pyyaml` | python_module | 18 | safe_load scalars+structures, dump, safe_dump, errors |
-| `re` | python_module | 22 | sub, findall, split, escape, error on bad pattern |
-| `semver` | node/CJS | 24 | valid, clean, satisfies, compare, range ops |
-| `sqlite3` | python_module | 13 | DDL, DML, types, `python_sqlite_roundtrip` |
-| `struct` | python_module | 24 | pack/unpack, calcsize, error cases |
-| `urllib_parse` | python_module | 18 | urlparse, quote/unquote, urljoin, urlencode, parse_qs |
-| `urllib3` | python_module | 18 | URL parse, Retry config, exceptions, version, request headers |
-| `uuid` | node/CJS | 8 | validate, version detection |
-| `zlib` | ctypes | 23 | compress/decompress roundtrip, crc32, adler32 |
-| `zstd` | ctypes | 15 | versionString, maxCLevel, compressBound, isError |
-
-**CI**: GitHub Actions matrix on ubuntu-latest + macos-latest (Python 3.9–3.12, Node 22). The ubuntu/3.12 job uploads `verify-all-specs-results.json` as a GitHub Actions artifact.
-
-**`skip_if` expression language:**
-- `lib_version` — library version string (e.g. `"1.2.12"`)
-- `platform` — OS: `"darwin"`, `"linux"`, `"freebsd"`, `"win32"`
-- `semver_satisfies(lib_version, ">=1.3")` — semver range check
+**Tech Stack:** Python 3.9+, ZSDL spec language, existing synthesize_waves.py pipeline, pytest for verification, Node.js for JS targets.
 
 ---
 
-## Completed Cycles
+## Foundational Principles
 
-### Cycle 1 (2026-03-26 → 2026-04-01)
-Added: ctypes backend (zlib), python_module backend (base64, json, hashlib, struct, sqlite3, re), CLI backend (curl, openssl), node backend (semver, uuid, minimist), cross-spec interoperability (openssl↔hashlib), `--baseline` diff mode, schema validation, behavioral_spec auto-injection in extract_candidates.py, validate_record.py integration, `make verify-all-specs`, macOS CI, FreeBSD self-hosted worker sync.
+These are non-negotiable constraints for every task in this plan:
 
-### Cycle 2 (2026-04-02)
-Added: `node_constructor_call_eq` kind + ajv spec, datetime + pathlib specs, `python_call_eq` method/method_chain chaining, `spec_for_versions` enforcement + version detection for all backends, `spec_coverage.py`, `verify_all_specs.py`, `--watch` mode, FreeBSD CI job.
-
-### Cycle 3 (2026-04-03)
-Added: hashlib SHA-3/BLAKE2 extensions (41 total invariants), `urllib_parse` spec (18 invariants), `difflib` spec (17 invariants), `zstd` ctypes spec (15 invariants).
-
-### Cycle 4 (2026-04-03)
-Added: ZSDL compiler (`tools/zsdl_compile.py`), all 18 specs converted to ZSDL, 68 compiler tests. `_build/zspecs/` is the build output directory (gitignored); `zspecs/*.zspec.zsdl` are the committed sources.
-
-### Cycle 5 (2026-04-03 → 2026-04-04)
-Added: `skip_if` expression language (`platform`, `semver_satisfies`), spec authoring guide (`docs/writing-specs.md`), `tools/orphan_specs.py`, CI artifact upload (verify-all-specs JSON), ESM node backend support (`esm: true`), chalk spec (10 invariants), libcrypto ctypes spec (14 invariants).
-
-### Cycle 6 (2026-04-04)
-Real-data pipeline run (141 records, 4 ecosystems); numpy spec (20 invariants), pyyaml spec (18 invariants), urllib3 spec (18 invariants); `tools/spec_vector_coverage.py` (item C); schema v0.2 with `esm`/`arg_types`/length validation (item D). Total: 23 specs · 408 invariants · 1398 tests.
-
-### Cycle 7 (2026-04-04)
-lxml (25), packaging (24), pillow (21), psutil (17), pygments (19). Added `packaging` submodule preloads to `verify_behavior.py` alongside existing `pygments` preloads. Total: 28 specs · 514 invariants · 1628 tests.
-
-### Cycle 8 (2026-04-04)
-lz4 (8, ctypes + new `lz4_roundtrip` kind), express (16, node/CJS + new `node_factory_call_eq` kind). Total: 30 specs · 540 invariants · 1675 tests.
-
-### Cycle 9 (2026-04-05)
-pcre2 (16, ctypes + new `pcre2_match` kind), markupsafe (21), msgpack (22). Pipeline coverage 6% → 22% → 24% (12/50). Total: 33 specs · 579 invariants · 1777 tests.
-
-### Cycle 10 (2026-04-05)
-attrs (14), chardet (16), pyparsing (15), tomli/tomllib (22). Pipeline coverage → 34% (17/50). Total: 37 specs · 650 invariants · 1880 tests.
-
-### Cycle 11 (2026-04-05)
-six (11), decorator (12), idna (16), platformdirs (13), pytz (16). Pipeline coverage → 44% (22/50). Total: 42 specs · 732 invariants · 2088 tests.
-
-### Cycle 12 (2026-04-05)
-setuptools (14), typing_extensions (13), tzdata (13), wrapt (12), pluggy (13). Pipeline coverage → 52% (26/50). Total: 47 specs · 797 invariants · 2309 tests.
-
-### Cycle 13 (2026-04-05)
-certifi (11), colorama (12), more_itertools (14), fsspec (12), dotenv (12). Pipeline coverage → 64% (32/50). Total: 52 specs · 858 invariants · 2499 tests.
-
-### Cycle 14 (2026-04-05)
-pathspec (14), filelock (12), traitlets (14), tomlkit (16), defusedxml (14). Pipeline coverage → 74% (37/50). Total: 57 specs · 928 invariants · 2701 tests.
-
-### Cycle 15 (2026-04-05)
-distro (15), docutils (12), isodate (16), markdown (14), stevedore (14). Pipeline coverage → 84% (42/50). Total: 62 specs · 999 invariants · 2915 tests.
-
-### Cycle 16 (2026-04-05)
-dns (19), networkx (14), tornado (15), zope_interface (13), fontTools (10), protobuf (13), lodash (25), prettier (10). Pipeline coverage → **100% (50/50)**. Total: 70 specs · 1118 invariants · 3203 tests.
+1. **No cross-language boundaries.** A Python package is reimplemented in Python. A Node.js package in Node.js. Never call into another runtime.
+2. **No wrapping the original.** The reimplementation must not `import` the original library at any point — not in tests, not in the implementation, not via subprocess.
+3. **No external OSS dependencies** except other Theseus-rewritten packages (tracked in `theseus_registry.json`).
+4. **Spec-first.** The behavioral spec (ZSDL) is written and reviewed before any implementation begins.
+5. **Invariant-complete.** A package is not "done" until all spec invariants pass against the clean-room implementation — not the original.
 
 ---
 
-## Next Steps (Candidate Items)
+## Phase 0: Audit and Remediation
 
-### A. Real-data pipeline run — DONE (2026-04-04)
+### Task 0.1: Audit existing Rust specs for wrapper pattern
 
-Pipeline exercised against a real snapshot (`snapshots/2026-04-03/`): 141 canonical records
-across nixpkgs (3), freebsd_ports (3), pypi (99), npm (36).
+**Files:**
+- Read: `reports/synthesis/wave_state.json`
+- Read: `zspecs/*_rust.zspec.zsdl` (sample)
+- Create: `reports/audit/wrapper_audit.md`
 
-**Results:**
-- 136 unique candidates ranked; top 50 extracted to `reports/extractions/`
-- Spec coverage: **3/50 (6%)** — curl, openssl, zlib covered
-- Orphan specs: 17/20 specs have no extraction record — all Python stdlib and most Node specs
-  are absent from PyPI/npm snapshots (stdlib is not a package; semver/chalk ranked #94/#115)
+- [ ] **Step 1: Identify all Rust specs that are wrappers**
 
-**Gap list highlights** (top uncovered PyPI candidates):
-lxml, numpy, pillow, psutil, pygments, pyyaml, urllib3, packaging, markupsafe, msgpack
-
-**Key insight:** Python stdlib specs (base64, datetime, hashlib, json, pathlib, re, sqlite3,
-struct, urllib_parse, difflib) cannot appear in a PyPI snapshot — they are built-in. Orphan
-coverage for those specs is expected and correct.
-
-**To reproduce:**
+Run:
 ```bash
-python3 theseus/importer.py --nixpkgs output/nixpkgs/ --out snapshots/2026-04-03/
-python3 theseus/importer.py --pypi-list /tmp/pypi-packages.txt --out snapshots/2026-04-03/
-python3 theseus/importer.py --npm-list /tmp/npm-packages.txt --out snapshots/2026-04-03/
-python3 tools/top_candidates.py snapshots/2026-04-03/ --out reports/top-candidates.json
-python3 tools/extract_candidates.py snapshots/2026-04-03/ reports/top-candidates.json --top 50 --out reports/extractions/
-python3 tools/spec_coverage.py reports/extractions/
-python3 tools/orphan_specs.py reports/extractions/
+python3 - <<'EOF'
+import json, glob, re
+
+wrapper_specs = []
+for path in glob.glob("zspecs/*_rust.zspec.zsdl"):
+    text = open(path).read()
+    if re.search(r'(Expose|wrapper|calls?|delegates?)', text, re.IGNORECASE):
+        wrapper_specs.append(path)
+
+print(f"Potential wrapper specs: {len(wrapper_specs)}")
+for s in sorted(wrapper_specs)[:20]:
+    print(f"  {s}")
+EOF
 ```
 
-### B. More Z-specs — DONE (all priorities, 2026-04-04)
+- [ ] **Step 2: Categorize by remediation path**
 
-numpy (20), pyyaml (18), urllib3 (18) added in Cycle 6.
+For each spec, classify as:
+- `clean_rewrite_needed` — has a real implementation to do (math, string ops, data structures)
+- `stdlib_only` — wraps Python stdlib; descope or rewrite as a Theseus stdlib subset
+- `infeasible` — requires OS resources that cannot be clean-room replicated
 
-Remaining candidates from the gap list:
+Write `reports/audit/wrapper_audit.md` with the categorized list.
 
-| Library | Backend | Priority | Notes |
-|---------|---------|----------|-------|
-All planned B-candidates complete (including pcre2, markupsafe, msgpack in Cycle 9).
+- [ ] **Step 3: Commit audit**
 
-**All 50 top candidates covered. Pipeline coverage: 100% (50/50).**
-
-### C. Test vector coverage report — DONE (2026-04-04)
-
-`tools/spec_vector_coverage.py`: reports per-spec, per-category invariant description coverage.
-All 23 specs score 100% (408/408 described). `make spec-vector-coverage`.
-
-### D. Spec schema v0.2 — DONE (2026-04-04)
-
-- `esm: bool` added to library schema
-- `arg_types: string[]` added to invariant schema
-- `schema_version` enum accepts `"0.1"` (compat) and `"0.2"` (current)
-- `validate_zspec.py`: programmatic `arg_types`/`args` length check
-- `zsdl_compile.py`: emits `schema_version: "0.2"` on all new compilations
+```bash
+git add reports/audit/wrapper_audit.md
+git commit -m "audit: categorize existing Rust specs by wrapper pattern"
+```
 
 ---
 
-## Wave Series (dict-presence zspecs)
+## Phase 1: New Spec Format — Clean-Room Backends
 
-The wave series is a systematic set of dunder-method dict-presence checks across 16 Python stdlib modules: `abc`, `asyncio`, `concurrent.futures`, `decimal`, `functools`, `hashlib`, `inspect`, `io`, `itertools`, `multiprocessing`, `pathlib`, `re`, `socket`, `struct`, `threading`, `uuid`.
+### Task 1.1: Define the `python_cleanroom` and `node_cleanroom` backends
 
-Each wave covers 3 dunder methods × 16 modules = 16 zspec files, with suffix `_extraNNNN` where NNNN increments by 15 per wave.
+**Files:**
+- Create: `docs/cleanroom-spec-format.md`
 
-### Completed waves
-
-| Wave | Suffix | Theme |
-|------|--------|-------|
-| 670 | _extra3346 | `__neg__/__pos__/__abs__` — unary arithmetic |
-| 671 | _extra3361 | `__invert__/__floor__/__ceil__` — bitwise/rounding |
-| 672 | _extra3376 | `__trunc__/__round__/__index__` — numeric conversion |
-| 673 | _extra3391 | `__int__/__float__/__complex__` — type coercion |
-| 674 | _extra3406 | `__bool__/__str__/__repr__` — truth/string conversion |
-| 675 | _extra3421 | `__hash__/__eq__/__lt__` — hashing + comparison |
-| 676 | _extra3436 | `__le__/__gt__/__ge__` — ordering comparison |
-| 677 | _extra3451 | `__getitem__/__setitem__/__delitem__` — item access |
-| 678 | _extra3466 | `__iter__/__next__/__len__` — iterator/sequence protocol |
-| 679 | _extra3481 | `__enter__/__exit__/__call__` — context manager + callable |
-| 680 | _extra3496 | `__aenter__/__aexit__/__await__` — async protocol |
-| 681 | _extra3511 | `__get__/__set__/__delete__` — descriptor protocol |
-| 682 | _extra3526 | `__set_name__/__init_subclass__/__class_getitem__` — class creation hooks |
-| 683 | _extra3541 | `__format__/__sizeof__/__dir__` — object introspection |
-
-### Next wave to implement
-
-**Wave 684 — suffix `_extra3556`**
-
-Suggested theme: `__reduce__/__reduce_ex__/__getstate__` — pickle/copy serialization protocol dict-presence checks.
-
-This continues the object model coverage by checking whether each of the 16 stdlib module types defines these pickle-protocol methods in their own `__dict__`. Notable expected results:
-- Most types will have `__reduce_ex__` (inherited from `object`) as false (not in their own `__dict__`)
-- Some types like `decimal.Decimal` may override these
-
-**Subsequent waves (685+):**
-
-| Wave | Suffix | Suggested Theme |
-|------|--------|----------------|
-| 685 | _extra3571 | `__copy__/__deepcopy__/__setstate__` — copy protocol |
-| 686 | _extra3586 | `__init__/__new__/__del__` — object lifecycle |
-| 687 | _extra3601 | `__contains__/__missing__/__reversed__` — container extras |
-| 688 | _extra3616 | `__add__/__radd__/__iadd__` — binary addition |
-| 689 | _extra3631 | `__sub__/__rsub__/__isub__` — subtraction operators |
-| 690 | _extra3646 | `__mul__/__rmul__/__imul__` — multiplication operators |
-
-Each wave follows the same structure: 16 files, one per module, all verified with Python 3.14.x on macOS/Darwin.
-
----
-
-## Backlog Plan (as of 2026-04-13)
-
-### Context
-
-The unified pipeline (`theseus/pipeline.py`) was established on 2026-04-13.  It
-runs five steps in sequence for every `.zspec.zsdl` source file:
-
+New ZSDL backend declarations:
 ```
-compile → verify_real → synthesize → gate → annotate
+backend: python_cleanroom(package_name)   # pure Python rewrite
+backend: node_cleanroom(package_name)     # pure JS rewrite
 ```
 
-The **gate** rejects specs whose synthesis status is `failed` or `build_failed`
-(zero passing invariants after all LLM iterations).  `partial` and `infeasible`
-pass through.  Every spec that existed before 2026-04-13 was authored without
-this gate — the entire repo is backlog.
+Rules:
+- Python implementations live at `cleanroom/python/<name>/__init__.py`
+- Node.js implementations live at `cleanroom/node/<name>/index.js`
+- The test runner adds only `cleanroom/<lang>/` to the module path; site-packages are excluded
+- If the original package is importable, the test FAILS immediately (isolation violation)
 
-### Spec inventory (2026-04-13)
-
-| Group | Count | Description |
-|-------|------:|-------------|
-| Core specs | 356 | Full behavioral specs for real libraries (no `_extra` in name) |
-| Extra tier 0 | 216 | Per-module `_extra.zspec.zsdl` — first supplement per module |
-| Extra tier 1 | 3,592 | `_extra2` – `_extra99` — incremental per-module behaviors |
-| Extra tier 2 | 3,952 | `_extra100` – `_extra3105` — extended per-module coverage |
-| PLAN.md waves | ~480 | `_extra3346` – `_extra3541` (waves 670–683, dict-presence checks) |
-| **Total** | **~10,836** | |
-
-The core 356 specs are the highest-value targets.  The ~10,480 wave-series
-specs are simpler (dict-presence checks, incremental behaviors) and lower
-synthesis risk but much higher volume.
-
-### Phase 1 — Commit infrastructure  (target: 2026-04-14)
-
-Everything in the synthesis layer and pipeline is currently untracked.  Must
-be committed before any further pipeline work.
-
-| Item | Status |
-|------|--------|
-| `theseus/synthesis/` — runner, prompt, build, annotate, audit, __init__ | untracked |
-| `theseus/pipeline.py` — unified pipeline engine | untracked |
-| `tools/run_pipeline.py` — primary authoring CLI | untracked |
-| `tools/synthesize_spec.py` — single-spec synthesis CLI | untracked |
-| `tools/synthesize_all_specs.py` — bulk synthesis | untracked |
-| `tools/synthesize_waves.py` — wave-based synthesis | untracked |
-| `tools/synthesize_waves.py` — refactored to use ZSpecPipeline | done (2026-04-13) |
-| `tools/synthesize_all_specs.py` — refactored to use ZSpecPipeline | done (2026-04-13) |
-| `schema/synthesis-result.schema.json` | untracked |
-| `tests/test_synthesis_*.py` (6 files) | untracked |
-| `tests/test_synthesize_spec_cli.py` | untracked |
-| `.github/workflows/synthesis.yml` | untracked |
-| `zspecs/*_extra3511/3526/3541.zspec.zsdl` (48 files, waves 681–683) | untracked |
-| `Makefile` — pipeline/synthesize targets | modified |
-| `AGENTS.md`, `README.md`, docs — FreeBSD demotion, counter updates | modified |
-
-**Action:** `git add` all of the above and commit.  Run `make test` first to
-confirm the 6 new synthesis test modules pass.
-
-### Phase 2 — Compile all specs  (target: 2026-04-14, ~30 min)
-
-```bash
-make compile-zsdl   # compiles all 10,836 .zsdl → _build/zspecs/*.zspec.json
-```
-
-This is fast (no LLM).  Failures here mean the ZSDL source has syntax or
-schema errors that must be fixed before the pipeline can run on them.
-
-Expected: a handful of compile errors in older extra-tier specs that use
-syntax not yet in the compiler.  Fix or mark as `infeasible_reason: compile_error`
-in the source.
-
-### Phase 3 — Pipeline the 356 core specs  (target: 2026-04-15 → 2026-04-18)
-
-Core specs are the highest-value: full behavioral specs with many meaningful
-invariants.  These are the specs most likely to fail the synthesis gate (they
-describe complex library behavior).  Failures here are actionable — the spec
-needs revision.
-
-```bash
-# Process core specs only (exclude wave-series _extra files):
-python3 tools/run_pipeline.py $(ls zspecs/*.zspec.zsdl | grep -v '_extra') \
-  --jobs 4 --skip-real-verify --max-iterations 3 \
-  --out reports/synthesis/core_pipeline_audit.json
-```
-
-**Expected outcomes after Phase 3:**
-
-| Outcome | Likely count | Action |
-|---------|-------------:|--------|
-| `success` | ~80 | No action |
-| `partial` | ~120 | Review which invariants fail; may improve with more iterations |
-| `infeasible` | ~80 | Confirm and annotate with reason |
-| `gated` (failed synthesis) | ~76 | Revise spec or mark `infeasible_reason` |
-
-Specs that are gated must be addressed before they can be considered complete.
-The gate is the correctness signal the pipeline was built to provide.
-
-### Phase 4 — Pipeline the extra-tier specs  (target: 2026-04-19 → 2026-05-10)
-
-The ~10,480 wave-series specs are simpler (most invariants are dict-presence
-checks with `python_call_eq` returning bool).  Synthesis should be
-straightforward for the LLM.  However, the volume demands batched processing.
-
-**Strategy:** process by module prefix in alphabetical batches of ~20 modules
-at a time, using `--jobs 4` to parallelize LLM calls.
-
-```bash
-# Example: process all 'abc' extra specs
-python3 tools/run_pipeline.py zspecs/abc_extra*.zspec.zsdl \
-  --jobs 4 --skip-real-verify --max-iterations 2 \
-  --out reports/synthesis/abc_extras_audit.json
-```
-
-For the PLAN.md wave-series specs (`_extra3346`+), use the wave runner:
-
-```bash
-make synthesize-waves-next   # runs next pending wave through pipeline
-```
-
-**Automation note:** once Phase 3 is complete and the gate thresholds are
-calibrated, Phase 4 can run as a background job over several days.  The
-`synthesize_waves.py` state file (`reports/synthesis/wave_state.json`)
-persists progress so interrupted runs resume cleanly.
-
-### Phase 5 — Continue PLAN.md wave creation  (ongoing from 2026-04-18)
-
-New dunder-method waves can be created in parallel with Phase 4 synthesis.
-The next waves to implement:
-
-| Wave | Suffix | Theme |
-|------|--------|-------|
-| 684 | _extra3556 | `__reduce__/__reduce_ex__/__getstate__` — pickle protocol |
-| 685 | _extra3571 | `__copy__/__deepcopy__/__setstate__` — copy protocol |
-| 686 | _extra3586 | `__init__/__new__/__del__` — object lifecycle |
-| 687 | _extra3601 | `__contains__/__missing__/__reversed__` — container extras |
-| 688 | _extra3616 | `__add__/__radd__/__iadd__` — binary addition |
-| 689 | _extra3631 | `__sub__/__rsub__/__isub__` — subtraction operators |
-| 690 | _extra3646 | `__mul__/__rmul__/__imul__` — multiplication operators |
-
-Each new wave must go through `make pipeline` (not just `make compile-zsdl`)
-before it can be considered complete.  This is the enforcement point of the
-new pipeline design.
-
-### Phase 6 — CI integration  (target: 2026-04-20)
-
-Update `.github/workflows/synthesis.yml` to use `run_pipeline.py` instead of
-`synthesize_spec.py` so CI runs the full pipeline (not synthesis-only) on any
-changed `.zsdl` files:
+- [ ] **Step 1: Write `docs/cleanroom-spec-format.md` with annotated example spec**
 
 ```yaml
-- name: Run pipeline on changed specs
-  run: |
-    python3 tools/run_pipeline.py ${{ steps.changed.outputs.specs }} \
-      --skip-real-verify --max-iterations 3 --no-annotate
+spec: theseus_json
+version: ">=3.9"
+backend: python_cleanroom(theseus_json)
+
+# No 'import json' allowed anywhere in the implementation.
+# Standard library string/bytes ops only.
+
+invariant theseus_json.loads_basic:
+  description: "loads('{\"a\": 1}')[\"a\"] == 1"
+  kind: python_call_eq
+  function: json_loads_key
+  args: ['{"a": 1}', "a"]
+  expected: 1
+
+invariant theseus_json.round_trip:
+  description: "loads(dumps(obj)) == obj"
+  kind: python_call_eq
+  function: json_round_trip
+  args: [{"x": [1, 2, 3]}]
+  expected: true
 ```
 
-Also add a `make test-pipeline` target that runs the pipeline in `--dry-run`
-mode on a sample of specs (no LLM call) to verify compile + real-verify work
-in CI without incurring LLM costs.
+- [ ] **Step 2: Commit**
 
-### Gate calibration notes
+```bash
+git add docs/cleanroom-spec-format.md
+git commit -m "docs: define clean-room backend spec format"
+```
 
-After Phase 3, review the gated specs and establish:
+---
 
-1. **Threshold for `partial`** — if a spec consistently hits 80%+ pass rate, is
-   that good enough to commit?  Consider adding `--min-pass-rate` to the gate.
+### Task 1.2: Update ZSDL compiler to support cleanroom backends
 
-2. **Infeasible categories** — some spec types are structurally infeasible for
-   synthesis (C library internals, OS-level calls).  Add a vocabulary of
-   `infeasible_reason` values to the ZSDL authoring guide so spec authors can
-   annotate proactively.
+**Files:**
+- Modify: `tools/zsdl_compile.py`
+- Modify: `tools/synthesize_waves.py`
+- Create: `tests/test_cleanroom_backend.py`
 
-3. **LLM timeout calibration** — complex specs (pcre2, libxml2) may need
-   `--timeout 600` for the synthesis step.  Track per-spec timings in the
-   audit report.
+- [ ] **Step 1: Write failing test**
 
-### Success criteria
+```python
+# tests/test_cleanroom_backend.py
+import subprocess, json, os
 
-The backlog is cleared when:
-- [ ] All 356 core specs have a `synthesis:` block in their `.zspec.zsdl`
-- [ ] No core spec is in `gated` state without a documented `infeasible_reason`
-- [ ] All PLAN.md waves (670–690+) have synthesis annotations
-- [ ] CI runs the pipeline on every `.zsdl` PR diff
-- [ ] `make test` passes including synthesis unit tests
+def test_python_cleanroom_backend_compiles(tmp_path):
+    spec = tmp_path / "sample.zspec.zsdl"
+    spec.write_text("""
+spec: sample_cr
+version: ">=3.9"
+backend: python_cleanroom(sample_cr)
+
+invariant sample_cr.always_true:
+  description: "always true"
+  kind: python_call_eq
+  function: always_true
+  args: []
+  expected: true
+""")
+    result = subprocess.run(
+        ["python3", "tools/zsdl_compile.py", str(spec)],
+        capture_output=True, text=True, cwd=os.getcwd()
+    )
+    assert result.returncode == 0
+    out = json.load(open(f"_build/zspecs/sample_cr.zspec.json"))
+    assert out["backend_lang"] == "python_cleanroom"
+    assert out["cleanroom_path"] == "cleanroom/python/sample_cr"
+```
+
+- [ ] **Step 2: Run, verify it fails**
+
+```bash
+pytest tests/test_cleanroom_backend.py -v
+# Expected: FAIL — backend_lang not recognized
+```
+
+- [ ] **Step 3: Implement in `zsdl_compile.py`**
+
+Add parsing for `backend: python_cleanroom(name)` and `backend: node_cleanroom(name)`. Set:
+```python
+compiled["backend_lang"] = "python_cleanroom"  # or node_cleanroom
+compiled["cleanroom_path"] = f"cleanroom/python/{name}"
+```
+
+- [ ] **Step 4: Run, verify it passes**
+
+```bash
+pytest tests/test_cleanroom_backend.py -v
+# Expected: PASS
+```
+
+- [ ] **Step 5: Add wave discovery in `synthesize_waves.py`**
+
+Wave `cr1` selects specs where `backend_lang in ("python_cleanroom", "node_cleanroom")`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add tools/zsdl_compile.py tools/synthesize_waves.py tests/test_cleanroom_backend.py
+git commit -m "feat: python_cleanroom and node_cleanroom backend support in compiler"
+```
+
+---
+
+## Phase 2: Isolation Harness
+
+### Task 2.1: Build the clean-room isolation verifier
+
+**Files:**
+- Create: `tools/cleanroom_verify.py`
+- Create: `cleanroom/python/sitecustomize.py`
+- Create: `tests/test_cleanroom_isolation.py`
+
+- [ ] **Step 1: Write failing test**
+
+```python
+# tests/test_cleanroom_isolation.py
+import subprocess, os
+
+def test_blocker_prevents_original_import():
+    env = {**os.environ,
+           "PYTHONPATH": "cleanroom/python",
+           "PYTHONNOUSERSITE": "1",
+           "THESEUS_BLOCKED_PACKAGE": "json"}
+    result = subprocess.run(
+        ["python3", "-c", "import json"],
+        capture_output=True, env=env
+    )
+    assert result.returncode != 0
+    assert b"THESEUS ISOLATION VIOLATION" in result.stderr
+```
+
+- [ ] **Step 2: Run, verify it fails (json is importable)**
+
+```bash
+pytest tests/test_cleanroom_isolation.py -v
+```
+
+- [ ] **Step 3: Write `cleanroom/python/sitecustomize.py`**
+
+```python
+import sys, os
+
+_blocked = os.environ.get("THESEUS_BLOCKED_PACKAGE", "")
+
+if _blocked:
+    class _Blocker:
+        def find_module(self, name, path=None):
+            if name == _blocked or name.startswith(_blocked + "."):
+                raise ImportError(
+                    f"THESEUS ISOLATION VIOLATION: attempted to import blocked "
+                    f"package '{name}'. Clean-room implementations must not "
+                    f"import the original package."
+                )
+    sys.meta_path.insert(0, _Blocker())
+```
+
+- [ ] **Step 4: Run, verify test passes**
+
+```bash
+pytest tests/test_cleanroom_isolation.py -v
+```
+
+- [ ] **Step 5: Write `tools/cleanroom_verify.py`**
+
+```python
+#!/usr/bin/env python3
+"""Verify a clean-room implementation satisfies all spec invariants in isolation."""
+import sys, json, subprocess, os
+from pathlib import Path
+
+def verify(spec_path: str) -> dict:
+    spec = json.load(open(spec_path))
+    name = spec["spec"]
+    lang = spec.get("backend_lang", "")
+
+    if lang == "python_cleanroom":
+        return _verify_python(spec, name)
+    elif lang == "node_cleanroom":
+        return _verify_node(spec, name)
+    else:
+        return {"error": f"Unknown cleanroom backend: {lang}"}
+
+def _verify_python(spec, name):
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(Path("cleanroom/python").resolve()),
+        "PYTHONNOUSERSITE": "1",
+        "THESEUS_BLOCKED_PACKAGE": name,
+    }
+    passed, failed, errors = 0, 0, []
+    for inv in spec["invariants"]:
+        fn   = inv["function"]
+        args = json.dumps(inv["args"])
+        exp  = json.dumps(inv["expected"])
+        code = (
+            f"from {name} import {fn}\n"
+            f"import json\n"
+            f"result = {fn}(*json.loads('{args}'))\n"
+            f"assert result == json.loads('{exp}'), f'got {{result!r}}'\n"
+            f"print('OK')\n"
+        )
+        r = subprocess.run(["python3", "-c", code], capture_output=True, text=True, env=env)
+        if r.returncode == 0:
+            passed += 1
+        else:
+            failed += 1
+            errors.append({"invariant": inv["id"], "error": r.stderr.strip()})
+    return {"pass": passed, "fail": failed, "errors": errors}
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add tools/cleanroom_verify.py cleanroom/python/sitecustomize.py tests/test_cleanroom_isolation.py
+git commit -m "feat: isolation harness for clean-room invariant verification"
+```
+
+---
+
+## Phase 3: Clean-Room Synthesis Engine
+
+### Task 3.1: LLM-driven clean-room synthesis
+
+**Files:**
+- Create: `tools/synthesize_cleanroom.py`
+
+- [ ] **Step 1: Write `tools/synthesize_cleanroom.py`**
+
+```python
+#!/usr/bin/env python3
+"""
+Clean-room synthesis: given a compiled spec with backend_lang=python_cleanroom,
+ask the LLM to produce a complete implementation, then verify with cleanroom_verify.
+"""
+import json, sys
+from pathlib import Path
+from tools.cleanroom_verify import verify
+
+SYSTEM_PROMPT = """
+You are implementing a Python package from a behavioral specification.
+
+HARD RULES — any violation causes immediate rejection:
+1. Do NOT import the package being replaced. If the spec is for `requests`, do NOT `import requests`.
+2. Do NOT import any third-party library. Only Python standard library is allowed.
+3. Exception: you MAY import other Theseus-verified packages listed in theseus_registry.json.
+4. Do NOT use subprocess to call external tools.
+5. The implementation must be entirely self-contained.
+
+You will receive the spec invariants. Produce a complete __init__.py that exports the required functions.
+"""
+
+def build_prompt(spec: dict) -> str:
+    invs = "\n".join(
+        f"  - {i['function']}({i.get('args', [])}) == {i['expected']}"
+        for i in spec["invariants"]
+    )
+    return (
+        f"Package: {spec['spec']}\n"
+        f"Notes: {chr(10).join(spec.get('notes', []))}\n\n"
+        f"Invariants:\n{invs}\n\n"
+        f"Write cleanroom/python/{spec['spec']}/__init__.py exporting all required functions."
+    )
+
+def synthesize(spec_json_path: str, max_iterations: int = 3) -> bool:
+    spec = json.load(open(spec_json_path))
+    name = spec["spec"]
+    out_dir = Path("cleanroom/python") / name
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    for iteration in range(1, max_iterations + 1):
+        # Call LLM (same Azure endpoint as synthesize_waves.py)
+        impl = _call_llm(SYSTEM_PROMPT, build_prompt(spec))
+        (out_dir / "__init__.py").write_text(impl)
+
+        result = verify(spec_json_path)
+        if result["fail"] == 0:
+            print(f"  {name}: success ({result['pass']}/{result['pass']} invariants)")
+            return True
+        else:
+            print(f"  {name}: iteration {iteration} — {result['fail']} failing")
+
+    print(f"  {name}: FAILED after {max_iterations} iterations")
+    return False
+```
+
+- [ ] **Step 2: Wire into wave runner**
+
+In `synthesize_waves.py`, when `backend_lang == "python_cleanroom"`, call `synthesize_cleanroom.synthesize(spec_json_path)` instead of the Rust path.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tools/synthesize_cleanroom.py
+git commit -m "feat: LLM-driven clean-room synthesis engine"
+```
+
+---
+
+## Phase 4: Theseus Package Registry
+
+### Task 4.1: Create `theseus_registry.json`
+
+**Files:**
+- Create: `theseus_registry.json`
+- Create: `tools/registry.py`
+
+- [ ] **Step 1: Initialize registry**
+
+```bash
+cat > theseus_registry.json << 'EOF'
+{
+  "version": 1,
+  "description": "Registry of Theseus clean-room verified packages. Only packages listed here may be used as dependencies in other Theseus packages.",
+  "packages": {}
+}
+EOF
+```
+
+- [ ] **Step 2: Write `tools/registry.py`**
+
+```python
+import json
+from pathlib import Path
+
+REGISTRY = Path("theseus_registry.json")
+
+def load() -> dict:
+    return json.load(open(REGISTRY))
+
+def is_allowed(name: str) -> bool:
+    r = load()
+    return name in r["packages"] and r["packages"][name]["status"] == "verified"
+
+def register(name: str, cleanroom_path: str, spec: str, status: str = "pending"):
+    r = load()
+    r["packages"][name] = {
+        "cleanroom_path": cleanroom_path,
+        "spec": spec,
+        "status": status,
+    }
+    json.dump(r, open(REGISTRY, "w"), indent=2)
+
+def mark_verified(name: str):
+    r = load()
+    if name not in r["packages"]:
+        raise KeyError(f"{name} not in registry")
+    r["packages"][name]["status"] = "verified"
+    json.dump(r, open(REGISTRY, "w"), indent=2)
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add theseus_registry.json tools/registry.py
+git commit -m "feat: Theseus clean-room package registry"
+```
+
+---
+
+## Phase 5: First Clean-Room Packages
+
+### Task 5.1: `theseus_json` — clean-room JSON codec
+
+No `import json`. Pure Python recursive descent parser + serializer.
+
+**Files:**
+- Create: `zspecs/theseus_json.zspec.zsdl`
+- Create: `cleanroom/python/theseus_json/__init__.py` (synthesized)
+- Create: `tests/cleanroom/test_theseus_json.py`
+
+- [ ] **Step 1: Write spec**
+
+```yaml
+spec: theseus_json
+version: ">=3.9"
+backend: python_cleanroom(theseus_json)
+
+provenance:
+  notes:
+    - "Clean-room JSON codec. No import of json or simplejson allowed."
+    - "json_loads(s) parses a JSON string and returns a Python object."
+    - "json_dumps(obj) serializes a Python object to a JSON string."
+
+invariant theseus_json.loads_int:
+  description: "loads('{\"a\": 1}')[\"a\"] == 1"
+  kind: python_call_eq
+  function: json_loads_int
+  args: []
+  expected: 1
+
+invariant theseus_json.dumps_basic:
+  description: "dumps({'a': 1}) is valid JSON containing 'a'"
+  kind: python_call_eq
+  function: json_dumps_has_key
+  args: []
+  expected: true
+
+invariant theseus_json.round_trip:
+  description: "loads(dumps({'x': [1,2,3]}))['x'] == [1,2,3]"
+  kind: python_call_eq
+  function: json_round_trip
+  args: []
+  expected: true
+```
+
+- [ ] **Step 2: Compile spec**
+
+```bash
+python3 tools/zsdl_compile.py zspecs/theseus_json.zspec.zsdl
+```
+
+- [ ] **Step 3: Synthesize clean-room implementation**
+
+```bash
+python3 tools/synthesize_cleanroom.py _build/zspecs/theseus_json.zspec.json
+```
+
+- [ ] **Step 4: Verify in isolation**
+
+```bash
+python3 tools/cleanroom_verify.py _build/zspecs/theseus_json.zspec.json
+# Expected: 3/3 pass, no isolation violations
+```
+
+- [ ] **Step 5: Register and commit**
+
+```bash
+python3 -c "from tools.registry import register, mark_verified; register('theseus_json','cleanroom/python/theseus_json','zspecs/theseus_json.zspec.zsdl'); mark_verified('theseus_json')"
+git add zspecs/theseus_json.zspec.zsdl cleanroom/python/theseus_json/ theseus_registry.json
+git commit -m "feat: theseus_json — clean-room JSON codec, 3/3 invariants"
+```
+
+---
+
+### Task 5.2: `theseus_re` — clean-room regex subset
+
+No `import re`. NFA-based regex engine, minimal but correct for the spec invariants.
+
+**Files:**
+- Create: `zspecs/theseus_re.zspec.zsdl`
+- Create: `cleanroom/python/theseus_re/__init__.py` (synthesized)
+
+Invariants: `match`, `search`, `sub` for basic patterns (`\d+`, `[a-z]+`, `.`).
+
+---
+
+### Task 5.3: `theseus_pathlib` — clean-room path operations
+
+No `import pathlib`, no `import os.path`. Pure string-based path manipulation.
+
+Invariants: `join`, `basename`, `dirname`, `splitext`, `is_absolute`.
+
+---
+
+## Phase 6: Node.js Clean-Room Packages
+
+### Task 6.1: `theseus_path` — clean-room Node.js path module
+
+No `require('path')`. Pure JavaScript string operations.
+
+**Files:**
+- Create: `zspecs/theseus_path_node.zspec.zsdl`
+- Create: `cleanroom/node/theseus_path/index.js`
+- Modify: `tools/synthesize_cleanroom.py` (add Node.js synthesis path)
+
+- [ ] **Step 1: Extend `synthesize_cleanroom.py` for Node.js**
+
+```python
+def synthesize_node(spec: dict, max_iterations: int = 3) -> bool:
+    name = spec["spec"]
+    out_dir = Path("cleanroom/node") / name
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt = (
+        f"Package: {name}\n"
+        f"Invariants: ...\n\n"
+        f"Write cleanroom/node/{name}/index.js. "
+        f"No require() of the original package. No npm dependencies. "
+        f"Pure JavaScript only."
+    )
+    # ... LLM call + node verify loop
+```
+
+---
+
+## Phase 7: Deprecate All Wrapper Specs
+
+### Task 7.1: Remove `_rust` wrapper specs from active synthesis
+
+Once Phases 1–6 are complete:
+
+- [ ] Mark all `*_rust.zspec.zsdl` specs with `status: deprecated` in `wave_state.json`
+- [ ] Update README to reflect the new clean-room mission
+- [ ] Add CI check: reject any new spec with `backend: rust_module(...)` that calls back into Python
+
+---
+
+## Guiding Constraints
+
+**Always:**
+- Write the spec before any implementation
+- Verify isolation before marking a package verified
+- Register every verified package in `theseus_registry.json`
+- Run `make test` before every commit
+
+**Ask first:**
+- Adding a Theseus registry dependency (confirm it is itself verified)
+- Descoping a package (document why in `reports/audit/`)
+- Changing the isolation protocol
+
+**Never:**
+- Import the original package in a clean-room implementation
+- Cross language boundaries in an implementation
+- Use subprocess to call the original tool as a back-end
+- Mark a package `verified` until all spec invariants pass under isolation
+
+---
+
+## Success Criteria
+
+- [ ] `cleanroom/python/` contains ≥3 verified packages with 0 external deps each
+- [ ] `cleanroom/node/` contains ≥1 verified Node.js package
+- [ ] All verified packages are in `theseus_registry.json` with `status: "verified"`
+- [ ] `tools/cleanroom_verify.py` rejects any implementation that imports the original
+- [ ] `make test` passes with full test suite including isolation tests
+- [ ] No `*_rust.zspec.zsdl` wrapper spec is presented as a clean-room implementation
