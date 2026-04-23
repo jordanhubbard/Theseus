@@ -61,6 +61,8 @@ class SynthesisBuildDriver:
             return self._build_c(source_files, canonical_name, work_dir)
         if backend_lang == "javascript":
             return self._build_javascript(source_files, canonical_name, work_dir)
+        if backend_lang == "rust":
+            return self._build_rust(source_files, canonical_name, work_dir)
         return SynthesisBuildResult(
             success=False,
             artifact_path="",
@@ -285,6 +287,132 @@ class SynthesisBuildDriver:
         )
 
 
+    # ------------------------------------------------------------------
+    # Rust (PyO3 extension module)
+    # ------------------------------------------------------------------
+
+    def _build_rust(
+        self,
+        source_files: dict[str, str],
+        canonical_name: str,
+        work_dir: Path,
+    ) -> SynthesisBuildResult:
+        _write_files(source_files, work_dir)
+
+        maturin = shutil.which("maturin")
+        if maturin is None:
+            return SynthesisBuildResult(
+                success=False,
+                artifact_path="",
+                backend_lang="rust",
+                build_log="maturin not found in PATH — install with: pip install maturin",
+                returncode=1,
+                work_dir=str(work_dir),
+            )
+
+        # Generate Cargo.toml if LLM did not produce one.
+        # Use pyo3 0.22 with abi3-py39 so the wheel works on Python 3.9+ including
+        # 3.14+. PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 is set at build time to allow
+        # building against Python versions newer than pyo3's declared maximum.
+        cargo_toml = work_dir / "Cargo.toml"
+        if not cargo_toml.exists():
+            cargo_toml.write_text(
+                f'[package]\nname = "{canonical_name}"\nversion = "0.1.0"\nedition = "2021"\n\n'
+                f'[lib]\nname = "{canonical_name}"\ncrate-type = ["cdylib"]\n\n'
+                f'[dependencies]\npyo3 = {{ version = "0.22", features = ["extension-module", "abi3-py39"] }}\n',
+                encoding="utf-8",
+            )
+
+        # Generate pyproject.toml required by maturin 1.x.
+        pyproject = work_dir / "pyproject.toml"
+        if not pyproject.exists():
+            pyproject.write_text(
+                '[build-system]\nrequires = ["maturin>=1.0,<2.0"]\nbuild-backend = "maturin"\n\n'
+                f'[project]\nname = "{canonical_name}"\nversion = "0.1.0"\n\n'
+                '[tool.maturin]\nfeatures = ["pyo3/extension-module"]\n',
+                encoding="utf-8",
+            )
+
+        # Build a wheel then extract the .so into work_dir/lib so it can be
+        # prepended to PYTHONPATH for harness invocation.
+        dist_dir = work_dir / "dist"
+        dist_dir.mkdir(exist_ok=True)
+        lib_dir = work_dir / "lib"
+        lib_dir.mkdir(exist_ok=True)
+
+        build_env = dict(os.environ)
+        # Allow building against Python versions newer than pyo3's declared maximum.
+        build_env["PYO3_USE_ABI3_FORWARD_COMPATIBILITY"] = "1"
+
+        result = subprocess.run(
+            [
+                maturin, "build", "--release",
+                "--out", str(dist_dir),
+                "--manifest-path", str(cargo_toml),
+                "--interpreter", sys.executable,
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(work_dir),
+            env=build_env,
+            timeout=300,
+        )
+        log = (result.stdout + result.stderr).strip()
+
+        if result.returncode != 0:
+            return SynthesisBuildResult(
+                success=False,
+                artifact_path="",
+                backend_lang="rust",
+                build_log=log,
+                returncode=result.returncode,
+                work_dir=str(work_dir),
+            )
+
+        # Find the wheel and extract the compiled extension module.
+        wheels = sorted(dist_dir.glob("*.whl"))
+        if not wheels:
+            return SynthesisBuildResult(
+                success=False,
+                artifact_path="",
+                backend_lang="rust",
+                build_log=log + "\nNo .whl file produced.",
+                returncode=1,
+                work_dir=str(work_dir),
+            )
+
+        import zipfile
+        wheel = wheels[0]
+        with zipfile.ZipFile(wheel) as zf:
+            so_names = [
+                n for n in zf.namelist()
+                if n.endswith(".so") or n.endswith(".abi3.so") or n.endswith(".pyd")
+            ]
+            for so_name in so_names:
+                # Flatten into lib_dir (strip any package sub-path).
+                target = lib_dir / os.path.basename(so_name)
+                target.write_bytes(zf.read(so_name))
+
+        if not any(lib_dir.iterdir()):
+            return SynthesisBuildResult(
+                success=False,
+                artifact_path="",
+                backend_lang="rust",
+                build_log=log + "\nWheel contained no .so/.pyd files.",
+                returncode=1,
+                work_dir=str(work_dir),
+            )
+
+        return SynthesisBuildResult(
+            success=True,
+            artifact_path=str(lib_dir),
+            backend_lang="rust",
+            build_log=log,
+            returncode=0,
+            work_dir=str(work_dir),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -314,6 +442,12 @@ def backend_lang_for_spec(lib_spec: dict) -> str:
     backend = lib_spec.get("backend", "ctypes")   # match verify_behavior.py default
     if backend == "python_module":
         return "python"
+    if backend == "rust_module":
+        return "rust"
+    if backend == "python_cleanroom":
+        return "python_cleanroom"
+    if backend == "node_cleanroom":
+        return "node_cleanroom"
     if backend == "ctypes":
         return "c"
     if backend == "cli":

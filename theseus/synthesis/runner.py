@@ -307,8 +307,9 @@ class SynthesisRunner:
             artifact = build_result.artifact_path
             work_dir = build_result.work_dir
 
-            if backend_lang == "python":
+            if backend_lang in ("python", "rust"):
                 # Prepend staging dir so our synthesised module shadows any installed one.
+                # For Rust, artifact_path points to the lib/ dir containing the .so.
                 env["PYTHONPATH"] = artifact + os.pathsep + env.get("PYTHONPATH", "")
 
             elif backend_lang == "c":

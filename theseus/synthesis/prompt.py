@@ -331,6 +331,39 @@ def _deliverable_instructions(
             "...file content...\n"
             "</content></file>"
         )
+    if backend_lang == "rust":
+        return (
+            f"Produce a Rust PyO3 0.22 extension module that Python can `import {canonical_name}`.\n"
+            f"Write ONLY `src/lib.rs`. Do NOT produce Cargo.toml or pyproject.toml.\n"
+            "Do NOT import or call the real library — implement everything from scratch.\n\n"
+            "MANDATORY — follow this EXACT PyO3 0.22 pattern. Any deviation will cause compile errors:\n\n"
+            "```rust\n"
+            "use pyo3::prelude::*;\n"
+            "use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};\n"
+            "use pyo3::exceptions::{PyValueError, PyTypeError};\n\n"
+            "// --- PyO3 0.22 type-conversion rules (REQUIRED) ---\n"
+            "// Rust → Python object:  42i64.to_object(py)  /  3.14f64.to_object(py)  /  \"s\".to_object(py)  /  true.to_object(py)  /  py.None()\n"
+            "//   Do NOT use .into_pyobject() — that is PyO3 0.23+ only.\n"
+            "// Python → Rust:         obj.extract::<i64>()?  /  obj.extract::<f64>()?  /  obj.extract::<String>()?\n"
+            "// Type checks:           obj.is_instance_of::<PyBool>()  /  obj.is_instance_of::<PyInt>()  /  obj.is_instance_of::<PyFloat>()  /  obj.is_instance_of::<PyString>()  /  obj.is_instance_of::<PyList>()  /  obj.is_instance_of::<PyDict>()  /  obj.is_none()\n"
+            "// Empty list:            PyList::new_bound(py, std::iter::empty::<PyObject>()).to_object(py)\n"
+            "// Append to list:        list_ref.append(item)?  where list_ref: &Bound<'_, PyList>\n"
+            "// Empty dict:            PyDict::new_bound(py).to_object(py)\n"
+            "// Set dict item:         dict_ref.set_item(key, val)?  where dict_ref: &Bound<'_, PyDict>\n"
+            "// Get dict keys:         dict_ref.keys()  (returns Bound<'_, PyList>)\n"
+            "// Raise ValueError:      return Err(PyValueError::new_err(\"message\"));\n\n"
+            "// --- Module entry point (EXACT signature required) ---\n"
+            f"#[pymodule]\nfn {canonical_name}(m: &Bound<'_, PyModule>) -> PyResult<()> {{\n"
+            "    // m.add_function(wrap_pyfunction!(my_fn, m)?)?;\n"
+            "    // m.add_class::<MyClass>()?;\n"
+            "    Ok(())\n"
+            "}\n"
+            "```\n\n"
+            "Wrap your complete src/lib.rs in:\n"
+            '<file name="src/lib.rs"><content>\n'
+            "...Rust source...\n"
+            "</content></file>"
+        )
     return (
         "Produce the required source files wrapped in:\n"
         '<file name="FILENAME"><content>\n'
