@@ -1297,7 +1297,7 @@ class PatternRegistry:
             return False, f"node exited {proc.returncode}: {stderr!r}"
         actual        = proc.stdout.decode("utf-8", errors="replace").strip()
         # Use compact separators to match JSON.stringify's no-space output.
-        expected_json = json.dumps(expected, separators=(",", ":"))
+        expected_json = json.dumps(expected, separators=(",", ":"), ensure_ascii=False)
         label         = fn_name or "<module>"
         if actual != expected_json:
             return False, f"{label}({args!r}) returned {actual!r}, expected {expected_json!r}"
@@ -1361,7 +1361,7 @@ class PatternRegistry:
             stderr = proc.stderr.decode("utf-8", errors="replace").strip()
             return False, f"node exited {proc.returncode}: {stderr!r}"
         actual        = proc.stdout.decode("utf-8", errors="replace").strip()
-        expected_json = json.dumps(expected, separators=(",", ":"))
+        expected_json = json.dumps(expected, separators=(",", ":"), ensure_ascii=False)
         label         = f"new {cls_name}().{method}"
         if actual != expected_json:
             return False, f"{label}({args!r}) returned {actual!r}, expected {expected_json!r}"
@@ -1384,8 +1384,8 @@ class PatternRegistry:
     #   expected     — expected final value
     def _node_factory_call_eq(self, spec: dict) -> tuple[bool, str]:
         module       = spec.get("module") or getattr(self._lib, "module_name", None)
-        factory      = spec.get("factory")          # None → call m() directly
-        factory_args = spec.get("factory_args", [])
+        factory      = spec.get("factory") or spec.get("function")  # None → call m() directly
+        factory_args = spec["factory_args"] if "factory_args" in spec else spec.get("args", [])
         method       = spec["method"]
         method_args  = spec.get("method_args", [])
         expected     = spec["expected"]
@@ -1422,7 +1422,7 @@ class PatternRegistry:
             stderr = proc.stderr.decode("utf-8", errors="replace").strip()
             return False, f"node exited {proc.returncode}: {stderr!r}"
         actual        = proc.stdout.decode("utf-8", errors="replace").strip()
-        expected_json = json.dumps(expected, separators=(",", ":"))
+        expected_json = json.dumps(expected, separators=(",", ":"), ensure_ascii=False)
         label         = f"{factory or '<module>'}().{method}"
         if actual != expected_json:
             return False, f"{label}({method_args!r}) returned {actual!r}, expected {expected_json!r}"

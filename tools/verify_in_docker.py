@@ -122,7 +122,7 @@ def _make_install_script(pip: list[str], apt: list[str],
     if pip:
         lines.append(f"pip3 install --quiet {' '.join(pip)}")
     if npm:
-        lines.append(f"npm install -g --quiet {' '.join(npm)}")
+        lines.append(f"npm install --prefix /npm-deps --quiet {' '.join(npm)}")
     if cargo:
         for crate in cargo:
             lines.append(f"cargo install {crate}")
@@ -155,7 +155,9 @@ def _run_in_container(compiled_spec: Path,
         verify_cmd += ["--filter", filter_]
 
     # Build the full shell command for the container
-    run_cmd = f"bash {container_script} && {' '.join(verify_cmd)}"
+    # NODE_PATH includes /npm-deps/node_modules for npm-installed packages
+    run_cmd = (f"bash {container_script} && "
+               f"NODE_PATH=/npm-deps/node_modules {' '.join(verify_cmd)}")
 
     docker_argv = [
         "docker", "run",
