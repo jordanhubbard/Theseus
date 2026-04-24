@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior verify-behavior-isolated verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -155,6 +155,21 @@ verify-behavior: compile-zsdl
 		$(if $(FILTER),--filter "$(FILTER)") \
 		$(if $(VERBOSE),--verbose) \
 		$(if $(JSON_OUT),--json-out "$(JSON_OUT)")
+
+# Verify a spec inside a fresh throwaway venv (installs the package automatically).
+# Use this when the library is not installed on your system.
+# Examples:
+#   make verify-behavior-isolated ZSDL=zspecs/requests_utils_rust.zspec.zsdl PACKAGES=requests
+#   make verify-behavior-isolated ZSDL=zspecs/pydantic_rust.zspec.zsdl PACKAGES="pydantic>=2"
+#   make verify-behavior-isolated ZSDL=zspecs/json.zspec.zsdl     # stdlib: no PACKAGES needed
+PACKAGES   ?=
+verify-behavior-isolated:
+	@test -n "$(ZSDL)" || \
+	  (echo "Usage: make verify-behavior-isolated ZSDL=zspecs/foo.zspec.zsdl [PACKAGES='pkg>=ver']" && exit 1)
+	$(PYTHON) tools/verify_in_venv.py "$(ZSDL)" $(PACKAGES) \
+	  $(if $(VERBOSE),--verbose) \
+	  $(if $(FILTER),--filter "$(FILTER)") \
+	  $(if $(KEEP_VENV),--keep)
 
 verify-all-specs: compile-zsdl
 	@total=0; passed=0; failed=0; \
@@ -357,6 +372,7 @@ help:
 	@echo "  make import-cargo   Fetch Cargo crate metadata from crates.io (requires cargo-seed.txt, skips GPL)"
 	@echo "  make compile-zsdl   Compile zspecs/*.zspec.zsdl → _build/zspecs/*.zspec.json (ZSDL=file for one)"
 	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: _build/zspecs/zlib.zspec.json)"
+	@echo "  make verify-behavior-isolated  Verify in a fresh throwaway venv (ZSDL=path [PACKAGES='pkg>=ver'] [VERBOSE=1] [KEEP_VENV=1])"
 	@echo "  make validate-e2e   Build from source and verify behavioral spec (E2E_RECORD=, E2E_ZSPEC=)"
 	@echo "  make verify-all-specs Run every spec in _build/zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)"
 	@echo "  make verify-all-specs-json  Run all specs and write JSON results (OUT=file optional, SPECS=paths optional)"

@@ -62,16 +62,41 @@ This compiles all specs and runs the pytest suite. All tests should pass before 
 
 ### 2.4 Configure LLM access (for synthesis only)
 
-Synthesis (Section 7 and 8) requires an LLM. Edit `config.yaml`:
+Synthesis (Sections 7 and 8) requires an LLM. Three categories of provider are supported:
+
+**CLI coding agents (easiest if you already have one installed):**
+
+| Agent | Install | `provider` value |
+|-------|---------|-----------------|
+| Claude CLI | https://claude.ai/code | `claude` (or `auto`) |
+| OpenAI Codex CLI | https://github.com/openai/codex | `codex` (or `auto`) |
+| Droid or other | any CLI that reads stdin, prints to stdout | `cli_agent` |
+
+With `provider: auto` Theseus tries `claude`, then `codex`, then `droid` in PATH order, then falls back to an OpenAI endpoint.
+
+**OpenAI-compatible HTTP endpoint (most flexible):**
 
 ```yaml
 ai:
-  provider: auto          # 'claude' to force claude CLI; 'openai' to force endpoint
-  openai_base_url: "http://localhost:11434/v1"   # for local models via Ollama etc.
-  openai_model: "gpt-4o"
+  provider: openai
+  openai_base_url: "http://localhost:11434/v1"   # Ollama
+  openai_model: "llama3.2"
 ```
 
-With `provider: auto`, Theseus uses the `claude` CLI if it is in your PATH, otherwise falls back to the OpenAI-compatible endpoint. Verification and search do not require LLM access.
+Works with Ollama, LM Studio, OpenRouter, the real OpenAI API, or any other server that speaks the `/v1/chat/completions` protocol.
+
+**Generic CLI agent:**
+
+```yaml
+ai:
+  provider: cli_agent
+  cli_agent_command: "droid"   # or any other command name
+  cli_agent_args: ["-"]        # args passed to the command; "-" = read stdin
+```
+
+The command must accept the prompt on stdin and print the response to stdout.
+
+Verification, search, comparison, and provenance reports do **not** require LLM access.
 
 ---
 
@@ -153,6 +178,26 @@ The behavioral invariants in a provenance report are independently verifiable. T
 make compile-zsdl ZSDL=zspecs/zlib.zspec.zsdl
 make verify-behavior ZSPEC=_build/zspecs/zlib.zspec.json VERBOSE=1
 ```
+
+**If the library is not installed on your system,** use the isolated verification target instead. It creates a throwaway virtual environment, installs the package, runs verification, and cleans up:
+
+```bash
+# For a Python package from PyPI:
+make verify-behavior-isolated ZSDL=zspecs/requests_utils_rust.zspec.zsdl PACKAGES=requests
+
+# For a specific version:
+make verify-behavior-isolated ZSDL=zspecs/pydantic_rust.zspec.zsdl PACKAGES="pydantic>=2"
+
+# For stdlib or ctypes specs (no install needed):
+make verify-behavior-isolated ZSDL=zspecs/json.zspec.zsdl
+
+# Keep the venv to inspect what was installed:
+make verify-behavior-isolated ZSDL=zspecs/json.zspec.zsdl KEEP_VENV=1
+```
+
+The venv is created in a system temp directory and automatically deleted after verification. This means you can verify any Python package spec without polluting your system Python environment.
+
+**Note on ctypes and CLI specs:** `ctypes` specs (like `zlib.zspec.zsdl`) require the native library to be installed at the system level — a venv cannot provide a C shared library. CLI specs require the tool to be in your PATH. For these, install via your system package manager (`brew`, `apt`, `nix`, etc.).
 
 Every PASS means the library's actual behavior matches what the spec says. Every invariant that passes is a concrete, machine-checked datum that anchors the provenance claim.
 
@@ -824,9 +869,11 @@ For full authoring rules, see `docs/cleanroom-spec-format.md`.
 | `make provenance-report SPEC=<path> PROV_OUT=<file>` | Write to file |
 | `make compile-zsdl ZSDL=<path>` | Compile one spec |
 | `make compile-zsdl` | Compile all specs |
-| `make verify-behavior ZSPEC=<path>` | Verify spec against real library |
+| `make verify-behavior ZSPEC=<path>` | Verify spec against real library (must be installed) |
 | `make verify-behavior ZSPEC=<path> VERBOSE=1` | Per-invariant results |
 | `make verify-behavior ZSPEC=<path> FILTER=<substring>` | Run matching invariants only |
+| `make verify-behavior-isolated ZSDL=<path> PACKAGES=<pkg>` | Verify in fresh throwaway venv |
+| `make verify-behavior-isolated ZSDL=<path> PACKAGES=<pkg> KEEP_VENV=1` | Keep venv after run |
 | `make verify-all-specs` | Run all specs, aggregate pass/fail |
 
 ### Comparison

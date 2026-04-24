@@ -263,9 +263,26 @@ make compile-zsdl                    # all specs
 make compile-zsdl ZSDL=zspecs/zlib.zspec.zsdl   # one spec
 ```
 
-### 5.2 Verification Harness (`tools/verify_behavior.py`)
+### 5.2 LLM Agent (`theseus/agent.py`)
 
-**Input:** A compiled `.zspec.json` file; the library it describes must be installed  
+**Purpose:** Provides a unified interface for all LLM synthesis backends.
+
+**Supported providers:**
+
+| `provider` value | Mechanism | Configuration |
+|-----------------|-----------|---------------|
+| `auto` | Tries CLI agents (claude → codex → droid) then OpenAI endpoint | Default |
+| `claude` | Claude CLI subprocess (`claude --print -`) | Install from claude.ai/code |
+| `codex` | OpenAI Codex CLI subprocess (`codex --quiet -`) | Install from github.com/openai/codex |
+| `droid` | Generic CLI agent (same stdin protocol) | Set `cli_agent_command: droid` |
+| `openai` | OpenAI-compatible HTTP endpoint | `openai_base_url`, `openai_model` |
+| `cli_agent` | Any CLI agent reading stdin, printing to stdout | `cli_agent_command`, `cli_agent_args` |
+
+**Invariant:** All providers receive the same prompt text and return plain text responses. No provider-specific prompt engineering is needed.
+
+### 5.3 Verification Harness (`tools/verify_behavior.py`)
+
+**Input:** A compiled `.zspec.json` file; the library it describes must be installed on the host (or in an active venv — see `verify_in_venv.py`)
 **Output:** PASS/FAIL per invariant; aggregate count  
 **Guarantees:**
 - Loads the library using the backend specified in the spec
@@ -282,7 +299,22 @@ make verify-behavior ZSPEC=_build/zspecs/hashlib.zspec.json FILTER=sha256 VERBOS
 make verify-all-specs          # runs all; prints aggregate
 ```
 
-### 5.3 Search Tool (`tools/search_specs.py`)
+### 5.4 Isolated Verification (`tools/verify_in_venv.py`)
+
+**Purpose:** Run verification inside a throwaway virtual environment so the target library does not need to be permanently installed.
+
+**Steps:** compile spec → create temp venv → `pip install` packages → run `verify_behavior.py` → delete venv.
+
+**Scope:** Python packages only. `ctypes` specs require a system-level native library; CLI specs require the tool in PATH. Neither can be satisfied by a venv.
+
+**Invocation:**
+```bash
+make verify-behavior-isolated ZSDL=zspecs/requests_utils_rust.zspec.zsdl PACKAGES=requests
+make verify-behavior-isolated ZSDL=zspecs/pydantic_rust.zspec.zsdl PACKAGES="pydantic>=2"
+make verify-behavior-isolated ZSDL=zspecs/json.zspec.zsdl    # stdlib: no install needed
+```
+
+### 5.6 Search Tool (`tools/search_specs.py`)
 
 **Input:** Optional query string and filter flags  
 **Output:** Table of matching specs with backend, invariant count, verification status  
@@ -294,7 +326,7 @@ make search QUERY=zlib JSON=1
 python3 tools/search_specs.py --list
 ```
 
-### 5.4 Comparison Tool (`tools/compare_specs.py`)
+### 5.7 Comparison Tool (`tools/compare_specs.py`)
 
 **Input:** Two compiled `.zspec.json` files (or `.zspec.zsdl` paths auto-resolved)  
 **Output:** Common invariants, invariants unique to each spec, behavioral differences  
@@ -304,7 +336,7 @@ make compare SPEC1=_build/zspecs/json.zspec.json SPEC2=_build/zspecs/simplejson.
 make compare SPEC1=zspecs/hashlib.zspec.zsdl SPEC2=zspecs/_hashlib.zspec.zsdl JSON=1
 ```
 
-### 5.5 Provenance Report Tool (`tools/provenance_report.py`)
+### 5.8 Provenance Report Tool (`tools/provenance_report.py`)
 
 **Input:** A `.zspec.zsdl` source file  
 **Output:** Markdown (default) or JSON provenance attestation  
@@ -321,7 +353,7 @@ make provenance-report SPEC=zspecs/hashlib.zspec.zsdl PROV_OUT=reports/hashlib-p
 make provenance-report SPEC=zspecs/json.zspec.zsdl JSON=1
 ```
 
-### 5.6 Clean-Room Synthesis Pipeline (`tools/run_pipeline.py`)
+### 5.9 Clean-Room Synthesis Pipeline (`tools/run_pipeline.py`)
 
 **Input:** A `.zspec.zsdl` with `backend: python_cleanroom(...)` or `node_cleanroom(...)`  
 **Steps:**
@@ -337,7 +369,7 @@ make pipeline SYNTH_ZSDL=zspecs/theseus_json.zspec.zsdl
 make pipeline SYNTH_ZSDL=zspecs/theseus_hashlib.zspec.zsdl SYNTH_MAX_ITER=5 VERBOSE=1
 ```
 
-### 5.7 Isolation Mechanism
+### 5.10 Isolation Mechanism
 
 **File:** `cleanroom/python/sitecustomize.py`  
 **Mechanism:** Python automatically executes this file on startup. It reads the `THESEUS_BLOCKED_PACKAGE` environment variable and installs an import hook that raises `ImportError("THESEUS ISOLATION VIOLATION: ...")` for any matching import.
@@ -349,7 +381,7 @@ THESEUS_BLOCKED_PACKAGE=json python3 -c "import json"            # must raise Im
 
 **Guarantee:** A clean-room implementation that passes `cleanroom_verify.py` cannot depend on the original package, even transitively through a dependency that itself imports the original.
 
-### 5.8 Registry (`tools/registry.py`)
+### 5.11 Registry (`tools/registry.py`)
 
 **File:** `theseus_registry.json`  
 **Invariant:** Only packages with `status: verified` are usable as dependencies in other clean-room implementations.
