@@ -6,9 +6,9 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 1 — Package recipe pipeline:** normalizes Nixpkgs and FreeBSD Ports records into a shared canonical schema, ranks candidates, and produces merged extraction records.
 
-**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 935 specs covering 5 backend types (rust_module, python_module, python_cleanroom, node, ctypes, cli).
+**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 1,228 specs covering 5 backend types (rust_module, python_module, python_cleanroom, node, ctypes, cli).
 
-**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. 100 Python packages verified as of the current registry.
+**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. 392 Python packages verified as of the current registry.
 
 ```
 Source Trees (Nixpkgs, FreeBSD Ports)
@@ -55,7 +55,7 @@ zspecs/theseus_*.zspec.zsdl              ← clean-room specs (python_cleanroom 
   tools/registry.py verify <name>       ← register in theseus_registry.json
         │
         ▼
-  theseus_registry.json                 ← 100 verified packages; gating dependency graph
+  theseus_registry.json                 ← 392 verified packages; gating dependency graph
 ```
 
 ---

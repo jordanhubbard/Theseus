@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -308,6 +308,31 @@ synthesize-waves: compile-zsdl
 	  $(if $(VERBOSE),--verbose) \
 	  $(if $(FORCE),--force)
 
+# ── Discovery, comparison, and provenance ────────────────────────────────────
+QUERY      ?=
+SPEC1      ?=
+SPEC2      ?=
+SPEC       ?=
+PROV_OUT   ?=
+
+search:
+	$(PYTHON) tools/search_specs.py $(QUERY) \
+	  $(if $(BACKEND),--backend $(BACKEND)) \
+	  $(if $(VERIFIED),--verified) \
+	  $(if $(LIST),--list) \
+	  $(if $(JSON),--json)
+
+compare: compile-zsdl
+	@test -n "$(SPEC1)" || (echo "Usage: make compare SPEC1=<spec1> SPEC2=<spec2>" && exit 1)
+	@test -n "$(SPEC2)" || (echo "Usage: make compare SPEC1=<spec1> SPEC2=<spec2>" && exit 1)
+	$(PYTHON) tools/compare_specs.py "$(SPEC1)" "$(SPEC2)" $(if $(JSON),--json)
+
+provenance-report:
+	@test -n "$(SPEC)" || (echo "Usage: make provenance-report SPEC=zspecs/zlib.zspec.zsdl" && exit 1)
+	$(PYTHON) tools/provenance_report.py "$(SPEC)" \
+	  $(if $(JSON),--json) \
+	  $(if $(PROV_OUT),--out "$(PROV_OUT)")
+
 help:
 	@echo "Theseus — canonical package recipe toolchain"
 	@echo ""
@@ -342,6 +367,11 @@ help:
 	@echo "  make release        Cut a release (BUMP=major|minor|patch, default: patch)"
 	@echo "  make docs           Build user guide static site (requires mkdocs-material)"
 	@echo "  make docs-serve     Serve user guide locally at http://127.0.0.1:8000"
+	@echo ""
+	@echo "Discovery, comparison, and provenance:"
+	@echo "  make search             Search specs by name/keyword (QUERY=term, BACKEND=type, VERIFIED=1)"
+	@echo "  make compare            Compare two specs (SPEC1=path SPEC2=path [JSON=1])"
+	@echo "  make provenance-report  Generate provenance attestation (SPEC=zspecs/foo.zspec.zsdl [PROV_OUT=file])"
 	@echo ""
 	@echo "ZSpec pipeline (compile → verify_real → synthesize → gate → annotate):"
 	@echo "  make pipeline              Full pipeline for one spec (SYNTH_ZSDL=zspecs/zlib.zspec.zsdl)"
