@@ -40,6 +40,20 @@ python3 --version   # must be 3.9 or later
 
 No `pip install` is needed. Theseus uses Python stdlib only.
 
+To verify specs against libraries that are not installed on your host, Docker is required:
+
+```bash
+docker --version    # any recent Docker Engine or Docker Desktop
+```
+
+Build the verification sandbox image once after cloning:
+
+```bash
+make docker-build
+```
+
+This creates a local `theseus-verify:latest` image (Ubuntu 26.04 with Python, Node.js, Rust, and common C dev libraries). The image is reused for all subsequent `make verify-behavior-docker` calls.
+
 ### 2.2 Verify the installation
 
 ```bash
@@ -179,25 +193,35 @@ make compile-zsdl ZSDL=zspecs/zlib.zspec.zsdl
 make verify-behavior ZSPEC=_build/zspecs/zlib.zspec.json VERBOSE=1
 ```
 
-**If the library is not installed on your system,** use the isolated verification target instead. It creates a throwaway virtual environment, installs the package, runs verification, and cleans up:
+**If the library is not installed on your system,** use the Docker sandbox instead. It starts a disposable Ubuntu 26.04 container, installs the package inside the container, runs verification, and removes the container — nothing is installed on the host:
 
 ```bash
-# For a Python package from PyPI:
-make verify-behavior-isolated ZSDL=zspecs/requests_utils_rust.zspec.zsdl PACKAGES=requests
+# Build the sandbox image once (reused for all subsequent verifications):
+make docker-build
 
-# For a specific version:
-make verify-behavior-isolated ZSDL=zspecs/pydantic_rust.zspec.zsdl PACKAGES="pydantic>=2"
+# Python package from PyPI:
+make verify-behavior-docker ZSDL=zspecs/requests.zspec.zsdl PIP=requests
 
-# For stdlib or ctypes specs (no install needed):
-make verify-behavior-isolated ZSDL=zspecs/json.zspec.zsdl
+# Specific version:
+make verify-behavior-docker ZSDL=zspecs/pydantic.zspec.zsdl PIP="pydantic>=2"
 
-# Keep the venv to inspect what was installed:
-make verify-behavior-isolated ZSDL=zspecs/json.zspec.zsdl KEEP_VENV=1
+# Native C library (ctypes backend):
+make verify-behavior-docker ZSDL=zspecs/zlib.zspec.zsdl APT=zlib1g-dev
+
+# Node.js package (node backend):
+make verify-behavior-docker ZSDL=zspecs/chalk.zspec.zsdl NPM=chalk
+
+# Rust crate (rust_module backend):
+make verify-behavior-docker ZSDL=zspecs/serde_json_rust.zspec.zsdl CARGO=serde_json
+
+# stdlib / cleanroom specs (no install needed):
+make verify-behavior-docker ZSDL=zspecs/json.zspec.zsdl
+
+# Keep container after run to inspect what happened:
+make verify-behavior-docker ZSDL=zspecs/json.zspec.zsdl KEEP=1
 ```
 
-The venv is created in a system temp directory and automatically deleted after verification. This means you can verify any Python package spec without polluting your system Python environment.
-
-**Note on ctypes and CLI specs:** `ctypes` specs (like `zlib.zspec.zsdl`) require the native library to be installed at the system level — a venv cannot provide a C shared library. CLI specs require the tool to be in your PATH. For these, install via your system package manager (`brew`, `apt`, `nix`, etc.).
+The container is removed after each run. The repo is mounted read-write inside the container at `/theseus`, so the same compiled spec and verification harness are used as in a direct `make verify-behavior` call. This approach covers all backend types: Python, ctypes, Node.js, Rust, and CLI.
 
 Every PASS means the library's actual behavior matches what the spec says. Every invariant that passes is a concrete, machine-checked datum that anchors the provenance claim.
 
@@ -869,11 +893,16 @@ For full authoring rules, see `docs/cleanroom-spec-format.md`.
 | `make provenance-report SPEC=<path> PROV_OUT=<file>` | Write to file |
 | `make compile-zsdl ZSDL=<path>` | Compile one spec |
 | `make compile-zsdl` | Compile all specs |
-| `make verify-behavior ZSPEC=<path>` | Verify spec against real library (must be installed) |
+| `make verify-behavior ZSPEC=<path>` | Verify spec against real library (must be installed on host) |
 | `make verify-behavior ZSPEC=<path> VERBOSE=1` | Per-invariant results |
 | `make verify-behavior ZSPEC=<path> FILTER=<substring>` | Run matching invariants only |
-| `make verify-behavior-isolated ZSDL=<path> PACKAGES=<pkg>` | Verify in fresh throwaway venv |
-| `make verify-behavior-isolated ZSDL=<path> PACKAGES=<pkg> KEEP_VENV=1` | Keep venv after run |
+| `make docker-build` | Build the Ubuntu 26.04 verification sandbox image (one-time) |
+| `make verify-behavior-docker ZSDL=<path>` | Verify in disposable Docker container |
+| `make verify-behavior-docker ZSDL=<path> PIP=<pkg>` | Install Python package via pip before verify |
+| `make verify-behavior-docker ZSDL=<path> APT=<pkg>` | Install Debian package via apt before verify |
+| `make verify-behavior-docker ZSDL=<path> NPM=<pkg>` | Install Node.js package via npm before verify |
+| `make verify-behavior-docker ZSDL=<path> CARGO=<crate>` | Install Rust crate via cargo before verify |
+| `make verify-behavior-docker ZSDL=<path> KEEP=1` | Keep container after run for inspection |
 | `make verify-all-specs` | Run all specs, aggregate pass/fail |
 
 ### Comparison

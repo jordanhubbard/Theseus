@@ -1,0 +1,62 @@
+# Theseus behavioral spec verification sandbox.
+#
+# Ubuntu 26.04 base with Python, Node.js, Rust, and common C dev libraries.
+# Used by tools/verify_in_docker.py to verify specs without polluting the host.
+#
+# Build:
+#   docker build -f docker/Dockerfile.verify -t theseus-verify .
+#
+# The repo root is mounted at /theseus at runtime — nothing is baked into the
+# image except system packages and language runtimes.
+
+FROM ubuntu:26.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CARGO_HOME=/usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV PATH=/usr/local/cargo/bin:$PATH
+
+# ── System packages ────────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Python runtime + pip
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    # Node.js + npm (Ubuntu 26.04 ships a recent LTS)
+    nodejs \
+    npm \
+    # Rust toolchain (via rustup so we get a recent stable)
+    curl \
+    # Build tools (needed for pip packages with C extensions and cargo crates)
+    build-essential \
+    pkg-config \
+    cmake \
+    # Common C libraries that ctypes specs link against
+    zlib1g-dev \
+    libssl-dev \
+    libffi-dev \
+    libsqlite3-dev \
+    libbz2-dev \
+    liblzma-dev \
+    libreadline-dev \
+    libncurses5-dev \
+    libexpat1-dev \
+    libgdbm-dev \
+    libuuid1 \
+    uuid-dev \
+    # Networking / CLI tools referenced by cli-backend specs
+    ca-certificates \
+    wget \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Rust stable via rustup ─────────────────────────────────────────────────────
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable \
+    && rustup component add rustfmt clippy 2>/dev/null || true
+
+# ── Verify runtimes are present ────────────────────────────────────────────────
+RUN python3 --version && node --version && npm --version && rustc --version && cargo --version
+
+WORKDIR /theseus

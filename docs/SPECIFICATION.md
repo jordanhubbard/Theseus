@@ -282,7 +282,7 @@ make compile-zsdl ZSDL=zspecs/zlib.zspec.zsdl   # one spec
 
 ### 5.3 Verification Harness (`tools/verify_behavior.py`)
 
-**Input:** A compiled `.zspec.json` file; the library it describes must be installed on the host (or in an active venv — see `verify_in_venv.py`)
+**Input:** A compiled `.zspec.json` file; the library it describes must be installed (use `make verify-behavior-docker` for on-demand installation without polluting the host)
 **Output:** PASS/FAIL per invariant; aggregate count  
 **Guarantees:**
 - Loads the library using the backend specified in the spec
@@ -299,19 +299,28 @@ make verify-behavior ZSPEC=_build/zspecs/hashlib.zspec.json FILTER=sha256 VERBOS
 make verify-all-specs          # runs all; prints aggregate
 ```
 
-### 5.4 Isolated Verification (`tools/verify_in_venv.py`)
+### 5.4 Docker Verification Sandbox (`tools/verify_in_docker.py`)
 
-**Purpose:** Run verification inside a throwaway virtual environment so the target library does not need to be permanently installed.
+**Purpose:** Run verification inside a disposable Ubuntu 26.04 container so packages are never installed on the host machine. Required for all backend types that need external installation: `python_module` (pip), `ctypes` (apt), `node_module` (npm), `rust_module` (cargo), and `cli` (apt).
 
-**Steps:** compile spec → create temp venv → `pip install` packages → run `verify_behavior.py` → delete venv.
+**Image:** `docker/Dockerfile.verify` — Ubuntu 26.04 with Python 3, Node.js, Rust/cargo, and common C dev libraries pre-installed. Built once with `make docker-build`; reused for all subsequent verifications.
 
-**Scope:** Python packages only. `ctypes` specs require a system-level native library; CLI specs require the tool in PATH. Neither can be satisfied by a venv.
+**Steps:** compile spec → build/reuse image → start container (repo mounted at `/theseus`) → install requested packages → run `verify_behavior.py` → remove container.
+
+**Guarantees:**
+- No packages installed on the host
+- All backend types supported via `--pip`, `--apt`, `--npm`, `--cargo` flags
+- Container is removed after each run (unless `--keep` is passed)
+- The same compiled spec and verify tool are used as in direct `make verify-behavior`
 
 **Invocation:**
 ```bash
-make verify-behavior-isolated ZSDL=zspecs/requests_utils_rust.zspec.zsdl PACKAGES=requests
-make verify-behavior-isolated ZSDL=zspecs/pydantic_rust.zspec.zsdl PACKAGES="pydantic>=2"
-make verify-behavior-isolated ZSDL=zspecs/json.zspec.zsdl    # stdlib: no install needed
+make docker-build                                                    # one-time image build
+make verify-behavior-docker ZSDL=zspecs/zlib.zspec.zsdl            # stdlib (no packages)
+make verify-behavior-docker ZSDL=zspecs/requests.zspec.zsdl PIP=requests
+make verify-behavior-docker ZSDL=zspecs/zlib_ctypes.zspec.zsdl APT=zlib1g-dev
+make verify-behavior-docker ZSDL=zspecs/chalk.zspec.zsdl NPM=chalk
+make verify-behavior-docker ZSDL=zspecs/serde_json_rust.zspec.zsdl CARGO=serde_json
 ```
 
 ### 5.6 Search Tool (`tools/search_specs.py`)
