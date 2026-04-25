@@ -354,6 +354,8 @@ KNOWN_KINDS = {
     "node_module_call_eq",
     "node_constructor_call_eq",
     "node_factory_call_eq",
+    "node_chain_eq",
+    "node_property_eq",
     # lz4-specific ctypes roundtrip
     "lz4_roundtrip",
     # pcre2-specific ctypes compile+match
@@ -424,6 +426,8 @@ class PatternRegistry:
             "node_module_call_eq":            self._node_module_call_eq,
             "node_constructor_call_eq":       self._node_constructor_call_eq,
             "node_factory_call_eq":           self._node_factory_call_eq,
+            "node_chain_eq":                  self._node_chain_eq,
+            "node_property_eq":               self._node_property_eq,
             # lz4-specific ctypes roundtrip
             "lz4_roundtrip":                  self._lz4_roundtrip,
             # pcre2-specific ctypes compile+match
@@ -1427,6 +1431,123 @@ class PatternRegistry:
         if actual != expected_json:
             return False, f"{label}({method_args!r}) returned {actual!r}, expected {expected_json!r}"
         return True, f"{label}({method_args!r}) == {expected!r}"
+
+    # --- node_chain_eq ---
+    # Builds an arbitrary call/property chain off an initial value (module call,
+    # named function call, constructor, or factory call) and compares the
+    # JSON-stringified terminal value against expected. Each chain step is one
+    # of: {method, args} (call a method), {get} (read a property), or {call}
+    # (invoke the current value as a function).
+    #
+    # spec fields:
+    #   entry        — "module" | "named" | "constructor" | "factory" (default "module")
+    #   class        — for entry="constructor": class name on the module (default "default")
+    #   factory      — for entry="factory": factory name on the module (required)
+    #   function     — for entry="named": function name on the module (required)
+    #   entry_args   — args for the initial call/construction (default [])
+    #   chain        — list of step dicts; each step is one of:
+    #                    {method: "name", args: [...]}  → v = v.name(...args)
+    #                    {get: "name"}                  → v = v.name
+    #                    {call: [...]}                  → v = v(...args)
+    #   expected     — expected final value
+    def _node_chain_eq(self, spec: dict) -> tuple[bool, str]:
+        module     = spec.get("module") or getattr(self._lib, "module_name", None)
+        entry      = spec.get("entry", "module")
+        entry_args = spec.get("entry_args", [])
+        chain      = spec.get("chain", [])
+        expected   = spec["expected"]
+
+        entry_args_js = json.dumps(entry_args)
+
+        # Compose a JS expression that navigates a possibly-dotted name from m.
+        # Supports nested ESM defaults like "default.Separator".
+        def _path_expr(name: str) -> str:
+            parts = name.split(".")
+            return "m" + "".join(f"[{json.dumps(p)}]" for p in parts)
+
+        if entry == "module":
+            init_expr = f"m(...{entry_args_js})"
+            label_init = "<module>()"
+        elif entry == "named":
+            fn = spec["function"]
+            init_expr = f"{_path_expr(fn)}(...{entry_args_js})"
+            label_init = f"{fn}()"
+        elif entry == "constructor":
+            cls = spec.get("class", "default")
+            init_expr = f"new ({_path_expr(cls)})(...{entry_args_js})"
+            label_init = f"new {cls}()"
+        elif entry == "factory":
+            fac = spec["factory"]
+            init_expr = f"{_path_expr(fac)}(...{entry_args_js})"
+            label_init = f"{fac}()"
+        else:
+            return False, f"node_chain_eq: unknown entry mode {entry!r}"
+
+        steps_js = []
+        label_chain = []
+        for i, step in enumerate(chain):
+            if "method" in step:
+                m_name = step["method"]
+                m_args = step.get("args", [])
+                steps_js.append(f"v = v[{json.dumps(m_name)}](...{json.dumps(m_args)});")
+                label_chain.append(f".{m_name}({m_args!r})")
+            elif "get" in step:
+                g_name = step["get"]
+                steps_js.append(f"v = v[{json.dumps(g_name)}];")
+                label_chain.append(f".{g_name}")
+            elif "call" in step:
+                c_args = step["call"]
+                steps_js.append(f"v = v(...{json.dumps(c_args)});")
+                label_chain.append(f"({c_args!r})")
+            else:
+                return False, f"node_chain_eq: chain step {i} must have method/get/call key, got {step!r}"
+
+        chain_body = f"let v = {init_expr};" + "".join(steps_js) + \
+                     "process.stdout.write(JSON.stringify(v));"
+
+        if getattr(self._lib, "esm", False):
+            script = (
+                f"(async()=>{{const m=await import({json.dumps(module)});"
+                f"{chain_body}}})();"
+            )
+        else:
+            script = f"const m=require({json.dumps(module)});{chain_body}"
+
+        cmd = [self._lib.command, "-e", script]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, timeout=spec.get("timeout", 10))
+        except subprocess.TimeoutExpired:
+            return False, "node timed out"
+        except Exception as exc:
+            return False, f"subprocess raised: {exc}"
+        if proc.returncode != 0:
+            stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+            return False, f"node exited {proc.returncode}: {stderr!r}"
+        actual        = proc.stdout.decode("utf-8", errors="replace").strip()
+        expected_json = json.dumps(expected, separators=(",", ":"), ensure_ascii=False)
+        label         = label_init + "".join(label_chain)
+        if actual != expected_json:
+            return False, f"{label} returned {actual!r}, expected {expected_json!r}"
+        return True, f"{label} == {expected!r}"
+
+    # --- node_property_eq ---
+    # Sugar form of node_chain_eq for the common case "construct/call something
+    # then read one property". Equivalent to a node_chain_eq with a single {get}
+    # step.
+    #
+    # spec fields:
+    #   entry        — "module" | "named" | "constructor" | "factory" (default "module")
+    #   class        — for entry="constructor": class name (default "default")
+    #   factory      — for entry="factory": factory name (required)
+    #   function     — for entry="named": function name (required)
+    #   entry_args   — args for the initial call/construction (default [])
+    #   property     — name of the property to read on the resulting value
+    #   expected     — expected property value
+    def _node_property_eq(self, spec: dict) -> tuple[bool, str]:
+        return self._node_chain_eq({
+            **spec,
+            "chain": [{"get": spec["property"]}],
+        })
 
 
 # ---------------------------------------------------------------------------

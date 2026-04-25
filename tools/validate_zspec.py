@@ -60,6 +60,8 @@ KNOWN_KINDS = {
     "node_module_call_eq",
     "node_constructor_call_eq",
     "node_factory_call_eq",
+    "node_chain_eq",
+    "node_property_eq",
     "lz4_roundtrip",
     "pcre2_match",
 }
