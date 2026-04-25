@@ -1,0 +1,101 @@
+spec: handlebars
+version: ">=4.7.0"
+backend: node(handlebars)
+
+docs: https://handlebarsjs.com/api-reference/
+
+provenance:
+  derived_from:
+    - "Handlebars API reference — https://handlebarsjs.com/api-reference/"
+    - "Test vectors verified with handlebars via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "handlebars source"
+  notes:
+    - "handlebars is an npm package. Install: npm install handlebars"
+    - "Usage: const tmpl = Handlebars.compile(source); tmpl(context) -> rendered string."
+    - "Handlebars.compile() returns a function — invoke it via node_chain_eq's {call} step."
+    - "Handlebars HTML-escapes {{x}} by default. Use {{{x}}} (triple-stash) for raw insertion."
+    - "Handlebars.escapeExpression(str) is a static helper that HTML-escapes &, <, >, \", ', `."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "compile() returns a template function; invoking it returns a rendered string."
+  stderr: "null"
+  stickiness: "N/A — each compile() call is independent."
+  codes: {}
+
+# ── compile(source)(context) — invoke compiled template ─────────────────────
+
+table handlebars.render:
+  kind: node_chain_eq
+  category: render
+  entry: named
+  function: compile
+  id_prefix: render
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [simple_substitution,
+       ["Hello {{name}}"],
+       [{call: [{name: "World"}]}],
+       "Hello World"]
+
+    - [multiple_vars,
+       ["{{x}} and {{y}}"],
+       [{call: [{x: 1, y: 2}]}],
+       "1 and 2"]
+
+    - [no_variables,
+       ["No vars here"],
+       [{call: [{}]}],
+       "No vars here"]
+
+    - [missing_variable_renders_empty,
+       ["Hello {{missing}}!"],
+       [{call: [{}]}],
+       "Hello !"]
+
+    - [nested_path,
+       ["{{x.y.z}}"],
+       [{call: [{x: {y: {z: "deep"}}}]}],
+       "deep"]
+
+    - [if_block_truthy,
+       ["{{#if x}}YES{{/if}}"],
+       [{call: [{x: true}]}],
+       "YES"]
+
+    - [if_block_falsy,
+       ["{{#if x}}YES{{/if}}"],
+       [{call: [{x: false}]}],
+       ""]
+
+    - [each_block,
+       ["{{#each items}}{{this}},{{/each}}"],
+       [{call: [{items: ["a", "b", "c"]}]}],
+       "a,b,c,"]
+
+    - [html_escape_default,
+       ["{{x}}"],
+       [{call: [{x: "<script>"}]}],
+       "&lt;script&gt;"]
+
+    - [triple_stash_no_escape,
+       ["{{{x}}}"],
+       [{call: [{x: "<b>"}]}],
+       "<b>"]
+
+# ── Handlebars.escapeExpression — static helper ─────────────────────────────
+
+table handlebars.escape:
+  kind: node_module_call_eq
+  category: escape
+  function: escapeExpression
+  id_prefix: escape
+
+  columns: [id, args, expected]
+  rows:
+    - [angle_brackets,  ["<script>"],         "&lt;script&gt;"]
+    - [ampersand,       ["A & B"],            "A &amp; B"]
+    - [quote_chars,     ["\"hi\""],           "&quot;hi&quot;"]
+    - [no_special,      ["plain text"],       "plain text"]

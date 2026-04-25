@@ -1,0 +1,102 @@
+spec: moment
+version: ">=2.29.0"
+backend: node(moment)
+
+docs: https://momentjs.com/docs/
+
+provenance:
+  derived_from:
+    - "moment.js documentation — https://momentjs.com/docs/"
+    - "Test vectors verified with moment via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "moment source"
+  notes:
+    - "moment is an npm package. Install: npm install moment"
+    - "All invariants use moment.utc(...) to avoid local-timezone drift; `moment(s)` parses in local time and is not deterministic across hosts."
+    - "moment.duration(n, unit).asMinutes() etc. is reachable via node_factory_call_eq with factory='duration'."
+    - "Multi-step chains like moment.utc(s).add(n,unit).format(fmt) use node_chain_eq."
+    - "moment is in maintenance mode but remains the #9 most-depended-upon npm package."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "moment(...) returns a Moment instance; method calls return strings, numbers, or new Moments."
+  stderr: "null"
+  stickiness: "N/A — each moment(...) creates an independent instance."
+  codes: {}
+
+# ── m.utc(input).format(fmt) — factory + method ─────────────────────────────
+
+table moment.format:
+  kind: node_factory_call_eq
+  category: format
+  factory: utc
+  method: format
+  id_prefix: format
+
+  columns: [id, factory_args, method_args, expected]
+  rows:
+    - [iso_date,         ["2024-01-15"],         ["YYYY-MM-DD"], "2024-01-15"]
+    - [year_only,        ["2024-06-15T12:00:00Z"], ["YYYY"],     "2024"]
+    - [month_name,       ["2024-06-15T12:00:00Z"], ["MMMM"],     "June"]
+    - [day_short,        ["2024-06-15T12:00:00Z"], ["ddd"],      "Sat"]
+    - [iso_string,       ["2024-06-15T12:34:56Z"], ["HH:mm:ss"], "12:34:56"]
+
+# ── m.utc(input).method(...) — single-method calls returning numbers/bools ──
+
+table moment.scalar_methods:
+  kind: node_factory_call_eq
+  category: scalar
+  factory: utc
+  id_prefix: scalar
+
+  columns: [id, factory_args, method, method_args, expected]
+  rows:
+    - [days_in_june,     ["2024-06-15T12:00:00Z"], daysInMonth, [], 30]
+    - [iso_weekday_sat,  ["2024-06-15T12:00:00Z"], isoWeekday,  [], 6]
+    - [is_leap_year,     ["2024-02-29"],           isLeapYear,  [], true]
+    - [day_of_year,      ["2024-12-31"],           dayOfYear,   [], 366]
+    - [iso_string_epoch, [0],                       toISOString, [], "1970-01-01T00:00:00.000Z"]
+
+# ── m.utc(input).add(n, unit).format(fmt) — 3-step chain ────────────────────
+
+table moment.chain:
+  kind: node_chain_eq
+  category: chain
+  entry: named
+  function: utc
+  id_prefix: chain
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [add_one_day,
+       ["2024-06-15T12:00:00Z"],
+       [{method: add, args: [1, "day"]},
+        {method: format, args: ["YYYY-MM-DD"]}],
+       "2024-06-16"]
+
+    - [subtract_one_month,
+       ["2024-06-15T12:00:00Z"],
+       [{method: subtract, args: [1, "month"]},
+        {method: format, args: ["YYYY-MM"]}],
+       "2024-05"]
+
+    - [start_of_month,
+       ["2024-06-15T12:00:00Z"],
+       [{method: startOf, args: ["month"]},
+        {method: format, args: ["YYYY-MM-DD"]}],
+       "2024-06-01"]
+
+# ── moment.duration(n, unit).asXxx() — separate factory ─────────────────────
+
+table moment.duration:
+  kind: node_factory_call_eq
+  category: duration
+  factory: duration
+  id_prefix: duration
+
+  columns: [id, factory_args, method, method_args, expected]
+  rows:
+    - [hours_to_minutes,  [2,    "hours"],   asMinutes, [], 120]
+    - [days_to_hours,     [1,    "day"],     asHours,   [], 24]
+    - [minutes_to_seconds,[5,    "minutes"], asSeconds, [], 300]
+    - [milliseconds,      [1500, "ms"],      asSeconds, [], 1.5]

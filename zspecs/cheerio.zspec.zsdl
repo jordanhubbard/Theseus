@@ -1,0 +1,115 @@
+spec: cheerio
+version: ">=1.0.0"
+backend: node(cheerio)
+
+docs: https://cheerio.js.org/
+
+provenance:
+  derived_from:
+    - "cheerio documentation — https://cheerio.js.org/"
+    - "Test vectors verified with cheerio via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "cheerio source"
+  notes:
+    - "cheerio is an npm package. Install: npm install cheerio"
+    - "Usage: const $ = cheerio.load(html); $('selector').method()"
+    - "cheerio.load(html) returns a function-with-properties — calling it as $(selector) yields a Cheerio collection on which jQuery-like methods (.text(), .html(), .attr(), .first(), etc.) operate."
+    - "All invariants are offline-safe: pure HTML string parsing with no DOM/window."
+    - "node_chain_eq is required: load(html) returns a function; calling it with a selector is a {call} step; reading .text()/.attr() is a {method} step."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Returns a Cheerio collection; .text(), .html(), .attr() return strings; .length is the count."
+  stderr: "null"
+  stickiness: "N/A — each cheerio.load() call is independent."
+  codes: {}
+
+# ── load(html)(selector).text() — common case ───────────────────────────────
+
+table cheerio.text:
+  kind: node_chain_eq
+  category: text
+  entry: named
+  function: load
+  id_prefix: text
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [single_p,
+       ["<p>hello</p>"],
+       [{call: ["p"]},
+        {method: text, args: []}],
+       "hello"]
+
+    - [multiple_p_concatenated,
+       ["<p>hello</p><p>world</p>"],
+       [{call: ["p"]},
+        {method: text, args: []}],
+       "helloworld"]
+
+    - [first_only,
+       ["<p>hello</p><p>world</p>"],
+       [{call: ["p"]},
+        {method: first, args: []},
+        {method: text, args: []}],
+       "hello"]
+
+    - [last_only,
+       ["<p>hello</p><p>world</p>"],
+       [{call: ["p"]},
+        {method: last, args: []},
+        {method: text, args: []}],
+       "world"]
+
+    - [class_selector,
+       ["<p class=\"a\">A</p><p class=\"b\">B</p>"],
+       [{call: [".a"]},
+        {method: text, args: []}],
+       "A"]
+
+    - [id_selector,
+       ["<div id=\"x\">found</div>"],
+       [{call: ["#x"]},
+        {method: text, args: []}],
+       "found"]
+
+# ── attr() / html() / length ────────────────────────────────────────────────
+
+table cheerio.attr:
+  kind: node_chain_eq
+  category: attr
+  entry: named
+  function: load
+  id_prefix: attr
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [class_attr,
+       ["<p class=\"hello\">hi</p>"],
+       [{call: ["p"]},
+        {method: attr, args: ["class"]}],
+       "hello"]
+
+    - [href_attr,
+       ["<a href=\"https://example.com\">link</a>"],
+       [{call: ["a"]},
+        {method: attr, args: ["href"]}],
+       "https://example.com"]
+
+    - [inner_html,
+       ["<p>before <b>bold</b> after</p>"],
+       [{call: ["p"]},
+        {method: html, args: []}],
+       "before <b>bold</b> after"]
+
+    - [length_count,
+       ["<p>1</p><p>2</p><p>3</p>"],
+       [{call: ["p"]},
+        {get: length}],
+       3]
+
+    - [length_zero,
+       ["<p>only</p>"],
+       [{call: ["span"]},
+        {get: length}],
+       0]
