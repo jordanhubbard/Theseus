@@ -1,0 +1,106 @@
+spec: joi
+version: ">=17.0.0"
+backend: node(joi)
+
+docs: https://joi.dev/api/
+
+provenance:
+  derived_from:
+    - "Joi API reference — https://joi.dev/api/"
+    - "Test vectors verified with joi via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "joi source"
+  notes:
+    - "Joi is the classic JS schema validator (#131 most-depended-upon npm package)."
+    - "Install: npm install joi"
+    - "Usage: Joi.string().min(3).validate('hello') -> {value, error, warning}."
+    - "We test the .value field on valid inputs; error-shape testing requires deeper introspection than equality comparison supports."
+    - "Joi.string()/number()/boolean()/array() return chainable Joi schemas."
+    - "Joi rejects non-matching primitives by default (e.g. Joi.string().validate(42).error is set)."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "validate() returns {value, error, warning}; never throws on type mismatch (error is set instead)."
+  stderr: "null"
+  stickiness: "N/A — each schema/validate call is independent."
+  codes: {}
+
+# ── Primitive .validate(input).value — value extraction on valid input ──────
+
+table joi.validate_value:
+  kind: node_chain_eq
+  category: validate_value
+  entry: named
+  id_prefix: value
+
+  columns: [id, function, entry_args, chain, expected]
+  rows:
+    - [string_passthrough,
+       string, [],
+       [{method: validate, args: ["hello"]}, {get: value}],
+       "hello"]
+
+    - [number_passthrough,
+       number, [],
+       [{method: validate, args: [42]}, {get: value}],
+       42]
+
+    - [boolean_true,
+       boolean, [],
+       [{method: validate, args: [true]}, {get: value}],
+       true]
+
+    - [boolean_false,
+       boolean, [],
+       [{method: validate, args: [false]}, {get: value}],
+       false]
+
+# ── Chained refinements (.min/.max) on .validate(input).value ───────────────
+
+table joi.string_refinements:
+  kind: node_chain_eq
+  category: string_refinements
+  entry: named
+  function: string
+  entry_args: []
+  id_prefix: string
+
+  columns: [id, chain, expected]
+  rows:
+    - [min_three_ok,
+       [{method: min, args: [3]}, {method: validate, args: ["hello"]}, {get: value}],
+       "hello"]
+
+    - [max_ten_ok,
+       [{method: max, args: [10]}, {method: validate, args: ["hello"]}, {get: value}],
+       "hello"]
+
+    - [chained_min_max,
+       [{method: min, args: [3]}, {method: max, args: [10]}, {method: validate, args: ["hello"]}, {get: value}],
+       "hello"]
+
+table joi.number_refinements:
+  kind: node_chain_eq
+  category: number_refinements
+  entry: named
+  function: number
+  entry_args: []
+  id_prefix: number
+
+  columns: [id, chain, expected]
+  rows:
+    - [integer_ok,
+       [{method: integer, args: []}, {method: validate, args: [42]}, {get: value}],
+       42]
+
+    - [min_zero_ok,
+       [{method: min, args: [0]}, {method: validate, args: [5]}, {get: value}],
+       5]
+
+    - [max_ten_ok,
+       [{method: max, args: [10]}, {method: validate, args: [5]}, {get: value}],
+       5]
+
+    - [positive_ok,
+       [{method: positive, args: []}, {method: validate, args: [1]}, {get: value}],
+       1]

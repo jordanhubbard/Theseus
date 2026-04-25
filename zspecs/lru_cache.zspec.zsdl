@@ -1,0 +1,152 @@
+spec: lru_cache
+version: ">=11.0.0"
+backend: node(lru-cache)
+
+docs: https://github.com/isaacs/node-lru-cache#readme
+
+provenance:
+  derived_from:
+    - "lru-cache README — https://github.com/isaacs/node-lru-cache#readme"
+    - "Test vectors verified with lru-cache via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "lru-cache source"
+  notes:
+    - "lru-cache is the canonical LRU/TTL cache used across the Node ecosystem."
+    - "Install: npm install lru-cache"
+    - "Usage: const { LRUCache } = require('lru-cache'); new LRUCache({max: N}).set(k, v).get(k)"
+    - ".set() returns the cache instance (chainable); .get() returns the value or undefined."
+    - "Spec name uses underscore (lru_cache) per ZSDL convention; the npm package is lru-cache."
+    - "These invariants exercise node_chain_eq's set→get pattern in a single chain off a single LRU instance."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Cache operations never throw; misses return undefined."
+  stderr: "null"
+  stickiness: "Each invariant constructs a fresh LRUCache; entries do not persist between invariants."
+  codes: {}
+
+# ── set(k,v).get(k) — round-trip a single value ─────────────────────────────
+
+table lru_cache.set_get:
+  kind: node_chain_eq
+  category: set_get
+  entry: constructor
+  class: LRUCache
+  entry_args: [{max: 5}]
+  id_prefix: setget
+
+  columns: [id, chain, expected]
+  rows:
+    - [string_value,
+       [{method: set, args: ["k", "v"]},
+        {method: get, args: ["k"]}],
+       "v"]
+
+    - [number_value,
+       [{method: set, args: ["count", 42]},
+        {method: get, args: ["count"]}],
+       42]
+
+    - [object_value,
+       [{method: set, args: ["obj", {a: 1, b: 2}]},
+        {method: get, args: ["obj"]}],
+       {a: 1, b: 2}]
+
+    - [array_value,
+       [{method: set, args: ["arr", [1, 2, 3]]},
+        {method: get, args: ["arr"]}],
+       [1, 2, 3]]
+
+    - [overwrite_returns_new,
+       [{method: set, args: ["k", "first"]},
+        {method: set, args: ["k", "second"]},
+        {method: get, args: ["k"]}],
+       "second"]
+
+# ── has() and miss behaviour ────────────────────────────────────────────────
+
+table lru_cache.has:
+  kind: node_chain_eq
+  category: has
+  entry: constructor
+  class: LRUCache
+  entry_args: [{max: 5}]
+  id_prefix: has
+
+  columns: [id, chain, expected]
+  rows:
+    - [present_after_set,
+       [{method: set, args: ["a", 1]},
+        {method: has, args: ["a"]}],
+       true]
+
+    - [absent_returns_false,
+       [{method: has, args: ["never_set"]}],
+       false]
+
+    - [absent_after_only_other_keys,
+       [{method: set, args: ["a", 1]},
+        {method: has, args: ["b"]}],
+       false]
+
+# ── size property after inserts ─────────────────────────────────────────────
+
+table lru_cache.size:
+  kind: node_chain_eq
+  category: size
+  entry: constructor
+  class: LRUCache
+  entry_args: [{max: 10}]
+  id_prefix: size
+
+  columns: [id, chain, expected]
+  rows:
+    - [zero_when_empty,
+       [{get: size}],
+       0]
+
+    - [one_after_one_set,
+       [{method: set, args: ["a", 1]},
+        {get: size}],
+       1]
+
+    - [three_after_three_sets,
+       [{method: set, args: ["a", 1]},
+        {method: set, args: ["b", 2]},
+        {method: set, args: ["c", 3]},
+        {get: size}],
+       3]
+
+    - [unchanged_on_overwrite,
+       [{method: set, args: ["a", 1]},
+        {method: set, args: ["a", 2]},
+        {get: size}],
+       1]
+
+# ── eviction: max=2 keeps only the last two items ───────────────────────────
+
+invariant lru_cache.eviction_max_two:
+  kind: node_chain_eq
+  category: eviction
+  entry: constructor
+  class: LRUCache
+  entry_args: [{max: 2}]
+  chain:
+    - {method: set, args: ["a", 1]}
+    - {method: set, args: ["b", 2]}
+    - {method: set, args: ["c", 3]}
+    - {method: has, args: ["a"]}
+  expected: false
+
+invariant lru_cache.eviction_keeps_recent:
+  kind: node_chain_eq
+  category: eviction
+  entry: constructor
+  class: LRUCache
+  entry_args: [{max: 2}]
+  chain:
+    - {method: set, args: ["a", 1]}
+    - {method: set, args: ["b", 2]}
+    - {method: set, args: ["c", 3]}
+    - {method: get, args: ["c"]}
+  expected: 3

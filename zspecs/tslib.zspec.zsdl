@@ -1,0 +1,75 @@
+spec: tslib
+version: ">=2.6.0"
+backend: node(tslib)
+
+docs: https://github.com/microsoft/tslib#readme
+
+provenance:
+  derived_from:
+    - "tslib README — https://github.com/microsoft/tslib#readme"
+    - "TypeScript emit helpers documentation — https://www.typescriptlang.org/tsconfig#importHelpers"
+    - "Test vectors verified with tslib via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "tslib source"
+  notes:
+    - "tslib is the TypeScript runtime helper library — #16 most-depended-upon npm package."
+    - "It exports the helper functions that the TS compiler injects when `importHelpers: true` is set."
+    - "Install: npm install tslib"
+    - "All helpers are pure functions; we test the value-shape ones (__assign, __rest, __spreadArray, __values)."
+    - "Decorator helpers (__decorate, __param, __metadata, __esDecorate) and async helpers (__awaiter, __generator, __await) require runtime contexts not easily JSON-serialized; they are out of scope for this spec."
+    - "__values returns an iterator; we exercise it via the chain-then-Array.from pattern using node_chain_eq isn't currently testable without a custom kind, so __values is omitted here."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Helpers are pure functions with no side effects."
+  stderr: "null"
+  stickiness: "N/A — each call is independent."
+  codes: {}
+
+# ── __assign(target, ...sources) — like Object.assign ───────────────────────
+
+table tslib.assign:
+  kind: node_module_call_eq
+  category: assign
+  function: __assign
+  id_prefix: assign
+
+  columns: [id, args, expected]
+  rows:
+    - [two_objects,    [{a: 1}, {b: 2}],                {a: 1, b: 2}]
+    - [three_objects,  [{a: 1}, {b: 2}, {c: 3}],        {a: 1, b: 2, c: 3}]
+    - [overwrite,      [{a: 1}, {a: 2}],                {a: 2}]
+    - [empty_target,   [{}, {a: 1}],                     {a: 1}]
+    - [empty_source,   [{a: 1}, {}],                     {a: 1}]
+
+# ── __rest(source, excluded_keys) — destructuring rest ──────────────────────
+
+table tslib.rest:
+  kind: node_module_call_eq
+  category: rest
+  function: __rest
+  id_prefix: rest
+
+  columns: [id, args, expected]
+  rows:
+    - [exclude_one,    [{a: 1, b: 2, c: 3}, ["a"]],            {b: 2, c: 3}]
+    - [exclude_two,    [{a: 1, b: 2, c: 3}, ["a", "b"]],       {c: 3}]
+    - [exclude_none,   [{a: 1, b: 2}, []],                      {a: 1, b: 2}]
+    - [exclude_all,    [{a: 1, b: 2}, ["a", "b"]],              {}]
+    - [missing_key_ok, [{a: 1}, ["nonexistent"]],               {a: 1}]
+
+# ── __spreadArray(to, from, pack) — array spread helper ─────────────────────
+
+table tslib.spread_array:
+  kind: node_module_call_eq
+  category: spread
+  function: __spreadArray
+  id_prefix: spread
+
+  columns: [id, args, expected]
+  rows:
+    - [concat_two,     [[1, 2], [3, 4], false],          [1, 2, 3, 4]]
+    - [empty_to,       [[],     [1, 2], false],          [1, 2]]
+    - [empty_from,     [[1, 2], [],     false],          [1, 2]]
+    - [pack_true,      [[1, 2], [3, 4], true],           [1, 2, 3, 4]]
+    - [strings,        [["a"],  ["b", "c"], false],      ["a", "b", "c"]]

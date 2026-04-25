@@ -1,0 +1,178 @@
+spec: zod
+version: ">=4.0.0"
+backend: node(zod)
+
+docs: https://zod.dev/
+
+provenance:
+  derived_from:
+    - "zod documentation — https://zod.dev/"
+    - "Test vectors verified with zod via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "zod source"
+  notes:
+    - "zod is a TypeScript-first schema validator widely used across the TS ecosystem."
+    - "Install: npm install zod"
+    - "Usage: z.string().parse('hello') -> 'hello'; throws ZodError if invalid."
+    - "z.string()/z.number()/z.boolean() are top-level factory exports that return chainable schema objects."
+    - "Schemas that take other schemas as args (z.array(z.number()), z.object({...})) cannot be tested via JSON-only spec args; we exercise the primitive-validator subset here."
+    - "safeParse returns {success: bool, data?, error?}; we check success-flag only."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "parse() returns the validated value or throws ZodError. safeParse() returns a discriminated union {success, data|error}."
+  stderr: "null"
+  stickiness: "N/A — schemas are immutable once built."
+  codes: {}
+
+# ── z.string()/z.number()/z.boolean().parse(input) — primitive validators ───
+
+table zod.parse_primitives:
+  kind: node_chain_eq
+  category: primitives
+  entry: named
+  id_prefix: parse
+
+  columns: [id, function, entry_args, chain, expected]
+  rows:
+    - [string_ok,
+       string,
+       [],
+       [{method: parse, args: ["hello"]}],
+       "hello"]
+
+    - [number_ok,
+       number,
+       [],
+       [{method: parse, args: [42]}],
+       42]
+
+    - [boolean_true,
+       boolean,
+       [],
+       [{method: parse, args: [true]}],
+       true]
+
+    - [boolean_false,
+       boolean,
+       [],
+       [{method: parse, args: [false]}],
+       false]
+
+# ── chained refinements: .min/.max/.length on string ────────────────────────
+
+table zod.parse_string_refinements:
+  kind: node_chain_eq
+  category: string_refinements
+  entry: named
+  function: string
+  entry_args: []
+  id_prefix: string
+
+  columns: [id, chain, expected]
+  rows:
+    - [min_length_ok,
+       [{method: min, args: [3]}, {method: parse, args: ["abc"]}],
+       "abc"]
+
+    - [min_length_longer_ok,
+       [{method: min, args: [3]}, {method: parse, args: ["abcdef"]}],
+       "abcdef"]
+
+    - [max_length_ok,
+       [{method: max, args: [5]}, {method: parse, args: ["abc"]}],
+       "abc"]
+
+    - [length_exact_ok,
+       [{method: length, args: [3]}, {method: parse, args: ["abc"]}],
+       "abc"]
+
+# ── chained refinements: .min/.max/.int on number ───────────────────────────
+
+table zod.parse_number_refinements:
+  kind: node_chain_eq
+  category: number_refinements
+  entry: named
+  function: number
+  entry_args: []
+  id_prefix: number
+
+  columns: [id, chain, expected]
+  rows:
+    - [min_zero_ok,
+       [{method: min, args: [0]}, {method: parse, args: [5]}],
+       5]
+
+    - [max_ten_ok,
+       [{method: max, args: [10]}, {method: parse, args: [5]}],
+       5]
+
+    - [int_zero,
+       [{method: int, args: []}, {method: parse, args: [0]}],
+       0]
+
+    - [chained_min_max,
+       [{method: min, args: [0]}, {method: max, args: [100]}, {method: parse, args: [50]}],
+       50]
+
+# ── safeParse — success flag only ───────────────────────────────────────────
+
+table zod.safe_parse_success:
+  kind: node_chain_eq
+  category: safe_parse
+  entry: named
+  id_prefix: safe
+
+  columns: [id, function, chain, expected]
+  rows:
+    - [string_valid,
+       string,
+       [{method: safeParse, args: ["hello"]}, {get: success}],
+       true]
+
+    - [string_invalid,
+       string,
+       [{method: safeParse, args: [42]}, {get: success}],
+       false]
+
+    - [number_valid,
+       number,
+       [{method: safeParse, args: [3.14]}, {get: success}],
+       true]
+
+    - [number_invalid_string,
+       number,
+       [{method: safeParse, args: ["nope"]}, {get: success}],
+       false]
+
+# ── literal / enum — fixed-value schemas ────────────────────────────────────
+
+invariant zod.literal_match:
+  kind: node_chain_eq
+  category: literal
+  entry: named
+  function: literal
+  entry_args: ["FOO"]
+  chain:
+    - {method: parse, args: ["FOO"]}
+  expected: "FOO"
+
+invariant zod.enum_first_value:
+  kind: node_chain_eq
+  category: enum
+  entry: named
+  function: enum
+  entry_args: [["a", "b", "c"]]
+  chain:
+    - {method: parse, args: ["a"]}
+  expected: "a"
+
+invariant zod.enum_middle_value:
+  kind: node_chain_eq
+  category: enum
+  entry: named
+  function: enum
+  entry_args: [["a", "b", "c"]]
+  chain:
+    - {method: parse, args: ["b"]}
+  expected: "b"
