@@ -233,6 +233,172 @@ class TestDottedPathInEsmDefault:
 
 
 # ---------------------------------------------------------------------------
+# node_sandbox_chain_eq — runs the chain in a tmp-dir cwd with seeded files
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(not _have_module("glob"), reason="glob not installed")
+class TestNodeSandboxChainEqGlob:
+    """The headline use case: file-globbing in an isolated sandbox seeded with
+    known files. glob.globSync() returns unsorted matches; we always .sort()
+    in the chain to make the comparison order-independent."""
+
+    def test_simple_top_level_glob(self):
+        reg = _registry("glob")
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "named",
+            "function": "globSync",
+            "entry_args": ["*.txt"],
+            "chain": [{"method": "sort", "args": []}],
+            "setup": [
+                {"path": "a.txt", "content": ""},
+                {"path": "b.txt", "content": ""},
+                {"path": "ignore.md", "content": ""},
+            ],
+            "expected": ["a.txt", "b.txt"],
+        }})
+        assert ok, msg
+
+    def test_recursive_glob(self):
+        reg = _registry("glob")
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "named",
+            "function": "globSync",
+            "entry_args": ["**/*.txt"],
+            "chain": [{"method": "sort", "args": []}],
+            "setup": [
+                {"path": "a.txt", "content": ""},
+                {"path": "sub/b.txt", "content": ""},
+                {"path": "sub/deep/c.txt", "content": ""},
+            ],
+            "expected": ["a.txt", "sub/b.txt", "sub/deep/c.txt"],
+        }})
+        assert ok, msg
+
+    def test_no_match_returns_empty(self):
+        reg = _registry("glob")
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "named",
+            "function": "globSync",
+            "entry_args": ["*.never_extension"],
+            "chain": [],
+            "setup": [{"path": "a.txt", "content": ""}],
+            "expected": [],
+        }})
+        assert ok, msg
+
+    def test_dir_setup_entry_creates_directory(self):
+        reg = _registry("glob")
+        # Empty directory setup; glob shouldn't pick it up with **/*.txt
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "named",
+            "function": "globSync",
+            "entry_args": ["**/*.txt"],
+            "chain": [{"method": "sort", "args": []}],
+            "setup": [
+                {"path": "empty_subdir", "dir": True},
+                {"path": "real.txt", "content": "hi"},
+            ],
+            "expected": ["real.txt"],
+        }})
+        assert ok, msg
+
+
+@pytest.mark.skipif(not _have_module("fs-extra"), reason="fs-extra not installed")
+class TestNodeSandboxChainEqFsExtra:
+    """fs-extra exposes sync helpers — pathExistsSync, readJsonSync, etc. —
+    that exercise the sandbox setup mechanism."""
+
+    def test_path_exists_after_setup(self):
+        reg = _registry("fs-extra")
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "named",
+            "function": "pathExistsSync",
+            "entry_args": ["target.txt"],
+            "chain": [],
+            "setup": [{"path": "target.txt", "content": "hello"}],
+            "expected": True,
+        }})
+        assert ok, msg
+
+    def test_path_exists_false_for_missing(self):
+        reg = _registry("fs-extra")
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "named",
+            "function": "pathExistsSync",
+            "entry_args": ["missing.txt"],
+            "chain": [],
+            "setup": [],
+            "expected": False,
+        }})
+        assert ok, msg
+
+    def test_read_file_sync(self):
+        reg = _registry("fs-extra")
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "named",
+            "function": "readFileSync",
+            "entry_args": ["data.txt", "utf-8"],
+            "chain": [],
+            "setup": [{"path": "data.txt", "content": "payload"}],
+            "expected": "payload",
+        }})
+        assert ok, msg
+
+
+# ---------------------------------------------------------------------------
+# node_sandbox_chain_eq — input validation
+# ---------------------------------------------------------------------------
+
+class TestNodeSandboxChainEqValidation:
+    def test_absolute_path_in_setup_rejected(self):
+        class _FakeLib:
+            command = "node"
+            module_name = "anything"
+            esm = False
+        reg = vb.PatternRegistry(_FakeLib(), {})
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "module",
+            "entry_args": [],
+            "chain": [],
+            "setup": [{"path": "/etc/passwd", "content": "evil"}],
+            "expected": None,
+        }})
+        assert not ok
+        assert "relative" in msg.lower() or "..'" in msg
+
+    def test_dotdot_path_in_setup_rejected(self):
+        class _FakeLib:
+            command = "node"
+            module_name = "anything"
+            esm = False
+        reg = vb.PatternRegistry(_FakeLib(), {})
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "module",
+            "entry_args": [],
+            "chain": [],
+            "setup": [{"path": "../escape", "content": "x"}],
+            "expected": None,
+        }})
+        assert not ok
+
+    def test_missing_path_field_rejected(self):
+        class _FakeLib:
+            command = "node"
+            module_name = "anything"
+            esm = False
+        reg = vb.PatternRegistry(_FakeLib(), {})
+        ok, msg = reg.run({"kind": "node_sandbox_chain_eq", "spec": {
+            "entry": "module",
+            "entry_args": [],
+            "chain": [],
+            "setup": [{"content": "no-path-field"}],
+            "expected": None,
+        }})
+        assert not ok
+        assert "path" in msg
+
+
+# ---------------------------------------------------------------------------
 # Validator recognizes the new kinds
 # ---------------------------------------------------------------------------
 
@@ -242,6 +408,7 @@ class TestValidatorAcceptsNewKinds:
         import validate_zspec as vz
         assert "node_chain_eq" in vz.KNOWN_KINDS
         assert "node_property_eq" in vz.KNOWN_KINDS
+        assert "node_sandbox_chain_eq" in vz.KNOWN_KINDS
 
     def test_pattern_registry_dispatches_chain(self):
         # Confirm the registry knows about the new kinds without needing node.
@@ -253,11 +420,31 @@ class TestValidatorAcceptsNewKinds:
         reg = vb.PatternRegistry(_FakeLib(), {})
         assert "node_chain_eq" in reg._handlers
         assert "node_property_eq" in reg._handlers
+        assert "node_sandbox_chain_eq" in reg._handlers
 
 
 # ---------------------------------------------------------------------------
 # Bad input — chain step without method/get/call should produce a useful error
 # ---------------------------------------------------------------------------
+
+class TestUndefinedReturnMapping:
+    """JS chains that legitimately return undefined (e.g. find-up miss,
+    mkdirp on already-existing path) must produce JSON null so the comparison
+    against YAML ~ works, instead of choking process.stdout.write."""
+
+    @pytest.mark.skipif(not _have_module("commander"), reason="commander not installed")
+    def test_undefined_property_compares_as_null(self):
+        # Reading a non-existent property returns JS undefined.
+        reg = _registry("commander")
+        ok, msg = reg.run({"kind": "node_property_eq", "spec": {
+            "entry": "constructor",
+            "class": "Command",
+            "entry_args": [],
+            "property": "definitelyNotARealField",
+            "expected": None,  # YAML ~ → Python None → JSON null
+        }})
+        assert ok, msg
+
 
 class TestNodeChainEqMalformed:
     def test_unknown_step_shape_returns_false(self):

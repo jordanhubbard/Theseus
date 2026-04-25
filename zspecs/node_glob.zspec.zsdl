@@ -1,0 +1,114 @@
+spec: node_glob
+version: ">=10.0.0"
+backend: node(glob)
+
+docs: https://github.com/isaacs/node-glob#readme
+
+provenance:
+  derived_from:
+    - "node-glob README — https://github.com/isaacs/node-glob#readme"
+    - "Test vectors verified with glob via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "glob source"
+  notes:
+    - "glob (npm) is the canonical file-pattern matcher for Node.js — #18 most-depended-upon."
+    - "Spec name prefixed 'node_' to disambiguate from Python's glob module spec at zspecs/glob.zspec.zsdl."
+    - "Install: npm install glob"
+    - "Usage: const {globSync, hasMagic, escape} = require('glob'); globSync(pattern, opts) -> string[]"
+    - "Filesystem operations run inside a per-invariant tempdir (node_sandbox_chain_eq) seeded by the spec's `setup`; the sandbox is removed after each run."
+    - "globSync's result order is not specified; we always chain .sort() for deterministic comparison."
+    - "hasMagic() and escape() are pure helpers — no fs needed; they use node_module_call_eq."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "globSync returns string[] (paths matching pattern, relative to cwd). hasMagic returns bool. escape returns string."
+  stderr: "null"
+  stickiness: "Each invariant runs in a fresh sandbox; no state leaks."
+  codes: {}
+
+# ── globSync — the headline API, in a sandbox ───────────────────────────────
+
+table node_glob.globSync:
+  kind: node_sandbox_chain_eq
+  category: globSync
+  entry: named
+  function: globSync
+  id_prefix: glob
+
+  columns: [id, entry_args, chain, setup, expected]
+  rows:
+    - [top_level_extension,
+       ["*.txt"],
+       [{method: sort, args: []}],
+       [{path: "a.txt", content: ""},
+        {path: "b.txt", content: ""},
+        {path: "c.md",  content: ""}],
+       ["a.txt", "b.txt"]]
+
+    - [recursive_glob,
+       ["**/*.txt"],
+       [{method: sort, args: []}],
+       [{path: "a.txt", content: ""},
+        {path: "sub/b.txt", content: ""},
+        {path: "sub/deep/c.txt", content: ""}],
+       ["a.txt", "sub/b.txt", "sub/deep/c.txt"]]
+
+    - [no_match_returns_empty,
+       ["*.never"],
+       [],
+       [{path: "a.txt", content: ""}],
+       []]
+
+    - [single_char_question_mark,
+       ["?.txt"],
+       [{method: sort, args: []}],
+       [{path: "a.txt", content: ""},
+        {path: "ab.txt", content: ""}],
+       ["a.txt"]]
+
+    - [character_class,
+       ["[ab].txt"],
+       [{method: sort, args: []}],
+       [{path: "a.txt", content: ""},
+        {path: "b.txt", content: ""},
+        {path: "c.txt", content: ""}],
+       ["a.txt", "b.txt"]]
+
+    - [empty_directory_excluded,
+       ["**/*.txt"],
+       [{method: sort, args: []}],
+       [{path: "empty_subdir", dir: true},
+        {path: "real.txt", content: ""}],
+       ["real.txt"]]
+
+# ── hasMagic — pure pattern predicate ───────────────────────────────────────
+
+table node_glob.hasMagic:
+  kind: node_module_call_eq
+  category: hasMagic
+  function: hasMagic
+  id_prefix: hasMagic
+
+  columns: [id, args, expected]
+  rows:
+    - [star,             ["*.txt"],           true]
+    - [globstar,         ["**/*.js"],         true]
+    - [question_mark,    ["a?.txt"],          true]
+    - [character_class,  ["[ab].txt"],        true]
+    - [no_magic,         ["plain.txt"],       false]
+    - [empty,            [""],                false]
+
+# ── escape — pure helper that escapes glob magic ────────────────────────────
+
+table node_glob.escape:
+  kind: node_module_call_eq
+  category: escape
+  function: escape
+  id_prefix: escape
+
+  columns: [id, args, expected]
+  rows:
+    - [star,         ["foo*"],         "foo\\*"]
+    - [bracket,      ["a[b]"],         "a\\[b\\]"]
+    - [no_magic,     ["plain.txt"],    "plain.txt"]
+    - [multiple,     ["a*b?c"],        "a\\*b\\?c"]

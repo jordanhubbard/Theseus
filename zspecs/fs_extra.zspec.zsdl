@@ -1,0 +1,113 @@
+spec: fs_extra
+version: ">=11.0.0"
+backend: node(fs-extra)
+
+docs: https://github.com/jprichardson/node-fs-extra#readme
+
+provenance:
+  derived_from:
+    - "fs-extra README — https://github.com/jprichardson/node-fs-extra#readme"
+    - "Test vectors verified with fs-extra via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "fs-extra source"
+  notes:
+    - "fs-extra is a drop-in superset of Node's fs module — #8 most-depended-upon npm package."
+    - "Install: npm install fs-extra"
+    - "Tests run inside a per-invariant tempdir sandbox seeded by the spec's `setup`."
+    - "We test the sync API: pathExistsSync, readFileSync, readJsonSync, writeJsonSync round-trips."
+    - "Async/Promise variants (copy, ensureDir, etc.) require await; covered by tests in the synthesis pipeline rather than this offline spec."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Sync helpers throw on missing files (covered separately); pathExistsSync never throws."
+  stderr: "null"
+  stickiness: "Each invariant runs in a fresh sandbox."
+  codes: {}
+
+# ── pathExistsSync — never throws ───────────────────────────────────────────
+
+table fs_extra.pathExistsSync:
+  kind: node_sandbox_chain_eq
+  category: pathExistsSync
+  entry: named
+  function: pathExistsSync
+  id_prefix: exists
+
+  columns: [id, entry_args, chain, setup, expected]
+  rows:
+    - [present_file,
+       ["target.txt"], [],
+       [{path: "target.txt", content: "x"}],
+       true]
+
+    - [absent_file,
+       ["nope.txt"], [],
+       [],
+       false]
+
+    - [present_directory,
+       ["sub"], [],
+       [{path: "sub", dir: true}],
+       true]
+
+    - [nested_path,
+       ["a/b/c.txt"], [],
+       [{path: "a/b/c.txt", content: ""}],
+       true]
+
+# ── readFileSync — basic text round-trip ────────────────────────────────────
+
+table fs_extra.readFileSync:
+  kind: node_sandbox_chain_eq
+  category: readFileSync
+  entry: named
+  function: readFileSync
+  id_prefix: read
+
+  columns: [id, entry_args, chain, setup, expected]
+  rows:
+    - [utf8_simple,
+       ["data.txt", "utf-8"], [],
+       [{path: "data.txt", content: "payload"}],
+       "payload"]
+
+    - [empty_file,
+       ["empty.txt", "utf-8"], [],
+       [{path: "empty.txt", content: ""}],
+       ""]
+
+    - [multiline,
+       ["multi.txt", "utf-8"], [],
+       [{path: "multi.txt", content: "line1\nline2\nline3"}],
+       "line1\nline2\nline3"]
+
+# ── readJsonSync — parses JSON files ────────────────────────────────────────
+
+table fs_extra.readJsonSync:
+  kind: node_sandbox_chain_eq
+  category: readJsonSync
+  entry: named
+  function: readJsonSync
+  id_prefix: readJson
+
+  columns: [id, entry_args, chain, setup, expected]
+  rows:
+    - [object,
+       ["data.json"], [],
+       [{path: "data.json", content: '{"a":1,"b":"two"}'}],
+       {a: 1, b: "two"}]
+
+    - [array,
+       ["arr.json"], [],
+       [{path: "arr.json", content: "[1,2,3]"}],
+       [1, 2, 3]]
+
+    - [nested,
+       ["nest.json"], [],
+       [{path: "nest.json", content: '{"x":{"y":[1,2]}}'}],
+       {x: {y: [1, 2]}}]
+
+    - [bool_value,
+       ["b.json"], [],
+       [{path: "b.json", content: "true"}],
+       true]

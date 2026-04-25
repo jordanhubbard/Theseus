@@ -62,6 +62,7 @@ KNOWN_KINDS = {
     "node_factory_call_eq",
     "node_chain_eq",
     "node_property_eq",
+    "node_sandbox_chain_eq",
     "lz4_roundtrip",
     "pcre2_match",
 }

@@ -28,6 +28,7 @@ import shutil
 import struct as _struct
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -356,6 +357,7 @@ KNOWN_KINDS = {
     "node_factory_call_eq",
     "node_chain_eq",
     "node_property_eq",
+    "node_sandbox_chain_eq",
     # lz4-specific ctypes roundtrip
     "lz4_roundtrip",
     # pcre2-specific ctypes compile+match
@@ -428,6 +430,7 @@ class PatternRegistry:
             "node_factory_call_eq":           self._node_factory_call_eq,
             "node_chain_eq":                  self._node_chain_eq,
             "node_property_eq":               self._node_property_eq,
+            "node_sandbox_chain_eq":          self._node_sandbox_chain_eq,
             # lz4-specific ctypes roundtrip
             "lz4_roundtrip":                  self._lz4_roundtrip,
             # pcre2-specific ctypes compile+match
@@ -1432,31 +1435,16 @@ class PatternRegistry:
             return False, f"{label}({method_args!r}) returned {actual!r}, expected {expected_json!r}"
         return True, f"{label}({method_args!r}) == {expected!r}"
 
-    # --- node_chain_eq ---
-    # Builds an arbitrary call/property chain off an initial value (module call,
-    # named function call, constructor, or factory call) and compares the
-    # JSON-stringified terminal value against expected. Each chain step is one
-    # of: {method, args} (call a method), {get} (read a property), or {call}
-    # (invoke the current value as a function).
-    #
-    # spec fields:
-    #   entry        — "module" | "named" | "constructor" | "factory" (default "module")
-    #   class        — for entry="constructor": class name on the module (default "default")
-    #   factory      — for entry="factory": factory name on the module (required)
-    #   function     — for entry="named": function name on the module (required)
-    #   entry_args   — args for the initial call/construction (default [])
-    #   chain        — list of step dicts; each step is one of:
-    #                    {method: "name", args: [...]}  → v = v.name(...args)
-    #                    {get: "name"}                  → v = v.name
-    #                    {call: [...]}                  → v = v(...args)
-    #   expected     — expected final value
-    def _node_chain_eq(self, spec: dict) -> tuple[bool, str]:
-        module     = spec.get("module") or getattr(self._lib, "module_name", None)
+    # --- chain helpers (shared by node_chain_eq and node_sandbox_chain_eq) ---
+    @staticmethod
+    def _build_chain_body(spec: dict) -> tuple[str | None, str | None, str | None]:
+        """Build the JS '{init_expr; chain steps; stdout.write(...)}' body.
+
+        Returns (chain_body, label, err). On error, returns (None, None, err_msg).
+        """
         entry      = spec.get("entry", "module")
         entry_args = spec.get("entry_args", [])
         chain      = spec.get("chain", [])
-        expected   = spec["expected"]
-
         entry_args_js = json.dumps(entry_args)
 
         # Compose a JS expression that navigates a possibly-dotted name from m.
@@ -1481,7 +1469,7 @@ class PatternRegistry:
             init_expr = f"{_path_expr(fac)}(...{entry_args_js})"
             label_init = f"{fac}()"
         else:
-            return False, f"node_chain_eq: unknown entry mode {entry!r}"
+            return None, None, f"unknown entry mode {entry!r}"
 
         steps_js = []
         label_chain = []
@@ -1500,10 +1488,43 @@ class PatternRegistry:
                 steps_js.append(f"v = v(...{json.dumps(c_args)});")
                 label_chain.append(f"({c_args!r})")
             else:
-                return False, f"node_chain_eq: chain step {i} must have method/get/call key, got {step!r}"
+                return None, None, f"chain step {i} must have method/get/call key, got {step!r}"
 
+        # Map JS undefined → JSON null so chains that legitimately return
+        # undefined (e.g. find-up miss, mkdirp on already-existing path)
+        # don't choke process.stdout.write. Specs express this case via
+        # YAML null (~), which round-trips through json.dumps as 'null'.
         chain_body = f"let v = {init_expr};" + "".join(steps_js) + \
-                     "process.stdout.write(JSON.stringify(v));"
+                     "const __out = JSON.stringify(v);" \
+                     "process.stdout.write(__out === undefined ? \"null\" : __out);"
+        label = label_init + "".join(label_chain)
+        return chain_body, label, None
+
+    # --- node_chain_eq ---
+    # Builds an arbitrary call/property chain off an initial value (module call,
+    # named function call, constructor, or factory call) and compares the
+    # JSON-stringified terminal value against expected. Each chain step is one
+    # of: {method, args} (call a method), {get} (read a property), or {call}
+    # (invoke the current value as a function).
+    #
+    # spec fields:
+    #   entry        — "module" | "named" | "constructor" | "factory" (default "module")
+    #   class        — for entry="constructor": class name on the module (default "default")
+    #   factory      — for entry="factory": factory name on the module (required)
+    #   function     — for entry="named": function name on the module (required)
+    #   entry_args   — args for the initial call/construction (default [])
+    #   chain        — list of step dicts; each step is one of:
+    #                    {method: "name", args: [...]}  → v = v.name(...args)
+    #                    {get: "name"}                  → v = v.name
+    #                    {call: [...]}                  → v = v(...args)
+    #   expected     — expected final value
+    def _node_chain_eq(self, spec: dict) -> tuple[bool, str]:
+        module = spec.get("module") or getattr(self._lib, "module_name", None)
+        expected = spec["expected"]
+
+        chain_body, label, err = self._build_chain_body(spec)
+        if err:
+            return False, f"node_chain_eq: {err}"
 
         if getattr(self._lib, "esm", False):
             script = (
@@ -1525,7 +1546,6 @@ class PatternRegistry:
             return False, f"node exited {proc.returncode}: {stderr!r}"
         actual        = proc.stdout.decode("utf-8", errors="replace").strip()
         expected_json = json.dumps(expected, separators=(",", ":"), ensure_ascii=False)
-        label         = label_init + "".join(label_chain)
         if actual != expected_json:
             return False, f"{label} returned {actual!r}, expected {expected_json!r}"
         return True, f"{label} == {expected!r}"
@@ -1548,6 +1568,81 @@ class PatternRegistry:
             **spec,
             "chain": [{"get": spec["property"]}],
         })
+
+    # --- node_sandbox_chain_eq ---
+    # Like node_chain_eq, but runs the chain inside a fresh tempdir whose
+    # contents are seeded by `setup`. The script require/imports the module
+    # while the harness's cwd is the project root (so node resolves
+    # node_modules normally), then process.chdir()s into the sandbox before
+    # running the chain. This makes filesystem operations (glob, fs-extra,
+    # mkdirp, rimraf, find-up, etc.) deterministic and self-contained.
+    #
+    # The sandbox is removed after the run regardless of outcome.
+    #
+    # spec fields (in addition to all node_chain_eq fields):
+    #   setup — list of file specs, each:
+    #             {path: "rel/path",       content: "string"}    # creates a file
+    #             {path: "rel/path",       dir: true}            # creates a directory
+    #           Parents are auto-created. Paths must be relative.
+    def _node_sandbox_chain_eq(self, spec: dict) -> tuple[bool, str]:
+        module = spec.get("module") or getattr(self._lib, "module_name", None)
+        expected = spec["expected"]
+        setup = spec.get("setup", [])
+
+        # Validate setup entries before creating anything.
+        for i, entry in enumerate(setup):
+            if not isinstance(entry, dict) or "path" not in entry:
+                return False, f"node_sandbox_chain_eq: setup[{i}] missing 'path'"
+            p = entry["path"]
+            if not isinstance(p, str) or p.startswith("/") or ".." in p.split("/"):
+                return False, f"node_sandbox_chain_eq: setup[{i}].path must be relative and free of '..': {p!r}"
+
+        chain_body, label, err = self._build_chain_body(spec)
+        if err:
+            return False, f"node_sandbox_chain_eq: {err}"
+
+        with tempfile.TemporaryDirectory(prefix="theseus_sandbox_") as sandbox:
+            sandbox_path = Path(sandbox)
+            for entry in setup:
+                target = sandbox_path / entry["path"]
+                if entry.get("dir"):
+                    target.mkdir(parents=True, exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(entry.get("content", ""))
+
+            # The script require/imports first (cwd = project root, where
+            # node_modules lives), then chdirs into the sandbox before running
+            # the chain.  All subsequent fs operations resolve against
+            # the sandbox.
+            sandbox_js = json.dumps(str(sandbox_path.resolve()))
+            if getattr(self._lib, "esm", False):
+                script = (
+                    f"(async()=>{{const m=await import({json.dumps(module)});"
+                    f"process.chdir({sandbox_js});{chain_body}}})();"
+                )
+            else:
+                script = (
+                    f"const m=require({json.dumps(module)});"
+                    f"process.chdir({sandbox_js});{chain_body}"
+                )
+
+            cmd = [self._lib.command, "-e", script]
+            try:
+                proc = subprocess.run(cmd, capture_output=True, timeout=spec.get("timeout", 10))
+            except subprocess.TimeoutExpired:
+                return False, "node timed out"
+            except Exception as exc:
+                return False, f"subprocess raised: {exc}"
+
+        if proc.returncode != 0:
+            stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+            return False, f"node exited {proc.returncode}: {stderr!r}"
+        actual        = proc.stdout.decode("utf-8", errors="replace").strip()
+        expected_json = json.dumps(expected, separators=(",", ":"), ensure_ascii=False)
+        if actual != expected_json:
+            return False, f"{label} [sandbox] returned {actual!r}, expected {expected_json!r}"
+        return True, f"{label} [sandbox] == {expected!r}"
 
 
 # ---------------------------------------------------------------------------

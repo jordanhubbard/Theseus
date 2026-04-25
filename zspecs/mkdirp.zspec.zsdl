@@ -1,0 +1,66 @@
+spec: mkdirp
+version: ">=3.0.0"
+backend: node(mkdirp)
+
+docs: https://github.com/isaacs/node-mkdirp#readme
+
+provenance:
+  derived_from:
+    - "mkdirp README — https://github.com/isaacs/node-mkdirp#readme"
+    - "Test vectors verified with mkdirp via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "mkdirp source"
+  notes:
+    - "mkdirp is the canonical recursive-mkdir utility — #17 most-depended-upon npm package."
+    - "Install: npm install mkdirp"
+    - "mkdirp.sync(path) creates the directory recursively. Returns the absolute path of the topmost-NEW directory it had to create (or undefined if the path already existed)."
+    - "Tests run inside a per-invariant tempdir sandbox; the absolute return path is unknowable in a spec, so we chain .endsWith('/<expected suffix>') for portable comparison."
+    - "fs-extra's pathExistsSync (a separate invariant) confirms the directory exists after mkdirp.sync; that confirmation lives in the fs_extra spec."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "mkdirp.sync returns the absolute path of the topmost newly-created directory."
+  stderr: "null"
+  stickiness: "Each invariant runs in a fresh sandbox."
+  codes: {}
+
+# ── mkdirp.sync — return value ends with the topmost-new path component ─────
+
+table mkdirp.sync_return:
+  kind: node_sandbox_chain_eq
+  category: sync_return
+  entry: named
+  function: sync
+  id_prefix: ret
+
+  columns: [id, entry_args, chain, setup, expected]
+  rows:
+    - [empty_sandbox_creates_top,
+       ["a/b/c"],
+       [{method: endsWith, args: ["/a"]}],
+       [],
+       true]
+
+    - [topmost_already_exists_creates_inner,
+       ["a/b/c"],
+       [{method: endsWith, args: ["/a/b"]}],
+       [{path: "a", dir: true}],
+       true]
+
+    - [path_already_exists_returns_undefined,
+       ["existing"],
+       [],
+       [{path: "existing", dir: true}],
+       ~]
+
+    - [single_segment_creates_it,
+       ["solo"],
+       [{method: endsWith, args: ["/solo"]}],
+       [],
+       true]
+
+    - [deep_nested_path,
+       ["w/x/y/z"],
+       [{method: endsWith, args: ["/w"]}],
+       [],
+       true]
