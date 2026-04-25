@@ -6,7 +6,7 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 1 — Package recipe pipeline:** normalizes Nixpkgs and FreeBSD Ports records into a shared canonical schema, ranks candidates, and produces merged extraction records.
 
-**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 1,228 specs covering 5 backend types (rust_module, python_module, python_cleanroom, node, ctypes, cli).
+**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 1,917 source specs covering 7 backend types (node, rust_module, python_cleanroom, python_module, ctypes, cli, node_cleanroom). 714 specs target npm packages; the wave compiler expands the source set into 10,829 invariant bundles.
 
 **Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. 392 Python packages verified as of the current registry.
 
@@ -251,6 +251,9 @@ Invariants are grouped by their execution pattern (`kind`):
 - `cli_stderr_contains` — verify stderr contains a substring.
 - `node_module_call_eq` — run `node -e` inline script: `require(mod)[fn](...args)`, compare result.
 - `node_constructor_call_eq` — run `node -e` inline script: `new m[Class](...ctorArgs)[method](...args)`, optionally call result as function (`then_call: true`). Used for constructor-based npm APIs (e.g. Ajv).
+- `node_factory_call_eq` — `m()[method](...method_args)` or `m[factory]()[method](...)`. Two-step factory + method pattern (e.g. `express()`/`yargs(argv).parseSync()`).
+- `node_chain_eq` — arbitrary `{method|get|call}` chain off an initial value (entry: `module` / `named` / `constructor` / `factory`). Required for fluent builder APIs that need 3+ chained calls — e.g. `new Command().option(f).parse(argv).opts()` (commander). Class/factory/function names accept dotted paths (e.g. `default.Separator`) for ESM packages whose default export bundle nests classes.
+- `node_property_eq` — sugar for `node_chain_eq` with a single `{get}` step. Reads one property after construction or a factory call. Used for ora (`ora('text').text`), inquirer's `Separator`, and meow's `cli.flags`/`cli.input`.
 
 ### Method Chaining in `python_call_eq`
 
@@ -408,6 +411,11 @@ The per-invariant list format is compatible with `--baseline` (same `{id, passed
 | `struct` | python_module | 24 | pack/unpack formats, calcsize, big/little endian, error cases |
 | `urllib_parse` | python_module | 18 | urlparse attributes, quote/unquote, urljoin, urlencode, parse_qs |
 | `uuid` | cli/node | 8 | validate v4, version detection |
+| `commander` | cli/node | 10 | `node_chain_eq`; 4-step builder `new Command().option().parse().opts()` |
+| `yargs` | cli/node | 8 | `node_factory_call_eq`; `yargs(argv).parseSync()` |
+| `ora` | cli/node (ESM) | 11 | `node_property_eq`; spinner state via factory + property reads |
+| `inquirer` | cli/node (ESM) | 7 | `node_property_eq` with dotted path `class: default.Separator` |
+| `meow` | cli/node (ESM) | 9 | `node_property_eq`; reads `cli.flags` and `cli.input` after factory call |
 | `zlib` | ctypes | 23 | compress/decompress roundtrip, crc32, adler32, error codes |
 | `zstd` | ctypes | 15 | ZSTD_versionString, maxCLevel, compressBound, isError; `call_ge` simple mode |
 
@@ -551,10 +559,17 @@ python3 tools/registry.py check <name>                # exits 0 if verified, 1 i
 
 | Wave | Description | Specs | Status |
 |------|-------------|-------|--------|
-| `cr1` | Python clean-room packages | 100 | DONE (99/100 passing) |
+| `s1` | Core Python stdlib — simple (base64, json, struct, datetime, …) | 8 | DONE |
+| `s2` | Core Python stdlib — complex (hashlib, sqlite3, urllib3, …) | 47 | DONE |
+| `s3` | Python C extension equivalents as pure Python | 14 | DONE |
+| `s4` | CLI backends (curl, openssl, jq) | 4 | partial |
+| `s5` | Node.js backends (semver, uuid, minimist, ajv, chalk, …) | 29 | DONE |
+| `s6` | ctypes C libraries — simple (zstd, lz4, libcrypto) | 3 | DONE |
+| `s7` | ctypes C libraries — complex (zlib, pcre2, libpng, …) | 7 | DONE |
 | `cr2` | Node.js clean-room packages | 1 | DONE |
+| `w100`–`w2851` | ZSDL `_extra` wave-series (auto-generated) | ~6,700 | pending |
 
-Total verified packages: **100 Python** (see `theseus_registry.json`).
+Total verified packages: **392 Python** (see `theseus_registry.json`). Run `python3 tools/synthesize_waves.py --list` for current state.
 
 ---
 

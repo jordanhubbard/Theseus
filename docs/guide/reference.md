@@ -319,11 +319,72 @@ expected: "1.2.3"
 
 ```yaml
 kind: node_constructor_call_eq
-class_name: Ajv
+class: Ajv
 ctor_args: []
 method: validate
 args: [{"type": "string"}, "hello"]
 expected: true
+# then_call: true     # optionally invoke method's return as a function
+# then_args: [...]    # args for the chained invocation
+```
+
+### `node_factory_call_eq`
+
+Two-step factory + method (e.g. `express()`, `yargs(argv).parseSync()`).
+
+```yaml
+kind: node_factory_call_eq
+factory: ~                        # null = call module itself; or name a property
+factory_args: [["--foo", "bar"]]
+method: parseSync
+method_args: []
+expected: {_: [], foo: "bar", "$0": ""}
+```
+
+### `node_chain_eq`
+
+Arbitrary `{method|get|call}` chain off an initial value. Use this for fluent
+builder APIs that need 3+ chained calls — e.g. commander's
+`new Command().option(f).parse(argv).opts()`.
+
+`entry` is one of:
+
+| Entry | Initial value |
+|-------|---------------|
+| `module` | `m(...entry_args)` |
+| `named` | `m[function](...entry_args)` |
+| `constructor` | `new m[class](...entry_args)` (default `class: "default"`) |
+| `factory` | `m[factory](...entry_args)` |
+
+`class`/`factory`/`function` accept **dotted paths** (e.g. `default.Separator`)
+for ESM packages whose default export bundle nests classes.
+
+Each chain step is one of `{method, args}`, `{get}`, or `{call}`:
+
+```yaml
+kind: node_chain_eq
+entry: constructor
+class: Command
+entry_args: []
+chain:
+  - {method: option, args: ["--foo <val>"]}
+  - {method: parse,  args: [["--foo", "bar"], {from: "user"}]}
+  - {method: opts,   args: []}
+expected: {foo: "bar"}
+```
+
+### `node_property_eq`
+
+Sugar for `node_chain_eq` with a single `{get}` step — "construct/call, then read
+one property". Used for ora, inquirer's `Separator`, meow's `cli.flags`.
+
+```yaml
+kind: node_property_eq
+entry: named
+function: default
+entry_args: ["Loading..."]
+property: text
+expected: "Loading..."
 ```
 
 ---

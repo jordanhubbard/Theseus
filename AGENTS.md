@@ -14,10 +14,10 @@ Theseus is a three-layer toolchain:
 Walks Nixpkgs and FreeBSD Ports source trees, normalizes package metadata into a canonical JSON schema, ranks packages by importance, and produces merged extraction records for the top candidates. See `docs/architecture.md §Layer 1`.
 
 **Layer 2 — Z-Layer Behavioral Spec System**
-935 machine-readable behavioral specs (ZSDL files), covering Python stdlib, npm, ctypes C libraries, and Rust PyO3 extension modules. Each spec defines invariants verified against the real installed library. See `docs/architecture.md §Layer 2` and `docs/writing-specs.md`.
+1,917 machine-readable behavioral specs (ZSDL files) — 714 of them target npm packages — covering Python stdlib, npm, ctypes C libraries, and Rust PyO3 extension modules. Each spec defines invariants verified against the real installed library. ZSDL gained two new spec kinds in batch 112 (`node_chain_eq`, `node_property_eq`) for fluent-builder and post-construction property-read APIs (commander, ora, inquirer, meow). See `docs/architecture.md §Layer 2` and `docs/writing-specs.md`.
 
 **Layer 3 — Clean-Room Synthesis System** *(current primary focus)*
-Given a behavioral spec with a `python_cleanroom` backend, synthesizes a complete reimplementation of the package from scratch — no importing the original, no cross-language wrappers. 100 Python packages are verified in `theseus_registry.json`. See `docs/architecture.md §Layer 3` and `docs/cleanroom-spec-format.md`.
+Given a behavioral spec with a `python_cleanroom` backend, synthesizes a complete reimplementation of the package from scratch — no importing the original, no cross-language wrappers. 392 Python packages are verified in `theseus_registry.json`. See `docs/architecture.md §Layer 3` and `docs/cleanroom-spec-format.md`.
 
 ---
 
@@ -246,7 +246,7 @@ python3 tools/verify_behavior.py _build/zspecs/mylib.zspec.json --watch  # TDD l
 | `python_cleanroom(theseus_json)` | `backend: python_cleanroom(theseus_json)` | Clean-room Python reimplementations |
 | `node_cleanroom(theseus_path)` | `backend: node_cleanroom(theseus_path)` | Clean-room Node.js reimplementations |
 
-Current spec counts by backend: rust_module (479), python_module (318), python_cleanroom (100), node (24), ctypes (10), cli (4), node_cleanroom (1).
+Current spec counts by backend: node (714), rust_module (479), python_cleanroom (390), python_module (318), ctypes (10), cli (4), node_cleanroom (1).
 
 ### Invariant kinds (python_module)
 

@@ -404,6 +404,38 @@ invariant ajv.validateSchema.valid_schema:
   args: [{type: string}]
   then_call: false
   expected: true
+
+# node_factory_call_eq — two-step factory + method (e.g. yargs(argv).parseSync())
+invariant yargs.parse.long_flag:
+  kind: node_factory_call_eq
+  factory: ~
+  factory_args: [["--foo", "bar"]]
+  method: parseSync
+  method_args: []
+  expected: {_: [], foo: "bar", "$0": ""}
+
+# node_chain_eq — fluent builder with 3+ chained calls
+invariant commander.opts.long_flag_with_value:
+  kind: node_chain_eq
+  entry: constructor
+  class: Command
+  entry_args: []
+  chain:
+    - {method: option, args: ["--foo <val>"]}
+    - {method: parse,  args: [["--foo", "bar"], {from: "user"}]}
+    - {method: opts,   args: []}
+  expected: {foo: "bar"}
+
+# node_property_eq — sugar: construct/call, then read one property
+# Class/factory/function names accept dotted paths (e.g. default.Separator)
+# for ESM packages whose default export bundle nests classes.
+invariant ora.default.text:
+  kind: node_property_eq
+  entry: named
+  function: default
+  entry_args: ["Loading"]
+  property: text
+  expected: "Loading"
 ```
 
 ### `python_call_raises` with kwargs (structured form)

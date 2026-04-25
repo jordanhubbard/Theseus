@@ -7,8 +7,10 @@ PyPI, and npm into a shared canonical JSON schema, then ranks and extracts the m
 important candidates. [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) is also
 supported as a build recipe source — its 20,000+ port Makefiles complement Nixpkgs.
 
-**Layer 2** provides 70 machine-readable behavioral specs — one per OSS library —
-that are verified against the real installed library on macOS and Linux.
+**Layer 2** provides 1,917 machine-readable behavioral specs — one per OSS library —
+that are verified against the real installed library on macOS and Linux. 714 of them
+target npm packages; the wave compiler expands the source set into 10,829 invariant
+bundles totalling 223,000+ invariants.
 
 ---
 
@@ -45,8 +47,9 @@ cleanly, you are ready to go.
 make test
 ```
 
-All 3,203 tests should pass. The suite runs in a few seconds — it uses no network
-access and does not require any external tools to be installed beyond Python and Node.js.
+All 13,900+ tests should pass (test count grows with the spec corpus; many tests are
+auto-generated from compiled ZSDL specs). The suite uses no network access and does not
+require any external tools to be installed beyond Python and Node.js.
 
 ---
 
@@ -92,7 +95,7 @@ make spec-coverage EXTRACTION_DIR=reports/extractions/ TOP=50
 # Compile ZSDL sources to JSON (required before verification)
 make compile-zsdl
 
-# Run all 70 specs
+# Run all compiled specs (10,829 today)
 make verify-all-specs
 
 # Run a single spec
@@ -117,7 +120,7 @@ examples/       Sample records: curl, openssl, zlib
 specs/          239 committed canonical package records
 docs/           Architecture and design documentation
 docs/guide/     This user guide (MkDocs source)
-tests/          Test suite (3,203 tests)
+tests/          Test suite (13,900+ tests)
 scripts/        Release automation
 ```
 

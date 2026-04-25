@@ -175,7 +175,11 @@ invariants:
 | `hash_incremental` | Feed data in chunks, assert equals one-shot digest |
 | `hash_object_attr` | Assert hash object attribute (digest_size, etc.) |
 | `cli_stdout_eq` | Run CLI command, assert stdout equals expected |
-| `node_module_call_eq` | Node.js require() call, assert return value |
+| `node_module_call_eq` | Node.js `require(mod)[fn](...args)`, assert return value |
+| `node_constructor_call_eq` | `new mod.Class(ctorArgs).method(args)`; optional `then_call: true` chains an invocation on the return |
+| `node_factory_call_eq` | `m()[method](...)` — two-step factory + method (e.g. `express()`, `yargs(argv).parseSync()`) |
+| `node_chain_eq` | Arbitrary `{method|get|call}` chain off an initial value (entry: `module`/`named`/`constructor`/`factory`); supports dotted names like `default.Separator` |
+| `node_property_eq` | Sugar for `node_chain_eq` with a single `{get}` step — read one property after construction or a factory call |
 | `version_prefix` | Assert version string starts with expected prefix |
 | `roundtrip` | Compress then decompress, assert byte equality |
 | `wire_bytes` | Assert compressed output has specific byte properties |

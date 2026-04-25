@@ -1,7 +1,9 @@
 # Z-Layer Behavioral Spec System
 
-The Z-layer (Layer 2) is a system of 70 machine-readable behavioral specs — one per
-OSS library — that describe how each library actually behaves. Each spec is:
+The Z-layer (Layer 2) is a system of 1,917 machine-readable behavioral specs — one per
+OSS library — that describe how each library actually behaves. (714 of them target npm
+packages. The wave compiler expands the source set into 10,829 invariant bundles, totalling
+223,000+ invariants.) Each spec is:
 
 - **Derived from public documentation only** — not from source code. This preserves
   clean-room provenance.
@@ -121,8 +123,10 @@ use `ctypes`. npm packages always use `node`.
 | `cli_stdout_matches` | Verify stdout matches a regex. |
 | `cli_stderr_contains` | Verify stderr contains a substring. |
 | `node_module_call_eq` | `require(mod)[fn](...args)` — compare result. |
-| `node_constructor_call_eq` | `new mod.Class(ctorArgs).method(args)` — compare result. |
-| `node_factory_call_eq` | Factory function call pattern for npm packages. |
+| `node_constructor_call_eq` | `new mod.Class(ctorArgs).method(args)` — compare result. Optional `then_call: true` chains an invocation on the method's return (Ajv-style). |
+| `node_factory_call_eq` | `m()[method](...method_args)` or `m[factory]()[method](...)`. Two-step factory + method (e.g. `express()`/`yargs(argv).parseSync()`). |
+| `node_chain_eq` | Arbitrary `{method|get|call}` chain off an initial value (entry: `module` / `named` / `constructor` / `factory`). Required for fluent builder APIs that need 3+ chained calls — e.g. `new Command().option(f).parse(argv).opts()`. Class/factory/function names accept dotted paths (e.g. `default.Separator`) for ESM packages whose default export bundle nests classes. |
+| `node_property_eq` | Sugar for `node_chain_eq` with a single `{get}` step. Reads one property after construction or a factory call. Used for ora (`ora('text').text`), inquirer's `Separator`, and meow's `cli.flags`/`cli.input`. |
 
 ---
 
@@ -190,7 +194,7 @@ skip_if: 'platform == "freebsd" or not semver_satisfies(lib_version, ">=3.9")'
 # Compile all ZSDL sources first
 make compile-zsdl
 
-# Run all 70 specs — text summary
+# Run all compiled specs (10,829 today) — text summary
 make verify-all-specs
 
 # Run all specs — JSON results (for CI dashboards, --baseline diffs)

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ZSDL `node_chain_eq` kind for fluent builder APIs that need 3+ chained method/property/call steps off an initial value (entry: `module` / `named` / `constructor` / `factory`). Unblocks commander, builder-style CLIs, and stateful npm packages whose APIs don't fit the existing single-call/two-step kinds.
+- ZSDL `node_property_eq` kind — sugar for "construct/call, then read one property". Used for ora, inquirer's `Separator`, meow's `cli.flags`/`cli.input`.
+- Both new kinds support dotted member paths (e.g. `class: default.Separator`) for ESM packages whose default export bundle nests classes.
+- Batch 112 — CLI core zspecs: commander, yargs, ora, inquirer, meow (45 invariants total, all passing).
+
 ## [0.0.2] - 2026-04-08
 
 ### Fixed

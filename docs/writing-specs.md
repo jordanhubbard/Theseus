@@ -91,6 +91,9 @@ lower bound, not an exact value.
 | Verify stderr contains a substring | `cli_stderr_contains` |
 | Call `require(mod).fn(args)`, compare result | `node_module_call_eq` |
 | Call `new require(mod).Class(ctorArgs).method(args)` | `node_constructor_call_eq` |
+| Call `m()[method](args)` or `m[factory]()[method](args)` (factory + 1 method) | `node_factory_call_eq` |
+| Chain 3+ methods/property reads off a class instance or factory result | `node_chain_eq` |
+| Construct/call something then read one property | `node_property_eq` |
 
 For CLI specs, prefer `cli_stdout_contains` over `cli_stdout_eq` unless the exact
 full output is contractually fixed. Exact output is brittle across versions.

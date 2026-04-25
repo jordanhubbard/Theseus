@@ -238,7 +238,7 @@ PASS
 --- _build/zspecs/json.zspec.json ---
 PASS
 ...
-=== verify-all-specs: 1228 specs, N passed, M failed ===
+=== verify-all-specs: 10829 specs, N passed, M failed ===
 ```
 
 Note: many specs cover third-party libraries that may not be installed. Run `make verify-behavior ZSPEC=_build/zspecs/<name>.zspec.json` to verify individual specs whose libraries you have installed.
