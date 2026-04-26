@@ -47,7 +47,7 @@ _KNOWN_CLI_AGENTS: list[tuple[str, list[str], bool]] = [
 def available(config: dict) -> bool:
     """Return True if any AI provider is configured and reachable."""
     provider = config.get("provider", "auto")
-    if provider in ("claude", "auto") and shutil.which("claude"):
+    if provider in ("claude", "auto") and _claude_in_path():
         return True
     if provider == "codex" and shutil.which("codex"):
         return True
@@ -58,9 +58,14 @@ def available(config: dict) -> bool:
     if provider in ("openai", "auto") and config.get("openai_base_url"):
         return True
     if provider == "auto":
-        # auto: check all known CLI agents
+        # auto: check all known CLI agents.
+        # Use _claude_in_path() for 'claude' so tests can stub it without
+        # also stubbing shutil.which (which is shared with codex/droid).
         for cmd, _, _ in _KNOWN_CLI_AGENTS:
-            if shutil.which(cmd):
+            if cmd == "claude":
+                if _claude_in_path():
+                    return True
+            elif shutil.which(cmd):
                 return True
     return False
 
