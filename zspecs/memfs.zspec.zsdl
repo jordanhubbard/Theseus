@@ -1,0 +1,122 @@
+spec: memfs
+version: ">=4.0.0"
+backend: node(memfs)
+
+docs: https://github.com/streamich/memfs#readme
+
+provenance:
+  derived_from:
+    - "memfs README — https://github.com/streamich/memfs#readme"
+    - "Node.js fs API — https://nodejs.org/api/fs.html"
+    - "Test vectors verified with memfs via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "memfs source"
+  notes:
+    - "In-memory filesystem implementing Node's fs API — used by webpack-dev-server, jest mocks, etc."
+    - "Install: npm install memfs"
+    - "v4 CJS; named exports include Volume / vol / fs / createFsFromVolume / Stats / Dirent + the F_OK/R_OK/W_OK/X_OK constants."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Throws ENOENT / EACCES like real fs; in-memory."
+  stderr: "null"
+  stickiness: "Volumes are mutable; persist within process."
+  codes: {}
+
+invariant memfs.F_OK_zero:
+  description: "F_OK constant is 0 (file existence check)"
+  category: constants
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: F_OK}
+  expected: 0
+
+invariant memfs.R_OK_four:
+  description: "R_OK constant is 4 (read permission check)"
+  category: constants
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: R_OK}
+  expected: 4
+
+invariant memfs.W_OK_two:
+  description: "W_OK constant is 2 (write permission check)"
+  category: constants
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: W_OK}
+  expected: 2
+
+invariant memfs.X_OK_one:
+  description: "X_OK constant is 1 (execute permission check)"
+  category: constants
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: X_OK}
+  expected: 1
+
+invariant memfs.has_Volume_class:
+  description: "Volume class exported"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "Volume.constructor.name"}
+  expected: "Function"
+
+invariant memfs.has_createFsFromVolume:
+  description: "createFsFromVolume helper exported"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "createFsFromVolume.constructor.name"}
+  expected: "Function"
+
+invariant memfs.empty_volume_toJSON:
+  description: "Fresh Volume's toJSON() is {} (empty)"
+  category: Volume
+  kind: node_chain_eq
+  entry: constructor
+  class: Volume
+  entry_args: []
+  chain:
+    - {method: toJSON, args: []}
+  expected: {}
+
+invariant memfs.fromJSON_then_readFileSync:
+  description: "Volume.fromJSON({path: contents}) then readFileSync returns contents"
+  category: Volume
+  kind: node_chain_eq
+  entry: named
+  function: "Volume.fromJSON"
+  entry_args: [{"/a/b.txt": "content"}]
+  chain:
+    - {method: readFileSync, args: ["/a/b.txt", "utf8"]}
+  expected: "content"
+
+invariant memfs.fromJSON_then_existsSync:
+  description: "existsSync returns true for paths in fromJSON"
+  category: Volume
+  kind: node_chain_eq
+  entry: named
+  function: "Volume.fromJSON"
+  entry_args: [{"/foo.txt": "x"}]
+  chain:
+    - {method: existsSync, args: ["/foo.txt"]}
+  expected: true
+
+invariant memfs.existsSync_unknown_false:
+  description: "existsSync returns false for missing paths"
+  category: Volume
+  kind: node_chain_eq
+  entry: named
+  function: "Volume.fromJSON"
+  entry_args: [{"/foo.txt": "x"}]
+  chain:
+    - {method: existsSync, args: ["/missing.txt"]}
+  expected: false
