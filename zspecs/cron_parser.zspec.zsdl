@@ -1,0 +1,114 @@
+spec: cron_parser
+version: ">=5.0.0"
+backend: node(cron-parser)
+
+docs: https://github.com/harrisiirak/cron-parser#readme
+
+provenance:
+  derived_from:
+    - "cron-parser README — https://github.com/harrisiirak/cron-parser#readme"
+    - "POSIX crontab(5) format reference"
+    - "Test vectors verified with cron-parser via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "cron-parser source"
+  notes:
+    - "Cron schedule parser — used by Bull, agenda, etc."
+    - "Install: npm install cron-parser"
+    - "v5 CJS; named export CronExpressionParser with .parse(expr, opts) returning a CronExpression with .next() / .prev() iterators."
+    - "Tests pin {tz: 'UTC'} so results are timezone-independent."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "parse() throws on malformed cron expressions."
+  stderr: "null"
+  stickiness: "Iterator state advances with each .next() call."
+  codes: {}
+
+invariant cron_parser.every_5_minutes_first_next:
+  description: "'*/5 * * * *' starting at 2024-01-01T00:00:00Z next() is 00:05:00"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: "CronExpressionParser.parse"
+  entry_args: ["*/5 * * * *", {currentDate: "2024-01-01T00:00:00Z", tz: "UTC"}]
+  chain:
+    - {method: next, args: []}
+    - {method: toISOString, args: []}
+  expected: "2024-01-01T00:05:00.000Z"
+
+invariant cron_parser.every_5_minutes_second_next:
+  description: "Calling next() twice on the parsed expression advances by 5 min each call (after first next at 00:05, second is 00:10)"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: "CronExpressionParser.parse"
+  entry_args: ["*/5 * * * *", {currentDate: "2024-01-01T00:05:01Z", tz: "UTC"}]
+  chain:
+    - {method: next, args: []}
+    - {method: toISOString, args: []}
+  expected: "2024-01-01T00:10:00.000Z"
+
+invariant cron_parser.daily_midnight:
+  description: "'0 0 * * *' from midnight gives next midnight (24h later)"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: "CronExpressionParser.parse"
+  entry_args: ["0 0 * * *", {currentDate: "2024-01-01T00:00:00Z", tz: "UTC"}]
+  chain:
+    - {method: next, args: []}
+    - {method: toISOString, args: []}
+  expected: "2024-01-02T00:00:00.000Z"
+
+invariant cron_parser.hourly_top_of_hour:
+  description: "'0 * * * *' from 12:30 gives 13:00"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: "CronExpressionParser.parse"
+  entry_args: ["0 * * * *", {currentDate: "2024-01-01T12:30:00Z", tz: "UTC"}]
+  chain:
+    - {method: next, args: []}
+    - {method: toISOString, args: []}
+  expected: "2024-01-01T13:00:00.000Z"
+
+invariant cron_parser.weekday_monday:
+  description: "'0 9 * * 1' (Mondays at 9am) from Sun→ next is Mon 09:00"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: "CronExpressionParser.parse"
+  entry_args: ["0 9 * * 1", {currentDate: "2024-01-07T00:00:00Z", tz: "UTC"}]
+  chain:
+    - {method: next, args: []}
+    - {method: toISOString, args: []}
+  expected: "2024-01-08T09:00:00.000Z"
+
+invariant cron_parser.expression_toString_round_trip:
+  description: "Parsed expression's toString() reproduces the input"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: "CronExpressionParser.parse"
+  entry_args: ["*/5 * * * *", {currentDate: "2024-01-01T00:00:00Z", tz: "UTC"}]
+  chain:
+    - {method: toString, args: []}
+  expected: "*/5 * * * *"
+
+invariant cron_parser.has_CronExpressionParser_export:
+  description: "Module exposes a CronExpressionParser class"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "CronExpressionParser.constructor.name"}
+  expected: "Function"
+
+invariant cron_parser.has_CronDate_export:
+  description: "Module exposes a CronDate class"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "CronDate.constructor.name"}
+  expected: "Function"
