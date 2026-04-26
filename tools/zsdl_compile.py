@@ -425,12 +425,22 @@ class ZSDLCompiler:
         defaults: dict = {
             "spec_authors": ["Theseus Z-layer"],
             "created_at": now,
+            "derived_from": [],
+            "not_derived_from": [],
         }
         if raw is None:
             return defaults
         prov = dict(raw)
         prov.setdefault("spec_authors", ["Theseus Z-layer"])
         prov.setdefault("created_at", now)
+        # The schema requires both derived_from and not_derived_from to be
+        # arrays. Older specs (especially auto-generated _rust shims and the
+        # theseus_*_cr cleanroom batch) often omit not_derived_from entirely.
+        # Default to an empty array so they validate without losing the
+        # caller's intent: an explicit derived_from list and "no claims about
+        # what we didn't derive from."
+        prov.setdefault("derived_from", [])
+        prov.setdefault("not_derived_from", [])
         return prov
 
     # ------------------------------------------------------------------
@@ -595,8 +605,7 @@ class ZSDLCompiler:
                 inv["description"] = block["description"]
             else:
                 inv["description"] = f"{kind}: {full_id}"
-            if "category" in block:
-                inv["category"] = block["category"]
+            inv["category"] = block.get("category", "general")
             if "rfc" in block:
                 inv["rfc_reference"] = block["rfc"]
             if "skip_if" in block:
@@ -614,8 +623,7 @@ class ZSDLCompiler:
 
         desc = block.get("description")
         inv["description"] = desc if desc else f"{kind}: {full_id}"
-        if "category" in block:
-            inv["category"] = block["category"]
+        inv["category"] = block.get("category", "general")
         if "rfc" in block:
             inv["rfc_reference"] = block["rfc"]
         if "skip_if" in block:
@@ -745,10 +753,16 @@ class ZSDLCompiler:
                 "kind": kind,
                 "spec": spec_dict,
             }
-            if category:
-                inv["category"] = category
+            # Per-row category overrides table-level. Default to 'general' if
+            # neither is set so the schema's REQUIRED_INVARIANT.category is
+            # satisfied (otherwise table-generated invariants without an
+            # explicit category fail validate_zspec.py).
             if "category" in row_map:
                 inv["category"] = str(row_map["category"])
+            elif category:
+                inv["category"] = category
+            else:
+                inv["category"] = "general"
             if rfc_shared:
                 inv["rfc_reference"] = rfc_shared
             if "rfc" in row_map:
