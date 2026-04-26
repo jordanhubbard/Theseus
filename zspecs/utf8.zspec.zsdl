@@ -1,0 +1,106 @@
+spec: utf8
+version: ">=3.0.0"
+backend: node(utf8)
+
+docs: https://github.com/mathiasbynens/utf8.js#readme
+
+provenance:
+  derived_from:
+    - "utf8.js README — https://github.com/mathiasbynens/utf8.js#readme"
+    - "RFC 3629 — UTF-8, a transformation format of ISO 10646"
+    - "Test vectors verified with utf8 via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "utf8 source"
+  notes:
+    - "Pure-JS UTF-8 encode/decode (Mathias Bynens). encode(str) returns a *byte string* (each char is the byte value), decode reverses."
+    - "Install: npm install utf8"
+    - "Useful in pre-Buffer environments or when manipulating raw bytes from binary protocols at the string level."
+  rfcs:
+    - "RFC 3629 — UTF-8 — https://www.rfc-editor.org/rfc/rfc3629"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; throws only on malformed surrogate pairs in encode."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# Length contracts — UTF-8 byte counts
+invariant utf8.ascii_passthrough_length:
+  description: "ASCII string round-trips at same byte length"
+  category: encode_length
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: ["hello"]
+  chain:
+    - {get: length}
+  expected: 5
+
+invariant utf8.cafe_4_chars_5_bytes:
+  description: "'Café' is 4 chars but 5 UTF-8 bytes (é is 2 bytes)"
+  category: encode_length
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: ["Café"]
+  chain:
+    - {get: length}
+  expected: 5
+
+invariant utf8.emoji_4_bytes:
+  description: "'🎉' (U+1F389) is 4 UTF-8 bytes"
+  category: encode_length
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: ["🎉"]
+  chain:
+    - {get: length}
+  expected: 4
+
+invariant utf8.cjk_3_bytes:
+  description: "'日' (U+65E5) is 3 UTF-8 bytes"
+  category: encode_length
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: ["日"]
+  chain:
+    - {get: length}
+  expected: 3
+
+invariant utf8.empty_zero_bytes:
+  description: "Empty string encodes to 0 bytes"
+  category: encode_length
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: [""]
+  chain:
+    - {get: length}
+  expected: 0
+
+# Round-trip
+table utf8.roundtrip:
+  kind: node_module_call_eq
+  category: roundtrip
+  function: encode
+  id_prefix: enc
+
+  columns: [id, args, expected]
+  rows:
+    - [hello,           ["hello"],    "hello"]
+    - [empty_string,    [""],          ""]
+
+# decode round-trip
+table utf8.decode_roundtrip:
+  kind: node_module_call_eq
+  category: roundtrip
+  function: decode
+  id_prefix: dec
+
+  columns: [id, args, expected]
+  rows:
+    - [ascii,    ["hello"],    "hello"]
+    - [empty,    [""],          ""]
