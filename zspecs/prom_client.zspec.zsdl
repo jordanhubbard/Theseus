@@ -1,0 +1,132 @@
+spec: prom_client
+version: ">=15.0.0"
+backend: node(prom-client)
+
+docs: https://github.com/siimon/prom-client#readme
+
+provenance:
+  derived_from:
+    - "prom-client README — https://github.com/siimon/prom-client#readme"
+    - "Prometheus exposition format — https://prometheus.io/docs/instrumenting/exposition_formats/"
+    - "OpenMetrics specification — https://github.com/OpenObservability/OpenMetrics"
+    - "Test vectors verified with prom-client via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "prom-client source"
+  notes:
+    - "Prometheus client for Node.js — Counter / Gauge / Histogram / Summary metrics."
+    - "Install: npm install prom-client"
+    - "v15 CJS; named exports include Counter, Gauge, Histogram, Summary, Registry, register, contentType, prometheusContentType, openMetricsContentType, linearBuckets, exponentialBuckets."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Constructor throws on missing name/help."
+  stderr: "null"
+  stickiness: "Default Registry is process-global — tests in the same process must use distinct metric names."
+  codes: {}
+
+# Content-type constants — emitted in HTTP responses
+invariant prom_client.contentType_text:
+  description: "contentType is the text/plain Prometheus exposition content-type"
+  category: contentType
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: contentType}
+  expected: "text/plain; version=0.0.4; charset=utf-8"
+
+invariant prom_client.prometheusContentType:
+  description: "prometheusContentType matches the registered IANA mime"
+  category: contentType
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: prometheusContentType}
+  expected: "text/plain; version=0.0.4; charset=utf-8"
+
+invariant prom_client.openMetricsContentType:
+  description: "openMetricsContentType is the OpenMetrics standard mime"
+  category: contentType
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: openMetricsContentType}
+  expected: "application/openmetrics-text; version=1.0.0; charset=utf-8"
+
+# Bucket helpers — pure deterministic generators
+invariant prom_client.linearBuckets_simple:
+  description: "linearBuckets(0, 1, 5) produces [0, 1, 2, 3, 4]"
+  category: buckets
+  kind: node_chain_eq
+  entry: named
+  function: linearBuckets
+  entry_args: [0, 1, 5]
+  chain: []
+  expected: [0, 1, 2, 3, 4]
+
+invariant prom_client.linearBuckets_step_2:
+  description: "linearBuckets(10, 2, 4) is [10, 12, 14, 16]"
+  category: buckets
+  kind: node_chain_eq
+  entry: named
+  function: linearBuckets
+  entry_args: [10, 2, 4]
+  chain: []
+  expected: [10, 12, 14, 16]
+
+invariant prom_client.exponentialBuckets_simple:
+  description: "exponentialBuckets(1, 2, 5) is [1, 2, 4, 8, 16]"
+  category: buckets
+  kind: node_chain_eq
+  entry: named
+  function: exponentialBuckets
+  entry_args: [1, 2, 5]
+  chain: []
+  expected: [1, 2, 4, 8, 16]
+
+# validateMetricName
+invariant prom_client.validateMetricName_valid:
+  description: "validateMetricName('http_requests_total') is true (valid Prometheus identifier)"
+  category: validation
+  kind: node_chain_eq
+  entry: named
+  function: validateMetricName
+  entry_args: ["http_requests_total"]
+  chain: []
+  expected: true
+
+invariant prom_client.validateMetricName_invalid_dash:
+  description: "validateMetricName with a dash is false"
+  category: validation
+  kind: node_chain_eq
+  entry: named
+  function: validateMetricName
+  entry_args: ["bad-name"]
+  chain: []
+  expected: false
+
+# Counter increment via tap
+invariant prom_client.counter_inc_default_value:
+  description: "new Counter().inc() defaults to +1; hashMap[''].value is 1"
+  category: counter
+  kind: node_chain_eq
+  entry: constructor
+  class: Counter
+  entry_args: [{name: "test_counter_a", help: "Test"}]
+  chain:
+    - {method: inc, args: [], tap: true}
+    - {get: "hashMap."}
+    - {get: value}
+  expected: 1
+
+invariant prom_client.counter_inc_with_value:
+  description: "new Counter().inc(5); hashMap[''].value is 5"
+  category: counter
+  kind: node_chain_eq
+  entry: constructor
+  class: Counter
+  entry_args: [{name: "test_counter_b", help: "Test"}]
+  chain:
+    - {method: inc, args: [5], tap: true}
+    - {get: "hashMap."}
+    - {get: value}
+  expected: 5
