@@ -1,0 +1,91 @@
+spec: esbuild
+version: ">=0.20.0"
+backend: node(esbuild)
+
+docs: https://esbuild.github.io
+
+provenance:
+  derived_from:
+    - "esbuild docs — https://esbuild.github.io"
+    - "Test vectors verified with esbuild via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "esbuild source"
+  notes:
+    - "Extremely fast bundler/minifier/transformer for JS/TS — ships a Go binary plus JS bindings."
+    - "Install: npm install esbuild"
+    - "v0.28+ CJS; named exports include transformSync / transform / build / buildSync / version."
+    - "Sync API uses a child process to call the Go binary — works without extra setup on macOS/Linux."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "transformSync throws on syntax errors with .errors / .warnings details."
+  stderr: "null"
+  stickiness: "N/A — each transform independent."
+  codes: {}
+
+invariant esbuild.transformSync_typescript_strip:
+  description: "transformSync strips TypeScript type annotations"
+  category: transform
+  kind: node_chain_eq
+  entry: named
+  function: transformSync
+  entry_args: ["var x: number = 1;", {loader: "ts"}]
+  chain:
+    - {get: code}
+  expected: "var x = 1;\n"
+
+invariant esbuild.transformSync_minify:
+  description: "transformSync({minify: true}) minimises whitespace"
+  category: transform
+  kind: node_chain_eq
+  entry: named
+  function: transformSync
+  entry_args: ["const x = () => 1;", {minify: true}]
+  chain:
+    - {get: code}
+  expected: "const x=()=>1;\n"
+
+invariant esbuild.transformSync_returns_warnings_array:
+  description: "Result has empty warnings array on clean input"
+  category: transform
+  kind: node_chain_eq
+  entry: named
+  function: transformSync
+  entry_args: ["1+2", {}]
+  chain:
+    - {get: warnings}
+    - {get: length}
+  expected: 0
+
+invariant esbuild.transformSync_basic_passthrough:
+  description: "transformSync('1+2') compiles trivial expression to '1 + 2;\\n'"
+  category: transform
+  kind: node_chain_eq
+  entry: named
+  function: transformSync
+  entry_args: ["1+2", {}]
+  chain:
+    - {get: code}
+  expected: "1 + 2;\n"
+
+invariant esbuild.version_present:
+  description: "module exposes a version string"
+  category: meta
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: version}
+    - {get: "constructor.name"}
+  expected: "String"
+
+invariant esbuild.transformSync_loader_jsx_to_js:
+  description: "transformSync({loader: 'jsx'}) converts <h1>x</h1> to React.createElement"
+  category: transform
+  kind: node_chain_eq
+  entry: named
+  function: transformSync
+  entry_args: ["<h1>x</h1>", {loader: "jsx"}]
+  chain:
+    - {get: code}
+    - {method: includes, args: ["createElement"]}
+  expected: true
