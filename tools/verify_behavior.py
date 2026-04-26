@@ -250,6 +250,22 @@ class LibraryLoader:
                     return lib
                 except OSError:
                     pass
+        # Last resort: brew's standard prefixes on macOS. ctypes.util.find_library
+        # doesn't search /opt/homebrew/lib by default on Apple Silicon, and
+        # macOS 11+ blocks DYLD_LIBRARY_PATH for SIP-protected processes —
+        # fall back to literal candidate paths so CI runners installing
+        # libraries via 'brew install' just work.
+        BREW_DIRS = ("/opt/homebrew/lib", "/usr/local/lib")
+        for lib_dir in BREW_DIRS:
+            for name in patterns:
+                for suffix in (".dylib", ".1.dylib"):
+                    candidate = str(Path(lib_dir) / f"lib{name}{suffix}")
+                    try:
+                        lib = ctypes.CDLL(candidate)
+                        self._setup(lib)
+                        return lib
+                    except OSError:
+                        pass
         raise LibraryNotFoundError(
             f"Could not find library with soname patterns: {patterns}"
         )
