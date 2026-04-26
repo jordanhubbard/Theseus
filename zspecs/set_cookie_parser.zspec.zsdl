@@ -1,0 +1,92 @@
+spec: set_cookie_parser
+version: ">=2.5.0"
+backend: node(set-cookie-parser)
+
+docs: https://github.com/nfriedly/set-cookie-parser#readme
+
+provenance:
+  derived_from:
+    - "set-cookie-parser README — https://github.com/nfriedly/set-cookie-parser#readme"
+    - "RFC 6265 — HTTP State Management Mechanism"
+    - "Test vectors verified with set-cookie-parser via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "set-cookie-parser source"
+  notes:
+    - "Parses Set-Cookie response header values into structured cookie objects."
+    - "Install: npm install set-cookie-parser"
+    - "parse(input) accepts either a single string or an array; returns array of cookie objects with name/value plus optional domain/path/expires/maxAge/httpOnly/secure/sameSite."
+    - "splitCookiesString handles the tricky case of multiple Set-Cookie values combined into one comma-separated header (which Set-Cookie's Date format makes ambiguous)."
+  rfcs:
+    - "RFC 6265 — HTTP State Management Mechanism — https://www.rfc-editor.org/rfc/rfc6265"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure function; never throws on string/array input."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# parse(string) — single Set-Cookie value
+table set_cookie_parser.parse_single:
+  kind: node_module_call_eq
+  category: parse_single
+  function: parse
+  id_prefix: parse
+
+  columns: [id, args, expected]
+  rows:
+    - [name_value_only,
+       ["foo=bar"],
+       [{name: "foo", value: "bar"}]]
+
+    - [with_path_and_httponly,
+       ["foo=bar; Path=/; HttpOnly"],
+       [{name: "foo", value: "bar", path: "/", httpOnly: true}]]
+
+    - [with_secure,
+       ["foo=bar; Secure"],
+       [{name: "foo", value: "bar", secure: true}]]
+
+    - [with_domain,
+       ["foo=bar; Domain=example.com"],
+       [{name: "foo", value: "bar", domain: "example.com"}]]
+
+    - [with_max_age,
+       ["foo=bar; Max-Age=3600"],
+       [{name: "foo", value: "bar", maxAge: 3600}]]
+
+    - [with_samesite,
+       ["foo=bar; SameSite=Strict"],
+       [{name: "foo", value: "bar", sameSite: "Strict"}]]
+
+    - [empty_value,
+       ["foo="],
+       [{name: "foo", value: ""}]]
+
+# parse(array) — multiple Set-Cookie values
+invariant set_cookie_parser.parse_array_two_cookies:
+  description: "parse(['a=1','b=2']) returns array of two cookie objects"
+  category: parse_array
+  kind: node_module_call_eq
+  function: parse
+  args: [["a=1", "b=2"]]
+  expected:
+    - {name: "a", value: "1"}
+    - {name: "b", value: "2"}
+
+# splitCookiesString — split a combined header
+table set_cookie_parser.splitCookiesString:
+  kind: node_module_call_eq
+  category: split
+  function: splitCookiesString
+  id_prefix: split
+
+  columns: [id, args, expected]
+  rows:
+    - [comma_separated_simple,
+       ["a=1, b=2"],
+       ["a=1", "b=2"]]
+
+    - [single_cookie,
+       ["foo=bar"],
+       ["foo=bar"]]

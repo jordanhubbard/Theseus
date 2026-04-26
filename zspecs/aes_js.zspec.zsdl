@@ -1,0 +1,154 @@
+spec: aes_js
+version: ">=3.0.0"
+backend: node(aes-js)
+
+docs: https://github.com/ricmoo/aes-js#readme
+
+provenance:
+  derived_from:
+    - "aes-js README — https://github.com/ricmoo/aes-js#readme"
+    - "FIPS 197 — Advanced Encryption Standard (AES)"
+    - "Test vectors verified with aes-js via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "aes-js source"
+  notes:
+    - "Pure-JavaScript AES implementation (no native crypto). Useful for browser/embedded contexts."
+    - "Install: npm install aes-js"
+    - "Provides ECB / CBC / CFB / OFB / CTR modes via aesjs.ModeOfOperation.<mode>; utility byte-conversions in aesjs.utils.{utf8,hex}."
+    - "All test vectors here use a zero key + zero IV for determinism."
+    - "encrypt() returns a Uint8Array — equality-comparing the whole buffer is brittle (Uint8Array JSON is {0:n, 1:n, ...}). We use .length and indexed .at() for byte-level spot checks."
+  rfcs:
+    - "FIPS 197 — Advanced Encryption Standard"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; throws on key-length violations."
+  stderr: "null"
+  stickiness: "Modes are stateful (CBC chains blocks); each invariant constructs a fresh mode."
+  codes: {}
+
+# utils.utf8.toBytes — round-trip
+invariant aes_js.utf8_toBytes_length:
+  description: "utils.utf8.toBytes('Hello AES World!') is 16 bytes (block-aligned)"
+  category: utf8_utils
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: utils}
+    - {get: utf8}
+    - {method: toBytes, args: ["Hello AES World!"]}
+    - {get: length}
+  expected: 16
+
+invariant aes_js.utf8_toBytes_first_byte:
+  description: "First byte of UTF-8 of 'Hello AES World!' is 0x48 ('H')"
+  category: utf8_utils
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: utils}
+    - {get: utf8}
+    - {method: toBytes, args: ["Hello AES World!"]}
+    - {method: at, args: [0]}
+  expected: 72
+
+# utils.hex.fromBytes / toBytes — return plain arrays/strings
+invariant aes_js.hex_fromBytes:
+  description: "utils.hex.fromBytes converts byte array to lowercase hex string"
+  category: hex_utils
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: utils}
+    - {get: hex}
+    - {method: fromBytes, args: [[0xde, 0xad, 0xbe, 0xef]]}
+  expected: "deadbeef"
+
+invariant aes_js.hex_toBytes_length:
+  description: "utils.hex.toBytes('deadbeef') yields 4 bytes"
+  category: hex_utils
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: utils}
+    - {get: hex}
+    - {method: toBytes, args: ["deadbeef"]}
+    - {get: length}
+  expected: 4
+
+invariant aes_js.hex_toBytes_first_byte:
+  description: "utils.hex.toBytes('deadbeef')[0] == 0xde (222)"
+  category: hex_utils
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: utils}
+    - {get: hex}
+    - {method: toBytes, args: ["deadbeef"]}
+    - {method: at, args: [0]}
+  expected: 222
+
+# AES-128-CBC with zero key + zero IV — deterministic ciphertext
+invariant aes_js.cbc_zero_key_zero_iv_length:
+  description: "AES-128-CBC encrypts a 16-byte plaintext to 16-byte ciphertext (one block)"
+  category: cbc_known_vector
+  kind: node_chain_eq
+  entry: constructor
+  class: ModeOfOperation.cbc
+  entry_args: [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+               [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+  chain:
+    - {method: encrypt, args: [[72,101,108,108,111,32,65,69,83,32,87,111,114,108,100,33]]}
+    - {get: length}
+  expected: 16
+
+invariant aes_js.cbc_known_vector_first_byte:
+  description: "AES-128-CBC of 'Hello AES World!' under zero key/IV — first ciphertext byte is 0xf7 (247)"
+  category: cbc_known_vector
+  kind: node_chain_eq
+  entry: constructor
+  class: ModeOfOperation.cbc
+  entry_args: [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+               [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+  chain:
+    - {method: encrypt, args: [[72,101,108,108,111,32,65,69,83,32,87,111,114,108,100,33]]}
+    - {method: at, args: [0]}
+  expected: 247
+
+invariant aes_js.cbc_known_vector_last_byte:
+  description: "AES-128-CBC of 'Hello AES World!' under zero key/IV — last ciphertext byte is 0x30 (48)"
+  category: cbc_known_vector
+  kind: node_chain_eq
+  entry: constructor
+  class: ModeOfOperation.cbc
+  entry_args: [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+               [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+  chain:
+    - {method: encrypt, args: [[72,101,108,108,111,32,65,69,83,32,87,111,114,108,100,33]]}
+    - {method: at, args: [15]}
+  expected: 48
+
+# AES-128-CTR — encrypts arbitrary length without padding
+invariant aes_js.ctr_zero_key_short_input_length:
+  description: "AES-128-CTR encrypts a 4-byte input to 4-byte ciphertext (no padding)"
+  category: ctr_mode
+  kind: node_chain_eq
+  entry: constructor
+  class: ModeOfOperation.ctr
+  entry_args: [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+  chain:
+    - {method: encrypt, args: [[1, 2, 3, 4]]}
+    - {get: length}
+  expected: 4
+
+invariant aes_js.ctr_zero_key_first_byte:
+  description: "AES-128-CTR of [1,2,3,4] under zero key/counter — first byte is 0x59 (89)"
+  category: ctr_mode
+  kind: node_chain_eq
+  entry: constructor
+  class: ModeOfOperation.ctr
+  entry_args: [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+  chain:
+    - {method: encrypt, args: [[1, 2, 3, 4]]}
+    - {method: at, args: [0]}
+  expected: 89

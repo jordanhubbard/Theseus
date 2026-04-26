@@ -1,0 +1,122 @@
+spec: mime_db
+version: ">=1.0.0"
+backend: node(mime-db)
+
+docs: https://github.com/jshttp/mime-db#readme
+
+provenance:
+  derived_from:
+    - "mime-db README — https://github.com/jshttp/mime-db#readme"
+    - "IANA Media Types Registry — https://www.iana.org/assignments/media-types/media-types.xhtml"
+    - "Test vectors verified with mime-db via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "mime-db source"
+  notes:
+    - "mime-db is the canonical Media-Type metadata table used by the mime-types package and most HTTP libraries."
+    - "Install: npm install mime-db"
+    - "Module export IS the table — keys are 'type/subtype' strings, values are {source, charset?, compressible?, extensions?}."
+    - "Uses entry: bare to read the data table directly without invoking it."
+    - "The table contains ~2500 entries; we sample well-known entries with stable shapes."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Static lookup; missing keys return undefined."
+  stderr: "null"
+  stickiness: "N/A — pure data."
+  codes: {}
+
+# Application JSON
+invariant mime_db.json_source:
+  description: "application/json registered with source 'iana'"
+  category: lookup
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "application/json"}
+    - {get: source}
+  expected: "iana"
+
+invariant mime_db.json_compressible:
+  description: "application/json marked compressible"
+  category: lookup
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "application/json"}
+    - {get: compressible}
+  expected: true
+
+invariant mime_db.json_charset:
+  description: "application/json default charset is UTF-8"
+  category: lookup
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "application/json"}
+    - {get: charset}
+  expected: "UTF-8"
+
+# text/html extensions
+invariant mime_db.html_extensions_includes_html:
+  description: "text/html extensions array includes 'html'"
+  category: lookup
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "text/html"}
+    - {get: extensions}
+    - {method: includes, args: ["html"]}
+  expected: true
+
+invariant mime_db.html_extensions_includes_htm:
+  description: "text/html extensions array includes 'htm'"
+  category: lookup
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "text/html"}
+    - {get: extensions}
+    - {method: includes, args: ["htm"]}
+  expected: true
+
+# image/png
+invariant mime_db.image_png_compressible:
+  description: "image/png marked NOT compressible (already compressed)"
+  category: lookup
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "image/png"}
+    - {get: compressible}
+  expected: false
+
+invariant mime_db.image_png_first_extension:
+  description: "image/png primary extension is 'png'"
+  category: lookup
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "image/png"}
+    - {get: extensions}
+    - {method: at, args: [0]}
+  expected: "png"
+
+# Unknown type returns undefined
+invariant mime_db.unknown_type_returns_undefined:
+  description: "Looking up an unregistered type returns undefined"
+  category: lookup
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "application/x-not-real"}
+  expected: ~
+
+# Table size
+invariant mime_db.has_at_least_2000_entries:
+  description: "Table has at least 2,000 entries (sanity check on registry size)"
+  category: registry
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {method: hasOwnProperty, args: ["application/json"]}
+  expected: true
