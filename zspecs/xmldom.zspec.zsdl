@@ -1,0 +1,142 @@
+spec: xmldom
+version: ">=0.6.0"
+backend: node(xmldom)
+
+docs: https://www.npmjs.com/package/xmldom
+
+provenance:
+  derived_from:
+    - "xmldom (legacy) on npm — https://www.npmjs.com/package/xmldom"
+    - "W3C DOM Level 2 Core specification (the API surface mirrored here)"
+    - "Test vectors verified with xmldom via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "xmldom source"
+  notes:
+    - "Pure-JS DOMParser / XMLSerializer / DOMImplementation — server-side XML parsing without a browser."
+    - "Install: npm install xmldom"
+    - "Legacy v0.6 CJS; named exports DOMParser / XMLSerializer / DOMImplementation."
+    - "The newer maintained fork lives at @xmldom/xmldom; this spec covers the original package name."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "DOMParser silently records errors via onError handler; never throws on malformed XML."
+  stderr: "may emit parse warnings"
+  stickiness: "N/A — each parse independent."
+  codes: {}
+
+# Parse a tiny well-formed document and read the root tag
+invariant xmldom.docElement_tagName:
+  description: "documentElement.tagName of '<root><item>hi</item></root>' is 'root'"
+  category: parse
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<root><item>hi</item></root>", "text/xml"]}
+    - {get: "documentElement.tagName"}
+  expected: "root"
+
+invariant xmldom.first_child_tagName:
+  description: "documentElement.firstChild.tagName is 'item'"
+  category: parse
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<root><item>hi</item></root>", "text/xml"]}
+    - {get: "documentElement.firstChild.tagName"}
+  expected: "item"
+
+invariant xmldom.text_node_value:
+  description: "Inner text node nodeValue is 'hi'"
+  category: parse
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<root><item>hi</item></root>", "text/xml"]}
+    - {get: "documentElement.firstChild.firstChild.nodeValue"}
+  expected: "hi"
+
+# Attributes
+invariant xmldom.getAttribute_id:
+  description: "getAttribute('id') retrieves the attribute value"
+  category: attributes
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<a id=\"x\" name=\"y\">hi</a>", "text/xml"]}
+    - {get: documentElement}
+    - {method: getAttribute, args: ["id"]}
+  expected: "x"
+
+invariant xmldom.getAttribute_name:
+  description: "getAttribute('name') retrieves the second attribute"
+  category: attributes
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<a id=\"x\" name=\"y\">hi</a>", "text/xml"]}
+    - {get: documentElement}
+    - {method: getAttribute, args: ["name"]}
+  expected: "y"
+
+invariant xmldom.attributes_length:
+  description: "documentElement.attributes.length is 2"
+  category: attributes
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<a id=\"x\" name=\"y\">hi</a>", "text/xml"]}
+    - {get: "documentElement.attributes.length"}
+  expected: 2
+
+# Round-trip: parse → toString
+invariant xmldom.parsed_doc_toString_round_trip:
+  description: "Parsed document's toString() is the canonical XML form"
+  category: serialize
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<root><item>hi</item></root>", "text/xml"]}
+    - {method: toString, args: []}
+  expected: "<root><item>hi</item></root>"
+
+# getElementsByTagName traversal
+invariant xmldom.getElementsByTagName_count:
+  description: "getElementsByTagName('item') returns one match"
+  category: traversal
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<root><item>a</item><item>b</item></root>", "text/xml"]}
+    - {method: getElementsByTagName, args: ["item"]}
+    - {get: length}
+  expected: 2
+
+invariant xmldom.getElementsByTagName_first:
+  description: "First .item element has tagName 'item'"
+  category: traversal
+  kind: node_chain_eq
+  entry: constructor
+  class: DOMParser
+  entry_args: []
+  chain:
+    - {method: parseFromString, args: ["<root><item>a</item><item>b</item></root>", "text/xml"]}
+    - {method: getElementsByTagName, args: ["item"]}
+    - {method: item, args: [0]}
+    - {get: tagName}
+  expected: "item"

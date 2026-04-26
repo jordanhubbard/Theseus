@@ -1,0 +1,117 @@
+spec: negotiator
+version: ">=1.0.0"
+backend: node(negotiator)
+
+docs: https://github.com/jshttp/negotiator#readme
+
+provenance:
+  derived_from:
+    - "negotiator README — https://github.com/jshttp/negotiator#readme"
+    - "RFC 9110 §12 (Content Negotiation) — quality factors q="
+    - "Test vectors verified with negotiator via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "negotiator source"
+  notes:
+    - "HTTP content negotiation — parses Accept / Accept-Language / Accept-Charset / Accept-Encoding."
+    - "Install: npm install negotiator"
+    - "v1 CJS; module export IS the Negotiator constructor; takes a {headers} object (req-like)."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Constructor never throws; methods return arrays / strings / undefined for no match."
+  stderr: "null"
+  stickiness: "N/A — each instance independent."
+  codes: {}
+
+# mediaTypes: prefer-ordered list from Accept header
+invariant negotiator.mediaTypes_simple:
+  description: "Accept 'text/html, application/json' yields ['text/html','application/json']"
+  category: mediaTypes
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{headers: {accept: "text/html, application/json"}}]
+  chain:
+    - {method: mediaTypes, args: []}
+  expected: ["text/html", "application/json"]
+
+invariant negotiator.mediaType_first_preferred:
+  description: "mediaType() returns the first preferred type"
+  category: mediaTypes
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{headers: {accept: "text/html, application/json"}}]
+  chain:
+    - {method: mediaType, args: []}
+  expected: "text/html"
+
+# q-value sorting
+invariant negotiator.mediaType_respects_q_value:
+  description: "Higher q-value wins regardless of position"
+  category: mediaTypes
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{headers: {accept: "text/html;q=0.5, application/json;q=0.9"}}]
+  chain:
+    - {method: mediaType, args: []}
+  expected: "application/json"
+
+invariant negotiator.mediaTypes_q_sorted:
+  description: "mediaTypes() lists items in descending q-value order"
+  category: mediaTypes
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{headers: {accept: "text/html;q=0.5, application/json;q=0.9"}}]
+  chain:
+    - {method: mediaTypes, args: []}
+  expected: ["application/json", "text/html"]
+
+# Accept-Language parsing
+invariant negotiator.languages_parsed:
+  description: "Accept-Language 'en-US, fr;q=0.5' parses to ['en-US','fr']"
+  category: languages
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{headers: {"accept-language": "en-US, fr;q=0.5"}}]
+  chain:
+    - {method: languages, args: []}
+  expected: ["en-US", "fr"]
+
+invariant negotiator.language_first:
+  description: "language() returns the most preferred"
+  category: languages
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{headers: {"accept-language": "en-US, fr;q=0.5"}}]
+  chain:
+    - {method: language, args: []}
+  expected: "en-US"
+
+# Accept-Charset
+invariant negotiator.charsets_parsed:
+  description: "Accept-Charset 'utf-8, iso-8859-1;q=0.5' parses to ['utf-8','iso-8859-1']"
+  category: charsets
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{headers: {"accept-charset": "utf-8, iso-8859-1;q=0.5"}}]
+  chain:
+    - {method: charsets, args: []}
+  expected: ["utf-8", "iso-8859-1"]
+
+# Accept-Encoding (with implicit identity)
+invariant negotiator.encodings_includes_identity:
+  description: "Accept-Encoding 'gzip, deflate' implicitly includes 'identity'"
+  category: encodings
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{headers: {"accept-encoding": "gzip, deflate"}}]
+  chain:
+    - {method: encodings, args: []}
+  expected: ["gzip", "deflate", "identity"]
