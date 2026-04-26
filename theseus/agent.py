@@ -85,11 +85,10 @@ def run_prompt(prompt: str, config: dict, *, system: str = "", timeout: int = 0)
     provider = config.get("provider", "auto")
 
     if provider == "openai":
-        return _openai(prompt, config, system=system, timeout=timeout or 600)
+        return _openai(prompt, config, system=system, timeout=timeout or 120)
 
     if provider == "claude":
-        return _cli_invoke("claude", ["--print", "-"], True,
-                           prompt, system=system, timeout=timeout or 300)
+        return _claude(prompt, system=system, timeout=timeout or 300)
 
     if provider == "codex":
         return _cli_invoke("codex", ["--quiet", "-"], True,
@@ -109,7 +108,12 @@ def run_prompt(prompt: str, config: dict, *, system: str = "", timeout: int = 0)
 
     # auto: try known CLI agents in priority order, then openai endpoint
     if provider == "auto":
+        # Special-case claude so tests can mock _claude() directly.
+        if _claude_in_path():
+            return _claude(prompt, system=system, timeout=timeout or 300)
         for cmd, args, via_stdin in _KNOWN_CLI_AGENTS:
+            if cmd == "claude":
+                continue  # already handled above
             if shutil.which(cmd):
                 return _cli_invoke(cmd, args, via_stdin,
                                    prompt, system=system, timeout=timeout or 300)
