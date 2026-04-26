@@ -1,0 +1,93 @@
+spec: fast_redact
+version: ">=3.0.0"
+backend: node(fast-redact)
+
+docs: https://github.com/davidmarkclements/fast-redact#readme
+
+provenance:
+  derived_from:
+    - "fast-redact README — https://github.com/davidmarkclements/fast-redact#readme"
+    - "Test vectors verified with fast-redact via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "fast-redact source"
+  notes:
+    - "Compiles a redactor function from a list of paths — used by Pino for log scrubbing."
+    - "Install: npm install fast-redact"
+    - "v3 CJS; module export IS the factory: fastRedact({paths, censor, remove}) → redactor."
+    - "Default censor is '[REDACTED]'."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Factory throws on malformed paths; redactor never throws."
+  stderr: "null"
+  stickiness: "Compiled redactor is reusable across many objects."
+  codes: {}
+
+invariant fast_redact.simple_top_level:
+  description: "Compiled redactor with paths:['secret'] returns JSON with [REDACTED] for that key"
+  category: redact
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{paths: ["secret"]}]
+  chain:
+    - {call: [{secret: "s", name: "alice"}]}
+  expected: "{\"secret\":\"[REDACTED]\",\"name\":\"alice\"}"
+
+invariant fast_redact.nested_path:
+  description: "paths:['user.password'] redacts nested key"
+  category: redact
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{paths: ["user.password"]}]
+  chain:
+    - {call: [{user: {password: "p", name: "a"}}]}
+  expected: "{\"user\":{\"password\":\"[REDACTED]\",\"name\":\"a\"}}"
+
+invariant fast_redact.remove_option:
+  description: "{remove:true} omits the key entirely"
+  category: redact
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{paths: ["secret"], remove: true}]
+  chain:
+    - {call: [{secret: "s", other: "o"}]}
+  expected: "{\"other\":\"o\"}"
+
+invariant fast_redact.custom_censor:
+  description: "{censor: '<HIDDEN>'} replaces values with the custom string"
+  category: redact
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{paths: ["secret"], censor: "<HIDDEN>"}]
+  chain:
+    - {call: [{secret: "s"}]}
+  expected: "{\"secret\":\"<HIDDEN>\"}"
+
+invariant fast_redact.wildcard_path:
+  description: "paths:['*.token'] redacts .token under any top-level key"
+  category: redact
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{paths: ["*.token"]}]
+  chain:
+    - {call: [{a: {token: "t1"}, b: {other: "x"}}]}
+  expected: "{\"a\":{\"token\":\"[REDACTED]\"},\"b\":{\"other\":\"x\"}}"
+
+invariant fast_redact.factory_returns_function:
+  description: "fastRedact factory returns a redactor function"
+  category: shape
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{paths: ["x"]}]
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
+
+invariant fast_redact.module_is_function:
+  description: "Module export is a function (the factory)"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
