@@ -7,22 +7,22 @@ PyPI, and npm into a shared canonical JSON schema, then ranks and extracts the m
 important candidates. [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) is also
 supported as a build recipe source — its 20,000+ port Makefiles complement Nixpkgs.
 
-**Layer 2** provides 2,018 machine-readable behavioral specs — one per OSS library —
-that are verified against the real installed library on macOS and Linux. 812 of them
-target npm packages; the wave compiler expands the source set into 10,935 invariant
-bundles totalling 224,000+ invariants. ctypes-backed specs include libpcap and
+**Layer 2** provides 2,088 machine-readable behavioral specs — one per OSS library —
+that are verified against the real installed library on macOS and Linux. 883 of them
+target npm packages; the wave compiler expands the source set into 11,005 invariant
+bundles totalling 224,800+ invariants. ctypes-backed specs include libpcap and
 pcapng (35 invariants together, all derived from IETF drafts).
 
 ---
 
 ## Covered library index {#covered-library-index}
 
-The Z-layer covers **10,935** compiled specs (from 2,018 source `.zsdl` files,
+The Z-layer covers **11,005** compiled specs (from 2,088 source `.zsdl` files,
 expanded into per-library invariant bundles). The full sorted list is below — long
 because it includes every generated `_extra` wave variant. Click to expand.
 
 <details>
-<summary>Show full list of covered libraries (10,935 entries)</summary>
+<summary>Show full list of covered libraries (11,005 entries)</summary>
 
 ```
 _bisect
@@ -10918,7 +10918,7 @@ make spec-coverage EXTRACTION_DIR=reports/extractions/ TOP=50
 # Compile ZSDL sources to JSON (required before verification)
 make compile-zsdl
 
-# Run all compiled specs (10,935 today)
+# Run all compiled specs (11,005 today)
 make verify-all-specs
 
 # Run a single spec

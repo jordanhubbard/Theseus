@@ -14,7 +14,7 @@ Theseus is a three-layer toolchain:
 Walks Nixpkgs and FreeBSD Ports source trees, normalizes package metadata into a canonical JSON schema, ranks packages by importance, and produces merged extraction records for the top candidates. See `docs/architecture.md §Layer 1`.
 
 **Layer 2 — Z-Layer Behavioral Spec System**
-2,018 machine-readable behavioral specs (ZSDL files) — 812 of them target npm packages — covering Python stdlib, npm, ctypes C libraries (incl. libpcap + pcapng), and Rust PyO3 extension modules. Each spec defines invariants verified against the real installed library. ZSDL gained five new spec kinds across batches 112–132 + the libpcap challenge: `node_chain_eq` (fluent builder chains), `node_property_eq` (sugar for post-construction property reads), `node_sandbox_chain_eq` (chain in a tempdir cwd, for fs packages), `ctypes_chain_eq` (handle-threading C APIs), `ctypes_sandbox_chain_eq` (ctypes chain + binary-blob seeded tempdir, for libpcap/pcapng). Plus two small mode extensions: `entry: bare` for static-data modules, and `class: ""` for modules whose default export IS the constructor. See `docs/architecture.md §Layer 2` and `docs/writing-specs.md`.
+2,088 machine-readable behavioral specs (ZSDL files) — 883 of them target npm packages — covering Python stdlib, npm, ctypes C libraries (incl. libpcap + pcapng), and Rust PyO3 extension modules. Each spec defines invariants verified against the real installed library. ZSDL gained five new spec kinds across batches 112–132 + the libpcap challenge: `node_chain_eq` (fluent builder chains), `node_property_eq` (sugar for post-construction property reads), `node_sandbox_chain_eq` (chain in a tempdir cwd, for fs packages), `ctypes_chain_eq` (handle-threading C APIs), `ctypes_sandbox_chain_eq` (ctypes chain + binary-blob seeded tempdir, for libpcap/pcapng). Plus two small mode extensions: `entry: bare` for static-data modules, and `class: ""` for modules whose default export IS the constructor. Chain method steps now also accept `tap: true` to call mutators for their side effect without reassigning the threaded value. See `docs/architecture.md §Layer 2` and `docs/writing-specs.md`.
 
 **Layer 3 — Clean-Room Synthesis System** *(current primary focus)*
 Given a behavioral spec with a `python_cleanroom` backend, synthesizes a complete reimplementation of the package from scratch — no importing the original, no cross-language wrappers. 392 Python packages are verified in `theseus_registry.json`. See `docs/architecture.md §Layer 3` and `docs/cleanroom-spec-format.md`.
@@ -246,7 +246,7 @@ python3 tools/verify_behavior.py _build/zspecs/mylib.zspec.json --watch  # TDD l
 | `python_cleanroom(theseus_json)` | `backend: python_cleanroom(theseus_json)` | Clean-room Python reimplementations |
 | `node_cleanroom(theseus_path)` | `backend: node_cleanroom(theseus_path)` | Clean-room Node.js reimplementations |
 
-Current spec counts by backend: node (812), rust_module (479), python_cleanroom (390), python_module (318), ctypes (12 — incl. libpcap + pcapng), cli (4), node_cleanroom (1).
+Current spec counts by backend: node (883), rust_module (479), python_cleanroom (390), python_module (318), ctypes (12 — incl. libpcap + pcapng), cli (4), node_cleanroom (1).
 
 ### Invariant kinds (python_module)
 

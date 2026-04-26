@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
-> ### **2,018 source specs · 10,935 compiled · 224,350 invariants · 13,900+ tests · 812 npm packages · libpcap + pcapng covered**
+> ### **2,088 source specs · 11,005 compiled · 224,859 invariants · 13,900+ tests · 883 npm packages · libpcap + pcapng covered**
 
 📖 **[Full User Guide →](https://jordanhubbard.github.io/Theseus/)** — installation, pipeline walkthrough, spec authoring, language reference. The full list of covered libraries lives in the user guide [Index](https://jordanhubbard.github.io/Theseus/#covered-library-index).
 
@@ -33,7 +33,7 @@ Terms used throughout the project, defined here before they appear in the rest o
 - **Z-spec** / **zspec** — synonym for behavioral spec; the "Z" was chosen for being terminal (Z is the last letter — after Z, only verification remains).
 - **ZSDL** — *Z-Spec Definition Language*. The YAML-flavoured surface syntax of `.zspec.zsdl` files. Compiles to JSON via `make compile-zsdl`. Full grammar: [docs/zsdl-design.md](docs/zsdl-design.md).
 - **Invariant** — one falsifiable claim about behaviour (e.g. *"`semver.valid('1.2.3')` returns `'1.2.3'`"*). The verification harness asserts each invariant against the real installed library and reports pass/fail.
-- **Compiled bundle** / **wave** — the compiler expands every source `.zsdl` into one or more compiled `.zspec.json` artifacts, one per generated `_extra` wave. The current corpus has 2,018 source specs expanding into 10,935 compiled bundles, totalling 224,350 invariants.
+- **Compiled bundle** / **wave** — the compiler expands every source `.zsdl` into one or more compiled `.zspec.json` artifacts, one per generated `_extra` wave. The current corpus has 2,088 source specs expanding into 11,005 compiled bundles, totalling 224,859 invariants.
 - **Backend** — how the spec runner loads the library under test: `ctypes` (C shared libraries via `ctypes.CDLL`), `python_module` (`importlib.import_module`), `node` (CJS or ESM via `node -e`), `cli` (`subprocess.run`).
 - **Clean-room package** — a Theseus reimplementation registered in `theseus_registry.json` that satisfies its spec without importing the original library.
 
@@ -146,7 +146,7 @@ make start        # runs analysis on examples/ — no snapshot needed
 
 ```bash
 make compile-zsdl              # compile ZSDL sources to _build/zspecs/
-make verify-all-specs          # run all 10,935 compiled specs; print text summary
+make verify-all-specs          # run all 11,005 compiled specs; print text summary
 make verify-all-specs-json     # same, write JSON results
 make verify-behavior ZSPEC=_build/zspecs/zlib.zspec.json  # single spec
 ```
