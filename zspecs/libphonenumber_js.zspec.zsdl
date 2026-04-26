@@ -1,0 +1,93 @@
+spec: libphonenumber_js
+version: ">=1.10.0"
+backend: node(libphonenumber-js)
+
+docs: https://gitlab.com/catamphetamine/libphonenumber-js#readme
+
+provenance:
+  derived_from:
+    - "libphonenumber-js README — https://gitlab.com/catamphetamine/libphonenumber-js#readme"
+    - "Google's libphonenumber — https://github.com/google/libphonenumber"
+    - "ITU-T E.164 numbering plan"
+    - "Test vectors verified with libphonenumber-js via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "libphonenumber-js source"
+  notes:
+    - "JavaScript port of Google's libphonenumber for parsing/validating international phone numbers."
+    - "Install: npm install libphonenumber-js"
+    - "Pattern: parsePhoneNumber(e164OrNational, country?) returns a PhoneNumber instance with country / number / isValid() / formatX() methods."
+  rfcs:
+    - "ITU-T E.164 — The international public telecommunication numbering plan"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "parsePhoneNumber throws ParseError on un-parseable inputs."
+  stderr: "null"
+  stickiness: "N/A — each call creates an independent PhoneNumber."
+  codes: {}
+
+# parsePhoneNumber('+14155552671').country
+table libphonenumber_js.country_lookup:
+  kind: node_chain_eq
+  category: country
+  entry: named
+  function: parsePhoneNumber
+  id_prefix: country
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [us_san_francisco,  ["+14155552671"], [{get: country}], "US"]
+    - [uk_london_landline, ["+442079460000"], [{get: country}], "GB"]
+    - [germany,            ["+493012345678"], [{get: country}], "DE"]
+    - [japan,              ["+81312345678"],  [{get: country}], "JP"]
+    - [australia,          ["+61212345678"],  [{get: country}], "AU"]
+
+# .number == E.164 form preserved
+invariant libphonenumber_js.e164_passthrough:
+  description: ".number returns the E.164 form unchanged"
+  category: format
+  kind: node_chain_eq
+  entry: named
+  function: parsePhoneNumber
+  entry_args: ["+14155552671"]
+  chain:
+    - {get: number}
+  expected: "+14155552671"
+
+# .formatInternational() — spaces between country code and groups
+invariant libphonenumber_js.format_international:
+  description: "formatInternational returns spaced E.164 form"
+  category: format
+  kind: node_chain_eq
+  entry: named
+  function: parsePhoneNumber
+  entry_args: ["+14155552671"]
+  chain:
+    - {method: formatInternational, args: []}
+  expected: "+1 415 555 2671"
+
+# .formatNational() — country-specific formatting
+invariant libphonenumber_js.format_national_us:
+  description: "formatNational uses (NPA) NXX-XXXX for US"
+  category: format
+  kind: node_chain_eq
+  entry: named
+  function: parsePhoneNumber
+  entry_args: ["+14155552671"]
+  chain:
+    - {method: formatNational, args: []}
+  expected: "(415) 555-2671"
+
+# isValidPhoneNumber — module-level convenience
+table libphonenumber_js.isValid:
+  kind: node_module_call_eq
+  category: isValid
+  function: isValidPhoneNumber
+  id_prefix: valid
+
+  columns: [id, args, expected]
+  rows:
+    - [valid_us,           ["+14155552671"],     true]
+    - [too_short,          ["+1415"],            false]
+    - [non_numeric,        ["abc"],              false]
+    - [empty,              [""],                 false]

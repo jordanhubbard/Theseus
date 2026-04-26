@@ -1,0 +1,133 @@
+spec: card_validator
+version: ">=10.0.0"
+backend: node(card-validator)
+
+docs: https://github.com/braintree/card-validator#readme
+
+provenance:
+  derived_from:
+    - "card-validator README — https://github.com/braintree/card-validator#readme"
+    - "ISO/IEC 7812 — Identification cards (IIN/PAN)"
+    - "Luhn algorithm — Hans Peter Luhn, 1954"
+    - "Test vectors verified with card-validator via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "card-validator source"
+  notes:
+    - "Braintree's payment-card validation suite — Luhn check + brand inference + expiration/CVV checks."
+    - "Install: npm install card-validator"
+    - "number(pan) returns {isValid, isPotentiallyValid, card: {type, niceType, ...}}."
+    - "Test PANs are the canonical Visa/MC/Amex test numbers from PCI-DSS reference docs."
+  rfcs:
+    - "ISO/IEC 7812-1 — Identification cards"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; never throw on string inputs."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# number() — brand inference
+invariant card_validator.visa_test_number_brand:
+  description: "Visa test PAN 4111111111111111 → brand 'visa'"
+  category: brand
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["4111111111111111"]
+  chain:
+    - {get: card}
+    - {get: type}
+  expected: "visa"
+
+invariant card_validator.mastercard_test_number_brand:
+  description: "MasterCard test PAN 5555555555554444 → brand 'mastercard'"
+  category: brand
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["5555555555554444"]
+  chain:
+    - {get: card}
+    - {get: type}
+  expected: "mastercard"
+
+invariant card_validator.amex_test_number_brand:
+  description: "Amex test PAN 378282246310005 → brand 'american-express'"
+  category: brand
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["378282246310005"]
+  chain:
+    - {get: card}
+    - {get: type}
+  expected: "american-express"
+
+invariant card_validator.discover_test_number_brand:
+  description: "Discover test PAN 6011111111111117 → brand 'discover'"
+  category: brand
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["6011111111111117"]
+  chain:
+    - {get: card}
+    - {get: type}
+  expected: "discover"
+
+# Luhn validity
+invariant card_validator.visa_passes_luhn:
+  description: "Standard Visa test PAN passes Luhn check (isValid=true)"
+  category: luhn
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["4111111111111111"]
+  chain:
+    - {get: isValid}
+  expected: true
+
+invariant card_validator.bad_luhn_check_fails:
+  description: "PAN with wrong final digit fails Luhn"
+  category: luhn
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["4111111111111119"]
+  chain:
+    - {get: isValid}
+  expected: false
+
+invariant card_validator.partial_pan_potentially_valid:
+  description: "Short prefix is potentially valid but not yet fully valid"
+  category: incremental
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["4111"]
+  chain:
+    - {get: isPotentiallyValid}
+  expected: true
+
+invariant card_validator.partial_pan_not_yet_fully_valid:
+  description: "4-digit prefix is NOT fully valid (PAN must be 13–19 digits)"
+  category: incremental
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["4111"]
+  chain:
+    - {get: isValid}
+  expected: false
+
+invariant card_validator.gibberish_not_potentially_valid:
+  description: "Non-numeric input is not potentially valid"
+  category: incremental
+  kind: node_chain_eq
+  entry: named
+  function: number
+  entry_args: ["abcd"]
+  chain:
+    - {get: isPotentiallyValid}
+  expected: false
