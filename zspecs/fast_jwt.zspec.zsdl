@@ -1,0 +1,122 @@
+spec: fast_jwt
+version: ">=4.0.0"
+backend: node(fast-jwt)
+
+docs: https://github.com/nearform/fast-jwt#readme
+
+provenance:
+  derived_from:
+    - "fast-jwt README — https://github.com/nearform/fast-jwt#readme"
+    - "RFC 7519 (JSON Web Token), RFC 7515 (JWS)"
+    - "Test vectors verified with fast-jwt via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "fast-jwt source"
+  notes:
+    - "Performance-tuned JWT library — alternative to jsonwebtoken; same factory pattern (createSigner / createVerifier / createDecoder)."
+    - "Install: npm install fast-jwt"
+    - "v4 CJS; named exports createSigner / createVerifier / createDecoder / TokenError / TOKEN_ERROR_CODES."
+    - "Test vectors use noTimestamp:true so HS256 signing is deterministic — produces same token as jsonwebtoken."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Throws TokenError with .code from TOKEN_ERROR_CODES on bad input."
+  stderr: "null"
+  stickiness: "Signers / verifiers are reusable across calls."
+  codes:
+    FAST_JWT_INVALID_SIGNATURE: "Signature verification failed"
+    FAST_JWT_EXPIRED: "Token past its exp claim"
+    FAST_JWT_INACTIVE: "Token used before its nbf claim"
+
+invariant fast_jwt.createSigner_HS256_deterministic:
+  description: "createSigner({HS256, noTimestamp})({sub:'alice',x:1}) produces deterministic token"
+  category: sign
+  kind: node_chain_eq
+  entry: named
+  function: createSigner
+  entry_args: [{key: "secret", algorithm: "HS256", noTimestamp: true}]
+  chain:
+    - {call: [{sub: "alice", x: 1}]}
+  expected: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI"
+
+invariant fast_jwt.createDecoder_returns_function:
+  description: "createDecoder() returns a function"
+  category: shape
+  kind: node_chain_eq
+  entry: named
+  function: createDecoder
+  entry_args: []
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
+
+invariant fast_jwt.decode_known_token_subject:
+  description: "Decoded known token .sub is 'alice'"
+  category: decode
+  kind: node_chain_eq
+  entry: named
+  function: createDecoder
+  entry_args: []
+  chain:
+    - {call: ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI"]}
+    - {get: sub}
+  expected: "alice"
+
+invariant fast_jwt.decode_known_token_x:
+  description: "Decoded token .x is 1"
+  category: decode
+  kind: node_chain_eq
+  entry: named
+  function: createDecoder
+  entry_args: []
+  chain:
+    - {call: ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI"]}
+    - {get: x}
+  expected: 1
+
+invariant fast_jwt.verify_round_trip:
+  description: "createVerifier({HS256, secret})(known_token) returns the payload"
+  category: verify
+  kind: node_chain_eq
+  entry: named
+  function: createVerifier
+  entry_args: [{key: "secret", algorithms: ["HS256"]}]
+  chain:
+    - {call: ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI"]}
+    - {get: sub}
+  expected: "alice"
+
+invariant fast_jwt.error_codes_invalid_signature:
+  description: "TOKEN_ERROR_CODES.invalidSignature is the documented prefix"
+  category: errors
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "TOKEN_ERROR_CODES.invalidSignature"}
+  expected: "FAST_JWT_INVALID_SIGNATURE"
+
+invariant fast_jwt.error_codes_expired:
+  description: "TOKEN_ERROR_CODES.expired is FAST_JWT_EXPIRED"
+  category: errors
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "TOKEN_ERROR_CODES.expired"}
+  expected: "FAST_JWT_EXPIRED"
+
+invariant fast_jwt.error_codes_malformed:
+  description: "TOKEN_ERROR_CODES.malformed is FAST_JWT_MALFORMED"
+  category: errors
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "TOKEN_ERROR_CODES.malformed"}
+  expected: "FAST_JWT_MALFORMED"
+
+invariant fast_jwt.has_TokenError_class:
+  description: "TokenError exported as a class"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "TokenError.constructor.name"}
+  expected: "Function"
