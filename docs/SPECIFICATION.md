@@ -180,6 +180,9 @@ invariants:
 | `node_factory_call_eq` | `m()[method](...)` — two-step factory + method (e.g. `express()`, `yargs(argv).parseSync()`) |
 | `node_chain_eq` | Arbitrary `{method|get|call}` chain off an initial value (entry: `module`/`named`/`constructor`/`factory`); supports dotted names like `default.Separator` |
 | `node_property_eq` | Sugar for `node_chain_eq` with a single `{get}` step — read one property after construction or a factory call |
+| `node_sandbox_chain_eq` | `node_chain_eq` inside a per-invariant tempdir cwd seeded by `setup` (paths + content). For glob/fs-extra/mkdirp/rimraf/find-up. |
+| `ctypes_chain_eq` | Sequence of ctypes calls threading an opaque handle/pointer; restype tokens (`c_int`/`c_char_p`/`c_void_p`/…); per-step `capture: name`; `{capture: name}`/`{errbuf: N}` arg dicts. For libpcap-style stateful C APIs. |
+| `ctypes_sandbox_chain_eq` | `ctypes_chain_eq` + per-invariant tempdir seeded by `setup` with `content_b64` for binary blobs; `{sandbox_path: rel}` resolves to absolute path bytes. For libpcap/pcapng savefile-header parsing. |
 | `version_prefix` | Assert version string starts with expected prefix |
 | `roundtrip` | Compress then decompress, assert byte equality |
 | `wire_bytes` | Assert compressed output has specific byte properties |

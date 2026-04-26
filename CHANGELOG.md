@@ -10,8 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - ZSDL `node_chain_eq` kind for fluent builder APIs that need 3+ chained method/property/call steps off an initial value (entry: `module` / `named` / `constructor` / `factory`). Unblocks commander, builder-style CLIs, and stateful npm packages whose APIs don't fit the existing single-call/two-step kinds.
 - ZSDL `node_property_eq` kind — sugar for "construct/call, then read one property". Used for ora, inquirer's `Separator`, meow's `cli.flags`/`cli.input`.
-- Both new kinds support dotted member paths (e.g. `class: default.Separator`) for ESM packages whose default export bundle nests classes.
-- Batch 112 — CLI core zspecs: commander, yargs, ora, inquirer, meow (45 invariants total, all passing).
+- ZSDL `node_sandbox_chain_eq` kind — same chain semantics but the script runs in a fresh tempdir cwd seeded by `setup`. Used for filesystem packages (glob, fs-extra, mkdirp, rimraf, find-up).
+- ZSDL `ctypes_chain_eq` kind — handle-threading for stateful C libraries; per-step `function`/`args`/`arg_types`/`restype` plus `capture: name` for output, `{capture: name}`/`{errbuf: N}` for inputs.
+- ZSDL `ctypes_sandbox_chain_eq` kind — ctypes chain + per-invariant tempdir seeded by `setup` with `content_b64` for binary blobs; chain references files via `{sandbox_path: rel}`. Used for libpcap and pcapng to read synthesized savefile/section headers without root or hardware.
+- All chain kinds support dotted member paths (e.g. `class: default.Separator`) for ESM packages with nested default exports. JS chains that legitimately return `undefined` map to JSON `null` so YAML `~` works.
+- Batches 112–115 — CLI core (commander, yargs, ora, inquirer, meow), pure functions (moment, cheerio, handlebars, js-yaml, underscore), helpers (dotenv, tslib, zod, joi, lru-cache), filesystem (glob, fs-extra, mkdirp, rimraf, find-up): 20 specs, ~255 invariants total.
+- libpcap and pcapng zspecs (35 invariants combined) — pure helpers + offline savefile/section-header readers, derived entirely from the IETF drafts (draft-ietf-opsawg-pcap, draft-ietf-opsawg-pcapng, draft-ietf-opsawg-pcaplinktype). Live capture remains out of scope.
 
 ## [0.0.2] - 2026-04-08
 

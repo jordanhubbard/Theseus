@@ -6,7 +6,7 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 1 — Package recipe pipeline:** normalizes Nixpkgs and FreeBSD Ports records into a shared canonical schema, ranks candidates, and produces merged extraction records.
 
-**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 1,917 source specs covering 7 backend types (node, rust_module, python_cleanroom, python_module, ctypes, cli, node_cleanroom). 714 specs target npm packages; the wave compiler expands the source set into 10,829 invariant bundles.
+**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 1,934 source specs covering 7 backend types (node, rust_module, python_cleanroom, python_module, ctypes, cli, node_cleanroom). 729 specs target npm packages; ctypes specs now include libpcap and pcapng (35 invariants together, derived from the IETF capture-file drafts). The wave compiler expands the source set into 10,846 invariant bundles totalling 223k+ invariants.
 
 **Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. 392 Python packages verified as of the current registry.
 
@@ -254,6 +254,11 @@ Invariants are grouped by their execution pattern (`kind`):
 - `node_factory_call_eq` — `m()[method](...method_args)` or `m[factory]()[method](...)`. Two-step factory + method pattern (e.g. `express()`/`yargs(argv).parseSync()`).
 - `node_chain_eq` — arbitrary `{method|get|call}` chain off an initial value (entry: `module` / `named` / `constructor` / `factory`). Required for fluent builder APIs that need 3+ chained calls — e.g. `new Command().option(f).parse(argv).opts()` (commander). Class/factory/function names accept dotted paths (e.g. `default.Separator`) for ESM packages whose default export bundle nests classes.
 - `node_property_eq` — sugar for `node_chain_eq` with a single `{get}` step. Reads one property after construction or a factory call. Used for ora (`ora('text').text`), inquirer's `Separator`, and meow's `cli.flags`/`cli.input`.
+- `node_sandbox_chain_eq` — same chain semantics as `node_chain_eq` but runs in a per-invariant tempdir cwd seeded by `setup` (list of `{path, content}` / `{path, content_b64}` / `{path, dir: true}`). The script require/imports the module while cwd is the project root (so `node_modules` resolves), then `process.chdir()`s into the sandbox before running the chain. Used for filesystem packages: glob, fs-extra, mkdirp, rimraf, find-up.
+
+**ctypes (stateful handle threading)**
+- `ctypes_chain_eq` — sequence of ctypes calls; each step has `function`, `args`, `arg_types`, `restype` (one of `c_int` / `c_uint` / `c_long` / `c_ulong` / `c_char_p` / `c_void_p`); per-step `capture: name` stores the result, later steps reference it via `{capture: name}` arg dicts; `{errbuf: N}` allocates caller-owned scratch buffers. Comparison modes: `expected` (int), `expected_b64` (bytes), `expected_prefix_b64` (bytes startswith). Required for stateful C library APIs that thread an opaque handle through multiple calls (libpcap's `pcap_open_offline → pcap_datalink → pcap_close`, sqlite3's `prepare/step/finalize`, OpenSSL's BIO chains).
+- `ctypes_sandbox_chain_eq` — `ctypes_chain_eq` + per-invariant tempdir seeded by `setup` (text via `content` or binary blobs via `content_b64`). Chain references files via `{sandbox_path: rel}` which resolves to absolute path bytes. Used for libpcap and pcapng to read synthesized savefile/section headers.
 
 ### Method Chaining in `python_call_eq`
 
@@ -416,6 +421,10 @@ The per-invariant list format is compatible with `--baseline` (same `{id, passed
 | `ora` | cli/node (ESM) | 11 | `node_property_eq`; spinner state via factory + property reads |
 | `inquirer` | cli/node (ESM) | 7 | `node_property_eq` with dotted path `class: default.Separator` |
 | `meow` | cli/node (ESM) | 9 | `node_property_eq`; reads `cli.flags` and `cli.input` after factory call |
+| `glob` (npm) | cli/node | 16 | `node_sandbox_chain_eq` with seeded files; `globSync`, `hasMagic`, `escape` |
+| `fs-extra` | cli/node | 11 | `node_sandbox_chain_eq`; `pathExistsSync`, `readJsonSync` round-trips |
+| `libpcap` | ctypes | 22 | `ctypes_chain_eq` + `ctypes_sandbox_chain_eq`; pure helpers, offline savefile reader, magic variants per draft-ietf-opsawg-pcap |
+| `pcapng` | ctypes | 13 | `ctypes_sandbox_chain_eq` over synthesized SHB+IDB blobs per draft-ietf-opsawg-pcapng |
 | `zlib` | ctypes | 23 | compress/decompress roundtrip, crc32, adler32, error codes |
 | `zstd` | ctypes | 15 | ZSTD_versionString, maxCLevel, compressBound, isError; `call_ge` simple mode |
 

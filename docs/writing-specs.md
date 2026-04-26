@@ -94,6 +94,9 @@ lower bound, not an exact value.
 | Call `m()[method](args)` or `m[factory]()[method](args)` (factory + 1 method) | `node_factory_call_eq` |
 | Chain 3+ methods/property reads off a class instance or factory result | `node_chain_eq` |
 | Construct/call something then read one property | `node_property_eq` |
+| Run an npm chain with files seeded in a tempdir cwd (glob, fs-extra, mkdirp, rimraf) | `node_sandbox_chain_eq` |
+| Thread a ctypes handle through multiple calls (libpcap-style stateful C APIs) | `ctypes_chain_eq` |
+| Same as above but with binary blobs / files seeded in a tempdir | `ctypes_sandbox_chain_eq` |
 
 For CLI specs, prefer `cli_stdout_contains` over `cli_stdout_eq` unless the exact
 full output is contractually fixed. Exact output is brittle across versions.

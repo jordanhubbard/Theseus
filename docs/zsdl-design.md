@@ -436,6 +436,57 @@ invariant ora.default.text:
   entry_args: ["Loading"]
   property: text
   expected: "Loading"
+
+# node_sandbox_chain_eq — chain runs in a per-invariant tempdir cwd seeded
+# by `setup`. Used for filesystem packages (glob, fs-extra, mkdirp, rimraf).
+invariant glob.recursive_txt_files:
+  kind: node_sandbox_chain_eq
+  entry: named
+  function: globSync
+  entry_args: ["**/*.txt"]
+  chain:
+    - {method: sort, args: []}
+  setup:
+    - {path: "a.txt", content: ""}
+    - {path: "sub/b.txt", content: ""}
+  expected: ["a.txt", "sub/b.txt"]
+
+# ctypes_chain_eq — handle-threading for stateful C library APIs.
+# Each step's restype configures the ctypes return type; per-step `capture: name`
+# stores the result so later steps reference it via {capture: name} arg dicts.
+# {errbuf: N} allocates caller-owned scratch buffers.
+invariant libpcap.lib_version_prefix:
+  kind: ctypes_chain_eq
+  chain:
+    - function: pcap_lib_version
+      restype: c_char_p
+      args: []
+      arg_types: []
+  expected_prefix_b64: bGlicGNhcCB2ZXJzaW9u   # b'libpcap version'
+
+# ctypes_sandbox_chain_eq — ctypes chain + tempdir seeded by `setup`.
+# `content_b64` for binary blobs; chain references files via {sandbox_path: rel}.
+invariant libpcap.open_offline_en10mb:
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcap"
+      content_b64: "1MOyoQIABAAAAAAAAAAAAP//AAABAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1   # DLT_EN10MB
 ```
 
 ### `python_call_raises` with kwargs (structured form)

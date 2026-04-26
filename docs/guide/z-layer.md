@@ -1,9 +1,10 @@
 # Z-Layer Behavioral Spec System
 
-The Z-layer (Layer 2) is a system of 1,917 machine-readable behavioral specs — one per
-OSS library — that describe how each library actually behaves. (714 of them target npm
-packages. The wave compiler expands the source set into 10,829 invariant bundles, totalling
-223,000+ invariants.) Each spec is:
+The Z-layer (Layer 2) is a system of 1,934 machine-readable behavioral specs — one per
+OSS library — that describe how each library actually behaves. (729 of them target npm
+packages; libpcap and pcapng cover the IETF capture-file drafts via ctypes. The wave
+compiler expands the source set into 10,846 invariant bundles, totalling 223,000+
+invariants.) Each spec is:
 
 - **Derived from public documentation only** — not from source code. This preserves
   clean-room provenance.
@@ -127,6 +128,9 @@ use `ctypes`. npm packages always use `node`.
 | `node_factory_call_eq` | `m()[method](...method_args)` or `m[factory]()[method](...)`. Two-step factory + method (e.g. `express()`/`yargs(argv).parseSync()`). |
 | `node_chain_eq` | Arbitrary `{method|get|call}` chain off an initial value (entry: `module` / `named` / `constructor` / `factory`). Required for fluent builder APIs that need 3+ chained calls — e.g. `new Command().option(f).parse(argv).opts()`. Class/factory/function names accept dotted paths (e.g. `default.Separator`) for ESM packages whose default export bundle nests classes. |
 | `node_property_eq` | Sugar for `node_chain_eq` with a single `{get}` step. Reads one property after construction or a factory call. Used for ora (`ora('text').text`), inquirer's `Separator`, and meow's `cli.flags`/`cli.input`. |
+| `node_sandbox_chain_eq` | Same as `node_chain_eq` but runs inside a fresh tempdir cwd seeded by `setup` (list of `{path, content}` / `{path, content_b64}` / `{path, dir: true}`). Sandbox removed after the run. Used for filesystem packages: glob, fs-extra, mkdirp, rimraf, find-up. |
+| `ctypes_chain_eq` | Threads opaque ctypes handles through a sequence of calls. Each step has `function`, `args`, `arg_types`, `restype` (`c_int`/`c_char_p`/`c_void_p`/…); steps capture return values via `capture: name` and reference earlier captures via `{capture: name}` arg dicts; `{errbuf: N}` allocates a caller-owned scratch buffer. Comparison modes: `expected` (int), `expected_b64` (bytes), `expected_prefix_b64` (bytes startswith). Used for libpcap's offline-file readers. |
+| `ctypes_sandbox_chain_eq` | `ctypes_chain_eq` + per-invariant tempdir seeded by `setup` (text or `content_b64` for binary blobs). Chain references files via `{sandbox_path: rel}`. Used for libpcap + pcapng savefile-header parsing on synthesized blobs. |
 
 ---
 
@@ -194,7 +198,7 @@ skip_if: 'platform == "freebsd" or not semver_satisfies(lib_version, ">=3.9")'
 # Compile all ZSDL sources first
 make compile-zsdl
 
-# Run all compiled specs (10,829 today) — text summary
+# Run all compiled specs (10,846 today) — text summary
 make verify-all-specs
 
 # Run all specs — JSON results (for CI dashboards, --baseline diffs)

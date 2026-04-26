@@ -387,6 +387,94 @@ property: text
 expected: "Loading..."
 ```
 
+### `node_sandbox_chain_eq`
+
+Same chain semantics as `node_chain_eq`, but the script runs inside a fresh
+per-invariant tempdir whose contents are seeded by `setup`. The harness
+require/imports the module while cwd is the project root (so node_modules
+resolves), then `process.chdir()`s into the sandbox before running the chain.
+The sandbox is removed after the run.
+
+`setup` entries: `{path: "rel", content: "string"}` (text file),
+`{path: "rel", content_b64: "..."}` (binary file via base64), or
+`{path: "rel", dir: true}` (directory). Paths must be relative and free of `..`.
+
+Used for filesystem packages: `glob`, `fs-extra`, `mkdirp`, `rimraf`, `find-up`.
+
+```yaml
+kind: node_sandbox_chain_eq
+entry: named
+function: globSync
+entry_args: ["**/*.txt"]
+chain:
+  - {method: sort, args: []}
+setup:
+  - {path: "a.txt", content: ""}
+  - {path: "sub/b.txt", content: ""}
+expected: ["a.txt", "sub/b.txt"]
+```
+
+### `ctypes_chain_eq`
+
+Threads opaque handles through a sequence of ctypes calls. Required for
+stateful C library APIs whose return value from one call is the input to the
+next (libpcap's `pcap_open_offline → pcap_datalink → pcap_close`, sqlite3's
+`prepare/step/finalize`, OpenSSL's BIO chains).
+
+Each chain step has `function`, `args`, `arg_types`, `restype` (one of
+`c_int` / `c_uint` / `c_long` / `c_ulong` / `c_char_p` / `c_void_p` — default
+`c_int`). Optional per-step `capture: name` stores the result; subsequent
+steps reference it via `{capture: name}` arg dicts. `{errbuf: N}` allocates a
+caller-owned scratch buffer. Plain string args auto-encode to bytes when the
+slot is `c_char_p`.
+
+Comparison modes: `expected` (int), `expected_b64` (bytes equality),
+`expected_prefix_b64` (bytes startswith). Mark which step's return is compared
+via `compare: true` (default: last step).
+
+```yaml
+kind: ctypes_chain_eq
+chain:
+  - function: pcap_lib_version
+    restype: c_char_p
+    args: []
+    arg_types: []
+expected_prefix_b64: bGlicGNhcCB2ZXJzaW9u   # b'libpcap version'
+```
+
+### `ctypes_sandbox_chain_eq`
+
+Same mechanics as `ctypes_chain_eq` plus a `setup` list that seeds a
+per-invariant tempdir with file blobs. Chain references files via
+`{sandbox_path: rel}`, which resolves to absolute path bytes (utf-8 encoded).
+Setup paths must be relative and free of `..`.
+
+Used for libpcap and pcapng to read synthesized savefile/section headers
+without touching real network interfaces.
+
+```yaml
+kind: ctypes_sandbox_chain_eq
+setup:
+  - path: "trace.pcap"
+    content_b64: "1MOyoQIABAAAAAAAAAAAAP//AAABAAAA"   # 24-byte pcap header
+chain:
+  - function: pcap_open_offline
+    restype: c_void_p
+    args: [{sandbox_path: "trace.pcap"}, {errbuf: 256}]
+    arg_types: [c_char_p, c_char_p]
+    capture: handle
+  - function: pcap_datalink
+    restype: c_int
+    args: [{capture: handle}]
+    arg_types: [c_void_p]
+    compare: true
+  - function: pcap_close
+    restype: c_int
+    args: [{capture: handle}]
+    arg_types: [c_void_p]
+expected: 1   # DLT_EN10MB
+```
+
 ---
 
 ## `skip_if` Reference
