@@ -132,9 +132,18 @@ def main(argv: list[str] | None = None) -> int:
         failed_inv  += s["failed"]
         skipped_inv += s["skipped"]
 
+        # Distinguish 'library not installed' (skipped, runner-environment
+        # signal) from 'spec assertion failed' (the actual contract issue).
+        # CI environments don't install all 968 npm + 479 rust modules,
+        # so missing-library errors should not fail verify-all-specs.
+        is_lib_missing = bool(result["error"]) and (
+            result["error"].startswith("LibraryNotFoundError")
+        )
         if result["error"]:
-            print(f"ERROR: {result['error']}")
-            any_failed = True
+            kind = "SKIP " if is_lib_missing else "ERROR"
+            print(f"{kind}: {result['error']}")
+            if not is_lib_missing:
+                any_failed = True
         elif s["failed"]:
             print(f"FAIL  ({s['failed']}/{s['total']} failed)")
             any_failed = True
@@ -145,8 +154,19 @@ def main(argv: list[str] | None = None) -> int:
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "summary": {
             "total_specs":     len(spec_results),
-            "specs_ok":        sum(1 for r in spec_results if not r["error"] and r["summary"]["failed"] == 0),
-            "specs_failed":    sum(1 for r in spec_results if r["error"] or r["summary"]["failed"] > 0),
+            "specs_ok":        sum(
+                1 for r in spec_results
+                if not r["error"] and r["summary"]["failed"] == 0
+            ),
+            "specs_failed":    sum(
+                1 for r in spec_results
+                if (r["error"] and not r["error"].startswith("LibraryNotFoundError"))
+                or r["summary"]["failed"] > 0
+            ),
+            "specs_skipped":   sum(
+                1 for r in spec_results
+                if r["error"] and r["error"].startswith("LibraryNotFoundError")
+            ),
             "total_invariants": total_inv,
             "passed":          passed_inv,
             "failed":          failed_inv,

@@ -154,16 +154,23 @@ class TestMain:
         assert rc == 2  # no specs found
 
     def test_failing_spec_exits_1(self, tmp_path):
-        """A spec with a library that can't be loaded should cause exit 1."""
+        """A spec whose invariants assert false causes exit 1.
+
+        Missing-library errors are now counted as 'specs_skipped' (signals
+        environment, not contract failure) and do not flip the exit code —
+        so the spec under test must use an importable module (sys) and
+        contain an invariant that genuinely fails.
+        """
         fake_spec = tmp_path / "bad.zspec.json"
         fake_spec.write_text(json.dumps({
             "schema_version": "0.1",
             "identity": {"canonical_name": "bad", "spec_for_versions": "any"},
             "provenance": {"derived_from": [], "not_derived_from": []},
-            "library": {"backend": "python_module", "module_name": "no_such_module_xyz", "soname_patterns": []},
+            "library": {"backend": "python_module", "module_name": "sys", "soname_patterns": []},
             "constants": {}, "types": {}, "wire_formats": {}, "functions": {},
             "invariants": [{"id": "x", "description": "x", "category": "x",
-                             "kind": "python_call_eq", "spec": {"function": "x", "args": [], "expected": 1}}],
+                             "kind": "python_call_eq",
+                             "spec": {"function": "version_info.major", "args": [], "expected": -999}}],
             "error_model": {"return_code_semantics": "", "error_codes": []},
         }))
         out = tmp_path / "out.json"
