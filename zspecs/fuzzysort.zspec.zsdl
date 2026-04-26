@@ -1,0 +1,107 @@
+spec: fuzzysort
+version: ">=2.0.0"
+backend: node(fuzzysort)
+
+docs: https://github.com/farzher/fuzzysort#readme
+
+provenance:
+  derived_from:
+    - "fuzzysort README — https://github.com/farzher/fuzzysort#readme"
+    - "Test vectors verified with fuzzysort via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "fuzzysort source"
+  notes:
+    - "fuzzysort is a fuzzy string matcher — pre-tokenizes strings then ranks by character ordering and adjacency."
+    - "Install: npm install fuzzysort"
+    - "single(query, target) returns a result object {score, indexes, target} or null if no match."
+    - "go(query, targets[]) returns an array of result objects sorted by score (highest first)."
+    - "Negative scores indicate weak matches; null = no match at all."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "single() returns null on no-match, never throws."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# single(query, target).target — confirms a match was found and identifies it
+table fuzzysort.single_target:
+  kind: node_chain_eq
+  category: single
+  entry: named
+  function: single
+  id_prefix: target
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [substring_match,
+       ["he", "hello"],
+       [{get: target}],
+       "hello"]
+
+    - [out_of_order_match,
+       ["hl", "hello"],
+       [{get: target}],
+       "hello"]
+
+    - [exact_match,
+       ["hello", "hello"],
+       [{get: target}],
+       "hello"]
+
+# single returns null when query cannot be matched
+invariant fuzzysort.single_no_match_returns_null:
+  description: "single() returns null when the query has chars not present in the target"
+  category: single
+  kind: node_chain_eq
+  entry: named
+  function: single
+  entry_args: ["xyz", "hello"]
+  chain: []
+  expected: ~
+
+invariant fuzzysort.single_empty_target_no_match:
+  description: "single() returns null for any non-empty query against empty target"
+  category: single
+  kind: node_chain_eq
+  entry: named
+  function: single
+  entry_args: ["a", ""]
+  chain: []
+  expected: ~
+
+# go(query, targets[]).length — number of matches in a list
+invariant fuzzysort.go_returns_matches:
+  description: "go() returns multiple match results when several targets match"
+  category: go
+  kind: node_chain_eq
+  entry: named
+  function: go
+  entry_args: ["he", ["hello", "world", "heat"]]
+  chain:
+    - {get: length}
+  expected: 2
+
+invariant fuzzysort.go_no_matches_empty:
+  description: "go() returns an empty result list when no targets match"
+  category: go
+  kind: node_chain_eq
+  entry: named
+  function: go
+  entry_args: ["xyz", ["hello", "world"]]
+  chain:
+    - {get: length}
+  expected: 0
+
+# go() best-match identification — first result is the strongest score
+invariant fuzzysort.go_first_match_target:
+  description: "go() sorts results by score; the first .target is the strongest match"
+  category: go
+  kind: node_chain_eq
+  entry: named
+  function: go
+  entry_args: ["heat", ["heating", "heat", "heater"]]
+  chain:
+    - {method: at, args: [0]}
+    - {get: target}
+  expected: "heat"
