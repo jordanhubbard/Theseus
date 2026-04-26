@@ -1,0 +1,89 @@
+spec: terser
+version: ">=5.0.0"
+backend: node(terser)
+
+docs: https://github.com/terser/terser#readme
+
+provenance:
+  derived_from:
+    - "Terser README — https://github.com/terser/terser#readme"
+    - "Test vectors verified with terser via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "terser source"
+  notes:
+    - "JavaScript minifier — successor to UglifyJS for ES6+ source."
+    - "Install: npm install terser"
+    - "v5 ESM only; named exports minify (async) and minify_sync (sync)."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Returns {code, error}; minify_sync throws on parse errors."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+invariant terser.minify_sync_var_decl:
+  description: "minify_sync('var x = 1;').code is 'var x=1;' (whitespace stripped)"
+  category: minify
+  kind: node_chain_eq
+  entry: named
+  function: minify_sync
+  entry_args: ["var x = 1;"]
+  chain:
+    - {get: code}
+  expected: "var x=1;"
+
+invariant terser.minify_sync_function_mangles_args:
+  description: "minify_sync mangles parameter names in a function definition"
+  category: minify
+  kind: node_chain_eq
+  entry: named
+  function: minify_sync
+  entry_args: ["function add(a, b) { return a + b; }"]
+  chain:
+    - {get: code}
+  expected: "function add(n,d){return n+d}"
+
+invariant terser.minify_sync_no_compress_no_mangle:
+  description: "With compress:false and mangle:false, only whitespace is stripped"
+  category: minify
+  kind: node_chain_eq
+  entry: named
+  function: minify_sync
+  entry_args: ["var a = 1; var b = 2; var c = a + b;", {compress: false, mangle: false}]
+  chain:
+    - {get: code}
+  expected: "var a=1;var b=2;var c=a+b;"
+
+invariant terser.minify_sync_constant_fold:
+  description: "Compressor folds constant arithmetic"
+  category: minify
+  kind: node_chain_eq
+  entry: named
+  function: minify_sync
+  entry_args: ["var x = 2 + 3 * 4;"]
+  chain:
+    - {get: code}
+  expected: "var x=14;"
+
+invariant terser.minify_sync_dead_code_elimination:
+  description: "Dead code after return is removed"
+  category: minify
+  kind: node_chain_eq
+  entry: named
+  function: minify_sync
+  entry_args: ["function f() { return 1; var x = 2; }"]
+  chain:
+    - {get: code}
+  expected: "function f(){return 1}"
+
+invariant terser.minify_sync_returns_object_with_code_key:
+  description: "Result has a 'code' key (string)"
+  category: shape
+  kind: node_chain_eq
+  entry: named
+  function: minify_sync
+  entry_args: ["var x = 1;"]
+  chain:
+    - {method: hasOwnProperty, args: ["code"]}
+  expected: true
