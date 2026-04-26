@@ -1,0 +1,180 @@
+spec: acorn
+version: ">=8.0.0"
+backend: node(acorn)
+
+docs: https://github.com/acornjs/acorn#readme
+
+provenance:
+  derived_from:
+    - "Acorn README — https://github.com/acornjs/acorn#readme"
+    - "ESTree specification — https://github.com/estree/estree"
+    - "Test vectors verified with acorn via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "acorn source"
+  notes:
+    - "Acorn is the canonical small, fast ECMAScript parser used by Webpack, Rollup, ESLint, Babel internals."
+    - "Install: npm install acorn"
+    - "parse(code, options) returns an ESTree AST. Default ecmaVersion is conservative; specs pin ecmaVersion: 2022."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure parser; throws SyntaxError on malformed input."
+  stderr: "null"
+  stickiness: "N/A — each parse independent."
+  codes: {}
+
+# Top-level Program node
+invariant acorn.parse_program_type:
+  description: "parse('1+2') returns a Program node"
+  category: program
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["1 + 2", {ecmaVersion: 2022}]
+  chain:
+    - {get: type}
+  expected: "Program"
+
+# ExpressionStatement
+invariant acorn.expression_statement_type:
+  description: "Program.body[0].type for '1+2' is ExpressionStatement"
+  category: program
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["1 + 2", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: type}
+  expected: "ExpressionStatement"
+
+# BinaryExpression
+invariant acorn.binary_expression_type:
+  description: "Inner expression for '1+2' is a BinaryExpression"
+  category: expressions
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["1 + 2", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: expression}
+    - {get: type}
+  expected: "BinaryExpression"
+
+invariant acorn.binary_operator:
+  description: "BinaryExpression for '1+2' has operator '+'"
+  category: expressions
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["1 + 2", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: expression}
+    - {get: operator}
+  expected: "+"
+
+# Variable declaration
+invariant acorn.const_declaration_kind:
+  description: "Parse 'const x = 5' yields VariableDeclaration with kind 'const'"
+  category: declarations
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["const x = 5", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: kind}
+  expected: "const"
+
+invariant acorn.let_declaration_kind:
+  description: "Parse 'let y = 1' yields VariableDeclaration with kind 'let'"
+  category: declarations
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["let y = 1", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: kind}
+  expected: "let"
+
+# Function declaration
+invariant acorn.function_declaration_name:
+  description: "Function declaration captures the function name"
+  category: declarations
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["function foo() {}", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: id}
+    - {get: name}
+  expected: "foo"
+
+# Number literal value
+invariant acorn.literal_value:
+  description: "Numeric literal value is preserved"
+  category: literals
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["42", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: expression}
+    - {get: value}
+  expected: 42
+
+# String literal value
+invariant acorn.string_literal_value:
+  description: "String literal value is preserved (no quotes)"
+  category: literals
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["'hello'", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: expression}
+    - {get: value}
+  expected: "hello"
+
+# Array expression
+invariant acorn.array_expression_length:
+  description: "[1,2,3] is parsed as ArrayExpression with 3 elements"
+  category: literals
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["[1, 2, 3]", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: expression}
+    - {get: elements}
+    - {get: length}
+  expected: 3
+
+# Empty program
+invariant acorn.empty_program_body_length_zero:
+  description: "Empty source yields Program with empty body"
+  category: edge
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["", {ecmaVersion: 2022}]
+  chain:
+    - {get: body}
+    - {get: length}
+  expected: 0

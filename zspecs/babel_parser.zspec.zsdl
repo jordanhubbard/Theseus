@@ -1,0 +1,127 @@
+spec: babel_parser
+version: ">=7.0.0"
+backend: node(@babel/parser)
+
+docs: https://babeljs.io/docs/en/babel-parser
+
+provenance:
+  derived_from:
+    - "Babel parser docs — https://babeljs.io/docs/en/babel-parser"
+    - "ESTree-superset Babel AST"
+    - "Test vectors verified with @babel/parser via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "@babel/parser source"
+  notes:
+    - "@babel/parser is the parser used by Babel — produces a superset of ESTree (with Babel-specific node types like 'File' and 'Program')."
+    - "Install: npm install @babel/parser"
+    - "parse(code) returns a File node whose .program is the Program; this differs from acorn/espree which return the Program directly."
+    - "Spec name uses underscores (babel_parser); npm package is @babel/parser (scoped)."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure parser; throws SyntaxError on malformed input."
+  stderr: "null"
+  stickiness: "N/A — each parse independent."
+  codes: {}
+
+# Babel returns File at the top, .program is the standard Program node
+invariant babel_parser.top_node_is_file:
+  description: "parse('1+2') returns a File node (vs acorn's Program)"
+  category: program
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["1 + 2"]
+  chain:
+    - {get: type}
+  expected: "File"
+
+invariant babel_parser.program_inside_file:
+  description: "File.program is the standard ESTree Program"
+  category: program
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["1 + 2"]
+  chain:
+    - {get: program}
+    - {get: type}
+  expected: "Program"
+
+invariant babel_parser.binary_expression_type:
+  description: "BinaryExpression on inner expression"
+  category: expressions
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["1 + 2"]
+  chain:
+    - {get: program}
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: expression}
+    - {get: type}
+  expected: "BinaryExpression"
+
+# parseExpression — direct expression parse, no Program wrapper
+invariant babel_parser.parseExpression_returns_expression:
+  description: "parseExpression('1+2') returns BinaryExpression directly"
+  category: parseExpression
+  kind: node_chain_eq
+  entry: named
+  function: parseExpression
+  entry_args: ["1 + 2"]
+  chain:
+    - {get: type}
+  expected: "BinaryExpression"
+
+invariant babel_parser.parseExpression_operator:
+  description: "parseExpression preserves operator"
+  category: parseExpression
+  kind: node_chain_eq
+  entry: named
+  function: parseExpression
+  entry_args: ["1 + 2"]
+  chain:
+    - {get: operator}
+  expected: "+"
+
+# Class declaration
+invariant babel_parser.class_declaration_id:
+  description: "Class declaration captures class name"
+  category: declarations
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["class Foo {}"]
+  chain:
+    - {get: program}
+    - {get: body}
+    - {method: at, args: [0]}
+    - {get: id}
+    - {get: name}
+  expected: "Foo"
+
+# Arrow function
+invariant babel_parser.arrow_function_type:
+  description: "Arrow function (x) => x is parsed as ArrowFunctionExpression"
+  category: arrow_function
+  kind: node_chain_eq
+  entry: named
+  function: parseExpression
+  entry_args: ["(x) => x"]
+  chain:
+    - {get: type}
+  expected: "ArrowFunctionExpression"
+
+# Tagged template
+invariant babel_parser.template_literal_type:
+  description: "Template literal `hello ${1}` parses as TemplateLiteral"
+  category: templates
+  kind: node_chain_eq
+  entry: named
+  function: parseExpression
+  entry_args: ["`hello ${1}`"]
+  chain:
+    - {get: type}
+  expected: "TemplateLiteral"
