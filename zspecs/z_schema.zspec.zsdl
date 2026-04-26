@@ -1,0 +1,152 @@
+spec: z_schema
+version: ">=6.0.0"
+backend: node(z-schema)
+
+docs: https://github.com/zaggino/z-schema#readme
+
+provenance:
+  derived_from:
+    - "z-schema README — https://github.com/zaggino/z-schema#readme"
+    - "JSON Schema draft-04/draft-06/draft-07 specifications"
+    - "Test vectors verified with z-schema via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "z-schema source"
+  notes:
+    - "z-schema is a fast, RFC-compliant JSON Schema validator (alternative to ajv)."
+    - "Install: npm install z-schema"
+    - "v6 ESM with CJS shim; constructor is exposed under .default."
+    - "validate(data, schema) returns a boolean; getLastErrors() retrieves details."
+  rfcs:
+    - "JSON Schema draft-07 — http://json-schema.org/specification.html"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure validator; never throws on schema/data mismatch."
+  stderr: "null"
+  stickiness: "Each invariant constructs a fresh validator."
+  codes: {}
+
+# Type validation
+invariant z_schema.integer_object_passes:
+  description: "Object with integer property passes integer schema"
+  category: type_validation
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: [{foo: 1}, {type: "object", properties: {foo: {type: "integer"}}}]}
+    - {get: valid}
+  expected: true
+
+invariant z_schema.string_in_integer_slot_fails:
+  description: "Wrong-type value in integer slot fails validation"
+  category: type_validation
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: [{foo: "x"}, {type: "object", properties: {foo: {type: "integer"}}}]}
+    - {get: valid}
+  expected: false
+
+# required
+invariant z_schema.required_present_passes:
+  description: "Required field present → valid"
+  category: required
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: [{foo: 1}, {type: "object", required: ["foo"]}]}
+    - {get: valid}
+  expected: true
+
+invariant z_schema.required_missing_fails:
+  description: "Required field missing → invalid"
+  category: required
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: [{}, {type: "object", required: ["foo"]}]}
+    - {get: valid}
+  expected: false
+
+# enum
+invariant z_schema.enum_member_passes:
+  description: "enum value member is valid"
+  category: enum
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: ["a", {enum: ["a", "b", "c"]}]}
+    - {get: valid}
+  expected: true
+
+invariant z_schema.enum_non_member_fails:
+  description: "enum non-member fails"
+  category: enum
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: ["z", {enum: ["a", "b", "c"]}]}
+    - {get: valid}
+  expected: false
+
+# string min/max length
+invariant z_schema.minLength_passes_long_string:
+  description: "minLength=3 → string of length 5 valid"
+  category: string_constraints
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: ["hello", {type: "string", minLength: 3}]}
+    - {get: valid}
+  expected: true
+
+invariant z_schema.minLength_fails_short_string:
+  description: "minLength=3 → string of length 1 fails"
+  category: string_constraints
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: ["a", {type: "string", minLength: 3}]}
+    - {get: valid}
+  expected: false
+
+# array items + minItems
+invariant z_schema.array_items_validates:
+  description: "Array with valid items passes"
+  category: array
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: [[1, 2, 3], {type: "array", items: {type: "integer"}}]}
+    - {get: valid}
+  expected: true
+
+invariant z_schema.array_items_invalid_fails:
+  description: "Array with one mismatched item fails"
+  category: array
+  kind: node_chain_eq
+  entry: factory
+  factory: default.create
+  entry_args: []
+  chain:
+    - {method: validateSafe, args: [[1, "x", 3], {type: "array", items: {type: "integer"}}]}
+    - {get: valid}
+  expected: false

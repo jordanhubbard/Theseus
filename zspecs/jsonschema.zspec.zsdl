@@ -1,0 +1,154 @@
+spec: jsonschema
+version: ">=1.4.0"
+backend: node(jsonschema)
+
+docs: https://github.com/tdegrunt/jsonschema#readme
+
+provenance:
+  derived_from:
+    - "jsonschema README — https://github.com/tdegrunt/jsonschema#readme"
+    - "JSON Schema draft-07 specification"
+    - "Test vectors verified with jsonschema via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "jsonschema source"
+  notes:
+    - "Pure-JS JSON Schema validator, alternative to ajv/z-schema."
+    - "Install: npm install jsonschema"
+    - "Pattern: const {Validator} = require('jsonschema'); new Validator().validate(data, schema)"
+    - "validate() returns a ValidatorResult with .valid (boolean) and .errors (array)."
+  rfcs:
+    - "JSON Schema draft-07"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure validator; never throws on type mismatches."
+  stderr: "null"
+  stickiness: "Each invariant constructs a fresh Validator."
+  codes: {}
+
+# .valid boolean — main result
+invariant jsonschema.integer_passes:
+  description: "Integer value passes integer schema"
+  category: validation
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: [42, {type: "integer"}]}
+    - {get: valid}
+  expected: true
+
+invariant jsonschema.string_in_integer_fails:
+  description: "String against integer schema fails"
+  category: validation
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: ["x", {type: "integer"}]}
+    - {get: valid}
+  expected: false
+
+# Errors length
+invariant jsonschema.errors_length_zero_when_valid:
+  description: "Valid result has 0 errors"
+  category: errors
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: [42, {type: "integer"}]}
+    - {get: errors}
+    - {get: length}
+  expected: 0
+
+invariant jsonschema.errors_length_nonzero_when_invalid:
+  description: "Invalid result has >= 1 error"
+  category: errors
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: ["x", {type: "integer"}]}
+    - {get: errors}
+    - {get: length}
+  expected: 1
+
+# Object/required
+invariant jsonschema.required_present_valid:
+  description: "Required field present → valid"
+  category: required
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: [{foo: 1}, {type: "object", required: ["foo"]}]}
+    - {get: valid}
+  expected: true
+
+invariant jsonschema.required_missing_invalid:
+  description: "Required field missing → invalid"
+  category: required
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: [{}, {type: "object", required: ["foo"]}]}
+    - {get: valid}
+  expected: false
+
+# Number constraints
+invariant jsonschema.minimum_passes:
+  description: "Value at minimum passes"
+  category: number
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: [10, {type: "integer", minimum: 10}]}
+    - {get: valid}
+  expected: true
+
+invariant jsonschema.minimum_fails:
+  description: "Value below minimum fails"
+  category: number
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: [5, {type: "integer", minimum: 10}]}
+    - {get: valid}
+  expected: false
+
+# Pattern (regex)
+invariant jsonschema.pattern_match:
+  description: "String matching pattern passes"
+  category: pattern
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: ["hello", {type: "string", pattern: "^h"}]}
+    - {get: valid}
+  expected: true
+
+invariant jsonschema.pattern_no_match:
+  description: "String not matching pattern fails"
+  category: pattern
+  kind: node_chain_eq
+  entry: constructor
+  class: Validator
+  entry_args: []
+  chain:
+    - {method: validate, args: ["zzz", {type: "string", pattern: "^h"}]}
+    - {get: valid}
+  expected: false
