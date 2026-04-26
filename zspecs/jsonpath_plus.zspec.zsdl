@@ -1,0 +1,106 @@
+spec: jsonpath_plus
+version: ">=10.0.0"
+backend: node(jsonpath-plus)
+
+docs: https://github.com/JSONPath-Plus/JSONPath#readme
+
+provenance:
+  derived_from:
+    - "JSONPath-Plus README — https://github.com/JSONPath-Plus/JSONPath#readme"
+    - "Stefan Gössner's JSONPath proposal (2007) — https://goessner.net/articles/JsonPath/"
+    - "Test vectors verified with jsonpath-plus via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "jsonpath-plus source"
+  notes:
+    - "JSONPath query engine — XPath-style queries over JSON."
+    - "Install: npm install jsonpath-plus"
+    - "v10 ESM only; named export JSONPath({path, json, ...}) returns matches as an array."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Throws on invalid path syntax; returns [] for no match."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# All elements
+invariant jsonpath_plus.dollar_dot_field_array:
+  description: "$.store.book[*].title returns ['A','B']"
+  category: query
+  kind: node_chain_eq
+  entry: named
+  function: JSONPath
+  entry_args: [{path: "$.store.book[*].title", json: {store: {book: [{title: "A", price: 10}, {title: "B", price: 20}]}}}]
+  chain: []
+  expected: ["A", "B"]
+
+# Indexed access
+invariant jsonpath_plus.indexed_first:
+  description: "$.store.book[0].title returns ['A']"
+  category: query
+  kind: node_chain_eq
+  entry: named
+  function: JSONPath
+  entry_args: [{path: "$.store.book[0].title", json: {store: {book: [{title: "A", price: 10}, {title: "B", price: 20}]}}}]
+  chain: []
+  expected: ["A"]
+
+# Match count
+invariant jsonpath_plus.count_books:
+  description: "$.store.book[*] returns 2 matches"
+  category: query
+  kind: node_chain_eq
+  entry: named
+  function: JSONPath
+  entry_args: [{path: "$.store.book[*]", json: {store: {book: [{title: "A", price: 10}, {title: "B", price: 20}]}}}]
+  chain:
+    - {get: length}
+  expected: 2
+
+# Filter expression
+invariant jsonpath_plus.filter_price_gt:
+  description: "$..book[?(@.price>15)].title returns ['B']"
+  category: filter
+  kind: node_chain_eq
+  entry: named
+  function: JSONPath
+  entry_args: [{path: "$..book[?(@.price>15)].title", json: {store: {book: [{title: "A", price: 10}, {title: "B", price: 20}]}}}]
+  chain: []
+  expected: ["B"]
+
+# Result type 'value' (default behavior — match objects)
+invariant jsonpath_plus.value_result_type:
+  description: "resultType: 'value' returns matched objects"
+  category: result_type
+  kind: node_chain_eq
+  entry: named
+  function: JSONPath
+  entry_args: [{path: "$.store.book[0]", json: {store: {book: [{title: "A", price: 10}]}}, resultType: "value"}]
+  chain:
+    - {method: at, args: [0]}
+    - {get: title}
+  expected: "A"
+
+# Result type 'path'
+invariant jsonpath_plus.path_result_type:
+  description: "resultType: 'path' returns string paths"
+  category: result_type
+  kind: node_chain_eq
+  entry: named
+  function: JSONPath
+  entry_args: [{path: "$.store.book[0]", json: {store: {book: [{title: "A"}]}}, resultType: "path"}]
+  chain:
+    - {method: at, args: [0]}
+  expected: "$['store']['book'][0]"
+
+# No match returns empty array
+invariant jsonpath_plus.no_match_empty:
+  description: "Path that matches nothing returns []"
+  category: query
+  kind: node_chain_eq
+  entry: named
+  function: JSONPath
+  entry_args: [{path: "$.nonexistent", json: {a: 1}}]
+  chain:
+    - {get: length}
+  expected: 0
