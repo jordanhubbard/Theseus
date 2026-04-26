@@ -1,0 +1,134 @@
+spec: protobufjs
+version: ">=8.0.0"
+backend: node(protobufjs)
+
+docs: https://github.com/protobufjs/protobuf.js#readme
+
+provenance:
+  derived_from:
+    - "protobuf.js README — https://github.com/protobufjs/protobuf.js#readme"
+    - "Google Protocol Buffers v3 specification (developers.google.com/protocol-buffers/docs/proto3)"
+    - "Test vectors verified with protobufjs via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "protobufjs source"
+  notes:
+    - "Pure-JS Protocol Buffers — parses .proto syntax and encodes/decodes messages."
+    - "Install: npm install protobufjs"
+    - "v8 CJS; named exports include parse / Root / Type / load / Writer / Reader / util."
+    - "Encoded byte length for {name:'alice',age:30} under proto3 'message User { string name=1; uint32 age=2; }' is 9 bytes (1 tag + 1 len + 5 'alice' + 1 tag + 1 varint=30)."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "parse() throws SyntaxError on bad .proto syntax; encode() throws on field-type mismatch."
+  stderr: "null"
+  stickiness: "N/A — each parse / encode independent."
+  codes: {}
+
+# Parse a proto3 schema and look up the root message
+invariant protobufjs.parse_returns_root:
+  description: "parse() returns an object with a Root in .root"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["syntax=\"proto3\"; message User { string name = 1; uint32 age = 2; }"]
+  chain:
+    - {get: "root.constructor.name"}
+  expected: "Root"
+
+invariant protobufjs.parsed_message_name:
+  description: "lookupType('User').name is 'User'"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["syntax=\"proto3\"; message User { string name = 1; uint32 age = 2; }"]
+  chain:
+    - {get: root}
+    - {method: lookupType, args: ["User"]}
+    - {get: name}
+  expected: "User"
+
+invariant protobufjs.parsed_field_count:
+  description: "User has 2 fields (name, age)"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["syntax=\"proto3\"; message User { string name = 1; uint32 age = 2; }"]
+  chain:
+    - {get: root}
+    - {method: lookupType, args: ["User"]}
+    - {get: fieldsArray}
+    - {get: length}
+  expected: 2
+
+invariant protobufjs.parsed_field_id:
+  description: "Field 'name' has id 1"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["syntax=\"proto3\"; message User { string name = 1; uint32 age = 2; }"]
+  chain:
+    - {get: root}
+    - {method: lookupType, args: ["User"]}
+    - {get: "fields.name.id"}
+  expected: 1
+
+invariant protobufjs.parsed_field_type:
+  description: "Field 'age' has type 'uint32'"
+  category: parse
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["syntax=\"proto3\"; message User { string name = 1; uint32 age = 2; }"]
+  chain:
+    - {get: root}
+    - {method: lookupType, args: ["User"]}
+    - {get: "fields.age.type"}
+  expected: "uint32"
+
+# Encoded byte count
+invariant protobufjs.encode_byte_count:
+  description: "Encoding {name:'alice', age:30} produces 9 bytes"
+  category: encode
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["syntax=\"proto3\"; message User { string name = 1; uint32 age = 2; }"]
+  chain:
+    - {get: root}
+    - {method: lookupType, args: ["User"]}
+    - {method: encode, args: [{name: "alice", age: 30}]}
+    - {method: finish, args: []}
+    - {get: length}
+  expected: 9
+
+# Verify returns null for valid messages
+invariant protobufjs.verify_valid_returns_null:
+  description: "Type.verify() returns null for valid messages"
+  category: verify
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["syntax=\"proto3\"; message User { string name = 1; uint32 age = 2; }"]
+  chain:
+    - {get: root}
+    - {method: lookupType, args: ["User"]}
+    - {method: verify, args: [{name: "alice", age: 30}]}
+  expected: ~
+
+invariant protobufjs.verify_bad_type_string:
+  description: "Type.verify() returns an error string for type mismatch"
+  category: verify
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["syntax=\"proto3\"; message User { string name = 1; uint32 age = 2; }"]
+  chain:
+    - {get: root}
+    - {method: lookupType, args: ["User"]}
+    - {method: verify, args: [{name: 123}]}
+    - {get: "constructor.name"}
+  expected: "String"

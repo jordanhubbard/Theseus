@@ -1,0 +1,136 @@
+spec: bson
+version: ">=7.0.0"
+backend: node(bson)
+
+docs: https://github.com/mongodb/js-bson#readme
+
+provenance:
+  derived_from:
+    - "js-bson README — https://github.com/mongodb/js-bson#readme"
+    - "BSON specification — https://bsonspec.org"
+    - "Test vectors verified with bson via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "bson source"
+  notes:
+    - "BSON (Binary JSON) — the wire format used by MongoDB."
+    - "Install: npm install bson"
+    - "v7 CJS; named exports include serialize / deserialize / ObjectId / Long / Decimal128 / EJSON."
+    - "Test vector: serialize({hello:'world', n:42}) is 29 bytes; ObjectId hex round-trips through toHexString()."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "serialize / deserialize throw BSONError on malformed input or invalid types."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes:
+    BSONError: "Generic BSON parse / serialise failure"
+    BSONOffsetError: "Offset past end of buffer"
+    BSONVersionError: "Wrong BSON version"
+
+# Round-trip via deserialize(serialize(x))
+invariant bson.serialize_byte_count:
+  description: "serialize({hello:'world', n:42}) produces 29 bytes"
+  category: serialize
+  kind: node_chain_eq
+  entry: named
+  function: serialize
+  entry_args: [{hello: "world", n: 42}]
+  chain:
+    - {get: length}
+  expected: 29
+
+invariant bson.serialize_first_byte_is_size:
+  description: "First byte of BSON output is the low byte of the document length (29 == 0x1d)"
+  category: serialize
+  kind: node_chain_eq
+  entry: named
+  function: serialize
+  entry_args: [{hello: "world", n: 42}]
+  chain:
+    - {method: at, args: [0]}
+  expected: 29
+
+# ObjectId round-trip
+invariant bson.objectId_toHexString:
+  description: "new ObjectId('507f1f77bcf86cd799439011').toHexString() returns the same hex"
+  category: ObjectId
+  kind: node_chain_eq
+  entry: constructor
+  class: ObjectId
+  entry_args: ["507f1f77bcf86cd799439011"]
+  chain:
+    - {method: toHexString, args: []}
+  expected: "507f1f77bcf86cd799439011"
+
+invariant bson.objectId_toString:
+  description: "ObjectId.toString() returns the hex form"
+  category: ObjectId
+  kind: node_chain_eq
+  entry: constructor
+  class: ObjectId
+  entry_args: ["507f1f77bcf86cd799439011"]
+  chain:
+    - {method: toString, args: []}
+  expected: "507f1f77bcf86cd799439011"
+
+# Long
+invariant bson.long_toString:
+  description: "new Long(123).toString() is '123'"
+  category: Long
+  kind: node_chain_eq
+  entry: constructor
+  class: Long
+  entry_args: [123]
+  chain:
+    - {method: toString, args: []}
+  expected: "123"
+
+invariant bson.long_fromNumber_negative:
+  description: "Long.fromNumber(-7).toString() is '-7' (signed 64-bit)"
+  category: Long
+  kind: node_chain_eq
+  entry: named
+  function: "Long.fromNumber"
+  entry_args: [-7]
+  chain:
+    - {method: toString, args: []}
+  expected: "-7"
+
+# BSONType enum
+invariant bson.BSONType_double_is_1:
+  description: "BSONType.double === 1 (per BSON spec)"
+  category: types
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "BSONType.double"}
+  expected: 1
+
+invariant bson.BSONType_string_is_2:
+  description: "BSONType.string === 2"
+  category: types
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "BSONType.string"}
+  expected: 2
+
+invariant bson.BSONType_objectId_is_7:
+  description: "BSONType.objectId === 7"
+  category: types
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "BSONType.objectId"}
+  expected: 7
+
+# EJSON
+invariant bson.EJSON_stringify_simple:
+  description: "EJSON.stringify({n:42}) is '{\"n\":42}' for plain values (no $-prefixed wrapping)"
+  category: EJSON
+  kind: node_chain_eq
+  entry: named
+  function: "EJSON.stringify"
+  entry_args: [{n: 42}]
+  chain: []
+  expected: "{\"n\":42}"
