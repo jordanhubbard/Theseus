@@ -366,7 +366,10 @@ class TestTableCompilation:
     - [override_row, ["b"], "B", {category: "special"}]
 """
         invs = self._compile_table(text)
-        assert "category" not in invs[0] or invs[0].get("category") == ""
+        # When the table has no category and the row has none, the compiler
+        # now defaults to 'general' so the resulting JSON satisfies the
+        # schema's required-field check.
+        assert invs[0]["category"] == "general"
         assert invs[1]["spec"]["category"] == "special"
 
     def test_null_kwargs_omitted(self):
