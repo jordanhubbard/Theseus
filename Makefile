@@ -204,6 +204,34 @@ verify-all-specs: compile-zsdl
 verify-all-specs-json: compile-zsdl
 	$(PYTHON) tools/verify_all_specs.py $(if $(SPECS),$(SPECS)) $(if $(OUT),--out $(OUT))
 
+# freebsd-smoke — minimum cross-platform-portable spec set. Each entry was
+# manually verified to pass on FreeBSD 16.0-CURRENT (libpcap from base,
+# Python 3.11, Node 24, all listed npm packages installable via standard
+# `npm install --no-save`). Use this on the FreeBSD CI job to gain
+# cross-OS signal without booting the full ~12k-spec verifier inside a
+# slower KVM runner.
+FREEBSD_SMOKE_SPECS = \
+	libpcap pcapng \
+	os_path json datetime \
+	semver ms ulid html_tags svg_tags \
+	esbuild execa cross_spawn node_forge jszip
+freebsd-smoke: compile-zsdl
+	@total=0; passed=0; failed=0; failures=""; \
+	for name in $(FREEBSD_SMOKE_SPECS); do \
+		spec=_build/zspecs/$$name.zspec.json; \
+		if [ ! -f $$spec ]; then echo "MISSING $$spec"; failed=$$((failed+1)); failures="$$failures $$name"; continue; fi; \
+		echo "--- $$spec ---"; \
+		if $(PYTHON) tools/verify_behavior.py $$spec; then \
+			passed=$$((passed+1)); \
+		else \
+			failed=$$((failed+1)); failures="$$failures $$name"; \
+		fi; \
+		total=$$((total+1)); \
+	done; \
+	echo ""; \
+	echo "=== freebsd-smoke: $$total specs, $$passed passed, $$failed failed ==="; \
+	if [ $$failed -gt 0 ]; then echo "FAIL:$$failures"; exit 1; fi
+
 spec-coverage:
 	@test -n "$(EXTRACTION_DIR)" || (echo "Usage: make spec-coverage EXTRACTION_DIR=<dir> [TOP=N] [JSON=1]" && exit 1)
 	$(PYTHON) tools/spec_coverage.py "$(EXTRACTION_DIR)" $(if $(TOP),--top $(TOP)) $(if $(JSON),--json)
