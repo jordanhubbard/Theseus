@@ -1,0 +1,105 @@
+spec: fast_uri
+version: ">=2.0.0"
+backend: node(fast-uri)
+
+docs: https://github.com/fastify/fast-uri#readme
+
+provenance:
+  derived_from:
+    - "fast-uri README — https://github.com/fastify/fast-uri#readme"
+    - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax"
+    - "Test vectors verified with fast-uri via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "fast-uri source"
+  notes:
+    - "Performance-focused RFC 3986 URI parser used by Fastify and other hot-path libraries."
+    - "Install: npm install fast-uri"
+    - "parse(uri) returns {scheme, userinfo, host, port, path, query, fragment, reference}."
+    - "resolve(base, ref) — RFC 3986 §5.3 reference resolution."
+    - "serialize(parts) — inverse of parse."
+  rfcs:
+    - "RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax — https://www.rfc-editor.org/rfc/rfc3986"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; never throw on string input."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# parse() — fields
+table fast_uri.parse:
+  kind: node_chain_eq
+  category: parse
+  entry: named
+  function: parse
+  id_prefix: parse
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [scheme,
+       ["https://example.com/path"],
+       [{get: scheme}],
+       "https"]
+
+    - [host,
+       ["https://example.com/path"],
+       [{get: host}],
+       "example.com"]
+
+    - [path,
+       ["https://example.com/path/here"],
+       [{get: path}],
+       "/path/here"]
+
+    - [query,
+       ["https://example.com/path?q=1"],
+       [{get: query}],
+       "q=1"]
+
+    - [fragment,
+       ["https://example.com/path#frag"],
+       [{get: fragment}],
+       "frag"]
+
+    - [userinfo,
+       ["https://user:pass@example.com/path"],
+       [{get: userinfo}],
+       "user:pass"]
+
+    - [port,
+       ["https://example.com:8080/path"],
+       [{get: port}],
+       8080]
+
+# resolve() — RFC 3986 reference resolution
+table fast_uri.resolve:
+  kind: node_module_call_eq
+  category: resolve
+  function: resolve
+  id_prefix: resolve
+
+  columns: [id, args, expected]
+  rows:
+    - [up_one_dir,
+       ["https://a.com/b/c", "../d"],
+       "https://a.com/d"]
+
+    - [absolute_replaces,
+       ["https://a.com/b", "https://other.com/x"],
+       "https://other.com/x"]
+
+    - [relative_in_same_dir,
+       ["https://a.com/b/c", "d"],
+       "https://a.com/b/d"]
+
+# serialize() — round-trip parts to URI
+invariant fast_uri.serialize_passthrough:
+  description: "serialize(parse(uri)) round-trips to the original URI"
+  category: roundtrip
+  kind: node_chain_eq
+  entry: named
+  function: serialize
+  entry_args: [{scheme: "https", host: "example.com", path: "/foo"}]
+  chain: []
+  expected: "https://example.com/foo"

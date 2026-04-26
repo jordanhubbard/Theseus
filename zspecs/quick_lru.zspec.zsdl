@@ -1,0 +1,150 @@
+spec: quick_lru
+version: ">=7.0.0"
+backend: node(quick-lru)
+
+docs: https://github.com/sindresorhus/quick-lru#readme
+
+provenance:
+  derived_from:
+    - "quick-lru README — https://github.com/sindresorhus/quick-lru#readme"
+    - "Test vectors verified with quick-lru via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "quick-lru source"
+  notes:
+    - "Simple LRU cache with O(1) get/set; alternative to lru-cache."
+    - "Install: npm install quick-lru"
+    - "v7 is ESM with a CJS shim; the class is exposed as default."
+    - "set() returns the cache instance (chainable); get() returns the value or undefined."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure cache operations; never throw."
+  stderr: "null"
+  stickiness: "Each invariant constructs a fresh cache."
+  codes: {}
+
+# Basic set/get round-trip
+invariant quick_lru.set_get_value:
+  description: "set then get returns the stored value"
+  category: set_get
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 5}]
+  chain:
+    - {method: set, args: ["a", 42]}
+    - {method: get, args: ["a"]}
+  expected: 42
+
+invariant quick_lru.get_missing_undefined:
+  description: "Missing key returns undefined"
+  category: set_get
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 5}]
+  chain:
+    - {method: get, args: ["never"]}
+  expected: ~
+
+# size after operations
+invariant quick_lru.empty_size_zero:
+  description: "Fresh cache has size 0"
+  category: size
+  kind: node_property_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 5}]
+  property: size
+  expected: 0
+
+invariant quick_lru.size_after_two_sets:
+  description: "After 2 sets, size is 2"
+  category: size
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 5}]
+  chain:
+    - {method: set, args: ["a", 1]}
+    - {method: set, args: ["b", 2]}
+    - {get: size}
+  expected: 2
+
+# has() predicate
+invariant quick_lru.has_after_set:
+  description: "has() returns true for a set key"
+  category: has
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 5}]
+  chain:
+    - {method: set, args: ["k", "v"]}
+    - {method: has, args: ["k"]}
+  expected: true
+
+invariant quick_lru.has_missing_false:
+  description: "has() returns false for an unset key"
+  category: has
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 5}]
+  chain:
+    - {method: has, args: ["never"]}
+  expected: false
+
+# delete() — returns true when key was present, false otherwise
+invariant quick_lru.delete_returns_true_for_present_key:
+  description: "delete(k) returns true when k was previously set"
+  category: delete
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 5}]
+  chain:
+    - {method: set, args: ["k", "v"]}
+    - {method: delete, args: ["k"]}
+  expected: true
+
+invariant quick_lru.delete_returns_false_for_absent_key:
+  description: "delete(k) returns false when k was never set"
+  category: delete
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 5}]
+  chain:
+    - {method: delete, args: ["never_set"]}
+  expected: false
+
+# Eviction at maxSize=2
+invariant quick_lru.eviction_at_maxsize:
+  description: "After exceeding maxSize, oldest entry is evicted"
+  category: eviction
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 2}]
+  chain:
+    - {method: set, args: ["a", 1]}
+    - {method: set, args: ["b", 2]}
+    - {method: set, args: ["c", 3]}
+    - {method: set, args: ["d", 4]}
+    - {method: has, args: ["a"]}
+  expected: false
+
+invariant quick_lru.eviction_keeps_recent:
+  description: "Most-recently-set entries survive eviction"
+  category: eviction
+  kind: node_chain_eq
+  entry: constructor
+  class: default
+  entry_args: [{maxSize: 2}]
+  chain:
+    - {method: set, args: ["a", 1]}
+    - {method: set, args: ["b", 2]}
+    - {method: set, args: ["c", 3]}
+    - {method: get, args: ["c"]}
+  expected: 3
