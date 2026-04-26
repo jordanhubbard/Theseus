@@ -1,0 +1,137 @@
+spec: node_cache
+version: ">=5.0.0"
+backend: node(node-cache)
+
+docs: https://github.com/node-cache/node-cache#readme
+
+provenance:
+  derived_from:
+    - "node-cache README — https://github.com/node-cache/node-cache#readme"
+    - "Test vectors verified with node-cache via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "node-cache source"
+  notes:
+    - "Simple in-memory caching with TTL — Memcached-style API."
+    - "Install: npm install node-cache"
+    - "v5 CJS; default export is the NodeCache class."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Constructor never throws on valid options; .set throws TypeError on invalid keys."
+  stderr: "null"
+  stickiness: "N/A — each instance independent; TTL behaviour is timer-based and out of scope here."
+  codes: {}
+
+# Empty cache
+invariant node_cache.fresh_keys_empty:
+  description: "Fresh cache has no keys"
+  category: state
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: []
+  chain:
+    - {method: keys, args: []}
+    - {get: length}
+  expected: 0
+
+# set then has → true
+invariant node_cache.set_then_has:
+  description: "After set('foo','bar'), has('foo') is true"
+  category: ops
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: []
+  chain:
+    - {method: set, args: ["foo", "bar"], tap: true}
+    - {method: has, args: ["foo"]}
+  expected: true
+
+# set then get → value
+invariant node_cache.set_then_get:
+  description: "After set('foo','bar'), get('foo') returns 'bar'"
+  category: ops
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: []
+  chain:
+    - {method: set, args: ["foo", "bar"], tap: true}
+    - {method: get, args: ["foo"]}
+  expected: "bar"
+
+# get of unknown key → undefined → null in JSON
+invariant node_cache.get_unknown_undefined:
+  description: "get on a key that was never set returns undefined (null in JSON)"
+  category: ops
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: []
+  chain:
+    - {method: get, args: ["nope"]}
+  expected: ~
+
+# del then has → false
+invariant node_cache.del_then_has_false:
+  description: "After set then del, has returns false"
+  category: ops
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: []
+  chain:
+    - {method: set, args: ["foo", "bar"], tap: true}
+    - {method: del, args: ["foo"]}
+  expected: 1
+
+invariant node_cache.del_unknown_key_returns_zero:
+  description: "del on unknown key returns 0 (no entries removed)"
+  category: ops
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: []
+  chain:
+    - {method: del, args: ["nope"]}
+  expected: 0
+
+# options.stdTTL stored
+invariant node_cache.options_stdTTL_preserved:
+  description: "Constructor options.stdTTL is preserved on instance.options"
+  category: options
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: [{stdTTL: 100}]
+  chain:
+    - {get: "options.stdTTL"}
+  expected: 100
+
+# mset → keys
+invariant node_cache.mset_then_keys_count:
+  description: "mset of 2 entries yields keys().length === 2"
+  category: ops
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: []
+  chain:
+    - {method: mset, args: [[{key: "a", val: 1}, {key: "b", val: 2}]], tap: true}
+    - {method: keys, args: []}
+    - {get: length}
+  expected: 2
+
+# take removes
+invariant node_cache.take_then_has_false:
+  description: "After set then take, has returns false (take removes the key)"
+  category: ops
+  kind: node_chain_eq
+  entry: constructor
+  class: ""
+  entry_args: []
+  chain:
+    - {method: set, args: ["k", 99], tap: true}
+    - {method: take, args: ["k"]}
+  expected: 99

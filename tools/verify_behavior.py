@@ -1501,8 +1501,16 @@ class PatternRegistry:
             if "method" in step:
                 m_name = step["method"]
                 m_args = step.get("args", [])
-                steps_js.append(f"v = v[{json.dumps(m_name)}](...{json.dumps(m_args)});")
-                label_chain.append(f".{m_name}({m_args!r})")
+                # 'tap: true' calls the method for its side effect but leaves
+                # v unchanged. Useful for builder/mutator APIs where the method
+                # returns a status (boolean, count) instead of the receiver,
+                # so we can keep operating on the original instance afterwards.
+                if step.get("tap"):
+                    steps_js.append(f"v[{json.dumps(m_name)}](...{json.dumps(m_args)});")
+                    label_chain.append(f".{m_name}({m_args!r})!")
+                else:
+                    steps_js.append(f"v = v[{json.dumps(m_name)}](...{json.dumps(m_args)});")
+                    label_chain.append(f".{m_name}({m_args!r})")
             elif "get" in step:
                 g_name = step["get"]
                 # Dotted-path get: 'default.red' navigates v.default.red
