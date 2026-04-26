@@ -1,0 +1,98 @@
+spec: sha_js
+version: ">=2.0.0"
+backend: node(sha.js)
+
+docs: https://github.com/crypto-browserify/sha.js#readme
+
+provenance:
+  derived_from:
+    - "sha.js README — https://github.com/crypto-browserify/sha.js#readme"
+    - "FIPS 180-4 Secure Hash Standard"
+    - "RFC 6234 (SHA-1, SHA-2 family)"
+    - "Test vectors verified with sha.js via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "sha.js source"
+  notes:
+    - "Pure-JS SHA implementations (SHA-1, SHA-224, SHA-256, SHA-384, SHA-512) — used by crypto-browserify."
+    - "Install: npm install sha.js"
+    - "Module export IS the algorithm-name dispatcher: sha('sha256') returns a fresh hasher; .update().digest() chains."
+    - "MD5 is NOT supported (per error message: 'we accept pull requests')."
+    - "All vectors are FIPS-published known answers."
+  rfcs:
+    - "FIPS 180-4 — Secure Hash Standard"
+    - "RFC 6234 — US Secure Hash Algorithms"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Module throws on unknown algorithm names; chained .update().digest() returns a hex string."
+  stderr: "null"
+  stickiness: "Each invariant constructs a fresh hasher."
+  codes: {}
+
+# sha('algo').update(input).digest('hex') — chain off module-as-callable
+table sha_js.digest:
+  kind: node_chain_eq
+  category: digest
+  entry: module
+  id_prefix: digest
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [sha256_abc,
+       ["sha256"],
+       [{method: update, args: ["abc"]},
+        {method: digest, args: ["hex"]}],
+       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+       {rfc: "FIPS 180-4 Appendix A — SHA-256('abc')"}]
+
+    - [sha256_empty,
+       ["sha256"],
+       [{method: update, args: [""]},
+        {method: digest, args: ["hex"]}],
+       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"]
+
+    - [sha1_abc,
+       ["sha1"],
+       [{method: update, args: ["abc"]},
+        {method: digest, args: ["hex"]}],
+       "a9993e364706816aba3e25717850c26c9cd0d89d",
+       {rfc: "FIPS 180-4 Appendix A — SHA-1('abc')"}]
+
+    - [sha1_hello,
+       ["sha1"],
+       [{method: update, args: ["hello"]},
+        {method: digest, args: ["hex"]}],
+       "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"]
+
+    - [sha512_abc,
+       ["sha512"],
+       [{method: update, args: ["abc"]},
+        {method: digest, args: ["hex"]}],
+       "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
+       {rfc: "RFC 6234 §8.5 — SHA-512('abc')"}]
+
+    - [sha224_abc,
+       ["sha224"],
+       [{method: update, args: ["abc"]},
+        {method: digest, args: ["hex"]}],
+       "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7"]
+
+    - [sha384_abc,
+       ["sha384"],
+       [{method: update, args: ["abc"]},
+        {method: digest, args: ["hex"]}],
+       "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"]
+
+# Multi-update — feeds the same total input in chunks, expects same digest
+invariant sha_js.sha256_incremental_matches_oneshot:
+  description: "SHA-256 of 'abc' fed in 3 chunks ('a','b','c') matches the single-call digest"
+  category: incremental
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["sha256"]
+  chain:
+    - {method: update, args: ["a"]}
+    - {method: update, args: ["b"]}
+    - {method: update, args: ["c"]}
+    - {method: digest, args: ["hex"]}
+  expected: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"

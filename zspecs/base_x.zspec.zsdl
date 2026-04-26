@@ -1,0 +1,120 @@
+spec: base_x
+version: ">=4.0.0"
+backend: node(base-x)
+
+docs: https://github.com/cryptocoinjs/base-x#readme
+
+provenance:
+  derived_from:
+    - "base-x README — https://github.com/cryptocoinjs/base-x#readme"
+    - "Test vectors verified with base-x via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "base-x source"
+  notes:
+    - "base-x encodes/decodes bytes against an arbitrary alphabet; the basis for bs58 (Bitcoin/IPFS), bs62, etc."
+    - "Install: npm install base-x"
+    - "v4 is ESM with a CJS shim; the alphabet factory is exposed as default."
+    - "default(alphabet) returns an object with .encode(bytes)/.decode(string)."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "encode/decode are pure; decode throws on characters not in the alphabet."
+  stderr: "null"
+  stickiness: "N/A — coder instances are stateless."
+  codes: {}
+
+# Bitcoin Base58 alphabet round-trip
+# alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+invariant base_x.bs58_encode_4bytes:
+  description: "Bitcoin Base58 encodes [1,2,3,4] as '2VfUX'"
+  category: bs58
+  kind: node_chain_eq
+  entry: named
+  function: default
+  entry_args: ["123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"]
+  chain:
+    - {method: encode, args: [[1, 2, 3, 4]]}
+  expected: "2VfUX"
+
+invariant base_x.bs58_decode_roundtrip_length:
+  description: "Round-trip through bs58 preserves byte length"
+  category: bs58
+  kind: node_chain_eq
+  entry: named
+  function: default
+  entry_args: ["123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"]
+  chain:
+    - {method: decode, args: ["2VfUX"]}
+    - {get: length}
+  expected: 4
+
+# Base16 (hex) alphabet
+invariant base_x.bs16_encode_simple:
+  description: "Base16 alphabet encodes [255] as 'ff'"
+  category: bs16
+  kind: node_chain_eq
+  entry: named
+  function: default
+  entry_args: ["0123456789abcdef"]
+  chain:
+    - {method: encode, args: [[255]]}
+  expected: "ff"
+
+invariant base_x.bs16_encode_zero_uses_leader:
+  description: "Base16 of [0] is '0' — base-x emits the alphabet's first char per leading zero byte (only one leading zero, hence one '0')"
+  category: bs16
+  kind: node_chain_eq
+  entry: named
+  function: default
+  entry_args: ["0123456789abcdef"]
+  chain:
+    - {method: encode, args: [[0]]}
+  expected: "0"
+
+# Base2 (binary) alphabet
+invariant base_x.bs2_encode_byte:
+  description: "Base2 alphabet '01' encodes [5] as '101'"
+  category: bs2
+  kind: node_chain_eq
+  entry: named
+  function: default
+  entry_args: ["01"]
+  chain:
+    - {method: encode, args: [[5]]}
+  expected: "101"
+
+invariant base_x.bs2_encode_max_byte:
+  description: "Base2 of [255] is '11111111'"
+  category: bs2
+  kind: node_chain_eq
+  entry: named
+  function: default
+  entry_args: ["01"]
+  chain:
+    - {method: encode, args: [[255]]}
+  expected: "11111111"
+
+# Empty input
+invariant base_x.empty_encode_empty:
+  description: "encode([]) returns '' (empty input)"
+  category: edge
+  kind: node_chain_eq
+  entry: named
+  function: default
+  entry_args: ["0123456789abcdef"]
+  chain:
+    - {method: encode, args: [[]]}
+  expected: ""
+
+invariant base_x.empty_decode_zero_length:
+  description: "decode('') returns 0-length array"
+  category: edge
+  kind: node_chain_eq
+  entry: named
+  function: default
+  entry_args: ["0123456789abcdef"]
+  chain:
+    - {method: decode, args: [""]}
+    - {get: length}
+  expected: 0

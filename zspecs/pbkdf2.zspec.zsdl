@@ -1,0 +1,84 @@
+spec: pbkdf2
+version: ">=3.0.0"
+backend: node(pbkdf2)
+
+docs: https://github.com/crypto-browserify/pbkdf2#readme
+
+provenance:
+  derived_from:
+    - "pbkdf2 README — https://github.com/crypto-browserify/pbkdf2#readme"
+    - "RFC 2898 / RFC 8018 — PKCS #5 PBKDF2"
+    - "RFC 6070 — PKCS #5 PBKDF2-HMAC-SHA1 Test Vectors"
+    - "Test vectors verified with pbkdf2 via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "pbkdf2 source"
+  notes:
+    - "Pure-JS PBKDF2 implementation."
+    - "Install: npm install pbkdf2"
+    - "pbkdf2Sync(password, salt, iterations, keylen, digest) returns a Buffer; use .toString('hex') to compare."
+    - "RFC 6070 publishes a known-vector suite for HMAC-SHA-1; we additionally exercise SHA-256."
+  rfcs:
+    - "RFC 2898 — PKCS #5: Password-Based Cryptography Specification — https://www.rfc-editor.org/rfc/rfc2898"
+    - "RFC 6070 — PKCS #5 PBKDF2 Test Vectors — https://www.rfc-editor.org/rfc/rfc6070"
+    - "RFC 8018 — PKCS #5 v2.1 — https://www.rfc-editor.org/rfc/rfc8018"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure function; throws on bad arg types only."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# pbkdf2Sync(...).toString('hex') — chain
+table pbkdf2.sha1_known_vectors:
+  kind: node_chain_eq
+  category: sha1_rfc6070
+  entry: named
+  function: pbkdf2Sync
+  id_prefix: sha1
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [rfc6070_p1_s1_c1,
+       ["password", "salt", 1, 20, "sha1"],
+       [{method: toString, args: ["hex"]}],
+       "0c60c80f961f0e71f3a9b524af6012062fe037a6",
+       {rfc: "RFC 6070 §2 — P=password, S=salt, c=1, dkLen=20"}]
+
+    - [rfc6070_p1_s1_c2,
+       ["password", "salt", 2, 20, "sha1"],
+       [{method: toString, args: ["hex"]}],
+       "ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957",
+       {rfc: "RFC 6070 §2 — c=2"}]
+
+    - [rfc6070_p1_s1_c4096,
+       ["password", "salt", 4096, 20, "sha1"],
+       [{method: toString, args: ["hex"]}],
+       "4b007901b765489abead49d926f721d065a429c1",
+       {rfc: "RFC 6070 §2 — c=4096"}]
+
+    - [c1_dklen32_extends_via_extra_block,
+       ["password", "salt", 1, 32, "sha1"],
+       [{method: toString, args: ["hex"]}],
+       "0c60c80f961f0e71f3a9b524af6012062fe037a6e0f0eb94fe8fc46bdc637164",
+       {description: "Longer dkLen continues into a second HMAC block; first 40 hex chars (20 bytes) match the c=1 dkLen=20 vector"}]
+
+# SHA-256 variant
+table pbkdf2.sha256_vectors:
+  kind: node_chain_eq
+  category: sha256
+  entry: named
+  function: pbkdf2Sync
+  id_prefix: sha256
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [password_salt_1000,
+       ["password", "salt", 1000, 32, "sha256"],
+       [{method: toString, args: ["hex"]}],
+       "632c2812e46d4604102ba7618e9d6d7d2f8128f6266b4a03264d2a0460b7dcb3"]
+
+    - [password_salt_1_short_key,
+       ["password", "salt", 1, 16, "sha256"],
+       [{method: toString, args: ["hex"]}],
+       "120fb6cffcf8b32c43e7225256c4f837"]
