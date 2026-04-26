@@ -1,0 +1,107 @@
+spec: jsonwebtoken
+version: ">=9.0.0"
+backend: node(jsonwebtoken)
+
+docs: https://github.com/auth0/node-jsonwebtoken#readme
+
+provenance:
+  derived_from:
+    - "jsonwebtoken README — https://github.com/auth0/node-jsonwebtoken#readme"
+    - "RFC 7519 (JSON Web Token) and RFC 7515 (JWS)"
+    - "Test vectors verified with jsonwebtoken via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "jsonwebtoken source"
+  notes:
+    - "Server-side JWT issuance and verification — most-installed JWT library on npm."
+    - "Install: npm install jsonwebtoken"
+    - "v9 CJS; named exports sign / verify / decode."
+    - "Token vectors here use noTimestamp:true to remove the iat claim, making sign() output deterministic."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "sign() throws on invalid algorithm/payload; verify() throws JsonWebTokenError on bad signature/expiry."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes:
+    JsonWebTokenError: "Bad signature, malformed token, or unsupported algorithm"
+    TokenExpiredError: "Token past its exp claim"
+    NotBeforeError: "Token used before its nbf claim"
+
+# sign — deterministic output (no iat), HS256 secret-key signing
+invariant jsonwebtoken.sign_HS256_deterministic:
+  description: "sign({sub:'alice',x:1}, 'secret', {algorithm:'HS256', noTimestamp:true}) is deterministic"
+  category: sign
+  kind: node_chain_eq
+  entry: named
+  function: sign
+  entry_args: [{sub: "alice", x: 1}, "secret", {algorithm: "HS256", noTimestamp: true}]
+  chain: []
+  expected: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI"
+
+# decode — split the well-known token, retrieve a claim
+invariant jsonwebtoken.decode_subject:
+  description: "decode(known_token).sub returns 'alice'"
+  category: decode
+  kind: node_chain_eq
+  entry: named
+  function: decode
+  entry_args: ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI"]
+  chain:
+    - {get: sub}
+  expected: "alice"
+
+invariant jsonwebtoken.decode_custom_claim:
+  description: "decode(known_token).x returns 1"
+  category: decode
+  kind: node_chain_eq
+  entry: named
+  function: decode
+  entry_args: ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI"]
+  chain:
+    - {get: x}
+  expected: 1
+
+invariant jsonwebtoken.decode_complete_header_alg:
+  description: "decode(token, {complete:true}).header.alg is 'HS256'"
+  category: decode
+  kind: node_chain_eq
+  entry: named
+  function: decode
+  entry_args: ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI", {complete: true}]
+  chain:
+    - {get: "header.alg"}
+  expected: "HS256"
+
+invariant jsonwebtoken.decode_complete_header_typ:
+  description: "decode(token, {complete:true}).header.typ is 'JWT'"
+  category: decode
+  kind: node_chain_eq
+  entry: named
+  function: decode
+  entry_args: ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI", {complete: true}]
+  chain:
+    - {get: "header.typ"}
+  expected: "JWT"
+
+# verify — round-trip with the right secret
+invariant jsonwebtoken.verify_round_trip_subject:
+  description: "verify(known_token, 'secret').sub returns 'alice'"
+  category: verify
+  kind: node_chain_eq
+  entry: named
+  function: verify
+  entry_args: ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIngiOjF9.smArCZzk8oGEqDjdb_kIwUXYflQmiGQ7emr1Tpe-VdI", "secret"]
+  chain:
+    - {get: sub}
+  expected: "alice"
+
+# decode of a non-JWT string returns null (not throws)
+invariant jsonwebtoken.decode_garbage_returns_null:
+  description: "decode('not-a-jwt') returns null (no throw)"
+  category: decode
+  kind: node_chain_eq
+  entry: named
+  function: decode
+  entry_args: ["not-a-jwt"]
+  chain: []
+  expected: ~

@@ -1,0 +1,101 @@
+spec: ulid
+version: ">=3.0.0"
+backend: node(ulid)
+
+docs: https://github.com/ulid/javascript#readme
+
+provenance:
+  derived_from:
+    - "ulid spec — https://github.com/ulid/spec"
+    - "ulid/javascript README — https://github.com/ulid/javascript#readme"
+    - "Test vectors verified with ulid via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "ulid source"
+  notes:
+    - "Universally-Unique Lexicographically-Sortable Identifier — 26 chars, Crockford's base32, 48-bit time prefix + 80-bit randomness."
+    - "Install: npm install ulid"
+    - "v3 ESM only; named exports ulid / encodeTime / decodeTime / monotonicFactory."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "encodeTime throws on negative or non-integer time; decodeTime throws on invalid characters."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# ulid(time) length is always 26 chars
+invariant ulid.length_is_26:
+  description: "ulid(t) returns a 26-character string"
+  category: format
+  kind: node_chain_eq
+  entry: named
+  function: ulid
+  entry_args: [1700000000000]
+  chain:
+    - {get: length}
+  expected: 26
+
+invariant ulid.no_arg_length_is_26:
+  description: "ulid() with no arg also returns a 26-character string (uses Date.now())"
+  category: format
+  kind: node_chain_eq
+  entry: named
+  function: ulid
+  entry_args: []
+  chain:
+    - {get: length}
+  expected: 26
+
+# encodeTime returns the 10-character time prefix
+invariant ulid.encodeTime_zero:
+  description: "encodeTime(0, 10) is '0000000000'"
+  category: time
+  kind: node_chain_eq
+  entry: named
+  function: encodeTime
+  entry_args: [0, 10]
+  chain: []
+  expected: "0000000000"
+
+invariant ulid.encodeTime_known:
+  description: "encodeTime(1700000000000, 10) is '01HF7YAT00'"
+  category: time
+  kind: node_chain_eq
+  entry: named
+  function: encodeTime
+  entry_args: [1700000000000, 10]
+  chain: []
+  expected: "01HF7YAT00"
+
+# decodeTime is the inverse — full 26-char ulid required
+invariant ulid.decodeTime_zero:
+  description: "decodeTime('00000000000000000000000000') is 0"
+  category: time
+  kind: node_chain_eq
+  entry: named
+  function: decodeTime
+  entry_args: ["00000000000000000000000000"]
+  chain: []
+  expected: 0
+
+invariant ulid.decodeTime_round_trip:
+  description: "decodeTime('01HF7YAT00AAAAAAAAAAAAAAAA') is 1700000000000"
+  category: time
+  kind: node_chain_eq
+  entry: named
+  function: decodeTime
+  entry_args: ["01HF7YAT00AAAAAAAAAAAAAAAA"]
+  chain: []
+  expected: 1700000000000
+
+# Time prefix of ulid(t) matches encodeTime(t)
+invariant ulid.time_prefix_consistency:
+  description: "ulid(t).slice(0,10) equals encodeTime(t,10)"
+  category: time
+  kind: node_chain_eq
+  entry: named
+  function: ulid
+  entry_args: [1700000000000]
+  chain:
+    - {method: slice, args: [0, 10]}
+  expected: "01HF7YAT00"
