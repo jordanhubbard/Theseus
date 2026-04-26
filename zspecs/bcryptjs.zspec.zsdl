@@ -1,0 +1,134 @@
+spec: bcryptjs
+version: ">=2.4.0"
+backend: node(bcryptjs)
+
+docs: https://github.com/dcodeIO/bcrypt.js#readme
+
+provenance:
+  derived_from:
+    - "bcryptjs README — https://github.com/dcodeIO/bcrypt.js#readme"
+    - "OpenBSD bcrypt algorithm — Provos & Mazières, USENIX 1999"
+    - "Test vectors verified with bcryptjs via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "bcryptjs source"
+  notes:
+    - "bcryptjs is a pure-JS bcrypt implementation (no native bindings) compatible with Python passlib, Ruby bcrypt-ruby, etc."
+    - "Install: npm install bcryptjs"
+    - "Hash format: $2a$NN$<22-base64-salt><31-base64-hash> — 60 chars total. NN is the cost factor (rounds = 2^NN)."
+    - "hashSync(password, salt_or_rounds) is deterministic when salt is fixed. compareSync verifies."
+    - "Newly generated salts use the $2b$ prefix (current default); $2a$ salts are accepted as input and produce $2a$ hashes."
+    - "Cost factors below 4 are rejected; the test vectors use cost 10 to match common production settings."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions — never throw on valid input; compareSync returns false for mismatched hash/password without raising."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# ── hashSync(password, fixed_salt) — deterministic round-trip vector ────────
+
+# Fixed salt '$2a$10$CwTycUXWue0Thq9StjUM0u' produces this hash for "hello":
+# $2a$10$CwTycUXWue0Thq9StjUM0ujegh0.JlWYlltwmm.V6A2KWe3M3JIZy
+
+invariant bcryptjs.hashSync_fixed_salt_known_vector:
+  description: "hashSync('hello', $2a$10$CwTycUXWue0Thq9StjUM0u) produces a known bcrypt hash"
+  category: hash_known_vector
+  kind: node_chain_eq
+  entry: named
+  function: hashSync
+  entry_args: ["hello", "$2a$10$CwTycUXWue0Thq9StjUM0u"]
+  chain: []
+  expected: "$2a$10$CwTycUXWue0Thq9StjUM0ujegh0.JlWYlltwmm.V6A2KWe3M3JIZy"
+
+# ── compareSync — verify password against hash ──────────────────────────────
+
+table bcryptjs.compareSync:
+  kind: node_chain_eq
+  category: compare
+  entry: named
+  function: compareSync
+  id_prefix: cmp
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [correct_password,
+       ["hello", "$2a$10$CwTycUXWue0Thq9StjUM0ujegh0.JlWYlltwmm.V6A2KWe3M3JIZy"],
+       [],
+       true]
+
+    - [wrong_password,
+       ["world", "$2a$10$CwTycUXWue0Thq9StjUM0ujegh0.JlWYlltwmm.V6A2KWe3M3JIZy"],
+       [],
+       false]
+
+    - [empty_password_against_real_hash,
+       ["", "$2a$10$CwTycUXWue0Thq9StjUM0ujegh0.JlWYlltwmm.V6A2KWe3M3JIZy"],
+       [],
+       false]
+
+    - [malformed_hash_returns_false,
+       ["hello", "not_a_real_hash"],
+       [],
+       false]
+
+# ── getRounds(hash) — extracts the cost factor ─────────────────────────────
+
+table bcryptjs.getRounds:
+  kind: node_chain_eq
+  category: getRounds
+  entry: named
+  function: getRounds
+  id_prefix: rounds
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [cost_10,
+       ["$2a$10$CwTycUXWue0Thq9StjUM0ujegh0.JlWYlltwmm.V6A2KWe3M3JIZy"],
+       [],
+       10]
+
+    - [cost_04,
+       ["$2a$04$CwTycUXWue0Thq9StjUM0ujegh0.JlWYlltwmm.V6A2KWe3M3JIZy"],
+       [],
+       4]
+
+    - [cost_12,
+       ["$2a$12$CwTycUXWue0Thq9StjUM0ujegh0.JlWYlltwmm.V6A2KWe3M3JIZy"],
+       [],
+       12]
+
+# ── genSaltSync — non-deterministic, but length and prefix are contracted ──
+
+invariant bcryptjs.genSaltSync_length_29:
+  description: "genSaltSync(N) returns a 29-character salt: $2b$NN$ (7 chars) + 22 base64 chars"
+  category: genSalt
+  kind: node_chain_eq
+  entry: named
+  function: genSaltSync
+  entry_args: [10]
+  chain:
+    - {get: length}
+  expected: 29
+
+invariant bcryptjs.genSaltSync_prefix_2b:
+  description: "genSaltSync uses the modern $2b$ prefix (introduced after the 2014 wraparound bug fix)"
+  category: genSalt
+  kind: node_chain_eq
+  entry: named
+  function: genSaltSync
+  entry_args: [10]
+  chain:
+    - {method: startsWith, args: ["$2b$10$"]}
+  expected: true
+
+invariant bcryptjs.genSaltSync_cost_8_prefix:
+  description: "genSaltSync(8) salt prefix encodes cost 8"
+  category: genSalt
+  kind: node_chain_eq
+  entry: named
+  function: genSaltSync
+  entry_args: [8]
+  chain:
+    - {method: startsWith, args: ["$2b$08$"]}
+  expected: true

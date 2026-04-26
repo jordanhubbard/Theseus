@@ -1,0 +1,96 @@
+spec: nanoid
+version: ">=5.0.0"
+backend: node(nanoid)
+
+docs: https://github.com/ai/nanoid#readme
+
+provenance:
+  derived_from:
+    - "nanoid README — https://github.com/ai/nanoid#readme"
+    - "Test vectors verified with nanoid via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "nanoid source"
+  notes:
+    - "nanoid is a tiny, secure, URL-friendly unique ID generator for Node.js."
+    - "Install: npm install nanoid"
+    - "Outputs are non-deterministic by construction (uses crypto.getRandomValues), so this spec verifies (a) output length contracts and (b) deterministic outputs from customAlphabet() with a single-character alphabet — every position must be that character, making the result fully predictable."
+    - "Default ID length is 21 characters; the standard alphabet is the URL-safe set [A-Za-z0-9_-]."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure function — never throws on valid inputs."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# ── Default-length contract: nanoid().length == 21 ─────────────────────────
+
+invariant nanoid.default_length_is_21:
+  description: "nanoid() (no args) returns a 21-character string by default"
+  category: length
+  kind: node_chain_eq
+  entry: named
+  function: nanoid
+  entry_args: []
+  chain:
+    - {get: length}
+  expected: 21
+
+# ── Explicit length: nanoid(N).length == N ─────────────────────────────────
+
+table nanoid.explicit_length:
+  kind: node_chain_eq
+  category: length
+  entry: named
+  function: nanoid
+  id_prefix: len
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [len_1,    [1],    [{get: length}], 1]
+    - [len_5,    [5],    [{get: length}], 5]
+    - [len_10,   [10],   [{get: length}], 10]
+    - [len_32,   [32],   [{get: length}], 32]
+    - [len_64,   [64],   [{get: length}], 64]
+    - [len_128,  [128],  [{get: length}], 128]
+
+# ── customAlphabet single-char trick — deterministic output ────────────────
+
+# customAlphabet(alphabet, defaultSize) returns a generator function;
+# invoking it with no args uses defaultSize, with N uses N.
+# Single-char alphabet means every position is forced to that character,
+# making the output fully deterministic and equality-comparable.
+
+table nanoid.deterministic_single_char:
+  kind: node_chain_eq
+  category: deterministic
+  entry: named
+  function: customAlphabet
+  id_prefix: det
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [a_x_5,    ["a", 5],    [{call: []}],    "aaaaa"]
+    - [z_x_10,   ["z", 10],   [{call: []}],    "zzzzzzzzzz"]
+    - [hash_x_3, ["#", 3],    [{call: []}],    "###"]
+    - [zero_x_8, ["0", 8],    [{call: []}],    "00000000"]
+
+    # Override default size at invoke time:
+    - [a_override_7, ["a", 5], [{call: [7]}],   "aaaaaaa"]
+    - [a_override_1, ["a", 5], [{call: [1]}],   "a"]
+
+# ── ID set contract: returned characters must be in the supplied alphabet ─
+
+# We can't equality-compare a random ID, but the LENGTH stays deterministic.
+
+invariant nanoid.custom_alphabet_length:
+  description: "customAlphabet('xy', 100)() returns a 100-character string"
+  category: length
+  kind: node_chain_eq
+  entry: named
+  function: customAlphabet
+  entry_args: ["xy", 100]
+  chain:
+    - {call: []}
+    - {get: length}
+  expected: 100

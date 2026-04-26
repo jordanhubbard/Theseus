@@ -1,0 +1,95 @@
+spec: csv_parse
+version: ">=5.0.0"
+backend: node(csv-parse/sync)
+
+docs: https://csv.js.org/parse/
+
+provenance:
+  derived_from:
+    - "csv-parse documentation — https://csv.js.org/parse/"
+    - "RFC 4180 (Common Format and MIME Type for CSV Files)"
+    - "Test vectors verified with csv-parse via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "csv-parse source"
+  notes:
+    - "csv-parse is the parser half of the csv ecosystem (csv-parse + csv-stringify + csv-generate + stream-transform)."
+    - "Install: npm install csv-parse"
+    - "Spec uses the synchronous subpath: const {parse} = require('csv-parse/sync'); parse(input, options)"
+    - "Default behaviour: returns array of arrays. With {columns: true}, the first row becomes the header and subsequent rows become objects keyed by header names."
+    - "Spec name underscored per ZSDL convention; npm package is csv-parse."
+  rfcs:
+    - "RFC 4180 — Common Format and MIME Type for Comma-Separated Values (CSV) Files — https://www.rfc-editor.org/rfc/rfc4180"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "parse() returns array (sync API); throws on malformed CSV — error cases not exercised here."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# ── parse(input, options) — array-of-arrays shape (no columns option) ───────
+
+table csv_parse.array_shape:
+  kind: node_chain_eq
+  category: array_shape
+  entry: named
+  function: parse
+  id_prefix: arr
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [two_rows,
+       ["a,b\n1,2"],
+       [],
+       [["a","b"],["1","2"]]]
+
+    - [single_row,
+       ["a,b,c"],
+       [],
+       [["a","b","c"]]]
+
+    - [empty_input_yields_empty,
+       [""],
+       [],
+       []]
+
+    - [quoted_field_with_comma,
+       ["a,b\n\"x,y\",z"],
+       [],
+       [["a","b"],["x,y","z"]]]
+
+    - [escaped_double_quote,
+       ["a\n\"he said \"\"hi\"\"\""],
+       [],
+       [["a"],["he said \"hi\""]]]
+
+# ── parse(input, {columns: true}) — header + object rows ────────────────────
+
+table csv_parse.columns_mode:
+  kind: node_chain_eq
+  category: columns_mode
+  entry: named
+  function: parse
+  id_prefix: cols
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [single_data_row,
+       ["a,b\n1,2", {columns: true}],
+       [],
+       [{a: "1", b: "2"}]]
+
+    - [two_data_rows,
+       ["a,b\n1,2\n3,4", {columns: true}],
+       [],
+       [{a: "1", b: "2"}, {a: "3", b: "4"}]]
+
+    - [trim_whitespace,
+       ["a, b\n1, 2", {columns: true, trim: true}],
+       [],
+       [{a: "1", b: "2"}]]
+
+    - [header_only_no_data,
+       ["a,b", {columns: true}],
+       [],
+       []]

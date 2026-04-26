@@ -1,0 +1,139 @@
+spec: parse5
+version: ">=7.0.0"
+backend: node(parse5)
+
+docs: https://github.com/inikulin/parse5#readme
+
+provenance:
+  derived_from:
+    - "parse5 README — https://github.com/inikulin/parse5#readme"
+    - "WHATWG HTML Standard parsing algorithm — https://html.spec.whatwg.org/multipage/parsing.html"
+    - "Test vectors verified with parse5 via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "parse5 source"
+  notes:
+    - "parse5 is the WHATWG-spec-compliant HTML5 parser used by jsdom, cheerio, and many other tools."
+    - "Install: npm install parse5"
+    - "parse(html) returns a Document AST node; parseFragment(html) returns a DocumentFragment (no <html><head><body> wrappers)."
+    - "We test AST-shape invariants on the returned tree (nodeName, childNodes.length); full-tree equality is impractical because internal AST objects contain non-serializable references and circular parent pointers."
+    - "serialize() round-trip is not tested here because passing the result of parse() to serialize() requires chaining across two module-level functions, which the chain primitive doesn't natively support."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure function — never throws on a string input (HTML5 parser is error-tolerant)."
+  stderr: "null"
+  stickiness: "N/A — each parse call is independent."
+  codes: {}
+
+# ── parse() — Document-level shape ─────────────────────────────────────────
+
+invariant parse5.parse_returns_document:
+  description: "parse() returns an AST node with nodeName == '#document'"
+  category: parse_document
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["<p>hi</p>"]
+  chain:
+    - {get: nodeName}
+  expected: "#document"
+
+invariant parse5.parse_document_has_one_child:
+  description: "parse() of any HTML produces a Document with exactly one top-level child (the <html> element)"
+  category: parse_document
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["<p>hi</p>"]
+  chain:
+    - {get: childNodes}
+    - {get: length}
+  expected: 1
+
+invariant parse5.parse_document_top_child_is_html:
+  description: "Document's only child is the <html> element (per WHATWG HTML5 algorithm)"
+  category: parse_document
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["<p>hi</p>"]
+  chain:
+    - {get: childNodes}
+    - {method: at, args: [0]}
+    - {get: tagName}
+  expected: "html"
+
+invariant parse5.parse_empty_input_still_yields_html_skeleton:
+  description: "parse('') still produces a Document with the implicit <html> wrapper — HTML5 parsing tolerates empty input"
+  category: parse_document
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: [""]
+  chain:
+    - {get: childNodes}
+    - {method: at, args: [0]}
+    - {get: tagName}
+  expected: "html"
+
+# ── parseFragment() — Fragment-level shape ─────────────────────────────────
+
+invariant parse5.parse_fragment_returns_fragment_node:
+  description: "parseFragment() returns an AST node with nodeName == '#document-fragment'"
+  category: parse_fragment
+  kind: node_chain_eq
+  entry: named
+  function: parseFragment
+  entry_args: ["<b>hi</b>"]
+  chain:
+    - {get: nodeName}
+  expected: "#document-fragment"
+
+invariant parse5.parse_fragment_one_top_child:
+  description: "parseFragment('<b>hi</b>') yields a fragment with one top-level child"
+  category: parse_fragment
+  kind: node_chain_eq
+  entry: named
+  function: parseFragment
+  entry_args: ["<b>hi</b>"]
+  chain:
+    - {get: childNodes}
+    - {get: length}
+  expected: 1
+
+invariant parse5.parse_fragment_top_child_is_b:
+  description: "parseFragment('<b>hi</b>') — the top child's tagName is 'b'"
+  category: parse_fragment
+  kind: node_chain_eq
+  entry: named
+  function: parseFragment
+  entry_args: ["<b>hi</b>"]
+  chain:
+    - {get: childNodes}
+    - {method: at, args: [0]}
+    - {get: tagName}
+  expected: "b"
+
+invariant parse5.parse_fragment_two_top_children:
+  description: "parseFragment('<p>a</p><p>b</p>') yields a fragment with two top-level <p> children"
+  category: parse_fragment
+  kind: node_chain_eq
+  entry: named
+  function: parseFragment
+  entry_args: ["<p>a</p><p>b</p>"]
+  chain:
+    - {get: childNodes}
+    - {get: length}
+  expected: 2
+
+invariant parse5.parse_fragment_empty_input_zero_children:
+  description: "parseFragment('') yields a fragment with zero top-level children"
+  category: parse_fragment
+  kind: node_chain_eq
+  entry: named
+  function: parseFragment
+  entry_args: [""]
+  chain:
+    - {get: childNodes}
+    - {get: length}
+  expected: 0
