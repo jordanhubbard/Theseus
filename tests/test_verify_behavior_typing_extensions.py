@@ -117,11 +117,14 @@ class TestTypingExtensionsVersion:
 
 class TestTypingExtensionsNames:
     def test_Literal_present(self, registry):
+        # Match the spec's substring approach — the exact internal class name
+        # has shifted across typing_extensions releases (_TypedCacheSpecialForm
+        # vs _SpecialForm depending on version + Python release).
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
-                "function": "Literal.__class__.__name__.__eq__",
-                "args": ["_TypedCacheSpecialForm"],
+                "function": "Literal.__class__.__name__.__contains__",
+                "args": ["SpecialForm"],
                 "expected": True,
             },
         })
@@ -164,8 +167,8 @@ class TestTypingExtensionsNames:
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
-                "function": "Annotated.__class__.__name__.__eq__",
-                "args": ["_TypedCacheSpecialForm"],
+                "function": "Annotated.__class__.__name__.__contains__",
+                "args": ["SpecialForm"],
                 "expected": True,
             },
         })
