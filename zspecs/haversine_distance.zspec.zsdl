@@ -1,0 +1,87 @@
+spec: haversine_distance
+version: ">=1.2.0"
+backend: node(haversine-distance)
+
+docs: https://github.com/dcousens/haversine-distance#readme
+
+provenance:
+  derived_from:
+    - "haversine-distance README — https://github.com/dcousens/haversine-distance#readme"
+    - "Haversine formula — Robusto, R.W., 'Haversine Formula', 1957"
+    - "Test vectors verified with haversine-distance via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "haversine-distance source"
+  notes:
+    - "Computes great-circle distance between two lat/lng points using the haversine formula."
+    - "Install: npm install haversine-distance"
+    - "Module export IS the distance function. Returns distance in meters; Earth radius is the WGS-84 mean radius (6,371,000 m)."
+    - "Inputs accept {lat, lng}, {latitude, longitude}, or [lat, lng] tuples — we test {lat, lng} for clarity."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure function; never throws on numeric coordinates."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# Self-distance must be 0
+invariant haversine_distance.self_distance_zero:
+  description: "Distance from a point to itself is 0"
+  category: identity
+  kind: node_module_call_eq
+  function: ~
+  args: [{lat: 51.5, lng: -0.1}, {lat: 51.5, lng: -0.1}]
+  expected: 0
+
+# 1 degree of longitude at the equator ≈ 111,319 meters (great-circle)
+invariant haversine_distance.one_degree_longitude_equator:
+  description: "1° of longitude at the equator is ~111,319 m on WGS-84"
+  category: known_distances
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{lat: 0, lng: 0}, {lat: 0, lng: 1}]
+  chain:
+    - {method: toFixed, args: [0]}
+  expected: "111319"
+
+invariant haversine_distance.one_degree_latitude:
+  description: "1° of latitude is also ~111,319 m on WGS-84"
+  category: known_distances
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{lat: 0, lng: 0}, {lat: 1, lng: 0}]
+  chain:
+    - {method: toFixed, args: [0]}
+  expected: "111319"
+
+# Major-city spot checks
+invariant haversine_distance.london_paris_in_km:
+  description: "London ↔ Paris is ~344 km"
+  category: city_pairs
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{lat: 51.5074, lng: -0.1278}, {lat: 48.8566, lng: 2.3522}]
+  chain:
+    - {method: toFixed, args: [0]}
+  expected: "343941"
+
+invariant haversine_distance.ny_la_in_km:
+  description: "New York ↔ Los Angeles is ~3,940 km"
+  category: city_pairs
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{lat: 40.7128, lng: -74.0060}, {lat: 34.0522, lng: -118.2437}]
+  chain:
+    - {method: toFixed, args: [0]}
+  expected: "3940155"
+
+# Symmetry: d(A, B) == d(B, A)
+invariant haversine_distance.symmetric:
+  description: "Distance is symmetric (d(A,B) == d(B,A))"
+  category: properties
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{lat: 51.5, lng: -0.1}, {lat: 48.8, lng: 2.3}]
+  chain:
+    - {method: toFixed, args: [3]}
+  expected: "345853.070"

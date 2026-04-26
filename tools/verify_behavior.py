@@ -1473,8 +1473,14 @@ class PatternRegistry:
             label_init = f"{fn}()"
         elif entry == "constructor":
             cls = spec.get("class", "default")
-            init_expr = f"new ({_path_expr(cls)})(...{entry_args_js})"
-            label_init = f"new {cls}()"
+            if cls == "":
+                # Empty class — the module itself IS the constructor (e.g.
+                # linkify-it where require('linkify-it') is the class).
+                init_expr = f"new m(...{entry_args_js})"
+                label_init = "new <module>()"
+            else:
+                init_expr = f"new ({_path_expr(cls)})(...{entry_args_js})"
+                label_init = f"new {cls}()"
         elif entry == "factory":
             fac = spec["factory"]
             init_expr = f"{_path_expr(fac)}(...{entry_args_js})"
