@@ -1,0 +1,81 @@
+spec: url_template
+version: ">=3.1.0"
+backend: node(url-template)
+
+docs: https://github.com/bramstein/url-template#readme
+
+provenance:
+  derived_from:
+    - "url-template README — https://github.com/bramstein/url-template#readme"
+    - "RFC 6570 — URI Template"
+    - "Test vectors verified with url-template via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "url-template source"
+  notes:
+    - "Implements RFC 6570 URI Template expansion."
+    - "Install: npm install url-template"
+    - "Pattern: const {parseTemplate} = require('url-template'); parseTemplate(s).expand(vars)"
+    - "Reserved/path/query/fragment expansion operators are all RFC 6570-conformant."
+  rfcs:
+    - "RFC 6570 — URI Template — https://www.rfc-editor.org/rfc/rfc6570"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "parseTemplate returns a Template object; .expand(vars) returns a string. Pure."
+  stderr: "null"
+  stickiness: "N/A — Template instances are stateless."
+  codes: {}
+
+# parseTemplate(s).expand(vars) — chain
+table url_template.expand:
+  kind: node_chain_eq
+  category: expand
+  entry: named
+  function: parseTemplate
+  id_prefix: exp
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [simple_substitution,
+       ["https://api.example.com/users/{id}"],
+       [{method: expand, args: [{id: 42}]}],
+       "https://api.example.com/users/42"]
+
+    - [path_and_query,
+       ["https://example.com/{path}{?query}"],
+       [{method: expand, args: [{path: "foo", query: "bar"}]}],
+       "https://example.com/foo?query=bar"]
+
+    - [form_style_query,
+       ["https://example.com{?q*}"],
+       [{method: expand, args: [{q: {a: "1", b: "2"}}]}],
+       "https://example.com?a=1&b=2"]
+
+    - [missing_variable_omits,
+       ["{?missing}"],
+       [{method: expand, args: [{}]}],
+       ""]
+
+    - [reserved_expansion,
+       ["{+path}/here"],
+       [{method: expand, args: [{path: "/a/b"}]}],
+       "/a/b/here",
+       {description: "RFC 6570 §3.2.3 — reserved expansion preserves slashes"}]
+
+    - [fragment_expansion,
+       ["X{#hash}"],
+       [{method: expand, args: [{hash: "frag"}]}],
+       "X#frag",
+       {description: "RFC 6570 §3.2.4 — fragment expansion prepends '#'"}]
+
+    - [multiple_path_segments,
+       ["{/segments*}"],
+       [{method: expand, args: [{segments: ["a", "b", "c"]}]}],
+       "/a/b/c",
+       {description: "RFC 6570 §3.2.6 — exploded path expansion"}]
+
+    - [no_template_url_encodes_spaces,
+       ["plain text"],
+       [{method: expand, args: [{}]}],
+       "plain%20text",
+       {description: "RFC 6570 — non-template literal text is still URI-encoded for unsafe characters"}]

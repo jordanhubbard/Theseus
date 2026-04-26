@@ -1,0 +1,92 @@
+spec: plist
+version: ">=3.0.0"
+backend: node(plist)
+
+docs: https://github.com/TooTallNate/plist.js#readme
+
+provenance:
+  derived_from:
+    - "plist.js README — https://github.com/TooTallNate/plist.js#readme"
+    - "Apple Property List specification — https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/PropertyLists/QuickStartPlist/QuickStartPlist.html"
+    - "Test vectors verified with plist via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "plist source"
+  notes:
+    - "Apple Property List (XML form) parser/builder used by macOS/iOS toolchains."
+    - "Install: npm install plist"
+    - "parse(xml) returns JS value; build(obj) returns XML string with full DTD/doctype prologue."
+    - "build() always emits the standard plist DTD declaration; we use startsWith to verify the prologue."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; parse() throws on malformed XML."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# parse() — XML plist to JS value
+table plist.parse:
+  kind: node_module_call_eq
+  category: parse
+  function: parse
+  id_prefix: parse
+
+  columns: [id, args, expected]
+  rows:
+    - [single_string_pair,
+       ["<plist><dict><key>foo</key><string>bar</string></dict></plist>"],
+       {foo: "bar"}]
+
+    - [integer_value,
+       ["<plist><dict><key>n</key><integer>42</integer></dict></plist>"],
+       {n: 42}]
+
+    - [boolean_true,
+       ["<plist><dict><key>flag</key><true/></dict></plist>"],
+       {flag: true}]
+
+    - [boolean_false,
+       ["<plist><dict><key>flag</key><false/></dict></plist>"],
+       {flag: false}]
+
+    - [array_of_strings,
+       ["<plist><array><string>x</string><string>y</string></array></plist>"],
+       ["x", "y"]]
+
+    - [nested_dict,
+       ["<plist><dict><key>outer</key><dict><key>inner</key><integer>1</integer></dict></dict></plist>"],
+       {outer: {inner: 1}}]
+
+# build() — verify the standard prologue is present
+invariant plist.build_includes_xml_declaration:
+  description: "build() output starts with the XML declaration"
+  category: build
+  kind: node_chain_eq
+  entry: named
+  function: build
+  entry_args: [{foo: "bar"}]
+  chain:
+    - {method: startsWith, args: ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>"]}
+  expected: true
+
+invariant plist.build_includes_apple_doctype:
+  description: "build() emits the Apple plist DTD declaration"
+  category: build
+  kind: node_chain_eq
+  entry: named
+  function: build
+  entry_args: [{foo: "bar"}]
+  chain:
+    - {method: includes, args: ["http://www.apple.com/DTDs/PropertyList-1.0.dtd"]}
+  expected: true
+
+invariant plist.build_contains_key_and_value:
+  description: "build({foo:'bar'}) contains <key>foo</key> and <string>bar</string>"
+  category: build
+  kind: node_chain_eq
+  entry: named
+  function: build
+  entry_args: [{foo: "bar"}]
+  chain:
+    - {method: includes, args: ["<key>foo</key>"]}
+  expected: true
