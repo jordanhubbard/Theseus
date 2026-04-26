@@ -1,0 +1,103 @@
+spec: parse_headers
+version: ">=2.0.0"
+backend: node(parse-headers)
+
+docs: https://github.com/kesla/parse-headers#readme
+
+provenance:
+  derived_from:
+    - "parse-headers README — https://github.com/kesla/parse-headers#readme"
+    - "RFC 7230 §3.2 — HTTP/1.1 Header Fields"
+    - "Test vectors verified with parse-headers via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "parse-headers source"
+  notes:
+    - "Parse a raw HTTP header block (CRLF-separated 'Name: Value' lines) into a plain object."
+    - "Install: npm install parse-headers"
+    - "v2 CJS; module export IS the function. Lowercases header names by convention."
+    - "Repeated headers concatenate into an array under the same lowercased key."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Pure function; tolerates malformed/empty input by returning an object with what it could parse."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+invariant parse_headers.module_is_function:
+  description: "Module export is a function"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
+
+invariant parse_headers.module_arity:
+  description: "Module function declared length is 1"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: length}
+  expected: 1
+
+invariant parse_headers.lowercases_content_type:
+  description: "Content-Type header key is lowercased"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["Content-Type: text/html\r\nX-Custom: 1"]
+  chain:
+    - {get: "content-type"}
+  expected: "text/html"
+
+invariant parse_headers.lowercases_x_custom:
+  description: "X-Custom header key is lowercased to x-custom"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["Content-Type: text/html\r\nX-Custom: 1"]
+  chain:
+    - {get: "x-custom"}
+  expected: "1"
+
+invariant parse_headers.empty_input_returns_object:
+  description: "Empty input returns an empty object"
+  category: edge
+  kind: node_chain_eq
+  entry: module
+  entry_args: [""]
+  chain:
+    - {get: "constructor.name"}
+  expected: "Object"
+
+invariant parse_headers.single_header:
+  description: "Single header line parsed"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["Authorization: Bearer abc"]
+  chain:
+    - {get: "authorization"}
+  expected: "Bearer abc"
+
+invariant parse_headers.trims_whitespace:
+  description: "Leading whitespace in value is trimmed"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["X-Header:    spaced"]
+  chain:
+    - {get: "x-header"}
+  expected: "spaced"
+
+invariant parse_headers.crlf_separator:
+  description: "Multiple headers split on CRLF"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["A: 1\r\nB: 2\r\nC: 3"]
+  chain:
+    - {get: "b"}
+  expected: "2"
