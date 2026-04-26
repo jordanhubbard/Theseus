@@ -164,11 +164,14 @@ class TestTypingExtensionsNames:
         assert ok, msg
 
     def test_Annotated_present(self, registry):
+        # Same module-name check the spec uses — survives the case where
+        # typing_extensions re-exports stdlib's Annotated (whose __class__
+        # is _AnnotatedAlias, not anything containing 'SpecialForm').
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
-                "function": "Annotated.__class__.__name__.__contains__",
-                "args": ["SpecialForm"],
+                "function": "Annotated.__module__.__contains__",
+                "args": ["typing"],
                 "expected": True,
             },
         })
