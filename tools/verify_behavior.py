@@ -1287,15 +1287,22 @@ class PatternRegistry:
             call_expr = f"m[{json.dumps(fn_name)}](...{args_js})"
         else:
             call_expr = f"m(...{args_js})"
+        # Map JS undefined → JSON null so calls that legitimately return
+        # undefined don't choke process.stdout.write (mirrors the same fix in
+        # _build_chain_body — invariants comparing to YAML ~ work transparently).
+        write_expr = (
+            f"const __out = JSON.stringify({call_expr});"
+            f"process.stdout.write(__out === undefined ? \"null\" : __out)"
+        )
         if getattr(self._lib, "esm", False):
             script = (
                 f"(async()=>{{const m=await import({json.dumps(module)});"
-                f"process.stdout.write(JSON.stringify({call_expr}))}})();"
+                f"{write_expr}}})();"
             )
         else:
             script = (
                 f"const m=require({json.dumps(module)});"
-                f"process.stdout.write(JSON.stringify({call_expr}))"
+                f"{write_expr}"
             )
         cmd = [self._lib.command, "-e", script]
         try:

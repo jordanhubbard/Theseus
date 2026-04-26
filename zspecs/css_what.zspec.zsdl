@@ -1,0 +1,143 @@
+spec: css_what
+version: ">=6.0.0"
+backend: node(css-what)
+
+docs: https://github.com/fb55/css-what#readme
+
+provenance:
+  derived_from:
+    - "css-what README — https://github.com/fb55/css-what#readme"
+    - "CSS Selectors Level 4 — https://www.w3.org/TR/selectors-4/"
+    - "Test vectors verified with css-what via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "css-what source"
+  notes:
+    - "CSS selector parser/serializer used by css-select and cheerio."
+    - "Install: npm install css-what"
+    - "parse(selector) returns array-of-arrays (groups separated by comma); each entry is an ordered list of token objects."
+    - "stringify(parsed) is the inverse."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; throws on malformed selectors."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# Number of selector groups (comma-separated)
+invariant css_what.parse_single_group_length:
+  description: "Single comma-free selector parses to 1 group"
+  category: groups
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["div p"]
+  chain:
+    - {get: length}
+  expected: 1
+
+invariant css_what.parse_two_groups:
+  description: "Two comma-separated selectors yield 2 groups"
+  category: groups
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["div, p"]
+  chain:
+    - {get: length}
+  expected: 2
+
+# Token shape — first token in 'div.foo' is a tag
+invariant css_what.first_token_type_tag:
+  description: "First token of 'div.foo' is type='tag'"
+  category: tokens
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["div.foo"]
+  chain:
+    - {method: at, args: [0]}
+    - {method: at, args: [0]}
+    - {get: type}
+  expected: "tag"
+
+invariant css_what.first_token_name_div:
+  description: "First token of 'div.foo' has name 'div'"
+  category: tokens
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["div.foo"]
+  chain:
+    - {method: at, args: [0]}
+    - {method: at, args: [0]}
+    - {get: name}
+  expected: "div"
+
+# Class-attribute encoding (.foo → attribute selector with action 'element')
+invariant css_what.class_token_type:
+  description: ".foo is encoded as an attribute selector token"
+  category: tokens
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["div.foo"]
+  chain:
+    - {method: at, args: [0]}
+    - {method: at, args: [1]}
+    - {get: type}
+  expected: "attribute"
+
+invariant css_what.class_token_attribute_name:
+  description: ".foo's attribute name is 'class'"
+  category: tokens
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["div.foo"]
+  chain:
+    - {method: at, args: [0]}
+    - {method: at, args: [1]}
+    - {get: name}
+  expected: "class"
+
+invariant css_what.class_token_value:
+  description: ".foo encodes the class name as the attribute value 'foo'"
+  category: tokens
+  kind: node_chain_eq
+  entry: named
+  function: parse
+  entry_args: ["div.foo"]
+  chain:
+    - {method: at, args: [0]}
+    - {method: at, args: [1]}
+    - {get: value}
+  expected: "foo"
+
+# stringify — inverse
+invariant css_what.stringify_round_trip_simple:
+  description: "stringify(parse('div.foo')) round-trips"
+  category: stringify
+  kind: node_chain_eq
+  entry: named
+  function: stringify
+  entry_args: [[[{type: "tag", name: "div", namespace: ~}]]]
+  chain: []
+  expected: "div"
+
+# isTraversal helper — checks if token represents a combinator
+invariant css_what.is_traversal_descendant:
+  description: "isTraversal returns true for descendant combinator token"
+  category: traversal
+  kind: node_module_call_eq
+  function: isTraversal
+  args: [{type: "descendant"}]
+  expected: true
+
+invariant css_what.is_traversal_tag_false:
+  description: "isTraversal returns false for tag token"
+  category: traversal
+  kind: node_module_call_eq
+  function: isTraversal
+  args: [{type: "tag", name: "div"}]
+  expected: false
