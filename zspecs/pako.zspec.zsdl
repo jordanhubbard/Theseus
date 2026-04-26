@@ -1,0 +1,87 @@
+spec: pako
+version: ">=2.0.0"
+backend: node(pako)
+
+docs: https://github.com/nodeca/pako#readme
+
+provenance:
+  derived_from:
+    - "pako README — https://github.com/nodeca/pako#readme"
+    - "RFC 1950/1951/1952 (zlib/deflate/gzip)"
+    - "Test vectors verified with pako via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "pako source"
+  notes:
+    - "pako is a high-perf pure-JS zlib port — same wire format as RFC 1950/1951/1952."
+    - "Install: npm install pako"
+    - "deflate(string) returns Uint8Array; inflate(bytes, {to:'string'}) returns string."
+    - "pako.inflate accepts a plain JS array of bytes as input — convenient for spec args."
+  rfcs:
+    - "RFC 1950 — ZLIB Compressed Data Format — https://www.rfc-editor.org/rfc/rfc1950"
+    - "RFC 1951 — DEFLATE Compressed Data Format — https://www.rfc-editor.org/rfc/rfc1951"
+    - "RFC 1952 — GZIP File Format — https://www.rfc-editor.org/rfc/rfc1952"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "deflate/inflate never throw on valid input; malformed input throws."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# inflate known-bytes -> known-string
+table pako.inflate:
+  kind: node_chain_eq
+  category: inflate
+  entry: named
+  function: inflate
+  id_prefix: inf
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [hello,
+       [[120, 156, 203, 72, 205, 201, 201, 7, 0, 6, 44, 2, 21], {to: "string"}],
+       [],
+       "hello"]
+
+    - [hello_world,
+       [[120, 156, 203, 72, 205, 201, 201, 87, 40, 207, 47, 202, 73, 1, 0, 26, 11, 4, 93], {to: "string"}],
+       [],
+       "hello world"]
+
+# ungzip known-bytes -> known-string
+table pako.ungzip:
+  kind: node_chain_eq
+  category: ungzip
+  entry: named
+  function: ungzip
+  id_prefix: gz
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [hello,
+       [[31, 139, 8, 0, 0, 0, 0, 0, 0, 3, 203, 72, 205, 201, 201, 7, 0, 134, 166, 16, 54, 5, 0, 0, 0], {to: "string"}],
+       [],
+       "hello"]
+
+# deflate length contract — same input always gives same length output
+invariant pako.deflate_hello_length:
+  description: "deflate('hello') produces a 13-byte zlib stream"
+  category: deflate
+  kind: node_chain_eq
+  entry: named
+  function: deflate
+  entry_args: ["hello"]
+  chain:
+    - {get: length}
+  expected: 13
+
+invariant pako.gzip_hello_length:
+  description: "gzip('hello') produces a 25-byte gzip stream (10-byte header + 13-byte deflate + 8-byte trailer)"
+  category: gzip
+  kind: node_chain_eq
+  entry: named
+  function: gzip
+  entry_args: ["hello"]
+  chain:
+    - {get: length}
+  expected: 25
