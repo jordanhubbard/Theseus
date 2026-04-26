@@ -6,7 +6,7 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 1 — Package recipe pipeline:** normalizes Nixpkgs and FreeBSD Ports records into a shared canonical schema, ranks candidates, and produces merged extraction records.
 
-**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 1,934 source specs covering 7 backend types (node, rust_module, python_cleanroom, python_module, ctypes, cli, node_cleanroom). 729 specs target npm packages; ctypes specs now include libpcap and pcapng (35 invariants together, derived from the IETF capture-file drafts). The wave compiler expands the source set into 10,846 invariant bundles totalling 223k+ invariants.
+**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,018 source specs covering 7 backend types (node, rust_module, python_cleanroom, python_module, ctypes, cli, node_cleanroom). 812 specs target npm packages; ctypes specs now include libpcap and pcapng (35 invariants together, derived from the IETF capture-file drafts). The wave compiler expands the source set into 10,935 invariant bundles totalling 224k+ invariants.
 
 **Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. 392 Python packages verified as of the current registry.
 

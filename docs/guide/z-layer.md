@@ -1,9 +1,9 @@
 # Z-Layer Behavioral Spec System
 
-The Z-layer (Layer 2) is a system of 1,934 machine-readable behavioral specs — one per
-OSS library — that describe how each library actually behaves. (729 of them target npm
+The Z-layer (Layer 2) is a system of 2,018 machine-readable behavioral specs — one per
+OSS library — that describe how each library actually behaves. (812 of them target npm
 packages; libpcap and pcapng cover the IETF capture-file drafts via ctypes. The wave
-compiler expands the source set into 10,846 invariant bundles, totalling 223,000+
+compiler expands the source set into 10,935 invariant bundles, totalling 224,000+
 invariants.) Each spec is:
 
 - **Derived from public documentation only** — not from source code. This preserves
@@ -198,7 +198,7 @@ skip_if: 'platform == "freebsd" or not semver_satisfies(lib_version, ">=3.9")'
 # Compile all ZSDL sources first
 make compile-zsdl
 
-# Run all compiled specs (10,846 today) — text summary
+# Run all compiled specs (10,935 today) — text summary
 make verify-all-specs
 
 # Run all specs — JSON results (for CI dashboards, --baseline diffs)
