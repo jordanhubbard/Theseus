@@ -1,0 +1,98 @@
+spec: dotenv_expand
+version: ">=13.0.0"
+backend: node(dotenv-expand)
+
+docs: https://github.com/motdotla/dotenv-expand#readme
+
+provenance:
+  derived_from:
+    - "dotenv-expand README — https://github.com/motdotla/dotenv-expand#readme"
+    - "Test vectors verified with dotenv-expand via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "dotenv-expand source"
+  notes:
+    - "Adds shell-like variable expansion to dotenv parsed output: B=$A → B='hello' if A='hello'."
+    - "Install: npm install dotenv-expand"
+    - "v13 CJS; named export expand({parsed}) → mutated/returned config object."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Pure on a parsed object; never throws."
+  stderr: "null"
+  stickiness: "Mutates the input config; the returned value points at the same object."
+  codes: {}
+
+invariant dotenv_expand.has_expand:
+  description: "expand() function exposed"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "expand.constructor.name"}
+  expected: "Function"
+
+invariant dotenv_expand.simple_substitution:
+  description: "B=$A is expanded to A's value"
+  category: expand
+  kind: node_chain_eq
+  entry: named
+  function: expand
+  entry_args: [{"parsed": {"A": "hello", "B": "$A world"}}]
+  chain:
+    - {get: "parsed.B"}
+  expected: "hello world"
+
+invariant dotenv_expand.original_var_preserved:
+  description: "Source variable retains its literal value after expansion"
+  category: expand
+  kind: node_chain_eq
+  entry: named
+  function: expand
+  entry_args: [{"parsed": {"A": "hello", "B": "$A world"}}]
+  chain:
+    - {get: "parsed.A"}
+  expected: "hello"
+
+invariant dotenv_expand.braced_substitution:
+  description: "${A} brace form also expands"
+  category: expand
+  kind: node_chain_eq
+  entry: named
+  function: expand
+  entry_args: [{"parsed": {"A": "earth", "MSG": "hello-${A}"}}]
+  chain:
+    - {get: "parsed.MSG"}
+  expected: "hello-earth"
+
+invariant dotenv_expand.no_substitution_for_literal:
+  description: "Plain values without $ are passed through verbatim"
+  category: expand
+  kind: node_chain_eq
+  entry: named
+  function: expand
+  entry_args: [{"parsed": {"PLAIN": "no expansion here"}}]
+  chain:
+    - {get: "parsed.PLAIN"}
+  expected: "no expansion here"
+
+invariant dotenv_expand.escape_sequence_left_alone:
+  description: "Escaped \\$ is preserved literally (no expansion)"
+  category: expand
+  kind: node_chain_eq
+  entry: named
+  function: expand
+  entry_args: [{"parsed": {"A": "x", "B": "\\$A"}}]
+  chain:
+    - {get: "parsed.B"}
+  expected: "$A"
+
+invariant dotenv_expand.transitive_substitution:
+  description: "B=$A then C=$B expands C to A's value"
+  category: expand
+  kind: node_chain_eq
+  entry: named
+  function: expand
+  entry_args: [{"parsed": {"A": "1", "B": "$A", "C": "$B"}}]
+  chain:
+    - {get: "parsed.C"}
+  expected: "1"
