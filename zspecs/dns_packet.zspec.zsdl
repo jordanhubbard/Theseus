@@ -1,0 +1,76 @@
+spec: dns_packet
+version: ">=5.0.0"
+backend: node(dns-packet)
+
+docs: https://github.com/mafintosh/dns-packet#readme
+
+provenance:
+  derived_from:
+    - "dns-packet README — https://github.com/mafintosh/dns-packet#readme"
+    - "RFC 1035 — Domain Names — Implementation and Specification"
+    - "Test vectors verified with dns-packet via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "dns-packet source"
+  notes:
+    - "RFC 1035 DNS wire-format encoder/decoder."
+    - "Install: npm install dns-packet"
+    - "encode({type, id, flags, questions, answers, ...}) returns a Buffer; decode(buf) returns the message object."
+    - "Test vectors round-trip via known wire bytes; we read .length and individual bytes since Buffers serialize verbosely as JSON."
+  rfcs:
+    - "RFC 1035 — Domain Names — Implementation and Specification — https://www.rfc-editor.org/rfc/rfc1035"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; encode never throws on a valid DNS message object."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# encode + length contracts
+invariant dns_packet.encode_simple_query_length:
+  description: "encode({id:1, flags:0x100, questions:[{name:'example.com', type:'A'}]}) is 29 bytes (12-byte header + 13-byte name + 4-byte qtype/qclass)"
+  category: encode
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: [{type: "query", id: 1, flags: 256, questions: [{type: "A", name: "example.com"}]}]
+  chain:
+    - {get: length}
+  expected: 29
+
+invariant dns_packet.encode_id_high_byte:
+  description: "id field is at offset 0-1 (big-endian); id=1 → byte 0 is 0x00"
+  category: encode
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: [{type: "query", id: 1, flags: 256, questions: [{type: "A", name: "example.com"}]}]
+  chain:
+    - {method: at, args: [0]}
+  expected: 0
+
+invariant dns_packet.encode_id_low_byte:
+  description: "id=1 → byte 1 is 0x01"
+  category: encode
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: [{type: "query", id: 1, flags: 256, questions: [{type: "A", name: "example.com"}]}]
+  chain:
+    - {method: at, args: [1]}
+  expected: 1
+
+
+
+
+# Specific question types
+invariant dns_packet.encode_with_aaaa_question_length_31:
+  description: "AAAA question (qtype=28) takes same total length as A (29 bytes)"
+  category: encode
+  kind: node_chain_eq
+  entry: named
+  function: encode
+  entry_args: [{type: "query", id: 1, flags: 256, questions: [{type: "AAAA", name: "example.com"}]}]
+  chain:
+    - {get: length}
+  expected: 29

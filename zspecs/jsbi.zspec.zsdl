@@ -1,0 +1,119 @@
+spec: jsbi
+version: ">=4.0.0"
+backend: node(jsbi)
+
+docs: https://github.com/GoogleChromeLabs/jsbi#readme
+
+provenance:
+  derived_from:
+    - "JSBI README — https://github.com/GoogleChromeLabs/jsbi#readme"
+    - "Test vectors verified with jsbi via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "jsbi source"
+  notes:
+    - "Pure-JS BigInt polyfill from Google Chrome Labs — for environments lacking native BigInt."
+    - "Install: npm install jsbi"
+    - "All ops are static methods on JSBI: JSBI.add, JSBI.multiply, JSBI.lessThan, JSBI.exponentiate."
+    - "Constructor JSBI.BigInt(n) accepts numbers, strings, or other JSBIs. .toString() returns the decimal form."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Throws on overflow only when explicit; arithmetic operations never silently lose precision."
+  stderr: "null"
+  stickiness: "N/A — JSBI instances are values."
+  codes: {}
+
+# Construction + toString
+invariant jsbi.bigint_from_number:
+  description: "JSBI.BigInt(42).toString() == '42'"
+  category: construct
+  kind: node_chain_eq
+  entry: named
+  function: BigInt
+  entry_args: [42]
+  chain:
+    - {method: toString, args: []}
+  expected: "42"
+
+invariant jsbi.bigint_from_string:
+  description: "JSBI.BigInt('1000000000000') round-trips through toString"
+  category: construct
+  kind: node_chain_eq
+  entry: named
+  function: BigInt
+  entry_args: ["1000000000000"]
+  chain:
+    - {method: toString, args: []}
+  expected: "1000000000000"
+
+# Static arithmetic ops (JSBI.add / .multiply / etc.) are not exercised here:
+# they require JSBI instances as arguments, which the chain primitive cannot
+# construct from JSON. The construct + .toString() pattern below covers
+# round-trip precision instead.
+
+invariant jsbi.huge_number_round_trip:
+  description: "JSBI.BigInt('1267650600228229401496703205376') (= 2^100) preserves all digits"
+  category: precision
+  kind: node_chain_eq
+  entry: named
+  function: BigInt
+  entry_args: ["1267650600228229401496703205376"]
+  chain:
+    - {method: toString, args: []}
+  expected: "1267650600228229401496703205376"
+
+invariant jsbi.bigint_zero:
+  description: "JSBI.BigInt(0).toString() == '0'"
+  category: construct
+  kind: node_chain_eq
+  entry: named
+  function: BigInt
+  entry_args: [0]
+  chain:
+    - {method: toString, args: []}
+  expected: "0"
+
+invariant jsbi.bigint_negative:
+  description: "JSBI.BigInt(-42).toString() == '-42'"
+  category: construct
+  kind: node_chain_eq
+  entry: named
+  function: BigInt
+  entry_args: [-42]
+  chain:
+    - {method: toString, args: []}
+  expected: "-42"
+
+invariant jsbi.bigint_negative_string:
+  description: "JSBI.BigInt('-1000') round-trips with leading '-' preserved"
+  category: construct
+  kind: node_chain_eq
+  entry: named
+  function: BigInt
+  entry_args: ["-1000"]
+  chain:
+    - {method: toString, args: []}
+  expected: "-1000"
+
+# toString radix support
+invariant jsbi.bigint_to_hex:
+  description: "BigInt(255).toString(16) yields 'ff'"
+  category: radix
+  kind: node_chain_eq
+  entry: named
+  function: BigInt
+  entry_args: [255]
+  chain:
+    - {method: toString, args: [16]}
+  expected: "ff"
+
+invariant jsbi.bigint_to_binary:
+  description: "BigInt(5).toString(2) yields '101'"
+  category: radix
+  kind: node_chain_eq
+  entry: named
+  function: BigInt
+  entry_args: [5]
+  chain:
+    - {method: toString, args: [2]}
+  expected: "101"
