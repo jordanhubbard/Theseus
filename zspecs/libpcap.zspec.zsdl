@@ -1,0 +1,359 @@
+spec: libpcap
+version: ">=1.10.0"
+backend: ctypes(pcap)
+
+docs: https://www.tcpdump.org/manpages/pcap.3pcap.html
+
+rfcs:
+  - "draft-ietf-opsawg-pcap — Pcap Capture File Format — https://datatracker.ietf.org/doc/html/draft-ietf-opsawg-pcap"
+  - "draft-ietf-opsawg-pcapng — PCAP Next Generation Capture File Format — https://datatracker.ietf.org/doc/html/draft-ietf-opsawg-pcapng"
+  - "draft-ietf-opsawg-pcaplinktype — Link-Layer Header Type Registry — https://datatracker.ietf.org/doc/html/draft-ietf-opsawg-pcaplinktype"
+
+provenance:
+  derived_from:
+    - "pcap(3PCAP) man page — https://www.tcpdump.org/manpages/pcap.3pcap.html"
+    - "draft-ietf-opsawg-pcap §3 (File Header layout: magic, version, snaplen, network)"
+    - "draft-ietf-opsawg-pcaplinktype (Link-Layer Header Type Registry — DLT_EN10MB=1, DLT_RAW=12, DLT_LOOP=108, DLT_LINUX_SLL=113)"
+    - "Test vectors verified with libpcap 1.10.1 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "libpcap source: pcap.c, savefile.c, sf-pcap.c, sf-pcapng.c"
+    - "tcpdump source"
+  notes:
+    - "libpcap is the canonical packet-capture library used by tcpdump, Wireshark, and most Unix sniffing tools."
+    - "Live capture (pcap_open_live, pcap_loop, pcap_next_ex) requires root and a real NIC — NOT spec-able offline; out of scope here."
+    - "This spec covers (a) pure helpers that take only scalars (pcap_lib_version, pcap_strerror, pcap_statustostr, pcap_datalink_val_to_name, pcap_datalink_name_to_val) and (b) offline-file readers (pcap_open_offline + pcap_datalink/pcap_major_version/pcap_minor_version/pcap_snapshot/pcap_close) using a synthesized 24-byte pcap savefile header in a sandbox."
+    - "Pcap savefile header layout per draft-ietf-opsawg-pcap §3.3: magic_number(4), version_major(2), version_minor(2), thiszone(4), sigfigs(4), snaplen(4), linktype(4) — total 24 bytes, no per-record data needed for these invariants."
+    - "Magic numbers: 0xa1b2c3d4 = µs precision (native endian); 0xa1b23c4d = ns precision (RFC alternate). Both little- and big-endian forms are accepted by libpcap (it auto-detects byte-swapping)."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure helpers never crash. pcap_open_offline returns a non-NULL pcap_t* on success or NULL with errbuf populated on failure (truncated header, unknown magic)."
+  stderr: "null"
+  stickiness: "Each invariant is independent — sandbox is fresh per invariant; pcap_t handles are opened/closed within a single invariant."
+  codes: {}
+
+# ── Pure helpers — pcap_lib_version, pcap_*_to_*, pcap_strerror ─────────────
+
+invariant libpcap.lib_version_prefix:
+  description: "pcap_lib_version() returns a string starting with 'libpcap version'"
+  category: pure_helpers
+  kind: ctypes_chain_eq
+  chain:
+    - {function: pcap_lib_version, restype: c_char_p, args: [], arg_types: []}
+  expected_prefix_b64: "bGlicGNhcCB2ZXJzaW9u"   # b'libpcap version'
+  rfc: "pcap(3PCAP) — pcap_lib_version"
+
+# pcap_datalink_val_to_name — DLT integer → standard name (per draft-ietf-opsawg-pcaplinktype registry)
+
+table libpcap.dlt_val_to_name:
+  kind: ctypes_chain_eq
+  category: dlt_lookup
+  id_prefix: dlt_name
+
+  columns: [id, chain, expected_b64]
+  rows:
+    - [en10mb,
+       [{function: pcap_datalink_val_to_name, restype: c_char_p, args: [1], arg_types: [c_int]}],
+       "RU4xME1C"]                       # b'EN10MB'
+
+    - [raw,
+       [{function: pcap_datalink_val_to_name, restype: c_char_p, args: [12], arg_types: [c_int]}],
+       "UkFX"]                            # b'RAW'
+
+    - [loop,
+       [{function: pcap_datalink_val_to_name, restype: c_char_p, args: [108], arg_types: [c_int]}],
+       "TE9PUA=="]                        # b'LOOP'
+
+    - [linux_sll,
+       [{function: pcap_datalink_val_to_name, restype: c_char_p, args: [113], arg_types: [c_int]}],
+       "TElOVVhfU0xM"]                    # b'LINUX_SLL'
+
+    - [ieee802_11,
+       [{function: pcap_datalink_val_to_name, restype: c_char_p, args: [105], arg_types: [c_int]}],
+       "SUVFRTgwMl8xMQ=="]                # b'IEEE802_11'
+
+# pcap_datalink_name_to_val — standard name → DLT integer
+
+table libpcap.dlt_name_to_val:
+  kind: ctypes_chain_eq
+  category: dlt_lookup
+  id_prefix: dlt_val
+
+  columns: [id, chain, expected]
+  rows:
+    - [en10mb,
+       [{function: pcap_datalink_name_to_val, restype: c_int, args: ["EN10MB"], arg_types: [c_char_p]}],
+       1]
+    - [raw,
+       [{function: pcap_datalink_name_to_val, restype: c_int, args: ["RAW"], arg_types: [c_char_p]}],
+       12]
+    - [loop,
+       [{function: pcap_datalink_name_to_val, restype: c_int, args: ["LOOP"], arg_types: [c_char_p]}],
+       108]
+    - [linux_sll,
+       [{function: pcap_datalink_name_to_val, restype: c_int, args: ["LINUX_SLL"], arg_types: [c_char_p]}],
+       113]
+    - [ieee802_11,
+       [{function: pcap_datalink_name_to_val, restype: c_int, args: ["IEEE802_11"], arg_types: [c_char_p]}],
+       105]
+
+# ── Offline file readers — open + query + close, in a sandbox with a
+#    synthesized 24-byte pcap savefile header per draft-ietf-opsawg-pcap §3.3
+
+# Header content_b64 values are 24-byte little-endian struct.pack("<IHHiIII", ...).
+# Layout: magic(4) | version_major(2) | version_minor(2) | thiszone(4) |
+#         sigfigs(4) | snaplen(4) | linktype(4)
+
+# 0xa1b2c3d4 (µs), 2.4, snaplen 65535, DLT_EN10MB(1)
+#   → 1MOyoQIABAAAAAAAAAAAAP//AAABAAAA
+# 0xa1b2c3d4 (µs), 2.4, snaplen 65535, DLT_LINUX_SLL(113)
+#   → 1MOyoQIABAAAAAAAAAAAAP//AABxAAAA
+# 0xa1b2c3d4 (µs), 2.4, snaplen 1500,  DLT_LINUX_SLL(113)
+#   → 1MOyoQIABAAAAAAAAAAAANwFAABxAAAA
+# 0xa1b23c4d (ns), 2.4, snaplen 65535, DLT_EN10MB(1)
+#   → TTyyoQIABAAAAAAAAAAAAP//AAABAAAA
+# Big-endian 0xa1b2c3d4, 2.4, snaplen 65535, DLT_EN10MB(1)
+#   → obLD1AACAAQAAAAAAAAAAAAA//8AAAAB
+# Bad magic 0xdeadbeef
+#   → 776t3gIABAAAAAAAAAAAAP//AAABAAAA
+
+invariant libpcap.open_offline.datalink_en10mb:
+  description: "pcap_open_offline() reads a savefile with linktype=DLT_EN10MB; pcap_datalink() returns 1"
+  category: open_offline
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcap"
+      content_b64: "1MOyoQIABAAAAAAAAAAAAP//AAABAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1
+  rfc: "draft-ietf-opsawg-pcap §3.3 + draft-ietf-opsawg-pcaplinktype (DLT_EN10MB=1)"
+
+invariant libpcap.open_offline.datalink_linux_sll:
+  description: "pcap_open_offline() reads a savefile with linktype=DLT_LINUX_SLL; pcap_datalink() returns 113"
+  category: open_offline
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "sll.pcap"
+      content_b64: "1MOyoQIABAAAAAAAAAAAAP//AABxAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "sll.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 113
+  rfc: "draft-ietf-opsawg-pcaplinktype (DLT_LINUX_SLL=113)"
+
+invariant libpcap.open_offline.snapshot_default:
+  description: "pcap_snapshot() reflects the snaplen field from the savefile header (65535)"
+  category: open_offline
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcap"
+      content_b64: "1MOyoQIABAAAAAAAAAAAAP//AAABAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_snapshot
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 65535
+  rfc: "draft-ietf-opsawg-pcap §3.3 (snaplen field at offset 16)"
+
+invariant libpcap.open_offline.snapshot_1500:
+  description: "snaplen=1500 in the file header propagates through pcap_snapshot()"
+  category: open_offline
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcap"
+      content_b64: "1MOyoQIABAAAAAAAAAAAANwFAABxAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_snapshot
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1500
+
+invariant libpcap.open_offline.major_version:
+  description: "pcap_major_version() returns 2 for a draft-ietf-opsawg-pcap §3.3 v2.4 file"
+  category: open_offline
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcap"
+      content_b64: "1MOyoQIABAAAAAAAAAAAAP//AAABAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_major_version
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 2
+
+invariant libpcap.open_offline.minor_version:
+  description: "pcap_minor_version() returns 4 for a draft-ietf-opsawg-pcap §3.3 v2.4 file"
+  category: open_offline
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcap"
+      content_b64: "1MOyoQIABAAAAAAAAAAAAP//AAABAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_minor_version
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 4
+
+# ── Magic-number variants per draft-ietf-opsawg-pcap §3.3 ───────────────────
+
+invariant libpcap.open_offline.nanosecond_magic:
+  description: "Nanosecond-precision magic 0xa1b23c4d (RFC alternate) reads identically"
+  category: magic_numbers
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "ns.pcap"
+      content_b64: "TTyyoQIABAAAAAAAAAAAAP//AAABAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "ns.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1
+  rfc: "draft-ietf-opsawg-pcap §3.3 (nanosecond precision magic)"
+
+invariant libpcap.open_offline.big_endian_magic:
+  description: "Big-endian-stored magic auto-detected and byte-swapped; linktype recovered correctly"
+  category: magic_numbers
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "be.pcap"
+      content_b64: "obLD1AACAAQAAAAAAAAAAAAA//8AAAAB"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "be.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1
+
+invariant libpcap.open_offline.bad_magic_returns_null:
+  description: "pcap_open_offline() returns NULL when the magic number is unrecognised"
+  category: error_paths
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "bad.pcap"
+      content_b64: "776t3gIABAAAAAAAAAAAAP//AAABAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "bad.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      compare: true
+  expected: 0
+
+invariant libpcap.open_offline.truncated_header_returns_null:
+  description: "pcap_open_offline() returns NULL when the file is shorter than the 24-byte header"
+  category: error_paths
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trunc.pcap"
+      content_b64: "1MOyoQIABAAAAAAAAA=="
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trunc.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      compare: true
+  expected: 0
+
+invariant libpcap.open_offline.missing_file_returns_null:
+  description: "pcap_open_offline() returns NULL when the file does not exist"
+  category: error_paths
+  kind: ctypes_sandbox_chain_eq
+  setup: []
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "does_not_exist.pcap"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      compare: true
+  expected: 0

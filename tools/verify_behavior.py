@@ -358,6 +358,9 @@ KNOWN_KINDS = {
     "node_chain_eq",
     "node_property_eq",
     "node_sandbox_chain_eq",
+    # ctypes chain kinds — for stateful C library APIs (handle/pointer threading)
+    "ctypes_chain_eq",
+    "ctypes_sandbox_chain_eq",
     # lz4-specific ctypes roundtrip
     "lz4_roundtrip",
     # pcre2-specific ctypes compile+match
@@ -431,6 +434,8 @@ class PatternRegistry:
             "node_chain_eq":                  self._node_chain_eq,
             "node_property_eq":               self._node_property_eq,
             "node_sandbox_chain_eq":          self._node_sandbox_chain_eq,
+            "ctypes_chain_eq":                self._ctypes_chain_eq,
+            "ctypes_sandbox_chain_eq":        self._ctypes_sandbox_chain_eq,
             # lz4-specific ctypes roundtrip
             "lz4_roundtrip":                  self._lz4_roundtrip,
             # pcre2-specific ctypes compile+match
@@ -1568,6 +1573,203 @@ class PatternRegistry:
             **spec,
             "chain": [{"get": spec["property"]}],
         })
+
+    # --- ctypes_chain_eq / ctypes_sandbox_chain_eq ---
+    # Threads opaque handles through a sequence of ctypes calls. Required for
+    # stateful C libraries whose APIs return a handle from one call and accept
+    # it as input to the next (libpcap's pcap_open_offline -> pcap_datalink ->
+    # pcap_close, sqlite3's prepare/step/finalize, etc.).
+    #
+    # spec fields:
+    #   chain: list of step dicts, each:
+    #     function   (str, required)  — symbol name on self._lib
+    #     args       (list)           — args; see arg-form table below
+    #     arg_types  (list[str])      — ctypes type tokens, one per arg
+    #     restype    (str, default "c_int") — ctypes return-type token
+    #     capture    (str, optional)  — name to store the result under
+    #     compare    (bool, optional) — mark this step's result for comparison
+    #                                   (default: last step)
+    #
+    # Argument forms inside `args`:
+    #   plain int/str/bytes        — passed through _resolve_arg with arg_types[i]
+    #   {"capture": "name"}        — previously captured value
+    #   {"sandbox_path": "rel"}    — absolute path bytes (sandbox kind only)
+    #   {"errbuf": N}              — fresh ctypes.create_string_buffer(N) for
+    #                                 caller-allocated error buffers
+    #
+    # Type tokens (both `arg_types[i]` and `restype`):
+    #   c_int (default), c_uint, c_long, c_ulong, c_char_p, c_void_p
+    #
+    # Comparison modes (mutually exclusive):
+    #   expected:        int return equality
+    #   expected_b64:    bytes equality (for c_char_p returns)
+    #   expected_prefix_b64: bytes startswith check
+    #
+    # ctypes_sandbox_chain_eq additionally takes:
+    #   setup: list of {path, content_b64?} | {path, content?} | {path, dir: true}
+    #          paths are relative; '..' rejected; sandbox is removed after run.
+    _CTYPES_TYPE_MAP = {
+        "c_int":    ctypes.c_int,
+        "c_uint":   ctypes.c_uint,
+        "c_long":   ctypes.c_long,
+        "c_ulong":  ctypes.c_ulong,
+        "c_char_p": ctypes.c_char_p,
+        "c_void_p": ctypes.c_void_p,
+    }
+
+    def _resolve_chain_arg(self, val, atype, captures, sandbox_dir):
+        """Resolve one ctypes-chain arg. Returns (resolved_value, hold_object_or_none).
+
+        hold_object_or_none is a ctypes buffer that must be kept alive across
+        the call (returned so the caller can stash it).
+        """
+        if isinstance(val, dict):
+            if "capture" in val:
+                name = val["capture"]
+                if name not in captures:
+                    raise SpecError(f"chain: arg references undefined capture {name!r}")
+                return captures[name], None
+            if "sandbox_path" in val:
+                if sandbox_dir is None:
+                    raise SpecError("chain: 'sandbox_path' arg used in non-sandbox kind")
+                rel = val["sandbox_path"]
+                if rel.startswith("/") or ".." in rel.split("/"):
+                    raise SpecError(f"chain: sandbox_path must be relative and free of '..': {rel!r}")
+                return str((sandbox_dir / rel).resolve()).encode("utf-8"), None
+            if "errbuf" in val:
+                buf = ctypes.create_string_buffer(int(val["errbuf"]))
+                return buf, buf  # hold buf alive
+            raise SpecError(f"chain: unknown arg dict shape: {val!r}")
+        # Plain scalar — coerce to the ctypes type implied by the token.
+        if atype in ("c_int", "c_uint", "c_long", "c_ulong"):
+            return int(val), None
+        if atype == "c_char_p":
+            if val is None:
+                return None, None
+            if isinstance(val, str):
+                return val.encode("utf-8"), None
+            return val, None
+        if atype == "c_void_p":
+            return None if val is None else int(val), None
+        # Fall back to the legacy resolver for "int" / "bytes_b64" / "null".
+        return _resolve_arg(val, atype), None
+
+    def _run_ctypes_chain(self, spec: dict, sandbox_dir: Path | None) -> tuple[bool, str]:
+        chain = spec.get("chain", [])
+        if not chain:
+            return False, "ctypes chain: empty chain"
+
+        # Determine which step's return is compared.
+        compare_idx = None
+        for i, step in enumerate(chain):
+            if step.get("compare"):
+                if compare_idx is not None:
+                    return False, f"ctypes chain: multiple compare:true steps ({compare_idx} and {i})"
+                compare_idx = i
+        if compare_idx is None:
+            compare_idx = len(chain) - 1
+
+        captures: dict = {}
+        held = []  # keep allocated buffers alive across calls
+        compared_result = None
+
+        for i, step in enumerate(chain):
+            fn_name = step.get("function")
+            if not fn_name:
+                return False, f"ctypes chain: step {i} missing 'function'"
+            try:
+                fn = getattr(self._lib, fn_name)
+            except AttributeError:
+                return False, f"ctypes chain: step {i}: symbol {fn_name!r} not found in library"
+
+            # Configure restype + argtypes on the ctypes function pointer.
+            restype_tok = step.get("restype", "c_int")
+            if restype_tok not in self._CTYPES_TYPE_MAP:
+                return False, f"ctypes chain: step {i}: unknown restype {restype_tok!r}"
+            fn.restype = self._CTYPES_TYPE_MAP[restype_tok]
+
+            raw_args = step.get("args", [])
+            arg_type_toks = step.get("arg_types", ["c_int"] * len(raw_args))
+            if len(arg_type_toks) != len(raw_args):
+                return False, f"ctypes chain: step {i}: arg_types length {len(arg_type_toks)} != args length {len(raw_args)}"
+
+            # Build argtypes for ctypes (skip if unknown token — fall back to default)
+            argtypes = []
+            for t in arg_type_toks:
+                argtypes.append(self._CTYPES_TYPE_MAP.get(t, ctypes.c_int))
+            fn.argtypes = argtypes
+
+            resolved = []
+            try:
+                for v, t in zip(raw_args, arg_type_toks):
+                    rv, hold = self._resolve_chain_arg(v, t, captures, sandbox_dir)
+                    resolved.append(rv)
+                    if hold is not None:
+                        held.append(hold)
+            except SpecError as exc:
+                return False, f"ctypes chain: step {i}: {exc}"
+
+            try:
+                result = fn(*resolved)
+            except Exception as exc:
+                return False, f"ctypes chain: step {i}: {fn_name}() raised: {exc}"
+
+            if "capture" in step:
+                captures[step["capture"]] = result
+
+            if i == compare_idx:
+                compared_result = result
+
+        # Comparison.
+        if "expected_b64" in spec:
+            exp = base64.b64decode(spec["expected_b64"])
+            actual = compared_result if isinstance(compared_result, (bytes, bytearray)) else None
+            if actual != exp:
+                return False, f"ctypes chain: step {compare_idx} returned {compared_result!r}, expected {exp!r}"
+            return True, f"ctypes chain: step {compare_idx} == {exp!r}"
+        if "expected_prefix_b64" in spec:
+            prefix = base64.b64decode(spec["expected_prefix_b64"])
+            actual = compared_result
+            if actual is None or not isinstance(actual, (bytes, bytearray)) or not actual.startswith(prefix):
+                return False, f"ctypes chain: step {compare_idx} returned {compared_result!r}, expected prefix {prefix!r}"
+            return True, f"ctypes chain: step {compare_idx} starts with {prefix!r}"
+        if "expected" in spec:
+            exp = spec["expected"]
+            try:
+                actual_int = int(compared_result) if compared_result is not None else 0
+            except (TypeError, ValueError):
+                return False, f"ctypes chain: step {compare_idx} returned non-int {compared_result!r}, expected {exp}"
+            if actual_int != exp:
+                return False, f"ctypes chain: step {compare_idx} returned {actual_int}, expected {exp}"
+            return True, f"ctypes chain: step {compare_idx} == {exp}"
+        return False, "ctypes chain: spec must include 'expected', 'expected_b64', or 'expected_prefix_b64'"
+
+    def _ctypes_chain_eq(self, spec: dict) -> tuple[bool, str]:
+        return self._run_ctypes_chain(spec, sandbox_dir=None)
+
+    def _ctypes_sandbox_chain_eq(self, spec: dict) -> tuple[bool, str]:
+        setup = spec.get("setup", [])
+        # Validate setup entries.
+        for i, entry in enumerate(setup):
+            if not isinstance(entry, dict) or "path" not in entry:
+                return False, f"ctypes_sandbox_chain_eq: setup[{i}] missing 'path'"
+            p = entry["path"]
+            if not isinstance(p, str) or p.startswith("/") or ".." in p.split("/"):
+                return False, f"ctypes_sandbox_chain_eq: setup[{i}].path must be relative and free of '..': {p!r}"
+
+        with tempfile.TemporaryDirectory(prefix="theseus_ctypes_sandbox_") as sandbox:
+            sandbox_path = Path(sandbox)
+            for entry in setup:
+                target = sandbox_path / entry["path"]
+                if entry.get("dir"):
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if "content_b64" in entry:
+                    target.write_bytes(base64.b64decode(entry["content_b64"]))
+                else:
+                    target.write_text(entry.get("content", ""))
+            return self._run_ctypes_chain(spec, sandbox_dir=sandbox_path)
 
     # --- node_sandbox_chain_eq ---
     # Like node_chain_eq, but runs the chain inside a fresh tempdir whose

@@ -427,6 +427,172 @@ class TestValidatorAcceptsNewKinds:
 # Bad input — chain step without method/get/call should produce a useful error
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# ctypes_chain_eq / ctypes_sandbox_chain_eq — handle/pointer threading for
+# stateful C library APIs. Tested against libpcap (system shared library).
+# ---------------------------------------------------------------------------
+
+def _have_libpcap():
+    try:
+        import ctypes, ctypes.util
+        return ctypes.util.find_library("pcap") is not None
+    except Exception:
+        return False
+
+
+def _libpcap_registry():
+    import ctypes, ctypes.util
+    lib = ctypes.CDLL(ctypes.util.find_library("pcap"))
+    return vb.PatternRegistry(lib, {})
+
+
+@pytest.mark.skipif(not _have_libpcap(), reason="libpcap not installed")
+class TestCtypesChainEqLibpcap:
+    """Single-call chains against libpcap's pure helpers — the simplest use of
+    ctypes_chain_eq (no captures, no sandbox)."""
+
+    def test_lib_version_starts_with_libpcap(self):
+        import base64
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_chain_eq", "spec": {
+            "chain": [
+                {"function": "pcap_lib_version", "restype": "c_char_p",
+                 "args": [], "arg_types": []},
+            ],
+            "expected_prefix_b64": base64.b64encode(b"libpcap version").decode(),
+        }})
+        assert ok, msg
+
+    def test_dlt_val_to_name_en10mb(self):
+        import base64
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_chain_eq", "spec": {
+            "chain": [
+                {"function": "pcap_datalink_val_to_name", "restype": "c_char_p",
+                 "args": [1], "arg_types": ["c_int"]},
+            ],
+            "expected_b64": base64.b64encode(b"EN10MB").decode(),
+        }})
+        assert ok, msg
+
+    def test_dlt_name_to_val_string_arg_autoencodes(self):
+        # Plain string args are auto-encoded to bytes when arg_type is c_char_p.
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_chain_eq", "spec": {
+            "chain": [
+                {"function": "pcap_datalink_name_to_val", "restype": "c_int",
+                 "args": ["EN10MB"], "arg_types": ["c_char_p"]},
+            ],
+            "expected": 1,
+        }})
+        assert ok, msg
+
+
+@pytest.mark.skipif(not _have_libpcap(), reason="libpcap not installed")
+class TestCtypesSandboxChainEqLibpcap:
+    """The headline use case: thread an opaque pcap_t* handle through
+    open → query → close, using a synthesized .pcap blob in the sandbox."""
+
+    @staticmethod
+    def _pcap_header(magic, dlt, snaplen=65535):
+        import struct, base64
+        return base64.b64encode(
+            struct.pack("<IHHiIII", magic, 2, 4, 0, 0, snaplen, dlt)
+        ).decode()
+
+    def test_open_offline_then_datalink_en10mb(self):
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_sandbox_chain_eq", "spec": {
+            "setup": [{"path": "trace.pcap", "content_b64": self._pcap_header(0xa1b2c3d4, 1)}],
+            "chain": [
+                {"function": "pcap_open_offline", "restype": "c_void_p",
+                 "args": [{"sandbox_path": "trace.pcap"}, {"errbuf": 256}],
+                 "arg_types": ["c_char_p", "c_char_p"], "capture": "h"},
+                {"function": "pcap_datalink", "restype": "c_int",
+                 "args": [{"capture": "h"}], "arg_types": ["c_void_p"],
+                 "compare": True},
+                {"function": "pcap_close", "restype": "c_int",
+                 "args": [{"capture": "h"}], "arg_types": ["c_void_p"]},
+            ],
+            "expected": 1,
+        }})
+        assert ok, msg
+
+    def test_open_offline_snaplen(self):
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_sandbox_chain_eq", "spec": {
+            "setup": [{"path": "trace.pcap", "content_b64": self._pcap_header(0xa1b2c3d4, 113, snaplen=1500)}],
+            "chain": [
+                {"function": "pcap_open_offline", "restype": "c_void_p",
+                 "args": [{"sandbox_path": "trace.pcap"}, {"errbuf": 256}],
+                 "arg_types": ["c_char_p", "c_char_p"], "capture": "h"},
+                {"function": "pcap_snapshot", "restype": "c_int",
+                 "args": [{"capture": "h"}], "arg_types": ["c_void_p"],
+                 "compare": True},
+                {"function": "pcap_close", "restype": "c_int",
+                 "args": [{"capture": "h"}], "arg_types": ["c_void_p"]},
+            ],
+            "expected": 1500,
+        }})
+        assert ok, msg
+
+    def test_bad_magic_returns_null(self):
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_sandbox_chain_eq", "spec": {
+            "setup": [{"path": "bad.pcap", "content_b64": self._pcap_header(0xdeadbeef, 1)}],
+            "chain": [
+                {"function": "pcap_open_offline", "restype": "c_void_p",
+                 "args": [{"sandbox_path": "bad.pcap"}, {"errbuf": 256}],
+                 "arg_types": ["c_char_p", "c_char_p"], "compare": True},
+            ],
+            "expected": 0,  # NULL pointer
+        }})
+        assert ok, msg
+
+
+class TestCtypesChainEqValidation:
+    """Schema/runtime validation — exercised without needing a real library."""
+
+    def test_capture_reference_undefined_returns_error(self):
+        # Use libpcap if available, otherwise skip — we just need any ctypes lib.
+        if not _have_libpcap():
+            pytest.skip("need a ctypes library to load")
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_chain_eq", "spec": {
+            "chain": [
+                {"function": "pcap_datalink_val_to_name", "restype": "c_char_p",
+                 "args": [{"capture": "never_set"}], "arg_types": ["c_int"]},
+            ],
+            "expected_b64": "",
+        }})
+        assert not ok
+        assert "never_set" in msg or "undefined capture" in msg
+
+    def test_unknown_restype_token_rejected(self):
+        if not _have_libpcap():
+            pytest.skip("need a ctypes library to load")
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_chain_eq", "spec": {
+            "chain": [
+                {"function": "pcap_lib_version", "restype": "c_bogus", "args": [], "arg_types": []},
+            ],
+            "expected": 0,
+        }})
+        assert not ok
+        assert "c_bogus" in msg
+
+    def test_sandbox_path_outside_rejected(self):
+        if not _have_libpcap():
+            pytest.skip("need a ctypes library to load")
+        reg = _libpcap_registry()
+        ok, msg = reg.run({"kind": "ctypes_sandbox_chain_eq", "spec": {
+            "setup": [{"path": "../escape", "content": "evil"}],
+            "chain": [],
+            "expected": 0,
+        }})
+        assert not ok
+
+
 class TestUndefinedReturnMapping:
     """JS chains that legitimately return undefined (e.g. find-up miss,
     mkdirp on already-existing path) must produce JSON null so the comparison

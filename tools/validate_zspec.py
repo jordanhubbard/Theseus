@@ -63,6 +63,8 @@ KNOWN_KINDS = {
     "node_chain_eq",
     "node_property_eq",
     "node_sandbox_chain_eq",
+    "ctypes_chain_eq",
+    "ctypes_sandbox_chain_eq",
     "lz4_roundtrip",
     "pcre2_match",
 }
