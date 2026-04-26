@@ -1,0 +1,107 @@
+spec: fft_js
+version: ">=0.0.12"
+backend: node(fft-js)
+
+docs: https://github.com/vail-systems/node-fft#readme
+
+provenance:
+  derived_from:
+    - "fft-js README — https://github.com/vail-systems/node-fft#readme"
+    - "Cooley-Tukey FFT algorithm"
+    - "Test vectors verified with fft-js via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "fft-js source"
+  notes:
+    - "Discrete Fourier transform implementation (radix-2 Cooley-Tukey)."
+    - "Install: npm install fft-js"
+    - "Module exports {fft, ifft, dft, idft}; each takes/returns array of [real, imag] pairs."
+    - "Inputs must be a power of 2 in length for fft/ifft."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure function; throws on non-power-of-2 input length."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# fft of [1, 0, 0, 0] is [1, 1, 1, 1] (real spectrum) — DC impulse
+invariant fft_js.impulse_at_zero_length:
+  description: "FFT of unit impulse at n=0 yields a flat spectrum (length 4)"
+  category: impulse
+  kind: node_chain_eq
+  entry: named
+  function: fft
+  entry_args: [[1, 0, 0, 0]]
+  chain:
+    - {get: length}
+  expected: 4
+
+invariant fft_js.impulse_first_bin:
+  description: "FFT of [1,0,0,0] — bin 0 is [1, 0]"
+  category: impulse
+  kind: node_chain_eq
+  entry: named
+  function: fft
+  entry_args: [[1, 0, 0, 0]]
+  chain:
+    - {method: at, args: [0]}
+  expected: [1, 0]
+
+invariant fft_js.impulse_second_bin:
+  description: "FFT of [1,0,0,0] — bin 1 is [1, 0] (flat real spectrum)"
+  category: impulse
+  kind: node_chain_eq
+  entry: named
+  function: fft
+  entry_args: [[1, 0, 0, 0]]
+  chain:
+    - {method: at, args: [1]}
+  expected: [1, 0]
+
+# ifft round-trip — must recover the input
+invariant fft_js.ifft_first_sample_real:
+  description: "ifft(fft([1,0,0,0]))[0] real part rounds to 1"
+  category: roundtrip
+  kind: node_chain_eq
+  entry: named
+  function: ifft
+  entry_args: [[[1, 0], [1, 0], [1, 0], [1, 0]]]
+  chain:
+    - {method: at, args: [0]}
+    - {method: at, args: [0]}
+  expected: 1
+
+invariant fft_js.ifft_other_samples_zero:
+  description: "ifft(...)[1] real part is 0 (recovered impulse-at-zero)"
+  category: roundtrip
+  kind: node_chain_eq
+  entry: named
+  function: ifft
+  entry_args: [[[1, 0], [1, 0], [1, 0], [1, 0]]]
+  chain:
+    - {method: at, args: [1]}
+    - {method: at, args: [0]}
+  expected: 0
+
+# DC signal: fft of [1,1,1,1] is [4,0,0,0] (all energy at bin 0)
+invariant fft_js.dc_signal_first_bin:
+  description: "FFT of constant [1,1,1,1] concentrates all energy at bin 0 ([4, 0])"
+  category: dc_signal
+  kind: node_chain_eq
+  entry: named
+  function: fft
+  entry_args: [[1, 1, 1, 1]]
+  chain:
+    - {method: at, args: [0]}
+  expected: [4, 0]
+
+invariant fft_js.dc_signal_second_bin_zero:
+  description: "FFT of [1,1,1,1] bin 1 is [0, 0] (no AC content)"
+  category: dc_signal
+  kind: node_chain_eq
+  entry: named
+  function: fft
+  entry_args: [[1, 1, 1, 1]]
+  chain:
+    - {method: at, args: [1]}
+  expected: [0, 0]

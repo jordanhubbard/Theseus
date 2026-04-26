@@ -1,0 +1,113 @@
+spec: geographiclib_geodesic
+version: ">=2.0.0"
+backend: node(geographiclib-geodesic)
+
+docs: https://geographiclib.sourceforge.io/JavaScript/
+
+provenance:
+  derived_from:
+    - "GeographicLib JavaScript documentation — https://geographiclib.sourceforge.io/JavaScript/"
+    - "Charles Karney, 'Algorithms for geodesics', J Geod, 2013"
+    - "Test vectors verified with geographiclib-geodesic via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "geographiclib-geodesic source"
+  notes:
+    - "GeographicLib's WGS-84 geodesic computations — Charles Karney's accurate ellipsoid algorithms."
+    - "Install: npm install geographiclib-geodesic"
+    - "Pattern: const {Geodesic} = require('geographiclib-geodesic'); Geodesic.WGS84.Inverse(lat1, lon1, lat2, lon2)"
+    - "Inverse() returns {lat1, lat2, lon1, lon2, s12, azi1, azi2, a12} — s12 is the geodesic distance in meters."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; never throw on valid lat/lon inputs."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# 1 degree at the equator on WGS-84 — well-known geodesic length
+invariant geographiclib_geodesic.one_degree_equator_distance:
+  description: "Geodesic distance from (0°,0°) to (0°,1°) is ~111,319.49 m on WGS-84"
+  category: known_distances
+  kind: node_chain_eq
+  entry: named
+  function: Geodesic.WGS84.Inverse
+  entry_args: [0, 0, 0, 1]
+  chain:
+    - {get: s12}
+    - {method: toFixed, args: [2]}
+  expected: "111319.49"
+
+# 1 degree of latitude at the equator (slightly different on an ellipsoid)
+invariant geographiclib_geodesic.one_degree_latitude_meridian:
+  description: "Geodesic distance from (0°,0°) to (1°,0°) is ~110,574.39 m on WGS-84"
+  category: known_distances
+  kind: node_chain_eq
+  entry: named
+  function: Geodesic.WGS84.Inverse
+  entry_args: [0, 0, 1, 0]
+  chain:
+    - {get: s12}
+    - {method: toFixed, args: [2]}
+  expected: "110574.39"
+
+# Self-distance is 0
+invariant geographiclib_geodesic.self_distance_zero:
+  description: "Geodesic from a point to itself is 0"
+  category: identity
+  kind: node_chain_eq
+  entry: named
+  function: Geodesic.WGS84.Inverse
+  entry_args: [51.5, -0.1, 51.5, -0.1]
+  chain:
+    - {get: s12}
+  expected: 0
+
+# Antipodal — half the Earth's circumference (~20,003,931 m on WGS-84)
+invariant geographiclib_geodesic.antipodal_distance:
+  description: "Geodesic to the antipode is approximately the polar half-circumference"
+  category: antipodal
+  kind: node_chain_eq
+  entry: named
+  function: Geodesic.WGS84.Inverse
+  entry_args: [0, 0, 0, 180]
+  chain:
+    - {get: s12}
+    - {method: toFixed, args: [0]}
+  expected: "20003931"
+
+# Azimuth at the equator: due-east when going from (0,0) to (0,90) is 90°
+invariant geographiclib_geodesic.east_bearing_at_equator:
+  description: "Azimuth from (0,0) eastward to (0,90) is 90° (due east)"
+  category: azimuth
+  kind: node_chain_eq
+  entry: named
+  function: Geodesic.WGS84.Inverse
+  entry_args: [0, 0, 0, 90]
+  chain:
+    - {get: azi1}
+  expected: 90
+
+# Direct: from (0,0) heading 90° for 111319.49 m lands at ~(0, 1)
+invariant geographiclib_geodesic.direct_lon_recovery:
+  description: "Direct from (0,0) heading 90° for 111,319.49 m yields lon2 ≈ 1.0°"
+  category: direct
+  kind: node_chain_eq
+  entry: named
+  function: Geodesic.WGS84.Direct
+  entry_args: [0, 0, 90, 111319.49]
+  chain:
+    - {get: lon2}
+    - {method: toFixed, args: [4]}
+  expected: "1.0000"
+
+invariant geographiclib_geodesic.direct_lat_unchanged:
+  description: "Direct due-east at the equator stays on the equator (lat2 ≈ 0)"
+  category: direct
+  kind: node_chain_eq
+  entry: named
+  function: Geodesic.WGS84.Direct
+  entry_args: [0, 0, 90, 111319.49]
+  chain:
+    - {get: lat2}
+    - {method: toFixed, args: [10]}
+  expected: "0.0000000000"
