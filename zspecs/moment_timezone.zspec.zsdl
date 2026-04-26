@@ -1,0 +1,111 @@
+spec: moment_timezone
+version: ">=0.5.0"
+backend: node(moment-timezone)
+
+docs: https://momentjs.com/timezone/docs/
+
+provenance:
+  derived_from:
+    - "Moment Timezone documentation — https://momentjs.com/timezone/docs/"
+    - "IANA TZ database — https://www.iana.org/time-zones"
+    - "Test vectors verified with moment-timezone via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "moment-timezone source"
+  notes:
+    - "moment-timezone bundles IANA tzdata with moment for timezone-aware date math."
+    - "Install: npm install moment-timezone"
+    - "moment.tz(input, zone) parses a wall-clock time in the named zone; .utc().format() converts to UTC ISO."
+    - "Spec name underscored per ZSDL convention; npm package is moment-timezone."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Returns Moment instances; .zone(name) returns null for unknown zones (no throw)."
+  stderr: "null"
+  stickiness: "N/A — each tz() call creates an independent moment."
+  codes: {}
+
+# moment.tz(input, zone).method() — factory-style chain
+table moment_timezone.tz_format:
+  kind: node_chain_eq
+  category: tz_format
+  entry: named
+  function: tz
+  id_prefix: tzfmt
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [ny_summer_to_utc,
+       ["2024-06-15 12:00", "America/New_York"],
+       [{method: utc, args: []}, {method: format, args: []}],
+       "2024-06-15T16:00:00Z"]
+
+    - [tokyo_to_utc,
+       ["2024-06-15 12:00", "Asia/Tokyo"],
+       [{method: utc, args: []}, {method: format, args: []}],
+       "2024-06-15T03:00:00Z"]
+
+    - [utc_passthrough,
+       ["2024-06-15 12:00", "UTC"],
+       [{method: format, args: ["YYYY-MM-DD HH:mm"]}],
+       "2024-06-15 12:00"]
+
+    - [ny_winter_to_utc,
+       ["2024-01-15 12:00", "America/New_York"],
+       [{method: utc, args: []}, {method: format, args: []}],
+       "2024-01-15T17:00:00Z"]
+
+# moment.tz.zone(name) returns the zone object or null
+invariant moment_timezone.zone_known:
+  description: "moment.tz.zone('America/New_York') returns a non-null zone object"
+  category: zone_lookup
+  kind: node_chain_eq
+  entry: named
+  function: tz.zone
+  entry_args: ["America/New_York"]
+  chain:
+    - {get: name}
+  expected: "America/New_York"
+
+invariant moment_timezone.zone_utc:
+  description: "moment.tz.zone('UTC') returns a non-null zone with name 'UTC'"
+  category: zone_lookup
+  kind: node_chain_eq
+  entry: named
+  function: tz.zone
+  entry_args: ["UTC"]
+  chain:
+    - {get: name}
+  expected: "UTC"
+
+invariant moment_timezone.zone_unknown_returns_null:
+  description: "moment.tz.zone('Definitely/NotARealZone') returns null"
+  category: zone_lookup
+  kind: node_chain_eq
+  entry: named
+  function: tz.zone
+  entry_args: ["Definitely/NotARealZone"]
+  chain: []
+  expected: ~
+
+# moment.tz.names() returns the list of all known zones
+invariant moment_timezone.names_includes_utc:
+  description: "moment.tz.names() includes 'UTC'"
+  category: zone_registry
+  kind: node_chain_eq
+  entry: named
+  function: tz.names
+  entry_args: []
+  chain:
+    - {method: includes, args: ["UTC"]}
+  expected: true
+
+invariant moment_timezone.names_includes_ny:
+  description: "moment.tz.names() includes 'America/New_York'"
+  category: zone_registry
+  kind: node_chain_eq
+  entry: named
+  function: tz.names
+  entry_args: []
+  chain:
+    - {method: includes, args: ["America/New_York"]}
+  expected: true

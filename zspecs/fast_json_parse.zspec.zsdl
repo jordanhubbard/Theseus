@@ -1,0 +1,74 @@
+spec: fast_json_parse
+version: ">=1.0.0"
+backend: node(fast-json-parse)
+
+docs: https://github.com/mcollina/fast-json-parse#readme
+
+provenance:
+  derived_from:
+    - "fast-json-parse README — https://github.com/mcollina/fast-json-parse#readme"
+    - "Test vectors verified with fast-json-parse via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "fast-json-parse source"
+  notes:
+    - "fast-json-parse is a never-throwing JSON parser used by pino and other high-perf logging."
+    - "Install: npm install fast-json-parse"
+    - "Module export IS the parser function. Returns {value, err} where exactly one is null."
+    - "Successful parse: {value: <parsed>, err: null}; failure: {value: undefined, err: SyntaxError(...)}."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Never throws — errors are returned as the .err property of the result object."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# Successful parse: read .value
+table fast_json_parse.value:
+  kind: node_chain_eq
+  category: success_value
+  entry: module
+  id_prefix: val
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [object,         ["{\"a\":1}"],         [{get: value}], {a: 1}]
+    - [array,          ["[1,2,3]"],           [{get: value}], [1, 2, 3]]
+    - [string,         ["\"hi\""],            [{get: value}], "hi"]
+    - [number,         ["42"],                [{get: value}], 42]
+    - [boolean,        ["true"],              [{get: value}], true]
+    - [null_value,     ["null"],              [{get: value}], ~]
+
+# Successful parse: .err is null
+invariant fast_json_parse.success_err_is_null:
+  description: "On successful parse, .err is null"
+  category: success_err
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["{\"a\":1}"]
+  chain:
+    - {get: err}
+  expected: ~
+
+# Failure: .err is a SyntaxError-shaped object
+invariant fast_json_parse.failure_err_name:
+  description: "On parse failure, .err.name is 'SyntaxError'"
+  category: failure_err
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["not json"]
+  chain:
+    - {get: err}
+    - {get: name}
+  expected: "SyntaxError"
+
+# Failure: .value is undefined (compares as null in our chain)
+invariant fast_json_parse.failure_value_undefined:
+  description: "On parse failure, .value is undefined (round-trips as JSON null)"
+  category: failure_err
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["{not json}"]
+  chain:
+    - {get: value}
+  expected: ~

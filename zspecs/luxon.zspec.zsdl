@@ -1,0 +1,101 @@
+spec: luxon
+version: ">=3.0.0"
+backend: node(luxon)
+
+docs: https://moment.github.io/luxon/
+
+provenance:
+  derived_from:
+    - "Luxon documentation — https://moment.github.io/luxon/"
+    - "Test vectors verified with luxon via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "luxon source"
+  notes:
+    - "Luxon is the modern successor to Moment.js (same author lineage); pure, immutable, TZ-aware."
+    - "Install: npm install luxon"
+    - "Pattern: const {DateTime, Duration} = require('luxon'); DateTime.fromISO(s,{zone:'utc'}).method(...)"
+    - "All test vectors pin {zone:'utc'} on parsing so output is host-independent."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure functions; .isValid is false on parse failure, no exceptions."
+  stderr: "null"
+  stickiness: "N/A — DateTime instances are immutable."
+  codes: {}
+
+# DateTime.fromISO(s, {zone:'utc'}).toFormat(fmt) — chain via static factory
+table luxon.toFormat:
+  kind: node_chain_eq
+  category: format
+  entry: named
+  function: DateTime.fromISO
+  id_prefix: fmt
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [iso_date,
+       ["2024-01-15", {zone: "utc"}],
+       [{method: toFormat, args: ["yyyy-MM-dd"]}],
+       "2024-01-15"]
+
+    - [year_only,
+       ["2024-06-15T12:00:00Z", {zone: "utc"}],
+       [{method: toFormat, args: ["yyyy"]}],
+       "2024"]
+
+    - [month_long,
+       ["2024-06-15T12:00:00Z", {zone: "utc"}],
+       [{method: toFormat, args: ["MMMM"]}],
+       "June"]
+
+    - [hour_minute,
+       ["2024-06-15T12:34:56Z", {zone: "utc"}],
+       [{method: toFormat, args: ["HH:mm"]}],
+       "12:34"]
+
+# Property reads — .year / .month / .day on a parsed DateTime
+table luxon.properties:
+  kind: node_chain_eq
+  category: properties
+  entry: named
+  function: DateTime.fromISO
+  id_prefix: prop
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [year,        ["2024-06-15T12:00:00Z", {zone: "utc"}], [{get: year}],        2024]
+    - [month_jun,   ["2024-06-15T12:00:00Z", {zone: "utc"}], [{get: month}],       6]
+    - [day,         ["2024-06-15T12:00:00Z", {zone: "utc"}], [{get: day}],         15]
+    - [is_valid,    ["2024-02-29",            {zone: "utc"}], [{get: isValid}],    true]
+    - [invalid,     ["not-a-date",            {zone: "utc"}], [{get: isValid}],    false]
+    - [days_in_jun, ["2024-06-15T12:00:00Z", {zone: "utc"}], [{get: daysInMonth}], 30]
+
+# Duration.fromObject(...).as(unit)
+table luxon.duration_as:
+  kind: node_chain_eq
+  category: duration
+  entry: named
+  function: Duration.fromObject
+  id_prefix: dur
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [hours_to_minutes,
+       [{hours: 2}],
+       [{method: as, args: ["minutes"]}],
+       120]
+
+    - [days_to_hours,
+       [{days: 1}],
+       [{method: as, args: ["hours"]}],
+       24]
+
+    - [milliseconds_to_seconds,
+       [{milliseconds: 1500}],
+       [{method: as, args: ["seconds"]}],
+       1.5]
+
+    - [weeks_to_days,
+       [{weeks: 2}],
+       [{method: as, args: ["days"]}],
+       14]
