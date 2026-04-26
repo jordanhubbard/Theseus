@@ -1461,6 +1461,12 @@ class PatternRegistry:
         if entry == "module":
             init_expr = f"m(...{entry_args_js})"
             label_init = "<module>()"
+        elif entry == "bare":
+            # Use the module object itself as the initial value, without calling
+            # it. For static lookup-table modules (color-name, etc.) where the
+            # export is a data bag rather than a function/class.
+            init_expr = "m"
+            label_init = "<module>"
         elif entry == "named":
             fn = spec["function"]
             init_expr = f"{_path_expr(fn)}(...{entry_args_js})"
@@ -1486,7 +1492,11 @@ class PatternRegistry:
                 label_chain.append(f".{m_name}({m_args!r})")
             elif "get" in step:
                 g_name = step["get"]
-                steps_js.append(f"v = v[{json.dumps(g_name)}];")
+                # Dotted-path get: 'default.red' navigates v.default.red
+                # so static-data modules can be sliced through a single step.
+                parts = g_name.split(".")
+                accessor = "".join(f"[{json.dumps(p)}]" for p in parts)
+                steps_js.append(f"v = v{accessor};")
                 label_chain.append(f".{g_name}")
             elif "call" in step:
                 c_args = step["call"]
