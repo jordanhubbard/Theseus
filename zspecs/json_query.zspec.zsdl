@@ -1,0 +1,81 @@
+spec: json_query
+version: ">=2.0.0"
+backend: node(json-query)
+
+docs: https://github.com/auditassistant/json-query#readme
+
+provenance:
+  derived_from:
+    - "json-query README — https://github.com/auditassistant/json-query#readme"
+    - "Test vectors verified with json-query via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "json-query source"
+  notes:
+    - "JSON query language — supports filters like users[name=alice], paths like a.b.c."
+    - "Install: npm install json-query"
+    - "v2 CJS; module export IS the query function — call as jsonQuery(path, {data})."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Returns {value: undefined, key: ..., references: [], parents: []} on no match."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+invariant json_query.module_is_function:
+  description: "Module export is the query function"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
+
+invariant json_query.simple_path_value:
+  description: "jsonQuery('users[name=alice]', {data}).value selects the matching object"
+  category: query
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["users[name=alice]", {data: {users: [{name: "alice", age: 30}, {name: "bob", age: 25}]}}]
+  chain:
+    - {get: "value.name"}
+  expected: "alice"
+
+invariant json_query.simple_path_age:
+  description: "Selected object preserves all fields (.age)"
+  category: query
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["users[name=alice]", {data: {users: [{name: "alice", age: 30}]}}]
+  chain:
+    - {get: "value.age"}
+  expected: 30
+
+invariant json_query.dotted_path:
+  description: "Dotted path 'user.name' returns scalar"
+  category: query
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["user.name", {data: {user: {name: "alice"}}}]
+  chain:
+    - {get: value}
+  expected: "alice"
+
+invariant json_query.no_match_undefined:
+  description: "Path with no match has .value == null (JSON form of undefined)"
+  category: query
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["nope", {data: {a: 1}}]
+  chain:
+    - {get: value}
+  expected: ~
+
+invariant json_query.has_lastParent_property:
+  description: "Module exposes a .lastParent property (post-call introspection)"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {method: hasOwnProperty, args: ["lastParent"]}
+  expected: true
