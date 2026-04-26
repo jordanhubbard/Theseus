@@ -136,10 +136,15 @@ class TestMain:
         assert s["failed"] == 0
 
     def test_no_specs_exits_2(self, tmp_path):
-        rc = vas.main(["--out", str(tmp_path / "out.json")])
-        # Since no args and default glob finds real specs, just test that it runs
-        # This actually succeeds on a normal repo; ensure it doesn't crash
-        assert rc in (0, 1, 2)
+        # Pass an empty directory explicitly — collect_specs returns [] and
+        # main() exits 2. Avoid invoking the default glob, which sweeps the
+        # full 2,000+ spec corpus on every test run (and has crashed the
+        # interpreter on macOS Python 3.10 via a buggy ctypes load:
+        # SIGABRT in tools/verify_behavior.py:_load_ctypes).
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        rc = vas.main([str(empty), "--out", str(tmp_path / "out.json")])
+        assert rc == 2
 
     def test_nonexistent_spec_handled(self, tmp_path):
         out = tmp_path / "out.json"
