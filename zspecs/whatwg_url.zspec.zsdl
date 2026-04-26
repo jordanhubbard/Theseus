@@ -1,0 +1,94 @@
+spec: whatwg_url
+version: ">=14.0.0"
+backend: node(whatwg-url)
+
+docs: https://github.com/jsdom/whatwg-url#readme
+
+provenance:
+  derived_from:
+    - "WHATWG URL Standard — https://url.spec.whatwg.org/"
+    - "whatwg-url README — https://github.com/jsdom/whatwg-url#readme"
+    - "Test vectors verified with whatwg-url via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "whatwg-url source"
+  notes:
+    - "Standalone JS implementation of the WHATWG URL parsing algorithm — used by jsdom."
+    - "Install: npm install whatwg-url"
+    - "URL is exposed as a constructor: new URL(input, base?). Property reads (.host, .hostname, .port, .pathname, .search, .hash, .username, .protocol) follow the standard WHATWG URL interface."
+    - "Default-port elision: when the port is the protocol's default (80/http, 443/https, etc.), .port is empty string."
+  rfcs:
+    - "WHATWG URL Standard — https://url.spec.whatwg.org/"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "URL constructor throws TypeError on un-parseable inputs."
+  stderr: "null"
+  stickiness: "N/A — each URL is independent."
+  codes: {}
+
+# Property reads on a fully-populated URL
+table whatwg_url.full_url:
+  kind: node_chain_eq
+  category: full_url
+  entry: constructor
+  class: URL
+  entry_args: ["https://user:pass@example.com:8080/path?query=1#frag"]
+  id_prefix: full
+
+  columns: [id, chain, expected]
+  rows:
+    - [host,        [{get: host}],        "example.com:8080"]
+    - [hostname,    [{get: hostname}],    "example.com"]
+    - [port,        [{get: port}],        "8080"]
+    - [pathname,    [{get: pathname}],    "/path"]
+    - [search,      [{get: search}],      "?query=1"]
+    - [hash,        [{get: hash}],        "#frag"]
+    - [username,    [{get: username}],    "user"]
+    - [password,    [{get: password}],    "pass"]
+    - [protocol,    [{get: protocol}],    "https:"]
+
+# Default port elision
+invariant whatwg_url.default_https_port_omitted:
+  description: "Default https port (443) is elided — .port returns empty string"
+  category: default_ports
+  kind: node_chain_eq
+  entry: constructor
+  class: URL
+  entry_args: ["https://example.com"]
+  chain:
+    - {get: port}
+  expected: ""
+
+invariant whatwg_url.default_http_port_omitted:
+  description: "Default http port (80) is elided"
+  category: default_ports
+  kind: node_chain_eq
+  entry: constructor
+  class: URL
+  entry_args: ["http://example.com"]
+  chain:
+    - {get: port}
+  expected: ""
+
+invariant whatwg_url.bare_host_pathname_is_slash:
+  description: "Bare-hostname URL has pathname '/'"
+  category: defaults
+  kind: node_chain_eq
+  entry: constructor
+  class: URL
+  entry_args: ["https://example.com"]
+  chain:
+    - {get: pathname}
+  expected: "/"
+
+# Relative-URL resolution
+invariant whatwg_url.relative_with_base:
+  description: "URL constructor resolves a relative input against a base URL"
+  category: resolution
+  kind: node_chain_eq
+  entry: constructor
+  class: URL
+  entry_args: ["/foo/bar", "https://example.com/baz"]
+  chain:
+    - {get: href}
+  expected: "https://example.com/foo/bar"

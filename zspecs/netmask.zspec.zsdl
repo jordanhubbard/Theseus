@@ -1,0 +1,111 @@
+spec: netmask
+version: ">=2.0.0"
+backend: node(netmask)
+
+docs: https://github.com/rs/node-netmask#readme
+
+provenance:
+  derived_from:
+    - "node-netmask README — https://github.com/rs/node-netmask#readme"
+    - "RFC 4632 — Classless Inter-domain Routing (CIDR)"
+    - "Test vectors verified with netmask via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "netmask source"
+  notes:
+    - "netmask parses IPv4 CIDR blocks and answers containment queries."
+    - "Install: npm install netmask"
+    - "Pattern: const {Netmask} = require('netmask'); new Netmask('10.0.0.0/8')"
+    - "Properties (.base, .mask, .broadcast, .first, .last) are strings; .size is a Number; .contains() is a predicate."
+  rfcs:
+    - "RFC 4632 — Classless Inter-domain Routing (CIDR) — https://www.rfc-editor.org/rfc/rfc4632"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Throws on invalid CIDR strings."
+  stderr: "null"
+  stickiness: "N/A — Netmask instances are immutable."
+  codes: {}
+
+# Properties on a /24 network
+table netmask.slash24_properties:
+  kind: node_chain_eq
+  category: properties
+  entry: constructor
+  class: Netmask
+  entry_args: ["192.168.1.0/24"]
+  id_prefix: prop24
+
+  columns: [id, chain, expected]
+  rows:
+    - [base,       [{get: base}],       "192.168.1.0"]
+    - [mask,       [{get: mask}],       "255.255.255.0"]
+    - [broadcast, [{get: broadcast}],  "192.168.1.255"]
+    - [first,      [{get: first}],      "192.168.1.1"]
+    - [last,       [{get: last}],       "192.168.1.254"]
+    - [size,       [{get: size}],       256]
+    - [bitmask,    [{get: bitmask}],    24]
+
+# Containment predicate
+table netmask.contains:
+  kind: node_chain_eq
+  category: contains
+  entry: constructor
+  class: Netmask
+  entry_args: ["192.168.1.0/24"]
+  id_prefix: contains
+
+  columns: [id, chain, expected]
+  rows:
+    - [in_range,
+       [{method: contains, args: ["192.168.1.5"]}],
+       true]
+
+    - [out_of_range_other_class_a,
+       [{method: contains, args: ["10.0.0.1"]}],
+       false]
+
+    - [out_of_range_neighbor,
+       [{method: contains, args: ["192.168.2.1"]}],
+       false]
+
+    - [boundary_first,
+       [{method: contains, args: ["192.168.1.0"]}],
+       true]
+
+    - [boundary_last,
+       [{method: contains, args: ["192.168.1.255"]}],
+       true]
+
+# Different mask sizes
+invariant netmask.size_slash_8:
+  description: "/8 network has 16,777,216 addresses (2^24)"
+  category: sizes
+  kind: node_chain_eq
+  entry: constructor
+  class: Netmask
+  entry_args: ["10.0.0.0/8"]
+  chain:
+    - {get: size}
+  expected: 16777216
+
+invariant netmask.size_slash_16:
+  description: "/16 network has 65,536 addresses"
+  category: sizes
+  kind: node_chain_eq
+  entry: constructor
+  class: Netmask
+  entry_args: ["172.16.0.0/16"]
+  chain:
+    - {get: size}
+  expected: 65536
+
+invariant netmask.size_slash_32_single_host:
+  description: "/32 network has size 1 (a single host)"
+  category: sizes
+  kind: node_chain_eq
+  entry: constructor
+  class: Netmask
+  entry_args: ["8.8.8.8/32"]
+  chain:
+    - {get: size}
+  expected: 1

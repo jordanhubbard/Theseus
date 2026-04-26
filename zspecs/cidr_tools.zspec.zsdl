@@ -1,0 +1,101 @@
+spec: cidr_tools
+version: ">=10.0.0"
+backend: node(cidr-tools)
+
+docs: https://github.com/silverwind/cidr-tools#readme
+
+provenance:
+  derived_from:
+    - "cidr-tools README — https://github.com/silverwind/cidr-tools#readme"
+    - "RFC 4632 — Classless Inter-domain Routing (CIDR)"
+    - "Test vectors verified with cidr-tools via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "cidr-tools source"
+  notes:
+    - "cidr-tools provides CIDR set operations (contains/overlap/merge/exclude) for IPv4 and IPv6."
+    - "Install: npm install cidr-tools"
+    - "Many functions return BigInts (parseCidr, expandCidr) which don't JSON-serialize cleanly; this spec covers the boolean-returning helpers."
+  rfcs:
+    - "RFC 4632 — Classless Inter-domain Routing (CIDR) — https://www.rfc-editor.org/rfc/rfc4632"
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Boolean helpers never throw on valid IP/CIDR strings."
+  stderr: "null"
+  stickiness: "N/A — pure functions."
+  codes: {}
+
+# containsCidr — does any CIDR in the list contain the given IP/CIDR?
+table cidr_tools.containsCidr:
+  kind: node_chain_eq
+  category: contains
+  entry: named
+  function: containsCidr
+  id_prefix: contains
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [v4_in_class_a,
+       [["10.0.0.0/8"], "10.1.2.3"],
+       [],
+       true]
+
+    - [v4_outside,
+       [["10.0.0.0/8"], "192.168.1.1"],
+       [],
+       false]
+
+    - [v4_subnet_in_supernet,
+       [["10.0.0.0/8"], "10.5.0.0/16"],
+       [],
+       true]
+
+    - [v6_in_link_local,
+       [["fe80::/10"], "fe80::1"],
+       [],
+       true]
+
+    - [v6_outside_link_local,
+       [["fe80::/10"], "2001:db8::1"],
+       [],
+       false]
+
+    - [multiple_cidrs_match_first,
+       [["10.0.0.0/8", "192.168.0.0/16"], "10.0.0.5"],
+       [],
+       true]
+
+    - [multiple_cidrs_match_second,
+       [["10.0.0.0/8", "192.168.0.0/16"], "192.168.5.5"],
+       [],
+       true]
+
+    - [multiple_cidrs_match_none,
+       [["10.0.0.0/8", "192.168.0.0/16"], "172.16.0.1"],
+       [],
+       false]
+
+# overlapCidr — do two CIDR sets share any address?
+table cidr_tools.overlapCidr:
+  kind: node_chain_eq
+  category: overlap
+  entry: named
+  function: overlapCidr
+  id_prefix: overlap
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [identical,
+       [["10.0.0.0/8"], ["10.0.0.0/8"]],
+       [],
+       true]
+
+    - [subnet_overlaps_supernet,
+       [["10.5.0.0/16"], ["10.0.0.0/8"]],
+       [],
+       true]
+
+    - [disjoint,
+       [["10.0.0.0/8"], ["192.168.0.0/16"]],
+       [],
+       false]

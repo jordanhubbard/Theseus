@@ -1,0 +1,136 @@
+spec: parse_domain
+version: ">=8.0.0"
+backend: node(parse-domain)
+
+docs: https://github.com/peerigon/parse-domain#readme
+
+provenance:
+  derived_from:
+    - "parse-domain README — https://github.com/peerigon/parse-domain#readme"
+    - "Public Suffix List — https://publicsuffix.org/"
+    - "Test vectors verified with parse-domain via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "parse-domain source"
+  notes:
+    - "parse-domain splits a hostname into subdomain/domain/topLevelDomain using the Public Suffix List."
+    - "Install: npm install parse-domain"
+    - "Returns a discriminated union via .type — one of LISTED (PSL match), NOT_LISTED, RESERVED (localhost, .test, .example, …), INVALID, or IP."
+    - "For LISTED results, .subDomains, .domain, .icann.topLevelDomains are arrays/strings of the parsed parts."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "Pure function — never throws; classification is via .type."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+# .type — classification of the input hostname
+table parse_domain.type:
+  kind: node_chain_eq
+  category: type_classification
+  entry: named
+  function: parseDomain
+  id_prefix: type
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [common_listed,
+       ["mail.google.com"],
+       [{get: type}],
+       "LISTED"]
+
+    - [bare_apex_listed,
+       ["google.com"],
+       [{get: type}],
+       "LISTED"]
+
+    - [country_tld_listed,
+       ["example.co.uk"],
+       [{get: type}],
+       "LISTED"]
+
+    - [localhost_reserved,
+       ["localhost"],
+       [{get: type}],
+       "RESERVED"]
+
+    - [invalid,
+       ["not_a_domain"],
+       [{get: type}],
+       "INVALID"]
+
+# Domain decomposition for LISTED results
+invariant parse_domain.subdomain_first:
+  description: "parseDomain('mail.google.com').subDomains[0] is 'mail'"
+  category: decomposition
+  kind: node_chain_eq
+  entry: named
+  function: parseDomain
+  entry_args: ["mail.google.com"]
+  chain:
+    - {get: subDomains}
+    - {method: at, args: [0]}
+  expected: "mail"
+
+invariant parse_domain.domain_for_listed:
+  description: "parseDomain('mail.google.com').domain is 'google'"
+  category: decomposition
+  kind: node_chain_eq
+  entry: named
+  function: parseDomain
+  entry_args: ["mail.google.com"]
+  chain:
+    - {get: domain}
+  expected: "google"
+
+invariant parse_domain.tld_simple:
+  description: "parseDomain('mail.google.com').icann.topLevelDomains[0] is 'com'"
+  category: decomposition
+  kind: node_chain_eq
+  entry: named
+  function: parseDomain
+  entry_args: ["mail.google.com"]
+  chain:
+    - {get: icann}
+    - {get: topLevelDomains}
+    - {method: at, args: [0]}
+  expected: "com"
+
+invariant parse_domain.tld_two_label:
+  description: "parseDomain('example.co.uk') splits 'co.uk' into a two-element TLD list"
+  category: decomposition
+  kind: node_chain_eq
+  entry: named
+  function: parseDomain
+  entry_args: ["example.co.uk"]
+  chain:
+    - {get: icann}
+    - {get: topLevelDomains}
+    - {get: length}
+  expected: 2
+
+invariant parse_domain.tld_two_label_first:
+  description: "parseDomain('example.co.uk').icann.topLevelDomains[0] is 'co'"
+  category: decomposition
+  kind: node_chain_eq
+  entry: named
+  function: parseDomain
+  entry_args: ["example.co.uk"]
+  chain:
+    - {get: icann}
+    - {get: topLevelDomains}
+    - {method: at, args: [0]}
+  expected: "co"
+
+invariant parse_domain.tld_two_label_second:
+  description: "parseDomain('example.co.uk').icann.topLevelDomains[1] is 'uk'"
+  category: decomposition
+  kind: node_chain_eq
+  entry: named
+  function: parseDomain
+  entry_args: ["example.co.uk"]
+  chain:
+    - {get: icann}
+    - {get: topLevelDomains}
+    - {method: at, args: [1]}
+  expected: "uk"
