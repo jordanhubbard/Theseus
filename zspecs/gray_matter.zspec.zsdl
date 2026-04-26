@@ -1,0 +1,119 @@
+spec: gray_matter
+version: ">=4.0.0"
+backend: node(gray-matter)
+
+docs: https://github.com/jonschlinkert/gray-matter#readme
+
+provenance:
+  derived_from:
+    - "gray-matter README — https://github.com/jonschlinkert/gray-matter#readme"
+    - "Test vectors verified with gray-matter via Node.js 22 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "gray-matter source"
+  notes:
+    - "gray-matter is the canonical front-matter parser for Node.js — used by Hugo-flavored static-site generators, Astro, Next.js, etc."
+    - "Install: npm install gray-matter"
+    - "Usage: const matter = require('gray-matter'); matter('---\\nkey: val\\n---\\nbody') -> {data, content, ...}"
+    - "Default delimiters are '---' on a line by themselves; YAML is the default front-matter format."
+    - "When no front-matter is present, .data is {} and .content is the original input verbatim."
+    - "Spec name underscored per ZSDL convention; npm package name is gray-matter."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "matter() returns an object with .data (parsed front-matter) and .content (body)."
+  stderr: "null"
+  stickiness: "N/A — each call is independent."
+  codes: {}
+
+# ── matter(input).data — front-matter as JS object ──────────────────────────
+
+table gray_matter.data:
+  kind: node_chain_eq
+  category: data
+  entry: module
+  id_prefix: data
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [single_pair,
+       ["---\nfoo: bar\n---\nbody"],
+       [{get: data}],
+       {foo: "bar"}]
+
+    - [two_pairs,
+       ["---\ntitle: Hello\nauthor: Alice\n---\n\n# Body"],
+       [{get: data}],
+       {title: "Hello", author: "Alice"}]
+
+    - [no_frontmatter_empty,
+       ["no frontmatter"],
+       [{get: data}],
+       {}]
+
+    - [yaml_list,
+       ["---\ntags:\n  - a\n  - b\n---\nx"],
+       [{get: data}],
+       {tags: ["a", "b"]}]
+
+    - [number_value,
+       ["---\nport: 8080\n---\nbody"],
+       [{get: data}],
+       {port: 8080}]
+
+# ── matter(input).content — body without front-matter ───────────────────────
+
+table gray_matter.content:
+  kind: node_chain_eq
+  category: content
+  entry: module
+  id_prefix: content
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [body_only,
+       ["---\nfoo: bar\n---\nbody"],
+       [{get: content}],
+       "body"]
+
+    - [no_frontmatter_passthrough,
+       ["no frontmatter"],
+       [{get: content}],
+       "no frontmatter"]
+
+    - [body_with_blank_line,
+       ["---\ntitle: x\n---\n\n# H1"],
+       [{get: content}],
+       "\n# H1"]
+
+    - [empty_input_empty_content,
+       [""],
+       [{get: content}],
+       ""]
+
+# ── matter(input).isEmpty — true when a front-matter block exists but
+# yields no parsed keys; false when fm has data; false (not true) when no fm
+# block was present at all. The semantics are subtle — gray-matter sets
+# isEmpty only after detecting fm delimiters.
+
+table gray_matter.isEmpty:
+  kind: node_chain_eq
+  category: predicates
+  entry: module
+  id_prefix: empty
+
+  columns: [id, entry_args, chain, expected]
+  rows:
+    - [empty_fm_block_isempty_true,
+       ["---\n---\nbody"],
+       [{get: isEmpty}],
+       true]
+
+    - [populated_fm_isempty_false,
+       ["---\nfoo: bar\n---\nbody"],
+       [{get: isEmpty}],
+       false]
+
+    - [no_fm_block_isempty_false,
+       ["plain body without delimiters"],
+       [{get: isEmpty}],
+       false]
