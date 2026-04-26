@@ -1,0 +1,334 @@
+spec: pcapng
+version: ">=1.10.0"
+backend: ctypes(pcap)
+
+docs: https://www.tcpdump.org/manpages/pcap.3pcap.html
+
+rfcs:
+  - "draft-ietf-opsawg-pcapng — PCAP Next Generation Capture File Format — https://datatracker.ietf.org/doc/html/draft-ietf-opsawg-pcapng"
+  - "draft-ietf-opsawg-pcaplinktype — Link-Layer Header Type Registry — https://datatracker.ietf.org/doc/html/draft-ietf-opsawg-pcaplinktype"
+
+provenance:
+  derived_from:
+    - "draft-ietf-opsawg-pcapng §3.1 Section Header Block (block_type=0x0a0d0d0a, byte_order_magic=0x1a2b3c4d, version_major=1, version_minor=0, section_length, options, total_length)"
+    - "draft-ietf-opsawg-pcapng §4.2 Interface Description Block (block_type=0x00000001, linktype, reserved, snaplen, options, total_length)"
+    - "draft-ietf-opsawg-pcaplinktype (Link-Layer Header Type Registry — DLT_EN10MB=1, DLT_RAW=12, DLT_LINUX_SLL=113)"
+    - "Test vectors verified with libpcap 1.10.1 on macOS Darwin 25.4.0, 2026-04-25"
+  not_derived_from:
+    - "libpcap source: sf-pcapng.c, pcap-common.c"
+  notes:
+    - "Companion to libpcap.zspec.zsdl. libpcap reads pcapng files via the same pcap_open_offline() entrypoint; pcap_major_version() returns 1 (not 2 like for legacy pcap files), which is the most reliable way to distinguish formats from a handle."
+    - "Each test vector is a complete-but-empty pcapng file: Section Header Block (28 bytes) + Interface Description Block (20 bytes) = 48 bytes, no Enhanced Packet Blocks. libpcap requires at least one IDB before pcap_open_offline succeeds; SHB-only files are rejected per draft-ietf-opsawg-pcapng §3.1 (an IDB must precede any captured packet stream)."
+    - "Block layout (LE example, EN10MB):"
+    - "  SHB: 0a 0d 0d 0a | 1c 00 00 00 | 4d 3c 2b 1a | 01 00 | 00 00 |"
+    - "       ff ff ff ff ff ff ff ff | 1c 00 00 00"
+    - "  IDB: 01 00 00 00 | 14 00 00 00 | 01 00 | 00 00 | ff ff 00 00 |"
+    - "       14 00 00 00"
+    - "Live capture, packet reading (Enhanced Packet Block via pcap_next_ex), and pcapng options (TLVs) are out of scope: live capture needs hardware; packet reading needs struct-deref support not yet in the chain primitive; options are non-essential for format-level conformance tests."
+  created_at: "2026-04-25T00:00:00Z"
+
+error_model:
+  semantics: "pcap_open_offline() returns non-NULL pcap_t* on success or NULL with errbuf populated on failure (no IDB, bad byte_order_magic, unsupported version, truncated)."
+  stderr: "null"
+  stickiness: "Each invariant runs in a fresh sandbox with one synthesized .pcapng file."
+  codes: {}
+
+# ── pcap_major_version() / pcap_minor_version() — distinguishes pcapng (1.0)
+#    from pcap (2.4). All test vectors below are valid pcapng v1.0.
+
+invariant pcapng.major_version_is_1:
+  description: "pcap_major_version() returns 1 for a draft-ietf-opsawg-pcapng v1.0 file"
+  category: format_version
+  rfc: "draft-ietf-opsawg-pcapng §3.1 (version_major=1)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAUAAAAAQAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_major_version
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1
+
+invariant pcapng.minor_version_is_0:
+  description: "pcap_minor_version() returns 0 for a draft-ietf-opsawg-pcapng v1.0 file"
+  category: format_version
+  rfc: "draft-ietf-opsawg-pcapng §3.1 (version_minor=0)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAUAAAAAQAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_minor_version
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 0
+
+# ── pcap_datalink() reflects the linktype from the first IDB ────────────────
+
+invariant pcapng.datalink_en10mb:
+  description: "IDB linktype=1 (DLT_EN10MB) propagates to pcap_datalink()"
+  category: idb_linktype
+  rfc: "draft-ietf-opsawg-pcapng §4.2 + draft-ietf-opsawg-pcaplinktype"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAUAAAAAQAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1
+
+invariant pcapng.datalink_linux_sll:
+  description: "IDB linktype=113 (DLT_LINUX_SLL) propagates to pcap_datalink()"
+  category: idb_linktype
+  rfc: "draft-ietf-opsawg-pcaplinktype (DLT_LINUX_SLL=113)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "sll.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAUAAAAcQAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "sll.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 113
+
+invariant pcapng.datalink_raw:
+  description: "IDB linktype=12 (DLT_RAW) propagates to pcap_datalink()"
+  category: idb_linktype
+  rfc: "draft-ietf-opsawg-pcaplinktype (DLT_RAW=12)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "raw.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAUAAAADAAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "raw.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 12
+
+# ── pcap_snapshot() reflects the IDB snaplen ────────────────────────────────
+
+invariant pcapng.snapshot_default_65535:
+  description: "IDB snaplen=65535 propagates to pcap_snapshot()"
+  category: idb_snaplen
+  rfc: "draft-ietf-opsawg-pcapng §4.2 (snaplen field)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAUAAAAAQAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_snapshot
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 65535
+
+invariant pcapng.snapshot_1500:
+  description: "IDB snaplen=1500 propagates to pcap_snapshot()"
+  category: idb_snaplen
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "trace.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAUAAAAAQAAANwFAAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "trace.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_snapshot
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1500
+
+# ── Big-endian byte_order_magic auto-detection ──────────────────────────────
+
+invariant pcapng.big_endian_byte_order_magic:
+  description: "Big-endian byte_order_magic 0x1a2b3c4d is auto-detected via the SHB; linktype recovered correctly across the byte-swap"
+  category: byte_order
+  rfc: "draft-ietf-opsawg-pcapng §3.1 (byte_order_magic determines section endianness)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "be.pcapng"
+      content_b64: "Cg0NCgAAABwaKzxNAAEAAP//////////AAAAHAAAAAEAAAAUAAEAAAAA//8AAAAU"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "be.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1
+
+# ── Multi-IDB: pcap_datalink() returns the FIRST IDB's linktype ─────────────
+
+invariant pcapng.multi_idb_returns_first_linktype:
+  description: "When a Section contains multiple Interface Description Blocks, pcap_datalink() returns the linktype of the first IDB (interface_id=0)"
+  category: idb_linktype
+  rfc: "draft-ietf-opsawg-pcapng §4.2 (Interface ID indexing starts at 0)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "multi.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAUAAAAAQAAAP//AAAUAAAAAQAAABQAAABxAAAA//8AABQAAAA="
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "multi.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      capture: handle
+    - function: pcap_datalink
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+      compare: true
+    - function: pcap_close
+      restype: c_int
+      args: [{capture: handle}]
+      arg_types: [c_void_p]
+  expected: 1
+
+# ── Error paths: SHB-without-IDB, bad byte_order_magic, version mismatches ──
+
+invariant pcapng.shb_without_idb_returns_null:
+  description: "pcap_open_offline() returns NULL when the file is just a Section Header Block with no Interface Description Block — libpcap needs at least one IDB"
+  category: error_paths
+  rfc: "draft-ietf-opsawg-pcapng §4.2 (an IDB must exist before any packets)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "shb_only.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAAAP//////////HAAAAA=="
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "shb_only.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      compare: true
+  expected: 0
+
+invariant pcapng.bad_byte_order_magic_returns_null:
+  description: "pcap_open_offline() returns NULL when the SHB byte_order_magic field is not 0x1a2b3c4d"
+  category: error_paths
+  rfc: "draft-ietf-opsawg-pcapng §3.1 (byte_order_magic must be 0x1a2b3c4d)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "bad.pcapng"
+      content_b64: "Cg0NChwAAADvvq3eAQAAAP//////////HAAAAAEAAAAUAAAAAQAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "bad.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      compare: true
+  expected: 0
+
+invariant pcapng.unsupported_major_version_returns_null:
+  description: "pcap_open_offline() returns NULL when the SHB major_version is not 1 (the only version libpcap supports)"
+  category: error_paths
+  rfc: "draft-ietf-opsawg-pcapng §3.1 (current version is 1.0)"
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "v99.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaYwAAAP//////////HAAAAAEAAAAUAAAAAQAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "v99.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      compare: true
+  expected: 0
+
+invariant pcapng.unsupported_minor_version_returns_null:
+  description: "pcap_open_offline() returns NULL when the SHB minor_version is not 0 (libpcap only accepts version 1.0)"
+  category: error_paths
+  kind: ctypes_sandbox_chain_eq
+  setup:
+    - path: "v19.pcapng"
+      content_b64: "Cg0NChwAAABNPCsaAQAJAP//////////HAAAAAEAAAAUAAAAAQAAAP//AAAUAAAA"
+  chain:
+    - function: pcap_open_offline
+      restype: c_void_p
+      args: [{sandbox_path: "v19.pcapng"}, {errbuf: 256}]
+      arg_types: [c_char_p, c_char_p]
+      compare: true
+  expected: 0
