@@ -1,0 +1,80 @@
+spec: forwarded
+version: ">=0.2.0"
+backend: node(forwarded)
+
+docs: https://github.com/jshttp/forwarded#readme
+
+provenance:
+  derived_from:
+    - "forwarded README — https://github.com/jshttp/forwarded#readme"
+    - "RFC 7239 — Forwarded HTTP Extension"
+    - "Test vectors verified with forwarded via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "forwarded source"
+  notes:
+    - "Parse the X-Forwarded-For header chain into an array, with the connection address first."
+    - "Install: npm install forwarded"
+    - "v0.2 CJS; module export IS the function (req → string[])."
+    - "Spec drives the function with synthetic request objects ({headers, connection})."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "Throws TypeError on missing req argument."
+  stderr: "null"
+  stickiness: "N/A — each call independent."
+  codes: {}
+
+invariant forwarded.module_is_function:
+  description: "Module export is a function"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
+
+invariant forwarded.module_arity:
+  description: "Module function takes 1 arg (req)"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: length}
+  expected: 1
+
+invariant forwarded.connection_first:
+  description: "Connection remoteAddress is first; XFF chain follows in reverse"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{"headers": {"x-forwarded-for": "1.1.1.1, 2.2.2.2"}, "connection": {"remoteAddress": "127.0.0.1"}}]
+  chain: []
+  expected: ["127.0.0.1", "2.2.2.2", "1.1.1.1"]
+
+invariant forwarded.no_xff_returns_only_connection:
+  description: "No X-Forwarded-For header — result has only the remote address"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{"headers": {}, "connection": {"remoteAddress": "127.0.0.1"}}]
+  chain: []
+  expected: ["127.0.0.1"]
+
+invariant forwarded.length_with_two_xff:
+  description: "X-Forwarded-For with 2 entries → result length 3 (connection + 2)"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{"headers": {"x-forwarded-for": "1.1.1.1, 2.2.2.2"}, "connection": {"remoteAddress": "127.0.0.1"}}]
+  chain:
+    - {get: length}
+  expected: 3
+
+invariant forwarded.single_xff_entry:
+  description: "Single XFF hop yields ['conn', 'hop']"
+  category: parse
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{"headers": {"x-forwarded-for": "5.5.5.5"}, "connection": {"remoteAddress": "127.0.0.1"}}]
+  chain: []
+  expected: ["127.0.0.1", "5.5.5.5"]
