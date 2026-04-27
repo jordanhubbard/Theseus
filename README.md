@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
-> ### **2,171 source specs · 15,847 invariants · 968 npm packages · libpcap + pcapng covered**
+> ### **2,295 source specs · 16,683 invariants · 1,091 npm packages · libpcap + pcapng covered**
 
 📖 **[Full User Guide →](https://jordanhubbard.github.io/Theseus/)** — installation, pipeline walkthrough, spec authoring, language reference. The full list of covered libraries lives in the user guide [Index](https://jordanhubbard.github.io/Theseus/#covered-library-index).
 
@@ -33,7 +33,7 @@ Terms used throughout the project, defined here before they appear in the rest o
 - **Z-spec** / **zspec** — synonym for behavioral spec; the "Z" was chosen for being terminal (Z is the last letter — after Z, only verification remains).
 - **ZSDL** — *Z-Spec Definition Language*. The YAML-flavoured surface syntax of `.zspec.zsdl` files. Compiles to JSON via `make compile-zsdl`. Full grammar: [docs/zsdl-design.md](docs/zsdl-design.md).
 - **Invariant** — one falsifiable claim about behaviour (e.g. *"`semver.valid('1.2.3')` returns `'1.2.3'`"*). The verification harness asserts each invariant against the real installed library and reports pass/fail.
-- **Compiled bundle** — the compiler emits one `.zspec.json` per source `.zsdl`. The current corpus has 2,171 source specs totalling 15,847 invariants.
+- **Compiled bundle** — the compiler emits one `.zspec.json` per source `.zsdl`. The current corpus has 2,295 source specs totalling 16,683 invariants.
 - **Backend** — how the spec runner loads the library under test: `ctypes` (C shared libraries via `ctypes.CDLL`), `python_module` (`importlib.import_module`), `node` (CJS or ESM via `node -e`), `cli` (`subprocess.run`).
 - **Clean-room package** — a Theseus reimplementation registered in `theseus_registry.json` that satisfies its spec without importing the original library.
 
@@ -146,7 +146,7 @@ make start        # runs analysis on examples/ — no snapshot needed
 
 ```bash
 make compile-zsdl              # compile ZSDL sources to _build/zspecs/
-make verify-all-specs          # run all 2,171 compiled specs; print text summary
+make verify-all-specs          # run all 2,295 compiled specs; print text summary
 make verify-all-specs-json     # same, write JSON results
 make verify-behavior ZSPEC=_build/zspecs/zlib.zspec.json  # single spec
 ```
