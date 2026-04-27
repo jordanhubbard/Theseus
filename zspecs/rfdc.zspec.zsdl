@@ -1,0 +1,102 @@
+spec: rfdc
+version: ">=1.3.0"
+backend: node(rfdc)
+
+docs: https://github.com/davidmarkclements/rfdc#readme
+
+provenance:
+  derived_from:
+    - "rfdc README — https://github.com/davidmarkclements/rfdc#readme"
+    - "Test vectors verified with rfdc via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "rfdc source"
+  notes:
+    - "Really Fast Deep Clone — competitive with structuredClone but tunable via {proto, circles, constructorHandlers}."
+    - "Install: npm install rfdc"
+    - "v1 CJS; module export IS the factory rfdc(opts) → clone(value)."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "clone() throws on circular refs unless rfdc({circles:true}) is used."
+  stderr: "null"
+  stickiness: "Each rfdc() call yields a clone fn that captures the options."
+  codes: {}
+
+invariant rfdc.module_is_function:
+  description: "Module export is a function (factory)"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
+
+invariant rfdc.module_arity:
+  description: "Factory takes 1 arg (options)"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: length}
+  expected: 1
+
+invariant rfdc.factory_returns_clone_fn:
+  description: "rfdc() returns a function named 'clone'"
+  category: factory
+  kind: node_chain_eq
+  entry: module
+  entry_args: []
+  chain:
+    - {get: name}
+  expected: "clone"
+
+invariant rfdc.clone_simple_object:
+  description: "clone({a:1}) yields {a:1}"
+  category: clone
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {call: []}
+    - {call: [{"a": 1}]}
+  expected: {"a": 1}
+
+invariant rfdc.clone_nested_object:
+  description: "Nested object is preserved by value"
+  category: clone
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {call: []}
+    - {call: [{"a": 1, "b": {"c": 2}}]}
+    - {get: "b.c"}
+  expected: 2
+
+invariant rfdc.clone_array:
+  description: "Arrays clone preserving elements"
+  category: clone
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {call: []}
+    - {call: [[1, 2, 3]]}
+  expected: [1, 2, 3]
+
+invariant rfdc.proto_option_yields_function:
+  description: "rfdc({proto: true}) returns a function (proto-aware clone)"
+  category: factory
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{"proto": true}]
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
+
+invariant rfdc.circles_option_yields_function:
+  description: "rfdc({circles: true}) returns a function (cycle-tolerant)"
+  category: factory
+  kind: node_chain_eq
+  entry: module
+  entry_args: [{"circles": true}]
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
