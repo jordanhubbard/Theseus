@@ -1,0 +1,106 @@
+spec: line_column
+version: ">=1.0.0"
+backend: node(line-column)
+
+docs: https://github.com/euank/node-line-column#readme
+
+provenance:
+  derived_from:
+    - "line-column README — https://github.com/euank/node-line-column#readme"
+    - "Test vectors verified with line-column via Node.js 22 on macOS Darwin 25.4.0, 2026-04-26"
+  not_derived_from:
+    - "line-column source"
+  notes:
+    - "Convert between absolute string offsets and (line, column) positions — useful for compiler error reporting."
+    - "Install: npm install line-column"
+    - "v1 CJS; module export IS a factory: lineColumn(str, [{origin}]) → {fromIndex(i), toIndex(line, col)}."
+    - "Default origin is 1 (1-indexed lines/cols). Pass {origin:0} for 0-indexed."
+  created_at: "2026-04-26T00:00:00Z"
+
+error_model:
+  semantics: "fromIndex returns null on out-of-range index; toIndex returns -1 on invalid line/col."
+  stderr: "null"
+  stickiness: "Each finder owns the source string + precomputed line offsets."
+  codes: {}
+
+invariant line_column.module_is_function:
+  description: "Module export is the factory function"
+  category: shape
+  kind: node_chain_eq
+  entry: bare
+  chain:
+    - {get: "constructor.name"}
+  expected: "Function"
+
+invariant line_column.factory_returns_finder:
+  description: "Factory returns an object with fromIndex/toIndex"
+  category: factory
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["line1\nline2\nline3", {"origin": 0}]
+  chain:
+    - {get: "fromIndex.constructor.name"}
+  expected: "Function"
+
+invariant line_column.factory_returns_toIndex:
+  description: "Factory return has toIndex method"
+  category: factory
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["line1\nline2\nline3", {"origin": 0}]
+  chain:
+    - {get: "toIndex.constructor.name"}
+  expected: "Function"
+
+invariant line_column.fromIndex_at_zero:
+  description: "fromIndex(0) on origin-0 finder returns {line:0, col:0}"
+  category: lookup
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["line1\nline2\nline3", {"origin": 0}]
+  chain:
+    - {method: fromIndex, args: [0]}
+    - {get: line}
+  expected: 0
+
+invariant line_column.fromIndex_after_first_newline:
+  description: "Index 6 (after 'line1\\n') is line 1 col 0 in origin-0"
+  category: lookup
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["line1\nline2\nline3", {"origin": 0}]
+  chain:
+    - {method: fromIndex, args: [6]}
+    - {get: line}
+  expected: 1
+
+invariant line_column.fromIndex_col_into_line:
+  description: "Index 7 (one char into line 1) has col 1"
+  category: lookup
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["line1\nline2\nline3", {"origin": 0}]
+  chain:
+    - {method: fromIndex, args: [7]}
+    - {get: col}
+  expected: 1
+
+invariant line_column.toIndex_origin_zero_at_start:
+  description: "toIndex(0,0) is 0"
+  category: lookup
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["line1\nline2\nline3", {"origin": 0}]
+  chain:
+    - {method: toIndex, args: [0, 0]}
+  expected: 0
+
+invariant line_column.toIndex_second_line:
+  description: "toIndex(1,2) on 'line1\\nline2\\nline3' (origin-0) is 8"
+  category: lookup
+  kind: node_chain_eq
+  entry: module
+  entry_args: ["line1\nline2\nline3", {"origin": 0}]
+  chain:
+    - {method: toIndex, args: [1, 2]}
+  expected: 8
