@@ -16,6 +16,8 @@ Exit codes:
     1  One or more invariants failed
     2  Harness error (spec unreadable, library not found, etc.)
 """
+from __future__ import annotations
+
 import argparse
 import base64
 import ctypes

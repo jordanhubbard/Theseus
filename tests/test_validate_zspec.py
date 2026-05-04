@@ -77,6 +77,13 @@ class TestSchemaLoad:
         for kind in vz.KNOWN_KINDS:
             assert kind in schema_kinds, f"kind {kind!r} missing from schema enum"
 
+    def test_schema_knows_cleanroom_metadata_fields(self):
+        schema = vz.load_schema()
+        props = schema["properties"]
+        assert "backend_lang" in props
+        assert "cleanroom_path" in props
+        assert "blocks" in props
+
 
 # ---------------------------------------------------------------------------
 # TestMinimalValid
@@ -96,6 +103,23 @@ class TestMinimalValid:
             "spec": {"function": "foo", "args": [], "expected": 1},
         }]
         assert _validate(spec) == []
+
+    def test_cleanroom_metadata_valid_with_jsonschema_if_available(self, tmp_path):
+        pytest.importorskip("jsonschema")
+        spec = _minimal_spec(
+            library={
+                "backend": "python_cleanroom",
+                "module_name": "theseus_test",
+                "soname_patterns": [],
+            },
+            backend_lang="python_cleanroom",
+            cleanroom_path="cleanroom/python/theseus_test",
+            blocks="test",
+        )
+        path = tmp_path / "cleanroom.zspec.json"
+        path.write_text(json.dumps(spec), encoding="utf-8")
+        errors = vz.validate_file(path, schema=vz.load_schema(), use_jsonschema=True)
+        assert errors == []
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 """
 Tests for theseus/synthesis/build.py — SynthesisBuildDriver and backend_lang_for_spec.
 """
+import os
 import shutil
 import sys
 
@@ -99,6 +100,37 @@ class TestBuildPython:
         source = {"mymod.py": "X = 1\n"}
         result = driver.build(source, "python", "mymod", tmp_path)
         assert result.work_dir == str(tmp_path)
+
+    def test_absolute_source_path_rejected(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {str(tmp_path.parent / "escape.py"): "X = 1\n"}
+        result = driver.build(source, "python", "mymod", tmp_path)
+        assert result.success is False
+        assert "absolute paths are not allowed" in result.build_log
+
+    def test_parent_traversal_source_path_rejected(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"../escape.py": "X = 1\n"}
+        result = driver.build(source, "python", "mymod", tmp_path)
+        assert result.success is False
+        assert "path escapes work directory" in result.build_log
+        assert not (tmp_path.parent / "escape.py").exists()
+
+    @pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlink unavailable")
+    def test_symlink_source_path_rejected(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        outside = tmp_path.parent / "outside"
+        outside.mkdir()
+        (tmp_path / "linked").symlink_to(outside, target_is_directory=True)
+
+        result = driver.build({"linked/escape.py": "X = 1\n"}, "python", "mymod", tmp_path)
+
+        assert result.success is False
+        assert "path escapes work directory" in result.build_log
+        assert not (outside / "escape.py").exists()
 
 
 # ---------------------------------------------------------------------------

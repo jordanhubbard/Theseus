@@ -588,7 +588,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-iterations", type=int, default=3, metavar="N",
                         help="Max LLM iterations per spec (default: 3).")
     parser.add_argument("--jobs", type=int, default=1, metavar="N",
-                        help="Parallel workers (default: 1; LLM rate limits apply).")
+                        help="Parallel workers (currently only 1 is supported).")
     parser.add_argument("--timeout", type=int, default=0, metavar="SECONDS",
                         help="LLM timeout per spec in seconds (0 = provider default).")
     parser.add_argument("--no-annotate", action="store_true",
@@ -601,6 +601,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="Path to config.yaml (site overrides loaded from config.site.yaml alongside it).")
 
     args = parser.parse_args(argv)
+
+    if args.jobs != 1:
+        print(
+            "error: synthesize_waves currently runs serially; use --jobs 1",
+            file=sys.stderr,
+        )
+        return 2
 
     # --- Build wave list and load all spec metas ---
     all_metas = _all_spec_metas()

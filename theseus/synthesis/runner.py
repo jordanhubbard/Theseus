@@ -207,7 +207,7 @@ class SynthesisRunner:
 
             # --- Verify ---
             verify_results = self._invoke_verify_harness(
-                spec_json_path, build_result, lib_spec
+                spec_json_path, build_result, lib_spec, spec.get("invariants", [])
             )
             pass_count = sum(1 for r in verify_results if r.get("passed") and not r.get("skip_reason"))
             skip_count = sum(1 for r in verify_results if r.get("skip_reason"))
@@ -282,6 +282,7 @@ class SynthesisRunner:
         spec_json_path: Path,
         build_result: SynthesisBuildResult,
         lib_spec: dict,
+        invariants: list[dict] | None = None,
     ) -> list[dict]:
         """
         Run verify_behavior.py as a subprocess with synthesised library overrides.
@@ -344,14 +345,19 @@ class SynthesisRunner:
 
             # Harness crashed before writing output — treat all as failed.
             stderr = getattr(result, "stderr", "") or ""
+            stdout = getattr(result, "stdout", "") or ""
+            detail = (stderr or stdout).strip()[:500]
+            if not detail:
+                detail = "no output"
+            invs = invariants or [{"id": "(harness)"}]
             return [
                 {
                     "id": inv.get("id", "?"),
                     "passed": False,
-                    "message": f"Harness error (exit {result.returncode}): {stderr[:200]}",
+                    "message": f"Harness error (exit {result.returncode}): {detail}",
                     "skip_reason": None,
                 }
-                for inv in []  # we don't have spec here; caller handles empty list
+                for inv in invs
             ]
 
         except subprocess.TimeoutExpired:

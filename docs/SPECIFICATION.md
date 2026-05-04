@@ -37,7 +37,7 @@ The system is a batch toolchain with no server, no daemon, and no external runti
 | **Verified package** | A clean-room implementation that has passed all invariants in an isolated environment where the original package is blocked. Registered in `theseus_registry.json` with `status: verified`. |
 | **Isolation harness** | `cleanroom/python/sitecustomize.py` — Python's auto-loaded site customization file that intercepts imports and raises `ImportError` for any package named in `THESEUS_BLOCKED_PACKAGE`. |
 | **Wave** | A named batch of specs processed together in one synthesis run. Wave names follow the pattern `cr1`, `cr2`, etc. |
-| **Registry** | `theseus_registry.json` — the authoritative list of verified clean-room packages and their paths. |
+| **Registry** | `theseus_registry.json` — the authoritative list of clean-room packages, their paths, and verification status. |
 
 ---
 
@@ -83,7 +83,7 @@ The system is a batch toolchain with no server, no daemon, and no external runti
 ║  PASS/FAIL isolation test   ← proves no import of original          ║
 ║       │                                                              ║
 ║       ▼ registry.py verify <name>                                    ║
-║  theseus_registry.json      ← 392 verified packages                 ║
+║  theseus_registry.json      ← verified and policy-failed packages   ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -229,12 +229,12 @@ invariants:
 ```json
 {
   "version": 1,
-  "description": "Registry of Theseus clean-room verified packages",
+  "description": "Registry of Theseus clean-room package verification status",
   "packages": {
     "<name>": {
       "cleanroom_path": "cleanroom/python/<name>",
       "spec": "zspecs/<name>.zspec.zsdl",
-      "status": "verified | pending"
+      "status": "verified | pending | failed | policy_failed"
     }
   }
 }
@@ -406,7 +406,7 @@ THESEUS_BLOCKED_PACKAGE=json python3 -c "import json"            # must raise Im
 python3 tools/registry.py list
 python3 tools/registry.py check theseus_json          # exits 0 if verified
 python3 tools/registry.py register <name> <path> <spec>
-python3 tools/registry.py verify <name>               # mark as verified
+python3 tools/registry.py verify <name>               # run verifier and promote
 ```
 
 ---

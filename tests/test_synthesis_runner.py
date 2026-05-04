@@ -308,6 +308,38 @@ class TestEnvVarOverrides:
         assert "LD_LIBRARY_PATH" in captured_env
         assert "/tmp/c_work" in captured_env["LD_LIBRARY_PATH"]
 
+    def test_harness_crash_returns_failed_invariants(self, tmp_path: Path) -> None:
+        spec = _make_spec(2)
+        runner = SynthesisRunner(_AI_CFG, max_iterations=1)
+
+        def fake_run(cmd, **kwargs):
+            mock_result = MagicMock()
+            mock_result.returncode = 2
+            mock_result.stderr = "import failed"
+            mock_result.stdout = ""
+            return mock_result
+
+        build_result = SynthesisBuildResult(
+            success=True,
+            artifact_path="/tmp/synth_staging",
+            backend_lang="python",
+            build_log="",
+            returncode=0,
+            work_dir="/tmp/synth_staging",
+        )
+
+        with patch("subprocess.run", side_effect=fake_run):
+            results = runner._invoke_verify_harness(
+                tmp_path / "x.zspec.json",
+                build_result,
+                {},
+                spec["invariants"],
+            )
+
+        assert len(results) == 2
+        assert all(r["passed"] is False for r in results)
+        assert all("Harness error (exit 2): import failed" in r["message"] for r in results)
+
 
 class TestDetectModel:
     def test_claude_in_path(self) -> None:

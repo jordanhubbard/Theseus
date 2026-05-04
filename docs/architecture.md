@@ -8,7 +8,7 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,018 source specs covering 7 backend types (node, rust_module, python_cleanroom, python_module, ctypes, cli, node_cleanroom). 812 specs target npm packages; ctypes specs now include libpcap and pcapng (35 invariants together, derived from the IETF capture-file drafts). The wave compiler expands the source set into 10,935 invariant bundles totalling 224k+ invariants.
 
-**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. 392 Python packages verified as of the current registry.
+**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. The current registry has 360 verified Python packages plus 32 policy-failed entries quarantined by clean-room import checks.
 
 ```
 Source Trees (Nixpkgs, FreeBSD Ports)
@@ -55,7 +55,7 @@ zspecs/theseus_*.zspec.zsdl              ← clean-room specs (python_cleanroom 
   tools/registry.py verify <name>       ← register in theseus_registry.json
         │
         ▼
-  theseus_registry.json                 ← 392 verified packages; gating dependency graph
+  theseus_registry.json                 ← verified/policy-failed packages; gating dependency graph
 ```
 
 ---
@@ -491,9 +491,9 @@ cleanroom/
       __init__.py                 ← implementation
     theseus_hashlib/
       __init__.py
-    ...                           ← one directory per verified package
+    ...                           ← one directory per clean-room package
 
-theseus_registry.json             ← registry of verified packages
+theseus_registry.json             ← registry of clean-room package statuses
 reports/synthesis/
   wave_state.json                 ← synthesis progress; persisted across runs
 ```
@@ -560,7 +560,7 @@ Do **not** add new specs to `wave_state.json` with `status: "pending"` — the r
 ```bash
 python3 tools/registry.py list                         # list all packages
 python3 tools/registry.py register <name> <path> <spec>  # register (status=pending)
-python3 tools/registry.py verify <name>               # promote to verified
+python3 tools/registry.py verify <name>               # run verifier and promote
 python3 tools/registry.py check <name>                # exits 0 if verified, 1 if not
 ```
 
@@ -578,7 +578,7 @@ python3 tools/registry.py check <name>                # exits 0 if verified, 1 i
 | `cr2` | Node.js clean-room packages | 1 | DONE |
 | `w100`–`w2851` | ZSDL `_extra` wave-series (auto-generated) | ~6,700 | pending |
 
-Total verified packages: **392 Python** (see `theseus_registry.json`). Run `python3 tools/synthesize_waves.py --list` for current state.
+Total Python registry status: **360 verified**, **32 policy-failed** (see `theseus_registry.json`). Run `python3 tools/synthesize_waves.py --list` for current state.
 
 ---
 

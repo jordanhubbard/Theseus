@@ -8,6 +8,8 @@ verifying that:
   - Ctrl-C (SIGINT) exits cleanly with code 0
   - Non-watch mode is unaffected
 """
+from __future__ import annotations
+
 import json
 import os
 import shutil

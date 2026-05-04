@@ -11,12 +11,18 @@ Usage:
   python3 tools/registry.py verify theseus_json
   python3 tools/registry.py check theseus_json   # exits 0 if verified, 1 if not
 """
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 REGISTRY_PATH = _REPO_ROOT / "theseus_registry.json"
+_VALID_REGISTER_STATUSES = {"pending", "failed"}
 
 
 def load() -> dict:
@@ -35,6 +41,12 @@ def is_allowed(name: str) -> bool:
 
 
 def register(name: str, cleanroom_path: str, spec: str, status: str = "pending") -> None:
+    if status not in _VALID_REGISTER_STATUSES:
+        raise ValueError(
+            "register status must be one of "
+            f"{', '.join(sorted(_VALID_REGISTER_STATUSES))}; "
+            "use 'verify' to promote a package"
+        )
     reg = load()
     reg["packages"][name] = {
         "cleanroom_path": cleanroom_path,
@@ -45,13 +57,43 @@ def register(name: str, cleanroom_path: str, spec: str, status: str = "pending")
     print(f"Registered: {name} ({status})")
 
 
-def mark_verified(name: str) -> None:
+def mark_verified(name: str, *, verbose: bool = False) -> None:
     reg = load()
     if name not in reg["packages"]:
         raise KeyError(f"{name} not in registry — register it first")
+    info = reg["packages"][name]
+    spec_path = _resolve_repo_path(info.get("spec", ""))
+    cleanroom_path = _resolve_repo_path(info.get("cleanroom_path", ""))
+
+    if not spec_path.is_file():
+        raise FileNotFoundError(f"spec file not found for {name}: {spec_path}")
+    if not cleanroom_path.exists():
+        raise FileNotFoundError(
+            f"cleanroom path not found for {name}: {cleanroom_path}"
+        )
+
+    from tools.cleanroom_verify import verify as cleanroom_verify
+
+    result = cleanroom_verify(str(spec_path), verbose=verbose)
+    if result.get("fail", 0) or result.get("error"):
+        errors = result.get("errors", [])
+        first_error = ""
+        if errors:
+            first_error = f": {errors[0].get('error', '')[:200]}"
+        raise RuntimeError(
+            f"{name} failed clean-room verification "
+            f"({result.get('pass', 0)}/{result.get('pass', 0) + result.get('fail', 0)} passed)"
+            f"{first_error}"
+        )
+
     reg["packages"][name]["status"] = "verified"
+    reg["packages"][name]["verified_pass_count"] = result.get("pass", 0)
+    reg["packages"][name]["verified_total"] = result.get("pass", 0) + result.get("fail", 0)
     _save(reg)
-    print(f"Verified: {name}")
+    print(
+        f"Verified: {name} "
+        f"({reg['packages'][name]['verified_pass_count']}/{reg['packages'][name]['verified_total']})"
+    )
 
 
 def list_packages(status_filter: str | None = None) -> list[dict]:
@@ -61,6 +103,11 @@ def list_packages(status_filter: str | None = None) -> list[dict]:
         if status_filter is None or info.get("status") == status_filter:
             pkgs.append({"name": name, **info})
     return pkgs
+
+
+def _resolve_repo_path(path: str) -> Path:
+    p = Path(path)
+    return p if p.is_absolute() else _REPO_ROOT / p
 
 
 def main() -> int:
@@ -93,12 +140,20 @@ def main() -> int:
         return 0
 
     if args.cmd == "register":
-        register(args.name, args.cleanroom_path, args.spec, args.status)
-        return 0
+        try:
+            register(args.name, args.cleanroom_path, args.spec, args.status)
+            return 0
+        except Exception as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
 
     if args.cmd == "verify":
-        mark_verified(args.name)
-        return 0
+        try:
+            mark_verified(args.name)
+            return 0
+        except Exception as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
 
     if args.cmd == "check":
         ok = is_allowed(args.name)

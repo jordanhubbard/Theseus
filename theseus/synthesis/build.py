@@ -33,6 +33,10 @@ class SynthesisBuildResult:
     work_dir: str
 
 
+class UnsafeSourcePathError(ValueError):
+    """Raised when an LLM-produced filename escapes the synthesis work dir."""
+
+
 class SynthesisBuildDriver:
     """Compile/stage synthesized source files for a given backend language."""
 
@@ -55,14 +59,24 @@ class SynthesisBuildDriver:
         Returns:
             SynthesisBuildResult with success status and artifact path.
         """
-        if backend_lang == "python":
-            return self._build_python(source_files, canonical_name, work_dir)
-        if backend_lang == "c":
-            return self._build_c(source_files, canonical_name, work_dir)
-        if backend_lang == "javascript":
-            return self._build_javascript(source_files, canonical_name, work_dir)
-        if backend_lang == "rust":
-            return self._build_rust(source_files, canonical_name, work_dir)
+        try:
+            if backend_lang == "python":
+                return self._build_python(source_files, canonical_name, work_dir)
+            if backend_lang == "c":
+                return self._build_c(source_files, canonical_name, work_dir)
+            if backend_lang == "javascript":
+                return self._build_javascript(source_files, canonical_name, work_dir)
+            if backend_lang == "rust":
+                return self._build_rust(source_files, canonical_name, work_dir)
+        except UnsafeSourcePathError as exc:
+            return SynthesisBuildResult(
+                success=False,
+                artifact_path="",
+                backend_lang=backend_lang,
+                build_log=str(exc),
+                returncode=1,
+                work_dir=str(work_dir),
+            )
         return SynthesisBuildResult(
             success=False,
             artifact_path="",
@@ -419,9 +433,23 @@ class SynthesisBuildDriver:
 
 def _write_files(source_files: dict[str, str], work_dir: Path) -> None:
     """Write all source files to work_dir, creating subdirectories as needed."""
+    work_root = work_dir.resolve()
     for filename, content in source_files.items():
-        dest = work_dir / filename
+        raw = Path(filename)
+        if raw.is_absolute():
+            raise UnsafeSourcePathError(f"Unsafe source filename {filename!r}: absolute paths are not allowed")
+        dest = (work_dir / raw).resolve()
+        try:
+            dest.relative_to(work_root)
+        except ValueError:
+            raise UnsafeSourcePathError(f"Unsafe source filename {filename!r}: path escapes work directory")
+
+        parent = dest.parent
+        if parent.exists() and parent.is_symlink():
+            raise UnsafeSourcePathError(f"Unsafe source filename {filename!r}: parent directory is a symlink")
         dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists() and dest.is_symlink():
+            raise UnsafeSourcePathError(f"Unsafe source filename {filename!r}: destination is a symlink")
         dest.write_text(content, encoding="utf-8")
 
 

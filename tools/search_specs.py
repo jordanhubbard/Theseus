@@ -12,6 +12,8 @@ Usage:
 
 Searches spec filenames and inline metadata (spec: name, docs:, backend:).
 """
+from __future__ import annotations
+
 import argparse
 import json
 import re

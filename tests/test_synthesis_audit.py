@@ -1,6 +1,8 @@
 """
 Tests for theseus/synthesis/audit.py — AuditReportGenerator.
 """
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

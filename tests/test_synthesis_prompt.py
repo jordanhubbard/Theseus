@@ -1,6 +1,8 @@
 """
 Tests for theseus/synthesis/prompt.py — PromptBuilder and extract_source_files.
 """
+from __future__ import annotations
+
 import pytest
 
 from theseus.synthesis.prompt import PromptBuilder

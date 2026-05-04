@@ -14,6 +14,8 @@ Usage:
   python3 tools/provenance_report.py zspecs/hashlib.zspec.zsdl --json
   python3 tools/provenance_report.py zspecs/hashlib.zspec.zsdl --out provenance.md
 """
+from __future__ import annotations
+
 import argparse
 import json
 import re

@@ -30,6 +30,8 @@ Exit codes:
   1  One or more invariants failed
   2  Setup error (Docker not found, image build failed, compile failed, etc.)
 """
+from __future__ import annotations
+
 import argparse
 import shutil
 import subprocess
