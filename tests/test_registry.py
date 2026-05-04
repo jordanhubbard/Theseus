@@ -55,6 +55,25 @@ def test_verify_promotes_only_after_cleanroom_verify_passes(tmp_path, monkeypatc
     assert info["verified_total"] == 1
 
 
+def test_verify_clears_stale_policy_error(tmp_path, monkeypatch):
+    reg_path = _write_registry(tmp_path, status="policy_failed")
+    data = json.loads(reg_path.read_text(encoding="utf-8"))
+    data["packages"]["theseus_pkg"]["policy_error"] = "old policy failure"
+    reg_path.write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(registry, "REGISTRY_PATH", reg_path)
+    monkeypatch.setattr(
+        cleanroom_verify,
+        "verify",
+        lambda spec, verbose=False: {"pass": 1, "fail": 0, "errors": []},
+    )
+
+    registry.mark_verified("theseus_pkg")
+
+    info = json.loads(reg_path.read_text(encoding="utf-8"))["packages"]["theseus_pkg"]
+    assert info["status"] == "verified"
+    assert "policy_error" not in info
+
+
 def test_verify_does_not_promote_on_cleanroom_failure(tmp_path, monkeypatch):
     reg_path = _write_registry(tmp_path)
     monkeypatch.setattr(registry, "REGISTRY_PATH", reg_path)

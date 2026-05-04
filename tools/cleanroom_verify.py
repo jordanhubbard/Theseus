@@ -113,23 +113,16 @@ def _verify_python(spec: dict, name: str, verbose: bool) -> dict:
         args = spec_dict.get("args", [])
         expected = spec_dict.get("expected")
 
-        # Use repr() so the test harness doesn't need to import json
-        # (json may be the blocked package). ast.literal_eval is stdlib and safe.
+        # Embed repr() literals directly so the subprocess does not need to
+        # import json or ast; either may be the blocked package or may import
+        # the blocked package transitively (for example ast -> collections).
         args_repr = repr(args)
         expected_repr = repr(expected)
 
-        # When ast itself is blocked, fall back to eval() for simple literals.
-        if blocked == "ast":
-            lit_eval_import = ""
-            lit_eval_fn = "eval"
-        else:
-            lit_eval_import = "import ast as _ast\n"
-            lit_eval_fn = "_ast.literal_eval"
         code = (
-            lit_eval_import
-            + f"from {name} import {fn} as _fn\n"
-            f"_args = {lit_eval_fn}({args_repr!r})\n"
-            f"_expected = {lit_eval_fn}({expected_repr!r})\n"
+            f"from {name} import {fn} as _fn\n"
+            f"_args = {args_repr}\n"
+            f"_expected = {expected_repr}\n"
             f"_result = _fn(*_args)\n"
             f"assert _result == _expected, f'got {{_result!r}}, expected {{_expected!r}}'\n"
             f"print('OK')\n"

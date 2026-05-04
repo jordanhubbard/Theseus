@@ -112,6 +112,23 @@ def test_python_cleanroom_rejects_private_backdoor_for_blocked_package(tmp_path,
     assert "implementation backdoor" in result["errors"][0]["error"]
 
 
+def test_python_cleanroom_verify_literals_without_ast_import(tmp_path, monkeypatch):
+    root = tmp_path / "python"
+    impl = root / "theseus_collections_shadow"
+    impl.mkdir(parents=True)
+    (impl / "__init__.py").write_text(
+        "def ok():\n"
+        "    return True\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cv, "_CLEANROOM_PYTHON", root)
+
+    result = cv.verify(str(_cleanroom_spec(tmp_path, "theseus_collections_shadow", "python_cleanroom", "collections")))
+
+    assert result["pass"] == 1
+    assert result["fail"] == 0
+
+
 def test_node_cleanroom_rejects_blocked_require(tmp_path, monkeypatch):
     root = tmp_path / "node"
     impl = root / "theseus_path_wrapper"

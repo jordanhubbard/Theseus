@@ -89,6 +89,7 @@ def mark_verified(name: str, *, verbose: bool = False) -> None:
     reg["packages"][name]["status"] = "verified"
     reg["packages"][name]["verified_pass_count"] = result.get("pass", 0)
     reg["packages"][name]["verified_total"] = result.get("pass", 0) + result.get("fail", 0)
+    reg["packages"][name].pop("policy_error", None)
     _save(reg)
     print(
         f"Verified: {name} "

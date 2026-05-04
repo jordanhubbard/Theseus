@@ -48,12 +48,6 @@ def signal(signum, handler):
     """Set signal handler. Returns previous handler."""
     old = _handlers.get(signum, SIG_DFL)
     _handlers[signum] = handler
-    # Try to set the actual OS handler if os.signal is available
-    try:
-        import signal as _signal
-        _signal.signal(signum, handler)
-    except (ImportError, OSError, ValueError):
-        pass
     return old
 
 

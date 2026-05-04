@@ -83,7 +83,7 @@ The system is a batch toolchain with no server, no daemon, and no external runti
 ║  PASS/FAIL isolation test   ← proves no import of original          ║
 ║       │                                                              ║
 ║       ▼ registry.py verify <name>                                    ║
-║  theseus_registry.json      ← verified and policy-failed packages   ║
+║  theseus_registry.json      ← verified packages                     ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
