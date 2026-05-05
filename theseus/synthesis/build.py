@@ -11,6 +11,7 @@ Given source files produced by an LLM, each driver:
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -46,6 +47,8 @@ class SynthesisBuildDriver:
         backend_lang: str,
         canonical_name: str,
         work_dir: Path,
+        module_name: str = "",
+        esm: bool = False,
     ) -> SynthesisBuildResult:
         """
         Write *source_files* into *work_dir* and compile/validate them.
@@ -65,7 +68,13 @@ class SynthesisBuildDriver:
             if backend_lang == "c":
                 return self._build_c(source_files, canonical_name, work_dir)
             if backend_lang == "javascript":
-                return self._build_javascript(source_files, canonical_name, work_dir)
+                return self._build_javascript(
+                    source_files,
+                    canonical_name,
+                    work_dir,
+                    module_name=module_name,
+                    esm=esm,
+                )
             if backend_lang == "rust":
                 return self._build_rust(source_files, canonical_name, work_dir)
         except UnsafeSourcePathError as exc:
@@ -237,6 +246,9 @@ class SynthesisBuildDriver:
         source_files: dict[str, str],
         canonical_name: str,
         work_dir: Path,
+        *,
+        module_name: str = "",
+        esm: bool = False,
     ) -> SynthesisBuildResult:
         _write_files(source_files, work_dir)
 
@@ -251,28 +263,61 @@ class SynthesisBuildDriver:
                 work_dir=str(work_dir),
             )
 
-        # Prefer index.js; fall back to any .js file.
-        entry = work_dir / "index.js"
-        if not entry.exists():
-            js_files = list(work_dir.glob("*.js"))
-            if js_files:
-                entry = js_files[0]
-            else:
-                return SynthesisBuildResult(
-                    success=False,
-                    artifact_path="",
-                    backend_lang="javascript",
-                    build_log="No .js files found in work directory.",
-                    returncode=1,
-                    work_dir=str(work_dir),
-                )
+        package_name = module_name or canonical_name
+        try:
+            package_dir = _javascript_package_dir(work_dir / "node_modules", package_name)
+        except UnsafeSourcePathError as exc:
+            return SynthesisBuildResult(
+                success=False,
+                artifact_path="",
+                backend_lang="javascript",
+                build_log=str(exc),
+                returncode=1,
+                work_dir=str(work_dir),
+            )
 
-        # For ESM, use dynamic import; for CJS use require.
-        # We probe with require() — if it fails with ERR_REQUIRE_ESM we note it
-        # but still succeed (the verify harness uses import() for ESM specs).
-        script = f"require({str(entry)!r})"
+        entry = _find_javascript_entry(work_dir, package_dir)
+        if entry is None:
+            return SynthesisBuildResult(
+                success=False,
+                artifact_path="",
+                backend_lang="javascript",
+                build_log="No .js files found in work directory.",
+                returncode=1,
+                work_dir=str(work_dir),
+            )
+
+        package_dir.mkdir(parents=True, exist_ok=True)
+        package_entry = package_dir / "index.js"
+        if entry.resolve() != package_entry.resolve():
+            shutil.copyfile(entry, package_entry)
+
+        package_json = {
+            "name": package_name,
+            "version": "0.0.0",
+            "main": "index.js",
+        }
+        if esm:
+            package_json["type"] = "module"
+            package_json["exports"] = "./index.js"
+        (package_dir / "package.json").write_text(
+            json.dumps(package_json, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        if esm:
+            script = (
+                "const {pathToFileURL}=require('url');"
+                f"import(pathToFileURL({json.dumps(str(package_entry))}).href)"
+                ".then(()=>process.exit(0),"
+                "err=>{console.error(err);process.exit(1)})"
+            )
+            cmd = [node, "-e", script]
+        else:
+            script = f"require({json.dumps(str(package_entry))})"
+            cmd = [node, "-e", script]
         result = subprocess.run(
-            [node, "-e", script],
+            cmd,
             capture_output=True,
             text=True,
             cwd=str(work_dir),
@@ -280,8 +325,7 @@ class SynthesisBuildDriver:
         )
         log = (result.stdout + result.stderr).strip()
 
-        # ERR_REQUIRE_ESM means the module is ESM-only — that's fine, treat as success.
-        if result.returncode != 0 and "ERR_REQUIRE_ESM" not in log:
+        if result.returncode != 0:
             return SynthesisBuildResult(
                 success=False,
                 artifact_path="",
@@ -451,6 +495,51 @@ def _write_files(source_files: dict[str, str], work_dir: Path) -> None:
         if dest.exists() and dest.is_symlink():
             raise UnsafeSourcePathError(f"Unsafe source filename {filename!r}: destination is a symlink")
         dest.write_text(content, encoding="utf-8")
+
+
+def _javascript_package_dir(node_modules: Path, module_name: str) -> Path:
+    """Return the staged package directory for a Node module name."""
+    if not module_name or module_name.startswith(("/", "\\")):
+        raise UnsafeSourcePathError(
+            f"Unsafe JavaScript module name: {module_name!r}"
+        )
+
+    parts = module_name.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise UnsafeSourcePathError(
+            f"Unsafe JavaScript module name: {module_name!r}"
+        )
+
+    root = node_modules.resolve()
+    path = root.joinpath(*parts).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise UnsafeSourcePathError(
+            f"Unsafe JavaScript module name: {module_name!r}"
+        )
+    return path
+
+
+def _find_javascript_entry(work_dir: Path, package_dir: Path):
+    """Find the JS entry file produced by the model."""
+    root_entry = work_dir / "index.js"
+    if root_entry.exists():
+        return root_entry
+
+    package_entry = package_dir / "index.js"
+    if package_entry.exists():
+        return package_entry
+
+    js_files = sorted(
+        p for p in work_dir.rglob("*.js")
+        if "node_modules" not in p.relative_to(work_dir).parts
+    )
+    if js_files:
+        return js_files[0]
+
+    js_files = sorted(work_dir.rglob("*.js"))
+    return js_files[0] if js_files else None
 
 
 def backend_lang_for_spec(lib_spec: dict) -> str:

@@ -323,8 +323,10 @@ def _deliverable_instructions(
         )
     if backend_lang == "javascript":
         module_style = "ESM (export default / export const)" if esm else "CommonJS (module.exports)"
+        module_name = lib_spec.get("module_name", canonical_name)
         return (
             f"Produce a single JavaScript file `index.js` using {module_style}.\n"
+            f"The harness will mount that file as the Node package `{module_name}`.\n"
             "Do not require/import the real package — implement everything from scratch.\n"
             "Wrap output in:\n"
             '<file name="index.js"><content>\n'

@@ -3,6 +3,7 @@ Tests for theseus/synthesis/build.py — SynthesisBuildDriver and backend_lang_f
 """
 import os
 import shutil
+import subprocess
 import sys
 
 import pytest
@@ -201,6 +202,56 @@ class TestBuildJavaScript:
         assert result.success is True
         assert result.backend_lang == "javascript"
         assert result.artifact_path == str(tmp_path)
+
+    def test_cjs_module_is_loadable_by_package_name(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {"index.js": "module.exports = { hello: () => 'world' };\n"}
+        result = driver.build(
+            source, "javascript", "testpkg", tmp_path, module_name="lodash.set"
+        )
+        assert result.success is True
+
+        node = shutil.which("node") or shutil.which("nodejs")
+        check = subprocess.run(
+            [
+                node,
+                "-e",
+                "const m = require('lodash.set'); if (m.hello() !== 'world') process.exit(2)",
+            ],
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        assert check.returncode == 0, check.stderr
+
+    def test_esm_module_is_loadable_by_package_name(
+        self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        source = {
+            "index.js": (
+                "export default function hello() { return 'world'; }\n"
+                "export const value = 7;\n"
+            )
+        }
+        result = driver.build(
+            source, "javascript", "chalk", tmp_path, module_name="chalk", esm=True
+        )
+        assert result.success is True
+
+        node = shutil.which("node") or shutil.which("nodejs")
+        check = subprocess.run(
+            [
+                node,
+                "--input-type=module",
+                "-e",
+                "const m = await import('chalk'); if (m.default() !== 'world' || m.value !== 7) process.exit(2)",
+            ],
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        assert check.returncode == 0, check.stderr
 
     def test_syntax_error_fails(
         self, driver: SynthesisBuildDriver, tmp_path: pytest.TempPathFactory

@@ -3,6 +3,7 @@ Tests for theseus/synthesis/runner.py — SynthesisRunner (mocked LLM and build)
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -223,6 +224,68 @@ class TestSynthesisRunnerSuccess:
 
         assert "testlib.inv.0" in result.failed_invariant_details
         assert result.failed_invariant_details["testlib.inv.0"]["status"] == "failed"
+
+    @pytest.mark.skipif(
+        not (shutil.which("node") or shutil.which("nodejs")),
+        reason="node not available",
+    )
+    def test_javascript_verify_shadows_node_builtin(self, tmp_path: Path) -> None:
+        spec = {
+            "schema_version": "0.2",
+            "identity": {"canonical_name": "node_os"},
+            "library": {
+                "backend": "cli",
+                "command": "node",
+                "module_name": "os",
+            },
+            "provenance": {"derived_from": [], "not_derived_from": [], "notes": []},
+            "constants": {},
+            "types": {},
+            "functions": {},
+            "wire_formats": {},
+            "error_model": {},
+            "invariants": [
+                {
+                    "id": "node_os.osplat.linux",
+                    "kind": "node_module_call_eq",
+                    "description": "platform",
+                    "category": "platform",
+                    "spec": {
+                        "function": "platform",
+                        "args": [],
+                        "expected": "linux",
+                    },
+                }
+            ],
+        }
+        spec_path = tmp_path / "node_os.zspec.json"
+        spec_path.write_text(json.dumps(spec), encoding="utf-8")
+
+        package_dir = tmp_path / "node_modules" / "os"
+        package_dir.mkdir(parents=True)
+        (package_dir / "index.js").write_text(
+            "module.exports = { platform: () => 'linux' };\n",
+            encoding="utf-8",
+        )
+
+        build = SynthesisBuildResult(
+            success=True,
+            artifact_path=str(tmp_path),
+            backend_lang="javascript",
+            build_log="",
+            returncode=0,
+            work_dir=str(tmp_path),
+        )
+        runner = SynthesisRunner(_AI_CFG)
+
+        results = runner._invoke_verify_harness(
+            spec_path,
+            build,
+            spec["library"],
+            spec["invariants"],
+        )
+
+        assert results[0]["passed"] is True
 
     def test_canonical_name_in_result(self, tmp_path: Path) -> None:
         spec = _make_spec()

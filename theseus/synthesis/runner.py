@@ -185,7 +185,12 @@ class SynthesisRunner:
 
             # --- Build ---
             build_result = self._build_driver.build(
-                source_files, backend_lang, canonical_name, work_dir
+                source_files,
+                backend_lang,
+                canonical_name,
+                work_dir,
+                module_name=lib_spec.get("module_name", ""),
+                esm=bool(lib_spec.get("esm", False)),
             )
             attempt = SynthesisAttempt(
                 iteration=iteration,
@@ -307,6 +312,7 @@ class SynthesisRunner:
             backend_lang = build_result.backend_lang
             artifact = build_result.artifact_path
             work_dir = build_result.work_dir
+            cwd = None
 
             if backend_lang in ("python", "rust"):
                 # Prepend staging dir so our synthesised module shadows any installed one.
@@ -325,12 +331,23 @@ class SynthesisRunner:
 
             elif backend_lang == "javascript":
                 env["NODE_PATH"] = artifact + os.pathsep + env.get("NODE_PATH", "")
+                module_name = lib_spec.get("module_name", "")
+                if module_name:
+                    preload = _write_node_preload(Path(work_dir), module_name)
+                    preload_arg = f"--require={preload}"
+                    env["NODE_OPTIONS"] = (
+                        preload_arg + " " + env.get("NODE_OPTIONS", "")
+                    ).strip()
+                cwd = work_dir
+            else:
+                cwd = None
 
             result = subprocess.run(
                 cmd,
                 capture_output=not self._verbose,
                 text=True,
                 env=env,
+                cwd=cwd,
                 timeout=180,
             )
 
@@ -388,6 +405,36 @@ def _detect_model(cfg: dict) -> str:
         if shutil.which("claude"):
             return "claude-cli"
     return cfg.get("openai_model", "unknown")
+
+
+def _write_node_preload(work_dir: Path, module_name: str) -> Path:
+    """Write a preload that forces require(module_name) to use the staged module."""
+    package_entry = work_dir / "node_modules"
+    for part in module_name.split("/"):
+        package_entry = package_entry / part
+    package_entry = package_entry / "index.js"
+
+    preload = work_dir / "__theseus_node_preload.cjs"
+    preload.write_text(
+        "\n".join(
+            [
+                "const Module = require('module');",
+                f"const target = {json.dumps(module_name)};",
+                f"const nodeTarget = {json.dumps('node:' + module_name)};",
+                f"const replacement = {json.dumps(str(package_entry))};",
+                "const originalLoad = Module._load;",
+                "Module._load = function(request, parent, isMain) {",
+                "  if (request === target || request === nodeTarget) {",
+                "    return originalLoad(replacement, parent, isMain);",
+                "  }",
+                "  return originalLoad.apply(this, arguments);",
+                "};",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return preload
 
 
 def _summarise_notes(status: str, attempts: list[SynthesisAttempt]) -> str:
