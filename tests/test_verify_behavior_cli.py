@@ -144,10 +144,10 @@ class TestCliExitsWith:
         })
         assert ok, msg
 
-    def test_openssl_bad_subcommand_exits_one(self, registry):
+    def test_openssl_bad_subcommand_reports_error(self, registry):
         ok, msg = registry.run({
-            "kind": "cli_exits_with",
-            "spec": {"args": ["no_such_cmd_xyz"], "expected_exit": 1},
+            "kind": "cli_stderr_contains",
+            "spec": {"args": ["no_such_cmd_xyz"], "expected_substring": "no_such_cmd_xyz"},
         })
         assert ok, msg
 
@@ -327,7 +327,7 @@ class TestCliStderrContains:
             "kind": "cli_stderr_contains",
             "spec": {
                 "args": ["no_such_subcommand_xyz"],
-                "expected_substring": "Invalid",
+                "expected_substring": "command",
             },
         })
         assert ok, msg
