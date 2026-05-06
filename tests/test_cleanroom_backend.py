@@ -2,6 +2,7 @@
 import json
 import os
 import subprocess
+import sys
 import textwrap
 
 import pytest
@@ -38,7 +39,7 @@ def _compile(spec_text: str, tmp_path) -> dict:
     spec_file = tmp_path / "sample.zspec.zsdl"
     spec_file.write_text(spec_text)
     result = subprocess.run(
-        ["python3", "tools/zsdl_compile.py", str(spec_file)],
+        [sys.executable, "tools/zsdl_compile.py", str(spec_file)],
         capture_output=True, text=True, cwd=os.getcwd()
     )
     assert result.returncode == 0, f"Compiler failed:\n{result.stderr}"

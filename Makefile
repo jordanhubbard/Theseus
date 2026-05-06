@@ -35,7 +35,8 @@ all:
 	@$(PYTHON) --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
 	@$(PYTHON) -c "import sys; assert sys.version_info >= (3, 9), 'Python 3.9+ required'" 2>/dev/null \
 		|| (echo "Error: Python 3.9+ required" && exit 1)
-	@echo "Theseus is ready. No runtime dependencies to install (stdlib only)."
+	@echo "Theseus is ready. Runtime code is stdlib-only."
+	@echo "Install Python tooling in a venv with 'python -m pip install -r requirements.txt' before tests/docs."
 	@echo "Run 'make test' to verify. Run 'make start' for a quick demo on examples/."
 
 start:
@@ -255,12 +256,10 @@ release:
 	bash scripts/release.sh $(or $(BUMP),patch)
 
 docs:
-	pip install mkdocs-material --quiet
-	mkdocs build
+	$(PYTHON) -m mkdocs build
 
 docs-serve:
-	pip install mkdocs-material --quiet
-	mkdocs serve
+	$(PYTHON) -m mkdocs serve
 
 # ── ZSpec pipeline (compile + verify_real + synthesize + gate + annotate) ─────
 # The pipeline is the canonical way to author and validate a spec.
@@ -416,7 +415,7 @@ help:
 	@echo "  make import-cargo   Fetch Cargo crate metadata from crates.io (requires cargo-seed.txt, skips GPL)"
 	@echo "  make compile-zsdl   Compile zspecs/*.zspec.zsdl → _build/zspecs/*.zspec.json (ZSDL=file for one)"
 	@echo "  make verify-behavior  Run Z-layer behavioral spec verifier (ZSPEC=path, default: _build/zspecs/zlib.zspec.json)"
-	@echo "  make docker-build   Build the Ubuntu 26.04 verification sandbox image (theseus-verify:latest)"
+	@echo "  make docker-build   Build the digest-pinned Ubuntu 26.04 verification sandbox image (theseus-verify:latest)"
 	@echo "  make verify-behavior-docker  Verify a spec in a disposable Docker container (ZSDL=path [PIP=pkg] [APT=pkg] [NPM=pkg] [CARGO=crate])"
 	@echo "  make validate-e2e   Build from source and verify behavioral spec (E2E_RECORD=, E2E_ZSPEC=)"
 	@echo "  make verify-all-specs Run every spec in _build/zspecs/ and report aggregate pass/fail (VERBOSE=1 for details)"
@@ -426,7 +425,7 @@ help:
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo "  make release        Cut a release (BUMP=major|minor|patch, default: patch)"
-	@echo "  make docs           Build user guide static site (requires mkdocs-material)"
+	@echo "  make docs           Build user guide static site (uses requirements.txt)"
 	@echo "  make docs-serve     Serve user guide locally at http://127.0.0.1:8000"
 	@echo ""
 	@echo "Discovery, comparison, and provenance:"

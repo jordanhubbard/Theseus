@@ -117,18 +117,25 @@ make verify-behavior ZSPEC=_build/zspecs/mylib.zspec.json
 ### Requirements
 
 - Python 3.9+
-- Node.js 22+ and npm (for Node.js-backed specs: ajv, chalk, express, lodash, minimist, prettier, semver, uuid)
-- `pytest` (for `make test`)
+- Node.js 22+ and npm (for Node.js-backed specs declared in `package.json`)
+- Python tooling from `requirements.txt` (pytest, PyYAML, MkDocs Material)
 
 ### Install
 
 ```bash
 git clone https://github.com/jordanhubbard/Theseus
 cd Theseus
-pip install pytest pyyaml
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
 npm install
 make
 ```
+
+Dependency evidence for OSS review lives in
+[`docs/dependency-evidence.md`](docs/dependency-evidence.md). It records the
+Python manifests, npm lockfile, pinned GitHub Actions, Docker base-image digest,
+license metadata, and scanner scope for ephemeral agent worktrees.
 
 ### Run the test suite
 

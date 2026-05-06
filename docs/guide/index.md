@@ -2330,10 +2330,9 @@ zstd
 | Requirement | Version | Purpose |
 |-------------|---------|---------|
 | Python | 3.9+ | All tools and test suite |
-| Node.js | 22+ | Node.js-backed Z-specs (ajv, chalk, express, lodash, minimist, prettier, semver, uuid) |
+| Node.js | 22+ | Node.js-backed Z-specs declared in `package.json` |
 | npm | any | Install Node.js test dependencies |
-| pytest | any | `make test` |
-| PyYAML | any | `make compile-zsdl` / `make test` (ZSDL compiler) |
+| `requirements.txt` | committed | Python test, ZSDL compiler, and docs tooling |
 
 To run the full behavioral spec suite (`make verify-all-specs`), the libraries under test must also be installed. The CI workflow installs them automatically. For local use, install the ones you want to verify individually.
 
@@ -2342,7 +2341,9 @@ To run the full behavioral spec suite (`make verify-all-specs`), the libraries u
 ```bash
 git clone https://github.com/jordanhubbard/Theseus
 cd Theseus
-pip install pytest pyyaml
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
 npm install
 make
 ```

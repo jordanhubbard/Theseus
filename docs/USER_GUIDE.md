@@ -26,7 +26,7 @@ It answers four questions:
 3. **How does library A differ from library B?** — Comparison: compare two specs to find common behavior and divergences.
 4. **Can I build a correct implementation from the spec alone?** — Synthesis: LLM-generate an implementation that satisfies every invariant, with the original package blocked during testing.
 
-The system requires **Python 3.9+** and has **no external runtime dependencies** (pure stdlib). LLM synthesis requires either the `claude` CLI or an OpenAI-compatible endpoint configured in `config.yaml`.
+The system requires **Python 3.9+** and has **no external runtime dependencies** (pure stdlib). Local testing, ZSDL compilation, and docs builds use the Python tooling declared in `requirements.txt`. LLM synthesis requires either the `claude` CLI or an OpenAI-compatible endpoint configured in `config.yaml`.
 
 ---
 
@@ -38,7 +38,15 @@ The system requires **Python 3.9+** and has **no external runtime dependencies**
 python3 --version   # must be 3.9 or later
 ```
 
-No `pip install` is needed. Theseus uses Python stdlib only.
+Install the committed Python tooling manifest before running tests or building docs:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+The Theseus runtime code remains stdlib-only.
 
 To verify specs against libraries that are not installed on your host, Docker is required:
 
@@ -52,7 +60,7 @@ Build the verification sandbox image once after cloning:
 make docker-build
 ```
 
-This creates a local `theseus-verify:latest` image (Ubuntu 26.04 with Python, Node.js, Rust, and common C dev libraries). The image is reused for all subsequent `make verify-behavior-docker` calls.
+This creates a local `theseus-verify:latest` image (a digest-pinned Ubuntu 26.04 base with Python, Node.js, Rust, and common C dev libraries). The image is reused for all subsequent `make verify-behavior-docker` calls.
 
 ### 2.2 Verify the installation
 
@@ -193,7 +201,7 @@ make compile-zsdl ZSDL=zspecs/zlib.zspec.zsdl
 make verify-behavior ZSPEC=_build/zspecs/zlib.zspec.json VERBOSE=1
 ```
 
-**If the library is not installed on your system,** use the Docker sandbox instead. It starts a disposable Ubuntu 26.04 container, installs the package inside the container, runs verification, and removes the container — nothing is installed on the host:
+**If the library is not installed on your system,** use the Docker sandbox instead. It starts a disposable digest-pinned Ubuntu 26.04 container, installs the package inside the container, runs verification, and removes the container — nothing is installed on the host:
 
 ```bash
 # Build the sandbox image once (reused for all subsequent verifications):
@@ -896,7 +904,7 @@ For full authoring rules, see `docs/cleanroom-spec-format.md`.
 | `make verify-behavior ZSPEC=<path>` | Verify spec against real library (must be installed on host) |
 | `make verify-behavior ZSPEC=<path> VERBOSE=1` | Per-invariant results |
 | `make verify-behavior ZSPEC=<path> FILTER=<substring>` | Run matching invariants only |
-| `make docker-build` | Build the Ubuntu 26.04 verification sandbox image (one-time) |
+| `make docker-build` | Build the digest-pinned Ubuntu 26.04 verification sandbox image (one-time) |
 | `make verify-behavior-docker ZSDL=<path>` | Verify in disposable Docker container |
 | `make verify-behavior-docker ZSDL=<path> PIP=<pkg>` | Install Python package via pip before verify |
 | `make verify-behavior-docker ZSDL=<path> APT=<pkg>` | Install Debian package via apt before verify |

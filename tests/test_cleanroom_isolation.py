@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
@@ -19,7 +20,7 @@ def _run_isolated(code: str, blocked: str) -> subprocess.CompletedProcess:
         "THESEUS_BLOCKED_PACKAGE": blocked,
     }
     return subprocess.run(
-        ["python3", "-c", code],
+        [sys.executable, "-c", code],
         capture_output=True,
         env=env,
     )
@@ -47,7 +48,7 @@ def test_no_blocked_package_env_allows_all():
     env = {**os.environ, "PYTHONPATH": CLEANROOM_PYTHON, "PYTHONNOUSERSITE": "1"}
     env.pop("THESEUS_BLOCKED_PACKAGE", None)
     result = subprocess.run(
-        ["python3", "-c", "import json; print('ok')"],
+        [sys.executable, "-c", "import json; print('ok')"],
         capture_output=True, env=env,
     )
     assert result.returncode == 0

@@ -129,7 +129,7 @@ def _verify_python(spec: dict, name: str, verbose: bool) -> dict:
         )
 
         r = subprocess.run(
-            ["python3", "-c", code],
+            [sys.executable, "-c", code],
             capture_output=True, text=True, env=env,
         )
 

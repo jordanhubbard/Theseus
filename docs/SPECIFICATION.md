@@ -308,9 +308,9 @@ make verify-all-specs          # runs all; prints aggregate
 
 ### 5.4 Docker Verification Sandbox (`tools/verify_in_docker.py`)
 
-**Purpose:** Run verification inside a disposable Ubuntu 26.04 container so packages are never installed on the host machine. Required for all backend types that need external installation: `python_module` (pip), `ctypes` (apt), `node_module` (npm), `rust_module` (cargo), and `cli` (apt).
+**Purpose:** Run verification inside a disposable digest-pinned Ubuntu 26.04 container so packages are never installed on the host machine. Required for all backend types that need external installation: `python_module` (pip), `ctypes` (apt), `node_module` (npm), `rust_module` (cargo), and `cli` (apt).
 
-**Image:** `docker/Dockerfile.verify` — Ubuntu 26.04 with Python 3, Node.js, Rust/cargo, and common C dev libraries pre-installed. Built once with `make docker-build`; reused for all subsequent verifications.
+**Image:** `docker/Dockerfile.verify` — Ubuntu 26.04 pinned by digest, with Python 3, Node.js, Rust/cargo, and common C dev libraries pre-installed. Built once with `make docker-build`; reused for all subsequent verifications.
 
 **Steps:** compile spec → build/reuse image → start container (repo mounted at `/theseus`) → install requested packages → run `verify_behavior.py` → remove container.
 
