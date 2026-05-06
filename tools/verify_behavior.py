@@ -1982,20 +1982,56 @@ def _check_spec_version(spec_for_versions: str, lib_version: str) -> tuple[bool,
     except ImportError:
         pass
 
-    # Fallback: handle simple ">=X.Y" by comparing major.minor
-    m = _re.match(r"^>=(\d+)\.(\d+)", spec_for_versions)
-    if m:
-        req_major, req_minor = int(m.group(1)), int(m.group(2))
-        vm = _re.match(r"^(\d+)\.(\d+)", lib_version)
-        if vm:
-            inst_major, inst_minor = int(vm.group(1)), int(vm.group(2))
-            ok = (inst_major, inst_minor) >= (req_major, req_minor)
-            if not ok:
-                return False, (
-                    f"Library version {lib_version!r} does not satisfy "
-                    f"spec_for_versions {spec_for_versions!r}"
-                )
+    fallback_ok = _simple_version_satisfies(lib_version, spec_for_versions)
+    if fallback_ok is not None and not fallback_ok:
+        return False, (
+            f"Library version {lib_version!r} does not satisfy "
+            f"spec_for_versions {spec_for_versions!r}"
+        )
     return True, ""
+
+
+def _simple_version_tuple(version_str: str):
+    parts = _re.findall(r"\d+", version_str)
+    if not parts:
+        return None
+    return tuple(int(part) for part in parts)
+
+
+def _simple_version_satisfies(version_str: str, constraint: str):
+    """Best-effort fallback for simple numeric version constraints."""
+    version = _simple_version_tuple(version_str)
+    if version is None:
+        return None
+    tokens = [token for token in _re.split(r"[\s,]+", constraint.strip()) if token]
+    if not tokens:
+        return None
+    saw_supported = False
+    for token in tokens:
+        m = _re.match(r"^(<=|>=|==|!=|<|>)(\d+(?:\.\d+)*)$", token)
+        if not m:
+            return None
+        saw_supported = True
+        op, required_str = m.groups()
+        required = _simple_version_tuple(required_str)
+        if required is None:
+            return None
+        width = max(len(version), len(required))
+        lhs = version + (0,) * (width - len(version))
+        rhs = required + (0,) * (width - len(required))
+        if op == ">=" and not (lhs >= rhs):
+            return False
+        if op == ">" and not (lhs > rhs):
+            return False
+        if op == "<=" and not (lhs <= rhs):
+            return False
+        if op == "<" and not (lhs < rhs):
+            return False
+        if op == "==" and not (lhs == rhs):
+            return False
+        if op == "!=" and not (lhs != rhs):
+            return False
+    return True if saw_supported else None
 
 
 def _semver_satisfies(version_str: str, constraint: str) -> bool:
@@ -2017,13 +2053,9 @@ def _semver_satisfies(version_str: str, constraint: str) -> bool:
             return False
     except ImportError:
         pass
-    # Fallback: handle simple ">=X.Y" by comparing major.minor
-    m = _re.match(r"^>=(\d+)\.(\d+)", constraint)
-    if m:
-        req = (int(m.group(1)), int(m.group(2)))
-        vm = _re.match(r"^(\d+)\.(\d+)", version_str)
-        if vm:
-            return (int(vm.group(1)), int(vm.group(2))) >= req
+    fallback_ok = _simple_version_satisfies(version_str, constraint)
+    if fallback_ok is not None:
+        return fallback_ok
     return False
 
 

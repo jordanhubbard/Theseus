@@ -16,8 +16,9 @@ from theseus import agent
 # ---------------------------------------------------------------------------
 
 def test_available_false_when_no_config():
-    # When claude is not in PATH and no openai_base_url, returns False.
-    with patch("theseus.agent._claude_in_path", return_value=False):
+    # When no CLI provider is in PATH and no openai_base_url is set, returns False.
+    with patch("theseus.agent._claude_in_path", return_value=False), \
+         patch("theseus.agent.shutil.which", return_value=None):
         assert agent.available({}) is False
 
 
@@ -51,13 +52,15 @@ def test_available_auto_with_openai_url_no_claude():
 
 def test_run_prompt_raises_when_no_provider():
     cfg = {"provider": "auto", "openai_base_url": ""}
-    with patch("theseus.agent._claude_in_path", return_value=False):
+    with patch("theseus.agent._claude_in_path", return_value=False), \
+         patch("theseus.agent.shutil.which", return_value=None):
         with pytest.raises(RuntimeError, match="No AI provider"):
             agent.run_prompt("hello", cfg)
 
 
 def test_run_prompt_raises_when_provider_none():
-    with patch("theseus.agent._claude_in_path", return_value=False):
+    with patch("theseus.agent._claude_in_path", return_value=False), \
+         patch("theseus.agent.shutil.which", return_value=None):
         with pytest.raises(RuntimeError):
             agent.run_prompt("hello", {})
 
