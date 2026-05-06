@@ -1,413 +1,383 @@
+"""Clean-room reimplementation of a tempfile-style module.
+
+Implements mkstemp, mkdtemp, and a NamedTemporaryFile-like context manager
+without importing the standard ``tempfile`` package.
 """
-theseus_tempfile_cr — Clean-room tempfile module.
-No import of the standard `tempfile` module.
-"""
 
-import os as _os
-import sys as _sys
-import io as _io
-import stat as _stat
-import random as _random
-import string as _string
-import time as _time
-import weakref as _weakref
-import threading as _threading
-import errno as _errno
+import os
+import sys
+import errno
 
 
-_allocate_lock = _threading.Lock
-_text_openflags = _os.O_RDWR | _os.O_CREAT | _os.O_EXCL
-if hasattr(_os, 'O_NOFOLLOW'):
-    _text_openflags |= _os.O_NOFOLLOW
-_bin_openflags = _text_openflags | getattr(_os, 'O_BINARY', 0)
-
-_once_lock = _threading.Lock()
-
-try:
-    _O_TMPFILE = _os.O_TMPFILE
-except AttributeError:
-    _O_TMPFILE = None
-
-try:
-    _os.stat('/tmp')
-    _default_dir = '/tmp'
-except OSError:
-    _default_dir = _os.curdir
+_RANDOM_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+_NAME_LENGTH = 8
+_MAX_ATTEMPTS = 10000
+_DEFAULT_PREFIX = "tmp"
 
 
-_name_sequence = None
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _candidate_tempdirs():
+    """Yield candidate temporary directories in priority order."""
+    for var in ("TMPDIR", "TEMP", "TMP"):
+        v = os.environ.get(var)
+        if v:
+            yield v
+    if sys.platform == "win32":
+        yield os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "Temp")
+        yield "C:\\Temp"
+        yield "C:\\TMP"
+        yield "\\TEMP"
+        yield "\\TMP"
+    else:
+        yield "/tmp"
+        yield "/var/tmp"
+        yield "/usr/tmp"
+    yield os.getcwd()
 
 
-class _RandomNameSequence:
-    characters = 'abcdefghijklmnopqrstuvwxyz0123456789_'
-
-    @property
-    def rng(self):
-        cur_pid = _os.getpid()
-        if cur_pid != getattr(self, '_rng_pid', None):
-            self._rng = _random.Random()
-            self._rng_pid = cur_pid
-        return self._rng
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        c = self.characters
-        choose = self.rng.choice
-        letters = [choose(c) for _ in range(8)]
-        return ''.join(letters)
-
-
-def _get_candidate_names():
-    global _name_sequence
-    if _name_sequence is None:
-        with _once_lock:
-            if _name_sequence is None:
-                _name_sequence = _RandomNameSequence()
-    return _name_sequence
-
-
-def _get_default_tempdir():
-    for d in [_os.environ.get('TMPDIR', ''), _os.environ.get('TEMP', ''),
-              _os.environ.get('TMP', ''), '/tmp', '/var/tmp', '/usr/tmp', _os.curdir]:
-        if d:
-            try:
-                fd, name = _os.open(d, _bin_openflags, 0o600), None
-                try:
-                    _os.close(fd)
-                    _os.unlink(name) if name else None
-                except:
-                    pass
+def _gettempdir():
+    """Return a usable directory for temporary files."""
+    for d in _candidate_tempdirs():
+        if not d:
+            continue
+        try:
+            if os.path.isdir(d) and os.access(d, os.R_OK | os.W_OK | os.X_OK):
                 return d
-            except (OSError, AttributeError):
-                pass
-    raise FileNotFoundError("No usable temporary directory found")
+        except OSError:
+            continue
+    # Last-ditch fallback.
+    return os.getcwd()
 
 
-def gettempdir():
-    """Return the default temporary directory."""
-    return _os.environ.get('TMPDIR', _os.environ.get('TEMP', _os.environ.get('TMP', '/tmp')))
+def _random_name(length=_NAME_LENGTH):
+    """Generate a random alphanumeric suffix using os.urandom."""
+    raw = os.urandom(length)
+    n = len(_RANDOM_CHARS)
+    return "".join(_RANDOM_CHARS[b % n] for b in raw)
 
 
-def gettempdirb():
-    """Return the default temporary directory as bytes."""
-    return gettempdir().encode()
+def _sanitize_template_part(value, default=""):
+    if value is None:
+        return default
+    if isinstance(value, bytes):
+        try:
+            value = value.decode(sys.getfilesystemencoding() or "utf-8")
+        except Exception:
+            value = value.decode("latin-1", errors="replace")
+    if not isinstance(value, str):
+        raise TypeError("template parts must be str, bytes, or None")
+    return value
 
 
-def gettempprefix():
-    return 'tmp'
-
-
-def gettempprefixb():
-    return b'tmp'
-
-
-def _sanitize_params(prefix, suffix, dir):
-    if prefix is None:
-        prefix = gettempprefix()
-    if suffix is None:
-        suffix = ''
-    if dir is None:
-        dir = gettempdir()
-    return prefix, suffix, dir
-
+# ---------------------------------------------------------------------------
+# Core primitives
+# ---------------------------------------------------------------------------
 
 def mkstemp(suffix=None, prefix=None, dir=None, text=False):
-    """Create and return a unique temporary file."""
-    prefix, suffix, dir = _sanitize_params(prefix, suffix, dir)
-    if text:
-        flags = _text_openflags
-    else:
-        flags = _bin_openflags
-    for seq in _get_candidate_names():
-        name = _os.path.join(dir, prefix + seq + suffix)
+    """Create a temporary file securely; return (fd, absolute_path).
+
+    The file is created with O_EXCL and mode 0600. The caller is responsible
+    for closing the file descriptor and deleting the file.
+    """
+    suffix = _sanitize_template_part(suffix, "")
+    prefix = _sanitize_template_part(prefix, _DEFAULT_PREFIX)
+    if dir is None:
+        dir = _gettempdir()
+    elif isinstance(dir, bytes):
+        dir = dir.decode(sys.getfilesystemencoding() or "utf-8")
+
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if not text and hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+    if text and hasattr(os, "O_TEXT"):
+        flags |= os.O_TEXT
+
+    last_err = None
+    for _ in range(_MAX_ATTEMPTS):
+        name = prefix + _random_name() + suffix
+        path = os.path.join(dir, name)
         try:
-            fd = _os.open(name, flags, 0o600)
-            return fd, _os.path.abspath(name)
+            fd = os.open(path, flags, 0o600)
         except FileExistsError:
             continue
-        except PermissionError:
-            if _os.path.isdir(dir) and _os.access(dir, _os.W_OK):
+        except OSError as e:
+            if e.errno == errno.EEXIST:
                 continue
+            last_err = e
             raise
-    raise FileExistsError("No usable temporary filename found")
+        return fd, os.path.abspath(path)
+
+    if last_err is not None:
+        raise last_err
+    raise FileExistsError(errno.EEXIST,
+                          "No usable temporary file name found")
 
 
 def mkdtemp(suffix=None, prefix=None, dir=None):
-    """Create and return a unique temporary directory."""
-    prefix, suffix, dir = _sanitize_params(prefix, suffix, dir)
-    for seq in _get_candidate_names():
-        name = _os.path.join(dir, prefix + seq + suffix)
+    """Create a temporary directory securely; return its absolute path."""
+    suffix = _sanitize_template_part(suffix, "")
+    prefix = _sanitize_template_part(prefix, _DEFAULT_PREFIX)
+    if dir is None:
+        dir = _gettempdir()
+    elif isinstance(dir, bytes):
+        dir = dir.decode(sys.getfilesystemencoding() or "utf-8")
+
+    last_err = None
+    for _ in range(_MAX_ATTEMPTS):
+        name = prefix + _random_name() + suffix
+        path = os.path.join(dir, name)
         try:
-            _os.mkdir(name, 0o700)
-            return _os.path.abspath(name)
+            os.mkdir(path, 0o700)
         except FileExistsError:
             continue
-        except PermissionError:
-            if _os.path.isdir(dir) and _os.access(dir, _os.W_OK):
+        except OSError as e:
+            if e.errno == errno.EEXIST:
                 continue
+            last_err = e
             raise
-    raise FileExistsError("No usable temporary directory name found")
+        return os.path.abspath(path)
+
+    if last_err is not None:
+        raise last_err
+    raise FileExistsError(errno.EEXIST,
+                          "No usable temporary directory name found")
 
 
-def mktemp(suffix='', prefix='tmp', dir=None):
-    """Return an absolute pathname of a file that did not exist at call time."""
-    if dir is None:
-        dir = gettempdir()
-    for seq in _get_candidate_names():
-        name = _os.path.join(dir, prefix + seq + suffix)
-        if not _os.path.exists(name):
-            return name
-    raise FileExistsError("No usable temporary filename found")
+def gettempdir():
+    """Public accessor for the chosen temporary directory."""
+    return _gettempdir()
 
 
-class _TemporaryFileCloser:
-    file = None
-    close_called = False
-    cleanup_called = False
+def gettempprefix():
+    return _DEFAULT_PREFIX
 
-    def __init__(self, file, name, delete=True, delete_on_close=True):
-        self.file = file
-        self.name = name
-        self.delete = delete
-        self.delete_on_close = delete_on_close
 
-    def cleanup(self, windows=False):
-        if not self.cleanup_called:
-            self.cleanup_called = True
-            try:
-                self.file.close()
-            finally:
-                if self.delete:
-                    self.unlink(self.name)
+# ---------------------------------------------------------------------------
+# NamedTemporaryFile-like wrapper
+# ---------------------------------------------------------------------------
 
-    def unlink(self, name):
+class _NamedTemporaryFile:
+    """A named temporary file that is automatically deleted on close.
+
+    Behaves like a context manager and proxies file operations to the
+    underlying file object opened from the descriptor returned by mkstemp.
+    """
+
+    def __init__(self, mode="w+b", buffering=-1, encoding=None, newline=None,
+                 suffix=None, prefix=None, dir=None, delete=True):
+        binary = "b" in mode
+        fd, name = mkstemp(suffix=suffix, prefix=prefix, dir=dir, text=not binary)
         try:
-            _os.unlink(name)
-        except OSError:
-            pass
-
-    def close(self):
-        if not self.close_called and self.file is not None:
-            self.close_called = True
+            if binary:
+                self._file = os.fdopen(fd, mode, buffering)
+            else:
+                self._file = os.fdopen(fd, mode, buffering,
+                                       encoding=encoding, newline=newline)
+        except Exception:
             try:
-                self.file.close()
-            finally:
-                if self.delete and self.delete_on_close:
-                    self.unlink(self.name)
-
-    def __del__(self):
-        self.cleanup()
-
-
-class _TemporaryFileWrapper:
-    """Wrapper around temporary file for auto-deletion."""
-
-    def __init__(self, file, name, delete=True, delete_on_close=True):
-        self.file = file
+                os.close(fd)
+            except OSError:
+                pass
+            try:
+                os.unlink(name)
+            except OSError:
+                pass
+            raise
         self.name = name
-        self.delete = delete
-        self._closer = _TemporaryFileCloser(file, name, delete, delete_on_close)
+        self.delete = bool(delete)
+        self.mode = mode
+        self._closed = False
 
-    def __getattr__(self, name):
-        a = self.__dict__.get('file')
-        if a is None:
-            raise AttributeError(name)
-        return getattr(a, name)
-
+    # Context-manager protocol -----------------------------------------
     def __enter__(self):
-        self.file.__enter__()
         return self
 
-    def __exit__(self, exc, value, tb):
-        result = self.file.__exit__(exc, value, tb)
-        if self.delete:
-            self._closer.cleanup()
-        return result
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
-    def close(self):
-        self._closer.close()
-
+    # Iterator protocol ------------------------------------------------
     def __iter__(self):
-        for line in self.file:
-            yield line
+        return iter(self._file)
 
+    def __next__(self):
+        return next(self._file)
 
-def NamedTemporaryFile(mode='w+b', buffering=-1, encoding=None, newline=None,
-                       suffix=None, prefix=None, dir=None, delete=True,
-                       *, errors=None, delete_on_close=True):
-    """Create and return a temporary file."""
-    prefix, suffix, dir = _sanitize_params(prefix, suffix, dir)
-
-    flags = _bin_openflags
-    file = None
-    fd, name = mkstemp(suffix=suffix, prefix=prefix, dir=dir)
-    try:
-        file = open(fd, mode, buffering=buffering, encoding=encoding, newline=newline, errors=errors)
-        return _TemporaryFileWrapper(file, name, delete, delete_on_close)
-    except:
+    # Lifecycle --------------------------------------------------------
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
         try:
-            _os.close(fd)
-        except:
-            pass
+            self._file.close()
+        finally:
+            if self.delete:
+                try:
+                    os.unlink(self.name)
+                except OSError:
+                    pass
+
+    def __del__(self):
         try:
-            _os.unlink(name)
-        except:
-            pass
-        raise
-
-
-TemporaryFile = NamedTemporaryFile
-
-
-class TemporaryDirectory:
-    """A context manager that creates a temporary directory."""
-
-    def __init__(self, suffix=None, prefix=None, dir=None,
-                 ignore_cleanup_errors=False, *, delete=True):
-        self.name = mkdtemp(suffix, prefix, dir)
-        self._ignore_cleanup_errors = ignore_cleanup_errors
-        self._delete = delete
-        self._finalizer = _weakref.finalize(
-            self, self._cleanup, self.name,
-            warn_message="Implicitly cleaning up {!r}".format(self))
-
-    @classmethod
-    def _rmtree(cls, name, ignore_errors=False):
-        import shutil
-        shutil.rmtree(name, ignore_errors=ignore_errors)
-
-    @classmethod
-    def _cleanup(cls, name, warn_message=None):
-        try:
-            cls._rmtree(name)
+            self.close()
         except Exception:
             pass
 
-    def __repr__(self):
-        return '<{} {!r}>'.format(self.__class__.__name__, self.name)
+    # Common file API passthroughs (explicit for clarity) -------------
+    def write(self, data):
+        return self._file.write(data)
 
-    def __enter__(self):
-        return self.name
+    def read(self, *args, **kwargs):
+        return self._file.read(*args, **kwargs)
 
-    def __exit__(self, exc, value, tb):
-        self.cleanup()
+    def readline(self, *args, **kwargs):
+        return self._file.readline(*args, **kwargs)
 
-    def cleanup(self):
-        if self._finalizer.detach() or _os.path.exists(self.name):
-            self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+    def readlines(self, *args, **kwargs):
+        return self._file.readlines(*args, **kwargs)
 
-    def __del__(self):
-        self.cleanup()
-
-
-class SpooledTemporaryFile:
-    """A file-like object that starts in memory and spills to disk."""
-
-    _rolled = False
-
-    def __init__(self, max_size=0, mode='w+b', buffering=-1,
-                 encoding=None, newline=None, suffix=None, prefix=None,
-                 dir=None, *, errors=None):
-        if 'b' in mode:
-            self._file = _io.BytesIO()
-        else:
-            self._file = _io.StringIO()
-        self._max_size = max_size
-        self._rolled = False
-        self._TemporaryFileArgs = {
-            'mode': mode, 'buffering': buffering, 'suffix': suffix,
-            'prefix': prefix, 'dir': dir, 'encoding': encoding,
-            'newline': newline,
-        }
-
-    def _check(self, file):
-        if self._rolled:
-            return
-        max_size = self._max_size
-        if max_size and file.tell() > max_size:
-            self.rollover()
-
-    def rollover(self):
-        if self._rolled:
-            return
-        file = self._file
-        newfile = self._file = NamedTemporaryFile(**self._TemporaryFileArgs)
-        newfile.write(file.getvalue())
-        newfile.seek(file.tell())
-        self._rolled = True
-
-    def write(self, s):
-        self._file.write(s)
-        self._check(self._file)
-
-    def read(self, *args):
-        return self._file.read(*args)
-
-    def seek(self, *args):
-        return self._file.seek(*args)
+    def seek(self, *args, **kwargs):
+        return self._file.seek(*args, **kwargs)
 
     def tell(self):
         return self._file.tell()
 
-    def getvalue(self):
-        return self._file.getvalue()
+    def flush(self):
+        return self._file.flush()
 
-    def close(self):
-        self._file.close()
+    def fileno(self):
+        return self._file.fileno()
 
-    def __enter__(self):
-        return self
+    def truncate(self, *args, **kwargs):
+        return self._file.truncate(*args, **kwargs)
 
-    def __exit__(self, *args):
-        self._file.__exit__(*args)
+    def writable(self):
+        return self._file.writable()
 
-    def __iter__(self):
-        return self._file.__iter__()
+    def readable(self):
+        return self._file.readable()
+
+    def seekable(self):
+        return self._file.seekable()
+
+    @property
+    def closed(self):
+        return self._closed or self._file.closed
+
+    # Catch-all for anything else
+    def __getattr__(self, item):
+        # __getattr__ only fires for missing attributes.
+        return getattr(self._file, item)
+
+
+def NamedTemporaryFile(mode="w+b", buffering=-1, encoding=None, newline=None,
+                       suffix=None, prefix=None, dir=None, delete=True):
+    return _NamedTemporaryFile(mode=mode, buffering=buffering,
+                               encoding=encoding, newline=newline,
+                               suffix=suffix, prefix=prefix, dir=dir,
+                               delete=delete)
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Required invariant entry points
 # ---------------------------------------------------------------------------
 
 def tempfile2_mkstemp():
-    """mkstemp creates a temporary file; returns True."""
-    fd, path = mkstemp()
+    """Verify mkstemp creates a unique, writable temp file and clean up."""
+    fd, path = mkstemp(prefix="t2_")
     try:
-        _os.close(fd)
-        return _os.path.exists(path)
+        if not isinstance(fd, int) or fd < 0:
+            return False
+        if not os.path.exists(path):
+            return False
+        payload = b"theseus-tempfile-cr"
+        written = os.write(fd, payload)
+        if written != len(payload):
+            return False
+        os.lseek(fd, 0, 0)
+        # Read back via a fresh descriptor to confirm content landed on disk.
+        with open(path, "rb") as fh:
+            data = fh.read()
+        if data != payload:
+            return False
+        return True
     finally:
         try:
-            _os.unlink(path)
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(path)
         except OSError:
             pass
 
 
 def tempfile2_mkdtemp():
-    """mkdtemp creates a temporary directory; returns True."""
-    d = mkdtemp()
+    """Verify mkdtemp creates a usable, isolated temp directory."""
+    path = mkdtemp(prefix="t2d_")
     try:
-        return _os.path.isdir(d)
+        if not os.path.isdir(path):
+            return False
+        # Confirm we can put a file inside the directory.
+        inner = os.path.join(path, "probe.txt")
+        with open(inner, "wb") as fh:
+            fh.write(b"ok")
+        if not os.path.isfile(inner):
+            return False
+        os.unlink(inner)
+        return True
     finally:
         try:
-            _os.rmdir(d)
+            # Best-effort recursive cleanup of any stragglers.
+            for entry in os.listdir(path):
+                full = os.path.join(path, entry)
+                try:
+                    if os.path.isdir(full) and not os.path.islink(full):
+                        os.rmdir(full)
+                    else:
+                        os.unlink(full)
+                except OSError:
+                    pass
+            os.rmdir(path)
         except OSError:
             pass
 
 
 def tempfile2_named():
-    """NamedTemporaryFile creates and auto-deletes a temp file; returns True."""
-    with NamedTemporaryFile() as f:
-        name = f.name
-        f.write(b'test')
-        exists_during = _os.path.exists(name)
-    return exists_during
+    """Verify NamedTemporaryFile round-trips content and auto-deletes."""
+    with NamedTemporaryFile(prefix="t2n_", delete=True) as fh:
+        name = fh.name
+        if not os.path.exists(name):
+            return False
+        fh.write(b"named-temp-data")
+        fh.flush()
+        fh.seek(0)
+        if fh.read() != b"named-temp-data":
+            return False
+    # After the context exits the file should be gone.
+    if os.path.exists(name):
+        try:
+            os.unlink(name)
+        except OSError:
+            pass
+        return False
+    return True
 
 
 __all__ = [
-    'NamedTemporaryFile', 'TemporaryFile', 'SpooledTemporaryFile',
-    'TemporaryDirectory', 'mkstemp', 'mkdtemp', 'mktemp',
-    'gettempdir', 'gettempdirb', 'gettempprefix', 'gettempprefixb',
-    'tempfile2_mkstemp', 'tempfile2_mkdtemp', 'tempfile2_named',
+    "mkstemp",
+    "mkdtemp",
+    "NamedTemporaryFile",
+    "gettempdir",
+    "gettempprefix",
+    "tempfile2_mkstemp",
+    "tempfile2_mkdtemp",
+    "tempfile2_named",
 ]

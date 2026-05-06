@@ -1,141 +1,192 @@
-"""
-theseus_abc_cr — Clean-room abc module.
-No import of the standard `abc` module.
+"""Clean-room implementation of Python's abc module.
 
-Uses Python's built-in _abc C extension.
+Provides ABCMeta metaclass, abstractmethod decorator, and ABC convenience
+base class. No imports from the standard abc module.
 """
-
-import _abc
 
 
 def abstractmethod(funcobj):
-    """Decorator to declare abstract methods."""
+    """Mark a method as abstract.
+
+    Classes whose metaclass is ABCMeta cannot be instantiated unless all
+    of their abstract methods are overridden.
+    """
     funcobj.__isabstractmethod__ = True
     return funcobj
 
 
-def abstractclassmethod(funcobj):
-    """Deprecated: use classmethod + abstractmethod."""
-    funcobj.__isabstractmethod__ = True
-    return classmethod(funcobj)
-
-
-def abstractstaticmethod(funcobj):
-    """Deprecated: use staticmethod + abstractmethod."""
-    funcobj.__isabstractmethod__ = True
-    return staticmethod(funcobj)
-
-
-def abstractproperty(fget=None, fset=None, fdel=None, doc=None):
-    """Deprecated: use property + abstractmethod."""
-    prop = property(fget, fset, fdel, doc)
-    prop.__isabstractmethod__ = True
-    return prop
-
-
 class ABCMeta(type):
-    """Metaclass for Abstract Base Classes."""
+    """Metaclass for defining Abstract Base Classes.
 
-    def __new__(mcls, name, bases, namespace, /, **kwargs):
+    Use this metaclass to create an ABC. An ABC can be subclassed
+    directly, and then acts as a mix-in class. Concrete subclasses must
+    override every abstractmethod or instantiation will raise TypeError.
+    """
+
+    def __new__(mcls, name, bases, namespace, **kwargs):
         cls = super().__new__(mcls, name, bases, namespace, **kwargs)
-        # Collect abstract methods
-        abstracts = {name for name, value in namespace.items()
-                     if getattr(value, '__isabstractmethod__', False)}
+
+        # Collect abstract methods declared directly on this class.
+        abstracts = set()
+        for key, value in namespace.items():
+            if getattr(value, "__isabstractmethod__", False):
+                abstracts.add(key)
+
+        # Inherit unfulfilled abstracts from bases.
         for base in bases:
-            for name2 in getattr(base, '__abstractmethods__', set()):
-                value = getattr(cls, name2, None)
-                if getattr(value, '__isabstractmethod__', False):
-                    abstracts.add(name2)
+            for inherited in getattr(base, "__abstractmethods__", set()):
+                value = getattr(cls, inherited, None)
+                if getattr(value, "__isabstractmethod__", False):
+                    abstracts.add(inherited)
+
         cls.__abstractmethods__ = frozenset(abstracts)
+        # Per-class virtual subclass registry.
+        cls._abc_registry = set()
         return cls
 
+    def __call__(cls, *args, **kwargs):
+        # Block instantiation of any class that still has abstract methods.
+        abstracts = getattr(cls, "__abstractmethods__", frozenset())
+        if abstracts:
+            joined = ", ".join(sorted(abstracts))
+            raise TypeError(
+                "Can't instantiate abstract class "
+                + cls.__name__
+                + " with abstract method"
+                + ("s " if len(abstracts) != 1 else " ")
+                + joined
+            )
+        return super().__call__(*args, **kwargs)
+
     def register(cls, subclass):
-        """Register a virtual subclass."""
+        """Register a virtual subclass of an ABC."""
         if not isinstance(subclass, type):
             raise TypeError("Can only register classes")
-        if issubclass(subclass, cls):
-            return subclass
-        cls._abc_registry = getattr(cls, '_abc_registry', set())
+        if issubclass(cls, subclass):
+            raise RuntimeError(
+                "Refusing to create an inheritance cycle"
+            )
         cls._abc_registry.add(subclass)
         return subclass
 
     def __instancecheck__(cls, instance):
-        subclass = instance.__class__
-        if subclass in getattr(cls, '_abc_registry', set()):
+        # Real subclass relationship first.
+        if type.__instancecheck__(cls, instance):
             return True
-        return type.__instancecheck__(cls, instance)
+        return cls.__subclasscheck__(type(instance))
 
     def __subclasscheck__(cls, subclass):
-        if subclass in getattr(cls, '_abc_registry', set()):
+        if not isinstance(subclass, type):
+            return False
+        # Real subclass relationship.
+        if type.__subclasscheck__(cls, subclass):
             return True
-        return type.__subclasscheck__(cls, subclass)
-
-    def __subclasshook__(cls, subclass):
-        return NotImplemented
-
-    def _dump_registry(cls, file=None):
-        import sys
-        file = file or sys.stdout
-        print(f"Class: {cls.__module__}.{cls.__qualname__}", file=file)
-        print(f"Inv. counter: {_abc.get_cache_token()}", file=file)
+        # Direct virtual registration.
+        if subclass in getattr(cls, "_abc_registry", set()):
+            return True
+        # Transitive via registered virtual subclasses.
+        for registered in getattr(cls, "_abc_registry", set()):
+            if isinstance(registered, type) and issubclass(subclass, registered):
+                return True
+        # Walk the MRO of subclass to see if any of its real bases are
+        # registered virtual subclasses of cls.
+        for base in subclass.__mro__[1:]:
+            if base in getattr(cls, "_abc_registry", set()):
+                return True
+        return False
 
 
 class ABC(metaclass=ABCMeta):
-    """Helper class that uses ABCMeta as metaclass."""
+    """Helper class that provides a standard way to create an ABC using
+    inheritance instead of specifying ``metaclass=ABCMeta`` directly.
+    """
     __slots__ = ()
 
 
-get_cache_token = _abc.get_cache_token
-
-
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant verification functions.
 # ---------------------------------------------------------------------------
+
 
 def abc2_abstract():
-    """Instantiating class with unimplemented abstractmethod raises TypeError; returns True."""
+    """A class with an abstract method cannot be instantiated."""
+
     class Shape(ABC):
         @abstractmethod
         def area(self):
-            pass
+            ...
 
     try:
         Shape()
-        return False
     except TypeError:
-        return True
+        # Verify the abstract methods are tracked.
+        return "area" in Shape.__abstractmethods__
+    return False
 
 
 def abc2_concrete():
-    """Class implementing all abstract methods can be instantiated; returns True."""
+    """A concrete subclass that overrides all abstract methods is usable."""
+
     class Shape(ABC):
         @abstractmethod
         def area(self):
-            pass
+            ...
 
-    class Circle(Shape):
+    class Square(Shape):
+        def __init__(self, side):
+            self.side = side
+
         def area(self):
-            return 3.14
+            return self.side * self.side
 
-    c = Circle()
-    return c.area() == 3.14
+    sq = Square(4)
+    return (
+        sq.area() == 16
+        and Square.__abstractmethods__ == frozenset()
+    )
 
 
 def abc2_isinstance():
-    """ABC subclass registration makes isinstance return True; returns True."""
-    class MyABC(ABC):
-        pass
+    """isinstance / issubclass work for both real and virtual subclasses."""
 
-    class Concrete:
-        pass
+    class Animal(ABC):
+        @abstractmethod
+        def speak(self):
+            ...
 
-    MyABC.register(Concrete)
-    return isinstance(Concrete(), MyABC)
+    class Dog(Animal):
+        def speak(self):
+            return "woof"
+
+    d = Dog()
+    real_ok = (
+        isinstance(d, Dog)
+        and isinstance(d, Animal)
+        and isinstance(d, ABC)
+        and issubclass(Dog, Animal)
+    )
+
+    # Virtual subclass registration.
+    class Robot:
+        def speak(self):
+            return "beep"
+
+    Animal.register(Robot)
+    r = Robot()
+    virtual_ok = (
+        isinstance(r, Animal)
+        and issubclass(Robot, Animal)
+        and not isinstance(r, Dog)
+    )
+
+    return real_ok and virtual_ok
 
 
 __all__ = [
-    'ABCMeta', 'ABC', 'abstractmethod',
-    'abstractclassmethod', 'abstractstaticmethod', 'abstractproperty',
-    'get_cache_token',
-    'abc2_abstract', 'abc2_concrete', 'abc2_isinstance',
+    "ABC",
+    "ABCMeta",
+    "abstractmethod",
+    "abc2_abstract",
+    "abc2_concrete",
+    "abc2_isinstance",
 ]

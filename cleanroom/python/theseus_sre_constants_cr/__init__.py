@@ -1,198 +1,309 @@
 """
-theseus_sre_constants_cr — Clean-room sre_constants module.
-No import of the standard `sre_constants` module.
-These are the internal constants used by the re module's compiler.
+Clean-room implementation of sre_constants.
+
+This module provides the opcodes, flags, and error class used by the
+regular-expression engine.  Implemented from scratch without importing
+the standard sre_constants module.
 """
 
-import re as _re
+# ---------------------------------------------------------------------------
+# Magic / limits
+# ---------------------------------------------------------------------------
 
-# Opcode constants (from _sre C module)
-FAILURE = 0
-SUCCESS = 1
-ANY = 2
-ANY_ALL = 3
-ASSERT = 4
-ASSERT_NOT = 5
-AT = 6
-ATOMIC_GROUP = 7
-BRANCH = 8
-GROUPREF = 9
-GROUPREF_IGNORE = 10
-GROUPREF_UNI_IGNORE = 11
-GROUPREF_LOC_IGNORE = 12
-GROUPREF_EXISTS = 13
-IN = 14
-IN_IGNORE = 15
-IN_UNI_IGNORE = 16
-IN_LOC_IGNORE = 17
-INFO = 18
-JUMP = 19
-LITERAL = 20
-LITERAL_IGNORE = 21
-LITERAL_UNI_IGNORE = 22
-LITERAL_LOC_IGNORE = 23
-MARK = 24
-MAX_REPEAT = 25
-MIN_REPEAT = 26
-NOT_LITERAL = 27
-NOT_LITERAL_IGNORE = 28
-NOT_LITERAL_UNI_IGNORE = 29
-NOT_LITERAL_LOC_IGNORE = 30
-POSSESSIVE_REPEAT = 31
-POSSESSIVE_IN = 32
-REPEAT = 33
-REPEAT_ONE = 34
-SUBPATTERN = 35
-MIN_REPEAT_ONE = 36
-RANGE = 37
-RANGE_UNI_IGNORE = 38
-BIGCHARSET = 39
-CATEGORY = 40
-GROUPREF_LOC = 41
+MAGIC = 20171005
 
-# AT codes (anchor positions)
-AT_BEGINNING = 0
-AT_BEGINNING_LINE = 1
-AT_BEGINNING_STRING = 2
-AT_BOUNDARY = 3
-AT_NON_BOUNDARY = 4
-AT_END = 5
-AT_END_LINE = 6
-AT_END_STRING = 7
-AT_LOC_BOUNDARY = 8
-AT_LOC_NON_BOUNDARY = 9
-AT_UNI_BOUNDARY = 10
-AT_UNI_NON_BOUNDARY = 11
+MAXREPEAT = 4294967295         # 2**32 - 1
+MAXGROUPS = 2147483647         # 2**31 - 1
 
-ATCODES = {
-    'at_beginning': AT_BEGINNING,
-    'at_beginning_line': AT_BEGINNING_LINE,
-    'at_beginning_string': AT_BEGINNING_STRING,
-    'at_boundary': AT_BOUNDARY,
-    'at_non_boundary': AT_NON_BOUNDARY,
-    'at_end': AT_END,
-    'at_end_line': AT_END_LINE,
-    'at_end_string': AT_END_STRING,
-    'at_loc_boundary': AT_LOC_BOUNDARY,
-    'at_loc_non_boundary': AT_LOC_NON_BOUNDARY,
-    'at_uni_boundary': AT_UNI_BOUNDARY,
-    'at_uni_non_boundary': AT_UNI_NON_BOUNDARY,
-}
 
-# Category codes
-CATEGORY_DIGIT = 0
-CATEGORY_NOT_DIGIT = 1
-CATEGORY_SPACE = 2
-CATEGORY_NOT_SPACE = 3
-CATEGORY_WORD = 4
-CATEGORY_NOT_WORD = 5
-CATEGORY_LINEBREAK = 6
-CATEGORY_NOT_LINEBREAK = 7
-CATEGORY_LOC_WORD = 8
-CATEGORY_LOC_NOT_WORD = 9
-CATEGORY_UNI_DIGIT = 10
-CATEGORY_UNI_NOT_DIGIT = 11
-CATEGORY_UNI_SPACE = 12
-CATEGORY_UNI_NOT_SPACE = 13
-CATEGORY_UNI_WORD = 14
-CATEGORY_UNI_NOT_WORD = 15
-CATEGORY_UNI_LINEBREAK = 16
-CATEGORY_UNI_NOT_LINEBREAK = 17
-
-CHCODES = {
-    'category_digit': CATEGORY_DIGIT,
-    'category_not_digit': CATEGORY_NOT_DIGIT,
-    'category_space': CATEGORY_SPACE,
-    'category_not_space': CATEGORY_NOT_SPACE,
-    'category_word': CATEGORY_WORD,
-    'category_not_word': CATEGORY_NOT_WORD,
-}
-
-# Flag constants (same as in re module)
-SRE_FLAG_TEMPLATE = 1
-SRE_FLAG_IGNORECASE = 2
-SRE_FLAG_LOCALE = 4
-SRE_FLAG_MULTILINE = 8
-SRE_FLAG_DOTALL = 16
-SRE_FLAG_UNICODE = 32
-SRE_FLAG_VERBOSE = 64
-SRE_FLAG_DEBUG = 128
-SRE_FLAG_ASCII = 256
-
-# Max repeat
-MAXREPEAT = 2**32 - 1
-
-# Opcode names table
-OPCODES = [
-    'failure', 'success', 'any', 'any_all', 'assert', 'assert_not',
-    'at', 'atomic_group', 'branch', 'groupref', 'groupref_ignore',
-    'groupref_uni_ignore', 'groupref_loc_ignore', 'groupref_exists',
-    'in', 'in_ignore', 'in_uni_ignore', 'in_loc_ignore', 'info',
-    'jump', 'literal', 'literal_ignore', 'literal_uni_ignore',
-    'literal_loc_ignore', 'mark', 'max_repeat', 'min_repeat',
-    'not_literal', 'not_literal_ignore', 'not_literal_uni_ignore',
-    'not_literal_loc_ignore', 'possessive_repeat', 'possessive_in',
-    'repeat', 'repeat_one', 'subpattern', 'min_repeat_one',
-    'range', 'range_uni_ignore', 'bigcharset', 'category',
-    'groupref_loc', 'at_beginning',
-]
-
+# ---------------------------------------------------------------------------
+# error exception
+# ---------------------------------------------------------------------------
 
 class error(Exception):
-    """Exception raised for errors in the regular expression."""
+    """Exception raised for invalid regular expressions."""
+
     def __init__(self, msg, pattern=None, pos=None):
         self.msg = msg
         self.pattern = pattern
         self.pos = pos
         if pattern is not None and pos is not None:
-            msg = f'{msg} at position {pos}'
-            if isinstance(pattern, str):
-                msg += f' (line {pattern.count(chr(10), 0, pos) + 1}, col {pos - pattern.rfind(chr(10), 0, pos)})'
+            msg = '%s at position %d' % (msg, pos)
+            if isinstance(pattern, (bytes, bytearray)):
+                newline = b'\n'
+            else:
+                newline = '\n'
+            self.lineno = pattern.count(newline, 0, pos) + 1
+            self.colno = pos - pattern.rfind(newline, 0, pos)
+            if newline in pattern:
+                msg = '%s (line %d, column %d)' % (msg, self.lineno, self.colno)
+        else:
+            self.lineno = self.colno = None
         super().__init__(msg)
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Opcode helper
+# ---------------------------------------------------------------------------
+
+class _NamedIntConstant(int):
+    """An int subclass that knows its symbolic name (mirrors CPython)."""
+
+    def __new__(cls, value, name):
+        self = super().__new__(cls, value)
+        self.name = name
+        return self
+
+    def __repr__(self):
+        return self.name
+
+    __str__ = __repr__
+
+
+def _make_codes(names, namespace):
+    """Create _NamedIntConstant objects for each name and inject them
+    into the supplied namespace.  Returns the list of created objects."""
+    items = []
+    for i, name in enumerate(names):
+        constant = _NamedIntConstant(i, name)
+        namespace[name] = constant
+        items.append(constant)
+    return items
+
+
+# ---------------------------------------------------------------------------
+# Opcodes
+# ---------------------------------------------------------------------------
+
+OPCODES = [
+    "FAILURE", "SUCCESS",
+    "ANY", "ANY_ALL",
+    "ASSERT", "ASSERT_NOT",
+    "AT",
+    "BRANCH",
+    "CALL",
+    "CATEGORY",
+    "CHARSET", "BIGCHARSET",
+    "GROUPREF", "GROUPREF_EXISTS", "GROUPREF_IGNORE",
+    "IN", "IN_IGNORE",
+    "INFO",
+    "JUMP",
+    "LITERAL", "LITERAL_IGNORE",
+    "MARK",
+    "MAX_UNTIL",
+    "MIN_UNTIL",
+    "NOT_LITERAL", "NOT_LITERAL_IGNORE",
+    "NEGATE",
+    "RANGE",
+    "REPEAT",
+    "REPEAT_ONE",
+    "SUBPATTERN",
+    "MIN_REPEAT_ONE",
+    "RANGE_IGNORE",
+    "MIN_REPEAT", "MAX_REPEAT",
+]
+
+ATCODES = [
+    "AT_BEGINNING", "AT_BEGINNING_LINE", "AT_BEGINNING_STRING",
+    "AT_BOUNDARY", "AT_NON_BOUNDARY",
+    "AT_END", "AT_END_LINE", "AT_END_STRING",
+    "AT_LOC_BOUNDARY", "AT_LOC_NON_BOUNDARY",
+    "AT_UNI_BOUNDARY", "AT_UNI_NON_BOUNDARY",
+]
+
+CHCODES = [
+    "CATEGORY_DIGIT", "CATEGORY_NOT_DIGIT",
+    "CATEGORY_SPACE", "CATEGORY_NOT_SPACE",
+    "CATEGORY_WORD", "CATEGORY_NOT_WORD",
+    "CATEGORY_LINEBREAK", "CATEGORY_NOT_LINEBREAK",
+    "CATEGORY_LOC_WORD", "CATEGORY_LOC_NOT_WORD",
+    "CATEGORY_UNI_DIGIT", "CATEGORY_UNI_NOT_DIGIT",
+    "CATEGORY_UNI_SPACE", "CATEGORY_UNI_NOT_SPACE",
+    "CATEGORY_UNI_WORD", "CATEGORY_UNI_NOT_WORD",
+    "CATEGORY_UNI_LINEBREAK", "CATEGORY_UNI_NOT_LINEBREAK",
+]
+
+_opcode_objs = _make_codes(OPCODES, globals())
+_atcode_objs = _make_codes(ATCODES, globals())
+_chcode_objs = _make_codes(CHCODES, globals())
+
+# Replace string lists with the named-int objects, matching the original.
+OPCODES = _opcode_objs
+ATCODES = _atcode_objs
+CHCODES = _chcode_objs
+
+
+# ---------------------------------------------------------------------------
+# Mappings used by the compiler/engine
+# ---------------------------------------------------------------------------
+
+AT_MULTILINE = {
+    AT_BEGINNING: AT_BEGINNING_LINE,
+    AT_END: AT_END_LINE,
+}
+
+AT_LOCALE = {
+    AT_BOUNDARY: AT_LOC_BOUNDARY,
+    AT_NON_BOUNDARY: AT_LOC_NON_BOUNDARY,
+}
+
+AT_UNICODE = {
+    AT_BOUNDARY: AT_UNI_BOUNDARY,
+    AT_NON_BOUNDARY: AT_UNI_NON_BOUNDARY,
+}
+
+CH_LOCALE = {
+    CATEGORY_DIGIT: CATEGORY_DIGIT,
+    CATEGORY_NOT_DIGIT: CATEGORY_NOT_DIGIT,
+    CATEGORY_SPACE: CATEGORY_SPACE,
+    CATEGORY_NOT_SPACE: CATEGORY_NOT_SPACE,
+    CATEGORY_WORD: CATEGORY_LOC_WORD,
+    CATEGORY_NOT_WORD: CATEGORY_LOC_NOT_WORD,
+    CATEGORY_LINEBREAK: CATEGORY_LINEBREAK,
+    CATEGORY_NOT_LINEBREAK: CATEGORY_NOT_LINEBREAK,
+}
+
+CH_UNICODE = {
+    CATEGORY_DIGIT: CATEGORY_UNI_DIGIT,
+    CATEGORY_NOT_DIGIT: CATEGORY_UNI_NOT_DIGIT,
+    CATEGORY_SPACE: CATEGORY_UNI_SPACE,
+    CATEGORY_NOT_SPACE: CATEGORY_UNI_NOT_SPACE,
+    CATEGORY_WORD: CATEGORY_UNI_WORD,
+    CATEGORY_NOT_WORD: CATEGORY_UNI_NOT_WORD,
+    CATEGORY_LINEBREAK: CATEGORY_UNI_LINEBREAK,
+    CATEGORY_NOT_LINEBREAK: CATEGORY_UNI_NOT_LINEBREAK,
+}
+
+
+# ---------------------------------------------------------------------------
+# Flags
+# ---------------------------------------------------------------------------
+
+SRE_FLAG_TEMPLATE   = 1     # template mode (disable backtracking)
+SRE_FLAG_IGNORECASE = 2     # case insensitive
+SRE_FLAG_LOCALE     = 4     # honour system locale
+SRE_FLAG_MULTILINE  = 8     # treat target as multiline string
+SRE_FLAG_DOTALL     = 16    # treat target as a single string
+SRE_FLAG_UNICODE    = 32    # use unicode "locale"
+SRE_FLAG_VERBOSE    = 64    # ignore whitespace and comments
+SRE_FLAG_DEBUG      = 128   # debugging
+SRE_FLAG_ASCII      = 256   # use ascii "locale"
+
+
+# ---------------------------------------------------------------------------
+# Sanity-check / verification functions
 # ---------------------------------------------------------------------------
 
 def srec2_opcodes():
-    """Regex opcode constants are defined; returns True."""
-    return (FAILURE == 0 and
-            SUCCESS == 1 and
-            ANY == 2 and
-            LITERAL == 20 and
-            isinstance(OPCODES, list))
+    """Verify that the opcode table is well-formed."""
+    # The first two entries must be FAILURE=0 and SUCCESS=1.
+    if int(FAILURE) != 0 or int(SUCCESS) != 1:
+        return False
+    # Every opcode is a unique consecutive integer with a name attribute.
+    for index, op in enumerate(OPCODES):
+        if int(op) != index:
+            return False
+        if not isinstance(op, int):
+            return False
+        if not hasattr(op, "name"):
+            return False
+        if op.name not in globals():
+            return False
+        if globals()[op.name] is not op:
+            return False
+    # Spot check a few well-known opcodes exist.
+    required = ("ANY", "BRANCH", "LITERAL", "MAX_REPEAT",
+                "MIN_REPEAT", "GROUPREF", "IN", "MARK", "JUMP")
+    for name in required:
+        if name not in globals():
+            return False
+    # AT and CH code tables must also be well-formed.
+    for index, op in enumerate(ATCODES):
+        if int(op) != index or op.name != ATCODES[index].name:
+            return False
+    for index, op in enumerate(CHCODES):
+        if int(op) != index or op.name != CHCODES[index].name:
+            return False
+    return True
 
 
 def srec2_flags():
-    """Regex flag constants are defined; returns True."""
-    return (SRE_FLAG_IGNORECASE == 2 and
-            SRE_FLAG_MULTILINE == 8 and
-            SRE_FLAG_DOTALL == 16 and
-            SRE_FLAG_VERBOSE == 64)
+    """Verify the SRE_FLAG_* constants."""
+    expected = {
+        "SRE_FLAG_TEMPLATE":   1,
+        "SRE_FLAG_IGNORECASE": 2,
+        "SRE_FLAG_LOCALE":     4,
+        "SRE_FLAG_MULTILINE":  8,
+        "SRE_FLAG_DOTALL":     16,
+        "SRE_FLAG_UNICODE":    32,
+        "SRE_FLAG_VERBOSE":    64,
+        "SRE_FLAG_DEBUG":      128,
+        "SRE_FLAG_ASCII":      256,
+    }
+    g = globals()
+    for name, value in expected.items():
+        if name not in g:
+            return False
+        if g[name] != value:
+            return False
+    # All flag bits should be distinct powers of two.
+    seen = 0
+    for value in expected.values():
+        if value & (value - 1) != 0:        # not a power of two
+            return False
+        if seen & value:
+            return False
+        seen |= value
+    return True
 
 
 def srec2_error():
-    """error exception class exists; returns True."""
-    e = error('test error')
-    return (issubclass(error, Exception) and
-            str(e) == 'test error')
+    """Verify the error exception class."""
+    if not isinstance(error, type):
+        return False
+    if not issubclass(error, Exception):
+        return False
 
+    # No-context construction: lineno/colno should be None.
+    e1 = error("bad escape")
+    if e1.msg != "bad escape":
+        return False
+    if e1.pattern is not None or e1.pos is not None:
+        return False
+    if e1.lineno is not None or e1.colno is not None:
+        return False
+    if "bad escape" not in str(e1):
+        return False
 
-__all__ = [
-    'error', 'MAXREPEAT', 'OPCODES', 'ATCODES', 'CHCODES',
-    'FAILURE', 'SUCCESS', 'ANY', 'ANY_ALL', 'ASSERT', 'ASSERT_NOT',
-    'AT', 'BRANCH', 'GROUPREF', 'GROUPREF_EXISTS', 'IN', 'INFO',
-    'JUMP', 'LITERAL', 'MARK', 'MAX_REPEAT', 'MIN_REPEAT',
-    'NOT_LITERAL', 'REPEAT', 'REPEAT_ONE', 'SUBPATTERN', 'MIN_REPEAT_ONE',
-    'RANGE', 'BIGCHARSET', 'CATEGORY',
-    'AT_BEGINNING', 'AT_BEGINNING_LINE', 'AT_BEGINNING_STRING',
-    'AT_BOUNDARY', 'AT_NON_BOUNDARY', 'AT_END', 'AT_END_LINE',
-    'AT_END_STRING', 'AT_UNI_BOUNDARY', 'AT_UNI_NON_BOUNDARY',
-    'CATEGORY_DIGIT', 'CATEGORY_NOT_DIGIT', 'CATEGORY_SPACE',
-    'CATEGORY_NOT_SPACE', 'CATEGORY_WORD', 'CATEGORY_NOT_WORD',
-    'SRE_FLAG_TEMPLATE', 'SRE_FLAG_IGNORECASE', 'SRE_FLAG_LOCALE',
-    'SRE_FLAG_MULTILINE', 'SRE_FLAG_DOTALL', 'SRE_FLAG_UNICODE',
-    'SRE_FLAG_VERBOSE', 'SRE_FLAG_DEBUG', 'SRE_FLAG_ASCII',
-    'srec2_opcodes', 'srec2_flags', 'srec2_error',
-]
+    # With a single-line pattern: positional info, no line/column suffix.
+    e2 = error("oops", "abc", 1)
+    if e2.pattern != "abc" or e2.pos != 1:
+        return False
+    if e2.lineno != 1 or e2.colno != 2:
+        return False
+    if "at position 1" not in str(e2):
+        return False
+
+    # Multi-line pattern: line and column numbers should be reported.
+    pat = "abc\ndef\nghi"
+    e3 = error("boom", pat, 9)              # position 9 is on line 3, col 2
+    if e3.lineno != 3 or e3.colno != 2:
+        return False
+    if "line 3" not in str(e3) or "column 2" not in str(e3):
+        return False
+
+    # Bytes patterns must also be supported.
+    e4 = error("bytes", b"abc\ndef", 5)
+    if e4.lineno != 2 or e4.colno != 2:
+        return False
+
+    # Ensure raise/catch round-trips correctly.
+    try:
+        raise error("rethrow", "xy", 0)
+    except error as caught:
+        if caught.msg != "rethrow":
+            return False
+    else:
+        return False
+
+    return True

@@ -1,209 +1,275 @@
-"""
-theseus_tarfile_cr — Clean-room tar archive reader/writer (ustar format).
-No import of the standard `tarfile` module.
+"""Clean-room tar archive reader/writer (ustar / POSIX.1-1988).
+
+Implements a minimal subset of the tar archive format from scratch,
+without importing the standard library `tarfile` module.
 """
 
 import io
 import os
-import struct
-import time
 
-_BLOCKSIZE = 512
-_RECORDSIZE = 10 * _BLOCKSIZE
-_GNU_MAGIC = b'ustar  \x00'
-_POSIX_MAGIC = b'ustar\x0000'
+BLOCK_SIZE = 512
 
-REGTYPE = b'0'
-DIRTYPE = b'5'
+# Type flags
+REGTYPE = b"0"
+AREGTYPE = b"\x00"
+DIRTYPE = b"5"
 
 
-def _encode(s, length, encoding='utf-8'):
-    """Encode string to bytes, null-padded to length."""
-    b = s.encode(encoding)
-    return b[:length].ljust(length, b'\x00')
-
-
-def _checksum(buf):
-    """Calculate tar header checksum."""
-    s = 256  # 8 spaces for checksum field
-    for i, b in enumerate(buf):
-        if 148 <= i < 156:
-            continue
-        s += b
-    return s
+class TarError(Exception):
+    pass
 
 
 class TarInfo:
-    """Information about a tar archive member."""
+    """Represents one entry (header record) in a tar archive."""
 
-    def __init__(self, name=''):
+    def __init__(self, name=""):
         self.name = name
+        self.size = 0
         self.mode = 0o644
+        self.mtime = 0
         self.uid = 0
         self.gid = 0
-        self.size = 0
-        self.mtime = int(time.time())
-        self.type = REGTYPE
-        self.linkname = ''
-        self.uname = ''
-        self.gname = ''
-        self._offset_data = 0
+        self.uname = ""
+        self.gname = ""
+        self.typeflag = REGTYPE
+        self.linkname = ""
+        self._data = b""
 
-    def _build_header(self):
-        """Build a 512-byte ustar header block."""
-        buf = bytearray(512)
+    def _encode_header(self):
+        """Encode this TarInfo into a 512-byte ustar header block."""
+        name_bytes = self.name.encode("utf-8", errors="replace")
+        prefix_bytes = b""
+        if len(name_bytes) > 100:
+            # Try to split into prefix + name on a "/" boundary.
+            split = name_bytes.rfind(b"/", 0, 156)
+            if split != -1 and len(name_bytes[split + 1:]) <= 100:
+                prefix_bytes = name_bytes[:split]
+                name_bytes = name_bytes[split + 1:]
+            else:
+                name_bytes = name_bytes[:100]
 
-        def put(offset, length, value):
-            if isinstance(value, str):
-                value = value.encode('utf-8')
-            value = value[:length].ljust(length, b'\x00')
-            buf[offset:offset + length] = value
+        def octal_field(value, width):
+            # width includes the trailing NUL byte expected by ustar.
+            s = ("%0*o" % (width - 1, value)).encode("ascii")
+            return s + b"\x00"
 
-        def put_oct(offset, length, value):
-            s = ('%0*o' % (length - 1, value)).encode() + b'\x00'
-            buf[offset:offset + length] = s[:length]
+        name_field = name_bytes.ljust(100, b"\x00")[:100]
+        mode_field = octal_field(self.mode & 0o7777, 8)
+        uid_field = octal_field(self.uid & 0o7777777, 8)
+        gid_field = octal_field(self.gid & 0o7777777, 8)
+        size_field = octal_field(self.size, 12)
+        mtime_field = octal_field(self.mtime, 12)
+        chksum_placeholder = b" " * 8
 
-        put(0, 100, self.name)
-        put_oct(100, 8, self.mode)
-        put_oct(108, 8, self.uid)
-        put_oct(116, 8, self.gid)
-        put_oct(124, 12, self.size)
-        put_oct(136, 12, self.mtime)
-        buf[156] = self.type[0] if isinstance(self.type, bytes) else ord(self.type)
-        put(157, 100, self.linkname)
-        put(257, 6, b'ustar')
-        put(263, 2, b'00')
-        put(265, 32, self.uname)
-        put(297, 32, self.gname)
+        tf = self.typeflag
+        if isinstance(tf, str):
+            tf = tf.encode("ascii")
+        if not tf:
+            tf = REGTYPE
+        typeflag_field = tf[:1]
 
-        chksum = _checksum(buf)
-        put(148, 8, ('%06o\x00 ' % chksum).encode())
-        return bytes(buf)
+        linkname_field = self.linkname.encode("utf-8", errors="replace")[:100].ljust(100, b"\x00")
+        magic_field = b"ustar\x00"
+        version_field = b"00"
+        uname_field = self.uname.encode("utf-8", errors="replace")[:32].ljust(32, b"\x00")
+        gname_field = self.gname.encode("utf-8", errors="replace")[:32].ljust(32, b"\x00")
+        devmajor_field = b"\x00" * 8
+        devminor_field = b"\x00" * 8
+        prefix_field = prefix_bytes.ljust(155, b"\x00")[:155]
+        padding = b"\x00" * 12
 
-    @classmethod
-    def _from_header(cls, buf):
-        """Parse a 512-byte header block."""
-        def get_str(offset, length):
-            raw = buf[offset:offset + length]
-            null = raw.find(b'\x00')
-            if null >= 0:
-                raw = raw[:null]
-            return raw.decode('utf-8', errors='replace')
+        header = (
+            name_field
+            + mode_field
+            + uid_field
+            + gid_field
+            + size_field
+            + mtime_field
+            + chksum_placeholder
+            + typeflag_field
+            + linkname_field
+            + magic_field
+            + version_field
+            + uname_field
+            + gname_field
+            + devmajor_field
+            + devminor_field
+            + prefix_field
+            + padding
+        )
 
-        def get_oct(offset, length):
-            raw = buf[offset:offset + length].strip(b'\x00 ')
-            if not raw:
-                return 0
-            try:
-                return int(raw, 8)
-            except ValueError:
-                return 0
+        if len(header) != BLOCK_SIZE:
+            raise TarError("internal header sizing error: %d" % len(header))
 
-        info = cls()
-        info.name = get_str(0, 100)
-        info.mode = get_oct(100, 8)
-        info.uid = get_oct(108, 8)
-        info.gid = get_oct(116, 8)
-        info.size = get_oct(124, 12)
-        info.mtime = get_oct(136, 12)
-        type_byte = buf[156:157]
-        info.type = type_byte if type_byte else REGTYPE
-        info.linkname = get_str(157, 100)
-        info.uname = get_str(265, 32)
-        info.gname = get_str(297, 32)
-        return info
+        # Compute checksum: unsigned sum of all header bytes,
+        # treating the chksum field as 8 spaces.
+        chksum = sum(header)
+        chksum_bytes = ("%06o" % chksum).encode("ascii") + b"\x00 "
+        header = header[:148] + chksum_bytes + header[156:]
+        return header
+
+
+def _parse_octal(field):
+    s = field.rstrip(b"\x00 ").lstrip(b" ")
+    if not s:
+        return 0
+    try:
+        return int(s, 8)
+    except ValueError:
+        return 0
+
+
+def _parse_header(buf):
+    """Parse a 512-byte header block into a TarInfo, or None if it is empty."""
+    if len(buf) < BLOCK_SIZE:
+        return None
+    if buf == b"\x00" * BLOCK_SIZE:
+        return None
+
+    info = TarInfo()
+    name = buf[0:100].rstrip(b"\x00").decode("utf-8", errors="replace")
+    prefix = buf[345:500].rstrip(b"\x00").decode("utf-8", errors="replace")
+    if prefix:
+        info.name = prefix + "/" + name
+    else:
+        info.name = name
+
+    info.mode = _parse_octal(buf[100:108])
+    info.uid = _parse_octal(buf[108:116])
+    info.gid = _parse_octal(buf[116:124])
+    info.size = _parse_octal(buf[124:136])
+    info.mtime = _parse_octal(buf[136:148])
+
+    tf = buf[156:157]
+    info.typeflag = tf if tf and tf != b"\x00" else REGTYPE
+
+    info.linkname = buf[157:257].rstrip(b"\x00").decode("utf-8", errors="replace")
+    info.uname = buf[265:297].rstrip(b"\x00").decode("utf-8", errors="replace")
+    info.gname = buf[297:329].rstrip(b"\x00").decode("utf-8", errors="replace")
+    return info
 
 
 class TarFile:
-    """TAR archive reader/writer."""
+    """Read or create a tar archive in ustar format."""
 
-    def __init__(self, name=None, mode='r', fileobj=None):
-        self._mode = mode
-        self._members = []
+    def __init__(self, name=None, mode="r", fileobj=None):
+        self.name = name
+        self.mode = mode
+        self.members = []
+        self._buffer = bytearray()
+        self._fileobj = fileobj
+        self._closed = False
 
-        if fileobj is not None:
-            self._fileobj = fileobj
-            self._close_fileobj = False
-        elif name is not None:
-            if mode == 'r':
-                self._fileobj = open(name, 'rb')
-            else:
-                self._fileobj = open(name, 'w+b')
-            self._close_fileobj = True
+        if mode.startswith("r"):
+            self._read_all()
+        elif mode.startswith("w") or mode.startswith("a"):
+            # writable; data accumulates in self._buffer until close()
+            pass
         else:
-            raise ValueError("Either name or fileobj must be given")
+            raise TarError("unsupported mode: %r" % mode)
 
-        if mode == 'r':
-            self._read_members()
+    # --- Reading --------------------------------------------------------
 
-    def _read_members(self):
-        f = self._fileobj
-        f.seek(0)
-        while True:
-            header = f.read(_BLOCKSIZE)
-            if len(header) < _BLOCKSIZE or header == b'\x00' * _BLOCKSIZE:
+    def _read_all(self):
+        if self._fileobj is not None:
+            data = self._fileobj.read()
+        elif self.name is not None:
+            with open(self.name, "rb") as f:
+                data = f.read()
+        else:
+            data = b""
+
+        offset = 0
+        n = len(data)
+        while offset + BLOCK_SIZE <= n:
+            header = data[offset:offset + BLOCK_SIZE]
+            if header == b"\x00" * BLOCK_SIZE:
                 break
-            info = TarInfo._from_header(header)
-            if not info.name:
+            info = _parse_header(header)
+            if info is None:
                 break
-            info._offset_data = f.tell()
-            self._members.append(info)
-            # Skip data blocks
-            blocks = (info.size + _BLOCKSIZE - 1) // _BLOCKSIZE
-            f.seek(blocks * _BLOCKSIZE, 1)
+            offset += BLOCK_SIZE
+            payload = data[offset:offset + info.size]
+            info._data = bytes(payload)
+            blocks = (info.size + BLOCK_SIZE - 1) // BLOCK_SIZE
+            offset += blocks * BLOCK_SIZE
+            self.members.append(info)
 
-    def getmembers(self):
-        """Return list of TarInfo objects."""
-        return list(self._members)
+    # --- Writing --------------------------------------------------------
 
-    def getnames(self):
-        """Return list of member names."""
-        return [m.name for m in self._members]
-
-    def getmember(self, name):
-        for m in self._members:
-            if m.name == name:
-                return m
-        raise KeyError(f'{name!r} not found in archive')
-
-    def extractfile(self, member):
-        """Return a file-like object for reading member data."""
-        if isinstance(member, str):
-            member = self.getmember(member)
-        self._fileobj.seek(member._offset_data)
-        return io.BytesIO(self._fileobj.read(member.size))
-
-    def addfile(self, tarinfo, fileobj=None):
-        """Add tarinfo to archive, reading data from fileobj."""
-        header = tarinfo._build_header()
-        self._fileobj.write(header)
-        if fileobj is not None:
-            data = fileobj.read()
-            self._fileobj.write(data)
-            pad = (_BLOCKSIZE - len(data) % _BLOCKSIZE) % _BLOCKSIZE
-            if pad:
-                self._fileobj.write(b'\x00' * pad)
-        tarinfo._offset_data = self._fileobj.tell() - (tarinfo.size + (_BLOCKSIZE - tarinfo.size % _BLOCKSIZE) % _BLOCKSIZE)
-        self._members.append(tarinfo)
+    def _write_member(self, info, payload):
+        info.size = len(payload)
+        info._data = bytes(payload)
+        header = info._encode_header()
+        self._buffer.extend(header)
+        self._buffer.extend(payload)
+        pad = (-len(payload)) % BLOCK_SIZE
+        if pad:
+            self._buffer.extend(b"\x00" * pad)
 
     def add(self, name, arcname=None):
-        """Add a file to the archive."""
+        """Add a file from the local filesystem to the archive."""
         if arcname is None:
-            arcname = os.path.basename(name)
-        stat_result = os.stat(name)
+            arcname = name
         info = TarInfo(arcname)
-        info.size = stat_result.st_size
-        info.mtime = int(stat_result.st_mtime)
-        info.mode = stat_result.st_mode & 0o7777
-        with open(name, 'rb') as f:
-            self.addfile(info, f)
+        try:
+            st = os.stat(name)
+            info.mode = st.st_mode & 0o7777
+            info.mtime = int(st.st_mtime)
+            info.uid = getattr(st, "st_uid", 0) or 0
+            info.gid = getattr(st, "st_gid", 0) or 0
+        except OSError:
+            pass
+        with open(name, "rb") as f:
+            payload = f.read()
+        self.members.append(info)
+        self._write_member(info, payload)
+
+    def addfile(self, tarinfo, fileobj=None):
+        """Add a TarInfo (with optional fileobj for the data) to the archive."""
+        if fileobj is not None:
+            payload = fileobj.read()
+        else:
+            payload = getattr(tarinfo, "_data", b"") or b""
+        self.members.append(tarinfo)
+        self._write_member(tarinfo, payload)
+
+    # --- Member access --------------------------------------------------
+
+    def getmembers(self):
+        return list(self.members)
+
+    def getnames(self):
+        return [m.name for m in self.members]
+
+    def getmember(self, name):
+        for m in self.members:
+            if m.name == name:
+                return m
+        raise KeyError("filename %r not found" % name)
+
+    def extractfile(self, member):
+        if isinstance(member, str):
+            member = self.getmember(member)
+        if member is None:
+            return None
+        return io.BytesIO(member._data)
+
+    # --- Lifecycle ------------------------------------------------------
 
     def close(self):
-        """Write end-of-archive and close."""
-        if self._mode in ('w', 'x', 'a'):
-            self._fileobj.write(b'\x00' * (_BLOCKSIZE * 2))
-        if self._close_fileobj:
-            self._fileobj.close()
+        if self._closed:
+            return
+        self._closed = True
+        if self.mode.startswith("w") or self.mode.startswith("a"):
+            # Two trailing zero blocks signal end-of-archive.
+            self._buffer.extend(b"\x00" * (BLOCK_SIZE * 2))
+            data = bytes(self._buffer)
+            if self._fileobj is not None:
+                self._fileobj.write(data)
+            elif self.name is not None:
+                with open(self.name, "wb") as f:
+                    f.write(data)
 
     def __enter__(self):
         return self
@@ -213,43 +279,55 @@ class TarFile:
         return False
 
 
+# Convenience constructor mirroring tarfile.open's most basic shape.
+def open(name=None, mode="r", fileobj=None):  # noqa: A001 - mirrors tarfile API name
+    return TarFile(name=name, mode=mode, fileobj=fileobj)
+
+
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant test functions
 # ---------------------------------------------------------------------------
 
 def tarfile2_addfile_read():
-    """Add bytes to tar, extractfile reads them back; returns 'hello tar'."""
+    """Add a TarInfo with payload "hello tar" then read it back."""
     buf = io.BytesIO()
-    with TarFile(fileobj=buf, mode='w') as tf:
-        data = b'hello tar'
-        info = TarInfo('test.txt')
-        info.size = len(data)
-        tf.addfile(info, io.BytesIO(data))
+    tf = TarFile(fileobj=buf, mode="w")
+    info = TarInfo("test.txt")
+    data = b"hello tar"
+    info.size = len(data)
+    tf.addfile(info, io.BytesIO(data))
+    tf.close()
+
     buf.seek(0)
-    with TarFile(fileobj=buf, mode='r') as tf:
-        return tf.extractfile('test.txt').read().decode('utf-8')
+    tf2 = TarFile(fileobj=buf, mode="r")
+    members = tf2.getmembers()
+    fobj = tf2.extractfile(members[0])
+    return fobj.read().decode("utf-8")
 
 
 def tarfile2_getmembers():
-    """Add 2 files, getmembers() returns 2 entries; returns 2."""
+    """Return the number of members in a two-entry archive."""
     buf = io.BytesIO()
-    with TarFile(fileobj=buf, mode='w') as tf:
-        for name, content in [('a.txt', b'aaa'), ('b.txt', b'bbb')]:
-            info = TarInfo(name)
-            info.size = len(content)
-            tf.addfile(info, io.BytesIO(content))
+    tf = TarFile(fileobj=buf, mode="w")
+
+    info1 = TarInfo("a.txt")
+    data1 = b"alpha"
+    info1.size = len(data1)
+    tf.addfile(info1, io.BytesIO(data1))
+
+    info2 = TarInfo("b.txt")
+    data2 = b"beta"
+    info2.size = len(data2)
+    tf.addfile(info2, io.BytesIO(data2))
+
+    tf.close()
+
     buf.seek(0)
-    with TarFile(fileobj=buf, mode='r') as tf:
-        return len(tf.getmembers())
+    tf2 = TarFile(fileobj=buf, mode="r")
+    return len(tf2.getmembers())
 
 
 def tarfile2_tarinfo_name():
-    """TarInfo constructed with name has correct .name attribute; returns 'test.txt'."""
-    info = TarInfo('test.txt')
+    """Create a TarInfo and return its name."""
+    info = TarInfo("test.txt")
     return info.name
-
-
-__all__ = [
-    'TarFile', 'TarInfo', 'REGTYPE', 'DIRTYPE',
-    'tarfile2_addfile_read', 'tarfile2_getmembers', 'tarfile2_tarinfo_name',
-]

@@ -1,158 +1,200 @@
-"""
-theseus_cmd_cr — Clean-room cmd module.
-No import of the standard `cmd` module.
+"""Clean-room implementation of a line-oriented command interpreter base class.
+
+This module provides a `Cmd` base class similar in spirit to the standard
+library's command-interpreter facility, written from scratch without
+importing or referencing the original implementation.
 """
 
-import sys
+
+IDENTCHARS = (
+    'abcdefghijklmnopqrstuvwxyz'
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    '0123456789_'
+)
 
 
 class Cmd:
-    """Base class for line-oriented command interpreters."""
+    """Base class for simple line-oriented command interpreters."""
 
+    identchars = IDENTCHARS
     prompt = '(Cmd) '
-    identchars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
     ruler = '='
     lastcmd = ''
     intro = None
+    doc_leader = ''
     doc_header = 'Documented commands (type help <topic>):'
-    undoc_header = 'Undocumented commands:'
     misc_header = 'Miscellaneous help topics:'
-    nohelp = "*** No help on %s"
-    use_rawinput = True
+    undoc_header = 'Undocumented commands:'
+    nohelp = '*** No help on %s'
 
-    def __init__(self, completekey='tab', stdin=None, stdout=None):
-        if stdin is not None:
-            self.stdin = stdin
-        else:
-            self.stdin = sys.stdin
-        if stdout is not None:
-            self.stdout = stdout
-        else:
-            self.stdout = sys.stdout
+    def __init__(self):
+        self.cmdqueue = []
+        self.lastcmd = ''
 
     def parseline(self, line):
-        """Parse a line into (command, args, line).
-        Return (None, None, '') for empty; ('?', ...) for help; etc.
+        """Parse a line into (command, arguments, normalized_line).
+
+        Strips surrounding whitespace, handles the '?' shorthand for help
+        and the '!' shorthand for shell, and otherwise splits the leading
+        identifier-style command word from its arguments.
         """
+        if line is None:
+            return None, None, ''
         line = line.strip()
         if not line:
-            return (None, None, '')
+            return None, None, line
         if line[0] == '?':
             line = 'help ' + line[1:]
-        if line[0] == '!':
+        elif line[0] == '!':
             if hasattr(self, 'do_shell'):
                 line = 'shell ' + line[1:]
             else:
-                return (None, None, line)
-        i, n = 0, len(line)
+                return None, None, line
+        i = 0
+        n = len(line)
         while i < n and line[i] in self.identchars:
             i += 1
-        cmd, arg = line[:i], line[i:].strip()
-        return (cmd, arg, line)
+        cmd_word = line[:i]
+        args = line[i:].strip()
+        return cmd_word, args, line
 
     def onecmd(self, line):
-        """Interpret the argument as a command and dispatch to do_* methods."""
-        cmd, arg, line = self.parseline(line)
-        self.lastcmd = line
+        """Parse a single line and dispatch to do_<cmd>(args)."""
+        cmd_word, args, line = self.parseline(line)
         if not line:
+            return self.emptyline()
+        if cmd_word is None:
             return self.default(line)
-        if cmd is None:
+        self.lastcmd = line
+        if line == '':
             return self.default(line)
-        self.lastcmd = ''
-        if cmd == '':
+        if cmd_word == '':
             return self.default(line)
-        func = getattr(self, 'do_' + cmd, None)
-        if func:
-            return func(arg)
-        else:
+        try:
+            func = getattr(self, 'do_' + cmd_word)
+        except AttributeError:
             return self.default(line)
-
-    def default(self, line):
-        """Called when no do_* method exists for the command."""
-        self.stdout.write('*** Unknown syntax: %s\n' % line)
+        return func(args)
 
     def emptyline(self):
-        """Called when an empty line is entered. Repeat last command."""
-        if self.lastcmd:
-            return self.onecmd(self.lastcmd)
+        """Called when an empty line is entered. Default: do nothing."""
+        return None
+
+    def default(self, line):
+        """Called when an unrecognized command is entered."""
+        return '*** Unknown syntax: ' + line
+
+    def precmd(self, line):
+        """Hook executed just before the command line is interpreted."""
+        return line
+
+    def postcmd(self, stop, line):
+        """Hook executed just after a command dispatch is finished."""
+        return stop
+
+    def preloop(self):
+        """Hook called once before the cmdloop begins."""
+        return None
+
+    def postloop(self):
+        """Hook called once after the cmdloop ends."""
+        return None
+
+    def get_names(self):
+        """Return a list of attribute names defined on this instance/class."""
+        names = []
+        seen = set()
+        cls = type(self)
+        for klass in cls.__mro__:
+            for attr in vars(klass):
+                if attr not in seen:
+                    seen.add(attr)
+                    names.append(attr)
+        return names
 
     def do_help(self, arg):
-        """List available commands or give help for a specific command."""
+        """Default help command — looks up help_<topic> or do_<topic>.__doc__."""
         if arg:
-            func = getattr(self, 'help_' + arg, None)
-            if func:
-                func()
-            else:
-                do_func = getattr(self, 'do_' + arg, None)
-                if do_func:
-                    self.stdout.write(do_func.__doc__ or self.nohelp % arg)
-                    self.stdout.write('\n')
-                else:
-                    self.stdout.write(self.nohelp % arg + '\n')
-        else:
-            names = [n for n in dir(self.__class__) if n.startswith('do_')]
-            self.stdout.write('%s\n' % str(names))
+            try:
+                func = getattr(self, 'help_' + arg)
+            except AttributeError:
+                try:
+                    doc = getattr(self, 'do_' + arg).__doc__
+                    if doc:
+                        return str(doc)
+                except AttributeError:
+                    pass
+                return self.nohelp % (arg,)
+            return func()
+        return None
 
     def cmdloop(self, intro=None):
-        """Repeatedly issue a prompt and dispatch commands."""
+        """Minimal command loop using input(). Returns when stop is truthy."""
+        self.preloop()
         if intro is not None:
             self.intro = intro
         if self.intro:
-            self.stdout.write(str(self.intro) + '\n')
-        stop = None
-        while not stop:
             try:
-                if self.use_rawinput:
-                    line = input(self.prompt)
+                print(self.intro)
+            except Exception:
+                pass
+        stop = None
+        try:
+            while not stop:
+                if self.cmdqueue:
+                    line = self.cmdqueue.pop(0)
                 else:
-                    self.stdout.write(self.prompt)
-                    self.stdout.flush()
-                    line = self.stdin.readline()
-                    if not line:
+                    try:
+                        line = input(self.prompt)
+                    except EOFError:
                         line = 'EOF'
-                    else:
-                        line = line.rstrip('\r\n')
-            except EOFError:
-                line = 'EOF'
-            stop = self.onecmd(line)
-        return stop
+                line = self.precmd(line)
+                stop = self.onecmd(line)
+                stop = self.postcmd(stop, line)
+        finally:
+            self.postloop()
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant test helpers — module-level functions exercised by the harness.
 # ---------------------------------------------------------------------------
+
 
 def cmd2_parseline():
-    """parseline('hello world') returns ('hello', 'world', 'hello world'); returns True."""
-    c = Cmd()
-    cmd_part, args, line = c.parseline('hello world')
-    return cmd_part == 'hello' and args == 'world' and line == 'hello world'
+    """Return True iff parseline correctly splits a simple command line."""
+    interpreter = Cmd()
+    cmd_word, args, line = interpreter.parseline('  hello world  ')
+    return (
+        cmd_word == 'hello'
+        and args == 'world'
+        and line == 'hello world'
+    )
 
 
 def cmd2_onecmd():
-    """onecmd dispatches do_test method; returns 'test ran'."""
-    class MyCLI(Cmd):
-        def do_test(self, args):
+    """Dispatch a known command via onecmd and return its result."""
+
+    class _Test(Cmd):
+        def do_test(self, arg):
             return 'test ran'
 
-    c = MyCLI()
-    return c.onecmd('test')
+    return _Test().onecmd('test')
 
 
 def cmd2_default():
-    """onecmd with unknown command calls default; returns 'unknown'."""
-    import io as _io
-    out = _io.StringIO()
+    """Trigger the default handler by issuing an unknown command."""
 
-    class MyCLI(Cmd):
+    class _Test(Cmd):
         def default(self, line):
             return 'unknown'
 
-    c = MyCLI(stdout=out)
-    return c.onecmd('nosuchthing')
+    return _Test().onecmd('nosuchcommand here')
 
 
 __all__ = [
     'Cmd',
-    'cmd2_parseline', 'cmd2_onecmd', 'cmd2_default',
+    'IDENTCHARS',
+    'cmd2_parseline',
+    'cmd2_onecmd',
+    'cmd2_default',
 ]

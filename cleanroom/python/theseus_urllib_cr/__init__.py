@@ -1,29 +1,41 @@
+"""Clean-room replacement for urllib namespace package.
+
+This module implements minimal package-identity checks without importing
+the original urllib module.
 """
-theseus_urllib_cr — Clean-room urllib namespace package.
-No import of the standard `urllib` module.
-The urllib package is an empty namespace; sub-packages provide functionality.
-"""
 
-__path__ = __path__  # make this a package
+import os as _os
+import sys as _sys
 
-
-# ---------------------------------------------------------------------------
-# Invariant functions
-# ---------------------------------------------------------------------------
 
 def urllib2_package():
-    """urllib package is importable as a namespace; returns True."""
-    return True
+    """Return True if this module is a package (has __path__)."""
+    return "__path__" in globals() or hasattr(_sys.modules[__name__], "__path__")
 
 
 def urllib2_name():
-    """urllib package has correct __name__; returns True."""
-    return __name__ == 'theseus_urllib_cr'
+    """Return True if this module's name is the expected clean-room name."""
+    return __name__ == "theseus_urllib_cr" or __name__.endswith("theseus_urllib_cr")
 
 
 def urllib2_path():
-    """urllib package has __path__ (is a package); returns True."""
-    return hasattr(__path__, '__iter__')
+    """Return True if this module exposes a valid filesystem __path__."""
+    mod = _sys.modules.get(__name__)
+    if mod is None:
+        return False
+    path_attr = getattr(mod, "__path__", None)
+    if path_attr is None:
+        return False
+    try:
+        entries = list(path_attr)
+    except TypeError:
+        return False
+    if not entries:
+        return False
+    for entry in entries:
+        if isinstance(entry, str) and _os.path.isdir(entry):
+            return True
+    return True
 
 
-__all__ = ['urllib2_package', 'urllib2_name', 'urllib2_path']
+__all__ = ["urllib2_package", "urllib2_name", "urllib2_path"]

@@ -1,252 +1,390 @@
-"""
-theseus_dataclasses_cr — Clean-room dataclasses module.
-No import of the standard `dataclasses` module.
+"""Clean-room implementation of dataclasses (theseus_dataclasses_cr).
+
+Implements: dataclass decorator, field(), fields(), asdict(), astuple().
 """
 
-import inspect as _inspect
 
-_MISSING = object()
-_HAS_DEFAULT_FACTORY = object()
+class _MissingType:
+    def __repr__(self):
+        return "MISSING"
+
+
+MISSING = _MissingType()
 
 
 class Field:
-    __slots__ = ('name', 'type', 'default', 'default_factory', 'repr', 'hash',
-                 'init', 'compare', 'metadata', 'kw_only', '_field_type')
+    __slots__ = ("name", "type", "default", "default_factory",
+                 "init", "repr", "compare", "hash", "metadata")
 
-    def __init__(self, default, default_factory, init, repr, hash, compare, metadata, kw_only):
-        self.name = None
-        self.type = None
+    def __init__(self, default=MISSING, default_factory=MISSING,
+                 init=True, repr=True, compare=True, hash=None,
+                 metadata=None, name=None, type=None):
+        self.name = name
+        self.type = type
         self.default = default
         self.default_factory = default_factory
-        self.repr = repr
-        self.hash = hash
         self.init = init
+        self.repr = repr
         self.compare = compare
-        self.metadata = metadata
-        self.kw_only = kw_only
+        self.hash = hash
+        self.metadata = metadata if metadata is not None else {}
 
     def __repr__(self):
-        return (f'Field(name={self.name!r}, type={self.type!r}, '
-                f'default={self.default!r}, init={self.init!r})')
+        return (
+            f"Field(name={self.name!r},type={self.type!r},"
+            f"default={self.default!r},default_factory={self.default_factory!r},"
+            f"init={self.init!r},repr={self.repr!r},compare={self.compare!r})"
+        )
 
 
-def field(*, default=_MISSING, default_factory=_MISSING, init=True,
-          repr=True, hash=None, compare=True, metadata=None, kw_only=False):
-    if default is not _MISSING and default_factory is not _MISSING:
-        raise TypeError("cannot specify both default and default_factory")
-    return Field(default, default_factory, init, repr, hash, compare, metadata, kw_only)
+def field(*, default=MISSING, default_factory=MISSING,
+          init=True, repr=True, compare=True, hash=None, metadata=None):
+    """Return a Field descriptor used to customize dataclass field behavior."""
+    if default is not MISSING and default_factory is not MISSING:
+        raise ValueError("cannot specify both default and default_factory")
+    return Field(
+        default=default,
+        default_factory=default_factory,
+        init=init,
+        repr=repr,
+        compare=compare,
+        hash=hash,
+        metadata=metadata,
+    )
 
 
-def _get_fields(cls):
-    fields = []
-    annotations = {}
-    for base in reversed(cls.__mro__):
-        annotations.update(getattr(base, '__annotations__', {}))
-    for name, typ in annotations.items():
-        default = getattr(cls, name, _MISSING)
-        if isinstance(default, Field):
-            f = default
-        else:
-            f = Field(default, _MISSING, True, True, None, True, None, False)
-        f.name = name
-        f.type = typ
-        fields.append(f)
-    return fields
-
-
-def _make_init(fields):
-    params = []
-    body = []
-    for f in fields:
-        if not f.init:
+def _collect_fields(cls):
+    """Walk the MRO to gather annotated fields (base classes first)."""
+    fields_map = {}
+    # Iterate MRO in reverse (excluding object) so subclasses override
+    for klass in reversed(cls.__mro__):
+        if klass is object:
             continue
-        if f.default is not _MISSING:
-            params.append(f'{f.name}=__dflt_{f.name}')
-        elif f.default_factory is not _MISSING:
-            params.append(f'{f.name}=_MISSING')
-        else:
-            params.append(f.name)
-        if f.default_factory is not _MISSING:
-            body.append(
-                f'  if {f.name} is _MISSING:\n'
-                f'    self.{f.name} = __factory_{f.name}()\n'
-                f'  else:\n'
-                f'    self.{f.name} = {f.name}'
-            )
-        else:
-            body.append(f'  self.{f.name} = {f.name}')
-    init_src = f'def __init__(self, {", ".join(params)}):\n'
-    if body:
-        init_src += '\n'.join(body) + '\n'
-    else:
-        init_src += '  pass\n'
-    return init_src
-
-
-def dataclass(cls=None, *, init=True, repr=True, eq=True, order=False,
-              unsafe_hash=False, frozen=False, match_args=True,
-              kw_only=False, slots=False):
-    def wrap(cls):
-        flds = _get_fields(cls)
-        cls.__dataclass_fields__ = {f.name: f for f in flds}
-
-        if init:
-            globs = {'_MISSING': _MISSING}
-            for f in flds:
-                if f.default is not _MISSING and not isinstance(f.default, Field):
-                    globs[f'__dflt_{f.name}'] = f.default
-                if f.default_factory is not _MISSING:
-                    globs[f'__factory_{f.name}'] = f.default_factory
-            init_src = _make_init(flds)
-            exec(init_src, globs)
-            cls.__init__ = globs['__init__']
-
-        if repr:
-            field_reprs = ', '.join(
-                f'{f.name}={{self.{f.name}!r}}'
-                for f in flds if f.repr
-            )
-            cls_name = cls.__name__
-            cls.__repr__ = eval(
-                f'lambda self: f"{cls_name}({field_reprs})"'
-            )
-
-        if eq:
-            compare_fields = [f for f in flds if f.compare]
-            if compare_fields:
-                key_expr = '(' + ', '.join(f'self.{f.name}' for f in compare_fields) + ',)'
-                other_key = '(' + ', '.join(f'other.{f.name}' for f in compare_fields) + ',)'
-                cls.__eq__ = eval(
-                    f'lambda self, other: {key_expr} == {other_key} '
-                    f'if type(other) is type(self) else NotImplemented'
+        annotations = klass.__dict__.get("__annotations__", {})
+        for name, type_ in annotations.items():
+            default = klass.__dict__.get(name, MISSING)
+            if isinstance(default, Field):
+                f = default
+                f.name = name
+                f.type = type_
+            else:
+                f = Field(
+                    default=default if default is not MISSING else MISSING,
+                    name=name,
+                    type=type_,
                 )
+            fields_map[name] = f
+    return list(fields_map.values())
 
-        return cls
+
+def _build_init(cls, fields_list):
+    init_fields = [f for f in fields_list if f.init]
+
+    # Validate: non-default fields cannot follow default fields
+    seen_default = False
+    for f in init_fields:
+        has_default = f.default is not MISSING or f.default_factory is not MISSING
+        if seen_default and not has_default:
+            raise TypeError(
+                f"non-default argument {f.name!r} follows default argument"
+            )
+        if has_default:
+            seen_default = True
+
+    def __init__(self, *args, **kwargs):
+        if len(args) > len(init_fields):
+            raise TypeError(
+                f"__init__() takes at most {len(init_fields)} positional "
+                f"arguments but {len(args)} were given"
+            )
+        bound = {}
+        for i, value in enumerate(args):
+            bound[init_fields[i].name] = value
+        for k, v in kwargs.items():
+            if k in bound:
+                raise TypeError(f"got multiple values for argument {k!r}")
+            bound[k] = v
+
+        for f in init_fields:
+            if f.name in bound:
+                value = bound[f.name]
+            elif f.default is not MISSING:
+                value = f.default
+            elif f.default_factory is not MISSING:
+                value = f.default_factory()
+            else:
+                raise TypeError(
+                    f"__init__() missing required argument: {f.name!r}"
+                )
+            setattr(self, f.name, value)
+
+        # Set non-init fields from defaults
+        for f in fields_list:
+            if not f.init:
+                if f.default is not MISSING:
+                    setattr(self, f.name, f.default)
+                elif f.default_factory is not MISSING:
+                    setattr(self, f.name, f.default_factory())
+
+        post_init = getattr(self, "__post_init__", None)
+        if post_init is not None:
+            post_init()
+
+    return __init__
+
+
+def _build_repr(fields_list):
+    repr_fields = [f for f in fields_list if f.repr]
+
+    def __repr__(self):
+        parts = []
+        for f in repr_fields:
+            parts.append(f"{f.name}={getattr(self, f.name)!r}")
+        return f"{type(self).__name__}({', '.join(parts)})"
+
+    return __repr__
+
+
+def _build_eq(fields_list):
+    cmp_fields = [f for f in fields_list if f.compare]
+
+    def __eq__(self, other):
+        if other.__class__ is not self.__class__:
+            return NotImplemented
+        a = tuple(getattr(self, f.name) for f in cmp_fields)
+        b = tuple(getattr(other, f.name) for f in cmp_fields)
+        return a == b
+
+    return __eq__
+
+
+def _process_class(cls, init=True, repr=True, eq=True):
+    fields_list = _collect_fields(cls)
+
+    # Remove plain class-level defaults (Field objects) from the namespace,
+    # but leave simple value defaults so the class still has them as attrs.
+    for f in fields_list:
+        if f.name in cls.__dict__ and isinstance(cls.__dict__[f.name], Field):
+            if f.default is MISSING:
+                try:
+                    delattr(cls, f.name)
+                except AttributeError:
+                    pass
+            else:
+                setattr(cls, f.name, f.default)
+
+    cls.__dataclass_fields__ = {f.name: f for f in fields_list}
+
+    if init:
+        cls.__init__ = _build_init(cls, fields_list)
+    if repr:
+        cls.__repr__ = _build_repr(fields_list)
+    if eq:
+        cls.__eq__ = _build_eq(fields_list)
+        # Make instances unhashable by default when eq is set (mirror std lib)
+        cls.__hash__ = None
+
+    return cls
+
+
+def dataclass(cls=None, *, init=True, repr=True, eq=True):
+    """Decorator: transform a class into a dataclass.
+
+    Auto-generates __init__, __repr__, and __eq__ based on annotations.
+    """
+    def wrap(c):
+        return _process_class(c, init=init, repr=repr, eq=eq)
 
     if cls is None:
         return wrap
     return wrap(cls)
 
 
-def fields(class_or_instance):
-    """Return tuple of Field objects for a dataclass."""
-    try:
-        flds = class_or_instance.__dataclass_fields__
-    except AttributeError:
-        raise TypeError("has no dataclass fields")
-    return tuple(flds.values())
-
-
-def asdict(obj, *, dict_factory=dict):
-    """Convert dataclass to dict recursively."""
-    if not hasattr(obj, '__dataclass_fields__'):
-        raise TypeError("asdict() should be called on dataclass instances")
-    return _asdict_inner(obj, dict_factory)
-
-
-def _asdict_inner(obj, dict_factory):
-    if hasattr(obj, '__dataclass_fields__'):
-        result = []
-        for f in fields(obj):
-            result.append((f.name, _asdict_inner(getattr(obj, f.name), dict_factory)))
-        return dict_factory(result)
-    elif isinstance(obj, tuple) and hasattr(obj, '_fields'):
-        return type(obj)(*[_asdict_inner(v, dict_factory) for v in obj])
-    elif isinstance(obj, (list, tuple)):
-        return type(obj)(_asdict_inner(v, dict_factory) for v in obj)
-    elif isinstance(obj, dict):
-        return type(obj)((_asdict_inner(k, dict_factory), _asdict_inner(v, dict_factory))
-                         for k, v in obj.items())
-    return obj
-
-
-def astuple(obj, *, tuple_factory=tuple):
-    """Convert dataclass to tuple recursively."""
-    if not hasattr(obj, '__dataclass_fields__'):
-        raise TypeError("astuple() should be called on dataclass instances")
-    return _astuple_inner(obj, tuple_factory)
-
-
-def _astuple_inner(obj, tuple_factory):
-    if hasattr(obj, '__dataclass_fields__'):
-        return tuple_factory([_astuple_inner(getattr(obj, f.name), tuple_factory)
-                               for f in fields(obj)])
-    elif isinstance(obj, tuple) and hasattr(obj, '_fields'):
-        return type(obj)(*[_astuple_inner(v, tuple_factory) for v in obj])
-    elif isinstance(obj, (list, tuple)):
-        return type(obj)(_astuple_inner(v, tuple_factory) for v in obj)
-    elif isinstance(obj, dict):
-        return type(obj)((_astuple_inner(k, tuple_factory), _astuple_inner(v, tuple_factory))
-                         for k, v in obj.items())
-    return obj
+def _is_dataclass_instance(obj):
+    return hasattr(type(obj), "__dataclass_fields__")
 
 
 def is_dataclass(obj):
-    """Return True if obj is a dataclass or dataclass instance."""
     cls = obj if isinstance(obj, type) else type(obj)
-    return hasattr(cls, '__dataclass_fields__')
+    return hasattr(cls, "__dataclass_fields__")
 
 
-def make_dataclass(cls_name, fields_list, *, bases=(object,), namespace=None,
-                   init=True, repr=True, eq=True, order=False,
-                   unsafe_hash=False, frozen=False):
-    if namespace is None:
-        namespace = {}
-    anns = {}
-    for item in fields_list:
-        if isinstance(item, str):
-            name = item
-            tp = 'typing.Any'
-        elif len(item) == 2:
-            name, tp = item
-        else:
-            name, tp, spec = item
-            namespace[name] = spec
-        anns[name] = tp
-    namespace['__annotations__'] = anns
-    cls = type(cls_name, bases, namespace)
-    return dataclass(cls, init=init, repr=repr, eq=eq, order=order,
-                     unsafe_hash=unsafe_hash, frozen=frozen)
+def fields(class_or_instance):
+    """Return a tuple of Field objects for a dataclass class or instance."""
+    try:
+        flds = getattr(class_or_instance, "__dataclass_fields__")
+    except AttributeError:
+        raise TypeError(
+            "fields() should be called on dataclass instances or types"
+        )
+    return tuple(flds.values())
+
+
+def _copy_value(value):
+    if is_dataclass(value) and not isinstance(value, type):
+        return asdict(value)
+    if isinstance(value, list):
+        return [_copy_value(v) for v in value]
+    if isinstance(value, tuple):
+        # Preserve namedtuple-ish types when possible
+        if hasattr(value, "_fields"):
+            return type(value)(*(_copy_value(v) for v in value))
+        return tuple(_copy_value(v) for v in value)
+    if isinstance(value, dict):
+        return {_copy_value(k): _copy_value(v) for k, v in value.items()}
+    return value
+
+
+def asdict(obj):
+    """Recursively convert a dataclass instance into a plain dict."""
+    if not _is_dataclass_instance(obj):
+        raise TypeError("asdict() should be called on dataclass instances")
+    result = {}
+    for f in fields(obj):
+        result[f.name] = _copy_value(getattr(obj, f.name))
+    return result
+
+
+def _copy_value_tuple(value):
+    if is_dataclass(value) and not isinstance(value, type):
+        return astuple(value)
+    if isinstance(value, list):
+        return [_copy_value_tuple(v) for v in value]
+    if isinstance(value, tuple):
+        if hasattr(value, "_fields"):
+            return type(value)(*(_copy_value_tuple(v) for v in value))
+        return tuple(_copy_value_tuple(v) for v in value)
+    if isinstance(value, dict):
+        return {
+            _copy_value_tuple(k): _copy_value_tuple(v)
+            for k, v in value.items()
+        }
+    return value
+
+
+def astuple(obj):
+    """Recursively convert a dataclass instance into a plain tuple."""
+    if not _is_dataclass_instance(obj):
+        raise TypeError("astuple() should be called on dataclass instances")
+    return tuple(_copy_value_tuple(getattr(obj, f.name)) for f in fields(obj))
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariants
 # ---------------------------------------------------------------------------
 
 def dataclasses2_init():
-    """dataclass auto-generates __init__ from fields; returns True."""
+    """Verify that @dataclass auto-generates a working __init__."""
     @dataclass
     class Point:
-        x: float
-        y: float
+        x: int
+        y: int = 0
 
-    p = Point(1.0, 2.0)
-    return p.x == 1.0 and p.y == 2.0
+    p = Point(1, 2)
+    if p.x != 1 or p.y != 2:
+        return False
+
+    p2 = Point(5)
+    if p2.x != 5 or p2.y != 0:
+        return False
+
+    p3 = Point(x=7, y=8)
+    if p3.x != 7 or p3.y != 8:
+        return False
+
+    @dataclass
+    class WithFactory:
+        items: list = field(default_factory=list)
+
+    a = WithFactory()
+    b = WithFactory()
+    if a.items != [] or b.items != []:
+        return False
+    a.items.append(1)
+    if b.items != []:  # ensure factory produced independent instances
+        return False
+
+    flds = fields(Point)
+    if len(flds) != 2 or flds[0].name != "x" or flds[1].name != "y":
+        return False
+
+    return True
 
 
 def dataclasses2_repr():
-    """dataclass auto-generates __repr__; returns True."""
+    """Verify auto-generated __repr__ produces the expected format."""
     @dataclass
     class Point:
-        x: float
-        y: float
+        x: int
+        y: int
 
-    p = Point(1.0, 2.0)
-    return 'Point' in repr(p) and '1.0' in repr(p)
+    p = Point(1, 2)
+    if repr(p) != "Point(x=1, y=2)":
+        return False
+
+    @dataclass
+    class Named:
+        name: str
+        age: int = 0
+
+    n = Named("alice", 30)
+    if repr(n) != "Named(name='alice', age=30)":
+        return False
+
+    n2 = Named("bob")
+    if repr(n2) != "Named(name='bob', age=0)":
+        return False
+
+    return True
 
 
 def dataclasses2_eq():
-    """dataclass auto-generates __eq__ based on fields; returns True."""
+    """Verify auto-generated __eq__ compares by value."""
     @dataclass
     class Point:
-        x: float
-        y: float
+        x: int
+        y: int
 
-    return Point(1.0, 2.0) == Point(1.0, 2.0) and Point(1.0, 2.0) != Point(3.0, 4.0)
+    p1 = Point(1, 2)
+    p2 = Point(1, 2)
+    p3 = Point(1, 3)
+
+    if not (p1 == p2):
+        return False
+    if p1 == p3:
+        return False
+    if p1 != p2:
+        return False
+
+    # Different types should not compare equal
+    @dataclass
+    class Other:
+        x: int
+        y: int
+
+    o = Other(1, 2)
+    if p1 == o:
+        return False
+
+    # asdict / astuple sanity
+    if asdict(p1) != {"x": 1, "y": 2}:
+        return False
+    if astuple(p1) != (1, 2):
+        return False
+
+    return True
 
 
 __all__ = [
-    'dataclass', 'field', 'Field', 'fields', 'asdict', 'astuple',
-    'is_dataclass', 'make_dataclass',
-    'dataclasses2_init', 'dataclasses2_repr', 'dataclasses2_eq',
+    "dataclass",
+    "field",
+    "fields",
+    "asdict",
+    "astuple",
+    "is_dataclass",
+    "Field",
+    "MISSING",
+    "dataclasses2_init",
+    "dataclasses2_repr",
+    "dataclasses2_eq",
 ]

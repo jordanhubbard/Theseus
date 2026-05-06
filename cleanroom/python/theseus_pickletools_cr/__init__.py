@@ -1,268 +1,431 @@
-"""
-theseus_pickletools_cr — Clean-room pickletools module.
-No import of the standard `pickletools` module.
+"""Clean-room re-implementation of a small subset of pickletools.
+
+Exports three invariant functions that exercise:
+  * an opcode table,
+  * a pickle disassembler,
+  * a pickle optimizer (strips unused PUT / MEMOIZE ops).
+
+No part of the standard library `pickletools` is imported or referenced.
 """
 
-import io as _io
-import pickle as _pickle
+import io
 import struct as _struct
 
 
-# Pickle opcodes (protocol 0-5)
-_MARK            = b'('
-_STOP            = b'.'
-_POP             = b'0'
-_POP_MARK        = b'1'
-_DUP             = b'2'
-_FLOAT           = b'F'
-_INT             = b'I'
-_BININT          = b'K'
-_BININT1         = b'K'
-_BININT2         = b'M'
-_BININT4         = b'J'
-_LONG            = b'L'
-_BINLONG1        = b'\x8a'
-_BINLONG4        = b'\x8b'
-_NONE            = b'N'
-_PERSID          = b'P'
-_BINPERSID       = b'Q'
-_REDUCE          = b'R'
-_STRING          = b'S'
-_BINSTRING       = b'T'
-_SHORT_BINSTRING = b'U'
-_BINBYTES        = b'B'
-_SHORT_BINBYTES  = b'C'
-_BINBYTES8       = b'\x8e'
-_UNICODE         = b'V'
-_BINUNICODE      = b'X'
-_BINUNICODE8     = b'\x8d'
-_EMPTY_LIST      = b']'
-_APPENDS         = b'e'
-_LIST            = b'l'
-_EMPTY_DICT      = b'}'
-_DICT            = b'd'
-_SETITEM         = b's'
-_SETITEMS        = b'u'
-_EMPTY_SET       = b'\x8f'
-_ADDITEMS        = b'\x90'
-_FROZENSET       = b'\x91'
-_BUILD           = b'b'
-_GLOBAL          = b'c'
-_STACK_GLOBAL    = b'\x93'
-_OBJ             = b'o'
-_INST            = b'i'
-_NEWOBJ          = b'\x81'
-_NEWOBJ_EX       = b'\x92'
-_PUT             = b'p'
-_BINPUT          = b'q'
-_LONG_BINPUT     = b'r'
-_GET             = b'g'
-_BINGET          = b'h'
-_LONG_BINGET     = b'j'
-_PROTO           = b'\x80'
-_TUPLE           = b't'
-_EMPTY_TUPLE     = b')'
-_TUPLE1          = b'\x85'
-_TUPLE2          = b'\x86'
-_TUPLE3          = b'\x87'
-_NEWFALSE        = b'\x89'
-_NEWTRUE         = b'\x88'
-_FRAME           = b'\x95'
-_BYTEARRAY8      = b'\x96'
-_NEXT_BUFFER     = b'\x97'
-_READONLY_BUFFER = b'\x98'
-_MEMOIZE         = b'\x94'
+# ---------------------------------------------------------------------------
+# Opcode table
+# ---------------------------------------------------------------------------
+#
+# Each entry: (name, byte, arg_kind)
+# arg_kind describes how the argument bytes following the opcode are read:
+#   'none'      no argument
+#   'u1'        one unsigned byte = length, followed by that many bytes (string)
+#   'u4'        four little-endian bytes = length, followed by that many bytes
+#   'u8'        eight little-endian bytes = length, followed by that many bytes
+#   'line'      a newline-terminated line (utf-8/latin-1 text)
+#   'ub1'       one unsigned byte (literal int 0..255)
+#   'sb2'       two-byte signed little-endian int
+#   'sb4'       four-byte signed little-endian int
+#   'sb8'       eight-byte signed little-endian int
+#
 
-
-class OpcodeInfo:
-    __slots__ = ('name', 'code', 'arg', 'proto', 'doc')
-
-    def __init__(self, name, code, arg, proto, doc):
-        self.name = name
-        self.code = code
-        self.arg = arg
-        self.proto = proto
-        self.doc = doc
-
-
-opcodes = [
-    OpcodeInfo('MARK', '(', None, 0, 'Push markobject onto the stack.'),
-    OpcodeInfo('STOP', '.', None, 0, 'Every pickle ends with STOP.'),
-    OpcodeInfo('POP', '0', None, 0, 'Discard the top stack item.'),
-    OpcodeInfo('POP_MARK', '1', None, 1, 'Discard the stack through the topmost markobject.'),
-    OpcodeInfo('DUP', '2', None, 1, 'Push the top stack item onto the stack again.'),
-    OpcodeInfo('FLOAT', 'F', None, 0, 'Push a Python float.'),
-    OpcodeInfo('INT', 'I', None, 0, 'Push a Python integer.'),
-    OpcodeInfo('BININT', 'J', None, 1, 'Push a four-byte signed integer.'),
-    OpcodeInfo('BININT1', 'K', None, 1, 'Push a one-byte unsigned integer.'),
-    OpcodeInfo('LONG', 'L', None, 0, 'Push a Python long integer.'),
-    OpcodeInfo('BININT2', 'M', None, 1, 'Push a two-byte unsigned integer.'),
-    OpcodeInfo('NONE', 'N', None, 0, 'Push Python None.'),
-    OpcodeInfo('PERSID', 'P', None, 0, 'Push an object identified by a persistent ID.'),
-    OpcodeInfo('BINPERSID', 'Q', None, 1, 'Push an object identified by a persistent ID.'),
-    OpcodeInfo('REDUCE', 'R', None, 0, 'Push an object built from a callable and an argument tuple.'),
-    OpcodeInfo('STRING', 'S', None, 0, 'Push a Python string object.'),
-    OpcodeInfo('BINSTRING', 'T', None, 1, 'Push a Python string object.'),
-    OpcodeInfo('SHORT_BINSTRING', 'U', None, 1, 'Push a Python string object (length < 256).'),
-    OpcodeInfo('UNICODE', 'V', None, 0, 'Push a Python Unicode string object.'),
-    OpcodeInfo('BINUNICODE', 'X', None, 1, 'Push a Python Unicode string object.'),
-    OpcodeInfo('EMPTY_LIST', ']', None, 1, 'Push an empty list.'),
-    OpcodeInfo('APPENDS', 'e', None, 1, 'Extend a list by a slice of the stack.'),
-    OpcodeInfo('BUILD', 'b', None, 0, 'Call __setstate__ or __dict__.update().'),
-    OpcodeInfo('GLOBAL', 'c', None, 0, 'Push a global object (usually a class).'),
-    OpcodeInfo('DICT', 'd', None, 0, 'Build a dict from the top items on the stack.'),
-    OpcodeInfo('EMPTY_DICT', '}', None, 1, 'Push an empty dict.'),
-    OpcodeInfo('SETITEM', 's', None, 0, 'Add a key+value pair to an existing dict.'),
-    OpcodeInfo('SETITEMS', 'u', None, 1, 'Add an arbitrary number of key+value pairs to a dict.'),
-    OpcodeInfo('LIST', 'l', None, 0, 'Build a list out of the topmost stack slice.'),
-    OpcodeInfo('TUPLE', 't', None, 0, 'Build a tuple out of the topmost stack slice.'),
-    OpcodeInfo('EMPTY_TUPLE', ')', None, 1, 'Push the empty tuple.'),
-    OpcodeInfo('OBJ', 'o', None, 1, 'Build an object instance.'),
-    OpcodeInfo('INST', 'i', None, 0, 'Build a class instance.'),
-    OpcodeInfo('GET', 'g', None, 0, 'Read an object from the memo and push it on the stack.'),
-    OpcodeInfo('BINGET', 'h', None, 1, 'Read an object from the memo and push it.'),
-    OpcodeInfo('LONG_BINGET', 'j', None, 1, 'Read an object from the memo and push it.'),
-    OpcodeInfo('PUT', 'p', None, 0, 'Store stack top in memo.'),
-    OpcodeInfo('BINPUT', 'q', None, 1, 'Store stack top in memo.'),
-    OpcodeInfo('LONG_BINPUT', 'r', None, 1, 'Store stack top in memo.'),
-    OpcodeInfo('NEWOBJ', '\x81', None, 2, 'Build an object instance (new-style classes).'),
-    OpcodeInfo('PROTO', '\x80', None, 2, 'Protocol version indicator.'),
-    OpcodeInfo('TUPLE1', '\x85', None, 2, 'Build a one-tuple out of the top item on the stack.'),
-    OpcodeInfo('TUPLE2', '\x86', None, 2, 'Build a two-tuple out of the top two items.'),
-    OpcodeInfo('TUPLE3', '\x87', None, 2, 'Build a three-tuple out of the top three items.'),
-    OpcodeInfo('NEWTRUE', '\x88', None, 2, 'Push True onto the operand stack.'),
-    OpcodeInfo('NEWFALSE', '\x89', None, 2, 'Push False onto the operand stack.'),
-    OpcodeInfo('LONG1', '\x8a', None, 2, 'Push a long from < 256 bytes.'),
-    OpcodeInfo('LONG4', '\x8b', None, 2, 'Push a really big long.'),
-    OpcodeInfo('BINBYTES', 'B', None, 3, 'Push a Python bytes object.'),
-    OpcodeInfo('SHORT_BINBYTES', 'C', None, 3, 'Push a Python bytes object (length < 256).'),
-    OpcodeInfo('MEMOIZE', '\x94', None, 4, 'Store top of the stack in memo.'),
-    OpcodeInfo('FRAME', '\x95', None, 4, 'Indicate the beginning of a new frame.'),
-    OpcodeInfo('BINUNICODE8', '\x8d', None, 4, 'Push a Python unicode string (8-byte length).'),
-    OpcodeInfo('BINBYTES8', '\x8e', None, 4, 'Push a Python bytes object (8-byte length).'),
-    OpcodeInfo('EMPTY_SET', '\x8f', None, 4, 'Push an empty set.'),
-    OpcodeInfo('ADDITEMS', '\x90', None, 4, 'Add items to a set.'),
-    OpcodeInfo('FROZENSET', '\x91', None, 4, 'Push a frozenset.'),
-    OpcodeInfo('NEWOBJ_EX', '\x92', None, 4, 'Like NEWOBJ but with keyword arguments.'),
-    OpcodeInfo('STACK_GLOBAL', '\x93', None, 4, 'Push a global object (protocol 4).'),
-    OpcodeInfo('BYTEARRAY8', '\x96', None, 5, 'Push a bytearray.'),
-    OpcodeInfo('NEXT_BUFFER', '\x97', None, 5, 'Push next out-of-band buffer.'),
-    OpcodeInfo('READONLY_BUFFER', '\x98', None, 5, 'Make top of stack read-only.'),
+_OPCODES = [
+    ("MARK",            b"(",  "none"),
+    ("STOP",            b".",  "none"),
+    ("POP",             b"0",  "none"),
+    ("POP_MARK",        b"1",  "none"),
+    ("DUP",             b"2",  "none"),
+    ("FLOAT",           b"F",  "line"),
+    ("INT",             b"I",  "line"),
+    ("BININT",          b"J",  "sb4"),
+    ("BININT1",         b"K",  "ub1"),
+    ("LONG",            b"L",  "line"),
+    ("BININT2",         b"M",  "sb2"),
+    ("NONE",            b"N",  "none"),
+    ("PERSID",          b"P",  "line"),
+    ("BINPERSID",       b"Q",  "none"),
+    ("REDUCE",          b"R",  "none"),
+    ("STRING",          b"S",  "line"),
+    ("BINSTRING",       b"T",  "u4"),
+    ("SHORT_BINSTRING", b"U",  "u1"),
+    ("UNICODE",         b"V",  "line"),
+    ("BINUNICODE",      b"X",  "u4"),
+    ("APPEND",          b"a",  "none"),
+    ("BUILD",           b"b",  "none"),
+    ("GLOBAL",          b"c",  "twolines"),
+    ("DICT",            b"d",  "none"),
+    ("EMPTY_DICT",      b"}",  "none"),
+    ("APPENDS",         b"e",  "none"),
+    ("GET",             b"g",  "line"),
+    ("BINGET",          b"h",  "ub1"),
+    ("INST",            b"i",  "twolines"),
+    ("LONG_BINGET",     b"j",  "sb4"),
+    ("LIST",            b"l",  "none"),
+    ("EMPTY_LIST",      b"]",  "none"),
+    ("OBJ",             b"o",  "none"),
+    ("PUT",             b"p",  "line"),
+    ("BINPUT",          b"q",  "ub1"),
+    ("LONG_BINPUT",     b"r",  "sb4"),
+    ("SETITEM",         b"s",  "none"),
+    ("TUPLE",           b"t",  "none"),
+    ("EMPTY_TUPLE",     b")",  "none"),
+    ("SETITEMS",        b"u",  "none"),
+    ("BINFLOAT",        b">",  "fb8"),
+    # Protocol 2.
+    ("PROTO",           b"\x80", "ub1"),
+    ("NEWOBJ",          b"\x81", "none"),
+    ("EXT1",            b"\x82", "ub1"),
+    ("EXT2",            b"\x83", "sb2"),
+    ("EXT4",            b"\x84", "sb4"),
+    ("TUPLE1",          b"\x85", "none"),
+    ("TUPLE2",          b"\x86", "none"),
+    ("TUPLE3",          b"\x87", "none"),
+    ("NEWTRUE",         b"\x88", "none"),
+    ("NEWFALSE",        b"\x89", "none"),
+    ("LONG1",           b"\x8a", "u1"),
+    ("LONG4",           b"\x8b", "sb4"),
+    # Protocol 3.
+    ("BINBYTES",        b"B",   "u4"),
+    ("SHORT_BINBYTES",  b"C",   "u1"),
+    # Protocol 4.
+    ("SHORT_BINUNICODE", b"\x8c", "u1"),
+    ("BINUNICODE8",      b"\x8d", "u8"),
+    ("BINBYTES8",        b"\x8e", "u8"),
+    ("EMPTY_SET",        b"\x8f", "none"),
+    ("ADDITEMS",         b"\x90", "none"),
+    ("FROZENSET",        b"\x91", "none"),
+    ("NEWOBJ_EX",        b"\x92", "none"),
+    ("STACK_GLOBAL",     b"\x93", "none"),
+    ("MEMOIZE",          b"\x94", "none"),
+    ("FRAME",            b"\x95", "frame"),
+    # Protocol 5.
+    ("BYTEARRAY8",       b"\x96", "u8"),
+    ("NEXT_BUFFER",      b"\x97", "none"),
+    ("READONLY_BUFFER",  b"\x98", "none"),
 ]
 
-code2op = {op.code: op for op in opcodes}
 
+# Quick lookup: byte -> (name, arg_kind)
+_BY_BYTE = {byte: (name, kind) for (name, byte, kind) in _OPCODES}
 
-def dis(pickle_bytes, out=None, memo=None, indentlevel=4, annotate=0):
-    """Disassemble a pickle stream."""
-    import sys as _sys
-    if out is None:
-        out = _sys.stdout
-    if isinstance(pickle_bytes, bytes):
-        f = _io.BytesIO(pickle_bytes)
-    else:
-        f = pickle_bytes
-    memo = memo or {}
-    stack = []
-    indentchunk = ' ' * indentlevel
-
-    while True:
-        pos = f.tell()
-        code = f.read(1)
-        if not code:
-            break
-        code_char = code.decode('latin-1')
-        op = code2op.get(code_char)
-        if op is None:
-            print(f'{pos:5d}: {code_char!r:<10} UNKNOWN opcode', file=out)
-            continue
-        print(f'{pos:5d}: {code_char!r:<10} {op.name}', file=out)
-        if op.name == 'STOP':
-            break
-        # Skip argument bytes for common cases
-        if op.name in ('PROTO', 'BININT1', 'BINPUT', 'BINGET', 'SHORT_BINSTRING',
-                        'SHORT_BINBYTES'):
-            f.read(1)
-        elif op.name in ('BININT2',):
-            f.read(2)
-        elif op.name in ('BININT', 'LONG_BINPUT', 'LONG_BINGET', 'BINSTRING', 'BINBYTES'):
-            n = _struct.unpack('<i', f.read(4))[0]
-            if op.name in ('BINSTRING', 'BINBYTES'):
-                f.read(n)
-        elif op.name in ('BINUNICODE',):
-            n = _struct.unpack('<I', f.read(4))[0]
-            f.read(n)
-        elif op.name in ('FRAME',):
-            f.read(8)
-        elif op.name in ('MEMOIZE', 'NEWTRUE', 'NEWFALSE', 'EMPTY_DICT', 'EMPTY_LIST',
-                          'EMPTY_TUPLE', 'EMPTY_SET', 'NONE', 'MARK', 'STOP',
-                          'POP', 'POP_MARK', 'DUP', 'REDUCE', 'BUILD', 'OBJ',
-                          'APPENDS', 'SETITEMS', 'DICT', 'LIST', 'TUPLE',
-                          'TUPLE1', 'TUPLE2', 'TUPLE3', 'SETITEM',
-                          'STACK_GLOBAL', 'NEWOBJ', 'NEWOBJ_EX', 'FROZENSET',
-                          'ADDITEMS', 'BINPERSID', 'NEXT_BUFFER', 'READONLY_BUFFER'):
-            pass
-        elif op.name in ('INT', 'LONG', 'STRING', 'UNICODE', 'FLOAT', 'GLOBAL',
-                          'INST', 'PUT', 'GET', 'PERSID'):
-            # Newline-terminated
-            line = b''
-            while True:
-                c = f.read(1)
-                if not c or c == b'\n':
-                    break
-                line += c
-        elif op.name in ('LONG1', 'LONG4'):
-            if op.name == 'LONG1':
-                n = _struct.unpack('B', f.read(1))[0]
-            else:
-                n = _struct.unpack('<I', f.read(4))[0]
-            f.read(n)
-        elif op.name in ('BINUNICODE8', 'BINBYTES8', 'BYTEARRAY8'):
-            n = _struct.unpack('<Q', f.read(8))[0]
-            f.read(n)
-
-
-def optimize(p):
-    """Optimize a pickle string by removing unnecessary PUT/GET pairs."""
-    # Simple optimization: just return the pickle as-is
-    # A full implementation would remove redundant memo operations
-    if isinstance(p, bytes):
-        return p
-    return bytes(p)
+# The PUT-family and the GET-family share semantics that the optimizer cares about.
+_PUT_NAMES = ("PUT", "BINPUT", "LONG_BINPUT", "MEMOIZE")
+_GET_NAMES = ("GET", "BINGET", "LONG_BINGET")
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Low-level reader
 # ---------------------------------------------------------------------------
+
+def _read_line(buf, pos):
+    """Read until newline; return (text-bytes-without-newline, new_pos)."""
+    end = buf.find(b"\n", pos)
+    if end < 0:
+        raise ValueError("unterminated line argument at offset %d" % pos)
+    return buf[pos:end], end + 1
+
+
+def _decode_arg(buf, pos, kind):
+    """Decode the argument that follows an opcode at byte position `pos`.
+
+    Returns (value, new_pos) where `value` is a Python object representation
+    of the argument suitable for human display.
+    """
+    if kind == "none":
+        return None, pos
+    if kind == "ub1":
+        if pos >= len(buf):
+            raise ValueError("truncated ub1 arg")
+        return buf[pos], pos + 1
+    if kind == "sb2":
+        if pos + 2 > len(buf):
+            raise ValueError("truncated sb2 arg")
+        return _struct.unpack("<H", buf[pos:pos + 2])[0], pos + 2
+    if kind == "sb4":
+        if pos + 4 > len(buf):
+            raise ValueError("truncated sb4 arg")
+        return _struct.unpack("<i", buf[pos:pos + 4])[0], pos + 4
+    if kind == "sb8":
+        if pos + 8 > len(buf):
+            raise ValueError("truncated sb8 arg")
+        return _struct.unpack("<q", buf[pos:pos + 8])[0], pos + 8
+    if kind == "fb8":
+        if pos + 8 > len(buf):
+            raise ValueError("truncated fb8 arg")
+        return _struct.unpack(">d", buf[pos:pos + 8])[0], pos + 8
+    if kind == "u1":
+        if pos >= len(buf):
+            raise ValueError("truncated u1 length")
+        n = buf[pos]
+        pos += 1
+        if pos + n > len(buf):
+            raise ValueError("truncated u1 payload")
+        return buf[pos:pos + n], pos + n
+    if kind == "u4":
+        if pos + 4 > len(buf):
+            raise ValueError("truncated u4 length")
+        n = _struct.unpack("<I", buf[pos:pos + 4])[0]
+        pos += 4
+        if pos + n > len(buf):
+            raise ValueError("truncated u4 payload")
+        return buf[pos:pos + n], pos + n
+    if kind == "u8":
+        if pos + 8 > len(buf):
+            raise ValueError("truncated u8 length")
+        n = _struct.unpack("<Q", buf[pos:pos + 8])[0]
+        pos += 8
+        if pos + n > len(buf):
+            raise ValueError("truncated u8 payload")
+        return buf[pos:pos + n], pos + n
+    if kind == "line":
+        text, pos = _read_line(buf, pos)
+        return text, pos
+    if kind == "twolines":
+        a, pos = _read_line(buf, pos)
+        b, pos = _read_line(buf, pos)
+        return (a, b), pos
+    if kind == "frame":
+        if pos + 8 > len(buf):
+            raise ValueError("truncated FRAME length")
+        n = _struct.unpack("<Q", buf[pos:pos + 8])[0]
+        return n, pos + 8
+    raise ValueError("unknown arg kind %r" % (kind,))
+
+
+def _iter_ops(buf):
+    """Yield (offset, name, arg, next_offset) for every opcode in `buf`.
+
+    Stops after STOP. Raises ValueError on malformed input.
+    """
+    pos = 0
+    n = len(buf)
+    while pos < n:
+        b = buf[pos:pos + 1]
+        info = _BY_BYTE.get(b)
+        if info is None:
+            raise ValueError("unknown opcode %r at offset %d" % (b, pos))
+        name, kind = info
+        start = pos
+        pos += 1
+        arg, pos = _decode_arg(buf, pos, kind)
+        yield (start, name, arg, pos)
+        if name == "STOP":
+            return
+    raise ValueError("pickle exhausted without STOP")
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def opcodes():
+    """Return the opcode table as a list of (name, byte, arg_kind) tuples."""
+    return list(_OPCODES)
+
+
+def _format_arg(name, arg):
+    if arg is None:
+        return ""
+    if isinstance(arg, tuple):  # twolines
+        a, b = arg
+        return " %s %s" % (a.decode("latin-1"), b.decode("latin-1"))
+    if isinstance(arg, bytes):
+        try:
+            return " " + repr(arg.decode("utf-8"))
+        except UnicodeDecodeError:
+            return " " + repr(arg)
+    return " " + repr(arg)
+
+
+def dis(pickle, out=None):
+    """Disassemble `pickle` (bytes) to `out` (a text stream).
+
+    If `out` is None, returns the disassembly as a string.
+    """
+    if isinstance(pickle, (bytearray,)):
+        pickle = bytes(pickle)
+    elif not isinstance(pickle, (bytes,)):
+        raise TypeError("dis() expects bytes-like input")
+
+    return_string = out is None
+    sink = io.StringIO() if return_string else out
+
+    indent = 0
+    for offset, name, arg, _next in _iter_ops(pickle):
+        # Cosmetic: MARK pushes a marker that closing ops consume.
+        if name in ("POP_MARK", "LIST", "TUPLE", "DICT", "SETITEMS",
+                    "APPENDS", "ADDITEMS", "FROZENSET", "OBJ", "INST",
+                    "BUILD"):
+            indent = max(indent - 1, 0)
+        line = "%5d: %-2s %s%s\n" % (
+            offset,
+            pickle[offset:offset + 1].hex(),
+            "    " * indent + name,
+            _format_arg(name, arg),
+        )
+        sink.write(line)
+        if name == "MARK":
+            indent += 1
+
+    if return_string:
+        return sink.getvalue()
+    return None
+
+
+def optimize(pickle):
+    """Return a new pickle with unused PUT/MEMOIZE ops stripped.
+
+    Walks the input twice:
+      * first pass collects which memo ids are referenced by GET ops,
+      * second pass copies all bytes verbatim except PUT-family ops whose
+        memo id has no corresponding GET.
+
+    This is a structural optimization that preserves the deserialized value.
+    """
+    if isinstance(pickle, bytearray):
+        pickle = bytes(pickle)
+    if not isinstance(pickle, bytes):
+        raise TypeError("optimize() expects bytes-like input")
+
+    # Pass 1 — figure out which memo slots are read.
+    used = set()
+    memo_counter = 0  # auto-incrementing id used by MEMOIZE
+    put_ids = []      # aligned to MEMOIZE / PUT order
+    for offset, name, arg, nxt in _iter_ops(pickle):
+        if name in _GET_NAMES:
+            try:
+                idx = int(arg) if name == "GET" else int(arg)
+            except (TypeError, ValueError):
+                idx = arg
+            used.add(idx)
+        elif name == "MEMOIZE":
+            put_ids.append(memo_counter)
+            memo_counter += 1
+        elif name in ("PUT", "BINPUT", "LONG_BINPUT"):
+            try:
+                idx = int(arg)
+            except (TypeError, ValueError):
+                idx = arg
+            put_ids.append(idx)
+
+    # Pass 2 — emit, dropping unused PUT/MEMOIZE ops.
+    out = bytearray()
+    memo_counter = 0
+    put_index = 0
+    for offset, name, arg, nxt in _iter_ops(pickle):
+        if name in _PUT_NAMES:
+            this_id = put_ids[put_index]
+            put_index += 1
+            if name == "MEMOIZE":
+                memo_counter += 1
+            if this_id in used:
+                out.extend(pickle[offset:nxt])
+            # else: skip the bytes entirely
+        else:
+            out.extend(pickle[offset:nxt])
+    return bytes(out)
+
+
+# ---------------------------------------------------------------------------
+# Invariant probes
+# ---------------------------------------------------------------------------
+
+def _self_test_opcodes():
+    table = opcodes()
+    if not isinstance(table, list) or not table:
+        return False
+    seen = set()
+    for entry in table:
+        if not (isinstance(entry, tuple) and len(entry) == 3):
+            return False
+        name, byte, kind = entry
+        if not isinstance(name, str) or not isinstance(byte, bytes):
+            return False
+        if len(byte) != 1:
+            return False
+        if byte in seen:
+            return False
+        seen.add(byte)
+    # A few well-known opcodes must be present.
+    names = {n for (n, _b, _k) in table}
+    must_have = {"MARK", "STOP", "EMPTY_LIST", "EMPTY_DICT", "PROTO",
+                 "BININT1", "TUPLE2", "MEMOIZE", "BINGET"}
+    return must_have.issubset(names)
+
+
+def _build_sample_pickle():
+    """Build a small, hand-crafted protocol-2 pickle equivalent to (1, 2, 3).
+
+    Hand-rolled here so the test does not depend on the stdlib `pickle`.
+    """
+    parts = []
+    parts.append(b"\x80\x02")          # PROTO 2
+    parts.append(b"K\x01")              # BININT1 1
+    parts.append(b"q\x00")              # BINPUT 0   (unused -> optimized away)
+    parts.append(b"K\x02")              # BININT1 2
+    parts.append(b"q\x01")              # BINPUT 1   (used)
+    parts.append(b"K\x03")              # BININT1 3
+    parts.append(b"\x87")               # TUPLE3
+    parts.append(b"q\x02")              # BINPUT 2   (unused)
+    parts.append(b"h\x01")              # BINGET 1   (consumes memo 1)
+    parts.append(b"0")                  # POP        (drop the duplicate)
+    parts.append(b".")                  # STOP
+    return b"".join(parts)
+
+
+def _self_test_dis():
+    pkl = _build_sample_pickle()
+    text = dis(pkl)
+    if not isinstance(text, str):
+        return False
+    expected_tokens = ("PROTO", "BININT1", "BINPUT", "TUPLE3", "BINGET",
+                       "POP", "STOP")
+    return all(tok in text for tok in expected_tokens)
+
+
+def _self_test_optimize():
+    pkl = _build_sample_pickle()
+    smaller = optimize(pkl)
+    if not isinstance(smaller, bytes):
+        return False
+    if len(smaller) >= len(pkl):
+        return False
+    # The unused BINPUT 0 / BINPUT 2 must be gone, BINPUT 1 must remain.
+    # We re-disassemble and count BINPUT occurrences.
+    text = dis(smaller)
+    if text.count("BINPUT") != 1:
+        return False
+    # The optimized stream must still parse end-to-end.
+    ops = list(_iter_ops(smaller))
+    return ops[-1][1] == "STOP"
+
 
 def pickletools2_opcodes():
-    """opcodes list exists with opcode objects; returns True."""
-    return (isinstance(opcodes, list) and
-            len(opcodes) > 10 and
-            hasattr(opcodes[0], 'name') and
-            hasattr(opcodes[0], 'code'))
+    try:
+        return _self_test_opcodes()
+    except Exception:
+        return False
 
 
 def pickletools2_dis():
-    """dis() function can disassemble a pickle stream; returns True."""
-    import io as _io2
-    data = _pickle.dumps({'key': 'value'}, protocol=2)
-    buf = _io2.StringIO()
     try:
-        dis(data, out=buf)
-        return len(buf.getvalue()) > 0
+        return _self_test_dis()
     except Exception:
-        return True
+        return False
 
 
 def pickletools2_optimize():
-    """optimize() function returns a bytes object; returns True."""
-    data = _pickle.dumps([1, 2, 3])
-    result = optimize(data)
-    return isinstance(result, bytes) and len(result) > 0
+    try:
+        return _self_test_optimize()
+    except Exception:
+        return False
 
 
 __all__ = [
-    'opcodes', 'code2op', 'dis', 'optimize',
-    'pickletools2_opcodes', 'pickletools2_dis', 'pickletools2_optimize',
+    "opcodes",
+    "dis",
+    "optimize",
+    "pickletools2_opcodes",
+    "pickletools2_dis",
+    "pickletools2_optimize",
 ]

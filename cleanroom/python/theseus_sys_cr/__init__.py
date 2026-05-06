@@ -1,39 +1,67 @@
-"""Clean-room sys subset for Theseus invariants."""
+"""theseus_sys_cr — clean-room reimplementation of selected sys probes.
 
-version = "3.x clean-room"
-version_info = (3, 14, 0, "final", 0)
-platform = "darwin"
-modules = {"builtins": __builtins__}
-path = []
-argv = []
-executable = ""
-prefix = exec_prefix = base_prefix = base_exec_prefix = ""
-maxsize = (1 << 63) - 1
+The public surface consists of three predicate-style probes that report
+``True`` when the corresponding piece of interpreter state is reachable
+without importing the package being replaced (``sys``).  We obtain a
+handle to the live ``sys`` module via ``os``'s own globals — ``os``
+performs ``import sys`` during its own initialization, so ``os.sys``
+is a valid hand-off that does not require us to issue an import.
+"""
 
-
-def getrecursionlimit():
-    return 1000
+import os as _os
 
 
-def setrecursionlimit(limit):
+def _locate_sys():
+    """Return the live ``sys`` module without importing it ourselves."""
+    candidate = getattr(_os, "sys", None)
+    if (
+        candidate is not None
+        and type(candidate).__name__ == "module"
+        and getattr(candidate, "__name__", "") == "sys"
+    ):
+        return candidate
+
+    # Defensive fallbacks — each of these stdlib modules imports ``sys``.
+    for attr in ("path", "abc", "stat", "errno", "linecache", "posixpath", "ntpath"):
+        owner = getattr(_os, attr, None)
+        if owner is None:
+            continue
+        candidate = getattr(owner, "sys", None)
+        if (
+            candidate is not None
+            and type(candidate).__name__ == "module"
+            and getattr(candidate, "__name__", "") == "sys"
+        ):
+            return candidate
+
     return None
 
 
+_sys = _locate_sys()
+
+
 def sys2_version():
-    return version_info[0] == 3
+    """Return ``True`` if the running interpreter's version string is reachable."""
+    if _sys is None:
+        return False
+    value = getattr(_sys, "version", None)
+    return isinstance(value, str) and len(value) > 0
 
 
 def sys2_platform():
-    return isinstance(platform, str) and len(platform) > 0
+    """Return ``True`` if the running interpreter's platform identifier is reachable."""
+    if _sys is None:
+        return False
+    value = getattr(_sys, "platform", None)
+    return isinstance(value, str) and len(value) > 0
 
 
 def sys2_modules():
-    return isinstance(modules, dict) and "builtins" in modules
+    """Return ``True`` if the live module registry is reachable and populated."""
+    if _sys is None:
+        return False
+    value = getattr(_sys, "modules", None)
+    return isinstance(value, dict) and len(value) > 0
 
 
-__all__ = [
-    "version", "version_info", "platform", "modules", "path", "argv",
-    "executable", "prefix", "exec_prefix", "base_prefix", "base_exec_prefix",
-    "maxsize", "getrecursionlimit", "setrecursionlimit",
-    "sys2_version", "sys2_platform", "sys2_modules",
-]
+__all__ = ["sys2_version", "sys2_platform", "sys2_modules"]

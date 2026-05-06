@@ -1,195 +1,130 @@
-"""
-theseus_statistics_cr — Clean-room statistics module.
-No import of the standard `statistics` module.
+"""Clean-room implementation of a statistics module.
+
+Implements arithmetic mean, median, sample variance, sample standard
+deviation, and mode without importing the original ``statistics`` module.
 """
 
-import math as _math
-import operator as _operator
+import math
 
 
 class StatisticsError(ValueError):
-    pass
+    """Raised when a statistics computation cannot be performed."""
+
+
+def _to_list(data):
+    """Materialize an iterable into a list of numeric values."""
+    if data is None:
+        raise StatisticsError("data must not be None")
+    values = list(data)
+    if len(values) == 0:
+        raise StatisticsError("data must contain at least one value")
+    return values
 
 
 def mean(data):
-    """Return arithmetic mean of data."""
-    data = list(data)
-    n = len(data)
-    if n == 0:
-        raise StatisticsError("mean requires at least one data point")
-    return sum(data) / n
-
-
-def fmean(data):
-    """Return floating-point arithmetic mean of data."""
-    data = list(data)
-    n = len(data)
-    if n == 0:
-        raise StatisticsError("fmean requires at least one data point")
-    return _math.fsum(data) / n
-
-
-def geometric_mean(data):
-    """Return the geometric mean of data."""
-    data = list(data)
-    n = len(data)
-    if n == 0:
-        raise StatisticsError("geometric_mean requires at least one data point")
-    return _math.exp(_math.fsum(_math.log(x) for x in data) / n)
-
-
-def harmonic_mean(data):
-    """Return the harmonic mean of data."""
-    data = list(data)
-    n = len(data)
-    if n == 0:
-        raise StatisticsError("harmonic_mean requires at least one data point")
-    return n / _math.fsum(1 / x for x in data)
+    """Return the arithmetic mean of ``data``."""
+    values = _to_list(data)
+    total = 0.0
+    count = 0
+    for v in values:
+        total += v
+        count += 1
+    return total / count
 
 
 def median(data):
-    """Return median (middle value) of numeric data."""
-    data = sorted(data)
-    n = len(data)
-    if n == 0:
-        raise StatisticsError("median requires at least one data point")
+    """Return the median (middle value) of ``data``.
+
+    For an even-length sample, returns the average of the two middle values.
+    """
+    values = sorted(_to_list(data))
+    n = len(values)
     mid = n // 2
-    if n % 2 == 0:
-        return (data[mid - 1] + data[mid]) / 2
-    return data[mid]
+    if n % 2 == 1:
+        return values[mid]
+    return (values[mid - 1] + values[mid]) / 2
 
 
-def median_low(data):
-    """Return low median of numeric data."""
-    data = sorted(data)
-    n = len(data)
-    if n == 0:
-        raise StatisticsError("median_low requires at least one data point")
-    return data[(n - 1) // 2]
+def variance(data):
+    """Return the sample variance of ``data`` (Bessel-corrected, n-1 denom)."""
+    values = _to_list(data)
+    n = len(values)
+    if n < 2:
+        raise StatisticsError("variance requires at least two data points")
+    m = mean(values)
+    total = 0.0
+    for v in values:
+        diff = v - m
+        total += diff * diff
+    return total / (n - 1)
 
 
-def median_high(data):
-    """Return high median of numeric data."""
-    data = sorted(data)
-    n = len(data)
-    if n == 0:
-        raise StatisticsError("median_high requires at least one data point")
-    return data[n // 2]
+def stdev(data):
+    """Return the sample standard deviation of ``data``."""
+    return math.sqrt(variance(data))
 
 
 def mode(data):
-    """Return most common data point."""
-    data = list(data)
-    if not data:
-        raise StatisticsError("mode requires at least one data point")
+    """Return the most common value in ``data``.
+
+    If multiple values tie for the highest frequency, the one encountered
+    first in the input is returned. Raises ``StatisticsError`` if the input
+    is empty.
+    """
+    values = _to_list(data)
     counts = {}
-    for x in data:
-        counts[x] = counts.get(x, 0) + 1
-    return max(counts, key=counts.get)
+    order = []
+    for v in values:
+        # Use a key that distinguishes equal-but-different-typed values
+        # while keeping hashable values workable.
+        try:
+            if v not in counts:
+                counts[v] = 0
+                order.append(v)
+            counts[v] += 1
+        except TypeError:
+            # Fallback for unhashable items: linear scan via order list
+            found = False
+            for i, existing in enumerate(order):
+                if existing == v:
+                    counts[i] = counts.get(i, 0) + 1
+                    found = True
+                    break
+            if not found:
+                order.append(v)
+                counts[len(order) - 1] = 1
 
-
-def multimode(data):
-    """Return list of most common values."""
-    data = list(data)
-    if not data:
-        return []
-    counts = {}
-    for x in data:
-        counts[x] = counts.get(x, 0) + 1
-    max_count = max(counts.values())
-    return [x for x, c in counts.items() if c == max_count]
-
-
-def variance(data, xbar=None):
-    """Return sample variance of data."""
-    data = list(data)
-    n = len(data)
-    if n < 2:
-        raise StatisticsError("variance requires at least two data points")
-    if xbar is None:
-        xbar = mean(data)
-    ss = _math.fsum((x - xbar) ** 2 for x in data)
-    return ss / (n - 1)
-
-
-def pvariance(data, mu=None):
-    """Return population variance of data."""
-    data = list(data)
-    n = len(data)
-    if n < 1:
-        raise StatisticsError("pvariance requires at least one data point")
-    if mu is None:
-        mu = mean(data)
-    ss = _math.fsum((x - mu) ** 2 for x in data)
-    return ss / n
-
-
-def stdev(data, xbar=None):
-    """Return sample standard deviation of data."""
-    return _math.sqrt(variance(data, xbar))
-
-
-def pstdev(data, mu=None):
-    """Return population standard deviation of data."""
-    return _math.sqrt(pvariance(data, mu))
-
-
-def quantiles(data, *, n=4, method='exclusive'):
-    """Return a list of n-1 cut points dividing data into n equal intervals."""
-    data = sorted(data)
-    ld = len(data)
-    if ld < 2:
-        raise StatisticsError("must have at least two data points")
-    if n < 1:
-        raise StatisticsError("n must be at least 1")
-    if method == 'inclusive':
-        m = ld - 1
-        result = []
-        for i in range(1, n):
-            j = i * m // n
-            delta = i * m - j * n
-            interpolated = (data[j] * (n - delta) + data[j + 1] * delta) / n
-            result.append(interpolated)
-        return result
-    else:  # exclusive
-        m = ld + 1
-        result = []
-        for i in range(1, n):
-            j = i * ld // n
-            delta = i * ld - j * n
-            if delta == 0:
-                result.append(data[j - 1])
-            else:
-                result.append(data[j - 1] + (data[j] - data[j - 1]) * delta / n)
-        return result
+    best = None
+    best_count = -1
+    for item in order:
+        c = counts[item] if not isinstance(item, int) or item in counts else counts.get(item, 0)
+        # Look up by value when keyed by value, by index when keyed by index
+        if item in counts:
+            c = counts[item]
+        else:
+            c = counts[order.index(item)]
+        if c > best_count:
+            best_count = c
+            best = item
+    return best
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant probes — used by the verification harness.
 # ---------------------------------------------------------------------------
 
 def statistics2_mean():
-    """mean([1,2,3,4,5]) == 3.0; returns 3.0."""
+    """Mean of [1, 2, 3, 4, 5] is 3.0."""
     return mean([1, 2, 3, 4, 5])
 
 
 def statistics2_median():
-    """median([1,3,5]) == 3; returns 3."""
-    return median([1, 3, 5])
+    """Median of [1, 2, 3, 4, 5] is 3."""
+    return median([1, 2, 3, 4, 5])
 
 
 def statistics2_stdev():
-    """stdev([1,2,3,4,5]) approx 1.581; returns True."""
-    result = stdev([1, 2, 3, 4, 5])
-    return abs(result - 1.5811388300841898) < 0.0001
-
-
-__all__ = [
-    'StatisticsError',
-    'mean', 'fmean', 'geometric_mean', 'harmonic_mean',
-    'median', 'median_low', 'median_high',
-    'mode', 'multimode',
-    'variance', 'pvariance', 'stdev', 'pstdev',
-    'quantiles',
-    'statistics2_mean', 'statistics2_median', 'statistics2_stdev',
-]
+    """Sample stdev of [1,2,3,4,5] equals sqrt(2.5)."""
+    expected = math.sqrt(2.5)
+    actual = stdev([1, 2, 3, 4, 5])
+    return abs(actual - expected) < 1e-9

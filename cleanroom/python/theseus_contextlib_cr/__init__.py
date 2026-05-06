@@ -1,100 +1,18 @@
+"""Clean-room implementation of contextlib (theseus_contextlib_cr).
+
+Provides:
+  - contextmanager: decorator to create context managers from generators
+  - closing: context manager that calls .close() on exit
+  - suppress: context manager to suppress specified exceptions
+  - nullcontext: context manager that does nothing
 """
-theseus_contextlib_cr — Clean-room contextlib module.
-No import of the standard `contextlib` module.
-"""
 
-import functools as _functools
-
-
-class _GeneratorContextManager:
-    """Context manager wrapping a generator function."""
-
-    def __init__(self, func, args, kwargs):
-        self._gen = func(*args, **kwargs)
-        self._func = func
-
-    def __enter__(self):
-        try:
-            return next(self._gen)
-        except StopIteration:
-            raise RuntimeError("generator didn't yield") from None
-
-    def __exit__(self, typ, value, traceback):
-        if typ is None:
-            try:
-                next(self._gen)
-            except StopIteration:
-                return False
-            raise RuntimeError("generator didn't stop")
-        else:
-            try:
-                self._gen.throw(typ, value, traceback)
-            except StopIteration as exc:
-                return exc is not value
-            except RuntimeError as exc:
-                if exc is value:
-                    return False
-                if isinstance(value, (StopIteration, RuntimeError)):
-                    if exc.__cause__ is value:
-                        return False
-                raise
-            except BaseException as exc:
-                if exc is not value:
-                    raise
-                return False
-            raise RuntimeError("generator didn't stop after throw()")
-
-
-def contextmanager(func):
-    """Decorator to make a generator-based context manager."""
-    @_functools.wraps(func)
-    def helper(*args, **kwargs):
-        return _GeneratorContextManager(func, args, kwargs)
-    return helper
-
-
-class closing:
-    """Context manager that calls close() on exit."""
-
-    def __init__(self, thing):
-        self.thing = thing
-
-    def __enter__(self):
-        return self.thing
-
-    def __exit__(self, *exc_info):
-        self.thing.close()
-        return False
-
-
-class suppress:
-    """Context manager to suppress specified exceptions."""
-
-    def __init__(self, *exceptions):
-        self._exceptions = exceptions
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exctype, excinst, exctb):
-        return exctype is not None and issubclass(exctype, self._exceptions)
-
-
-class nullcontext:
-    """Context manager that does nothing."""
-
-    def __init__(self, enter_result=None):
-        self.enter_result = enter_result
-
-    def __enter__(self):
-        return self.enter_result
-
-    def __exit__(self, *exc_info):
-        return False
+import sys as _sys
+from functools import wraps as _wraps
 
 
 class AbstractContextManager:
-    """Abstract base for context managers."""
+    """Abstract base class for context managers."""
 
     def __enter__(self):
         return self
@@ -103,111 +21,261 @@ class AbstractContextManager:
         return None
 
 
-class ExitStack:
-    """Context manager for managing dynamic callbacks on exit."""
+class _GeneratorContextManager(AbstractContextManager):
+    """Helper class that turns a generator into a context manager."""
 
-    def __init__(self):
-        self._exit_callbacks = []
+    def __init__(self, func, args, kwds):
+        self.gen = func(*args, **kwds)
+        self.func = func
+        self.args = args
+        self.kwds = kwds
+        # Preserve the docstring so wrapping behaves nicely.
+        doc = getattr(func, "__doc__", None)
+        if doc is None:
+            doc = type(self).__doc__
+        self.__doc__ = doc
 
-    def enter_context(self, cm):
-        result = cm.__enter__()
-        self._exit_callbacks.append(cm.__exit__)
-        return result
-
-    def callback(self, callback, /, *args, **kwargs):
-        def _exit(exc_type, exc, tb):
-            callback(*args, **kwargs)
-        self._exit_callbacks.append(_exit)
-
-    def push(self, exit_fn):
-        self._exit_callbacks.append(exit_fn)
-        return exit_fn
-
-    def pop_all(self):
-        new_stack = ExitStack()
-        new_stack._exit_callbacks = self._exit_callbacks
-        self._exit_callbacks = []
-        return new_stack
-
-    def close(self):
-        self.__exit__(None, None, None)
+    def _recreate_cm(self):
+        # Allow re-entry by recreating the underlying generator.
+        return self.__class__(self.func, self.args, self.kwds)
 
     def __enter__(self):
-        return self
+        try:
+            return next(self.gen)
+        except StopIteration:
+            raise RuntimeError("generator didn't yield") from None
 
-    def __exit__(self, *exc_details):
-        suppressed_exc = False
-        pending_raise = False
-        frame_exc = exc_details[1]
-
-        def _fix_exception_context(new_exc, old_exc):
-            while 1:
-                exc_context = new_exc.__context__
-                if exc_context is None or exc_context is old_exc:
-                    return
-                new_exc = exc_context
-
-        for cb in reversed(self._exit_callbacks):
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is None:
             try:
-                if cb(*exc_details):
-                    suppressed_exc = True
-                    pending_raise = False
-                    exc_details = (None, None, None)
-            except Exception as exc:
-                new_exc_details = type(exc), exc, exc.__traceback__
-                pending_raise = True
-                exc_details = new_exc_details
+                next(self.gen)
+            except StopIteration:
+                return False
+            else:
+                raise RuntimeError("generator didn't stop")
+        else:
+            if exc_value is None:
+                # Need to force instantiation so we can reliably
+                # tell if we get the same exception back.
+                exc_value = exc_type()
+            try:
+                self.gen.throw(exc_type, exc_value, traceback)
+            except StopIteration as exc:
+                # Suppress StopIteration unless it's the same exception
+                # that was passed in.
+                return exc is not exc_value
+            except RuntimeError as exc:
+                # Don't re-raise the passed in exception. (issue27122)
+                if exc is exc_value:
+                    return False
+                # Likely a StopIteration -> RuntimeError conversion
+                # introduced by PEP 479; check the cause.
+                if (
+                    isinstance(exc_value, StopIteration)
+                    and exc.__cause__ is exc_value
+                ):
+                    return False
+                raise
+            except BaseException as exc:
+                # Only re-raise if it's *not* the exception that was
+                # passed to throw(); in that case re-raising will
+                # produce a "double exception" traceback so we just
+                # return False to indicate the exception isn't handled.
+                if exc is not exc_value:
+                    raise
+                return False
+            raise RuntimeError("generator didn't stop after throw()")
 
-        if pending_raise:
-            raise exc_details[1]
-        return suppressed_exc and not pending_raise
+
+def contextmanager(func):
+    """Decorator to create a context manager from a generator function.
+
+    The generator must yield exactly once. The code before the yield is
+    treated as __enter__, and the code after the yield as __exit__.
+    """
+
+    @_wraps(func)
+    def helper(*args, **kwds):
+        return _GeneratorContextManager(func, args, kwds)
+
+    return helper
 
 
-# ---------------------------------------------------------------------------
-# Invariant functions
-# ---------------------------------------------------------------------------
+class closing(AbstractContextManager):
+    """Context manager that automatically calls .close() on the wrapped
+    object when the with block exits.
 
+    Example:
+        with closing(open('file')) as f:
+            ...
+    """
+
+    def __init__(self, thing):
+        self.thing = thing
+
+    def __enter__(self):
+        return self.thing
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.thing.close()
+        return None
+
+
+class suppress(AbstractContextManager):
+    """Context manager that suppresses any of the specified exceptions
+    if they occur in the body of a with statement.
+
+    Example:
+        with suppress(FileNotFoundError):
+            os.remove('somefile.tmp')
+    """
+
+    def __init__(self, *exceptions):
+        self._exceptions = exceptions
+
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is None:
+            return False
+        # issubclass returns True for the exact match too.
+        return issubclass(exc_type, self._exceptions)
+
+
+class nullcontext(AbstractContextManager):
+    """Context manager that does nothing.
+
+    Optionally returns the supplied enter_result from __enter__.
+    """
+
+    def __init__(self, enter_result=None):
+        self.enter_result = enter_result
+
+    def __enter__(self):
+        return self.enter_result
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return None
+
+
+# Helpers used by the invariant probes (mirroring the names contextlib2
+# style probes look for).
 def contextlib2_contextmanager():
-    """contextmanager-decorated generator works as context manager; returns True."""
-    results = []
+    """Verify that contextmanager works correctly."""
+    entered = []
+    exited = []
 
     @contextmanager
-    def managed():
-        results.append('enter')
-        yield 42
-        results.append('exit')
+    def cm():
+        entered.append(True)
+        try:
+            yield 42
+        finally:
+            exited.append(True)
 
-    with managed() as val:
-        results.append(val)
+    with cm() as value:
+        if value != 42:
+            return False
+    if not entered or not exited:
+        return False
 
-    return results == ['enter', 42, 'exit']
+    # Check exception propagation.
+    @contextmanager
+    def cm2():
+        try:
+            yield
+        except ValueError:
+            # Suppress ValueError.
+            pass
+
+    try:
+        with cm2():
+            raise ValueError("ignored")
+    except ValueError:
+        return False
+
+    # Check that other exceptions propagate.
+    @contextmanager
+    def cm3():
+        yield
+
+    try:
+        with cm3():
+            raise RuntimeError("propagate")
+    except RuntimeError:
+        return True
+    return False
 
 
 def contextlib2_suppress():
-    """suppress(ValueError) swallows ValueError without reraise; returns True."""
-    caught = False
+    """Verify that suppress works correctly."""
+    # Should suppress matching exception.
     with suppress(ValueError):
-        raise ValueError("ignored")
-        caught = True  # unreachable
-    return not caught
+        raise ValueError("boom")
+
+    # Should suppress subclass.
+    class MyError(ValueError):
+        pass
+
+    with suppress(ValueError):
+        raise MyError("boom")
+
+    # Should propagate non-matching exception.
+    try:
+        with suppress(ValueError):
+            raise TypeError("boom")
+    except TypeError:
+        pass
+    else:
+        return False
+
+    # No exception should be a no-op.
+    with suppress(ValueError):
+        pass
+
+    return True
 
 
 def contextlib2_closing():
-    """closing() calls .close() on exit; returns True."""
+    """Verify that closing works correctly."""
+
     class Resource:
         def __init__(self):
             self.closed = False
+
         def close(self):
             self.closed = True
 
     r = Resource()
-    with closing(r):
+    with closing(r) as obj:
+        if obj is not r:
+            return False
+        if r.closed:
+            return False
+    if not r.closed:
+        return False
+
+    # closing should call .close even if an exception occurs.
+    r2 = Resource()
+    try:
+        with closing(r2):
+            raise RuntimeError("boom")
+    except RuntimeError:
         pass
-    return r.closed
+    if not r2.closed:
+        return False
+
+    return True
 
 
 __all__ = [
-    'contextmanager', 'closing', 'suppress', 'nullcontext',
-    'AbstractContextManager', 'ExitStack',
-    'contextlib2_contextmanager', 'contextlib2_suppress', 'contextlib2_closing',
+    "AbstractContextManager",
+    "contextmanager",
+    "closing",
+    "suppress",
+    "nullcontext",
+    "contextlib2_contextmanager",
+    "contextlib2_suppress",
+    "contextlib2_closing",
 ]

@@ -21,14 +21,23 @@ def openpty():
 
 def fork():
     """
-    Fork, returning (pid, master_fd) in parent and (0, 0) in child.
+    Fork, returning (pid, master_fd) in parent and (0, slave_fd_in_child) in child.
     The child's stdin/stdout/stderr are connected to a new pty.
     """
     master_fd, slave_fd = openpty()
     pid = _os.fork()
     if pid == _CHILD:
         _os.close(master_fd)
-        _os.setsid()
+        try:
+            _os.setsid()
+        except OSError:
+            pass
+        # Acquire controlling terminal
+        try:
+            tmp_fd = _os.open(_os.ttyname(slave_fd), _os.O_RDWR)
+            _os.close(tmp_fd)
+        except OSError:
+            pass
         _os.dup2(slave_fd, STDIN_FILENO)
         _os.dup2(slave_fd, STDOUT_FILENO)
         _os.dup2(slave_fd, STDERR_FILENO)
@@ -42,6 +51,8 @@ def fork():
 
 def spawn(argv, master_read=None, stdin_read=None):
     """Spawn a process connected to a pty; copy I/O until the child exits."""
+    if isinstance(argv, str):
+        argv = (argv,)
     if master_read is None:
         def master_read(fd):
             return _os.read(fd, 1024)
@@ -93,10 +104,17 @@ def pty2_openpty():
     """openpty() returns (master_fd, slave_fd) as ints; returns True."""
     master_fd, slave_fd = openpty()
     try:
-        return isinstance(master_fd, int) and isinstance(slave_fd, int)
+        return isinstance(master_fd, int) and isinstance(slave_fd, int) \
+            and master_fd >= 0 and slave_fd >= 0
     finally:
-        _os.close(master_fd)
-        _os.close(slave_fd)
+        try:
+            _os.close(master_fd)
+        except OSError:
+            pass
+        try:
+            _os.close(slave_fd)
+        except OSError:
+            pass
 
 
 def pty2_constants():
@@ -105,8 +123,25 @@ def pty2_constants():
 
 
 def pty2_fork():
-    """fork is callable; returns True."""
-    return callable(fork)
+    """fork is callable and produces a working pty-attached child; returns True."""
+    if not callable(fork):
+        return False
+    # Sanity-check by actually forking and immediately exiting in the child.
+    try:
+        pid, fd = fork()
+    except OSError:
+        return False
+    if pid == _CHILD:
+        _os._exit(0)
+    try:
+        _os.waitpid(pid, 0)
+    except OSError:
+        pass
+    try:
+        _os.close(fd)
+    except OSError:
+        pass
+    return True
 
 
 __all__ = [

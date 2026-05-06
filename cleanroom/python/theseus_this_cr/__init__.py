@@ -1,75 +1,75 @@
+"""Clean-room reimplementation of the `this` module.
+
+Provides the Zen of Python and the ROT13 helpers in a clean-room form
+without importing the original `this` module.
 """
-theseus_this_cr — Clean-room this module.
-No import of the standard `this` module.
-The Zen of Python, encoded with a ROT-13 cipher.
-"""
 
-# The encoded Zen of Python (ROT-13 of the actual text)
-s = """Gur Mra bs Clguba, ol Gvz Crgref
-
-Ornhgvshy vf orggre guna htyl.
-Rkcyvpvg vf orggre guna vzcyvpvg.
-Fvzcyr vf orggre guna pbzcyrk.
-Pbzcyrk vf orggre guna pbzcyvpngrq.
-Syng vf orggre guna arfgrq.
-Fcnefr vf orggre guna qrafr.
-Ernqnovyvgl pbhagf.
-Fcrpvny pnfrf nera'g fcrpvny rabhtu gb oernx gur ehyrf.
-Nygubhtu cenpgvpnyvgl orngf chevgl.
-Reebef fubhyq arire cnff fvyragyl.
-Hayrff rkcyvpvgyl fvyraprq.
-Va gur snpr bs nzovthvgl, ershfr gur grzcgngvba gb thrff.
-Gurer fubhyq or bar-- naq cersrenoyl bayl bar --boivbhf jnl gb qb vg.
-Nygubhtu gung jnl znl abg or boivbhf ng svefg hayrff lbh'er Qhgpu.
-Abj vf orggre guna arire.
-Nygubhtu arire vf bsgra orggre guna *evtug* abj.
-Vs gur vzcyrzragngvba vf uneq gb rkcynva, vg'f n onq vqrn.
-Vs gur vzcyrzragngvba vf rnfl gb rkcynva, vg znl or n tbbq vqrn.
-Anzrfcnprf ner bar ubaxvat terng vqrn -- yrg'f qb zber bs gubfr!"""
-
-# Build the ROT-13 decode table
-d = {}
-for c in (65, 97):
-    for i in range(26):
-        d[chr(c + i)] = chr(c + (i + 13) % 26)
+# The Zen of Python text, transcribed from public sources (Tim Peters, PEP 20).
+_ZEN_TEXT = (
+    "The Zen of Python, by Tim Peters\n"
+    "\n"
+    "Beautiful is better than ugly.\n"
+    "Explicit is better than implicit.\n"
+    "Simple is better than complex.\n"
+    "Complex is better than complicated.\n"
+    "Flat is better than nested.\n"
+    "Sparse is better than dense.\n"
+    "Readability counts.\n"
+    "Special cases aren't special enough to break the rules.\n"
+    "Although practicality beats purity.\n"
+    "Errors should never pass silently.\n"
+    "Unless explicitly silenced.\n"
+    "In the face of ambiguity, refuse the temptation to guess.\n"
+    "There should be one-- and preferably only one --obvious way to do it.\n"
+    "Although that way may not be obvious at first unless you're Dutch.\n"
+    "Now is better than never.\n"
+    "Although never is often better than *right* now.\n"
+    "If the implementation is hard to explain, it's a bad idea.\n"
+    "If the implementation is easy to explain, it may be a good idea.\n"
+    "Namespaces are one honking great idea -- let's do more of those!"
+)
 
 
-def _decode(text):
-    """Decode ROT-13 encoded text."""
-    return ''.join(d.get(c, c) for c in text)
+def _build_rot13_dict():
+    """Build a dict mapping each ASCII letter to its ROT13 counterpart."""
+    mapping = {}
+    for base in (65, 97):  # 'A' and 'a'
+        for i in range(26):
+            mapping[chr(i + base)] = chr((i + 13) % 26 + base)
+    return mapping
 
 
-# The decoded text (but we don't print it on import like the original does)
-_decoded = _decode(s)
+def _rot13(text):
+    """Apply ROT13 to a string, leaving non-letters intact."""
+    table = _build_rot13_dict()
+    return "".join(table.get(ch, ch) for ch in text)
 
 
-# ---------------------------------------------------------------------------
-# Invariant functions
-# ---------------------------------------------------------------------------
-
-def this2_zen():
-    """s attribute contains the encoded Zen of Python; returns True."""
-    return (isinstance(s, str) and
-            'Mra' in s and
-            'Clguba' in s)
+# The ROT13-encoded form of the Zen text — analogous to `this.s`.
+_S = _rot13(_ZEN_TEXT)
+s = _S
+d = _build_rot13_dict()
 
 
-def this2_decode():
-    """The decoded text contains 'Beautiful is better than ugly'; returns True."""
-    decoded = _decode(s)
-    return ('Beautiful is better than ugly' in decoded and
-            'Zen of Python' in decoded)
+def decode(text):
+    if not isinstance(text, str):
+        raise TypeError("decode expects a str")
+    return _rot13(text)
 
 
 def this2_d():
-    """d dict maps encoded to decoded characters; returns True."""
-    return (isinstance(d, dict) and
-            d.get('G') == 'T' and
-            d.get('a') == 'n' and
-            len(d) == 52)
+    """Verify the ROT13 mapping dictionary used by the module."""
+    return d.get('N') == 'A' and d.get('a') == 'n'
 
 
-__all__ = [
-    's', 'd',
-    'this2_zen', 'this2_decode', 'this2_d',
-]
+def this2_decode():
+    """Verify that the encoded Zen decodes to the expected text."""
+    return "Beautiful is better than ugly." in decode(s)
+
+
+def this2_zen():
+    """Verify that the exported ``s`` value contains encoded Zen text."""
+    return isinstance(s, str) and s != _ZEN_TEXT and "Ornhgvshy" in s
+
+
+__all__ = ["s", "d", "decode", "this2_zen", "this2_decode", "this2_d"]

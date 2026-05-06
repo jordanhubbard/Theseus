@@ -1,66 +1,31 @@
-"""
-theseus_pathlib_extra_cr — Clean-room pathlib module.
-No import of the standard `pathlib` module.
+"""Clean-room pathlib-like module providing PurePosixPath and PureWindowsPath.
+
+This implementation does not import the standard pathlib module.
 """
 
 import os as _os
-import os.path as _osp
-import fnmatch as _fnmatch
 import re as _re
-import stat as _stat
 
 
-class _PureFlavour:
+# ---------------------------------------------------------------------------
+# Flavour helpers
+# ---------------------------------------------------------------------------
+
+class _PosixFlavour:
     sep = '/'
-    altsep = None
+    altsep = ''
     has_drv = False
-    is_reserved = False
-    pathmod = _osp
-
-    def parse_parts(self, parts):
-        parsed = []
-        sep = self.sep
-        altsep = self.altsep
-        drv = root = ''
-        it = reversed(parts)
-        for part in it:
-            if not part:
-                continue
-            if altsep:
-                part = part.replace(altsep, sep)
-            drv, root, rel = self.splitroot(part)
-            if sep in rel:
-                for x in reversed(rel.split(sep)):
-                    if x and x != '.':
-                        parsed.append(x)
-            elif rel and rel != '.':
-                parsed.append(rel)
-            if drv or root:
-                if not drv:
-                    for part in it:
-                        if not part:
-                            continue
-                        if altsep:
-                            part = part.replace(altsep, sep)
-                        drv = self.splitroot(part)[0]
-                        if drv:
-                            break
-                break
-        if drv or root:
-            parsed.append(drv + root)
-        parsed.reverse()
-        return drv, root, parsed
+    is_supported = True
 
     def splitroot(self, part):
-        sep = self.sep
-        if part and part[0] == sep:
-            stripped_part = part.lstrip(sep)
-            if len(part) - len(stripped_part) == 2:
-                return '', sep + sep, stripped_part
-            else:
-                return '', sep, stripped_part
-        else:
-            return '', '', part
+        # Returns (drive, root, rest)
+        if part and part[0] == '/':
+            stripped = part.lstrip('/')
+            # POSIX: exactly two leading slashes is implementation-defined
+            if len(part) - len(stripped) == 2:
+                return '', '//', stripped
+            return '', '/', stripped
+        return '', '', part
 
     def casefold(self, s):
         return s
@@ -68,49 +33,68 @@ class _PureFlavour:
     def casefold_parts(self, parts):
         return parts
 
-    def compile_pattern(self, pattern):
-        return _re.compile(_fnmatch.translate(pattern)).match
 
-    def is_reserved(self, parts):
-        return False
-
-    def make_uri(self, path):
-        return 'file://' + path.as_posix()
-
-    def gethomedir(self, username):
-        if not username:
-            return _osp.expanduser('~')
-        import pwd
-        return pwd.getpwnam(username).pw_dir
-
-
-class _WindowsFlavour(_PureFlavour):
+class _WindowsFlavour:
     sep = '\\'
     altsep = '/'
     has_drv = True
+    is_supported = True
+
+    drive_letters = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
     def splitroot(self, part):
-        first = part[0:1]
+        # Normalize altsep to sep for analysis
+        first = part[:1]
         second = part[1:2]
-        if second == self.sep and first == self.sep:
-            index = part.find(self.sep, 2)
-            if index != -1:
-                index2 = part.find(self.sep, index + 1)
-                if index2 != index + 1:
-                    if index2 == -1:
-                        index2 = len(part)
-                    drv = part[:index2]
-                    root = part[index2:index2 + 1]
-                    return drv, root, part[index2 + len(root):]
-            return part[:2], '', part[2:]
-        if first == self.sep:
-            return '', self.sep, part[1:]
-        if second == ':':
+        # UNC: \\server\share or //server/share
+        if (first in ('\\', '/')) and (second in ('\\', '/')):
+            # Find the server and share
+            third = part[2:3]
+            if third in ('\\', '/'):
+                # \\\... triple slash - treat as just root
+                return '', first * 2, part[2:].lstrip('\\/')
+            # parse server
+            i = 2
+            while i < len(part) and part[i] not in ('\\', '/'):
+                i += 1
+            if i == 2:
+                # no server
+                return '', first * 2, part[2:].lstrip('\\/')
+            server_end = i
+            # skip separator
+            j = server_end
+            while j < len(part) and part[j] in ('\\', '/'):
+                j += 1
+            # parse share
+            k = j
+            while k < len(part) and part[k] not in ('\\', '/'):
+                k += 1
+            if k == j:
+                # no share - just treat first two as root
+                drv = part[:server_end]
+                return drv, '', part[server_end:].lstrip('\\/')
+            drv = part[:k]
+            # Replace separators in drv with backslash
+            drv = '\\\\' + part[2:server_end] + '\\' + part[j:k]
+            rest = part[k:]
+            if rest and rest[0] in ('\\', '/'):
+                root = '\\'
+                rest = rest[1:].lstrip('\\/') if False else rest.lstrip('\\/')
+                # Actually we want only one root
+                # rest already has separator removed; restore semantic
+            else:
+                root = ''
+            return drv, root, rest
+        # Drive letter: C: or C:\
+        if len(part) >= 2 and part[0] in self.drive_letters and part[1] == ':':
             drv = part[:2]
             rest = part[2:]
-            if rest[:1] == self.sep:
-                return drv, self.sep, rest[1:]
+            if rest and rest[0] in ('\\', '/'):
+                return drv, '\\', rest[1:].lstrip('\\/') if False else rest[1:]
             return drv, '', rest
+        # No drive
+        if part and part[0] in ('\\', '/'):
+            return '', '\\', part.lstrip('\\/')
         return '', '', part
 
     def casefold(self, s):
@@ -119,115 +103,147 @@ class _WindowsFlavour(_PureFlavour):
     def casefold_parts(self, parts):
         return [p.lower() for p in parts]
 
-    def make_uri(self, path):
-        drive = path.drive
-        if drive[:1] == self.sep:
-            return 'file:' + path.as_posix()
-        return 'file:///' + path.as_posix()
 
-    def gethomedir(self, username):
-        if not username:
-            return _osp.expanduser('~')
-        return _osp.join(_osp.expandvars('%HOMEPATH%'))
-
-
-_posix_flavour = _PureFlavour()
+_posix_flavour = _PosixFlavour()
 _windows_flavour = _WindowsFlavour()
 
 
-class PurePath:
-    """Base class for pure path objects (no I/O)."""
-    _flavour = _posix_flavour
-    __slots__ = ('_drv', '_root', '_parts', '_str', '_hash')
+# ---------------------------------------------------------------------------
+# PurePath base
+# ---------------------------------------------------------------------------
 
-    def __new__(cls, *args):
-        obj = object.__new__(cls)
-        drv, root, parts = obj._flavour.parse_parts(args)
-        obj._drv = drv
-        obj._root = root
-        obj._parts = parts
-        return obj
+class PurePath(object):
+    """Base class for pure path objects."""
 
+    _flavour = None  # set by subclasses
+
+    def __init__(self, *args):
+        parts = []
+        for a in args:
+            if isinstance(a, PurePath):
+                # Use its string form
+                parts.append(str(a))
+            elif isinstance(a, str):
+                parts.append(a)
+            else:
+                raise TypeError(
+                    "argument should be a str or an os.PathLike "
+                    "object, not %r" % type(a).__name__
+                )
+        self._raw_paths = parts
+        self._parse()
+
+    # -- Parsing ------------------------------------------------------------
+    def _parse(self):
+        flavour = self._flavour
+        sep = flavour.sep
+        altsep = flavour.altsep
+
+        if not self._raw_paths:
+            self._drv = ''
+            self._root = ''
+            self._parts = []
+            return
+
+        # Combine like joinpath: subsequent absolute paths replace,
+        # subsequent drive paths replace drive.
+        drv = ''
+        root = ''
+        parts = []  # list of components (no separators)
+
+        for raw in self._raw_paths:
+            if not raw:
+                continue
+            s = raw
+            if altsep:
+                s = s.replace(altsep, sep)
+            d, r, rest = flavour.splitroot(s)
+            if d:
+                if r or not parts or flavour.casefold(d) != flavour.casefold(drv):
+                    # New drive (or absolute on this drive): replace
+                    drv = d
+                    root = r
+                    parts = []
+                else:
+                    # Same drive, no root: append rest
+                    pass
+            elif r:
+                # Absolute on current drive
+                root = r
+                parts = []
+            # split rest by sep
+            if rest:
+                for comp in rest.split(sep):
+                    if comp and comp != '.':
+                        parts.append(comp)
+
+        self._drv = drv
+        self._root = root
+        self._parts = parts
+
+    # -- String form --------------------------------------------------------
     def __str__(self):
-        try:
-            return self._str
-        except AttributeError:
-            self._str = self._format_parsed_parts(self._drv, self._root, self._parts) or '.'
-            return self._str
+        s = self._format_parsed_parts()
+        return s or '.'
 
-    @classmethod
-    def _format_parsed_parts(cls, drv, root, parts):
-        if drv or root:
-            return drv + root + cls._flavour.sep.join(parts[1:])
-        else:
-            return cls._flavour.sep.join(parts)
+    def _format_parsed_parts(self):
+        sep = self._flavour.sep
+        if self._drv or self._root:
+            return self._drv + self._root + sep.join(self._parts)
+        return sep.join(self._parts)
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, str(self))
+        return "%s(%r)" % (type(self).__name__, str(self))
 
-    def __bytes__(self):
-        return str(self).encode()
+    def __fspath__(self):
+        return str(self)
 
-    def __hash__(self):
-        try:
-            return self._hash
-        except AttributeError:
-            self._hash = hash(tuple(self._flavour.casefold_parts(self._parts)))
-            return self._hash
+    # -- Equality / hashing -------------------------------------------------
+    def _key(self):
+        f = self._flavour
+        return (
+            f.casefold(self._drv),
+            f.casefold(self._root),
+            tuple(f.casefold_parts(self._parts)),
+        )
 
     def __eq__(self, other):
         if not isinstance(other, PurePath):
             return NotImplemented
-        return (self._flavour.casefold_parts(self._parts) ==
-                other._flavour.casefold_parts(other._parts) and
-                self._flavour is other._flavour)
+        if other._flavour is not self._flavour:
+            return NotImplemented
+        return self._key() == other._key()
+
+    def __ne__(self, other):
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return result
+        return not result
+
+    def __hash__(self):
+        return hash(self._key())
 
     def __lt__(self, other):
-        if not isinstance(other, PurePath) or self._flavour is not other._flavour:
+        if not isinstance(other, PurePath) or other._flavour is not self._flavour:
             return NotImplemented
-        return self._parts < other._parts
+        return self._key() < other._key()
 
     def __le__(self, other):
-        if not isinstance(other, PurePath) or self._flavour is not other._flavour:
+        if not isinstance(other, PurePath) or other._flavour is not self._flavour:
             return NotImplemented
-        return self._parts <= other._parts
+        return self._key() <= other._key()
 
     def __gt__(self, other):
-        if not isinstance(other, PurePath) or self._flavour is not other._flavour:
+        if not isinstance(other, PurePath) or other._flavour is not self._flavour:
             return NotImplemented
-        return self._parts > other._parts
+        return self._key() > other._key()
 
     def __ge__(self, other):
-        if not isinstance(other, PurePath) or self._flavour is not other._flavour:
+        if not isinstance(other, PurePath) or other._flavour is not self._flavour:
             return NotImplemented
-        return self._parts >= other._parts
+        return self._key() >= other._key()
 
-    def __truediv__(self, key):
-        return self._make_child((str(key),))
-
-    def __rtruediv__(self, key):
-        return self._from_parsed_parts('', '', [str(key)])._make_child(self._parts)
-
-    def _make_child(self, args):
-        drv, root, parts = self._flavour.parse_parts(args)
-        drv, root, parts = self._flavour.parse_parts([str(self)] + list(args))
-        return self._from_parsed_parts(drv, root, parts)
-
-    @classmethod
-    def _from_parsed_parts(cls, drv, root, parts):
-        obj = object.__new__(cls)
-        obj._drv = drv
-        obj._root = root
-        obj._parts = parts
-        return obj
-
-    @property
-    def parts(self):
-        if self._drv or self._root:
-            return tuple([self._drv + self._root] + self._parts[1:])
-        else:
-            return tuple(self._parts)
-
+    # -- Properties ---------------------------------------------------------
     @property
     def drive(self):
         return self._drv
@@ -241,376 +257,336 @@ class PurePath:
         return self._drv + self._root
 
     @property
-    def parents(self):
-        return _PathParents(self)
-
-    @property
-    def parent(self):
-        drv = self._drv
-        root = self._root
-        parts = self._parts
-        if len(parts) == 1 and (drv or root):
-            return self
-        if len(parts) > 1:
-            return self._from_parsed_parts(drv, root, parts[:-1])
-        return self._from_parsed_parts(drv, root, [])
+    def parts(self):
+        sep = self._flavour.sep
+        result = []
+        if self._drv or self._root:
+            result.append(self._drv + self._root)
+        result.extend(self._parts)
+        return tuple(result)
 
     @property
     def name(self):
-        parts = self._parts
-        if len(parts) == (1 if (self._drv or self._root) else 0):
-            return ''
-        return parts[-1]
+        if self._parts:
+            return self._parts[-1]
+        return ''
 
     @property
     def suffix(self):
-        name = self.name
-        i = name.rfind('.')
-        if 0 < i < len(name) - 1:
-            return name[i:]
+        n = self.name
+        i = n.rfind('.')
+        if 0 < i < len(n) - 1:
+            return n[i:]
+        # Handle leading dot files: ".bashrc" has no suffix
+        if i > 0 and i == len(n) - 1:
+            return n[i:]
         return ''
 
     @property
     def suffixes(self):
-        name = self.name
-        if name.endswith('.'):
+        n = self.name
+        if n.endswith('.'):
             return []
-        name = name.lstrip('.')
-        return ['.' + suffix for suffix in name.split('.')[1:]]
+        n = n.lstrip('.')
+        if not n:
+            return []
+        return ['.' + s for s in n.split('.')[1:]]
 
     @property
     def stem(self):
-        name = self.name
-        suffix = self.suffix
-        if suffix:
-            return name[:-len(suffix)]
-        return name
+        n = self.name
+        i = n.rfind('.')
+        if 0 < i < len(n):
+            # Skip leading-dot files: stem of ".bashrc" is ".bashrc"
+            # (the '.' must not be the only leading dot)
+            return n[:i]
+        return n
 
-    def with_name(self, name):
+    @property
+    def parent(self):
+        if not self._parts:
+            return self
+        new = object.__new__(type(self))
+        new._flavour = self._flavour
+        new._drv = self._drv
+        new._root = self._root
+        new._parts = self._parts[:-1]
+        new._raw_paths = [new._format_parsed_parts() or '.']
+        return new
+
+    @property
+    def parents(self):
+        result = []
+        cur = self
+        while True:
+            par = cur.parent
+            if par == cur:
+                break
+            result.append(par)
+            cur = par
+        return tuple(result)
+
+    # -- Methods ------------------------------------------------------------
+    def is_absolute(self):
+        if self._flavour.has_drv:
+            return bool(self._drv) and bool(self._root)
+        return bool(self._root)
+
+    def joinpath(self, *args):
+        return type(self)(str(self), *[str(a) if isinstance(a, PurePath) else a for a in args])
+
+    def __truediv__(self, other):
+        try:
+            return self.joinpath(other)
+        except TypeError:
+            return NotImplemented
+
+    def __rtruediv__(self, other):
+        try:
+            return type(self)(other, str(self))
+        except TypeError:
+            return NotImplemented
+
+    def with_name(self, new_name):
         if not self.name:
-            raise ValueError('%r has an empty name' % self)
-        parts = self._parts[:-1] + [name]
-        return self._from_parsed_parts(self._drv, self._root, parts)
+            raise ValueError("%r has an empty name" % self)
+        if not new_name or self._flavour.sep in new_name or (
+            self._flavour.altsep and self._flavour.altsep in new_name
+        ):
+            raise ValueError("Invalid name %r" % new_name)
+        new = object.__new__(type(self))
+        new._flavour = self._flavour
+        new._drv = self._drv
+        new._root = self._root
+        new._parts = self._parts[:-1] + [new_name]
+        new._raw_paths = [new._format_parsed_parts()]
+        return new
+
+    def with_suffix(self, suffix):
+        if self._flavour.sep in suffix or (
+            self._flavour.altsep and self._flavour.altsep in suffix
+        ):
+            raise ValueError("Invalid suffix %r" % suffix)
+        if suffix and not suffix.startswith('.') or suffix == '.':
+            raise ValueError("Invalid suffix %r" % suffix)
+        name = self.name
+        if not name:
+            raise ValueError("%r has an empty name" % self)
+        i = name.rfind('.')
+        if 0 < i < len(name):
+            new_name = name[:i] + suffix
+        else:
+            new_name = name + suffix
+        return self.with_name(new_name)
 
     def with_stem(self, stem):
         return self.with_name(stem + self.suffix)
 
-    def with_suffix(self, suffix):
-        if not suffix:
-            return self.with_name(self.stem)
-        return self.with_name(self.stem + suffix)
+    def as_posix(self):
+        return str(self).replace(self._flavour.sep, '/')
 
     def relative_to(self, *other):
-        other_parts = self.__class__(*other)._parts
-        if other_parts != self._parts[:len(other_parts)]:
-            raise ValueError('%r is not relative to %r' % (self, other))
-        parts = self._parts[len(other_parts):]
-        return self._from_parsed_parts('', '', parts)
-
-    def is_relative_to(self, *other):
-        try:
-            self.relative_to(*other)
-            return True
-        except ValueError:
-            return False
-
-    def is_absolute(self):
-        return bool(self._root)
-
-    def is_reserved(self):
-        return self._flavour.is_reserved(self._parts)
+        # Build the other path as same type
+        other_path = type(self)(*other)
+        n = len(other_path._parts)
+        f = self._flavour
+        if (f.casefold(self._drv) != f.casefold(other_path._drv)
+                or f.casefold(self._root) != f.casefold(other_path._root)
+                or f.casefold_parts(self._parts[:n]) != f.casefold_parts(other_path._parts)):
+            raise ValueError(
+                "%r is not in the subpath of %r" % (str(self), str(other_path))
+            )
+        new = object.__new__(type(self))
+        new._flavour = self._flavour
+        new._drv = ''
+        new._root = ''
+        new._parts = self._parts[n:]
+        new._raw_paths = [new._format_parsed_parts() or '.']
+        return new
 
     def match(self, pattern):
-        cf = self._flavour.casefold
-        pattern_parts = list(reversed(PurePath(pattern)._parts))
-        if not pattern_parts:
-            raise ValueError('empty pattern')
-        parts = list(reversed([cf(p) for p in self._parts]))
-        if len(pattern_parts) > len(parts):
-            return False
-        for pp, p in zip(pattern_parts, parts):
-            if not _fnmatch.fnmatchcase(p, cf(pp)):
+        if not pattern:
+            raise ValueError("empty pattern")
+        pat = type(self)(pattern)
+        pat_parts = pat._parts
+        sep = self._flavour.sep
+        if pat._drv or pat._root:
+            target_parts = list(self.parts)
+            pat_full = list(pat.parts)
+            if len(target_parts) != len(pat_full):
+                return False
+            check = list(zip(pat_full, target_parts))
+        else:
+            target = self._parts
+            if len(pat_parts) > len(target):
+                return False
+            check = list(zip(pat_parts, target[len(target) - len(pat_parts):]))
+        f = self._flavour
+        for pat_p, target_p in check:
+            if not _fnmatch(f.casefold(target_p), f.casefold(pat_p)):
                 return False
         return True
 
-    def joinpath(self, *args):
-        return self._make_child(args)
 
-    def as_posix(self):
-        return str(self).replace('\\', '/')
-
-    def as_uri(self):
-        if not self.is_absolute():
-            raise ValueError('relative path cannot be expressed as a URI')
-        return self._flavour.make_uri(self)
+def _fnmatch(name, pat):
+    """Simple fnmatch implementation for path components."""
+    regex = _translate_glob(pat)
+    return _re.match(regex, name) is not None
 
 
-class _PathParents:
-    __slots__ = ('_pathcls', '_drv', '_root', '_parts')
-
-    def __init__(self, path):
-        self._pathcls = type(path)
-        self._drv = path._drv
-        self._root = path._root
-        self._parts = path._parts
-
-    def __len__(self):
-        if self._drv or self._root:
-            return len(self._parts) - 1
+def _translate_glob(pat):
+    i = 0
+    n = len(pat)
+    res = ''
+    while i < n:
+        c = pat[i]
+        i += 1
+        if c == '*':
+            res += '[^/]*'
+        elif c == '?':
+            res += '[^/]'
+        elif c == '[':
+            j = i
+            if j < n and pat[j] == '!':
+                j += 1
+            if j < n and pat[j] == ']':
+                j += 1
+            while j < n and pat[j] != ']':
+                j += 1
+            if j >= n:
+                res += '\\['
+            else:
+                stuff = pat[i:j].replace('\\', '\\\\')
+                i = j + 1
+                if stuff[0] == '!':
+                    stuff = '^' + stuff[1:]
+                res += '[' + stuff + ']'
         else:
-            return len(self._parts)
+            res += _re.escape(c)
+    return '(?s:' + res + ')\\Z'
 
-    def __getitem__(self, idx):
-        if isinstance(idx, slice):
-            return tuple(self[i] for i in range(*idx.indices(len(self))))
-        if idx < 0 or idx >= len(self):
-            raise IndexError(idx)
-        return self._pathcls._from_parsed_parts(self._drv, self._root, self._parts[:-idx - 1])
 
-    def __repr__(self):
-        return '<{}.parents>'.format(self._pathcls.__name__)
-
+# ---------------------------------------------------------------------------
+# Concrete Pure types
+# ---------------------------------------------------------------------------
 
 class PurePosixPath(PurePath):
-    """PurePath subclass for non-Windows systems."""
     _flavour = _posix_flavour
-    __slots__ = ()
+
+    def __init__(self, *args):
+        super().__init__(*args)
 
 
 class PureWindowsPath(PurePath):
-    """PurePath subclass for Windows systems."""
     _flavour = _windows_flavour
-    __slots__ = ()
 
-
-class Path(PurePath):
-    """Concrete path implementation with I/O."""
-    __slots__ = ()
-
-    def __new__(cls, *args, **kwargs):
-        if cls is Path:
-            cls = WindowsPath if _os.name == 'nt' else PosixPath
-        obj = cls._from_parsed_parts(*cls._flavour.parse_parts(args))
-        return obj
-
-    def stat(self, *, follow_symlinks=True):
-        if follow_symlinks:
-            return _os.stat(self)
-        return _os.lstat(self)
-
-    def lstat(self):
-        return self.stat(follow_symlinks=False)
-
-    def exists(self):
-        try:
-            self.stat()
-            return True
-        except OSError:
-            return False
-
-    def is_file(self):
-        try:
-            return _stat.S_ISREG(self.stat().st_mode)
-        except OSError:
-            return False
-
-    def is_dir(self):
-        try:
-            return _stat.S_ISDIR(self.stat().st_mode)
-        except OSError:
-            return False
-
-    def is_symlink(self):
-        try:
-            return _stat.S_ISLNK(self.lstat().st_mode)
-        except OSError:
-            return False
-
-    def is_absolute(self):
-        return bool(self._root)
-
-    def open(self, mode='r', buffering=-1, encoding=None, errors=None, newline=None):
-        return open(str(self), mode=mode, buffering=buffering, encoding=encoding,
-                    errors=errors, newline=newline)
-
-    def read_bytes(self):
-        with self.open('rb') as f:
-            return f.read()
-
-    def read_text(self, encoding=None, errors=None):
-        with self.open('r', encoding=encoding, errors=errors) as f:
-            return f.read()
-
-    def write_bytes(self, data):
-        with self.open('wb') as f:
-            return f.write(data)
-
-    def write_text(self, data, encoding=None, errors=None, newline=None):
-        with self.open('w', encoding=encoding, errors=errors, newline=newline) as f:
-            return f.write(data)
-
-    def iterdir(self):
-        for name in _os.listdir(self):
-            yield self._make_child((name,))
-
-    def glob(self, pattern):
-        selector = _WildcardSelector(pattern, self._flavour)
-        for path in selector.select_from(self):
-            yield path
-
-    def rglob(self, pattern):
-        return self.glob('**/' + pattern)
-
-    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
-        try:
-            _os.mkdir(str(self), mode)
-        except FileNotFoundError:
-            if not parents or self.parent == self:
-                raise
-            self.parent.mkdir(parents=True, exist_ok=True)
-            self.mkdir(mode, parents=False, exist_ok=exist_ok)
-        except OSError:
-            if not exist_ok or not self.is_dir():
-                raise
-
-    def unlink(self, missing_ok=False):
-        try:
-            _os.unlink(str(self))
-        except FileNotFoundError:
-            if not missing_ok:
-                raise
-
-    def rmdir(self):
-        _os.rmdir(str(self))
-
-    def rename(self, target):
-        _os.rename(str(self), str(target))
-        return self.__class__(target)
-
-    def replace(self, target):
-        _os.replace(str(self), str(target))
-        return self.__class__(target)
-
-    def symlink_to(self, target, target_is_directory=False):
-        _os.symlink(str(target), str(self), target_is_directory)
-
-    def hardlink_to(self, target):
-        _os.link(str(target), str(self))
-
-    def touch(self, mode=0o666, exist_ok=True):
-        if exist_ok:
-            try:
-                _os.utime(str(self), None)
-            except OSError:
-                pass
-            else:
-                return
-        flags = _os.O_CREAT | _os.O_WRONLY
-        if not exist_ok:
-            flags |= _os.O_EXCL
-        fd = _os.open(str(self), flags, mode)
-        _os.close(fd)
-
-    def resolve(self, strict=False):
-        try:
-            return self.__class__(_osp.realpath(str(self)))
-        except OSError:
-            if strict:
-                raise
-            return self.__class__(_osp.abspath(str(self)))
-
-    def absolute(self):
-        return self.__class__(_osp.abspath(str(self)))
-
-    @classmethod
-    def cwd(cls):
-        return cls(_os.getcwd())
-
-    @classmethod
-    def home(cls):
-        return cls(_osp.expanduser('~'))
-
-    def owner(self):
-        import pwd
-        return pwd.getpwuid(self.stat().st_uid).pw_name
-
-    def group(self):
-        import grp
-        return grp.getgrgid(self.stat().st_gid).gr_name
-
-    def __fspath__(self):
-        return str(self)
-
-
-class _WildcardSelector:
-    def __init__(self, pattern, flavour):
-        self.pattern = pattern
-        self.flavour = flavour
-
-    def select_from(self, parent_path):
-        try:
-            entries = list(parent_path.iterdir())
-        except PermissionError:
-            return
-        pat = self.pattern
-        if '**' in pat:
-            yield from self._rselect(parent_path, pat)
-        else:
-            for entry in entries:
-                if _fnmatch.fnmatch(entry.name, pat):
-                    yield entry
-
-    def _rselect(self, parent, pattern):
-        parts = pattern.split('**/', 1)
-        pre = parts[0]
-        post = parts[1] if len(parts) > 1 else ''
-        try:
-            for entry in parent.iterdir():
-                if entry.is_dir():
-                    yield from self._rselect(entry, '**/' + post if post else '**')
-                if post:
-                    if _fnmatch.fnmatch(entry.name, post):
-                        yield entry
-                else:
-                    yield entry
-        except PermissionError:
-            pass
-
-
-class PosixPath(Path, PurePosixPath):
-    """Path subclass for POSIX."""
-    __slots__ = ()
-
-
-class WindowsPath(Path, PureWindowsPath):
-    """Path subclass for Windows."""
-    __slots__ = ()
+    def __init__(self, *args):
+        super().__init__(*args)
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant test functions
 # ---------------------------------------------------------------------------
 
 def pathlib2_parts():
-    """PurePosixPath splits path into parts correctly; returns True."""
-    p = PurePosixPath('/usr/bin/python')
-    return p.parts == ('/', 'usr', 'bin', 'python')
+    """Verify .parts splits the path correctly."""
+    try:
+        p = PurePosixPath('/usr/bin/python3')
+        if p.parts != ('/', 'usr', 'bin', 'python3'):
+            return False
+
+        p2 = PurePosixPath('foo/bar/baz')
+        if p2.parts != ('foo', 'bar', 'baz'):
+            return False
+
+        p3 = PurePosixPath('a/b/c/d')
+        if p3.parts != ('a', 'b', 'c', 'd'):
+            return False
+
+        p4 = PurePosixPath()
+        if p4.parts != ():
+            return False
+
+        p5 = PurePosixPath('/')
+        if p5.parts != ('/',):
+            return False
+
+        # Windows path parts
+        w = PureWindowsPath('c:/Program Files/PSF')
+        if w.parts != ('c:\\', 'Program Files', 'PSF'):
+            return False
+
+        return True
+    except Exception:
+        return False
 
 
 def pathlib2_stem():
-    """PurePosixPath.stem returns filename without extension; returns True."""
-    p = PurePosixPath('/path/to/file.txt')
-    return p.stem == 'file' and p.suffix == '.txt'
+    """Verify .stem returns the name without the final suffix."""
+    try:
+        if PurePosixPath('my/library.tar.gz').stem != 'library.tar':
+            return False
+        if PurePosixPath('my/library.tar').stem != 'library':
+            return False
+        if PurePosixPath('my/library').stem != 'library':
+            return False
+        if PurePosixPath('foo.txt').stem != 'foo':
+            return False
+        if PurePosixPath('archive.tar.bz2').stem != 'archive.tar':
+            return False
+        # No suffix
+        if PurePosixPath('README').stem != 'README':
+            return False
+        # Empty path
+        if PurePosixPath().stem != '':
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def pathlib2_joinpath():
-    """PurePosixPath / operator joins paths; returns True."""
-    p = PurePosixPath('/usr') / 'bin' / 'python'
-    return str(p) == '/usr/bin/python'
+    """Verify .joinpath combines paths correctly."""
+    try:
+        p = PurePosixPath('/etc')
+        joined = p.joinpath('passwd')
+        if str(joined) != '/etc/passwd':
+            return False
+
+        p2 = PurePosixPath('foo')
+        joined2 = p2.joinpath('bar', 'baz')
+        if str(joined2) != 'foo/bar/baz':
+            return False
+
+        # joinpath with absolute resets
+        p3 = PurePosixPath('/etc')
+        joined3 = p3.joinpath('/usr/bin')
+        if str(joined3) != '/usr/bin':
+            return False
+
+        # __truediv__ should also work
+        p4 = PurePosixPath('/usr')
+        d = p4 / 'local' / 'bin'
+        if str(d) != '/usr/local/bin':
+            return False
+
+        # Windows joining
+        w = PureWindowsPath('c:')
+        joined4 = w.joinpath('/Program Files')
+        # c: + /Program Files -> c:\Program Files
+        if str(joined4) != 'c:\\Program Files':
+            return False
+
+        return True
+    except Exception:
+        return False
 
 
 __all__ = [
-    'PurePath', 'PurePosixPath', 'PureWindowsPath',
-    'Path', 'PosixPath', 'WindowsPath',
-    'pathlib2_parts', 'pathlib2_stem', 'pathlib2_joinpath',
+    'PurePath',
+    'PurePosixPath',
+    'PureWindowsPath',
+    'pathlib2_parts',
+    'pathlib2_stem',
+    'pathlib2_joinpath',
 ]

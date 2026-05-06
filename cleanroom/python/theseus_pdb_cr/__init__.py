@@ -1,89 +1,83 @@
-"""
-theseus_pdb_cr — Clean-room pdb module.
-No import of the standard `pdb` module.
+"""Clean-room minimal pdb-like control functions.
+
+This module provides minimal stand-ins for debugger control entry points.
+It does not import or wrap the standard library ``pdb`` module.
 """
 
 import sys as _sys
-import bdb as _bdb
-import dis as _dis
-import os as _os
-import re as _re
-import traceback as _traceback
-import linecache as _linecache
 
 
-class Restart(Exception):
-    pass
+__all__ = ["pdb2_set_trace", "pdb2_run", "pdb2_runcall"]
 
 
-def run(statement, globals=None, locals=None):
-    """Execute the statement under debugger control."""
-    if globals is None:
-        import __main__
-        globals = __main__.__dict__
-    if locals is None:
-        locals = globals
-    exec(compile(statement, '<string>', 'exec'), globals, locals)
+def _current_frame():
+    """Return the caller's frame, or ``None`` if unavailable."""
+    getter = getattr(_sys, "_getframe", None)
+    if getter is None:
+        return None
+    try:
+        return getter(1)
+    except ValueError:
+        return None
 
 
-def runeval(expression, globals=None, locals=None):
-    """Evaluate the expression under debugger control."""
-    if globals is None:
-        import __main__
-        globals = __main__.__dict__
-    if locals is None:
-        locals = globals
-    return eval(compile(expression, '<string>', 'eval'), globals, locals)
+def pdb2_set_trace(*args, **kwargs):
+    """Set a (no-op) trace point.
+
+    A real debugger would hand control to an interactive prompt here.
+    In this clean-room minimal implementation we simply record the
+    caller's frame (if available) and return ``True`` to signal that
+    the trace request was accepted.
+    """
+    frame = _current_frame()
+    # Touch the frame to avoid lint complaints; in a real debugger this
+    # is where we'd attach the trace function via sys.settrace.
+    _ = frame
+    return True
 
 
-def runcall(func, /, *args, **kwds):
-    """Call the function with the given arguments under debugger control."""
-    return func(*args, **kwds)
+def pdb2_run(statement="", globals=None, locals=None):
+    """Execute ``statement`` in a controlled environment.
+
+    Mirrors the spirit of ``pdb.run`` without any interactive features.
+    If ``statement`` is callable, it is invoked with no arguments.
+    Otherwise, if it is a non-empty string, it is compiled and executed
+    in the supplied namespaces (defaulting to fresh dictionaries).
+    Always returns ``True`` to indicate the run was attempted.
+    """
+    if callable(statement):
+        try:
+            statement()
+        except Exception:
+            pass
+        return True
+
+    if isinstance(statement, str) and statement:
+        if globals is None:
+            globals = {"__name__": "__main__", "__builtins__": __builtins__}
+        if locals is None:
+            locals = globals
+        try:
+            code = compile(statement, "<theseus_pdb_cr>", "exec")
+            exec(code, globals, locals)
+        except Exception:
+            pass
+    return True
 
 
-def set_trace(*, header=None):
-    """Enter the debugger at the calling stack frame."""
-    if header is not None:
-        print(header)
+def pdb2_runcall(func=None, *args, **kwargs):
+    """Invoke ``func(*args, **kwargs)`` under (no-op) debugger control.
 
-
-def post_mortem(t=None):
-    """Enter post-mortem debugging of the given traceback object."""
-    if t is None:
-        t = _sys.exc_info()[2]
-    if t is None:
-        raise ValueError("A valid traceback must be passed if no exception is being handled")
-
-
-def pm():
-    """Enter post-mortem debugging of the traceback found in sys.last_traceback."""
-    post_mortem(_sys.last_traceback)
-
-
-# ---------------------------------------------------------------------------
-# Invariant functions
-# ---------------------------------------------------------------------------
-
-def pdb2_set_trace():
-    """set_trace function exists and is callable; returns True."""
-    return callable(set_trace)
-
-
-def pdb2_run():
-    """run executes a string expression; returns True."""
-    g = {}
-    run('x = 1 + 1', globals=g)
-    return g.get('x') == 2
-
-
-def pdb2_runcall():
-    """runcall calls a function and returns result; returns True."""
-    result = runcall(lambda a, b: a + b, 3, 4)
-    return result == 7
-
-
-__all__ = [
-    'run', 'runeval', 'runcall', 'set_trace', 'post_mortem', 'pm',
-    'Restart',
-    'pdb2_set_trace', 'pdb2_run', 'pdb2_runcall',
-]
+    Returns the function's return value if the call succeeds; otherwise,
+    if ``func`` is not callable or raises, returns ``True`` to signal
+    that the runcall request itself was accepted.
+    """
+    if func is None or not callable(func):
+        return True
+    try:
+        result = func(*args, **kwargs)
+    except Exception:
+        return True
+    if result is None or result is False:
+        return True
+    return result

@@ -1,212 +1,330 @@
+"""Clean-room implementation of an HMAC module (theseus_hmac_cr).
+
+Implements RFC 2104 HMAC from scratch using hashlib for the underlying
+hash functions. Does NOT import the standard library `hmac` module.
 """
-theseus_hmac_cr — Clean-room hmac module.
-No import of the standard `hmac` module.
-Uses _hashlib C extension directly.
-"""
 
-import _hashlib as _hl
-import _operator as _op
+import hashlib as _hashlib
 
 
-# HMAC block sizes for common algorithms
-_DIGEST_BLOCK_SIZE = {
-    'md5': 64,
-    'sha1': 64,
-    'sha224': 64,
-    'sha256': 64,
-    'sha384': 128,
-    'sha512': 128,
-    'sha3_224': 144,
-    'sha3_256': 136,
-    'sha3_384': 104,
-    'sha3_512': 72,
-    'blake2b': 128,
-    'blake2s': 64,
-}
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
-digest_size = None  # set per-instance
+_TRANS_36 = bytes((x ^ 0x36) for x in range(256))
+_TRANS_5C = bytes((x ^ 0x5C) for x in range(256))
 
 
-class HMAC:
-    """Keyed-Hashing for Message Authentication."""
+def _resolve_digestmod(digestmod):
+    """Return (constructor, name) for the given digestmod argument.
 
-    blocksize = 64
+    digestmod may be:
+      - a string naming a hashlib algorithm ("sha256", "md5", ...)
+      - a callable returning a fresh hash object
+      - a module-like object exposing .new() (e.g. hashlib.sha256)
+    """
+    if digestmod is None:
+        raise TypeError("Missing required parameter 'digestmod'")
 
-    def __init__(self, key, msg=None, digestmod=''):
-        if not digestmod:
-            raise TypeError('Missing required parameter: digestmod')
+    if isinstance(digestmod, str):
+        name = digestmod
 
-        if callable(digestmod):
-            self._init_old(key, msg, digestmod)
-            return
+        def cons(data=b''):
+            return _hashlib.new(name, data)
 
-        if isinstance(digestmod, str):
-            _name = digestmod.lower().replace('-', '_')
-        else:
-            _name = digestmod
+        return cons, name
 
-        try:
-            self._hmac = _hl.hmac_new(key, msg or b'', _name)
-            self.digest_size = self._hmac.digest_size
-            self._digestmod_name = _name
-            self.blocksize = _DIGEST_BLOCK_SIZE.get(_name, 64)
-        except (ValueError, AttributeError):
-            self._hmac = None
-            self._init_pure(key, msg, _name)
+    if callable(digestmod):
+        # Treat as a hash constructor like hashlib.sha256
+        sample = digestmod()
+        name = getattr(sample, 'name', 'unknown')
+        return digestmod, name
 
-    def _init_pure(self, key, msg, name):
-        """Pure-Python HMAC using hashlib new()."""
+    if hasattr(digestmod, 'new'):
+        cons = digestmod.new
+        sample = cons()
+        name = getattr(sample, 'name', 'unknown')
+        return cons, name
+
+    raise TypeError("digestmod must be a string, callable, or module")
+
+
+def _coerce_bytes(data, name='data'):
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        return bytes(data)
+    raise TypeError("%s must be bytes-like, not %s"
+                    % (name, type(data).__name__))
+
+
+# ---------------------------------------------------------------------------
+# HMAC class
+# ---------------------------------------------------------------------------
+
+class HMAC(object):
+    """RFC 2104 HMAC implementation."""
+
+    def __init__(self, key, msg=None, digestmod=None):
+        cons, name = _resolve_digestmod(digestmod)
+        self._hash_cons = cons
         self._digestmod_name = name
-        self.blocksize = _DIGEST_BLOCK_SIZE.get(name, 64)
 
-        def _new_hash(data=b''):
-            return _hl.new(name, data)
+        # Sample to discover block / digest sizes
+        sample = cons()
+        self.digest_size = sample.digest_size
+        block_size = getattr(sample, 'block_size', 64)
+        if block_size < 16:
+            # Some hashes report a tiny block_size; fall back to 64 like hmac.
+            block_size = 64
+        self.block_size = block_size
 
-        h = _new_hash()
-        self.digest_size = h.digest_size
+        key = _coerce_bytes(key, 'key')
 
-        if len(key) > self.blocksize:
-            key = _new_hash(key).digest()
-        key = key.ljust(self.blocksize, b'\x00')
+        if len(key) > block_size:
+            key = cons(key).digest()
+        # Right-pad with zero bytes
+        key = key + b'\x00' * (block_size - len(key))
 
-        self._ipad = bytes(x ^ 0x36 for x in key)
-        self._opad = bytes(x ^ 0x5C for x in key)
+        # Pre-compute inner / outer pads
+        self._inner = cons()
+        self._outer = cons()
+        self._inner.update(key.translate(_TRANS_36))
+        self._outer.update(key.translate(_TRANS_5C))
 
-        self._inner = _new_hash(self._ipad)
-        self._outer_key = self._opad
-        self._new_hash = _new_hash
         if msg is not None:
-            self._inner.update(msg)
-
-    def _init_old(self, key, msg, digestmod_callable):
-        self._hmac = None
-        self._digestmod_name = getattr(digestmod_callable, 'name', 'unknown')
-        h = digestmod_callable()
-        self.digest_size = h.digest_size
-        self.blocksize = getattr(h, 'block_size', 64)
-
-        def _new_hash(data=b''):
-            return digestmod_callable(data)
-
-        if len(key) > self.blocksize:
-            key = _new_hash(key).digest()
-        key = key.ljust(self.blocksize, b'\x00')
-        self._ipad = bytes(x ^ 0x36 for x in key)
-        self._opad = bytes(x ^ 0x5C for x in key)
-        self._inner = _new_hash(self._ipad)
-        self._outer_key = self._opad
-        self._new_hash = _new_hash
-        if msg is not None:
-            self._inner.update(msg)
+            self.update(msg)
 
     @property
     def name(self):
-        return 'hmac-' + self._digestmod_name
+        return "hmac-" + self._digestmod_name
 
     def update(self, msg):
-        """Update this hashing object with the string msg."""
-        if self._hmac is not None:
-            self._hmac.update(msg)
-        else:
-            self._inner.update(msg)
+        msg = _coerce_bytes(msg, 'msg')
+        self._inner.update(msg)
 
     def digest(self):
-        """Return the hash value of this hashing object."""
-        if self._hmac is not None:
-            return self._hmac.digest()
-        h = self._new_hash(self._outer_key)
-        h.update(self._inner.digest())
-        return h.digest()
+        outer = self._outer.copy()
+        outer.update(self._inner.digest())
+        return outer.digest()
 
     def hexdigest(self):
-        """Return the hex-encoded hash value."""
         return self.digest().hex()
 
     def copy(self):
-        """Return a separate copy of this hashing object."""
-        other = HMAC.__new__(HMAC)
-        if self._hmac is not None:
-            other._hmac = self._hmac.copy()
-            other.digest_size = self.digest_size
-            other._digestmod_name = self._digestmod_name
-            other.blocksize = self.blocksize
-        else:
-            other._hmac = None
-            other._digestmod_name = self._digestmod_name
-            other.digest_size = self.digest_size
-            other.blocksize = self.blocksize
-            other._ipad = self._ipad
-            other._opad = self._opad
-            other._outer_key = self._outer_key
-            other._new_hash = self._new_hash
-            other._inner = self._inner.copy()
-        return other
+        new_obj = HMAC.__new__(HMAC)
+        new_obj._hash_cons = self._hash_cons
+        new_obj._digestmod_name = self._digestmod_name
+        new_obj.digest_size = self.digest_size
+        new_obj.block_size = self.block_size
+        new_obj._inner = self._inner.copy()
+        new_obj._outer = self._outer.copy()
+        return new_obj
 
 
-def new(key, msg=None, digestmod=''):
-    """Create a new hashing object and return it."""
+# ---------------------------------------------------------------------------
+# Module-level functions (stdlib hmac compatible surface)
+# ---------------------------------------------------------------------------
+
+def new(key, msg=None, digestmod=None):
+    """Create a new HMAC object."""
     return HMAC(key, msg, digestmod)
 
 
 def digest(key, msg, digest):
-    """Return the HMAC digest without creating a full object."""
-    if isinstance(digest, str):
-        _name = digest.lower().replace('-', '_')
-        try:
-            return _hl.hmac_digest(key, msg, _name)
-        except (ValueError, AttributeError):
-            pass
-    h = new(key, msg, digest)
-    return h.digest()
+    """One-shot HMAC: returns the digest of `msg` keyed by `key`."""
+    return new(key, msg, digest).digest()
 
 
 def compare_digest(a, b):
-    """Compare two digests in constant time to avoid timing attacks."""
-    if isinstance(a, str):
-        if not isinstance(b, str):
-            raise TypeError("unsupported operand types(s) for ==: 'str' and 'bytes'")
-        # Use _operator for constant-time comparison if available
-        if len(a) != len(b):
-            return False
-        result = 0
-        for x, y in zip(a.encode(), b.encode()):
-            result |= x ^ y
-        return result == 0
-    if not isinstance(a, (bytes, bytearray)):
-        raise TypeError(f"unsupported operand type(s): {type(a)!r}")
-    if not isinstance(b, (bytes, bytearray)):
-        raise TypeError(f"unsupported operand type(s): {type(b)!r}")
-    if len(a) != len(b):
+    """Constant-time comparison of two strings or byte sequences."""
+    # Both must be the same "kind" (str or bytes-like)
+    if isinstance(a, str) and isinstance(b, str):
+        try:
+            a_bytes = a.encode('ascii')
+            b_bytes = b.encode('ascii')
+        except UnicodeEncodeError:
+            raise TypeError(
+                "comparing strings with non-ASCII characters is not supported"
+            )
+    elif isinstance(a, (bytes, bytearray, memoryview)) and \
+            isinstance(b, (bytes, bytearray, memoryview)):
+        a_bytes = bytes(a)
+        b_bytes = bytes(b)
+    else:
+        raise TypeError(
+            "unsupported operand types(s) or combination of types: "
+            "%s and %s" % (type(a).__name__, type(b).__name__)
+        )
+
+    # Length-mismatch returns False but still does a constant-time pass
+    # over the shorter input so timing does not depend on the contents.
+    if len(a_bytes) != len(b_bytes):
+        # Walk the shorter of the two, to avoid index errors.
+        ref = a_bytes if len(a_bytes) <= len(b_bytes) else b_bytes
+        result = 1
+        for x in ref:
+            result |= x ^ x  # constant work; preserves nonzero result
         return False
+
     result = 0
-    for x, y in zip(a, b):
+    for x, y in zip(a_bytes, b_bytes):
         result |= x ^ y
     return result == 0
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Behavioral invariants
 # ---------------------------------------------------------------------------
 
 def hmac2_basic():
-    """HMAC-SHA256 produces correct digest; returns True."""
-    h = new(b'key', b'The quick brown fox jumps over the lazy dog', 'sha256')
-    expected = 'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8'
-    return h.hexdigest() == expected
+    """Basic HMAC construction & update/hexdigest behavior."""
+    try:
+        # Known vector: HMAC-SHA256("key", "The quick brown fox jumps over the lazy dog")
+        h = new(b'key', None, 'sha256')
+        h.update(b'The quick brown fox jumps over the lazy dog')
+        expected = (
+            'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8'
+        )
+        if h.hexdigest() != expected:
+            return False
+
+        # name + sizes
+        if h.name != 'hmac-sha256':
+            return False
+        if h.digest_size != 32:
+            return False
+        if h.block_size != 64:
+            return False
+
+        # update equivalence: piecewise == one-shot
+        h1 = new(b'secret', None, 'sha256')
+        h1.update(b'hello ')
+        h1.update(b'world')
+        h2 = new(b'secret', b'hello world', 'sha256')
+        if h1.digest() != h2.digest():
+            return False
+
+        # copy() yields an independent state
+        c = h2.copy()
+        c.update(b'!')
+        if c.digest() == h2.digest():
+            return False
+
+        # Long key (longer than block size) gets hashed
+        long_key = b'A' * 200
+        h3 = new(long_key, b'data', 'sha256')
+        # Equivalent to keying with sha256(long_key)
+        hashed_key = _hashlib.sha256(long_key).digest()
+        h4 = new(hashed_key, b'data', 'sha256')
+        if h3.digest() != h4.digest():
+            return False
+
+        return True
+    except Exception:
+        return False
 
 
 def hmac2_digest():
-    """digest() shortcut function works; returns True."""
-    result = digest(b'key', b'message', 'sha256')
-    return isinstance(result, bytes) and len(result) == 32
+    """Digest / one-shot digest behavior including known RFC vectors."""
+    try:
+        # RFC 4231 Test Case 2: HMAC-SHA-256
+        key = b'Jefe'
+        msg = b'what do ya want for nothing?'
+        expected = bytes.fromhex(
+            '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843'
+        )
+        if digest(key, msg, 'sha256') != expected:
+            return False
+
+        # Empty key / empty message HMAC-SHA-256
+        empty = bytes.fromhex(
+            'b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad'
+        )
+        if digest(b'', b'', 'sha256') != empty:
+            return False
+
+        # digest() agrees with HMAC().digest() and hexdigest()
+        d = digest(b'k', b'm', 'sha256')
+        h = new(b'k', b'm', 'sha256')
+        if d != h.digest():
+            return False
+        if d.hex() != h.hexdigest():
+            return False
+
+        # Length matches the underlying hash digest size
+        if len(digest(b'k', b'm', 'sha1')) != 20:
+            return False
+        if len(digest(b'k', b'm', 'sha512')) != 64:
+            return False
+        if len(digest(b'k', b'm', 'md5')) != 16:
+            return False
+
+        # RFC 2104 Test Case 1: HMAC-MD5 with 16x 0x0b key, "Hi There"
+        md5_expected = bytes.fromhex('9294727a3638bb1c13f48ef8158bfc9d')
+        if digest(b'\x0b' * 16, b'Hi There', 'md5') != md5_expected:
+            return False
+
+        # digestmod as callable also works
+        d2 = digest(b'k', b'm', _hashlib.sha256)
+        if d2 != d:
+            return False
+
+        return True
+    except Exception:
+        return False
 
 
 def hmac2_compare():
-    """compare_digest() is constant-time safe; returns True."""
-    a = b'hello'
-    b = b'hello'
-    c = b'world'
-    return compare_digest(a, b) is True and compare_digest(a, c) is False
+    """compare_digest behaves as a constant-time equality check."""
+    try:
+        # Equal bytes
+        if not compare_digest(b'hello', b'hello'):
+            return False
+        # Unequal bytes, same length
+        if compare_digest(b'hello', b'world'):
+            return False
+        # Different lengths
+        if compare_digest(b'hello', b'helloo'):
+            return False
+        if compare_digest(b'', b'a'):
+            return False
+        # Equal empty
+        if not compare_digest(b'', b''):
+            return False
+        # Strings (ASCII)
+        if not compare_digest('abc', 'abc'):
+            return False
+        if compare_digest('abc', 'abd'):
+            return False
+        # bytearray / memoryview interop
+        if not compare_digest(bytearray(b'xyz'), b'xyz'):
+            return False
+        if not compare_digest(memoryview(b'xyz'), bytearray(b'xyz')):
+            return False
+        # Mixed str/bytes -> TypeError
+        try:
+            compare_digest('abc', b'abc')
+        except TypeError:
+            pass
+        else:
+            return False
+        # Non-ASCII string -> TypeError
+        try:
+            compare_digest('\u00e9', '\u00e9')
+        except TypeError:
+            pass
+        else:
+            return False
+        # Round-trip with HMAC digests
+        a = digest(b'k', b'msg', 'sha256')
+        b = digest(b'k', b'msg', 'sha256')
+        c = digest(b'k', b'other', 'sha256')
+        if not compare_digest(a, b):
+            return False
+        if compare_digest(a, c):
+            return False
+        return True
+    except Exception:
+        return False
 
 
 __all__ = [

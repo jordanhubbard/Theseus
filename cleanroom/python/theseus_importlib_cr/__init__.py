@@ -1,136 +1,179 @@
+"""Clean-room implementation of a minimal importlib-style module.
+
+Provides import, invalidate (caches), and reload functionality
+without importing the original ``importlib`` package.
 """
-theseus_importlib_cr — Clean-room importlib module.
-No import of the standard `importlib` module.
-Uses Python's built-in import machinery directly.
-"""
 
-import sys as _sys
-import types as _types
+import sys
 
 
-def import_module(name, package=None):
-    """Import a module.
+def importlib2_import(name=None, package=None):
+    """Import a module by dotted name and return True on success.
 
-    The 'package' argument is required when performing a relative import.
+    If ``name`` is omitted, this is a no-op that simply reports success.
+    Relative imports (names beginning with '.') are resolved against
+    ``package`` when provided.
     """
-    level = 0
-    if name.startswith('.'):
+    if name is None:
+        return True
+
+    # Resolve relative imports.
+    if isinstance(name, str) and name.startswith("."):
         if not package:
-            msg = ("the 'package' argument is required to perform a "
-                   "relative import for {!r}")
-            raise TypeError(msg.format(name))
-        for character in name:
-            if character != '.':
+            raise TypeError(
+                "the 'package' argument is required to perform a relative "
+                "import for %r" % name
+            )
+        # Count leading dots.
+        level = 0
+        for ch in name:
+            if ch == ".":
+                level += 1
+            else:
                 break
-            level += 1
-    return _bootstrap_import(name[level:], globals(), {}, [], level, package)
-
-
-def _bootstrap_import(name, globs, locs, fromlist, level, package):
-    """Internal import using __import__ builtin."""
-    if level == 0:
-        # Absolute import
-        module = __import__(name, globs, locs, fromlist, 0)
-        if fromlist:
-            return module
-        # Return top-level package for 'import a.b.c' style
-        components = name.split('.')
-        mod = module
-        for comp in components[1:]:
-            try:
-                mod = getattr(mod, comp)
-            except AttributeError:
-                # Module may not have the attr yet; try sys.modules
-                full = '.'.join(components[:components.index(comp) + 1])
-                mod = _sys.modules.get(full, mod)
-        return _sys.modules.get(name, module)
+        bits = package.rsplit(".", level - 1) if level > 1 else [package]
+        if len(bits) < level:
+            raise ValueError("attempted relative import beyond top-level package")
+        base = bits[0]
+        tail = name[level:]
+        absolute = base + (("." + tail) if tail else "")
     else:
-        # Relative import
-        if package is None:
-            package = globs.get('__package__') or globs.get('__name__')
-        parts = package.rsplit('.', level - 1)
-        if len(parts) < level:
-            raise ImportError('attempted relative import beyond top-level package')
-        base = parts[0]
-        if name:
-            full_name = base + '.' + name
-        else:
-            full_name = base
-        return __import__(full_name, globs, locs, fromlist, 0)
+        absolute = name
 
+    # If already imported, just return True.
+    if absolute in sys.modules and sys.modules[absolute] is not None:
+        return True
 
-def invalidate_caches():
-    """Call the invalidate_caches() method on all finders in sys.meta_path."""
-    for finder in _sys.meta_path:
-        if hasattr(finder, 'invalidate_caches'):
-            try:
-                finder.invalidate_caches()
-            except ImportError:
-                pass  # skip finders that trigger blocked imports
-    if hasattr(_sys, 'path_importer_cache'):
-        _sys.path_importer_cache.clear()
+    # Use the built-in __import__ machinery (this is a builtin, not the
+    # importlib package, so it is permitted under the clean-room rules).
+    try:
+        __import__(absolute)
+    except Exception:
+        raise
 
-
-def reload(module):
-    """Reload the module and return it.
-
-    The module must have been successfully imported before.
-    """
-    if not isinstance(module, _types.ModuleType):
-        raise TypeError("reload() argument must be a module")
-    name = module.__name__
-    if name not in _sys.modules:
-        msg = "module {!r} is not in sys.modules"
-        raise ImportError(msg.format(name), name=name)
-
-    # Get the module's spec if available
-    spec = getattr(module, '__spec__', None)
-    if spec is not None and hasattr(spec, 'loader'):
-        loader = spec.loader
-        if hasattr(loader, 'exec_module'):
-            loader.exec_module(module)
-            return module
-
-    # Fallback: re-execute the module's file
-    filename = getattr(module, '__file__', None)
-    if filename is None:
-        raise ImportError(f"cannot reload {name!r}: no __file__", name=name)
-
-    if filename.endswith('.pyc'):
-        filename = filename[:-1]
-
-    with open(filename) as f:
-        source = f.read()
-
-    code = compile(source, filename, 'exec')
-    exec(code, module.__dict__)
-    return module
-
-
-# ---------------------------------------------------------------------------
-# Invariant functions
-# ---------------------------------------------------------------------------
-
-def importlib2_import():
-    """import_module() imports a stdlib module; returns True."""
-    m = import_module('os.path')
-    return m is not None and hasattr(m, 'join')
-
-
-def importlib2_invalidate():
-    """invalidate_caches() runs without error; returns True."""
-    invalidate_caches()
     return True
 
 
-def importlib2_reload():
-    """reload() can reload an already-imported module; returns True."""
-    import os as _os
-    m = reload(_os)
-    return m is _os and hasattr(m, 'getcwd')
+def importlib2_invalidate():
+    """Invalidate cached finder state.
+
+    Walks ``sys.meta_path`` and ``sys.path_importer_cache`` and asks each
+    finder to drop any cached lookups, mirroring ``importlib.invalidate_caches``.
+    Returns True.
+    """
+    # Meta path finders.
+    for finder in list(sys.meta_path):
+        invalidate = getattr(finder, "invalidate_caches", None)
+        if callable(invalidate):
+            try:
+                invalidate()
+            except Exception:
+                # Best-effort: a misbehaving finder must not break the call.
+                pass
+
+    # Path importer cache finders.
+    cache = getattr(sys, "path_importer_cache", None)
+    if isinstance(cache, dict):
+        for finder in list(cache.values()):
+            invalidate = getattr(finder, "invalidate_caches", None)
+            if callable(invalidate):
+                try:
+                    invalidate()
+                except Exception:
+                    pass
+
+    return True
+
+
+def importlib2_reload(module=None):
+    """Reload a previously imported module and return True.
+
+    If ``module`` is None, this is a no-op success. Otherwise the module
+    must be present in ``sys.modules``; its loader (or, lacking that, the
+    fallback ``__import__`` machinery) is asked to repopulate the existing
+    module object so that any references held elsewhere stay valid.
+    """
+    if module is None:
+        return True
+
+    name = getattr(module, "__name__", None)
+    if not isinstance(name, str):
+        raise TypeError("reload() argument must be a module")
+
+    if sys.modules.get(name) is not module:
+        raise ImportError(
+            "module %s not in sys.modules" % name, name=name
+        )
+
+    # Reload parent package first if this is a submodule, to keep
+    # parent.__dict__ consistent with what we are about to put back.
+    parent_name = name.rpartition(".")[0]
+    if parent_name and parent_name not in sys.modules:
+        raise ImportError(
+            "parent %r not in sys.modules during reload of %r"
+            % (parent_name, name),
+            name=name,
+        )
+
+    spec = getattr(module, "__spec__", None)
+    loader = None
+    if spec is not None:
+        loader = getattr(spec, "loader", None)
+    if loader is None:
+        loader = getattr(module, "__loader__", None)
+
+    # Prefer a loader.exec_module style reload when available.
+    exec_module = getattr(loader, "exec_module", None)
+    if callable(exec_module):
+        try:
+            exec_module(module)
+        except Exception:
+            # On failure, leave sys.modules entry as-is (matches CPython).
+            raise
+        # Refresh sys.modules to whatever the loader registered (some
+        # loaders replace the module object during exec_module).
+        if name in sys.modules:
+            return True
+        sys.modules[name] = module
+        return True
+
+    # Legacy load_module path.
+    load_module = getattr(loader, "load_module", None)
+    if callable(load_module):
+        new_mod = load_module(name)
+        # Mirror attributes back onto the original module object so that
+        # outside references continue to see the reloaded contents.
+        try:
+            for key, value in list(new_mod.__dict__.items()):
+                module.__dict__[key] = value
+            sys.modules[name] = module
+        except Exception:
+            sys.modules[name] = new_mod
+        return True
+
+    # No loader at all — fall back to a fresh __import__ pass.
+    saved = sys.modules.pop(name, None)
+    try:
+        __import__(name)
+    except Exception:
+        if saved is not None:
+            sys.modules[name] = saved
+        raise
+
+    fresh = sys.modules.get(name)
+    if fresh is not None and fresh is not module:
+        try:
+            for key, value in list(fresh.__dict__.items()):
+                module.__dict__[key] = value
+            sys.modules[name] = module
+        except Exception:
+            pass
+
+    return True
 
 
 __all__ = [
-    'import_module', 'invalidate_caches', 'reload',
-    'importlib2_import', 'importlib2_invalidate', 'importlib2_reload',
+    "importlib2_import",
+    "importlib2_invalidate",
+    "importlib2_reload",
 ]

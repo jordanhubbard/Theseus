@@ -1,108 +1,139 @@
-"""
-theseus_filecmp_cr — Clean-room filecmp module.
-No import of the standard `filecmp` module.
-"""
+"""Clean-room implementation of a subset of the filecmp module."""
 
 import os
+import tempfile
+
+_BUFSIZE = 8 * 1024
+
+
+def _sig(st):
+    """Return a stat signature: (type, size, mtime)."""
+    return (
+        getattr(st, "st_mode", 0) & 0o170000,  # file type bits
+        st.st_size,
+        st.st_mtime,
+    )
+
+
+def _do_cmp(f1, f2):
+    """Byte-by-byte content compare; return True if files are identical."""
+    try:
+        with open(f1, "rb") as fp1, open(f2, "rb") as fp2:
+            while True:
+                b1 = fp1.read(_BUFSIZE)
+                b2 = fp2.read(_BUFSIZE)
+                if b1 != b2:
+                    return False
+                if not b1:
+                    return True
+    except OSError:
+        return False
 
 
 def cmp(f1, f2, shallow=True):
-    """Compare two files; return True if they are equal.
-    
-    shallow=True: compare only os.stat() signatures (faster).
-    shallow=False: compare file contents.
-    """
-    s1 = os.stat(f1)
-    s2 = os.stat(f2)
+    """Compare two files. Return True if equal, False otherwise.
 
-    if s1.st_size != s2.st_size:
+    If shallow is True, files are considered equal when their os.stat()
+    signatures (type, size, mtime) match. Otherwise the file contents are
+    compared byte-by-byte.
+    """
+    try:
+        s1 = os.stat(f1)
+        s2 = os.stat(f2)
+    except OSError:
         return False
 
-    if shallow:
-        return (s1.st_size == s2.st_size and
-                s1.st_mtime == s2.st_mtime)
+    sig1 = _sig(s1)
+    sig2 = _sig(s2)
 
-    # Full content comparison
-    with open(f1, 'rb') as fh1, open(f2, 'rb') as fh2:
-        chunk_size = 8192
-        while True:
-            b1 = fh1.read(chunk_size)
-            b2 = fh2.read(chunk_size)
-            if b1 != b2:
-                return False
-            if not b1:
-                return True
+    # Both must be regular files (or at least not directories).
+    if sig1[0] != 0o100000 or sig2[0] != 0o100000:
+        # If either isn't a regular file, only equal if signatures match
+        if sig1 != sig2:
+            return False
+
+    if shallow and sig1 == sig2:
+        return True
+
+    if sig1[1] != sig2[1]:
+        # Different sizes => not equal.
+        return False
+
+    return _do_cmp(f1, f2)
 
 
 def cmpfiles(dir1, dir2, common, shallow=True):
-    """Compare a list of files in two directories.
-    
-    Returns (match, mismatch, errors) — three lists of filenames.
+    """Compare common files in two directories.
+
+    Returns a tuple (match, mismatch, errors):
+      match    -- list of files that compare equal
+      mismatch -- list of files that differ
+      errors   -- list of files that could not be compared
     """
     match = []
     mismatch = []
     errors = []
-
     for name in common:
-        f1 = os.path.join(dir1, name)
-        f2 = os.path.join(dir2, name)
+        p1 = os.path.join(dir1, name)
+        p2 = os.path.join(dir2, name)
         try:
-            if cmp(f1, f2, shallow):
-                match.append(name)
-            else:
-                mismatch.append(name)
+            ok = cmp(p1, p2, shallow)
         except OSError:
             errors.append(name)
-
-    return (match, mismatch, errors)
+            continue
+        # Detect IO errors: cmp returns False on stat errors silently, so
+        # do an explicit accessibility check before classifying.
+        if not (os.path.exists(p1) and os.path.exists(p2)):
+            errors.append(name)
+        elif ok:
+            match.append(name)
+        else:
+            mismatch.append(name)
+    return match, mismatch, errors
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant helpers — exercise the implementation against scratch files.
 # ---------------------------------------------------------------------------
 
-def _make_temp_file(content):
-    """Create a temp file with given content, return its path."""
-    import random as _random
-    tmpdir = os.environ.get('TMPDIR', '/tmp')
-    path = os.path.join(tmpdir, 'filecmp_%08x.tmp' % _random.randint(0, 0xFFFFFFFF))
-    with open(path, 'wb') as f:
-        f.write(content)
-    return path
+def _write(path, data):
+    with open(path, "wb") as fp:
+        fp.write(data)
 
 
 def filecmp2_equal():
-    """cmp of two identical temp files returns True."""
-    f1 = _make_temp_file(b'same content here')
-    f2 = _make_temp_file(b'same content here')
-    try:
-        return cmp(f1, f2, shallow=False)
-    finally:
-        os.unlink(f1)
-        os.unlink(f2)
+    """Two files with identical content compare equal under shallow=False."""
+    with tempfile.TemporaryDirectory() as tmp:
+        a = os.path.join(tmp, "a.bin")
+        b = os.path.join(tmp, "b.bin")
+        payload = b"theseus filecmp clean room equality check"
+        _write(a, payload)
+        _write(b, payload)
+        return cmp(a, b, shallow=False) is True
 
 
 def filecmp2_different():
-    """cmp of two different temp files returns False."""
-    f1 = _make_temp_file(b'content A')
-    f2 = _make_temp_file(b'content B')
-    try:
-        return cmp(f1, f2, shallow=False)
-    finally:
-        os.unlink(f1)
-        os.unlink(f2)
+    """Two files with different content do not compare equal."""
+    with tempfile.TemporaryDirectory() as tmp:
+        a = os.path.join(tmp, "a.bin")
+        b = os.path.join(tmp, "b.bin")
+        _write(a, b"alpha contents")
+        _write(b, b"beta contents!!")
+        return cmp(a, b, shallow=False)
 
 
 def filecmp2_self():
-    """cmp(f, f) is always True."""
-    f = _make_temp_file(b'some data')
-    try:
-        return cmp(f, f, shallow=False)
-    finally:
-        os.unlink(f)
+    """A file always compares equal to itself."""
+    with tempfile.TemporaryDirectory() as tmp:
+        a = os.path.join(tmp, "a.bin")
+        _write(a, b"comparing a file with itself must always be true")
+        return cmp(a, a, shallow=True) is True
 
 
 __all__ = [
-    'cmp', 'cmpfiles',
-    'filecmp2_equal', 'filecmp2_different', 'filecmp2_self',
+    "cmp",
+    "cmpfiles",
+    "filecmp2_equal",
+    "filecmp2_different",
+    "filecmp2_self",
 ]

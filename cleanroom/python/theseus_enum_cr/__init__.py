@@ -1,69 +1,164 @@
+"""Clean-room enum module for Theseus (theseus_enum_cr).
+
+Implements Enum, IntEnum, Flag, and auto() without importing the stdlib
+`enum` package. Built from scratch using only Python built-ins.
 """
-theseus_enum_cr — Clean-room enum module.
-No import of the standard `enum` module.
-"""
+
+
+class _AutoValue:
+    """Sentinel marker for auto-assigned values."""
+    __slots__ = ()
+
+    def __repr__(self):
+        return "auto()"
+
+
+_AUTO_SENTINEL = _AutoValue()
+
+
+def auto():
+    """Return a sentinel signalling automatic value assignment."""
+    return _AutoValue()
+
+
+def _is_auto(value):
+    return isinstance(value, _AutoValue)
+
+
+def _is_dunder(name):
+    return (
+        len(name) > 4
+        and name.startswith("__")
+        and name.endswith("__")
+        and name[2] != "_"
+        and name[-3] != "_"
+    )
+
+
+def _is_sunder(name):
+    return (
+        len(name) > 2
+        and name.startswith("_")
+        and name.endswith("_")
+        and name[1:2] != "_"
+        and name[-2:-1] != "_"
+    )
 
 
 class _EnumDict(dict):
+    """Captures member definition order for class body evaluation."""
+
     def __init__(self):
         super().__init__()
         self._member_names = []
-        self._last_value = 0
 
     def __setitem__(self, key, value):
-        if key.startswith('_') or callable(value) or isinstance(value, (classmethod, staticmethod, property)):
-            super().__setitem__(key, value)
-            return
-        if not isinstance(value, auto):
-            self._last_value = value
-        else:
-            self._last_value += 1
-            value = self._last_value
-        self._member_names.append(key)
+        if (
+            not _is_dunder(key)
+            and not _is_sunder(key)
+            and not callable(value)
+            and not isinstance(value, (classmethod, staticmethod, property))
+        ):
+            if key in self._member_names:
+                raise TypeError("Attempted to reuse key: %r" % key)
+            self._member_names.append(key)
         super().__setitem__(key, value)
 
 
-class auto:
-    """Automatic value for enum members."""
-    pass
-
-
 class EnumMeta(type):
+    """Metaclass for Enum types — builds member instances from class body."""
+
     @classmethod
     def __prepare__(mcs, name, bases):
         return _EnumDict()
 
-    def __new__(mcs, name, bases, namespace):
-        if not bases:
-            return super().__new__(mcs, name, bases, dict(namespace))
+    def __new__(mcs, cls_name, bases, classdict):
+        member_names = getattr(classdict, "_member_names", [])
 
-        member_names = namespace._member_names
-        members = {k: namespace[k] for k in member_names}
+        # Find the Enum base (the first non-Enum base is the data-type base, if any)
+        enum_base = None
+        for base in bases:
+            if isinstance(base, EnumMeta):
+                if enum_base is None:
+                    enum_base = base
 
-        cls_dict = {k: v for k, v in namespace.items() if k not in member_names}
-        cls_dict['_member_names_'] = member_names
-        cls_dict['_value2member_map_'] = {}
-        cls_dict['_member_map_'] = {}
+        # Determine value-mixin type (e.g. int for IntEnum)
+        member_type = object
+        for base in bases:
+            if base is object:
+                continue
+            if isinstance(base, EnumMeta):
+                # Use the same member_type as the Enum base
+                mt = getattr(base, "_member_type_", None)
+                if mt is not None and mt is not object:
+                    member_type = mt
+            else:
+                # First non-Enum, non-object base is the data type (e.g. int)
+                if member_type is object:
+                    member_type = base
 
-        cls = super().__new__(mcs, name, bases, cls_dict)
+        # Strip member assignments from classdict — they'll become instances.
+        member_values = {}
+        for name in member_names:
+            member_values[name] = classdict[name]
+            del classdict[name]
 
-        for m_name, m_value in members.items():
-            if isinstance(m_value, auto):
-                raise ValueError("auto() not resolved")
-            member = object.__new__(cls)
-            member._name_ = m_name
-            member._value_ = m_value
-            cls._member_map_[m_name] = member
-            cls._value2member_map_[m_value] = member
-            setattr(cls, m_name, member)
+        # Compute auto values
+        resolved_values = {}
+        last_int = 0
+        for name in member_names:
+            raw = member_values[name]
+            if _is_auto(raw):
+                last_int += 1
+                resolved_values[name] = last_int
+            else:
+                resolved_values[name] = raw
+                if isinstance(raw, int) and not isinstance(raw, bool):
+                    last_int = raw
 
-        return cls
+        # Create the class itself
+        new_cls = super().__new__(mcs, cls_name, bases, dict(classdict))
+        new_cls._member_type_ = member_type
+        new_cls._member_names_ = []
+        new_cls._member_map_ = {}
+        new_cls._value2member_map_ = {}
 
-    def __call__(cls, value):
-        try:
+        # Create member instances
+        for name in member_names:
+            value = resolved_values[name]
+            if member_type is object:
+                member = object.__new__(new_cls)
+            else:
+                # Construct using the data type (e.g. int(value))
+                if isinstance(value, tuple):
+                    member = member_type.__new__(new_cls, *value)
+                else:
+                    member = member_type.__new__(new_cls, value)
+            member._name_ = name
+            member._value_ = value
+            # Reuse existing member if same value already registered (alias)
+            if value in new_cls._value2member_map_:
+                canonical = new_cls._value2member_map_[value]
+                new_cls._member_map_[name] = canonical
+                setattr(new_cls, name, canonical)
+            else:
+                new_cls._member_names_.append(name)
+                new_cls._member_map_[name] = member
+                new_cls._value2member_map_[value] = member
+                setattr(new_cls, name, member)
+
+        return new_cls
+
+    def __call__(cls, value=None, *args, **kwargs):
+        # Lookup by value: MyEnum(1) -> the member with value 1
+        if args or kwargs:
+            raise TypeError("Enum lookup takes a single value")
+        if value in cls._value2member_map_:
             return cls._value2member_map_[value]
-        except KeyError:
-            raise ValueError(f"{value!r} is not a valid {cls.__name__}")
+        # For Flag, attempt bitwise composition
+        if issubclass(cls, Flag) and isinstance(value, int):
+            return cls._missing_flag_(value)
+        raise ValueError("%r is not a valid %s" % (value, cls.__name__))
 
     def __iter__(cls):
         return (cls._member_map_[name] for name in cls._member_names_)
@@ -71,15 +166,41 @@ class EnumMeta(type):
     def __len__(cls):
         return len(cls._member_names_)
 
-    def __repr__(cls):
-        return f"<enum {cls.__name__!r}>"
+    def __contains__(cls, item):
+        if isinstance(item, cls):
+            return True
+        try:
+            return item in cls._value2member_map_
+        except TypeError:
+            return False
 
     def __getitem__(cls, name):
         return cls._member_map_[name]
 
+    def __repr__(cls):
+        return "<enum %r>" % cls.__name__
+
 
 class Enum(metaclass=EnumMeta):
-    """Base class for enumerations."""
+    """Base enumeration class."""
+
+    def __repr__(self):
+        return "<%s.%s: %r>" % (
+            self.__class__.__name__,
+            self._name_,
+            self._value_,
+        )
+
+    def __str__(self):
+        return "%s.%s" % (self.__class__.__name__, self._name_)
+
+    def __hash__(self):
+        return hash(self._name_)
+
+    def __eq__(self, other):
+        if isinstance(other, Enum):
+            return self is other
+        return NotImplemented
 
     @property
     def name(self):
@@ -89,110 +210,165 @@ class Enum(metaclass=EnumMeta):
     def value(self):
         return self._value_
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}.{self._name_}: {self._value_!r}>'
-
-    def __str__(self):
-        return f'{self.__class__.__name__}.{self._name_}'
-
-    def __hash__(self):
-        return hash(self._name_)
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self._value_ == other._value_
-        return NotImplemented
-
-    def __lt__(self, other):
-        if isinstance(other, self.__class__):
-            return self._value_ < other._value_
-        return NotImplemented
-
 
 class IntEnum(int, Enum):
-    """Enum with integer values."""
+    """Enum whose members are also (and are) ints."""
 
-    def __new__(cls, value):
-        # This gets called during member creation
-        return int.__new__(cls, value)
+    def __str__(self):
+        return "%s.%s" % (self.__class__.__name__, self._name_)
+
+    def __repr__(self):
+        return "<%s.%s: %r>" % (
+            self.__class__.__name__,
+            self._name_,
+            self._value_,
+        )
 
 
 class Flag(Enum):
-    """Enum supporting bitwise operations."""
+    """Enum supporting bitwise operations (|, &, ^, ~)."""
+
+    @classmethod
+    def _missing_flag_(cls, value):
+        # Build a pseudo-member representing the bit combination.
+        if value == 0:
+            # Look for a zero-valued member
+            if 0 in cls._value2member_map_:
+                return cls._value2member_map_[0]
+            pseudo = object.__new__(cls)
+            pseudo._name_ = None
+            pseudo._value_ = 0
+            return pseudo
+        # Validate that value is composed of known bits only
+        all_bits = 0
+        for m in cls._value2member_map_.values():
+            if isinstance(m._value_, int):
+                all_bits |= m._value_
+        if value & ~all_bits:
+            raise ValueError("%r is not a valid %s" % (value, cls.__name__))
+
+        if value in cls._value2member_map_:
+            return cls._value2member_map_[value]
+
+        # Compose name from individual bits
+        names = []
+        remaining = value
+        # Iterate in declaration order for stable naming
+        for name in cls._member_names_:
+            m = cls._member_map_[name]
+            v = m._value_
+            if v and (v & value) == v:
+                names.append(name)
+                remaining &= ~v
+        pseudo = object.__new__(cls)
+        pseudo._name_ = "|".join(names) if names else None
+        pseudo._value_ = value
+        # Cache it
+        cls._value2member_map_[value] = pseudo
+        return pseudo
 
     def __or__(self, other):
         if isinstance(other, self.__class__):
-            return self._value_ | other._value_
+            return self.__class__(self._value_ | other._value_)
+        if isinstance(other, int):
+            return self.__class__(self._value_ | other)
         return NotImplemented
 
     def __and__(self, other):
         if isinstance(other, self.__class__):
-            return self._value_ & other._value_
+            return self.__class__(self._value_ & other._value_)
+        if isinstance(other, int):
+            return self.__class__(self._value_ & other)
         return NotImplemented
 
     def __xor__(self, other):
         if isinstance(other, self.__class__):
-            return self._value_ ^ other._value_
+            return self.__class__(self._value_ ^ other._value_)
+        if isinstance(other, int):
+            return self.__class__(self._value_ ^ other)
         return NotImplemented
 
     def __invert__(self):
-        return ~self._value_
+        all_bits = 0
+        for m in self.__class__._value2member_map_.values():
+            if isinstance(m._value_, int):
+                all_bits |= m._value_
+        return self.__class__(all_bits & ~self._value_)
 
+    def __contains__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        return (self._value_ & other._value_) == other._value_
 
-class IntFlag(int, Flag):
-    """Integer Flag enum."""
-    pass
-
-
-def unique(enumeration):
-    """Class decorator for enumerations with no duplicate values."""
-    seen_values = {}
-    for member in enumeration:
-        if member.value in seen_values:
-            raise ValueError(
-                f"duplicate values found in {enumeration!r}: "
-                f"{member.name!r} -> {seen_values[member.value]!r}"
-            )
-        seen_values[member.value] = member.name
-    return enumeration
+    def __bool__(self):
+        return bool(self._value_)
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant test functions
 # ---------------------------------------------------------------------------
 
-def enum2_name_value():
-    """Color.RED.name == 'RED' and Color.RED.value == 1; returns True."""
+def _make_color_enum():
     class Color(Enum):
         RED = 1
         GREEN = 2
         BLUE = 3
+    return Color
 
-    return Color.RED.name == 'RED' and Color.RED.value == 1
+
+def enum2_name_value():
+    """Verify .name and .value attributes work correctly."""
+    Color = _make_color_enum()
+    if Color.RED.name != "RED":
+        return False
+    if Color.RED.value != 1:
+        return False
+    if Color.GREEN.name != "GREEN":
+        return False
+    if Color.GREEN.value != 2:
+        return False
+    if Color.BLUE.name != "BLUE":
+        return False
+    if Color.BLUE.value != 3:
+        return False
+    return True
 
 
 def enum2_lookup():
-    """Color(1) returns Color.RED; returns True."""
-    class Color(Enum):
-        RED = 1
-        GREEN = 2
-        BLUE = 3
-
-    return Color(1) is Color.RED
+    """Verify lookup by value (Color(1)) and by name (Color['RED'])."""
+    Color = _make_color_enum()
+    if Color(1) is not Color.RED:
+        return False
+    if Color(2) is not Color.GREEN:
+        return False
+    if Color(3) is not Color.BLUE:
+        return False
+    if Color["RED"] is not Color.RED:
+        return False
+    if Color["BLUE"] is not Color.BLUE:
+        return False
+    # Invalid lookup must raise
+    try:
+        Color(99)
+        return False
+    except ValueError:
+        pass
+    return True
 
 
 def enum2_iteration():
-    """list(Color) returns all 3 members; returns 3."""
-    class Color(Enum):
-        RED = 1
-        GREEN = 2
-        BLUE = 3
-
-    return len(list(Color))
+    """Return the count of members yielded by iteration over the enum."""
+    Color = _make_color_enum()
+    return sum(1 for _ in Color)
 
 
 __all__ = [
-    'Enum', 'IntEnum', 'Flag', 'IntFlag', 'EnumMeta',
-    'auto', 'unique',
-    'enum2_name_value', 'enum2_lookup', 'enum2_iteration',
+    "Enum",
+    "IntEnum",
+    "Flag",
+    "auto",
+    "EnumMeta",
+    "enum2_name_value",
+    "enum2_lookup",
+    "enum2_iteration",
 ]

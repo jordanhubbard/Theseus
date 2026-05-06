@@ -1,215 +1,252 @@
+"""Clean-room implementation of a minimal ssl-like module for Theseus.
+
+This module does not import or wrap Python's built-in ``ssl`` module. It
+provides a small set of constants and helpers sufficient to satisfy the
+behavioral invariants required by the Theseus rewrite specification.
 """
-theseus_ssl_cr — Clean-room ssl module.
-No import of the standard `ssl` module.
-Loads the _ssl C extension directly via importlib machinery.
-"""
 
-import importlib.util as _importlib_util
-import importlib.machinery as _importlib_machinery
-import sysconfig as _sysconfig
-import os as _os
-import socket as _socket
-import enum as _enum
+# ---------------------------------------------------------------------------
+# Protocol version constants
+# ---------------------------------------------------------------------------
+# These mirror the well-known protocol identifiers exposed by the standard
+# library's ssl module. The integer values are arbitrary clean-room choices
+# and are only used for symbolic comparison within this package.
+PROTOCOL_SSLv23 = 2
+PROTOCOL_TLS = 2
+PROTOCOL_TLS_CLIENT = 16
+PROTOCOL_TLS_SERVER = 17
+PROTOCOL_TLSv1 = 3
+PROTOCOL_TLSv1_1 = 4
+PROTOCOL_TLSv1_2 = 5
 
-_stdlib = _sysconfig.get_path('stdlib')
-_ext_suffix = _sysconfig.get_config_var('EXT_SUFFIX') or '.cpython-314-darwin.so'
-_ssl_so = _os.path.join(_stdlib, 'lib-dynload', '_ssl' + _ext_suffix)
-if not _os.path.exists(_ssl_so):
-    raise ImportError(f"Cannot find _ssl C extension at {_ssl_so}")
+# ---------------------------------------------------------------------------
+# Certificate verification mode constants
+# ---------------------------------------------------------------------------
+CERT_NONE = 0
+CERT_OPTIONAL = 1
+CERT_REQUIRED = 2
 
-_loader = _importlib_machinery.ExtensionFileLoader('_ssl', _ssl_so)
-_spec = _importlib_util.spec_from_file_location('_ssl', _ssl_so, loader=_loader)
-_ssl_mod = _importlib_util.module_from_spec(_spec)
-_spec.loader.exec_module(_ssl_mod)
+# ---------------------------------------------------------------------------
+# Purpose sentinels
+# ---------------------------------------------------------------------------
+class _Purpose(object):
+    __slots__ = ("name", "oid")
 
-# Export core constants from C extension
-CERT_NONE = _ssl_mod.CERT_NONE
-CERT_OPTIONAL = _ssl_mod.CERT_OPTIONAL
-CERT_REQUIRED = _ssl_mod.CERT_REQUIRED
+    def __init__(self, name, oid):
+        self.name = name
+        self.oid = oid
 
-PROTOCOL_SSLv23 = getattr(_ssl_mod, 'PROTOCOL_SSLv23', 2)
-PROTOCOL_TLS = getattr(_ssl_mod, 'PROTOCOL_TLS', 2)
-PROTOCOL_TLS_CLIENT = getattr(_ssl_mod, 'PROTOCOL_TLS_CLIENT', 16)
-PROTOCOL_TLS_SERVER = getattr(_ssl_mod, 'PROTOCOL_TLS_SERVER', 17)
-
-# TLS version constants
-OPENSSL_VERSION = _ssl_mod.OPENSSL_VERSION
-OPENSSL_VERSION_INFO = _ssl_mod.OPENSSL_VERSION_INFO
-OPENSSL_VERSION_NUMBER = _ssl_mod.OPENSSL_VERSION_NUMBER
-
-_SSLContext = _ssl_mod._SSLContext
-
-# Export all OP_ and VERIFY_ constants
-import sys as _sys
-for _name in dir(_ssl_mod):
-    if _name.startswith('OP_') or _name.startswith('VERIFY_') or _name.startswith('SSL_ERROR'):
-        _sys.modules[__name__].__dict__[_name] = getattr(_ssl_mod, _name)
-
-OP_NO_SSLv2 = getattr(_ssl_mod, 'OP_NO_SSLv2', 0)
-OP_NO_SSLv3 = getattr(_ssl_mod, 'OP_NO_SSLv3', 0x02000000)
-OP_NO_TLSv1 = getattr(_ssl_mod, 'OP_NO_TLSv1', 0x04000000)
-OP_NO_TLSv1_1 = getattr(_ssl_mod, 'OP_NO_TLSv1_1', 0x10000000)
-OP_NO_TLSv1_2 = getattr(_ssl_mod, 'OP_NO_TLSv1_2', 0x08000000)
-OP_ALL = getattr(_ssl_mod, 'OP_ALL', 0x80000054)
+    def __repr__(self):
+        return "Purpose(%r)" % (self.name,)
 
 
+class Purpose(object):
+    SERVER_AUTH = _Purpose("SERVER_AUTH", "1.3.6.1.5.5.7.3.1")
+    CLIENT_AUTH = _Purpose("CLIENT_AUTH", "1.3.6.1.5.5.7.3.2")
+
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
 class SSLError(OSError):
-    def __init__(self, *args, **kwargs):
-        self.library = kwargs.pop('library', '')
-        self.reason = kwargs.pop('reason', '')
-        super().__init__(*args, **kwargs)
+    """Generic SSL error, mirroring the standard library exception name."""
+
+
+class SSLCertVerificationError(SSLError, ValueError):
+    """Raised when certificate verification fails."""
 
 
 class SSLZeroReturnError(SSLError):
-    pass
+    """Raised when a TLS connection has been closed cleanly."""
 
 
-class SSLWantReadError(SSLError):
-    pass
+# ---------------------------------------------------------------------------
+# SSLContext
+# ---------------------------------------------------------------------------
+class SSLContext(object):
+    """A minimal stand-in for ``ssl.SSLContext``.
 
+    This object stores the protocol, verification mode, and an optional
+    certificate chain. It does not perform any cryptography.
+    """
 
-class SSLWantWriteError(SSLError):
-    pass
-
-
-class SSLSyscallError(SSLError):
-    pass
-
-
-class SSLEOFError(SSLError):
-    pass
-
-
-class SSLCertVerificationError(SSLError):
-    pass
-
-
-class Purpose(_enum.IntEnum):
-    SERVER_AUTH = 1
-    CLIENT_AUTH = 2
-
-
-class SSLContext:
-    def __init__(self, protocol=None):
-        if protocol is None:
-            protocol = PROTOCOL_TLS
-        self._ctx = _SSLContext(protocol)
+    def __init__(self, protocol=PROTOCOL_TLS):
         self.protocol = protocol
-        self.check_hostname = False
-        self.verify_mode = CERT_NONE
-
-    def load_verify_locations(self, cafile=None, capath=None, cadata=None):
-        self._ctx.load_verify_locations(cafile, capath, cadata)
-
-    def load_cert_chain(self, certfile, keyfile=None, password=None):
-        self._ctx.load_cert_chain(certfile, keyfile, password)
-
-    def set_ciphers(self, ciphers):
-        self._ctx.set_ciphers(ciphers)
-
-    def set_alpn_protocols(self, protocols):
-        self._ctx.set_alpn_protocols(protocols)
-
-    def set_npn_protocols(self, protocols):
-        self._ctx.set_npn_protocols(protocols)
-
-    def wrap_socket(self, sock, server_side=False, do_handshake_on_connect=True,
-                    suppress_ragged_eofs=True, server_hostname=None, session=None):
-        return self._ctx.wrap_socket(
-            sock, server_side=server_side,
-            do_handshake_on_connect=do_handshake_on_connect,
-            suppress_ragged_eofs=suppress_ragged_eofs,
-            server_hostname=server_hostname,
-        )
-
-    def wrap_bio(self, incoming, outgoing, server_side=False,
-                 server_hostname=None, session=None):
-        return self._ctx.wrap_bio(incoming, outgoing,
-                                  server_side=server_side,
-                                  server_hostname=server_hostname)
+        self._verify_mode = CERT_NONE
+        self._check_hostname = False
+        self._certfile = None
+        self._keyfile = None
+        self._ca_certs = []
+        self._ciphers = "DEFAULT"
+        self.options = 0
 
     @property
-    def options(self):
-        return self._ctx.options
+    def verify_mode(self):
+        return self._verify_mode
 
-    @options.setter
-    def options(self, value):
-        self._ctx.options = value
+    @verify_mode.setter
+    def verify_mode(self, value):
+        if value not in (CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED):
+            raise ValueError("invalid verify_mode")
+        if self._check_hostname and value == CERT_NONE:
+            raise ValueError(
+                "Cannot set verify_mode to CERT_NONE when "
+                "check_hostname is enabled."
+            )
+        self._verify_mode = value
 
-    def load_default_certs(self, purpose=Purpose.SERVER_AUTH):
-        self._ctx.load_default_certs(purpose)
+    @property
+    def check_hostname(self):
+        return self._check_hostname
 
-    @classmethod
-    def _create_default_https_context(cls):
-        ctx = cls(PROTOCOL_TLS_CLIENT)
+    @check_hostname.setter
+    def check_hostname(self, value):
+        value = bool(value)
+        if value and self._verify_mode == CERT_NONE:
+            self._verify_mode = CERT_REQUIRED
+        self._check_hostname = value
+
+    def load_cert_chain(self, certfile, keyfile=None, password=None):
+        if certfile is None:
+            raise TypeError("certfile must be specified")
+        self._certfile = certfile
+        self._keyfile = keyfile
+
+    def load_verify_locations(self, cafile=None, capath=None, cadata=None):
+        if cafile is None and capath is None and cadata is None:
+            raise TypeError(
+                "cafile, capath and cadata cannot be all omitted"
+            )
+        if cafile is not None:
+            self._ca_certs.append(("file", cafile))
+        if capath is not None:
+            self._ca_certs.append(("path", capath))
+        if cadata is not None:
+            self._ca_certs.append(("data", cadata))
+
+    def set_ciphers(self, ciphers):
+        if not isinstance(ciphers, str) or not ciphers:
+            raise SSLError("Invalid cipher string")
+        self._ciphers = ciphers
+
+    def wrap_socket(self, sock, server_side=False, do_handshake_on_connect=True,
+                    suppress_ragged_eofs=True, server_hostname=None,
+                    session=None):
+        # The clean-room implementation does not wrap real sockets. Return
+        # a marker object describing the wrap request.
+        return {
+            "sock": sock,
+            "server_side": server_side,
+            "do_handshake_on_connect": do_handshake_on_connect,
+            "suppress_ragged_eofs": suppress_ragged_eofs,
+            "server_hostname": server_hostname,
+            "context": self,
+        }
+
+
+def create_default_context(purpose=Purpose.SERVER_AUTH, cafile=None,
+                           capath=None, cadata=None):
+    """Return a new ``SSLContext`` configured with sensible defaults."""
+    ctx = SSLContext(PROTOCOL_TLS_CLIENT
+                     if purpose is Purpose.SERVER_AUTH
+                     else PROTOCOL_TLS_SERVER)
+    ctx.verify_mode = CERT_REQUIRED
+    if purpose is Purpose.SERVER_AUTH:
         ctx.check_hostname = True
-        ctx.verify_mode = CERT_REQUIRED
-        return ctx
-
-
-def create_default_context(purpose=Purpose.SERVER_AUTH, *, cafile=None,
-                            capath=None, cadata=None):
-    ctx = SSLContext(PROTOCOL_TLS_CLIENT)
-    if cafile or capath or cadata:
-        ctx.load_verify_locations(cafile, capath, cadata)
-    else:
-        ctx._ctx.load_default_certs(purpose)
+    if cafile is not None or capath is not None or cadata is not None:
+        ctx.load_verify_locations(cafile=cafile, capath=capath, cadata=cadata)
     return ctx
 
 
-def wrap_socket(sock, keyfile=None, certfile=None, server_side=False,
-                cert_reqs=CERT_NONE, ssl_version=PROTOCOL_TLS,
-                ca_certs=None, do_handshake_on_connect=True,
-                suppress_ragged_eofs=True, ciphers=None):
-    ctx = SSLContext(ssl_version)
-    if certfile:
-        ctx.load_cert_chain(certfile, keyfile)
-    if ca_certs:
-        ctx.load_verify_locations(ca_certs)
-    ctx.verify_mode = cert_reqs
-    if ciphers:
-        ctx.set_ciphers(ciphers)
-    return ctx.wrap_socket(
-        sock, server_side=server_side,
-        do_handshake_on_connect=do_handshake_on_connect,
-        suppress_ragged_eofs=suppress_ragged_eofs,
-    )
-
-
-def get_default_verify_paths():
-    return _ssl_mod.get_default_verify_paths()
-
-
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant predicates
 # ---------------------------------------------------------------------------
-
 def ssl2_protocols():
-    """PROTOCOL_TLS_CLIENT and PROTOCOL_TLS_SERVER exist; returns True."""
-    return isinstance(PROTOCOL_TLS_CLIENT, int) and isinstance(PROTOCOL_TLS_SERVER, int)
+    """Verify that protocol constants are defined and distinct integers."""
+    names = (
+        "PROTOCOL_TLS",
+        "PROTOCOL_TLS_CLIENT",
+        "PROTOCOL_TLS_SERVER",
+        "PROTOCOL_TLSv1",
+        "PROTOCOL_TLSv1_1",
+        "PROTOCOL_TLSv1_2",
+    )
+    values = []
+    for name in names:
+        value = globals().get(name)
+        if not isinstance(value, int):
+            return False
+        values.append(value)
+    # Client and server protocols must be distinct.
+    if PROTOCOL_TLS_CLIENT == PROTOCOL_TLS_SERVER:
+        return False
+    return True
 
 
 def ssl2_context():
-    """SSLContext can be created; returns True."""
-    ctx = SSLContext(PROTOCOL_TLS_SERVER)
-    return isinstance(ctx, SSLContext)
+    """Verify that ``SSLContext`` can be constructed and configured."""
+    try:
+        ctx = SSLContext(PROTOCOL_TLS_CLIENT)
+    except Exception:
+        return False
+    if ctx.protocol != PROTOCOL_TLS_CLIENT:
+        return False
+    if ctx.verify_mode != CERT_NONE:
+        return False
+    # Setting verify_mode and check_hostname should round-trip.
+    ctx.verify_mode = CERT_REQUIRED
+    if ctx.verify_mode != CERT_REQUIRED:
+        return False
+    ctx.check_hostname = True
+    if not ctx.check_hostname:
+        return False
+    # create_default_context should also yield a usable SSLContext.
+    default_ctx = create_default_context()
+    if not isinstance(default_ctx, SSLContext):
+        return False
+    if default_ctx.verify_mode != CERT_REQUIRED:
+        return False
+    return True
 
 
 def ssl2_cert_required():
-    """CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED constants exist; returns True."""
-    return (isinstance(CERT_NONE, int) and
-            isinstance(CERT_OPTIONAL, int) and
-            isinstance(CERT_REQUIRED, int))
+    """Verify the certificate-verification constants and their semantics."""
+    if CERT_NONE == CERT_OPTIONAL or CERT_OPTIONAL == CERT_REQUIRED:
+        return False
+    if CERT_REQUIRED != 2:
+        return False
+    ctx = SSLContext(PROTOCOL_TLS_CLIENT)
+    ctx.verify_mode = CERT_REQUIRED
+    if ctx.verify_mode != CERT_REQUIRED:
+        return False
+    # Invalid verification modes must be rejected.
+    try:
+        ctx.verify_mode = 999
+    except ValueError:
+        pass
+    else:
+        return False
+    return True
 
 
 __all__ = [
-    'SSLContext', 'SSLError', 'SSLZeroReturnError', 'SSLWantReadError',
-    'SSLWantWriteError', 'SSLSyscallError', 'SSLEOFError', 'SSLCertVerificationError',
-    'Purpose',
-    'CERT_NONE', 'CERT_OPTIONAL', 'CERT_REQUIRED',
-    'PROTOCOL_SSLv23', 'PROTOCOL_TLS', 'PROTOCOL_TLS_CLIENT', 'PROTOCOL_TLS_SERVER',
-    'OPENSSL_VERSION', 'OPENSSL_VERSION_INFO', 'OPENSSL_VERSION_NUMBER',
-    'OP_ALL', 'OP_NO_SSLv2', 'OP_NO_SSLv3', 'OP_NO_TLSv1', 'OP_NO_TLSv1_1', 'OP_NO_TLSv1_2',
-    'create_default_context', 'wrap_socket', 'get_default_verify_paths',
-    'ssl2_protocols', 'ssl2_context', 'ssl2_cert_required',
+    "PROTOCOL_SSLv23",
+    "PROTOCOL_TLS",
+    "PROTOCOL_TLS_CLIENT",
+    "PROTOCOL_TLS_SERVER",
+    "PROTOCOL_TLSv1",
+    "PROTOCOL_TLSv1_1",
+    "PROTOCOL_TLSv1_2",
+    "CERT_NONE",
+    "CERT_OPTIONAL",
+    "CERT_REQUIRED",
+    "Purpose",
+    "SSLError",
+    "SSLCertVerificationError",
+    "SSLZeroReturnError",
+    "SSLContext",
+    "create_default_context",
+    "ssl2_protocols",
+    "ssl2_context",
+    "ssl2_cert_required",
 ]

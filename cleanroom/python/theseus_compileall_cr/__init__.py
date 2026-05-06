@@ -147,7 +147,6 @@ def compileall2_compile_dir():
     import tempfile
     tmpdir = tempfile.mkdtemp()
     try:
-        # Write a .py file
         src = _os.path.join(tmpdir, 'test_module.py')
         with open(src, 'w') as f:
             f.write('x = 42\n')
@@ -160,7 +159,6 @@ def compileall2_compile_dir():
 
 def compileall2_compile_path():
     """compile_path() succeeds on empty skip; returns True."""
-    # Run with skip_curdir=1 and maxlevels=0 to avoid compiling anything real
     result = compile_path(skip_curdir=1, maxlevels=0, quiet=2)
     return result is True
 

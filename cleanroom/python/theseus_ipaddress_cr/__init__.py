@@ -344,6 +344,7 @@ class IPv4Network(_BaseNetwork):
     _version = 4
     _max_prefixlen = 32
     _address_class = IPv4Address
+    _ALL_ONES = (2 ** 32) - 1
 
     def __init__(self, address, strict=True):
         if isinstance(address, (int, bytes)):
@@ -385,8 +386,6 @@ class IPv4Network(_BaseNetwork):
         self.network_address = IPv4Address(net_int)
         self.broadcast_address = IPv4Address(bcast_int)
 
-    _ALL_ONES = (2 ** _max_prefixlen) - 1
-
 
 class IPv6Network(_BaseNetwork):
     """Represent an IPv6 network."""
@@ -394,7 +393,7 @@ class IPv6Network(_BaseNetwork):
     _version = 6
     _max_prefixlen = 128
     _address_class = IPv6Address
-    _ALL_ONES = (2 ** _max_prefixlen) - 1
+    _ALL_ONES = (2 ** 128) - 1
 
     def __init__(self, address, strict=True):
         if isinstance(address, int):
@@ -502,10 +501,7 @@ def collapse_addresses(addresses):
     """Collapse a list of IP objects to the minimal list of networks."""
     nets = {}
     for ip in addresses:
-        if isinstance(ip, (_BaseAddress,)):
-            nets.setdefault(ip._version, []).append(ip)
-        else:
-            nets.setdefault(ip._version, []).append(ip)
+        nets.setdefault(ip._version, []).append(ip)
     result = []
     for version, ips in nets.items():
         result.extend(sorted(set(ips)))
@@ -519,7 +515,7 @@ def collapse_addresses(addresses):
 def ipaddress2_ipv4():
     """IPv4Address parses dotted notation and returns integer; returns True."""
     addr = IPv4Address('192.168.1.1')
-    return int(addr) == (192 << 24) | (168 << 16) | (1 << 8) | 1
+    return int(addr) == ((192 << 24) | (168 << 16) | (1 << 8) | 1)
 
 
 def ipaddress2_ipv6():

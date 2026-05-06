@@ -1,116 +1,33 @@
-"""
-theseus_email_message_cr — Clean-room email.message module.
-No import of the standard `email.message` module.
-Uses email.message.Message from stdlib as base since we're blocking only
-email.message at the top-level import, but we use email.message via
-importlib to avoid the blocker.
-"""
+"""Clean-room implementation of a minimal email.message-like module."""
 
-import sys as _sys
-import importlib.util as _ilu
-import importlib.machinery as _ilm
-import re as _re
-
-
-# We need to pull Message from email.message directly.
-# Since email.message is the blocked module, we use importlib to load
-# email._header_value_parser which doesn't trigger the blocker.
-# Instead, we implement Message from scratch.
 
 class Message:
-    """A clean-room implementation of email.message.Message."""
+    """A minimal email message with headers and payload."""
 
-    def __init__(self, policy=None):
-        self._headers = []
+    def __init__(self):
+        self._headers = []  # list of (name, value) preserving order
         self._payload = None
-        self._charset = None
-        self._default_type = 'text/plain'
-        self.preamble = None
-        self.epilogue = None
-        self.defects = []
-        self.policy = policy
+        self._default_type = "text/plain"
 
-    def __str__(self):
-        return self.as_string()
+    # ---- Header handling ----
 
-    def __bytes__(self):
-        return self.as_bytes()
-
-    def as_string(self, unixfrom=False, maxheaderlen=0, policy=None):
-        from io import StringIO as _StringIO
-        lines = []
-        for name, value in self._headers:
-            lines.append('%s: %s' % (name, value))
-        lines.append('')
-        if self._payload is not None:
-            if isinstance(self._payload, list):
-                for part in self._payload:
-                    lines.append(str(part))
-            else:
-                lines.append(self._payload)
-        return '\n'.join(lines)
-
-    def as_bytes(self, unixfrom=False, policy=None):
-        return self.as_string(unixfrom=unixfrom).encode('utf-8', errors='replace')
-
-    def is_multipart(self):
-        return isinstance(self._payload, list)
-
-    def set_unixfrom(self, unixfrom):
-        self._unixfrom = unixfrom
-
-    def get_unixfrom(self):
-        return getattr(self, '_unixfrom', None)
-
-    def attach(self, payload):
-        if self._payload is None:
-            self._payload = []
-        self._payload.append(payload)
-
-    def get_payload(self, i=None, decode=False):
-        if i is None:
-            payload = self._payload
-        elif not isinstance(self._payload, list):
-            raise TypeError('index requires multipart payload')
-        else:
-            payload = self._payload[i]
-        if decode and not isinstance(payload, list):
-            cte = self.get('content-transfer-encoding', '').lower()
-            if cte == 'quoted-printable':
-                import quopri as _q
-                return _q.decodestring(payload.encode('raw-unicode-escape'))
-            elif cte == 'base64':
-                import base64 as _b
-                return _b.decodebytes(payload.encode('raw-unicode-escape'))
-        return payload
-
-    def set_payload(self, payload, charset=None):
-        self._payload = payload
-        if charset is not None:
-            self._charset = charset
-
-    def set_charset(self, charset):
-        self._charset = charset
-
-    def get_charset(self):
-        return self._charset
-
-    def __len__(self):
-        return len(self._headers)
-
-    def __contains__(self, name):
-        return name.lower() in [k.lower() for k, v in self._headers]
+    def __setitem__(self, name, value):
+        self._headers.append((name, value))
 
     def __getitem__(self, name):
-        return self.get(name)
-
-    def __setitem__(self, name, val):
-        self._headers.append((name, val))
+        lname = name.lower()
+        for k, v in self._headers:
+            if k.lower() == lname:
+                return v
+        return None
 
     def __delitem__(self, name):
-        name_lower = name.lower()
-        self._headers = [(k, v) for k, v in self._headers
-                         if k.lower() != name_lower]
+        lname = name.lower()
+        self._headers = [(k, v) for k, v in self._headers if k.lower() != lname]
+
+    def __contains__(self, name):
+        lname = name.lower()
+        return any(k.lower() == lname for k, v in self._headers)
 
     def keys(self):
         return [k for k, v in self._headers]
@@ -122,53 +39,83 @@ class Message:
         return list(self._headers)
 
     def get(self, name, failobj=None):
-        name_lower = name.lower()
-        for k, v in self._headers:
-            if k.lower() == name_lower:
-                return v
-        return failobj
+        v = self[name]
+        return failobj if v is None else v
 
     def get_all(self, name, failobj=None):
-        name_lower = name.lower()
-        values = [v for k, v in self._headers if k.lower() == name_lower]
-        return values if values else failobj
+        lname = name.lower()
+        result = [v for k, v in self._headers if k.lower() == lname]
+        if not result:
+            return failobj
+        return result
 
-    def add_header(self, _name, _value, **_params):
-        parts = []
-        for k, v in _params.items():
-            k = k.replace('_', '-')
+    def add_header(self, name, value, **params):
+        parts = [value]
+        for k, v in params.items():
+            k = k.replace("_", "-")
             if v is None:
                 parts.append(k)
             else:
                 parts.append('%s="%s"' % (k, v))
-        if parts:
-            _value = _value + '; ' + '; '.join(parts)
-        self._headers.append((_name, _value))
+        self._headers.append((name, "; ".join(parts)))
 
-    def replace_header(self, _name, _value):
-        _name_lower = _name.lower()
+    def replace_header(self, name, value):
+        lname = name.lower()
         for i, (k, v) in enumerate(self._headers):
-            if k.lower() == _name_lower:
-                self._headers[i] = (k, _value)
+            if k.lower() == lname:
+                self._headers[i] = (k, value)
                 return
-        raise KeyError(_name)
+        raise KeyError(name)
+
+    # ---- Payload handling ----
+
+    def set_payload(self, payload, charset=None):
+        self._payload = payload
+        if charset is not None:
+            self.set_charset(charset)
+
+    def get_payload(self, i=None, decode=False):
+        if i is None:
+            return self._payload
+        if isinstance(self._payload, list):
+            return self._payload[i]
+        raise TypeError("Expected list payload")
+
+    def attach(self, payload):
+        if self._payload is None:
+            self._payload = [payload]
+        elif isinstance(self._payload, list):
+            self._payload.append(payload)
+        else:
+            raise TypeError("Cannot attach to non-multipart payload")
+
+    def is_multipart(self):
+        return isinstance(self._payload, list)
+
+    # ---- Content type ----
+
+    def set_type(self, type_, header="Content-Type"):
+        del self[header]
+        self[header] = type_
 
     def get_content_type(self):
-        missing = object()
-        value = self.get('content-type', missing)
-        if value is missing:
+        value = self["Content-Type"]
+        if value is None:
             return self._default_type
-        # Strip parameters
-        return value.split(';')[0].strip().lower()
+        # parse the main/subtype
+        main = value.split(";", 1)[0].strip().lower()
+        if "/" in main:
+            return main
+        return self._default_type
 
     def get_content_maintype(self):
-        ctype = self.get_content_type()
-        return ctype.split('/')[0]
+        return self.get_content_type().split("/", 1)[0]
 
     def get_content_subtype(self):
-        ctype = self.get_content_type()
-        parts = ctype.split('/')
-        return parts[1] if len(parts) > 1 else ''
+        ct = self.get_content_type()
+        if "/" in ct:
+            return ct.split("/", 1)[1]
+        return ""
 
     def get_default_type(self):
         return self._default_type
@@ -176,123 +123,152 @@ class Message:
     def set_default_type(self, ctype):
         self._default_type = ctype
 
-    def get_params(self, failobj=None, header='content-type', unquote=True):
-        missing = object()
-        value = self.get(header, missing)
-        if value is missing:
+    def get_params(self, failobj=None, header="Content-Type", unquote=True):
+        value = self[header]
+        if value is None:
             return failobj
-        params = []
-        for part in value.split(';'):
-            part = part.strip()
-            if '=' in part:
-                k, _, v = part.partition('=')
-                params.append((k.strip(), v.strip().strip('"')))
+        parts = [p.strip() for p in value.split(";")]
+        result = []
+        first = True
+        for p in parts:
+            if not p:
+                continue
+            if first:
+                result.append((p, ""))
+                first = False
+                continue
+            if "=" in p:
+                k, v = p.split("=", 1)
+                k = k.strip().lower()
+                v = v.strip()
+                if unquote and len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+                    v = v[1:-1]
+                result.append((k, v))
             else:
-                params.append((part, ''))
-        return params
+                result.append((p.strip().lower(), ""))
+        return result
 
-    def get_param(self, param, failobj=None, header='content-type', unquote=True):
+    def get_param(self, param, failobj=None, header="Content-Type", unquote=True):
         params = self.get_params(failobj=None, header=header, unquote=unquote)
         if params is None:
             return failobj
-        param = param.lower()
+        plower = param.lower()
         for k, v in params[1:]:
-            if k.lower() == param:
+            if k == plower:
                 return v
         return failobj
 
-    def set_param(self, param, value, header='Content-Type', requote=True,
-                  charset=None, language='', replace=False):
-        current = self.get(header)
-        if current is None:
-            self[header] = '%s=%s' % (param, value)
+    def set_charset(self, charset):
+        if "Content-Type" not in self:
+            self["Content-Type"] = "text/plain; charset=%s" % charset
         else:
-            parts = current.split(';')
-            param_lower = param.lower()
-            new_parts = []
-            found = False
-            for part in parts:
-                part = part.strip()
-                if '=' in part:
-                    k, _, v = part.partition('=')
-                    if k.strip().lower() == param_lower:
-                        new_parts.append('%s="%s"' % (k.strip(), value))
-                        found = True
-                        continue
-                new_parts.append(part)
-            if not found:
-                new_parts.append('%s="%s"' % (param, value))
-            self.replace_header(header, '; '.join(new_parts))
+            value = self["Content-Type"]
+            if "charset=" in value.lower():
+                # leave as-is (simple approach)
+                pass
+            else:
+                self.replace_header("Content-Type", value + "; charset=%s" % charset)
 
-    def del_param(self, param, header='content-type', requote=True):
-        current = self.get(header)
-        if current is None:
-            return
-        parts = current.split(';')
-        param_lower = param.lower()
-        new_parts = [p for p in parts
-                     if param_lower not in p.lower().split('=')[0].strip().lower()]
-        self.replace_header(header, '; '.join(new_parts))
-
-    def set_type(self, type, header='Content-Type', requote=True):
-        current = self.get(header)
-        if current is None:
-            self[header] = type
-        else:
-            parts = current.split(';')
-            parts[0] = type
-            self.replace_header(header, '; '.join(parts))
-
-    def get_filename(self, failobj=None):
-        return self.get_param('filename', failobj, 'content-disposition')
-
-    def get_boundary(self, failobj=None):
-        return self.get_param('boundary', failobj)
-
-    def set_boundary(self, boundary):
-        self.set_param('boundary', boundary)
-
-    def get_content_charset(self, failobj=None):
-        return self.get_param('charset', failobj)
-
-    def get_charsets(self, failobj=None):
-        return [self.get_content_charset(failobj)]
-
-    def walk(self):
-        yield self
-        if self.is_multipart():
-            for subpart in self._payload:
-                yield from subpart.walk()
+    def get_charset(self):
+        return self.get_param("charset")
 
 
-# ---------------------------------------------------------------------------
-# Invariant functions
-# ---------------------------------------------------------------------------
+# ---- Invariant test functions ----
 
 def emailmsg2_create():
-    """Message can be created and headers set; returns True."""
-    msg = Message()
-    msg['Subject'] = 'Test Subject'
-    msg['From'] = 'sender@example.com'
-    return (msg['Subject'] == 'Test Subject' and
-            msg['From'] == 'sender@example.com')
+    """Verify a Message can be created and headers set."""
+    try:
+        m = Message()
+        m["From"] = "alice@example.com"
+        m["To"] = "bob@example.com"
+        m["Subject"] = "Hello"
+        if m["From"] != "alice@example.com":
+            return False
+        if m["to"] != "bob@example.com":  # case-insensitive
+            return False
+        if m["Subject"] != "Hello":
+            return False
+        if "From" not in m:
+            return False
+        if "Cc" in m:
+            return False
+        keys = m.keys()
+        if "From" not in keys or "To" not in keys or "Subject" not in keys:
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def emailmsg2_payload():
-    """Message payload can be set and retrieved; returns True."""
-    msg = Message()
-    msg.set_payload('Hello, World!')
-    return msg.get_payload() == 'Hello, World!'
+    """Verify payload set/get and multipart attach."""
+    try:
+        # Simple string payload
+        m = Message()
+        m.set_payload("Hello, world!")
+        if m.get_payload() != "Hello, world!":
+            return False
+        if m.is_multipart():
+            return False
+
+        # Multipart payload via attach
+        outer = Message()
+        part1 = Message()
+        part1.set_payload("part one")
+        part2 = Message()
+        part2.set_payload("part two")
+        outer.attach(part1)
+        outer.attach(part2)
+        if not outer.is_multipart():
+            return False
+        if len(outer.get_payload()) != 2:
+            return False
+        if outer.get_payload(0).get_payload() != "part one":
+            return False
+        if outer.get_payload(1).get_payload() != "part two":
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def emailmsg2_content_type():
-    """get_content_type() returns content type string; returns True."""
-    msg = Message()
-    msg['Content-Type'] = 'text/plain; charset=utf-8'
-    return msg.get_content_type() == 'text/plain'
+    """Verify content-type parsing and defaults."""
+    try:
+        # Default content type
+        m = Message()
+        if m.get_content_type() != "text/plain":
+            return False
+        if m.get_content_maintype() != "text":
+            return False
+        if m.get_content_subtype() != "plain":
+            return False
 
+        # Explicit content type with params
+        m2 = Message()
+        m2["Content-Type"] = 'text/html; charset="utf-8"'
+        if m2.get_content_type() != "text/html":
+            return False
+        if m2.get_content_maintype() != "text":
+            return False
+        if m2.get_content_subtype() != "html":
+            return False
+        if m2.get_param("charset") != "utf-8":
+            return False
 
-__all__ = [
-    'Message',
-    'emailmsg2_create', 'emailmsg2_payload', 'emailmsg2_content_type',
-]
+        # Multipart
+        m3 = Message()
+        m3["Content-Type"] = "multipart/mixed; boundary=abc"
+        if m3.get_content_type() != "multipart/mixed":
+            return False
+        if m3.get_param("boundary") != "abc":
+            return False
+
+        # set_type
+        m4 = Message()
+        m4.set_type("application/json")
+        if m4.get_content_type() != "application/json":
+            return False
+        return True
+    except Exception:
+        return False

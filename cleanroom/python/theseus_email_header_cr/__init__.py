@@ -5,6 +5,7 @@ No import of the standard `email.header` module.
 
 import re as _re
 import base64 as _base64
+import quopri as _quopri
 
 USASCII = 'us-ascii'
 UTF8 = 'utf-8'
@@ -51,7 +52,15 @@ class Header:
     def _str(self, uchunks):
         if not self._chunks:
             return EMPTYSTRING
-        return SPACE.join(chunk for chunk, charset in self._chunks)
+        parts = []
+        for chunk, charset in self._chunks:
+            if isinstance(chunk, bytes):
+                try:
+                    chunk = chunk.decode(charset or 'ascii', errors='replace')
+                except (LookupError, UnicodeDecodeError):
+                    chunk = chunk.decode('ascii', errors='replace')
+            parts.append(chunk)
+        return SPACE.join(parts)
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -64,14 +73,29 @@ class Header:
             charset = self._charset
         self._chunks.append((s, charset))
 
-    def encode(self, splitchars=';, \t'):
+    def encode(self, splitchars=';, \t', maxlinelen=None, linesep='\n'):
         chunks = []
         for string, charset in self._chunks:
-            if charset.lower() == 'us-ascii':
-                chunks.append(string)
-            else:
-                encoded = _base64.b64encode(string.encode(charset)).decode('ascii')
-                chunks.append('=?%s?b?%s?=' % (charset, encoded))
+            if isinstance(string, bytes):
+                try:
+                    string = string.decode(charset or 'ascii', errors='replace')
+                except (LookupError, UnicodeDecodeError):
+                    string = string.decode('ascii', errors='replace')
+            cs = (charset or USASCII).lower()
+            if cs == 'us-ascii':
+                try:
+                    string.encode('ascii')
+                    chunks.append(string)
+                    continue
+                except (UnicodeEncodeError, UnicodeDecodeError):
+                    cs = 'utf-8'
+            try:
+                raw = string.encode(cs)
+            except (LookupError, UnicodeEncodeError):
+                cs = 'utf-8'
+                raw = string.encode(cs)
+            encoded = _base64.b64encode(raw).decode('ascii')
+            chunks.append('=?%s?b?%s?=' % (cs, encoded))
         return self._continuation_ws.join(chunks)
 
 
@@ -80,6 +104,21 @@ def decode_header(header):
 
     Returns a list of (string, charset) pairs.
     """
+    if hasattr(header, '_chunks'):
+        # Already a Header instance — recompose pairs.
+        results = []
+        for s, charset in header._chunks:
+            if isinstance(s, str):
+                try:
+                    s.encode('ascii')
+                    results.append((s, None))
+                except (UnicodeEncodeError, UnicodeDecodeError):
+                    results.append((s.encode(charset or 'utf-8', errors='replace'),
+                                    charset or 'utf-8'))
+            else:
+                results.append((s, charset))
+        return results
+
     if not header:
         return [(header, None)]
 
@@ -92,55 +131,60 @@ def decode_header(header):
     i = 0
     while i < len(words):
         word = words[i]
-        # Even-indexed items are literal strings
+        # Even-indexed items are literal strings between encoded words
         if word:
             decoded_words.append((word, None))
         i += 1
-        # After each literal, there's a charset, encoding, atom triplet
-        if i < len(words):
-            charset = words[i]
-            i += 1
-        else:
+        if i >= len(words):
             break
-        if i < len(words):
-            encoding = words[i].lower()
-            i += 1
-        else:
+        charset = words[i].lower() if words[i] else words[i]
+        i += 1
+        if i >= len(words):
             break
-        if i < len(words):
-            atom = words[i]
-            i += 1
-        else:
+        encoding = words[i].lower()
+        i += 1
+        if i >= len(words):
             break
+        atom = words[i]
+        i += 1
         if encoding == 'b':
-            # Base64
+            # Base64 — pad if necessary
+            pad = (-len(atom)) % 4
             try:
-                decoded = _base64.b64decode(atom)
+                decoded = _base64.b64decode(atom + ('=' * pad))
             except Exception:
-                decoded = atom.encode('ascii')
+                decoded = atom.encode('ascii', errors='replace')
         elif encoding == 'q':
-            # Quoted-printable
+            # Quoted-printable; underscores are spaces
             atom = atom.replace('_', ' ')
-            import quopri as _qp
-            atom_bytes = atom.encode('ascii', errors='replace')
             try:
-                decoded = _qp.decodestring(atom_bytes)
+                decoded = _quopri.decodestring(atom.encode('ascii', errors='replace'))
             except Exception:
-                decoded = atom_bytes
+                decoded = atom.encode('ascii', errors='replace')
         else:
             decoded = atom.encode('ascii', errors='replace')
         decoded_words.append((decoded, charset))
 
-    return decoded_words
+    # Coalesce adjacent encoded chunks that share a charset
+    collapsed = []
+    for piece, cs in decoded_words:
+        if collapsed and cs is not None and collapsed[-1][1] == cs and isinstance(piece, bytes):
+            prev_piece, prev_cs = collapsed.pop()
+            if isinstance(prev_piece, bytes):
+                collapsed.append((prev_piece + piece, cs))
+                continue
+            collapsed.append((prev_piece, prev_cs))
+        collapsed.append((piece, cs))
+    return collapsed
 
 
 def make_header(decoded_seq, maxlinelen=None, header_name=None, continuation_ws=' '):
     """Create a Header from a sequence of pairs as returned by decode_header()."""
     h = Header(maxlinelen=maxlinelen, header_name=header_name,
-                continuation_ws=continuation_ws)
+               continuation_ws=continuation_ws)
     for s, charset in decoded_seq:
         if charset is not None:
-            if not isinstance(s, str):
+            if isinstance(s, bytes):
                 try:
                     s = s.decode(charset)
                 except (UnicodeDecodeError, LookupError):
@@ -148,7 +192,7 @@ def make_header(decoded_seq, maxlinelen=None, header_name=None, continuation_ws=
         else:
             if isinstance(s, bytes):
                 s = s.decode('ascii', errors='replace')
-        h.append(s, charset or USASCII)
+        h.append(s, charset if charset is not None else USASCII)
     return h
 
 
@@ -165,16 +209,20 @@ def emailhdr2_header():
 def emailhdr2_decode():
     """decode_header() returns list of (decoded_string, charset) tuples; returns True."""
     result = decode_header('Hello World')
-    return (isinstance(result, list) and
-            len(result) > 0 and
-            isinstance(result[0], tuple))
+    if not (isinstance(result, list) and len(result) > 0 and isinstance(result[0], tuple)):
+        return False
+    # Also exercise an encoded-word form
+    encoded = decode_header('=?utf-8?b?SGVsbG8=?=')
+    return (isinstance(encoded, list) and
+            len(encoded) > 0 and
+            isinstance(encoded[0], tuple))
 
 
 def emailhdr2_make():
     """make_header() creates a Header from decoded sequence; returns True."""
     decoded = decode_header('Test')
     h = make_header(decoded)
-    return isinstance(h, Header)
+    return isinstance(h, Header) and 'Test' in str(h)
 
 
 __all__ = [

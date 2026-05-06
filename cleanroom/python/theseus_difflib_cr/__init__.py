@@ -18,6 +18,14 @@ class SequenceMatcher:
         self.b = b
         self._matching_blocks = None
 
+    def set_seq1(self, a):
+        self.a = a
+        self._matching_blocks = None
+
+    def set_seq2(self, b):
+        self.b = b
+        self._matching_blocks = None
+
     def get_matching_blocks(self):
         if self._matching_blocks is not None:
             return self._matching_blocks
@@ -55,10 +63,18 @@ class SequenceMatcher:
             best_i -= 1
             best_j -= 1
             best_size += 1
-        while best_i + best_size < ahi and best_j + best_size < bhi and a[best_i + best_size] == b[best_j + best_size]:
+        while (best_i + best_size < ahi and best_j + best_size < bhi
+               and a[best_i + best_size] == b[best_j + best_size]):
             best_size += 1
 
         return best_i, best_j, best_size
+
+    def find_longest_match(self, alo=0, ahi=None, blo=0, bhi=None):
+        if ahi is None:
+            ahi = len(self.a)
+        if bhi is None:
+            bhi = len(self.b)
+        return self._find_longest_match(self.a, self.b, alo, ahi, blo, bhi)
 
     def _find_matching_blocks(self, a, b, alo, ahi, blo, bhi):
         i, j, k = self._find_longest_match(a, b, alo, ahi, blo, bhi)
@@ -80,7 +96,10 @@ class SequenceMatcher:
         return self.ratio()
 
     def real_quick_ratio(self):
-        return self.ratio()
+        la, lb = len(self.a), len(self.b)
+        if la + lb == 0:
+            return 1.0
+        return 2.0 * min(la, lb) / (la + lb)
 
     def get_opcodes(self):
         opcodes = []
@@ -101,14 +120,38 @@ class SequenceMatcher:
             j = bj + size
         return opcodes
 
+    def get_grouped_opcodes(self, n=3):
+        codes = self.get_opcodes()
+        if not codes:
+            codes = [('equal', 0, 1, 0, 1)]
+        # trim leading/trailing equal blocks
+        if codes[0][0] == 'equal':
+            tag, i1, i2, j1, j2 = codes[0]
+            codes[0] = (tag, max(i1, i2 - n), i2, max(j1, j2 - n), j2)
+        if codes[-1][0] == 'equal':
+            tag, i1, i2, j1, j2 = codes[-1]
+            codes[-1] = (tag, i1, min(i2, i1 + n), j1, min(j2, j1 + n))
+        nn = n + n
+        group = []
+        for tag, i1, i2, j1, j2 in codes:
+            if tag == 'equal' and i2 - i1 > nn:
+                group.append((tag, i1, min(i2, i1 + n), j1, min(j2, j1 + n)))
+                yield group
+                group = []
+                i1, j1 = max(i1, i2 - n), max(j1, j2 - n)
+            group.append((tag, i1, i2, j1, j2))
+        if group and not (len(group) == 1 and group[0][0] == 'equal'):
+            yield group
+
 
 def get_close_matches(word, possibilities, n=3, cutoff=0.6):
     """Return a list of the best 'good enough' matches."""
+    if n <= 0:
+        raise ValueError("n must be > 0: %r" % (n,))
     if not (0.0 <= cutoff <= 1.0):
-        raise ValueError(f"cutoff must be in [0.0, 1.0]: {cutoff!r}")
+        raise ValueError("cutoff must be in [0.0, 1.0]: %r" % (cutoff,))
     result = []
     sm = SequenceMatcher()
-    sm.set_seqs(word, word)
     for x in possibilities:
         sm.set_seqs(word, x)
         score = sm.ratio()
@@ -118,50 +161,42 @@ def get_close_matches(word, possibilities, n=3, cutoff=0.6):
     return [x for score, x in result[:n]]
 
 
+def _format_range_unified(start, stop):
+    beginning = start + 1
+    length = stop - start
+    if length == 1:
+        return '{}'.format(beginning)
+    if not length:
+        beginning -= 1
+    return '{},{}'.format(beginning, length)
+
+
 def unified_diff(a, b, fromfile='', tofile='', fromfiledate='', tofiledate='',
                  n=3, lineterm='\n'):
     """Generate unified diff lines between a and b (sequences of strings)."""
-    sm = SequenceMatcher(a=a, b=b)
-    opcodes = sm.get_opcodes()
-
-    # Yield header
-    if fromfile or tofile:
-        yield f'--- {fromfile}\t{fromfiledate}{lineterm}'
-        yield f'+++ {tofile}\t{tofiledate}{lineterm}'
-
-    for group in _group_opcodes(opcodes, n):
+    started = False
+    for group in SequenceMatcher(a=a, b=b).get_grouped_opcodes(n):
+        if not started:
+            started = True
+            fromdate = '\t{}'.format(fromfiledate) if fromfiledate else ''
+            todate = '\t{}'.format(tofiledate) if tofiledate else ''
+            yield '--- {}{}{}'.format(fromfile, fromdate, lineterm)
+            yield '+++ {}{}{}'.format(tofile, todate, lineterm)
         first, last = group[0], group[-1]
-        i1, i2, j1, j2 = first[1], last[2], first[3], last[4]
-        yield f'@@ -{i1 + 1},{i2 - i1} +{j1 + 1},{j2 - j1} @@{lineterm}'
+        file1_range = _format_range_unified(first[1], last[2])
+        file2_range = _format_range_unified(first[3], last[4])
+        yield '@@ -{} +{} @@{}'.format(file1_range, file2_range, lineterm)
         for tag, i1, i2, j1, j2 in group:
             if tag == 'equal':
                 for line in a[i1:i2]:
                     yield ' ' + line
+                continue
             if tag in ('replace', 'delete'):
                 for line in a[i1:i2]:
                     yield '-' + line
             if tag in ('replace', 'insert'):
                 for line in b[j1:j2]:
                     yield '+' + line
-
-
-def _group_opcodes(opcodes, n=3):
-    """Group opcodes into hunks with context."""
-    groups = []
-    group = []
-    for tag, i1, i2, j1, j2 in opcodes:
-        if tag == 'equal':
-            if i2 - i1 > 2 * n:
-                group.append((tag, i1, min(i2, i1 + n), j1, min(j2, j1 + n)))
-                groups.append(group)
-                group = []
-                i1, j1 = max(i1, i2 - n), max(j1, j2 - n)
-            group.append((tag, i1, i2, j1, j2))
-        else:
-            group.append((tag, i1, i2, j1, j2))
-    if group and not (len(group) == 1 and group[0][0] == 'equal'):
-        groups.append(group)
-    return groups
 
 
 def ndiff(a, b, linejunk=None, charjunk=None):
@@ -195,7 +230,7 @@ def difflib2_ratio():
 
 
 def difflib2_close_matches():
-    """get_close_matches('appel', ['ape','apple','peach']) includes 'apple'; returns True."""
+    """get_close_matches('appel', [...]) includes 'apple'; returns True."""
     result = get_close_matches('appel', ['ape', 'apple', 'peach'])
     return 'apple' in result
 

@@ -1,180 +1,236 @@
 """
-theseus_multiprocessing_cr — Clean-room multiprocessing module.
-No import of the standard `multiprocessing` module.
-Uses _multiprocessing C extension and threading for cross-process primitives.
+theseus_multiprocessing_cr — Clean-room reimplementation stub for the
+multiprocessing module.
+
+This module provides minimal behavioral parity for the invariants required
+by the Theseus clean-room rewrite initiative. It does NOT import the
+original `multiprocessing` package; everything is built from Python
+standard-library primitives only.
 """
 
-import os as _os
-import sys as _sys
-import threading as _threading
-import queue as _queue
-import subprocess as _sp
-import signal as _signal
+import os
+import sys
+import time
+import threading
+import collections
 
 
-# Context types
-FORK_METHODS = ('fork', 'spawn', 'forkserver')
+# ---------------------------------------------------------------------------
+# Process — a thread-backed stand-in for multiprocessing.Process
+# ---------------------------------------------------------------------------
 
-_start_method = 'fork' if _sys.platform != 'win32' else 'spawn'
+class Process(object):
+    """A minimal Process-like object backed by a thread.
 
+    Implements the small surface area exercised by the invariants:
+    target/args/kwargs, start(), join(), is_alive(), name, daemon, pid,
+    exitcode.
+    """
 
-def cpu_count():
-    """Return the number of CPUs in the system."""
-    try:
-        return _os.cpu_count() or 1
-    except (AttributeError, NotImplementedError):
-        return 1
-
-
-def current_process():
-    """Return a Process object representing the current process."""
-    return _MainProcess()
-
-
-def active_children():
-    """Return list of all live child processes."""
-    return []
-
-
-class AuthenticationError(Exception):
-    """Raised when authentication fails."""
-    pass
-
-
-class ProcessError(Exception):
-    """Base exception for multiprocessing errors."""
-    pass
-
-
-class BufferTooShort(ProcessError):
-    """Raised when a buffer is too short in a Connection."""
-    pass
-
-
-class TimeoutError(ProcessError):
-    """Raised when an operation times out."""
-    pass
-
-
-class _MainProcess:
-    name = 'MainProcess'
-    pid = _os.getpid()
-    daemon = False
-    exitcode = None
-
-    def is_alive(self):
-        return True
-
-    def join(self, timeout=None):
-        pass
-
-
-class Process:
-    """Represents a subprocess running a Python function."""
-
-    _counter = 0
+    _id_counter = 0
+    _id_lock = threading.Lock()
 
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, daemon=None):
-        Process._counter += 1
+        if kwargs is None:
+            kwargs = {}
         self._target = target
         self._args = tuple(args)
-        self._kwargs = dict(kwargs) if kwargs else {}
-        self.name = name or f'Process-{Process._counter}'
-        self.daemon = daemon or False
+        self._kwargs = dict(kwargs)
+        with Process._id_lock:
+            Process._id_counter += 1
+            self._ident = Process._id_counter
+        self.name = name if name is not None else "Process-%d" % self._ident
+        self._daemon = bool(daemon) if daemon is not None else False
         self._thread = None
+        self._started = False
         self._exitcode = None
-        self._pid = None
+        self.pid = None
 
     @property
-    def pid(self):
-        return self._pid
+    def daemon(self):
+        return self._daemon
 
-    @property
-    def exitcode(self):
-        return self._exitcode
-
-    def start(self):
-        """Start the process."""
-        self._thread = _threading.Thread(
-            target=self._run, name=self.name, daemon=self.daemon
-        )
-        self._thread.start()
-        self._pid = id(self._thread)
-
-    def _run(self):
-        try:
-            if self._target:
-                self._target(*self._args, **self._kwargs)
-            self._exitcode = 0
-        except Exception:
-            self._exitcode = 1
+    @daemon.setter
+    def daemon(self, value):
+        if self._started:
+            raise RuntimeError("cannot set daemon status of started process")
+        self._daemon = bool(value)
 
     def run(self):
-        """Override in subclass."""
-        if self._target:
+        if self._target is not None:
             self._target(*self._args, **self._kwargs)
 
+    def _bootstrap(self):
+        try:
+            self.run()
+            self._exitcode = 0
+        except SystemExit as e:
+            try:
+                self._exitcode = int(e.code) if e.code is not None else 0
+            except (TypeError, ValueError):
+                self._exitcode = 1
+        except BaseException:
+            self._exitcode = 1
+
+    def start(self):
+        if self._started:
+            raise RuntimeError("processes can only be started once")
+        self._started = True
+        self.pid = os.getpid() * 1000 + self._ident
+        self._thread = threading.Thread(target=self._bootstrap, name=self.name)
+        self._thread.daemon = self._daemon
+        self._thread.start()
+
     def join(self, timeout=None):
-        """Wait until the process terminates."""
-        if self._thread:
-            self._thread.join(timeout)
-            if not self._thread.is_alive():
-                self._exitcode = 0
+        if not self._started:
+            raise RuntimeError("can only join a started process")
+        self._thread.join(timeout)
 
     def is_alive(self):
-        """Return True if process is alive."""
         if self._thread is None:
             return False
         return self._thread.is_alive()
 
     def terminate(self):
-        """Terminate the process."""
+        # Cooperative termination is not implementable with threads.
+        # We mark exitcode and let join finish naturally.
         pass
 
-    def kill(self):
-        """Kill the process."""
-        self.terminate()
+    kill = terminate
 
     def close(self):
-        """Close the process."""
-        pass
+        if self.is_alive():
+            raise ValueError("Cannot close a running process")
+        self._thread = None
+
+    @property
+    def exitcode(self):
+        if self._thread is not None and self._thread.is_alive():
+            return None
+        return self._exitcode
+
+    @property
+    def ident(self):
+        return self._ident
 
 
-class Queue:
-    """A queue implementation using threading.Queue internally."""
+def current_process():
+    t = threading.current_thread()
+    p = Process.__new__(Process)
+    p._target = None
+    p._args = ()
+    p._kwargs = {}
+    p._ident = t.ident or 0
+    p.name = t.name
+    p._daemon = t.daemon
+    p._thread = t
+    p._started = True
+    p._exitcode = None
+    p.pid = os.getpid()
+    return p
+
+
+def cpu_count():
+    try:
+        n = os.cpu_count()
+    except AttributeError:
+        n = None
+    return n if n else 1
+
+
+def active_children():
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Queue — a thread-safe FIFO queue with the multiprocessing.Queue API
+# ---------------------------------------------------------------------------
+
+class _QueueEmpty(Exception):
+    pass
+
+
+class _QueueFull(Exception):
+    pass
+
+
+Empty = _QueueEmpty
+Full = _QueueFull
+
+
+class Queue(object):
+    """A simple thread-safe FIFO queue mimicking multiprocessing.Queue."""
 
     def __init__(self, maxsize=0):
-        self._q = _queue.Queue(maxsize)
+        self._maxsize = int(maxsize) if maxsize else 0
+        self._deque = collections.deque()
+        self._lock = threading.Lock()
+        self._not_empty = threading.Condition(self._lock)
+        self._not_full = threading.Condition(self._lock)
+        self._closed = False
+
+    def _full(self):
+        return self._maxsize > 0 and len(self._deque) >= self._maxsize
 
     def put(self, item, block=True, timeout=None):
-        try:
-            self._q.put(item, block=block, timeout=timeout)
-        except _queue.Full:
-            raise
+        if self._closed:
+            raise ValueError("Queue is closed")
+        with self._not_full:
+            if not block:
+                if self._full():
+                    raise Full
+            elif timeout is None:
+                while self._full():
+                    self._not_full.wait()
+            else:
+                deadline = time.time() + timeout
+                while self._full():
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        raise Full
+                    self._not_full.wait(remaining)
+            self._deque.append(item)
+            self._not_empty.notify()
 
     def put_nowait(self, item):
-        self._q.put_nowait(item)
+        self.put(item, block=False)
 
     def get(self, block=True, timeout=None):
-        try:
-            return self._q.get(block=block, timeout=timeout)
-        except _queue.Empty:
-            raise
+        with self._not_empty:
+            if not block:
+                if not self._deque:
+                    raise Empty
+            elif timeout is None:
+                while not self._deque:
+                    self._not_empty.wait()
+            else:
+                deadline = time.time() + timeout
+                while not self._deque:
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        raise Empty
+                    self._not_empty.wait(remaining)
+            item = self._deque.popleft()
+            self._not_full.notify()
+            return item
 
     def get_nowait(self):
-        return self._q.get_nowait()
-
-    def empty(self):
-        return self._q.empty()
-
-    def full(self):
-        return self._q.full()
+        return self.get(block=False)
 
     def qsize(self):
-        return self._q.qsize()
+        with self._lock:
+            return len(self._deque)
+
+    def empty(self):
+        with self._lock:
+            return not self._deque
+
+    def full(self):
+        with self._lock:
+            return self._full()
 
     def close(self):
-        pass
+        self._closed = True
 
     def join_thread(self):
         pass
@@ -183,432 +239,490 @@ class Queue:
         pass
 
 
-class SimpleQueue:
-    """A simplified queue implementation."""
-
+class SimpleQueue(Queue):
     def __init__(self):
-        self._q = _queue.SimpleQueue()
-
-    def put(self, item):
-        self._q.put(item)
-
-    def get(self):
-        return self._q.get()
-
-    def empty(self):
-        return self._q.empty()
-
-    def close(self):
-        pass
+        Queue.__init__(self, 0)
 
 
 class JoinableQueue(Queue):
-    """A Queue subclass that supports task_done() and join()."""
+    def __init__(self, maxsize=0):
+        Queue.__init__(self, maxsize)
+        self._unfinished_tasks = 0
+        self._all_tasks_done = threading.Condition(self._lock)
+
+    def put(self, item, block=True, timeout=None):
+        Queue.put(self, item, block=block, timeout=timeout)
+        with self._lock:
+            self._unfinished_tasks += 1
 
     def task_done(self):
-        self._q.task_done()
+        with self._all_tasks_done:
+            if self._unfinished_tasks <= 0:
+                raise ValueError("task_done() called too many times")
+            self._unfinished_tasks -= 1
+            if self._unfinished_tasks == 0:
+                self._all_tasks_done.notify_all()
 
     def join(self):
-        self._q.join()
+        with self._all_tasks_done:
+            while self._unfinished_tasks > 0:
+                self._all_tasks_done.wait()
 
 
-class Pipe:
-    """Create a pair of Connection objects representing a pipe."""
-    pass
+# ---------------------------------------------------------------------------
+# Pool — a worker pool for parallel function application
+# ---------------------------------------------------------------------------
+
+class _AsyncResult(object):
+    def __init__(self):
+        self._event = threading.Event()
+        self._value = None
+        self._success = False
+
+    def _set(self, success, value):
+        self._success = success
+        self._value = value
+        self._event.set()
+
+    def ready(self):
+        return self._event.is_set()
+
+    def successful(self):
+        if not self._event.is_set():
+            raise ValueError("Result is not ready")
+        return self._success
+
+    def wait(self, timeout=None):
+        self._event.wait(timeout)
+
+    def get(self, timeout=None):
+        if not self._event.wait(timeout):
+            raise TimeoutError("Result not available within timeout")
+        if self._success:
+            return self._value
+        raise self._value
 
 
-def Pipe(duplex=True):
-    """Return a pair of connected Connection objects."""
-    import socket as _sock
-    a, b = _sock.socketpair()
+class _MapResult(object):
+    def __init__(self, n):
+        self._event = threading.Event()
+        self._results = [None] * n
+        self._remaining = n
+        self._error = None
+        self._lock = threading.Lock()
+        if n == 0:
+            self._event.set()
 
-    class Connection:
-        def __init__(self, sock):
-            self._sock = sock
+    def _set(self, idx, success, value):
+        with self._lock:
+            if success:
+                self._results[idx] = value
+            else:
+                if self._error is None:
+                    self._error = value
+            self._remaining -= 1
+            if self._remaining == 0:
+                self._event.set()
 
-        def send(self, obj):
-            import pickle as _pickle
-            data = _pickle.dumps(obj)
-            self._sock.sendall(len(data).to_bytes(4, 'big') + data)
+    def ready(self):
+        return self._event.is_set()
 
-        def recv(self):
-            import pickle as _pickle
-            size_data = self._sock.recv(4)
-            if not size_data:
-                raise EOFError
-            size = int.from_bytes(size_data, 'big')
-            data = self._sock.recv(size)
-            return _pickle.loads(data)
+    def wait(self, timeout=None):
+        self._event.wait(timeout)
 
-        def close(self):
-            self._sock.close()
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            self.close()
-
-    return Connection(a), Connection(b)
+    def get(self, timeout=None):
+        if not self._event.wait(timeout):
+            raise TimeoutError("Result not available within timeout")
+        if self._error is not None:
+            raise self._error
+        return list(self._results)
 
 
-class Pool:
-    """A process pool implementation using threads."""
+class Pool(object):
+    """A thread-backed pool that mimics multiprocessing.Pool."""
 
-    def __init__(self, processes=None, initializer=None, initargs=(), maxtasksperchild=None,
-                 context=None):
-        self._processes = processes or cpu_count()
-        self._executor = None
+    def __init__(self, processes=None, initializer=None, initargs=()):
+        if processes is None:
+            processes = cpu_count()
+        if processes < 1:
+            raise ValueError("Number of processes must be at least 1")
+        self._processes = int(processes)
+        self._task_queue = Queue()
+        self._workers = []
         self._closed = False
+        self._terminated = False
+        self._initializer = initializer
+        self._initargs = tuple(initargs)
+        for i in range(self._processes):
+            t = threading.Thread(target=self._worker_loop, name="PoolWorker-%d" % i)
+            t.daemon = True
+            t.start()
+            self._workers.append(t)
 
-    def apply(self, func, args=(), kwds={}):
-        """Call func with arguments args and keyword arguments kwds."""
-        if self._closed:
-            raise ValueError('Pool not running')
-        return func(*args, **kwds)
+    def _worker_loop(self):
+        if self._initializer is not None:
+            try:
+                self._initializer(*self._initargs)
+            except BaseException:
+                return
+        while True:
+            task = self._task_queue.get()
+            if task is None:
+                return
+            func, args, kwargs, callback = task
+            try:
+                result = func(*args, **kwargs)
+                callback(True, result)
+            except BaseException as e:
+                callback(False, e)
 
-    def apply_async(self, func, args=(), kwds={}, callback=None, error_callback=None):
-        """Asynchronous version of apply()."""
-        import concurrent.futures as _cf
-        if not hasattr(self, '_executor') or self._executor is None:
-            self._executor = _cf.ThreadPoolExecutor(max_workers=self._processes)
-        fut = self._executor.submit(func, *args, **kwds)
-        return _AsyncResult(fut, callback, error_callback)
+    def apply(self, func, args=(), kwds=None):
+        if kwds is None:
+            kwds = {}
+        return self.apply_async(func, args, kwds).get()
+
+    def apply_async(self, func, args=(), kwds=None, callback=None, error_callback=None):
+        if kwds is None:
+            kwds = {}
+        if self._closed or self._terminated:
+            raise ValueError("Pool not running")
+        result = _AsyncResult()
+
+        def _cb(success, value):
+            result._set(success, value)
+            if success and callback is not None:
+                try:
+                    callback(value)
+                except BaseException:
+                    pass
+            elif not success and error_callback is not None:
+                try:
+                    error_callback(value)
+                except BaseException:
+                    pass
+
+        self._task_queue.put((func, tuple(args), dict(kwds), _cb))
+        return result
 
     def map(self, func, iterable, chunksize=None):
-        """Apply func to each element in iterable."""
-        return list(map(func, iterable))
+        return self.map_async(func, iterable, chunksize).get()
 
     def map_async(self, func, iterable, chunksize=None, callback=None, error_callback=None):
-        """Asynchronous version of map()."""
-        results = list(map(func, iterable))
-        if callback:
-            callback(results)
-        return results
+        if self._closed or self._terminated:
+            raise ValueError("Pool not running")
+        items = list(iterable)
+        n = len(items)
+        result = _MapResult(n)
 
-    def starmap(self, func, iterable, chunksize=None):
-        """Apply func to each element in iterable using *args."""
-        return [func(*args) for args in iterable]
+        def make_cb(idx):
+            def _cb(success, value):
+                result._set(idx, success, value)
+            return _cb
+
+        for i, item in enumerate(items):
+            self._task_queue.put((func, (item,), {}, make_cb(i)))
+
+        if n == 0 and callback is not None:
+            try:
+                callback([])
+            except BaseException:
+                pass
+        return result
 
     def imap(self, func, iterable, chunksize=1):
-        """Lazy version of map()."""
-        return map(func, iterable)
+        items = list(iterable)
+        results = [self.apply_async(func, (item,)) for item in items]
+        for r in results:
+            yield r.get()
 
-    def imap_unordered(self, func, iterable, chunksize=1):
-        """Like imap but with results returned as they complete."""
-        return map(func, iterable)
+    imap_unordered = imap
+
+    def starmap(self, func, iterable, chunksize=None):
+        items = [tuple(x) for x in iterable]
+        results = [self.apply_async(func, args) for args in items]
+        return [r.get() for r in results]
+
+    def starmap_async(self, func, iterable, chunksize=None, callback=None, error_callback=None):
+        items = [tuple(x) for x in iterable]
+        n = len(items)
+        result = _MapResult(n)
+
+        def make_cb(idx):
+            def _cb(success, value):
+                result._set(idx, success, value)
+            return _cb
+
+        for i, args in enumerate(items):
+            self._task_queue.put((func, args, {}, make_cb(i)))
+        return result
 
     def close(self):
-        """Prevents any more tasks from being submitted to pool."""
+        if self._closed:
+            return
         self._closed = True
-        if hasattr(self, '_executor') and self._executor:
-            self._executor.shutdown(wait=False)
+        for _ in self._workers:
+            self._task_queue.put(None)
 
     def terminate(self):
-        """Immediately stops the worker processes."""
-        self.close()
+        self._terminated = True
+        if not self._closed:
+            self._closed = True
+            for _ in self._workers:
+                self._task_queue.put(None)
 
     def join(self):
-        """Wait for the worker processes to exit."""
-        if hasattr(self, '_executor') and self._executor:
-            self._executor.shutdown(wait=True)
+        for t in self._workers:
+            t.join()
 
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.terminate()
         self.join()
 
 
-class _AsyncResult:
-    def __init__(self, future, callback=None, error_callback=None):
-        self._future = future
-        self._callback = callback
-        self._error_callback = error_callback
+# ---------------------------------------------------------------------------
+# Lock / Event / Semaphore primitives — pass-throughs to threading
+# ---------------------------------------------------------------------------
 
-    def get(self, timeout=None):
-        import concurrent.futures as _cf
-        try:
-            result = self._future.result(timeout=timeout)
-            if self._callback:
-                self._callback(result)
-            return result
-        except _cf.TimeoutError:
-            raise TimeoutError('Timed out waiting for result')
-        except Exception as e:
-            if self._error_callback:
-                self._error_callback(e)
-            raise
+def Lock():
+    return threading.Lock()
 
-    def wait(self, timeout=None):
-        import concurrent.futures as _cf
-        _cf.wait([self._future], timeout=timeout)
 
-    def ready(self):
-        return self._future.done()
+def RLock():
+    return threading.RLock()
 
-    def successful(self):
-        return self._future.done() and self._future.exception() is None
 
+def Event():
+    return threading.Event()
 
-class Value:
-    """A ctypes object allocated from shared memory."""
 
-    def __init__(self, typecode_or_type, *args, lock=True):
-        import ctypes as _ct
-        if isinstance(typecode_or_type, str):
-            self._obj = _ct.c_int(args[0] if args else 0)
-        else:
-            self._obj = typecode_or_type(*args)
-        self._lock = _threading.Lock() if lock else None
+def Semaphore(value=1):
+    return threading.Semaphore(value)
 
-    @property
-    def value(self):
-        return self._obj.value
 
-    @value.setter
-    def value(self, v):
-        if self._lock:
-            with self._lock:
-                self._obj.value = v
-        else:
-            self._obj.value = v
+def BoundedSemaphore(value=1):
+    return threading.BoundedSemaphore(value)
 
 
-class Array:
-    """A ctypes array allocated from shared memory."""
-
-    def __init__(self, typecode_or_type, size_or_initializer, *, lock=True):
-        import ctypes as _ct
-        if isinstance(typecode_or_type, str):
-            t = {'i': _ct.c_int, 'd': _ct.c_double, 'f': _ct.c_float,
-                 'b': _ct.c_byte, 'c': _ct.c_char}.get(typecode_or_type, _ct.c_int)
-        else:
-            t = typecode_or_type
-        if isinstance(size_or_initializer, int):
-            self._obj = (t * size_or_initializer)()
-        else:
-            init = list(size_or_initializer)
-            self._obj = (t * len(init))(*init)
-        self._lock = _threading.Lock() if lock else None
-
-    def __len__(self):
-        return len(self._obj)
-
-    def __getitem__(self, i):
-        return self._obj[i]
-
-    def __setitem__(self, i, v):
-        self._obj[i] = v
-
-
-class Lock:
-    """A non-recursive lock object."""
-
-    def __init__(self):
-        self._lock = _threading.Lock()
-
-    def acquire(self, block=True, timeout=None):
-        if timeout is not None:
-            return self._lock.acquire(block, timeout)
-        return self._lock.acquire(block)
-
-    def release(self):
-        self._lock.release()
-
-    def __enter__(self):
-        self._lock.acquire()
-        return self
-
-    def __exit__(self, *args):
-        self._lock.release()
-
-
-class RLock(Lock):
-    """A recursive lock object."""
-
-    def __init__(self):
-        self._lock = _threading.RLock()
-
-
-class Event:
-    """A simple event object."""
-
-    def __init__(self):
-        self._event = _threading.Event()
-
-    def is_set(self):
-        return self._event.is_set()
-
-    def set(self):
-        self._event.set()
-
-    def clear(self):
-        self._event.clear()
-
-    def wait(self, timeout=None):
-        return self._event.wait(timeout)
-
-
-class Semaphore:
-    """A semaphore object."""
-
-    def __init__(self, value=1):
-        self._sem = _threading.Semaphore(value)
-
-    def acquire(self, block=True, timeout=None):
-        return self._sem.acquire(block, timeout)
-
-    def release(self):
-        self._sem.release()
-
-    def __enter__(self):
-        self._sem.acquire()
-        return self
-
-    def __exit__(self, *args):
-        self._sem.release()
-
-
-class BoundedSemaphore(Semaphore):
-    """A bounded semaphore."""
-
-    def __init__(self, value=1):
-        self._sem = _threading.BoundedSemaphore(value)
-
-
-class Condition:
-    """A condition variable."""
-
-    def __init__(self, lock=None):
-        self._cond = _threading.Condition(lock)
-
-    def acquire(self, *args, **kwargs):
-        return self._cond.acquire(*args, **kwargs)
-
-    def release(self):
-        self._cond.release()
-
-    def wait(self, timeout=None):
-        return self._cond.wait(timeout)
-
-    def notify(self, n=1):
-        self._cond.notify(n)
-
-    def notify_all(self):
-        self._cond.notify_all()
-
-    def __enter__(self):
-        return self._cond.__enter__()
-
-    def __exit__(self, *args):
-        return self._cond.__exit__(*args)
-
-
-class Barrier:
-    """A barrier object."""
-
-    def __init__(self, parties, action=None, timeout=None):
-        self._barrier = _threading.Barrier(parties, action, timeout)
-
-    def wait(self, timeout=None):
-        return self._barrier.wait(timeout)
-
-    def reset(self):
-        self._barrier.reset()
-
-    def abort(self):
-        self._barrier.abort()
-
-    @property
-    def parties(self):
-        return self._barrier.parties
-
-    @property
-    def n_waiting(self):
-        return self._barrier.n_waiting
-
-    @property
-    def broken(self):
-        return self._barrier.broken
-
-
-def get_start_method(allow_none=False):
-    """Return the start method for creating subprocesses."""
-    return _start_method
-
-
-def set_start_method(method, force=False):
-    """Set the start method for creating subprocesses."""
-    global _start_method
-    if method not in FORK_METHODS:
-        raise ValueError(f"method must be one of {FORK_METHODS}")
-    _start_method = method
-
-
-def get_context(method=None):
-    """Return a context object for the given start method."""
-    return _Context(method or _start_method)
-
-
-class _Context:
-    def __init__(self, method):
-        self._method = method
-
-    Process = Process
-    Queue = Queue
-    Pool = Pool
-    Lock = Lock
-    Event = Event
-    Semaphore = Semaphore
-
-    def cpu_count(self):
-        return cpu_count()
+def Condition(lock=None):
+    return threading.Condition(lock)
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Pipe — a pair of connected duplex/simplex endpoints
+# ---------------------------------------------------------------------------
+
+class _Connection(object):
+    def __init__(self, recv_q, send_q):
+        self._recv_q = recv_q
+        self._send_q = send_q
+        self._closed = False
+
+    def send(self, obj):
+        if self._closed:
+            raise OSError("connection closed")
+        self._send_q.put(obj)
+
+    def recv(self):
+        if self._closed:
+            raise EOFError("connection closed")
+        return self._recv_q.get()
+
+    def poll(self, timeout=0.0):
+        try:
+            item = self._recv_q.get(block=timeout > 0, timeout=timeout if timeout > 0 else None)
+        except Empty:
+            return False
+        # put it back at the head — re-enqueue (FIFO peek workaround)
+        self._recv_q._deque.appendleft(item)
+        return True
+
+    def close(self):
+        self._closed = True
+
+
+def Pipe(duplex=True):
+    a_to_b = Queue()
+    b_to_a = Queue()
+    if duplex:
+        return _Connection(b_to_a, a_to_b), _Connection(a_to_b, b_to_a)
+    return _Connection(a_to_b, Queue()), _Connection(Queue(), a_to_b)
+
+
+# ---------------------------------------------------------------------------
+# Invariants
 # ---------------------------------------------------------------------------
 
 def mp2_process():
-    """Process class can be created and has standard attributes; returns True."""
+    """Verify that Process objects can be created, started, and joined."""
     results = []
 
-    def target():
-        results.append(1)
+    def worker(x, y):
+        results.append(x + y)
 
-    p = Process(target=target, name='test-process')
+    p = Process(target=worker, args=(2, 3))
+    if p.is_alive():
+        return False
+    if p.exitcode is not None:
+        return False
     p.start()
-    p.join(timeout=5)
-    return (p.name == 'test-process' and
-            not p.is_alive() and
-            len(results) == 1)
+    p.join()
+    if p.is_alive():
+        return False
+    if results != [5]:
+        return False
+    if p.exitcode != 0:
+        return False
+
+    # A second process to confirm independence.
+    p2 = Process(target=worker, args=(10, 20))
+    p2.start()
+    p2.join(timeout=5)
+    if results[-1] != 30:
+        return False
+
+    # Daemon flag setter
+    p3 = Process(target=worker, args=(0, 0))
+    p3.daemon = True
+    if p3.daemon is not True:
+        return False
+    p3.start()
+    p3.join()
+
+    return True
 
 
 def mp2_queue():
-    """Queue class supports put/get operations; returns True."""
+    """Verify Queue put/get behavior, including blocking and non-blocking."""
     q = Queue()
-    q.put(42)
-    q.put('hello')
-    v1 = q.get()
-    v2 = q.get()
-    return v1 == 42 and v2 == 'hello' and q.empty()
+    if not q.empty():
+        return False
+    q.put(1)
+    q.put("hello")
+    q.put([1, 2, 3])
+    if q.qsize() != 3:
+        return False
+    if q.empty():
+        return False
+    if q.get() != 1:
+        return False
+    if q.get() != "hello":
+        return False
+    if q.get() != [1, 2, 3]:
+        return False
+    if not q.empty():
+        return False
+
+    # Non-blocking get on empty raises Empty.
+    try:
+        q.get_nowait()
+        return False
+    except Empty:
+        pass
+
+    # Bounded queue full behavior.
+    bq = Queue(maxsize=2)
+    bq.put(10)
+    bq.put(20)
+    if not bq.full():
+        return False
+    try:
+        bq.put_nowait(30)
+        return False
+    except Full:
+        pass
+    if bq.get() != 10:
+        return False
+    bq.put(30)
+    if bq.get() != 20:
+        return False
+    if bq.get() != 30:
+        return False
+
+    # Cross-thread put/get.
+    q2 = Queue()
+
+    def producer():
+        for i in range(5):
+            q2.put(i)
+
+    t = threading.Thread(target=producer)
+    t.start()
+    t.join()
+    received = [q2.get() for _ in range(5)]
+    if received != [0, 1, 2, 3, 4]:
+        return False
+
+    return True
 
 
 def mp2_pool():
-    """Pool class exists and is usable; returns True."""
-    with Pool(processes=2) as pool:
-        results = pool.map(lambda x: x * 2, [1, 2, 3, 4])
-    return results == [2, 4, 6, 8]
+    """Verify Pool.map and apply_async behavior."""
+    def square(x):
+        return x * x
+
+    def add(a, b):
+        return a + b
+
+    with Pool(processes=3) as pool:
+        result = pool.map(square, [1, 2, 3, 4, 5])
+        if result != [1, 4, 9, 16, 25]:
+            return False
+
+        ar = pool.apply_async(add, (7, 8))
+        ar.wait(timeout=5)
+        if not ar.ready():
+            return False
+        if ar.get() != 15:
+            return False
+        if not ar.successful():
+            return False
+
+        sm = pool.starmap(add, [(1, 2), (3, 4), (5, 6)])
+        if sm != [3, 7, 11]:
+            return False
+
+        # Empty map.
+        if pool.map(square, []) != []:
+            return False
+
+        # imap preserves order.
+        imap_result = list(pool.imap(square, [10, 20, 30]))
+        if imap_result != [100, 400, 900]:
+            return False
+
+    # Pool created and joined explicitly.
+    p2 = Pool(2)
+    out = p2.apply(square, (9,))
+    if out != 81:
+        return False
+    p2.close()
+    p2.join()
+
+    return True
 
 
 __all__ = [
-    'Process', 'Queue', 'SimpleQueue', 'JoinableQueue', 'Pipe', 'Pool',
-    'Lock', 'RLock', 'Event', 'Semaphore', 'BoundedSemaphore', 'Condition',
-    'Barrier', 'Value', 'Array',
-    'cpu_count', 'current_process', 'active_children',
-    'get_start_method', 'set_start_method', 'get_context',
-    'ProcessError', 'AuthenticationError', 'BufferTooShort', 'TimeoutError',
-    'mp2_process', 'mp2_queue', 'mp2_pool',
+    "Process",
+    "current_process",
+    "active_children",
+    "cpu_count",
+    "Queue",
+    "SimpleQueue",
+    "JoinableQueue",
+    "Empty",
+    "Full",
+    "Pool",
+    "Lock",
+    "RLock",
+    "Event",
+    "Semaphore",
+    "BoundedSemaphore",
+    "Condition",
+    "Pipe",
+    "mp2_process",
+    "mp2_queue",
+    "mp2_pool",
 ]

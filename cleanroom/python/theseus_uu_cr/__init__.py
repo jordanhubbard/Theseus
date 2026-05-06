@@ -1,182 +1,317 @@
 """
-theseus_uu_cr — Clean-room uu module.
-No import of the standard `uu` module.
+theseus_uu_cr — Clean-room uu (uuencode/uudecode) module.
+No import of the standard `uu` module or any third-party library.
 """
 
-import binascii as _binascii
 import io as _io
 import os as _os
 
-_MAXPERLINE = 45
-
-# Translation table: 0 -> chr(32), ..., 63 -> chr(95)
-_ENC_TABLE = bytes(range(32, 96))
-_DEC_TABLE = bytes(range(256))  # not needed, computed inline
+_MAX_PER_LINE = 45
 
 
 class Error(Exception):
+    """Exception raised by uuencode/uudecode operations."""
     pass
 
 
-def encode(in_file, out_file, name='-', mode=None):
-    """Encode a file using uuencode."""
-    if isinstance(in_file, str):
-        if name == '-':
-            name = in_file
-        in_file = open(in_file, 'rb')
-        close_in = True
-    else:
-        close_in = False
+# ---------------------------------------------------------------------------
+# Low-level encode / decode primitives
+# ---------------------------------------------------------------------------
 
-    if isinstance(out_file, str):
-        out_file = open(out_file, 'w')
-        close_out = True
-    else:
-        close_out = False
+def _encode_chunk(chunk):
+    """Encode up to 45 bytes into one uuencoded line (no trailing newline).
 
-    if mode is None:
-        try:
-            mode = _os.stat(in_file.name).st_mode & 0o666
-        except AttributeError:
-            mode = 0o666
+    Format: <length-char><four-encoded-chars>* where each group of 3 input
+    bytes becomes 4 output chars. A 6-bit value v maps to chr(v + 32),
+    except v == 0 which is rendered as a backtick (avoids trailing-space
+    truncation by mailers).
+    """
+    n = len(chunk)
+    if n == 0:
+        return '`'
+    out = [chr(32 + n)]
 
-    out_file.write(f'begin {mode:o} {name}\n')
+    # Pad to a multiple of 3 with zero bytes.
+    pad = (3 - (n % 3)) % 3
+    padded = chunk + bytes(pad)
 
-    try:
-        while True:
-            data = in_file.read(_MAXPERLINE)
-            if not data:
-                break
-            out_file.write(_encode_line(data) + '\n')
-        out_file.write(' \n')
-        out_file.write('end\n')
-    finally:
-        if close_in:
-            in_file.close()
-        if close_out:
-            out_file.close()
+    for i in range(0, len(padded), 3):
+        b0 = padded[i]
+        b1 = padded[i + 1]
+        b2 = padded[i + 2]
+        c0 = (b0 >> 2) & 0x3F
+        c1 = ((b0 & 0x03) << 4) | ((b1 >> 4) & 0x0F)
+        c2 = ((b1 & 0x0F) << 2) | ((b2 >> 6) & 0x03)
+        c3 = b2 & 0x3F
+        for v in (c0, c1, c2, c3):
+            out.append('`' if v == 0 else chr(32 + v))
 
-
-def _encode_line(data):
-    """Encode one line of data."""
-    result = [chr(32 + len(data))]
-    i = 0
-    while i < len(data):
-        b0 = data[i] if i < len(data) else 0
-        b1 = data[i + 1] if i + 1 < len(data) else 0
-        b2 = data[i + 2] if i + 2 < len(data) else 0
-        result.append(chr(32 + ((b0 >> 2) & 0x3F)) if (b0 >> 2) & 0x3F else '`')
-        result.append(chr(32 + (((b0 & 3) << 4) | ((b1 >> 4) & 0xF))) if (((b0 & 3) << 4) | ((b1 >> 4) & 0xF)) else '`')
-        result.append(chr(32 + (((b1 & 0xF) << 2) | ((b2 >> 6) & 3))) if (((b1 & 0xF) << 2) | ((b2 >> 6) & 3)) else '`')
-        result.append(chr(32 + (b2 & 0x3F)) if (b2 & 0x3F) else '`')
-        i += 3
-    return ''.join(result)
+    return ''.join(out)
 
 
 def _decode_char(c):
-    """Decode a single uu character."""
-    val = (ord(c) - 32) & 0x3F
-    return val
+    """Convert one encoded character back to its 6-bit value."""
+    if c == '`':
+        return 0
+    return (ord(c) - 32) & 0x3F
 
 
-def decode(in_file, out_file=None, ignore_garbage=False):
-    """Decode a uuencoded file."""
-    if isinstance(in_file, str):
-        in_file = open(in_file, 'r')
-        close_in = True
-    else:
-        close_in = False
+def _decode_line(line):
+    """Decode a single uuencoded line into bytes."""
+    if not line:
+        return b''
+    n = _decode_char(line[0])
+    if n == 0:
+        return b''
 
+    out = bytearray()
+    pos = 1
+    line_len = len(line)
+
+    while len(out) < n:
+        # Read four characters (treating any missing trailing chars as zero).
+        v0 = _decode_char(line[pos]) if pos < line_len else 0
+        v1 = _decode_char(line[pos + 1]) if pos + 1 < line_len else 0
+        v2 = _decode_char(line[pos + 2]) if pos + 2 < line_len else 0
+        v3 = _decode_char(line[pos + 3]) if pos + 3 < line_len else 0
+
+        out.append(((v0 << 2) | (v1 >> 4)) & 0xFF)
+        if len(out) < n:
+            out.append((((v1 & 0x0F) << 4) | (v2 >> 2)) & 0xFF)
+        if len(out) < n:
+            out.append((((v2 & 0x03) << 6) | v3) & 0xFF)
+
+        pos += 4
+        if pos >= line_len and len(out) < n:
+            # Ran out of input characters before satisfying length char.
+            break
+
+    return bytes(out[:n])
+
+
+# ---------------------------------------------------------------------------
+# Public API: encode / decode
+# ---------------------------------------------------------------------------
+
+def encode(in_file, out_file, name=None, mode=None, *, backtick=False):
+    """Uuencode `in_file` into `out_file`.
+
+    `in_file` may be a path, '-' for stdin, or a binary file-like object.
+    `out_file` may be a path, '-' for stdout, or a text file-like object.
+    """
+    opened = []
     try:
-        # Find begin line
-        for line in in_file:
+        # Resolve in_file
+        if in_file == '-':
+            in_file = _io.TextIOWrapper.__class__  # placeholder; replaced below
+            in_file = _os.fdopen(0, 'rb', closefd=False) if hasattr(_os, 'fdopen') else None
+            if name is None:
+                name = '-'
+            if mode is None:
+                mode = 0o666
+        elif isinstance(in_file, str):
+            if name is None:
+                name = _os.path.basename(in_file)
+            if mode is None:
+                try:
+                    mode = _os.stat(in_file).st_mode & 0o777
+                except OSError:
+                    mode = 0o666
+            f = open(in_file, 'rb')
+            opened.append(f)
+            in_file = f
+        else:
+            if mode is None:
+                mode = 0o666
+
+        if name is None:
+            name = '-'
+
+        # Resolve out_file
+        if out_file == '-':
+            out_file = _io.TextIOWrapper(_os.fdopen(1, 'wb', closefd=False), write_through=True)
+        elif isinstance(out_file, str):
+            f = open(out_file, 'w')
+            opened.append(f)
+            out_file = f
+
+        # Header
+        out_file.write('begin %o %s\n' % (mode & 0o777, name))
+
+        # Body
+        while True:
+            chunk = in_file.read(_MAX_PER_LINE)
+            if not chunk:
+                break
+            out_file.write(_encode_chunk(chunk) + '\n')
+
+        # Footer: zero-length data marker line + 'end'
+        out_file.write('`\n')
+        out_file.write('end\n')
+    finally:
+        for f in opened:
+            try:
+                f.close()
+            except Exception:
+                pass
+
+
+def decode(in_file, out_file=None, mode=None, quiet=False):
+    """Decode a uuencoded `in_file` into `out_file`.
+
+    `in_file` may be a path, '-' for stdin, or a text file-like object.
+    `out_file` may be a path, '-' for stdout, a binary file-like object,
+    or None (in which case the file named in the begin line is used).
+    """
+    opened = []
+    try:
+        # Resolve in_file
+        if in_file == '-':
+            in_file = _io.TextIOWrapper(_os.fdopen(0, 'rb', closefd=False))
+        elif isinstance(in_file, str):
+            f = open(in_file, 'r')
+            opened.append(f)
+            in_file = f
+
+        # Find the begin line
+        parsed_mode = None
+        parsed_name = '-'
+        while True:
+            line = in_file.readline()
+            if not line:
+                raise Error('No valid begin line found in input file')
             line = line.rstrip('\r\n')
             if line.startswith('begin '):
                 parts = line.split(' ', 2)
-                mode_str = parts[1]
-                name = parts[2] if len(parts) > 2 else '-'
-                mode = int(mode_str, 8)
-                break
-        else:
-            raise Error("No begin line")
+                if len(parts) >= 3:
+                    try:
+                        parsed_mode = int(parts[1], 8)
+                        parsed_name = parts[2]
+                        break
+                    except ValueError:
+                        continue
 
+        if mode is None:
+            mode = parsed_mode if parsed_mode is not None else 0o666
+
+        # Resolve out_file
+        close_out = False
         if out_file is None:
-            out_file = open(name, 'wb')
-            close_out = True
-        elif isinstance(out_file, str):
-            out_file = open(out_file, 'wb')
-            close_out = True
-        else:
-            close_out = False
+            out_file = parsed_name
+            if _os.path.exists(out_file):
+                raise Error('Cannot overwrite existing file: %s' % out_file)
 
-        try:
-            for line in in_file:
-                line = line.rstrip('\r\n')
-                if not line:
-                    continue
-                if line == 'end':
-                    break
-                if line == ' ' or line == '`':
-                    continue
-                nbytes = _decode_char(line[0])
-                if nbytes == 0:
-                    break
-                data = bytearray()
-                i = 1
-                while len(data) < nbytes and i + 3 < len(line) + 1:
-                    c0 = _decode_char(line[i]) if i < len(line) else 0
-                    c1 = _decode_char(line[i + 1]) if i + 1 < len(line) else 0
-                    c2 = _decode_char(line[i + 2]) if i + 2 < len(line) else 0
-                    c3 = _decode_char(line[i + 3]) if i + 3 < len(line) else 0
-                    data.append((c0 << 2) | (c1 >> 4))
-                    if len(data) < nbytes:
-                        data.append(((c1 & 0xF) << 4) | (c2 >> 2))
-                    if len(data) < nbytes:
-                        data.append(((c2 & 3) << 6) | c3)
-                    i += 4
-                out_file.write(bytes(data[:nbytes]))
-        finally:
-            if close_out:
-                out_file.close()
+        if out_file == '-':
+            out_file = _os.fdopen(1, 'wb', closefd=False)
+        elif isinstance(out_file, str):
+            fp = open(out_file, 'wb')
+            opened.append(fp)
+            try:
+                _os.chmod(fp.name, mode)
+            except OSError:
+                pass
+            out_file = fp
+            close_out = True
+
+        # Decode body lines until we hit 'end' or zero-length sentinel.
+        while True:
+            line = in_file.readline()
+            if not line:
+                break
+            stripped = line.rstrip('\r\n')
+            if stripped == 'end':
+                break
+            if not stripped:
+                continue
+            n = _decode_char(stripped[0])
+            if n == 0:
+                # Zero-length data line — typically the footer marker.
+                # Continue: the next line should be 'end'.
+                continue
+            decoded = _decode_line(stripped)
+            out_file.write(decoded)
     finally:
-        if close_in:
-            in_file.close()
+        for f in opened:
+            try:
+                f.close()
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant entry points
 # ---------------------------------------------------------------------------
 
 def uu2_encode_decode():
-    """uuencode then decode round-trips data; returns True."""
-    data = b'Hello, World! This is test data.'
-    in_buf = _io.BytesIO(data)
-    out_buf = _io.StringIO()
-    encode(in_buf, out_buf, name='test.txt')
-    out_buf.seek(0)
-    result_buf = _io.BytesIO()
-    decode(out_buf, result_buf)
-    return result_buf.getvalue() == data
+    """Uuencode then decode round-trips the data."""
+    samples = [
+        b'',
+        b'A',
+        b'AB',
+        b'ABC',
+        b'Hello, World! This is test data.',
+        bytes(range(256)),
+        b'x' * 100,
+        b'\x00\x01\x02\x03 trailing spaces   ',
+    ]
+    for data in samples:
+        in_buf = _io.BytesIO(data)
+        out_buf = _io.StringIO()
+        encode(in_buf, out_buf, name='test.bin')
+        out_buf.seek(0)
+        result_buf = _io.BytesIO()
+        decode(out_buf, result_buf)
+        if result_buf.getvalue() != data:
+            return False
+    return True
 
 
 def uu2_header():
-    """Encoded data starts with 'begin' header; returns True."""
+    """Encoded output begins with a properly-formed 'begin MODE NAME' header."""
     in_buf = _io.BytesIO(b'test')
     out_buf = _io.StringIO()
     encode(in_buf, out_buf, name='test.txt', mode=0o644)
     out_buf.seek(0)
     content = out_buf.read()
-    return content.startswith('begin ')
+    first_line = content.split('\n', 1)[0]
+    if not first_line.startswith('begin '):
+        return False
+    parts = first_line.split(' ', 2)
+    if len(parts) != 3:
+        return False
+    if parts[0] != 'begin':
+        return False
+    try:
+        if int(parts[1], 8) != 0o644:
+            return False
+    except ValueError:
+        return False
+    if parts[2] != 'test.txt':
+        return False
+    return True
 
 
 def uu2_footer():
-    """Encoded data ends with 'end' footer; returns True."""
+    """Encoded output ends with the zero-length sentinel line followed by 'end'."""
     in_buf = _io.BytesIO(b'test')
     out_buf = _io.StringIO()
     encode(in_buf, out_buf, name='test.txt', mode=0o644)
     out_buf.seek(0)
     content = out_buf.read()
-    return content.rstrip().endswith('end')
+    stripped = content.rstrip()
+    if not stripped.endswith('end'):
+        return False
+    # The line preceding 'end' should be the zero-length sentinel
+    # (a single '`' or ' '), indicating no further data.
+    lines = stripped.split('\n')
+    if len(lines) < 2:
+        return False
+    sentinel = lines[-2]
+    if sentinel not in ('`', ' '):
+        return False
+    if lines[-1] != 'end':
+        return False
+    return True
 
 
 __all__ = [

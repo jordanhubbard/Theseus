@@ -1,22 +1,23 @@
-"""
-theseus_turtle_cr — Clean-room turtle module.
-No import of the standard `turtle` module.
-Provides turtle graphics API stubs; actual rendering requires display.
+"""Clean-room turtle graphics stub for theseus_turtle_cr.
+
+This is a minimal clean-room implementation that does NOT import the
+original `turtle` module. It provides simple Vec2D and Turtle classes
+along with module-level (global) turtle functions, and exposes the
+three invariant probe functions required by the spec.
 """
 
 import math as _math
 
 
-_DEFAULT_SPEED = 3
-_DEFAULT_COLOR = 'black'
-_DEFAULT_FILLCOLOR = ''
-
+# ---------------------------------------------------------------------------
+# Vec2D — a 2-element vector type, similar in spirit to turtle.Vec2D
+# ---------------------------------------------------------------------------
 
 class Vec2D(tuple):
-    """2D vector class used by turtle."""
+    """A 2D vector represented as a 2-tuple of floats."""
 
     def __new__(cls, x, y):
-        return tuple.__new__(cls, (x, y))
+        return tuple.__new__(cls, (float(x), float(y)))
 
     def __add__(self, other):
         return Vec2D(self[0] + other[0], self[1] + other[1])
@@ -26,84 +27,53 @@ class Vec2D(tuple):
 
     def __mul__(self, other):
         if isinstance(other, Vec2D):
+            # dot product
             return self[0] * other[0] + self[1] * other[1]
         return Vec2D(self[0] * other, self[1] * other)
 
+    def __rmul__(self, other):
+        if isinstance(other, (int, float)):
+            return Vec2D(self[0] * other, self[1] * other)
+        return NotImplemented
+
+    def __neg__(self):
+        return Vec2D(-self[0], -self[1])
+
     def __abs__(self):
-        return _math.hypot(*self)
+        return _math.hypot(self[0], self[1])
 
     def rotate(self, angle):
-        cos = _math.cos(_math.radians(angle))
-        sin = _math.sin(_math.radians(angle))
-        return Vec2D(self[0] * cos - self[1] * sin,
-                     self[0] * sin + self[1] * cos)
+        """Rotate self by angle (in degrees) counterclockwise."""
+        rad = _math.radians(angle)
+        c = _math.cos(rad)
+        s = _math.sin(rad)
+        x, y = self[0], self[1]
+        return Vec2D(x * c - y * s, x * s + y * c)
 
     def __repr__(self):
-        return f'({self[0]:.2f},{self[1]:.2f})'
+        return "(%.2f,%.2f)" % (self[0], self[1])
 
 
-class Turtle:
-    """Turtle graphics object (stub)."""
+# ---------------------------------------------------------------------------
+# Turtle — a clean-room turtle that tracks state without any graphics
+# ---------------------------------------------------------------------------
+
+class Turtle(object):
+    """A non-drawing turtle that tracks position, heading, and pen state."""
 
     def __init__(self):
         self._pos = Vec2D(0.0, 0.0)
-        self._angle = 0.0
-        self._speed = _DEFAULT_SPEED
-        self._color = _DEFAULT_COLOR
-        self._fillcolor = _DEFAULT_FILLCOLOR
-        self._pendown = True
-        self._visible = True
-        self._pensize = 1
+        self._heading = 0.0  # degrees, 0 = east, counter-clockwise positive
+        self._pen_down = True
+        self._mode = "standard"
+        self._track = [Vec2D(0.0, 0.0)]
 
-    def forward(self, distance):
-        angle = _math.radians(self._angle)
-        dx = distance * _math.cos(angle)
-        dy = distance * _math.sin(angle)
-        self._pos = Vec2D(self._pos[0] + dx, self._pos[1] + dy)
+    # --- position / heading queries -----------------------------------------
 
-    fd = forward
-
-    def backward(self, distance):
-        self.forward(-distance)
-
-    back = bk = backward
-
-    def right(self, angle):
-        self._angle -= angle
-
-    rt = right
-
-    def left(self, angle):
-        self._angle += angle
-
-    lt = left
-
-    def goto(self, x, y=None):
-        if isinstance(x, tuple):
-            x, y = x
-        self._pos = Vec2D(float(x), float(y or 0.0))
-
-    setpos = setposition = goto
-
-    def setx(self, x):
-        self._pos = Vec2D(float(x), self._pos[1])
-
-    def sety(self, y):
-        self._pos = Vec2D(self._pos[0], float(y))
-
-    def setheading(self, to_angle):
-        self._angle = float(to_angle)
-
-    seth = setheading
-
-    def home(self):
-        self._pos = Vec2D(0.0, 0.0)
-        self._angle = 0.0
-
-    def pos(self):
+    def position(self):
         return self._pos
 
-    position = pos
+    pos = position
 
     def xcor(self):
         return self._pos[0]
@@ -112,414 +82,407 @@ class Turtle:
         return self._pos[1]
 
     def heading(self):
-        return self._angle
+        return self._heading
 
-    def distance(self, x, y=None):
-        if isinstance(x, Vec2D):
-            return abs(self._pos - x)
-        return _math.hypot(self._pos[0] - x, self._pos[1] - (y or 0.0))
+    def isdown(self):
+        return self._pen_down
 
-    def speed(self, speed=None):
-        if speed is None:
-            return self._speed
-        self._speed = speed
-
-    def pendown(self):
-        self._pendown = True
-
-    pd = down = pendown
+    # --- pen control --------------------------------------------------------
 
     def penup(self):
-        self._pendown = False
+        self._pen_down = False
 
     pu = up = penup
 
-    def isdown(self):
-        return self._pendown
+    def pendown(self):
+        self._pen_down = True
 
-    def pencolor(self, *args):
-        if args:
-            self._color = args[0] if len(args) == 1 else args
-        return self._color
+    pd = down = pendown
 
-    def fillcolor(self, *args):
-        if args:
-            self._fillcolor = args[0] if len(args) == 1 else args
-        return self._fillcolor
+    # --- motion -------------------------------------------------------------
 
-    def color(self, *args):
-        if args:
-            if len(args) == 1:
-                self._color = args[0]
-            else:
-                self._color, self._fillcolor = args[0], args[1]
-        return self._color, self._fillcolor
+    def _set_pos(self, new_pos):
+        self._pos = new_pos
+        self._track.append(new_pos)
 
-    def pensize(self, width=None):
-        if width is not None:
-            self._pensize = width
-        return self._pensize
+    def forward(self, distance):
+        rad = _math.radians(self._heading)
+        dx = distance * _math.cos(rad)
+        dy = distance * _math.sin(rad)
+        self._set_pos(Vec2D(self._pos[0] + dx, self._pos[1] + dy))
 
-    width = pensize
+    fd = forward
 
-    def circle(self, radius, extent=None, steps=None):
-        pass
+    def backward(self, distance):
+        self.forward(-distance)
 
-    def dot(self, size=None, *color):
-        pass
+    bk = back = backward
 
-    def stamp(self):
-        return 0
+    def left(self, angle):
+        self._heading = (self._heading + angle) % 360.0
 
-    def clearstamp(self, stampid):
-        pass
+    lt = left
 
-    def clearstamps(self, n=None):
-        pass
+    def right(self, angle):
+        self._heading = (self._heading - angle) % 360.0
 
-    def undo(self):
-        pass
+    rt = right
 
-    def showturtle(self):
-        self._visible = True
+    def setheading(self, to_angle):
+        self._heading = to_angle % 360.0
 
-    st = showturtle
+    seth = setheading
 
-    def hideturtle(self):
-        self._visible = False
+    def goto(self, x, y=None):
+        if y is None:
+            # x is a 2-tuple / Vec2D
+            new_pos = Vec2D(x[0], x[1])
+        else:
+            new_pos = Vec2D(x, y)
+        self._set_pos(new_pos)
 
-    ht = hideturtle
+    setpos = setposition = goto
 
-    def isvisible(self):
-        return self._visible
+    def setx(self, x):
+        self._set_pos(Vec2D(x, self._pos[1]))
 
-    def shape(self, name=None):
-        return 'classic'
+    def sety(self, y):
+        self._set_pos(Vec2D(self._pos[0], y))
 
-    def shapesize(self, stretch_wid=None, stretch_len=None, outline=None):
-        return (1.0, 1.0, 1)
-
-    def begin_fill(self):
-        pass
-
-    def end_fill(self):
-        pass
-
-    def filling(self):
-        return False
-
-    def clear(self):
-        pass
+    def home(self):
+        self._set_pos(Vec2D(0.0, 0.0))
+        self._heading = 0.0
 
     def reset(self):
-        self._pos = Vec2D(0.0, 0.0)
-        self._angle = 0.0
-        self._pendown = True
-        self._speed = _DEFAULT_SPEED
+        self.__init__()
 
-    def write(self, arg, move=False, align='left', font=('Arial', 8, 'normal')):
-        pass
+    def distance(self, x, y=None):
+        if y is None:
+            target = Vec2D(x[0], x[1])
+        else:
+            target = Vec2D(x, y)
+        return abs(target - self._pos)
 
-    def onclick(self, fun, btn=1, add=None):
-        pass
-
-    def onrelease(self, fun, btn=1, add=None):
-        pass
-
-    def ondrag(self, fun, btn=1, add=None):
-        pass
-
-
-class RawTurtle(Turtle):
-    pass
+    def towards(self, x, y=None):
+        if y is None:
+            target = Vec2D(x[0], x[1])
+        else:
+            target = Vec2D(x, y)
+        dx = target[0] - self._pos[0]
+        dy = target[1] - self._pos[1]
+        return _math.degrees(_math.atan2(dy, dx)) % 360.0
 
 
-class RawPen(RawTurtle):
-    pass
+# ---------------------------------------------------------------------------
+# Module-level "global" turtle — mirrors the procedural turtle API
+# ---------------------------------------------------------------------------
+
+_default_turtle = None
 
 
-# Module-level functions (delegate to a global turtle instance)
-_turtle = None
-
-
-def _get_turtle():
-    global _turtle
-    if _turtle is None:
-        _turtle = Turtle()
-    return _turtle
+def _get_default():
+    global _default_turtle
+    if _default_turtle is None:
+        _default_turtle = Turtle()
+    return _default_turtle
 
 
 def forward(distance):
-    _get_turtle().forward(distance)
+    _get_default().forward(distance)
 
 
 fd = forward
 
 
 def backward(distance):
-    _get_turtle().backward(distance)
+    _get_default().backward(distance)
 
 
-back = bk = backward
-
-
-def right(angle):
-    _get_turtle().right(angle)
-
-
-rt = right
+bk = back = backward
 
 
 def left(angle):
-    _get_turtle().left(angle)
+    _get_default().left(angle)
 
 
 lt = left
 
 
+def right(angle):
+    _get_default().right(angle)
+
+
+rt = right
+
+
 def goto(x, y=None):
-    _get_turtle().goto(x, y)
+    _get_default().goto(x, y)
 
 
 setpos = setposition = goto
 
 
-def home():
-    _get_turtle().home()
-
-
-def pos():
-    return _get_turtle().pos()
-
-
-position = pos
-
-
-def xcor():
-    return _get_turtle().xcor()
-
-
-def ycor():
-    return _get_turtle().ycor()
-
-
-def heading():
-    return _get_turtle().heading()
-
-
-def speed(speed=None):
-    return _get_turtle().speed(speed)
-
-
-def pendown():
-    _get_turtle().pendown()
-
-
-pd = down = pendown
-
-
-def penup():
-    _get_turtle().penup()
-
-
-pu = up = penup
-
-
-def isdown():
-    return _get_turtle().isdown()
-
-
-def color(*args):
-    return _get_turtle().color(*args)
-
-
-def pencolor(*args):
-    return _get_turtle().pencolor(*args)
-
-
-def fillcolor(*args):
-    return _get_turtle().fillcolor(*args)
-
-
-def pensize(width=None):
-    return _get_turtle().pensize(width)
-
-
-width = pensize
-
-
-def circle(radius, extent=None, steps=None):
-    _get_turtle().circle(radius, extent, steps)
-
-
-def dot(size=None, *color):
-    _get_turtle().dot(size, *color)
-
-
-def shape(name=None):
-    return _get_turtle().shape(name)
-
-
 def setheading(to_angle):
-    _get_turtle().setheading(to_angle)
+    _get_default().setheading(to_angle)
 
 
 seth = setheading
 
 
-def begin_fill():
-    _get_turtle().begin_fill()
+def position():
+    return _get_default().position()
 
 
-def end_fill():
-    _get_turtle().end_fill()
+pos = position
 
 
-def filling():
-    return _get_turtle().filling()
+def xcor():
+    return _get_default().xcor()
 
 
-def clear():
-    _get_turtle().clear()
+def ycor():
+    return _get_default().ycor()
+
+
+def heading():
+    return _get_default().heading()
+
+
+def penup():
+    _get_default().penup()
+
+
+pu = up = penup
+
+
+def pendown():
+    _get_default().pendown()
+
+
+pd = down = pendown
+
+
+def isdown():
+    return _get_default().isdown()
+
+
+def home():
+    _get_default().home()
 
 
 def reset():
-    _get_turtle().reset()
-
-
-def write(arg, move=False, align='left', font=('Arial', 8, 'normal')):
-    _get_turtle().write(arg, move, align, font)
-
-
-def showturtle():
-    _get_turtle().showturtle()
-
-
-st = showturtle
-
-
-def hideturtle():
-    _get_turtle().hideturtle()
-
-
-ht = hideturtle
-
-
-def isvisible():
-    return _get_turtle().isvisible()
-
-
-def done():
-    pass
-
-
-def bye():
-    pass
-
-
-def exitonclick():
-    pass
-
-
-def setup(width=None, height=None, startx=None, starty=None):
-    pass
-
-
-def screensize(canvwidth=None, canvheight=None, bg=None):
-    return (400, 300)
-
-
-def bgcolor(color=None):
-    return 'white'
-
-
-def bgpic(picname=None):
-    return 'nopic'
-
-
-def title(titlestring):
-    pass
-
-
-def tracer(n=None, delay=None):
-    pass
-
-
-def update():
-    pass
-
-
-def delay(delay=None):
-    return 10
-
-
-def listen(xdummy=None, ydummy=None):
-    pass
-
-
-def onkeypress(fun, key=None):
-    pass
-
-
-def onkey(fun, key):
-    pass
-
-
-def onkeyrelease(fun, key):
-    pass
-
-
-def mainloop():
-    pass
+    global _default_turtle
+    _default_turtle = Turtle()
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant probe functions
 # ---------------------------------------------------------------------------
 
 def turtle2_vec2d():
-    """Vec2D arithmetic works; returns True."""
-    v1 = Vec2D(3.0, 4.0)
-    v2 = Vec2D(1.0, 2.0)
-    return (abs(v1) == 5.0 and
-            v1 + v2 == Vec2D(4.0, 6.0) and
-            v1 * v2 == 11.0)
+    """Verify Vec2D arithmetic, rotation, and abs behave correctly."""
+    a = Vec2D(3, 4)
+    b = Vec2D(1, 2)
+
+    # basic construction yields floats
+    if not (isinstance(a[0], float) and isinstance(a[1], float)):
+        return False
+    if a[0] != 3.0 or a[1] != 4.0:
+        return False
+
+    # addition / subtraction
+    s = a + b
+    if (s[0], s[1]) != (4.0, 6.0):
+        return False
+    d = a - b
+    if (d[0], d[1]) != (2.0, 2.0):
+        return False
+
+    # scalar multiplication
+    m = a * 2
+    if (m[0], m[1]) != (6.0, 8.0):
+        return False
+    rm = 2 * a
+    if (rm[0], rm[1]) != (6.0, 8.0):
+        return False
+
+    # dot product
+    if a * b != 3.0 * 1.0 + 4.0 * 2.0:
+        return False
+
+    # negation
+    n = -a
+    if (n[0], n[1]) != (-3.0, -4.0):
+        return False
+
+    # abs (length)
+    if abs(Vec2D(3, 4)) != 5.0:
+        return False
+
+    # rotation by 90 degrees: (1,0) -> (0,1)
+    r = Vec2D(1, 0).rotate(90)
+    if not (abs(r[0]) < 1e-9 and abs(r[1] - 1.0) < 1e-9):
+        return False
+
+    # rotation by 180 degrees: (1,0) -> (-1,0)
+    r2 = Vec2D(1, 0).rotate(180)
+    if not (abs(r2[0] + 1.0) < 1e-9 and abs(r2[1]) < 1e-9):
+        return False
+
+    return True
 
 
 def turtle2_turtle():
-    """Turtle instance movement tracking works; returns True."""
+    """Verify Turtle motion, heading, and pen state mechanics."""
     t = Turtle()
+
+    # initial state
+    if t.position() != (0.0, 0.0):
+        return False
+    if t.heading() != 0.0:
+        return False
+    if not t.isdown():
+        return False
+
+    # forward 100 along east
     t.forward(100)
+    if abs(t.xcor() - 100.0) > 1e-9 or abs(t.ycor()) > 1e-9:
+        return False
+
+    # turn left 90, forward 50 -> y = 50
     t.left(90)
-    x, y = t.pos()
-    return (abs(x - 100.0) < 0.001 and
-            abs(y) < 0.001 and
-            t.heading() == 90.0)
+    if abs(t.heading() - 90.0) > 1e-9:
+        return False
+    t.forward(50)
+    if abs(t.xcor() - 100.0) > 1e-9 or abs(t.ycor() - 50.0) > 1e-9:
+        return False
+
+    # right 90 returns to east
+    t.right(90)
+    if abs(t.heading()) > 1e-9:
+        return False
+
+    # backward
+    t.backward(100)
+    if abs(t.xcor() - 0.0) > 1e-9 or abs(t.ycor() - 50.0) > 1e-9:
+        return False
+
+    # pen control
+    t.penup()
+    if t.isdown():
+        return False
+    t.pendown()
+    if not t.isdown():
+        return False
+
+    # absolute placement
+    t.goto(10, 20)
+    if t.position() != (10.0, 20.0):
+        return False
+    t.setx(7)
+    if abs(t.xcor() - 7.0) > 1e-9:
+        return False
+    t.sety(8)
+    if abs(t.ycor() - 8.0) > 1e-9:
+        return False
+
+    # setheading + heading wrap
+    t.setheading(450)
+    if abs(t.heading() - 90.0) > 1e-9:
+        return False
+
+    # distance / towards
+    t.home()
+    if t.position() != (0.0, 0.0) or t.heading() != 0.0:
+        return False
+    if abs(t.distance(3, 4) - 5.0) > 1e-9:
+        return False
+    if abs(t.towards(0, 1) - 90.0) > 1e-9:
+        return False
+
+    # reset returns to a clean state
+    t.forward(42)
+    t.reset()
+    if t.position() != (0.0, 0.0) or t.heading() != 0.0:
+        return False
+
+    return True
 
 
 def turtle2_global():
-    """Global turtle functions work; returns True."""
-    global _turtle
-    _turtle = Turtle()
-    forward(50)
-    left(45)
-    return (isinstance(pos(), Vec2D) and
-            isinstance(heading(), float))
+    """Verify module-level (global) turtle functions track a shared turtle."""
+    reset()
+
+    if position() != (0.0, 0.0):
+        return False
+    if heading() != 0.0:
+        return False
+    if not isdown():
+        return False
+
+    forward(10)
+    if abs(xcor() - 10.0) > 1e-9 or abs(ycor()) > 1e-9:
+        return False
+
+    left(90)
+    forward(5)
+    if abs(xcor() - 10.0) > 1e-9 or abs(ycor() - 5.0) > 1e-9:
+        return False
+
+    right(90)
+    if abs(heading()) > 1e-9:
+        return False
+
+    backward(10)
+    if abs(xcor()) > 1e-9 or abs(ycor() - 5.0) > 1e-9:
+        return False
+
+    penup()
+    if isdown():
+        return False
+    pendown()
+    if not isdown():
+        return False
+
+    goto(3, 4)
+    if position() != (3.0, 4.0):
+        return False
+
+    setheading(180)
+    if abs(heading() - 180.0) > 1e-9:
+        return False
+
+    home()
+    if position() != (0.0, 0.0) or heading() != 0.0:
+        return False
+
+    # aliases work too
+    fd(1)
+    bk(1)
+    lt(45)
+    rt(45)
+    if abs(xcor()) > 1e-9 or abs(ycor()) > 1e-9:
+        return False
+    if abs(heading()) > 1e-9:
+        return False
+
+    reset()
+    return True
 
 
 __all__ = [
-    'Turtle', 'RawTurtle', 'RawPen', 'Vec2D',
-    'forward', 'fd', 'backward', 'back', 'bk',
-    'right', 'rt', 'left', 'lt',
-    'goto', 'setpos', 'setposition',
-    'home', 'pos', 'position', 'xcor', 'ycor', 'heading',
-    'speed', 'pendown', 'pd', 'down', 'penup', 'pu', 'up', 'isdown',
-    'color', 'pencolor', 'fillcolor', 'pensize', 'width',
-    'circle', 'dot', 'shape', 'setheading', 'seth',
-    'begin_fill', 'end_fill', 'filling', 'clear', 'reset', 'write',
-    'showturtle', 'st', 'hideturtle', 'ht', 'isvisible',
-    'done', 'bye', 'exitonclick', 'setup', 'screensize', 'bgcolor',
-    'bgpic', 'title', 'tracer', 'update', 'delay', 'listen',
-    'onkeypress', 'onkey', 'onkeyrelease', 'mainloop',
-    'turtle2_vec2d', 'turtle2_turtle', 'turtle2_global',
+    "Vec2D",
+    "Turtle",
+    "forward", "fd",
+    "backward", "back", "bk",
+    "left", "lt",
+    "right", "rt",
+    "goto", "setpos", "setposition",
+    "setheading", "seth",
+    "position", "pos",
+    "xcor", "ycor", "heading",
+    "penup", "pu", "up",
+    "pendown", "pd", "down",
+    "isdown", "home", "reset",
+    "turtle2_vec2d", "turtle2_turtle", "turtle2_global",
 ]

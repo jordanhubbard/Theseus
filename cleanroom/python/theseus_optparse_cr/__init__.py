@@ -1,152 +1,108 @@
 """
-theseus_optparse_cr — Clean-room optparse module.
-No import of the standard `optparse` module.
+theseus_optparse_cr — Clean-room reimplementation of optparse-style command line parsing.
+
+This module provides a minimal command-line option parser implementation
+written from scratch without referencing or importing the original optparse module.
 """
 
 import sys as _sys
-import os as _os
-import textwrap as _textwrap
 
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
 
 class OptParseError(Exception):
-    pass
+    """Base class for optparse2 errors."""
+    def __init__(self, msg):
+        self.msg = msg
+        Exception.__init__(self, msg)
+
+    def __str__(self):
+        return self.msg
 
 
 class OptionError(OptParseError):
-    def __init__(self, msg, option):
-        self.msg = msg
-        self.option = option
-        super().__init__(msg)
+    """Raised when an Option instance is created with invalid/inconsistent args."""
+    def __init__(self, msg, option=None):
+        self.option_id = str(option) if option is not None else ""
+        OptParseError.__init__(self, msg)
 
     def __str__(self):
-        if self.option:
-            return f"option {self.option.dest}: {self.msg}"
+        if self.option_id:
+            return "option %s: %s" % (self.option_id, self.msg)
         return self.msg
 
 
 class OptionConflictError(OptionError):
+    """Raised when conflicting options are added to a parser."""
     pass
 
 
 class OptionValueError(OptParseError):
+    """Raised by an option's callback when an invalid value was supplied."""
     pass
 
 
 class BadOptionError(OptParseError):
+    """Raised when an unrecognized option appears on the command line."""
     def __init__(self, opt_str):
         self.opt_str = opt_str
-        super().__init__(f"no such option: {opt_str}")
+
+    def __str__(self):
+        return "no such option: %s" % self.opt_str
 
 
 class AmbiguousOptionError(BadOptionError):
+    """Raised when an abbreviation matches multiple long options."""
     def __init__(self, opt_str, possibilities):
-        self.opt_str = opt_str
+        BadOptionError.__init__(self, opt_str)
         self.possibilities = possibilities
-        super().__init__(opt_str)
+
+    def __str__(self):
+        return "ambiguous option: %s (%s?)" % (
+            self.opt_str, ", ".join(self.possibilities))
 
 
-class HelpFormatter:
-    NO_DEFAULT_VALUE = 'none'
-    _long_opt_fmt = '--%-16s'
-    _short_opt_fmt = '-%s'
+# ---------------------------------------------------------------------------
+# Values container
+# ---------------------------------------------------------------------------
 
-    def __init__(self, indent_increment=2, max_help_position=24,
-                 width=None, short_first=1):
-        self.parser = None
-        self.indent_increment = indent_increment
-        self.max_help_position = max_help_position
-        self.width = width or 80
-        self.short_first = short_first
-        self.current_indent = 0
-        self.level = 0
+class Values(object):
+    """Container holding parsed option values as attributes."""
 
-    def indent(self):
-        self.current_indent += self.indent_increment
-        self.level += 1
-
-    def dedent(self):
-        self.current_indent -= self.indent_increment
-        self.level -= 1
-
-    def format_usage(self, usage):
-        return f'Usage: {usage}\n'
-
-    def format_heading(self, heading):
-        return f'{"  " * self.level}{heading}:\n'
-
-    def format_description(self, description):
-        if description:
-            return description + '\n'
-        return ''
-
-    def format_option(self, option):
-        opts = ', '.join(option._short_opts + option._long_opts)
-        if option.metavar:
-            opts += f' {option.metavar}'
-        indent = '  '
-        if option.help:
-            return f'{indent}{opts:<22}{option.help}\n'
-        return f'{indent}{opts}\n'
-
-    def format_option_strings(self, option):
-        return ', '.join(option._short_opts + option._long_opts)
-
-
-class IndentedHelpFormatter(HelpFormatter):
-    pass
-
-
-class TitledHelpFormatter(HelpFormatter):
-    pass
-
-
-def _match_abbrev(s, wordmap):
-    if s in wordmap:
-        return wordmap[s]
-    possibilities = [word for word in wordmap if word.startswith(s)]
-    if len(possibilities) == 1:
-        return wordmap[possibilities[0]]
-    elif not possibilities:
-        raise BadOptionError(s)
-    else:
-        raise AmbiguousOptionError(s, possibilities)
-
-
-class Values:
     def __init__(self, defaults=None):
         if defaults:
-            for key, val in defaults.items():
+            for (key, val) in defaults.items():
                 setattr(self, key, val)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}: {self.__dict__!r}'
+        return "Values(%r)" % self.__dict__
 
     def __eq__(self, other):
         if isinstance(other, Values):
             return self.__dict__ == other.__dict__
-        elif isinstance(other, dict):
+        if isinstance(other, dict):
             return self.__dict__ == other
         return NotImplemented
 
-    def _update_careful(self, dict):
-        for attr, value in dict.items():
-            if value is not None or not hasattr(self, attr):
-                setattr(self, attr, value)
+    def __ne__(self, other):
+        eq = self.__eq__(other)
+        if eq is NotImplemented:
+            return eq
+        return not eq
 
-    def _update_loose(self, dict):
-        self.__dict__.update(dict)
-
-    def _update(self, dict, mode):
-        if mode == 'careful':
-            self._update_careful(dict)
-        elif mode == 'loose':
-            self._update_loose(dict)
-
-    def read_module(self, module_name, mode='careful'):
-        pass
-
-    def read_file(self, filename, mode='careful'):
-        pass
+    def _update(self, other_dict, mode):
+        if mode == "careful":
+            for (key, val) in other_dict.items():
+                if hasattr(self, key):
+                    continue
+                setattr(self, key, val)
+        elif mode == "loose":
+            for (key, val) in other_dict.items():
+                setattr(self, key, val)
+        else:
+            raise ValueError("invalid update mode: %r" % mode)
 
     def ensure_value(self, attr, value):
         if not hasattr(self, attr) or getattr(self, attr) is None:
@@ -154,62 +110,203 @@ class Values:
         return getattr(self, attr)
 
 
-SUPPRESS_HELP = '==SUPPRESS=='
-SUPPRESS_USAGE = '==SUPPRESS=='
-NO_DEFAULT = ('NO', 'DEFAULT')
+# ---------------------------------------------------------------------------
+# Type checkers
+# ---------------------------------------------------------------------------
+
+def _check_int(option, opt, value):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        raise OptionValueError(
+            "option %s: invalid integer value: %r" % (opt, value))
 
 
-class Option:
-    ALWAYS_TYPED_ACTIONS = ('store', 'append')
-    BOOLEAN_ACTIONS = ('store_true', 'store_false', 'store_const', 'count',
-                       'callback', 'help', 'version')
-    TYPED_ACTIONS = ('store', 'append', 'callback')
-    TYPE_CHECKER = {}
+def _check_long(option, opt, value):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        raise OptionValueError(
+            "option %s: invalid long integer value: %r" % (opt, value))
 
-    TYPE_CHECKER['int'] = int
-    TYPE_CHECKER['long'] = int
-    TYPE_CHECKER['float'] = float
-    TYPE_CHECKER['complex'] = complex
-    TYPE_CHECKER['choice'] = lambda value, choices: value if value in choices else None
 
-    TYPES = ('string', 'int', 'long', 'float', 'complex', 'choice')
-    ACTIONS = ('store', 'store_const', 'store_true', 'store_false',
-               'append', 'append_const', 'count', 'callback', 'help', 'version')
+def _check_float(option, opt, value):
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        raise OptionValueError(
+            "option %s: invalid floating-point value: %r" % (opt, value))
+
+
+def _check_string(option, opt, value):
+    return value
+
+
+def _check_choice(option, opt, value):
+    if value in option.choices:
+        return value
+    choices = ", ".join([repr(c) for c in option.choices])
+    raise OptionValueError(
+        "option %s: invalid choice: %r (choose from %s)" % (opt, value, choices))
+
+
+_TYPE_CHECKER = {
+    "int": _check_int,
+    "long": _check_long,
+    "float": _check_float,
+    "string": _check_string,
+    "choice": _check_choice,
+}
+
+_TYPES = ("string", "int", "long", "float", "choice")
+_ACTIONS = ("store", "store_const", "store_true", "store_false",
+            "append", "append_const", "count", "callback",
+            "help", "version")
+_STORE_ACTIONS = ("store", "store_const", "store_true", "store_false",
+                  "append", "append_const", "count")
+_TYPED_ACTIONS = ("store", "append", "callback")
+_ALWAYS_TYPED_ACTIONS = ("store", "append")
+_CONST_ACTIONS = ("store_const", "append_const")
+
+
+# ---------------------------------------------------------------------------
+# Option class
+# ---------------------------------------------------------------------------
+
+class Option(object):
+    """A single command-line option."""
+
+    ATTRS = ["action", "type", "dest", "default", "nargs", "const",
+             "choices", "callback", "callback_args", "callback_kwargs",
+             "help", "metavar"]
 
     def __init__(self, *opts, **attrs):
         self._short_opts = []
         self._long_opts = []
-        self.dest = None
-        self.action = 'store'
-        self.type = None
-        self.default = None
-        self.nargs = 1
-        self.const = None
-        self.choices = None
-        self.callback = None
-        self.callback_args = None
-        self.callback_kwargs = None
-        self.help = None
-        self.metavar = None
+        self._set_opt_strings(opts)
+        self._set_attrs(attrs)
+        self._check_action()
+        self._check_type()
+        self._check_choice()
+        self._check_dest()
+        self._check_const()
+        self._check_nargs()
+        self._check_callback()
 
-        for o in opts:
-            if o.startswith('--'):
-                self._long_opts.append(o)
-                if self.dest is None:
-                    self.dest = o[2:].replace('-', '_')
-            elif o.startswith('-'):
-                self._short_opts.append(o)
-                if self.dest is None and len(o) == 2:
-                    self.dest = o[1:]
+    def _set_opt_strings(self, opts):
+        for opt in opts:
+            if len(opt) < 2:
+                raise OptionError(
+                    "invalid option string %r: must be at least two characters long" % opt, self)
+            elif len(opt) == 2:
+                if not (opt[0] == "-" and opt[1] != "-"):
+                    raise OptionError(
+                        "invalid short option string %r: must be of form -x" % opt, self)
+                self._short_opts.append(opt)
+            else:
+                if not (opt[0:2] == "--" and opt[2] != "-"):
+                    raise OptionError(
+                        "invalid long option string %r: must start with --, followed by non-dash" % opt, self)
+                self._long_opts.append(opt)
 
-        for key, val in attrs.items():
-            setattr(self, key, val)
+    def _set_attrs(self, attrs):
+        for attr in self.ATTRS:
+            if attr in attrs:
+                setattr(self, attr, attrs.pop(attr))
+            else:
+                if attr == "default":
+                    setattr(self, attr, _NO_DEFAULT)
+                else:
+                    setattr(self, attr, None)
+        if attrs:
+            extra = sorted(attrs.keys())
+            raise OptionError(
+                "invalid keyword arguments: %s" % ", ".join(extra), self)
 
-        if self.type is None and self.action in self.ALWAYS_TYPED_ACTIONS:
-            self.type = 'string'
+    def _check_action(self):
+        if self.action is None:
+            self.action = "store"
+        elif self.action not in _ACTIONS:
+            raise OptionError("invalid action: %r" % self.action, self)
 
-    def __repr__(self):
-        return f'<Option {"/".join(self._short_opts + self._long_opts)}>'
+    def _check_type(self):
+        if self.type is None:
+            if self.action in _ALWAYS_TYPED_ACTIONS:
+                if self.choices is not None:
+                    self.type = "choice"
+                else:
+                    self.type = "string"
+        else:
+            if self.type == "str":
+                self.type = "string"
+            if self.type not in _TYPES:
+                raise OptionError("invalid option type: %r" % self.type, self)
+            if self.action not in _TYPED_ACTIONS:
+                raise OptionError(
+                    "must not supply a type for action %r" % self.action, self)
+
+    def _check_choice(self):
+        if self.type == "choice":
+            if self.choices is None:
+                raise OptionError(
+                    "must supply a list of choices for type 'choice'", self)
+            elif not isinstance(self.choices, (tuple, list)):
+                raise OptionError(
+                    "choices must be a list of strings ('%s' supplied)"
+                    % type(self.choices).__name__, self)
+        elif self.choices is not None:
+            raise OptionError(
+                "must not supply choices for type %r" % self.type, self)
+
+    def _check_dest(self):
+        takes_value = (self.action in _STORE_ACTIONS and self.type is not None)
+        if self.dest is None and takes_value:
+            if self._long_opts:
+                self.dest = self._long_opts[0][2:].replace("-", "_")
+            else:
+                self.dest = self._short_opts[0][1:]
+
+    def _check_const(self):
+        if self.action not in _CONST_ACTIONS and self.const is not None:
+            raise OptionError(
+                "'const' must not be supplied for action %r" % self.action, self)
+
+    def _check_nargs(self):
+        if self.action in _TYPED_ACTIONS:
+            if self.nargs is None:
+                self.nargs = 1
+        elif self.nargs is not None:
+            raise OptionError(
+                "'nargs' must not be supplied for action %r" % self.action, self)
+
+    def _check_callback(self):
+        if self.action == "callback":
+            if not callable(self.callback):
+                raise OptionError(
+                    "callback not callable: %r" % self.callback, self)
+            if (self.callback_args is not None and
+                    not isinstance(self.callback_args, tuple)):
+                raise OptionError(
+                    "callback_args must be a tuple", self)
+            if (self.callback_kwargs is not None and
+                    not isinstance(self.callback_kwargs, dict)):
+                raise OptionError(
+                    "callback_kwargs must be a dict", self)
+        else:
+            if self.callback is not None:
+                raise OptionError(
+                    "callback supplied for non-callback option", self)
+            if self.callback_args is not None:
+                raise OptionError(
+                    "callback_args supplied for non-callback option", self)
+            if self.callback_kwargs is not None:
+                raise OptionError(
+                    "callback_kwargs supplied for non-callback option", self)
+
+    def __str__(self):
+        return "/".join(self._short_opts + self._long_opts)
+
+    __repr__ = __str__
 
     def takes_value(self):
         return self.type is not None
@@ -217,249 +314,231 @@ class Option:
     def get_opt_string(self):
         if self._long_opts:
             return self._long_opts[0]
-        if self._short_opts:
-            return self._short_opts[0]
-        return ''
+        return self._short_opts[0]
 
     def check_value(self, opt, value):
-        if self.type is None or self.type == 'string':
+        checker = _TYPE_CHECKER.get(self.type)
+        if checker is None:
             return value
-        if self.type == 'int':
-            try:
-                return int(value)
-            except ValueError:
-                raise OptionValueError(f'option {opt}: invalid integer value: {value!r}')
-        if self.type == 'float':
-            try:
-                return float(value)
-            except ValueError:
-                raise OptionValueError(f'option {opt}: invalid float value: {value!r}')
-        if self.type == 'choice':
-            if value not in self.choices:
-                choices = ', '.join(map(repr, self.choices))
-                raise OptionValueError(f'option {opt}: invalid choice: {value!r} (choose from {choices})')
-        return value
+        return checker(self, opt, value)
 
     def convert_value(self, opt, value):
-        if value is not None:
-            if self.nargs == 1:
-                value = self.check_value(opt, value)
-            else:
-                value = tuple(self.check_value(opt, v) for v in value)
-        return value
+        if value is None:
+            return None
+        if self.nargs == 1:
+            return self.check_value(opt, value)
+        return tuple([self.check_value(opt, v) for v in value])
 
     def process(self, opt, value, values, parser):
         value = self.convert_value(opt, value)
+        return self.take_action(self.action, self.dest, opt, value, values, parser)
 
-        if self.action == 'store':
-            setattr(values, self.dest, value)
-        elif self.action == 'store_const':
-            setattr(values, self.dest, self.const)
-        elif self.action == 'store_true':
-            setattr(values, self.dest, True)
-        elif self.action == 'store_false':
-            setattr(values, self.dest, False)
-        elif self.action == 'append':
-            current = getattr(values, self.dest) or []
+    def take_action(self, action, dest, opt, value, values, parser):
+        if action == "store":
+            setattr(values, dest, value)
+        elif action == "store_const":
+            setattr(values, dest, self.const)
+        elif action == "store_true":
+            setattr(values, dest, True)
+        elif action == "store_false":
+            setattr(values, dest, False)
+        elif action == "append":
+            current = getattr(values, dest, None)
+            if current is None:
+                current = []
+                setattr(values, dest, current)
             current.append(value)
-            setattr(values, self.dest, current)
-        elif self.action == 'count':
-            current = getattr(values, self.dest) or 0
-            setattr(values, self.dest, current + 1)
-        elif self.action == 'callback':
-            if self.callback:
-                self.callback(self, opt, value, parser, *(self.callback_args or ()), **(self.callback_kwargs or {}))
-        elif self.action == 'help':
+        elif action == "append_const":
+            current = getattr(values, dest, None)
+            if current is None:
+                current = []
+                setattr(values, dest, current)
+            current.append(self.const)
+        elif action == "count":
+            current = getattr(values, dest, None) or 0
+            setattr(values, dest, current + 1)
+        elif action == "callback":
+            args = self.callback_args or ()
+            kwargs = self.callback_kwargs or {}
+            self.callback(self, opt, value, parser, *args, **kwargs)
+        elif action == "help":
             parser.print_help()
             parser.exit()
-        elif self.action == 'version':
+        elif action == "version":
             parser.print_version()
             parser.exit()
-
-
-class OptionGroup:
-    def __init__(self, parser, title, description=None):
-        self.option_list = []
-        self.parser = parser
-        self.title = title
-        self.description = description
-
-    def add_option(self, *opts, **kwargs):
-        if len(opts) == 1 and isinstance(opts[0], Option):
-            opt = opts[0]
         else:
-            opt = Option(*opts, **kwargs)
-        self.option_list.append(opt)
-        return opt
-
-    def get_description(self):
-        return self.description or ''
-
-    def format_help(self, formatter=None):
-        result = []
-        if self.title:
-            result.append(f'  {self.title}:\n')
-        for opt in self.option_list:
-            if formatter:
-                result.append(formatter.format_option(opt))
-            else:
-                opts = ', '.join(opt._short_opts + opt._long_opts)
-                result.append(f'    {opts}\n')
-        return ''.join(result)
+            raise ValueError("unknown action %r" % action)
+        return 1
 
 
-class OptionParser:
+# Sentinel used to mark options without an explicit default.
+class _NoDefault(object):
+    def __repr__(self):
+        return "(no default)"
+
+
+_NO_DEFAULT = _NoDefault()
+
+
+# ---------------------------------------------------------------------------
+# OptionParser
+# ---------------------------------------------------------------------------
+
+class OptionParser(object):
+    """A simple command-line option parser."""
+
     standard_option_list = []
 
-    def __init__(self, usage=None, option_list=None, option_class=Option,
-                 version=None, conflict_handler='error',
-                 description=None, formatter=None, add_help_option=True,
-                 prog=None, epilog=None):
+    def __init__(self, usage=None, option_list=None, prog=None,
+                 version=None, description=None, add_help_option=True):
         self.usage = usage
+        self.prog = prog
         self.version = version
-        self.conflict_handler = conflict_handler
         self.description = description
-        self.prog = prog or _os.path.basename(_sys.argv[0])
-        self.epilog = epilog
-        self.formatter = formatter or IndentedHelpFormatter()
-        self.formatter.parser = self
-        self.option_list = []
-        self.option_groups = []
-        self._short_opt = {}
-        self._long_opt = {}
-        self.defaults = {}
-        self.option_class = option_class
+        self.add_help_option = add_help_option
 
-        if add_help_option:
-            self.add_option('-h', '--help', action='help',
-                            help='show this help message and exit')
-        if version:
-            self.add_option('--version', action='version',
-                            help="show program's version number and exit")
+        self._short_opt = {}     # "-x" -> Option
+        self._long_opt = {}      # "--xy" -> Option
+        self.option_list = []
+        self.defaults = {}
+
+        for opt in self.standard_option_list:
+            self._add_option_object(opt)
 
         if option_list:
             for opt in option_list:
-                self.add_option(opt)
-
-    def add_option(self, *opts, **attrs):
-        if len(opts) == 1 and isinstance(opts[0], Option):
-            option = opts[0]
-        else:
-            option = Option(*opts, **attrs)
-        self.option_list.append(option)
-        if option.default is not None:
-            self.defaults[option.dest] = option.default
-        elif option.dest and option.dest not in self.defaults:
-            if option.action in ('store_true', 'store_false', 'count'):
-                if option.action == 'count':
-                    self.defaults[option.dest] = 0
+                if isinstance(opt, Option):
+                    self._add_option_object(opt)
                 else:
-                    self.defaults[option.dest] = None
-        for opt in option._short_opts:
-            self._short_opt[opt] = option
-        for opt in option._long_opts:
-            self._long_opt[opt] = option
+                    # tuple/list (opts..., kwargs)?
+                    self.add_option(*opt)
+
+        if add_help_option:
+            self.add_option("-h", "--help",
+                            action="help",
+                            help="show this help message and exit")
+        if version:
+            self.add_option("--version",
+                            action="version",
+                            help="show program's version number and exit")
+
+    # -------- Option management --------
+
+    def add_option(self, *args, **kwargs):
+        if args and isinstance(args[0], Option):
+            if len(args) > 1 or kwargs:
+                raise TypeError(
+                    "invalid arguments: option instance plus extras")
+            option = args[0]
+        else:
+            option = Option(*args, **kwargs)
+        self._add_option_object(option)
         return option
 
-    def add_option_group(self, *args, **kwargs):
-        if len(args) >= 1 and isinstance(args[0], OptionGroup):
-            group = args[0]
-        else:
-            group = OptionGroup(self, *args, **kwargs)
-        self.option_groups.append(group)
-        return group
+    def _add_option_object(self, option):
+        # Check for conflicts.
+        for opt_str in option._short_opts:
+            if opt_str in self._short_opt:
+                raise OptionConflictError(
+                    "conflicting option string: %s" % opt_str, option)
+        for opt_str in option._long_opts:
+            if opt_str in self._long_opt:
+                raise OptionConflictError(
+                    "conflicting option string: %s" % opt_str, option)
+
+        self.option_list.append(option)
+        for opt_str in option._short_opts:
+            self._short_opt[opt_str] = option
+        for opt_str in option._long_opts:
+            self._long_opt[opt_str] = option
+
+        if option.dest is not None:
+            if option.default is not _NO_DEFAULT:
+                self.defaults[option.dest] = option.default
+            elif option.dest not in self.defaults:
+                self.defaults[option.dest] = None
+
+    def get_option(self, opt_str):
+        return (self._short_opt.get(opt_str)
+                or self._long_opt.get(opt_str))
+
+    def has_option(self, opt_str):
+        return self.get_option(opt_str) is not None
+
+    def remove_option(self, opt_str):
+        option = self.get_option(opt_str)
+        if option is None:
+            raise ValueError("no such option %r" % opt_str)
+        for s in option._short_opts:
+            del self._short_opt[s]
+        for s in option._long_opts:
+            del self._long_opt[s]
+        self.option_list.remove(option)
+
+    # -------- Defaults --------
 
     def set_defaults(self, **kwargs):
         self.defaults.update(kwargs)
 
     def get_default_values(self):
+        # Use a copy so callers cannot mutate the parser state.
         defaults = self.defaults.copy()
         return Values(defaults)
 
-    def parse_args(self, args=None, values=None):
-        if args is None:
-            args = _sys.argv[1:]
-        if values is None:
-            values = self.get_default_values()
+    # -------- Error handling --------
 
-        largs = list(args)
-        rargs = []
+    def error(self, msg):
+        """Print a usage message and exit."""
+        prog = self._get_prog_name()
+        self.print_usage(_sys.stderr)
+        _sys.stderr.write("%s: error: %s\n" % (prog, msg))
+        _sys.exit(2)
 
-        while largs:
-            arg = largs[0]
-            if arg == '--':
-                del largs[0]
-                rargs.extend(largs)
-                break
-            elif arg.startswith('--'):
-                self._process_long_opt(largs, values)
-            elif arg.startswith('-') and len(arg) > 1:
-                self._process_short_opts(largs, values)
-            else:
-                rargs.append(arg)
-                del largs[0]
+    def exit(self, status=0, msg=None):
+        if msg:
+            _sys.stderr.write(msg)
+        _sys.exit(status)
 
-        return values, rargs
+    def _get_prog_name(self):
+        if self.prog is not None:
+            return self.prog
+        argv0 = _sys.argv[0] if _sys.argv else "prog"
+        # Strip directory.
+        i = argv0.rfind("/")
+        if i >= 0:
+            argv0 = argv0[i + 1:]
+        i = argv0.rfind("\\")
+        if i >= 0:
+            argv0 = argv0[i + 1:]
+        return argv0
 
-    def _process_long_opt(self, largs, values):
-        arg = largs.pop(0)
-        if '=' in arg:
-            opt_str, value = arg.split('=', 1)
+    # -------- Help --------
+
+    def format_usage(self):
+        if self.usage is None:
+            usage = "%prog [options]"
         else:
-            opt_str = arg
-            value = None
+            usage = self.usage
+        prog = self._get_prog_name()
+        return "Usage: " + usage.replace("%prog", prog) + "\n"
 
-        opt = self._long_opt.get(opt_str)
-        if opt is None:
-            raise BadOptionError(opt_str)
+    def print_usage(self, file=None):
+        if file is None:
+            file = _sys.stdout
+        if self.usage is not None or True:
+            file.write(self.format_usage())
 
-        if opt.takes_value():
-            if value is None:
-                if largs:
-                    value = largs.pop(0)
-                else:
-                    raise OptionValueError(f'{opt_str} option requires an argument')
-        opt.process(opt_str, value, values, self)
-
-    def _process_short_opts(self, largs, values):
-        arg = largs.pop(0)
-        stop = False
-        i = 1
-        while i < len(arg) and not stop:
-            opt_str = '-' + arg[i]
-            opt = self._short_opt.get(opt_str)
-            if opt is None:
-                raise BadOptionError(opt_str)
-            i += 1
-            if opt.takes_value():
-                value = arg[i:] or (largs.pop(0) if largs else None)
-                if value is None:
-                    raise OptionValueError(f'{opt_str} option requires an argument')
-                opt.process(opt_str, value, values, self)
-                stop = True
-            else:
-                opt.process(opt_str, None, values, self)
-
-    def format_usage(self, formatter=None):
-        if self.usage:
-            return f'Usage: {self.usage}\n'
-        return ''
-
-    def format_help(self, formatter=None):
-        if formatter is None:
-            formatter = self.formatter
-        result = [self.format_usage(formatter)]
+    def format_help(self):
+        out = self.format_usage() + "\n"
         if self.description:
-            result.append(self.description + '\n')
-        result.append('\nOptions:\n')
-        for opt in self.option_list:
-            if opt.help != SUPPRESS_HELP:
-                result.append(formatter.format_option(opt))
-        for group in self.option_groups:
-            result.append(group.format_help(formatter))
-        if self.epilog:
-            result.append('\n' + self.epilog)
-        return ''.join(result)
+            out += self.description + "\n\n"
+        out += "Options:\n"
+        for option in self.option_list:
+            opts = ", ".join(option._short_opts + option._long_opts)
+            help_text = option.help or ""
+            out += "  %-24s %s\n" % (opts, help_text)
+        return out
 
     def print_help(self, file=None):
         if file is None:
@@ -469,55 +548,395 @@ class OptionParser:
     def print_version(self, file=None):
         if file is None:
             file = _sys.stdout
-        file.write(f'{self.prog} {self.version}\n')
+        if self.version:
+            prog = self._get_prog_name()
+            file.write(self.version.replace("%prog", prog) + "\n")
 
-    def exit(self, status=0, msg=None):
-        if msg:
-            _sys.stderr.write(msg)
-        _sys.exit(status)
+    # -------- Parsing --------
 
-    def error(self, msg):
-        self.print_usage(_sys.stderr)
-        self.exit(2, f'{self.prog}: error: {msg}\n')
+    def parse_args(self, args=None, values=None):
+        if args is None:
+            args = _sys.argv[1:]
+        else:
+            args = list(args)
 
-    def print_usage(self, file=None):
-        if file is None:
-            file = _sys.stdout
-        file.write(self.format_usage())
+        if values is None:
+            values = self.get_default_values()
+
+        try:
+            stop, positional = self._process_args(args, values)
+        except (BadOptionError, OptionValueError, AmbiguousOptionError) as err:
+            self.error(str(err))
+
+        return values, positional
+
+    def _process_args(self, rargs, values):
+        """Walk through rargs, consuming options and values."""
+        positional = []
+        # We pop from the front; rargs is mutated.
+        while rargs:
+            arg = rargs[0]
+            if arg == "--":
+                # End of options.
+                rargs.pop(0)
+                positional.extend(rargs)
+                rargs[:] = []
+                break
+            elif arg[:2] == "--":
+                # Long option.
+                rargs.pop(0)
+                self._process_long_opt(arg, rargs, values)
+            elif arg[:1] == "-" and len(arg) > 1:
+                # Short option (possibly bundled).
+                rargs.pop(0)
+                self._process_short_opts(arg, rargs, values)
+            else:
+                positional.append(arg)
+                rargs.pop(0)
+        return False, positional
+
+    def _match_long_opt(self, opt):
+        if opt in self._long_opt:
+            return opt
+        # Allow unique prefix matching.
+        possibilities = [o for o in self._long_opt if o.startswith(opt)]
+        if not possibilities:
+            raise BadOptionError(opt)
+        if len(possibilities) == 1:
+            return possibilities[0]
+        raise AmbiguousOptionError(opt, possibilities)
+
+    def _process_long_opt(self, arg, rargs, values):
+        # arg starts with "--"
+        if "=" in arg:
+            opt, _, explicit = arg.partition("=")
+            had_explicit_value = True
+        else:
+            opt = arg
+            explicit = None
+            had_explicit_value = False
+
+        opt = self._match_long_opt(opt)
+        option = self._long_opt[opt]
+
+        if option.takes_value():
+            nargs = option.nargs
+            if had_explicit_value:
+                if nargs == 1:
+                    value = explicit
+                else:
+                    # Need nargs - 1 more args.
+                    if len(rargs) < nargs - 1:
+                        self._not_enough_args(opt, nargs)
+                    value = (explicit,) + tuple(rargs[:nargs - 1])
+                    del rargs[:nargs - 1]
+            else:
+                if len(rargs) < nargs:
+                    self._not_enough_args(opt, nargs)
+                if nargs == 1:
+                    value = rargs[0]
+                    del rargs[0]
+                else:
+                    value = tuple(rargs[:nargs])
+                    del rargs[:nargs]
+        elif had_explicit_value:
+            raise BadOptionError("%s option does not take a value" % opt)
+        else:
+            value = None
+
+        option.process(opt, value, values, self)
+
+    def _not_enough_args(self, opt, nargs):
+        if nargs == 1:
+            self.error("%s option requires an argument" % opt)
+        else:
+            self.error("%s option requires %d arguments" % (opt, nargs))
+
+    def _process_short_opts(self, arg, rargs, values):
+        # arg = "-xyz" or "-xfoo" or "-x"
+        i = 1
+        stop = False
+        while i < len(arg) and not stop:
+            opt = "-" + arg[i]
+            i += 1
+            if opt not in self._short_opt:
+                raise BadOptionError(opt)
+            option = self._short_opt[opt]
+
+            if option.takes_value():
+                nargs = option.nargs
+                if i < len(arg):
+                    # Remainder of arg is the value (only valid for nargs==1).
+                    rest = arg[i:]
+                    if nargs == 1:
+                        value = rest
+                    else:
+                        if len(rargs) < nargs - 1:
+                            self._not_enough_args(opt, nargs)
+                        value = (rest,) + tuple(rargs[:nargs - 1])
+                        del rargs[:nargs - 1]
+                    stop = True
+                else:
+                    if len(rargs) < nargs:
+                        self._not_enough_args(opt, nargs)
+                    if nargs == 1:
+                        value = rargs[0]
+                        del rargs[0]
+                    else:
+                        value = tuple(rargs[:nargs])
+                        del rargs[:nargs]
+            else:
+                value = None
+
+            option.process(opt, value, values, self)
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant entry points
 # ---------------------------------------------------------------------------
 
 def optparse2_parse():
-    """OptionParser can parse simple options; returns True."""
-    p = OptionParser()
-    p.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False)
-    p.add_option('-n', '--name', dest='name', default='world')
-    opts, args = p.parse_args(['-v', '--name', 'alice'])
-    return opts.verbose is True and opts.name == 'alice'
+    """Verify that OptionParser correctly parses a typical command line."""
+    parser = OptionParser(add_help_option=False)
+    parser.add_option("-f", "--file", dest="filename",
+                      help="write report to FILE", metavar="FILE")
+    parser.add_option("-q", "--quiet",
+                      action="store_false", dest="verbose", default=True,
+                      help="don't print status messages to stdout")
+    parser.add_option("-n", "--count", type="int", dest="count", default=0)
+    parser.add_option("-v", action="count", dest="vcount", default=0)
+    parser.add_option("--mode", choices=["fast", "slow"], default="fast")
+
+    # Test long-option = value.
+    values, args = parser.parse_args(
+        ["--file=out.txt", "-q", "-n", "5", "-vvv", "--mode", "slow", "extra1", "extra2"])
+    if values.filename != "out.txt":
+        return False
+    if values.verbose is not False:
+        return False
+    if values.count != 5:
+        return False
+    if values.vcount != 3:
+        return False
+    if values.mode != "slow":
+        return False
+    if args != ["extra1", "extra2"]:
+        return False
+
+    # Test "--" terminator.
+    values, args = parser.parse_args(["--", "-f", "ignored"])
+    if args != ["-f", "ignored"]:
+        return False
+
+    # Test short opt with attached value: -fout
+    values, args = parser.parse_args(["-fout"])
+    if values.filename != "out":
+        return False
+
+    # Test bundled short flags.
+    values, args = parser.parse_args(["-vvv"])
+    if values.vcount != 3:
+        return False
+
+    # Test prefix matching of long options.
+    values, args = parser.parse_args(["--fi=hello"])
+    if values.filename != "hello":
+        return False
+
+    return True
 
 
 def optparse2_defaults():
-    """Option defaults are set correctly; returns True."""
-    p = OptionParser()
-    p.add_option('--count', type='int', dest='count', default=10)
-    p.add_option('--flag', action='store_true', dest='flag', default=False)
-    opts, _ = p.parse_args([])
-    return opts.count == 10 and opts.flag is False
+    """Verify that defaults are applied correctly."""
+    parser = OptionParser(add_help_option=False)
+    parser.add_option("-x", dest="x", default=10, type="int")
+    parser.add_option("-y", dest="y", type="int")  # implicit None
+    parser.add_option("-z", dest="z", default="hello")
+    parser.set_defaults(y=99, w="set_via_method")
+    parser.add_option("--no-default", dest="nodef", type="string")
+
+    values, args = parser.parse_args([])
+    if values.x != 10:
+        return False
+    if values.y != 99:
+        return False
+    if values.z != "hello":
+        return False
+    if getattr(values, "w", None) != "set_via_method":
+        return False
+    if values.nodef is not None:
+        return False
+    if args != []:
+        return False
+
+    # Override on command line.
+    values, args = parser.parse_args(["-x", "1", "-y", "2", "-z", "world"])
+    if values.x != 1 or values.y != 2 or values.z != "world":
+        return False
+
+    # get_default_values should produce the defaults independently.
+    d = parser.get_default_values()
+    if d.x != 10 or d.y != 99 or d.z != "hello":
+        return False
+
+    # set_defaults after add_option still wins.
+    parser2 = OptionParser(add_help_option=False)
+    parser2.add_option("-a", dest="a", default=1, type="int")
+    parser2.set_defaults(a=42)
+    v2, _ = parser2.parse_args([])
+    if v2.a != 42:
+        return False
+
+    # ensure_value behavior on Values.
+    v3 = Values()
+    v3.ensure_value("foo", 7)
+    if v3.foo != 7:
+        return False
+    v3.foo = None
+    v3.ensure_value("foo", 8)
+    if v3.foo != 8:
+        return False
+    v3.foo = 5
+    v3.ensure_value("foo", 100)
+    if v3.foo != 5:
+        return False
+
+    return True
 
 
 def optparse2_error():
-    """OptionValueError exists as Exception subclass; returns True."""
-    return issubclass(OptionValueError, Exception)
+    """Verify error handling: unknown opt, missing value, bad type, ambiguous."""
+    parser = OptionParser(add_help_option=False)
+    parser.add_option("-n", dest="n", type="int")
+    parser.add_option("--foo", dest="foo")
+    parser.add_option("--foobar", dest="foobar")
+    parser.add_option("--mode", choices=["a", "b"])
+
+    # Override error/exit so we don't actually call sys.exit.
+    captured = {"called": 0, "msg": None, "exit_status": None}
+
+    def fake_error(msg):
+        captured["called"] += 1
+        captured["msg"] = msg
+        raise SystemExit(2)
+
+    def fake_exit(status=0, msg=None):
+        captured["exit_status"] = status
+        raise SystemExit(status)
+
+    parser.error = fake_error
+    parser.exit = fake_exit
+
+    # 1. Unknown option.
+    try:
+        parser.parse_args(["--unknown"])
+    except SystemExit:
+        pass
+    if captured["called"] < 1 or captured["msg"] is None:
+        return False
+    if "no such option" not in captured["msg"]:
+        return False
+
+    # 2. Bad integer value.
+    captured["called"] = 0
+    captured["msg"] = None
+    try:
+        parser.parse_args(["-n", "notanint"])
+    except SystemExit:
+        pass
+    if captured["called"] < 1 or captured["msg"] is None:
+        return False
+    if "invalid integer" not in captured["msg"]:
+        return False
+
+    # 3. Missing value for option that requires one.
+    captured["called"] = 0
+    captured["msg"] = None
+    try:
+        parser.parse_args(["-n"])
+    except SystemExit:
+        pass
+    if captured["called"] < 1 or captured["msg"] is None:
+        return False
+    if "requires an argument" not in captured["msg"]:
+        return False
+
+    # 4. Ambiguous prefix.
+    captured["called"] = 0
+    captured["msg"] = None
+    try:
+        parser.parse_args(["--foo=x"])
+    except SystemExit:
+        pass
+    # --foo is exact match, so should NOT be ambiguous.
+    if captured["called"] != 0:
+        return False
+
+    captured["called"] = 0
+    captured["msg"] = None
+    try:
+        parser.parse_args(["--fo=x"])
+    except SystemExit:
+        pass
+    if captured["called"] < 1 or captured["msg"] is None:
+        return False
+    if "ambiguous" not in captured["msg"]:
+        return False
+
+    # 5. Invalid choice.
+    captured["called"] = 0
+    captured["msg"] = None
+    try:
+        parser.parse_args(["--mode", "c"])
+    except SystemExit:
+        pass
+    if captured["called"] < 1 or captured["msg"] is None:
+        return False
+    if "invalid choice" not in captured["msg"]:
+        return False
+
+    # 6. Conflicting options should raise OptionConflictError.
+    p2 = OptionParser(add_help_option=False)
+    p2.add_option("-x", dest="x")
+    try:
+        p2.add_option("-x", dest="x2")
+    except OptionConflictError:
+        pass
+    else:
+        return False
+
+    # 7. Invalid option construction raises OptionError.
+    try:
+        Option("badopt")  # no leading dash
+    except OptionError:
+        pass
+    else:
+        return False
+
+    # 8. error() default behavior calls sys.exit(2).
+    p3 = OptionParser(add_help_option=False)
+    try:
+        p3.parse_args(["--definitely-not-an-option"])
+    except SystemExit as e:
+        if e.code != 2:
+            return False
+    else:
+        return False
+
+    return True
 
 
 __all__ = [
-    'OptionParser', 'OptionGroup', 'Option', 'Values',
-    'OptParseError', 'OptionError', 'OptionConflictError', 'OptionValueError',
-    'BadOptionError', 'AmbiguousOptionError',
-    'IndentedHelpFormatter', 'TitledHelpFormatter',
-    'SUPPRESS_HELP', 'SUPPRESS_USAGE', 'NO_DEFAULT',
-    'optparse2_parse', 'optparse2_defaults', 'optparse2_error',
+    "OptionParser",
+    "Option",
+    "Values",
+    "OptParseError",
+    "OptionError",
+    "OptionConflictError",
+    "OptionValueError",
+    "BadOptionError",
+    "AmbiguousOptionError",
+    "optparse2_parse",
+    "optparse2_defaults",
+    "optparse2_error",
 ]

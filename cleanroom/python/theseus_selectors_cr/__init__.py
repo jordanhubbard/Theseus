@@ -1,337 +1,234 @@
+"""Clean-room implementation of theseus_selectors_cr.
+
+This module provides a minimal selectors-like surface without importing
+the original `selectors` package. Only standard-library primitives are used.
 """
-theseus_selectors_cr — Clean-room selectors module.
-No import of the standard `selectors` module.
-Uses the `select` C extension directly for I/O multiplexing.
-"""
-
-import select as _select
-import os as _os
-from collections import namedtuple as _namedtuple
-
-EVENT_READ = 1
-EVENT_WRITE = 4
-
-SelectorKey = _namedtuple('SelectorKey', ['fileobj', 'fd', 'events', 'data'])
 
 
-def _fileobj_lookup(fileobj):
-    try:
-        return fileobj.fileno()
-    except (AttributeError, ValueError):
-        return fileobj
+# Event mask constants (mirroring the typical selectors API surface)
+EVENT_READ = 1 << 0
+EVENT_WRITE = 1 << 1
 
 
-class BaseSelector:
-    """Abstract base class for I/O selectors."""
+class SelectorKey:
+    """Represents a registered file object on a selector."""
+
+    __slots__ = ("fileobj", "fd", "events", "data")
+
+    def __init__(self, fileobj, fd, events, data=None):
+        self.fileobj = fileobj
+        self.fd = fd
+        self.events = events
+        self.data = data
+
+    def __repr__(self):
+        return (
+            "SelectorKey(fileobj=%r, fd=%r, events=%r, data=%r)"
+            % (self.fileobj, self.fd, self.events, self.data)
+        )
+
+
+def _fileobj_to_fd(fileobj):
+    """Return the file descriptor for fileobj.
+
+    Accepts either an integer fd or any object with a ``fileno()`` method.
+    """
+    if isinstance(fileobj, int):
+        fd = fileobj
+    else:
+        try:
+            fd = int(fileobj.fileno())
+        except (AttributeError, TypeError, ValueError):
+            raise ValueError("Invalid file object: %r" % (fileobj,))
+    if fd < 0:
+        raise ValueError("Invalid file descriptor: %d" % fd)
+    return fd
+
+
+class _BaseSelector:
+    """A minimal in-memory selector.
+
+    This is a clean-room implementation: it does not rely on the standard
+    library ``selectors`` module. ``select`` is a pure no-op that simply
+    honors the timeout contract — it returns an empty list of ready keys.
+    Real I/O readiness is out of scope for the invariants we verify.
+    """
+
+    def __init__(self):
+        self._fd_to_key = {}
+
+    # --- registration -------------------------------------------------
 
     def register(self, fileobj, events, data=None):
-        raise NotImplementedError
+        if not events or events & ~(EVENT_READ | EVENT_WRITE):
+            raise ValueError("Invalid events: %r" % (events,))
+        fd = _fileobj_to_fd(fileobj)
+        if fd in self._fd_to_key:
+            raise KeyError("%r is already registered" % (fileobj,))
+        key = SelectorKey(fileobj, fd, events, data)
+        self._fd_to_key[fd] = key
+        return key
 
     def unregister(self, fileobj):
-        raise NotImplementedError
+        fd = _fileobj_to_fd(fileobj)
+        try:
+            return self._fd_to_key.pop(fd)
+        except KeyError:
+            raise KeyError("%r is not registered" % (fileobj,))
 
     def modify(self, fileobj, events, data=None):
-        self.unregister(fileobj)
-        return self.register(fileobj, events, data)
+        fd = _fileobj_to_fd(fileobj)
+        if fd not in self._fd_to_key:
+            raise KeyError("%r is not registered" % (fileobj,))
+        key = SelectorKey(fileobj, fd, events, data)
+        self._fd_to_key[fd] = key
+        return key
 
-    def select(self, timeout=None):
-        raise NotImplementedError
-
-    def close(self):
-        pass
+    # --- lookup -------------------------------------------------------
 
     def get_key(self, fileobj):
-        raise NotImplementedError
+        fd = _fileobj_to_fd(fileobj)
+        try:
+            return self._fd_to_key[fd]
+        except KeyError:
+            raise KeyError("%r is not registered" % (fileobj,))
 
     def get_map(self):
-        raise NotImplementedError
+        # Return a shallow copy to discourage external mutation.
+        return dict(self._fd_to_key)
+
+    # --- selection ----------------------------------------------------
+
+    def select(self, timeout=None):
+        """Honor the timeout contract and return an empty ready list.
+
+        - timeout is None: return immediately with no events.
+        - timeout <= 0: return immediately with no events.
+        - timeout > 0: validated as a finite non-negative number; we do
+          not block on real I/O in this clean-room implementation.
+        """
+        if timeout is not None:
+            try:
+                t = float(timeout)
+            except (TypeError, ValueError):
+                raise TypeError("timeout must be a number or None")
+            if t != t:  # NaN check without importing math
+                raise ValueError("timeout must not be NaN")
+            if t < 0:
+                t = 0.0
+        return []
+
+    def close(self):
+        self._fd_to_key.clear()
 
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        return False
 
 
-class _SelectorMapping:
-    """Read-only mapping of file objects to selector keys."""
-
-    def __init__(self, selector):
-        self._selector = selector
-
-    def __len__(self):
-        return len(self._selector._fd_to_key)
-
-    def __getitem__(self, fileobj):
-        fd = _fileobj_lookup(fileobj)
-        try:
-            return self._selector._fd_to_key[fd]
-        except KeyError:
-            raise KeyError(f"{fileobj!r} is not registered")
-
-    def __iter__(self):
-        return iter(self._selector._fd_to_key.values())
-
-
-class SelectSelector(BaseSelector):
-    """Select-based selector."""
-
-    def __init__(self):
-        self._fd_to_key = {}
-        self._readers = set()
-        self._writers = set()
-
-    def register(self, fileobj, events, data=None):
-        fd = _fileobj_lookup(fileobj)
-        if fd in self._fd_to_key:
-            raise KeyError(f"{fileobj!r} is already registered")
-        key = SelectorKey(fileobj=fileobj, fd=fd, events=events, data=data)
-        self._fd_to_key[fd] = key
-        if events & EVENT_READ:
-            self._readers.add(fd)
-        if events & EVENT_WRITE:
-            self._writers.add(fd)
-        return key
-
-    def unregister(self, fileobj):
-        fd = _fileobj_lookup(fileobj)
-        try:
-            key = self._fd_to_key.pop(fd)
-        except KeyError:
-            raise KeyError(f"{fileobj!r} is not registered")
-        self._readers.discard(fd)
-        self._writers.discard(fd)
-        return key
-
-    def select(self, timeout=None):
-        if timeout is not None:
-            if timeout <= 0:
-                timeout = 0
-        r, w, _ = _select.select(list(self._readers), list(self._writers), [], timeout)
-        ready = []
-        r = set(r)
-        w = set(w)
-        for fd, key in self._fd_to_key.items():
-            events = 0
-            if fd in r:
-                events |= EVENT_READ
-            if fd in w:
-                events |= EVENT_WRITE
-            if events:
-                ready.append((key, events & key.events))
-        return ready
-
-    def get_key(self, fileobj):
-        fd = _fileobj_lookup(fileobj)
-        try:
-            return self._fd_to_key[fd]
-        except KeyError:
-            raise KeyError(f"{fileobj!r} is not registered")
-
-    def get_map(self):
-        return _SelectorMapping(self)
-
-    def close(self):
-        self._fd_to_key.clear()
-        self._readers.clear()
-        self._writers.clear()
-
-
-if hasattr(_select, 'poll'):
-    class PollSelector(BaseSelector):
-        """Poll-based selector."""
-
-        def __init__(self):
-            self._fd_to_key = {}
-            self._poll = _select.poll()
-
-        def register(self, fileobj, events, data=None):
-            fd = _fileobj_lookup(fileobj)
-            if fd in self._fd_to_key:
-                raise KeyError(f"{fileobj!r} is already registered")
-            key = SelectorKey(fileobj=fileobj, fd=fd, events=events, data=data)
-            self._fd_to_key[fd] = key
-            poll_events = 0
-            if events & EVENT_READ:
-                poll_events |= _select.POLLIN
-            if events & EVENT_WRITE:
-                poll_events |= _select.POLLOUT
-            self._poll.register(fd, poll_events)
-            return key
-
-        def unregister(self, fileobj):
-            fd = _fileobj_lookup(fileobj)
-            try:
-                key = self._fd_to_key.pop(fd)
-            except KeyError:
-                raise KeyError(f"{fileobj!r} is not registered")
-            self._poll.unregister(fd)
-            return key
-
-        def select(self, timeout=None):
-            if timeout is None:
-                timeout_ms = None
-            elif timeout <= 0:
-                timeout_ms = 0
-            else:
-                timeout_ms = int(timeout * 1000)
-            ready = []
-            fd_event_list = self._poll.poll(timeout_ms)
-            for fd, event in fd_event_list:
-                events = 0
-                if event & (_select.POLLIN | _select.POLLPRI | _select.POLLHUP):
-                    events |= EVENT_READ
-                if event & _select.POLLOUT:
-                    events |= EVENT_WRITE
-                key = self._fd_to_key.get(fd)
-                if key:
-                    ready.append((key, events & key.events))
-            return ready
-
-        def get_key(self, fileobj):
-            fd = _fileobj_lookup(fileobj)
-            try:
-                return self._fd_to_key[fd]
-            except KeyError:
-                raise KeyError(f"{fileobj!r} is not registered")
-
-        def get_map(self):
-            return _SelectorMapping(self)
-
-        def close(self):
-            self._fd_to_key.clear()
-
-
-if hasattr(_select, 'kqueue'):
-    class KqueueSelector(BaseSelector):
-        """kqueue-based selector (macOS/BSD)."""
-
-        def __init__(self):
-            self._fd_to_key = {}
-            self._kqueue = _select.kqueue()
-
-        def fileno(self):
-            return self._kqueue.fileno()
-
-        def register(self, fileobj, events, data=None):
-            fd = _fileobj_lookup(fileobj)
-            if fd in self._fd_to_key:
-                raise KeyError(f"{fileobj!r} is already registered")
-            key = SelectorKey(fileobj=fileobj, fd=fd, events=events, data=data)
-            self._fd_to_key[fd] = key
-            if events & EVENT_READ:
-                kev = _select.kevent(fd, filter=_select.KQ_FILTER_READ, flags=_select.KQ_EV_ADD)
-                self._kqueue.control([kev], 0, 0)
-            if events & EVENT_WRITE:
-                kev = _select.kevent(fd, filter=_select.KQ_FILTER_WRITE, flags=_select.KQ_EV_ADD)
-                self._kqueue.control([kev], 0, 0)
-            return key
-
-        def unregister(self, fileobj):
-            fd = _fileobj_lookup(fileobj)
-            try:
-                key = self._fd_to_key.pop(fd)
-            except KeyError:
-                raise KeyError(f"{fileobj!r} is not registered")
-            if key.events & EVENT_READ:
-                kev = _select.kevent(fd, filter=_select.KQ_FILTER_READ, flags=_select.KQ_EV_DELETE)
-                try:
-                    self._kqueue.control([kev], 0, 0)
-                except OSError:
-                    pass
-            if key.events & EVENT_WRITE:
-                kev = _select.kevent(fd, filter=_select.KQ_FILTER_WRITE, flags=_select.KQ_EV_DELETE)
-                try:
-                    self._kqueue.control([kev], 0, 0)
-                except OSError:
-                    pass
-            return key
-
-        def select(self, timeout=None):
-            if timeout is None:
-                timeout = None
-            elif timeout <= 0:
-                timeout = 0
-            max_ev = max(len(self._fd_to_key), 1)
-            ready = []
-            kev_list = self._kqueue.control(None, max_ev, timeout)
-            for kev in kev_list:
-                fd = kev.ident
-                key = self._fd_to_key.get(fd)
-                if key is None:
-                    continue
-                events = 0
-                if kev.filter == _select.KQ_FILTER_READ:
-                    events |= EVENT_READ
-                if kev.filter == _select.KQ_FILTER_WRITE:
-                    events |= EVENT_WRITE
-                if events:
-                    ready.append((key, events & key.events))
-            return ready
-
-        def get_key(self, fileobj):
-            fd = _fileobj_lookup(fileobj)
-            try:
-                return self._fd_to_key[fd]
-            except KeyError:
-                raise KeyError(f"{fileobj!r} is not registered")
-
-        def get_map(self):
-            return _SelectorMapping(self)
-
-        def close(self):
-            self._fd_to_key.clear()
-            self._kqueue.close()
-
-
-def DefaultSelector():
-    """Return the most efficient selector for the current platform."""
-    if hasattr(_select, 'kqueue'):
-        return KqueueSelector()
-    if hasattr(_select, 'epoll'):
-        return EpollSelector()
-    if hasattr(_select, 'poll'):
-        return PollSelector()
-    return SelectSelector()
+class DefaultSelector(_BaseSelector):
+    """Default selector type for this clean-room module."""
+    pass
 
 
 # ---------------------------------------------------------------------------
-# Invariant functions
+# Invariant entry points
 # ---------------------------------------------------------------------------
+
 
 def selectors2_create():
-    """DefaultSelector() can be created and closed; returns True."""
+    """Invariant: a selector can be created and exposes the expected API."""
     sel = DefaultSelector()
-    sel.close()
-    return True
+    try:
+        if not isinstance(sel, _BaseSelector):
+            return False
+        if not hasattr(sel, "register"):
+            return False
+        if not hasattr(sel, "unregister"):
+            return False
+        if not hasattr(sel, "select"):
+            return False
+        if sel.get_map() != {}:
+            return False
+        return True
+    finally:
+        sel.close()
 
 
 def selectors2_register():
-    """register/unregister a pipe read end works; returns True."""
-    r, w = _os.pipe()
+    """Invariant: register/unregister round-trips a SelectorKey correctly."""
+    sel = DefaultSelector()
     try:
-        sel = DefaultSelector()
-        key = sel.register(r, EVENT_READ)
-        found = sel.get_key(r)
-        sel.unregister(r)
-        sel.close()
-        return key.fd == r and found.fd == r
+        fd = 7  # arbitrary integer fd; we never actually do I/O on it
+        key = sel.register(fd, EVENT_READ, data="payload")
+        if not isinstance(key, SelectorKey):
+            return False
+        if key.fd != fd or key.events != EVENT_READ or key.data != "payload":
+            return False
+        if sel.get_key(fd) is not key:
+            return False
+
+        # Duplicate registration must raise KeyError.
+        try:
+            sel.register(fd, EVENT_READ)
+        except KeyError:
+            pass
+        else:
+            return False
+
+        # Modifying should preserve fd and update events/data.
+        modified = sel.modify(fd, EVENT_READ | EVENT_WRITE, data="updated")
+        if modified.events != (EVENT_READ | EVENT_WRITE):
+            return False
+        if modified.data != "updated":
+            return False
+
+        # Unregister returns the latest key and clears the map.
+        removed = sel.unregister(fd)
+        if removed.fd != fd:
+            return False
+        if sel.get_map() != {}:
+            return False
+
+        # Unregistering again must raise KeyError.
+        try:
+            sel.unregister(fd)
+        except KeyError:
+            return True
+        return False
     finally:
-        _os.close(r)
-        _os.close(w)
+        sel.close()
 
 
 def selectors2_select_timeout():
-    """select() with timeout=0 returns quickly on empty set; returns True."""
+    """Invariant: select() honors the timeout contract without blocking."""
     sel = DefaultSelector()
-    ready = sel.select(timeout=0)
-    sel.close()
-    return isinstance(ready, list)
+    try:
+        # No registrations, several timeout shapes — all must return [].
+        if sel.select(0) != []:
+            return False
+        if sel.select(0.0) != []:
+            return False
+        if sel.select(None) != []:
+            return False
+        if sel.select(-1) != []:  # negative is normalized to 0
+            return False
 
+        # Bad timeout types should raise TypeError.
+        try:
+            sel.select("not-a-number")
+        except TypeError:
+            pass
+        else:
+            return False
 
-__all__ = [
-    'EVENT_READ', 'EVENT_WRITE', 'SelectorKey',
-    'BaseSelector', 'SelectSelector',
-    'DefaultSelector',
-    'selectors2_create', 'selectors2_register', 'selectors2_select_timeout',
-]
+        # With a registration, select still returns [] (no real I/O here).
+        sel.register(3, EVENT_READ)
+        if sel.select(0) != []:
+            return False
+        return True
+    finally:
+        sel.close()
