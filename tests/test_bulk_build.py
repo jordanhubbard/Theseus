@@ -38,16 +38,19 @@ def _record(name: str, ecosystem: str = "nixpkgs", confidence: float = 0.8,
             "canonical_id": f"pkg:{name}",
             "version": "1.0",
             "ecosystem": ecosystem,
+            "ecosystem_id": name,
         },
         "descriptive": {
             "summary": f"{name} summary",
             "homepage": "",
-            "license": [],
+            "license": ["MIT"],
             "categories": [],
             "maintainers": ["alice"],
         },
         "conflicts": [],
-        "sources": sources or [{"url": f"https://example.com/{name}.tar.gz"}],
+        "sources": sources or [
+            {"type": "archive", "url": f"https://example.com/{name}.tar.gz"}
+        ],
         "dependencies": deps or {"build": [], "host": [], "runtime": [], "test": []},
         "build": {"system_kind": "autotools", "configure_args": [], "make_args": []},
         "features": {},
@@ -416,9 +419,10 @@ class TestMain:
         snap.mkdir()
         _write(snap, "curl")
         with patch("theseus.config.load", return_value={"targets": [], "artifact_store": {}}):
-            with patch.dict(bulk_mod.DRIVERS, {"freebsd_ports": lambda s: {}}):
-                rc = main([str(ranked), str(snap), "--dry-run",
-                           "--drivers", "freebsd_ports", "--top", "1"])
+            with patch.object(bulk_mod, "_REPO_ROOT", tmp_path):
+                with patch.dict(bulk_mod.DRIVERS, {"freebsd_ports": lambda s: {}}):
+                    rc = main([str(ranked), str(snap), "--dry-run",
+                               "--drivers", "freebsd_ports", "--top", "1"])
         assert rc == 0
 
     def test_top_limits_candidates(self, tmp_path):

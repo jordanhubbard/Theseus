@@ -41,11 +41,11 @@ REQUIRED_IDENTITY = [
 
 REQUIRED_DEPS = ["build", "host", "runtime", "test"]
 
-KNOWN_ECOSYSTEMS = {"nixpkgs", "freebsd_ports"}
+KNOWN_ECOSYSTEMS = {"nixpkgs", "freebsd_ports", "pypi", "npm", "cargo"}
 
 KNOWN_BUILD_SYSTEMS = {
     "autotools", "cmake", "meson", "waf", "perl", "python", "go",
-    "cargo", "freebsd_ports_make", "nix_derivation", "unknown",
+    "cargo", "freebsd_ports_make", "nix_derivation", "pypi", "npm", "unknown",
 }
 
 # ---------------------------------------------------------------------------
@@ -220,8 +220,10 @@ def _run_behavioral_spec(spec_path: Path, record_name: str) -> list[str]:
     installed on the validating machine).
     """
     vb_path = REPO_ROOT / "tools" / "verify_behavior.py"
-    spec = importlib.util.spec_from_file_location("verify_behavior", vb_path)
+    module_name = "verify_behavior"
+    spec = importlib.util.spec_from_file_location(module_name, vb_path)
     vb = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    sys.modules[module_name] = vb
     spec.loader.exec_module(vb)  # type: ignore[union-attr]
 
     try:
@@ -285,10 +287,11 @@ def validate_paths(paths: list[Path], strict: bool, quiet: bool) -> tuple[int, i
             total += 1
             issues = validate_record(data, candidate.name, strict=strict)
             errors = [i for i in issues if "ERROR" in i]
-            if errors or issues:
+            report_issues = issues if strict else errors
+            if errors or (strict and issues):
                 invalid += 1
                 print(f"\n{candidate}")
-                for issue in issues:
+                for issue in report_issues:
                     print(issue)
             elif not quiet:
                 print(f"  OK     {candidate.name}")

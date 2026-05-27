@@ -69,9 +69,22 @@ def test_valid_record_produces_no_issues():
 
 
 def test_valid_record_all_ecosystems():
-    for eco in ("nixpkgs", "freebsd_ports"):
+    for eco in ("nixpkgs", "freebsd_ports", "pypi", "npm", "cargo"):
         rec = _make_record(ecosystem=eco)
-        assert _errors(vr.validate_record(rec, "test.json")) == []
+        issues = vr.validate_record(rec, "test.json")
+        assert _errors(issues) == []
+        assert _warns(issues) == []
+
+
+def test_valid_record_current_build_systems():
+    for system_kind in ("autotools", "cmake", "meson", "waf", "perl",
+                        "python", "go", "cargo", "freebsd_ports_make",
+                        "nix_derivation", "pypi", "npm", "unknown"):
+        rec = _make_record()
+        rec["build"]["system_kind"] = system_kind
+        issues = vr.validate_record(rec, "test.json")
+        assert _errors(issues) == []
+        assert _warns(issues) == []
 
 
 # ---------------------------------------------------------------------------
@@ -315,6 +328,24 @@ def test_validate_file_invalid(tmp_path):
     assert invalid == 1
 
 
+def test_validate_file_warning_is_not_invalid_by_default(tmp_path):
+    rec = _make_record(ecosystem="homebrew")
+    f = tmp_path / "rec.json"
+    f.write_text(json.dumps(rec), encoding="utf-8")
+    invalid, total = vr.validate_paths([f], strict=False, quiet=True)
+    assert total == 1
+    assert invalid == 0
+
+
+def test_validate_file_warning_is_invalid_in_strict_mode(tmp_path):
+    rec = _make_record(ecosystem="homebrew")
+    f = tmp_path / "rec.json"
+    f.write_text(json.dumps(rec), encoding="utf-8")
+    invalid, total = vr.validate_paths([f], strict=True, quiet=True)
+    assert total == 1
+    assert invalid == 1
+
+
 def test_validate_directory_skips_manifest(tmp_path):
     # manifest.json should be ignored
     rec = _make_record()
@@ -341,6 +372,13 @@ def test_validate_all_examples_pass():
     examples_dir = REPO_ROOT / "examples"
     invalid, total = vr.validate_paths([examples_dir], strict=False, quiet=True)
     assert total >= 3
+    assert invalid == 0
+
+
+def test_validate_all_specs_pass():
+    specs_dir = REPO_ROOT / "specs"
+    invalid, total = vr.validate_paths([specs_dir], strict=False, quiet=True)
+    assert total >= 200
     assert invalid == 0
 
 
