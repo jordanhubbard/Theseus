@@ -1171,6 +1171,55 @@ def _parse_pep508(req_str: str) -> str | None:
     return m.group(1) if m else None
 
 
+def _dedupe_nonempty(values: list[str]) -> list[str]:
+    """Return values with empties removed and order preserved."""
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = (value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def _split_contact_field(value: str) -> list[str]:
+    """Split a contact field into stable identifiers."""
+    if not value:
+        return []
+    parts = re.split(r"[;,]", value)
+    return _dedupe_nonempty(parts)
+
+
+def _pypi_maintainers(info: dict) -> list[str]:
+    """Extract maintainer identifiers from PyPI metadata."""
+    emails = _split_contact_field((info.get("maintainer_email") or "").strip())
+    if not emails:
+        emails = _split_contact_field((info.get("author_email") or "").strip())
+    if emails:
+        return emails
+
+    names = _split_contact_field((info.get("maintainer") or "").strip())
+    if not names:
+        names = _split_contact_field((info.get("author") or "").strip())
+    return names
+
+
+def _npm_maintainers(ver_data: dict, root_data: dict) -> list[str]:
+    """Extract maintainer identifiers from npm registry metadata."""
+    raw = ver_data.get("maintainers") or root_data.get("maintainers") or []
+    result: list[str] = []
+    for item in raw:
+        if isinstance(item, dict):
+            token = (item.get("email") or item.get("name") or "").strip()
+            if token:
+                result.append(token)
+        elif isinstance(item, str):
+            result.extend(_split_contact_field(item))
+    return _dedupe_nonempty(result)
+
+
 # ---------------------------------------------------------------------------
 # Source repository helpers
 # ---------------------------------------------------------------------------
@@ -1261,12 +1310,12 @@ def _pypi_source_repo(info: dict) -> str:
     home_page (if github.com).
     """
     project_urls = info.get("project_urls") or {}
-    for key in ("Source", "Repository", "Code", "Source Code"):
+    for key in ("Source", "source", "Repository", "repository", "Code", "code", "Source Code", "source code"):
         val = (project_urls.get(key) or "").strip()
         if val and "github.com" in val:
             return val
     # Non-GitHub explicit source URLs
-    for key in ("Source", "Repository", "Code", "Source Code"):
+    for key in ("Source", "source", "Repository", "repository", "Code", "code", "Source Code", "source code"):
         val = (project_urls.get(key) or "").strip()
         if val:
             return val
@@ -1336,11 +1385,19 @@ def import_pypi(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int
         # Homepage
         homepage = (info.get("home_page") or "").strip()
         if not homepage:
-            for key in ("Homepage", "home_page", "Source", "Repository"):
+            for key in (
+                "Homepage", "homepage",
+                "home_page",
+                "Documentation", "documentation",
+                "Source", "source",
+                "Repository", "repository",
+            ):
                 hp = ((info.get("project_urls") or {}).get(key) or "").strip()
                 if hp:
                     homepage = hp
                     break
+        if not homepage:
+            homepage = (info.get("project_url") or info.get("package_url") or "").strip()
 
         source_repository = _pypi_source_repo(info)
 
@@ -1358,7 +1415,7 @@ def import_pypi(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int
                 "homepage": homepage,
                 "license": licenses,
                 "categories": ["python"],
-                "maintainers": [],
+                "maintainers": _pypi_maintainers(info),
             },
             "conflicts": [],
             "sources": ([{
@@ -1486,7 +1543,7 @@ def import_npm(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int:
                 "homepage": homepage or repo_url,
                 "license": licenses,
                 "categories": ["javascript"],
-                "maintainers": [],
+                "maintainers": _npm_maintainers(ver_data, data),
             },
             "conflicts": [],
             "sources": ([{

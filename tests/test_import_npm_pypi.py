@@ -89,6 +89,8 @@ def _pypi_response(name="requests", version="2.31.0", deps=None, license_="Apach
             "license": license_,
             "home_page": f"https://{name}.example.com",
             "project_urls": {},
+            "author_email": "author@example.com",
+            "maintainer_email": "maintainer@example.com",
             "requires_dist": deps if deps is not None else ["certifi>=2017.4.17", "charset-normalizer<4"],
             "requires_python": ">=3.7",
             "classifiers": ["License :: OSI Approved :: Apache Software License"],
@@ -198,6 +200,40 @@ class TestImportPypi:
         rec = json.loads((tmp_path / "requests.json").read_text())
         assert rec["dependencies"]["runtime"].count("certifi") == 1
 
+    def test_maintainers_prefer_email_fields(self, tmp_path):
+        with patch.object(imp, "_fetch_json", return_value=_pypi_response()):
+            imp.import_pypi(["requests"], tmp_path)
+        rec = json.loads((tmp_path / "requests.json").read_text())
+        assert rec["descriptive"]["maintainers"] == ["maintainer@example.com"]
+
+    def test_homepage_falls_back_to_project_urls(self, tmp_path):
+        data = _pypi_response()
+        data["info"]["home_page"] = ""
+        data["info"]["project_urls"] = {"Homepage": "https://docs.example.com"}
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["requests"], tmp_path)
+        rec = json.loads((tmp_path / "requests.json").read_text())
+        assert rec["descriptive"]["homepage"] == "https://docs.example.com"
+
+    def test_homepage_falls_back_to_lowercase_project_urls(self, tmp_path):
+        data = _pypi_response()
+        data["info"]["home_page"] = ""
+        data["info"]["project_urls"] = {"homepage": "https://lower.example.com"}
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["requests"], tmp_path)
+        rec = json.loads((tmp_path / "requests.json").read_text())
+        assert rec["descriptive"]["homepage"] == "https://lower.example.com"
+
+    def test_homepage_falls_back_to_project_url(self, tmp_path):
+        data = _pypi_response()
+        data["info"]["home_page"] = ""
+        data["info"]["project_urls"] = None
+        data["info"]["project_url"] = "https://pypi.org/project/requests/"
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["requests"], tmp_path)
+        rec = json.loads((tmp_path / "requests.json").read_text())
+        assert rec["descriptive"]["homepage"] == "https://pypi.org/project/requests/"
+
 
 # ---------------------------------------------------------------------------
 # import_npm
@@ -206,6 +242,7 @@ class TestImportPypi:
 def _npm_response(name="lodash", version="4.17.21", deps=None, dev_deps=None, peer_deps=None):
     return {
         "name": name,
+        "maintainers": [{"name": "Root Maintainer", "email": "root@example.com"}],
         "dist-tags": {"latest": version},
         "versions": {
             version: {
@@ -223,6 +260,7 @@ def _npm_response(name="lodash", version="4.17.21", deps=None, dev_deps=None, pe
                 },
                 "keywords": ["utility", "lodash"],
                 "engines": {"node": ">=12"},
+                "maintainers": [{"name": "Version Maintainer", "email": "version@example.com"}],
             }
         },
     }
@@ -324,6 +362,20 @@ class TestImportNpm:
         with patch.object(imp, "_fetch_json", return_value=resp):
             count = imp.import_npm(["lodash"], tmp_path)
         assert count == 1
+
+    def test_maintainers_prefer_version_metadata(self, tmp_path):
+        with patch.object(imp, "_fetch_json", return_value=_npm_response()):
+            imp.import_npm(["lodash"], tmp_path)
+        rec = json.loads((tmp_path / "lodash.json").read_text())
+        assert rec["descriptive"]["maintainers"] == ["version@example.com"]
+
+    def test_maintainers_fall_back_to_root_metadata(self, tmp_path):
+        resp = _npm_response()
+        resp["versions"]["4.17.21"]["maintainers"] = []
+        with patch.object(imp, "_fetch_json", return_value=resp):
+            imp.import_npm(["lodash"], tmp_path)
+        rec = json.loads((tmp_path / "lodash.json").read_text())
+        assert rec["descriptive"]["maintainers"] == ["root@example.com"]
 
 
 # ---------------------------------------------------------------------------
