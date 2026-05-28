@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import posixpath
 import re
 import sys
 from pathlib import Path
@@ -27,7 +28,9 @@ if str(REPO_ROOT) not in sys.path:
 from theseus import importer
 
 
-_FREEBSD_RAW = "https://raw.githubusercontent.com/freebsd/freebsd-ports/{commit}/{path}/Makefile"
+_FREEBSD_RAW = "https://raw.githubusercontent.com/freebsd/freebsd-ports/{commit}/{path}"
+_NIXPKGS_RAW = "https://raw.githubusercontent.com/NixOS/nixpkgs/master/{path}"
+_NIXPKGS_BLOB = "https://github.com/NixOS/nixpkgs/blob/master/{path}"
 
 
 def _is_empty(value) -> bool:
@@ -92,6 +95,47 @@ def _fetch_text(url: str, timeout: int) -> Optional[str]:
         return None
 
 
+def _extract_html_summary(text: str) -> str:
+    """Extract a concise summary from HTML metadata."""
+    patterns = (
+        r'property=["\']og:description["\']\s+content=["\']([^"\']+)["\']',
+        r'name=["\']description["\']\s+content=["\']([^"\']+)["\']',
+        r'content=["\']([^"\']+)["\']\s+property=["\']og:description["\']',
+        r'content=["\']([^"\']+)["\']\s+name=["\']description["\']',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    title = re.search(r"<title>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
+    if title:
+        return re.sub(r"\s+", " ", title.group(1)).strip()
+    return ""
+
+
+def _github_raw_to_repo_url(url: str) -> str:
+    """Convert a GitHub raw/archive-like URL to a browsable repository URL."""
+    match = re.match(
+        r"^https://github\.com/([^/]+)/([^/]+)/raw/([^/]+)/(.+?)/?$",
+        url,
+    )
+    if match:
+        owner, repo, ref, path = match.groups()
+        return "https://github.com/{}/{}/tree/{}/{}".format(owner, repo, ref, path.rstrip("/"))
+    match = re.match(
+        r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$",
+        url,
+    )
+    if match:
+        owner, repo, ref, path = match.groups()
+        return "https://github.com/{}/{}/blob/{}/{}".format(owner, repo, ref, path)
+    return ""
+
+
+def _nixpkgs_resolve_relative(base_path: str, rel: str) -> str:
+    return posixpath.normpath(posixpath.join(posixpath.dirname(base_path), rel))
+
+
 def _parse_freebsd_makefile(text: str) -> dict:
     result = {}
     patterns = {
@@ -104,6 +148,139 @@ def _parse_freebsd_makefile(text: str) -> dict:
         if match:
             result[key] = match.group(1).strip()
     return result
+
+
+def _freebsd_include_paths(text: str, source_path: str) -> list[str]:
+    """Resolve quoted .include paths relative to a port directory."""
+    current_dir = Path(source_path)
+    parent_dir = current_dir.parent
+    include_paths: list[str] = []
+    for raw in re.findall(r'^\.include\s+"([^"]+)"', text, re.MULTILINE):
+        path = raw.replace("${.CURDIR:H}", str(parent_dir)).replace("${.CURDIR}", str(current_dir))
+        if path.startswith("../"):
+            path = posixpath.normpath(posixpath.join(str(current_dir), path))
+        if path.endswith(".mk"):
+            include_paths.append(path.lstrip("./"))
+    return include_paths
+
+
+def _freebsd_fetch_path(commit: str, source_path: str, timeout: int) -> Optional[str]:
+    raw_path = source_path if source_path.endswith(".mk") else source_path.rstrip("/") + "/Makefile"
+    return _fetch_text(_FREEBSD_RAW.format(commit=commit, path=raw_path), timeout)
+
+
+def _freebsd_meta(commit: str, source_path: str, timeout: int, seen: Optional[set[str]] = None) -> dict:
+    """Collect metadata from a port Makefile and selected included .mk files."""
+    if seen is None:
+        seen = set()
+    if source_path in seen:
+        return {}
+    seen.add(source_path)
+
+    text = _freebsd_fetch_path(commit, source_path, timeout)
+    if not text:
+        return {}
+
+    meta = _parse_freebsd_makefile(text)
+    if meta.get("homepage") and meta.get("maintainer") and meta.get("categories"):
+        return meta
+
+    for include_path in _freebsd_include_paths(text, source_path):
+        child = _freebsd_meta(commit, include_path, timeout, seen)
+        for key, value in child.items():
+            meta.setdefault(key, value)
+    return meta
+
+
+def _fetch_nixpkgs_text(path: str, timeout: int) -> Optional[str]:
+    return _fetch_text(_NIXPKGS_RAW.format(path=path), timeout)
+
+
+def _extract_nix_attr_block(text: str, attr: str) -> str:
+    idx = text.find(attr)
+    if idx == -1:
+        return ""
+    remainder = text[idx:]
+    match = re.search(r"\n  [A-Za-z0-9_.+-]+\s*=", remainder[1:])
+    if not match:
+        return remainder
+    end = 1 + match.start()
+    return remainder[:end]
+
+
+def _extract_nix_string(block: str, field: str) -> str:
+    match = re.search(r"\b{}\s*=\s*\"([^\"]+)\"".format(re.escape(field)), block)
+    return match.group(1).strip() if match else ""
+
+
+def _extract_nix_maintainers(block: str) -> list[str]:
+    match = re.search(r"maintainers\s*=\s*(?:with\s+lib\.maintainers;\s*)?\[\s*([^\]]*)\s*\]", block, re.DOTALL)
+    if not match:
+        return []
+    tokens = re.findall(r"[A-Za-z0-9._+-]+", match.group(1))
+    return [t for t in tokens if t]
+
+
+def _extract_nix_relative_source(block: str) -> str:
+    matches = re.findall(r"(\.\.?/[A-Za-z0-9._/+:-]+(?:\.[A-Za-z0-9._-]+)?)", block)
+    return matches[-1] if matches else ""
+
+
+def _is_nixpkgs_internal(record: dict) -> bool:
+    source_path = record.get("provenance", {}).get("source_path", "")
+    name = record.get("identity", {}).get("canonical_name", "")
+    return source_path.startswith("pkgs/") and (
+        "setup-hooks" in source_path
+        or name.endswith("-hook")
+        or name in {"install-shell-files"}
+    )
+
+
+def enrich_nixpkgs(record: dict, timeout: int) -> bool:
+    changed = False
+    desc = record.setdefault("descriptive", {})
+    prov = record.get("provenance", {})
+    source_path = prov.get("source_path", "")
+    if not source_path.startswith("pkgs/"):
+        return False
+
+    text = _fetch_nixpkgs_text(source_path, timeout)
+    if not text:
+        return False
+
+    block = text
+    attr = record.get("extensions", {}).get("nixpkgs", {}).get("attr", "")
+    if source_path.endswith("all-packages.nix") and attr:
+        block = _extract_nix_attr_block(text, attr)
+    if not block:
+        return False
+
+    summary = _extract_nix_string(block, "description")
+    homepage = _extract_nix_string(block, "homepage")
+    maintainers = _extract_nix_maintainers(block)
+    rel_source = _extract_nix_relative_source(block)
+    resolved_source = ""
+    if rel_source:
+        resolved_source = _nixpkgs_resolve_relative(source_path, rel_source)
+
+    if _is_empty(desc.get("summary")) and summary:
+        desc["summary"] = summary
+        changed = True
+    if _is_empty(desc.get("maintainers")) and maintainers:
+        desc["maintainers"] = maintainers
+        changed = True
+    if _is_empty(desc.get("homepage")):
+        if homepage:
+            desc["homepage"] = homepage
+            changed = True
+        elif _is_nixpkgs_internal(record):
+            target = resolved_source or source_path
+            desc["homepage"] = _NIXPKGS_BLOB.format(path=target)
+            changed = True
+    if not record.get("sources") and resolved_source:
+        record["sources"] = [{"type": "repository", "url": _NIXPKGS_BLOB.format(path=resolved_source)}]
+        changed = True
+    return changed
 
 
 def enrich_pypi(record: dict, timeout: int) -> bool:
@@ -131,6 +308,12 @@ def enrich_pypi(record: dict, timeout: int) -> bool:
             changed = True
     if _is_empty(desc.get("summary")):
         summary = (info.get("summary") or "").strip()
+        if not summary:
+            homepage = _pypi_homepage(info)
+            if homepage:
+                html = _fetch_text(homepage, timeout)
+                if html:
+                    summary = _extract_html_summary(html)
         if summary:
             desc["summary"] = summary
             changed = True
@@ -207,10 +390,7 @@ def enrich_freebsd(record: dict, timeout: int) -> bool:
     if not commit or not source_path:
         return False
 
-    text = _fetch_text(_FREEBSD_RAW.format(commit=commit, path=source_path), timeout)
-    if not text:
-        return False
-    meta = _parse_freebsd_makefile(text)
+    meta = _freebsd_meta(commit, source_path, timeout)
 
     if _is_empty(desc.get("homepage")) and meta.get("homepage"):
         desc["homepage"] = meta["homepage"]
@@ -224,6 +404,14 @@ def enrich_freebsd(record: dict, timeout: int) -> bool:
     if _is_empty(desc.get("categories")) and source_path:
         desc["categories"] = [source_path.split("/", 1)[0]]
         changed = True
+    if _is_empty(desc.get("homepage")):
+        for source in record.get("sources", []):
+            source_url = source.get("url", "").replace("${PORTVERSION}", record.get("identity", {}).get("version", ""))
+            homepage = _github_raw_to_repo_url(source_url)
+            if homepage:
+                desc["homepage"] = homepage
+                changed = True
+                break
     return changed
 
 
@@ -250,6 +438,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             changed = enrich_npm(record, args.timeout)
         elif eco == "freebsd_ports":
             changed = enrich_freebsd(record, args.timeout)
+        elif eco == "nixpkgs":
+            changed = enrich_nixpkgs(record, args.timeout)
 
         if changed:
             _write_json(path, record)
