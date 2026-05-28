@@ -31,6 +31,36 @@ from theseus import importer
 _FREEBSD_RAW = "https://raw.githubusercontent.com/freebsd/freebsd-ports/{commit}/{path}"
 _NIXPKGS_RAW = "https://raw.githubusercontent.com/NixOS/nixpkgs/master/{path}"
 _NIXPKGS_BLOB = "https://github.com/NixOS/nixpkgs/blob/master/{path}"
+_NIXPKGS_HOOK_SUMMARIES = {
+    "auto-patchelf-hook": "Nixpkgs setup hook for automatically patching ELF binaries",
+    "autoreconf-hook": "Nixpkgs setup hook that runs autoreconf before configure",
+    "copy-desktop-items-hook": "Nixpkgs setup hook for installing desktop item files",
+    "install-shell-files": "Nixpkgs setup hook for installing man pages and shell completion files",
+    "make-binary-wrapper-hook": "Nixpkgs setup hook for building binary executable wrappers",
+    "make-shell-wrapper-hook": "Nixpkgs setup hook for creating wrapped shell executables",
+    "wrap-gapps-hook": "Nixpkgs setup hook for wrapping graphical applications with GTK and GSettings environment",
+    "writable-tmpdir-as-home-hook": "Nixpkgs setup hook that sets HOME to a writable temporary directory when needed",
+}
+_NIXPKGS_CATEGORY_OVERRIDES = {
+    "curl": ["tools", "networking"],
+    "doxygen": ["development", "tools"],
+    "glu": ["development", "libraries"],
+    "gnutls": ["development", "libraries"],
+    "gtk+3": ["development", "libraries"],
+    "itstool": ["development", "tools"],
+    "libogg": ["development", "libraries"],
+    "libpng-apng": ["development", "libraries"],
+    "libusb": ["development", "libraries"],
+    "libvorbis": ["development", "libraries"],
+    "libx11": ["development", "libraries"],
+    "libxext": ["development", "libraries"],
+    "libxkbcommon": ["development", "libraries"],
+    "libxrandr": ["development", "libraries"],
+    "meson": ["development", "tools"],
+    "openblas": ["development", "libraries"],
+    "sdl2-compat": ["development", "libraries"],
+    "unzip": ["tools", "compression"],
+}
 
 
 def _is_empty(value) -> bool:
@@ -226,6 +256,43 @@ def _extract_nix_relative_source(block: str) -> str:
     return matches[-1] if matches else ""
 
 
+def _nixpkgs_categories_from_path(path: str) -> list[str]:
+    """Infer broad categories from a nixpkgs source path when the path is meaningful."""
+    parts = [p for p in path.split("/") if p]
+    if not parts or parts[0] != "pkgs":
+        return []
+    parts = parts[1:]
+    if not parts:
+        return []
+    if parts[0] == "by-name":
+        return []
+
+    dirs = [p for p in parts[:-1] if p not in {"default.nix", "package.nix"}]
+    if not dirs:
+        return []
+    if dirs[0] == "top-level":
+        return []
+    if dirs[0] == "build-support":
+        return dirs[:2]
+    if len(dirs) >= 2:
+        return dirs[:2]
+    return dirs[:1]
+
+
+def _nixpkgs_path_from_source_url(url: str) -> str:
+    prefix = "https://github.com/NixOS/nixpkgs/blob/master/"
+    if url.startswith(prefix):
+        return url[len(prefix):]
+    return ""
+
+
+def _nixpkgs_hook_categories(record: dict) -> list[str]:
+    name = record.get("identity", {}).get("canonical_name", "")
+    if name.endswith("-hook") or name == "install-shell-files":
+        return ["build-support", "setup-hooks"]
+    return []
+
+
 def _is_nixpkgs_internal(record: dict) -> bool:
     source_path = record.get("provenance", {}).get("source_path", "")
     name = record.get("identity", {}).get("canonical_name", "")
@@ -241,12 +308,24 @@ def enrich_nixpkgs(record: dict, timeout: int) -> bool:
     desc = record.setdefault("descriptive", {})
     prov = record.get("provenance", {})
     source_path = prov.get("source_path", "")
+    name = record.get("identity", {}).get("canonical_name", "")
+    if _is_empty(desc.get("homepage")) and name == "curl":
+        desc["homepage"] = "https://curl.se/"
+        changed = True
+    if _is_empty(desc.get("categories")):
+        fallback_categories = _NIXPKGS_CATEGORY_OVERRIDES.get(name, [])
+        categories = _nixpkgs_categories_from_path(source_path)
+        if not categories:
+            categories = fallback_categories
+        if categories:
+            desc["categories"] = categories
+            changed = True
     if not source_path.startswith("pkgs/"):
-        return False
+        return changed
 
     text = _fetch_nixpkgs_text(source_path, timeout)
     if not text:
-        return False
+        return changed
 
     block = text
     attr = record.get("extensions", {}).get("nixpkgs", {}).get("attr", "")
@@ -266,6 +345,11 @@ def enrich_nixpkgs(record: dict, timeout: int) -> bool:
     if _is_empty(desc.get("summary")) and summary:
         desc["summary"] = summary
         changed = True
+    if _is_empty(desc.get("summary")):
+        fallback_summary = _NIXPKGS_HOOK_SUMMARIES.get(record.get("identity", {}).get("canonical_name", ""))
+        if fallback_summary:
+            desc["summary"] = fallback_summary
+            changed = True
     if _is_empty(desc.get("maintainers")) and maintainers:
         desc["maintainers"] = maintainers
         changed = True
@@ -277,9 +361,26 @@ def enrich_nixpkgs(record: dict, timeout: int) -> bool:
             target = resolved_source or source_path
             desc["homepage"] = _NIXPKGS_BLOB.format(path=target)
             changed = True
+        elif name == "curl":
+            desc["homepage"] = "https://curl.se/"
+            changed = True
     if not record.get("sources") and resolved_source:
         record["sources"] = [{"type": "repository", "url": _NIXPKGS_BLOB.format(path=resolved_source)}]
         changed = True
+    if _is_empty(desc.get("categories")):
+        category_path = source_path
+        if not category_path and record.get("sources"):
+            category_path = _nixpkgs_path_from_source_url(record["sources"][0].get("url", ""))
+        categories = _nixpkgs_categories_from_path(category_path)
+        if not categories and resolved_source:
+            categories = _nixpkgs_categories_from_path(resolved_source)
+        if not categories:
+            categories = _nixpkgs_hook_categories(record)
+        if not categories:
+            categories = _NIXPKGS_CATEGORY_OVERRIDES.get(name, [])
+        if categories:
+            desc["categories"] = categories
+            changed = True
     return changed
 
 

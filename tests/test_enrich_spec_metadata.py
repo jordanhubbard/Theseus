@@ -53,3 +53,37 @@ def test_extract_nix_attr_block_stops_at_next_top_level_attr():
         '  makeDesktopItem = callPackage ../bar { };\n'
     )
     assert "makeDesktopItem" not in esm._extract_nix_attr_block(text, "copyDesktopItems")
+
+
+def test_nixpkgs_categories_from_path_uses_meaningful_segments():
+    assert esm._nixpkgs_categories_from_path("pkgs/tools/compression/xz/default.nix") == ["tools", "compression"]
+    assert esm._nixpkgs_categories_from_path("pkgs/build-support/setup-hooks/wrap-gapps-hook/default.nix") == [
+        "build-support",
+        "setup-hooks",
+    ]
+    assert esm._nixpkgs_categories_from_path("pkgs/by-name/li/libx11/package.nix") == []
+
+
+def test_nixpkgs_hook_categories_cover_hook_packages():
+    record = {"identity": {"canonical_name": "make-shell-wrapper-hook"}}
+    assert esm._nixpkgs_hook_categories(record) == ["build-support", "setup-hooks"]
+
+
+def test_nixpkgs_category_overrides_cover_by_name_records():
+    assert esm._NIXPKGS_CATEGORY_OVERRIDES["libx11"] == ["development", "libraries"]
+    assert esm._NIXPKGS_CATEGORY_OVERRIDES["unzip"] == ["tools", "compression"]
+
+
+def test_enrich_nixpkgs_uses_curl_homepage_fallback():
+    record = {
+        "identity": {"canonical_name": "curl"},
+        "provenance": {"source_path": "curl"},
+        "descriptive": {"homepage": "", "categories": [], "maintainers": ["alice"]},
+        "sources": [{"type": "archive", "url": "https://example.com/curl.tar.gz"}],
+    }
+
+    changed = esm.enrich_nixpkgs(record, timeout=1)
+
+    assert changed is True
+    assert record["descriptive"]["homepage"] == "https://curl.se/"
+    assert record["descriptive"]["categories"] == ["tools", "networking"]
