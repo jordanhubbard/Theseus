@@ -2259,10 +2259,10 @@ def main(argv=None) -> int:
     except OSError:
         last_mtime = 0.0
     print(f"Watching {spec_file} — press Ctrl-C to stop.\n")
-    # Run immediately on startup
-    _os.system("clear" if sys.platform != "win32" else "cls")
-    _run_once()
     try:
+        # Run immediately on startup
+        _os.system("clear" if sys.platform != "win32" else "cls")
+        _run_once()
         while True:
             _time.sleep(0.5)
             try:

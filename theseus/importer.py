@@ -1293,6 +1293,20 @@ def _normalize_github_url(raw: str) -> str:
     # github:owner/repo shorthand
     if url.startswith("github:"):
         url = "https://github.com/" + url[7:]
+    # git@github.com:owner/repo.git SSH shorthand
+    if url.startswith("git@github.com:"):
+        url = "https://github.com/" + url[len("git@github.com:"):]
+    # Strip query/fragment suffixes commonly used by package managers.
+    url = re.split(r"[?#]", url, maxsplit=1)[0].rstrip("/")
+    match = re.search(
+        r"(?:https?://|ssh://git@)?github\.com[:/]([^/\s:#?]+)/([^/\s:#?]+)",
+        url,
+        flags=re.IGNORECASE,
+    )
+    if match:
+        owner = match.group(1)
+        repo = match.group(2).removesuffix(".git").rstrip("/")
+        return f"https://github.com/{owner}/{repo}"
     # Strip .git suffix
     if url.endswith(".git"):
         url = url[:-4]
@@ -1302,27 +1316,104 @@ def _normalize_github_url(raw: str) -> str:
     return url.strip()
 
 
+def _pypi_project_url_items(info: dict) -> list[tuple[str, str]]:
+    """Return non-empty PyPI project_urls items in registry order."""
+    project_urls = info.get("project_urls") or {}
+    if not isinstance(project_urls, dict):
+        return []
+    items: list[tuple[str, str]] = []
+    for key, value in project_urls.items():
+        if not isinstance(value, str):
+            continue
+        url = value.strip()
+        if url:
+            items.append((str(key), url))
+    return items
+
+
+def _pypi_project_url_key(key: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", key.lower()).strip()
+
+
+def _pypi_sourceish_project_url_key(key: str) -> bool:
+    normalized = _pypi_project_url_key(key)
+    return bool(re.search(r"\b(source|repository|repo|code|vcs|github)\b", normalized))
+
+
+def _pypi_github_inference_project_url_key(key: str) -> bool:
+    normalized = _pypi_project_url_key(key)
+    return _pypi_sourceish_project_url_key(key) or bool(
+        re.search(r"\b(issue|issues|bug|bugs|tracker)\b", normalized)
+    )
+
+
+def _pypi_homepage_project_url_key(key: str) -> bool:
+    return _pypi_project_url_key(key) in {
+        "home",
+        "homepage",
+        "home page",
+        "project homepage",
+    }
+
+
+def _looks_like_github_url(url: str) -> bool:
+    lower = url.lower()
+    return "github.com" in lower or lower.startswith(("github:", "git@github.com:"))
+
+
+def _github_repository_url(url: str) -> str:
+    if not _looks_like_github_url(url):
+        return ""
+    normalized = _normalize_github_url(url)
+    match = re.match(r"^https://github\.com/([^/]+)/([^/]+)$", normalized)
+    if not match:
+        return ""
+    if match.group(1).lower() in {"sponsors", "marketplace", "features", "topics"}:
+        return ""
+    return normalized
+
+
 def _pypi_source_repo(info: dict) -> str:
     """Extract source repository URL from PyPI package info.
 
-    Priority: project_urls["Source"] > project_urls["Repository"] >
-    project_urls["Code"] > project_urls["Source Code"] >
-    home_page (if github.com).
+    Priority: explicit source/repository/code/GitHub project URLs, GitHub
+    homepage fields, then GitHub issue/bug tracker URLs that can be normalized
+    to an owner/repo URL. Non-GitHub source URLs are kept when they are
+    explicitly labeled as source/repository metadata.
     """
-    project_urls = info.get("project_urls") or {}
-    for key in ("Source", "source", "Repository", "repository", "Code", "code", "Source Code", "source code"):
-        val = (project_urls.get(key) or "").strip()
-        if val and "github.com" in val:
-            return val
-    # Non-GitHub explicit source URLs
-    for key in ("Source", "source", "Repository", "repository", "Code", "code", "Source Code", "source code"):
-        val = (project_urls.get(key) or "").strip()
-        if val:
-            return val
-    # home_page if it looks like GitHub
+    project_urls = _pypi_project_url_items(info)
+    sourceish_urls = [
+        value for key, value in project_urls
+        if _pypi_sourceish_project_url_key(key)
+    ]
+    for value in sourceish_urls:
+        repo_url = _github_repository_url(value)
+        if repo_url:
+            return repo_url
+
+    homepage_urls = [
+        value for key, value in project_urls
+        if _pypi_homepage_project_url_key(key)
+    ]
+    for value in homepage_urls:
+        repo_url = _github_repository_url(value)
+        if repo_url:
+            return repo_url
+
     hp = (info.get("home_page") or "").strip()
-    if hp and "github.com" in hp:
-        return hp
+    repo_url = _github_repository_url(hp)
+    if repo_url:
+        return repo_url
+
+    for key, value in project_urls:
+        if _pypi_github_inference_project_url_key(key):
+            repo_url = _github_repository_url(value)
+            if repo_url:
+                return repo_url
+
+    # Non-GitHub explicit source URLs
+    for value in sourceish_urls:
+        return value.strip()
     return ""
 
 

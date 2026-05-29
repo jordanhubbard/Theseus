@@ -234,6 +234,55 @@ class TestImportPypi:
         rec = json.loads((tmp_path / "requests.json").read_text())
         assert rec["descriptive"]["homepage"] == "https://pypi.org/project/requests/"
 
+    def test_source_repository_uses_github_project_homepage(self, tmp_path):
+        data = _pypi_response(name="aiohttp")
+        data["info"]["home_page"] = "https://docs.aiohttp.org/"
+        data["info"]["project_urls"] = {"Homepage": "https://github.com/aio-libs/aiohttp"}
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["aiohttp"], tmp_path)
+        rec = json.loads((tmp_path / "aiohttp.json").read_text())
+        assert rec["extensions"]["pypi"]["source_repository"] == "https://github.com/aio-libs/aiohttp"
+
+    def test_source_repository_prefers_explicit_source_url(self, tmp_path):
+        data = _pypi_response(name="sample")
+        data["info"]["project_urls"] = {
+            "Homepage": "https://github.com/example/homepage",
+            "Source": "https://github.com/example/source.git",
+        }
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["sample"], tmp_path)
+        rec = json.loads((tmp_path / "sample.json").read_text())
+        assert rec["extensions"]["pypi"]["source_repository"] == "https://github.com/example/source"
+
+    def test_source_repository_normalizes_github_subpaths(self, tmp_path):
+        data = _pypi_response(name="sample")
+        data["info"]["project_urls"] = {
+            "Bug Tracker": "https://github.com/example/source/issues",
+        }
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["sample"], tmp_path)
+        rec = json.loads((tmp_path / "sample.json").read_text())
+        assert rec["extensions"]["pypi"]["source_repository"] == "https://github.com/example/source"
+
+    def test_source_repository_ignores_github_sponsors_url(self, tmp_path):
+        data = _pypi_response(name="attrs")
+        data["info"]["project_urls"] = {
+            "Funding": "https://github.com/sponsors/hynek",
+            "GitHub": "https://github.com/python-attrs/attrs",
+        }
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["attrs"], tmp_path)
+        rec = json.loads((tmp_path / "attrs.json").read_text())
+        assert rec["extensions"]["pypi"]["source_repository"] == "https://github.com/python-attrs/attrs"
+
+    def test_source_repository_keeps_non_github_explicit_source(self, tmp_path):
+        data = _pypi_response(name="openstack")
+        data["info"]["project_urls"] = {"Source": "https://opendev.org/openstack/pbr"}
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["openstack"], tmp_path)
+        rec = json.loads((tmp_path / "openstack.json").read_text())
+        assert rec["extensions"]["pypi"]["source_repository"] == "https://opendev.org/openstack/pbr"
+
 
 # ---------------------------------------------------------------------------
 # import_npm

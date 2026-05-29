@@ -87,3 +87,72 @@ def test_enrich_nixpkgs_uses_curl_homepage_fallback():
     assert changed is True
     assert record["descriptive"]["homepage"] == "https://curl.se/"
     assert record["descriptive"]["categories"] == ["tools", "networking"]
+
+
+def test_enrich_pypi_fills_source_repository_when_description_complete(monkeypatch):
+    record = {
+        "identity": {"ecosystem_id": "aiohttp"},
+        "descriptive": {
+            "homepage": "https://docs.aiohttp.org/",
+            "summary": "Async HTTP client/server framework.",
+            "maintainers": ["maintainer@example.com"],
+        },
+        "sources": [{"type": "sdist", "url": "https://files.example/aiohttp.tar.gz", "sha256": "old"}],
+        "extensions": {"pypi": {"requires_python": ">=3.9", "classifiers": ["Framework :: AsyncIO"]}},
+    }
+    data = {
+        "info": {
+            "project_urls": {"Homepage": "https://github.com/aio-libs/aiohttp"},
+            "requires_python": ">=3.9",
+            "classifiers": ["Framework :: AsyncIO"],
+        },
+        "urls": [],
+    }
+    monkeypatch.setattr(esm, "_fetch_pypi_record", lambda name, timeout: data)
+
+    changed = esm.enrich_pypi(record, timeout=1)
+
+    assert changed is True
+    assert record["extensions"]["pypi"]["source_repository"] == "https://github.com/aio-libs/aiohttp"
+
+
+def test_enrich_pypi_fills_empty_extension_and_source_fields(monkeypatch):
+    record = {
+        "identity": {"ecosystem_id": "sample"},
+        "descriptive": {
+            "homepage": "https://example.com",
+            "summary": "Sample package.",
+            "maintainers": ["maintainer@example.com"],
+        },
+        "sources": [{"type": "none", "url": ""}],
+        "extensions": {"pypi": {"source_repository": "", "requires_python": "", "classifiers": []}},
+    }
+    data = {
+        "info": {
+            "project_urls": {"Source": "https://github.com/example/sample.git"},
+            "requires_python": ">=3.10",
+            "classifiers": ["Programming Language :: Python :: 3"],
+        },
+        "urls": [
+            {
+                "packagetype": "sdist",
+                "url": "https://files.pythonhosted.org/packages/sample-1.0.tar.gz",
+                "digests": {"sha256": "abc123"},
+            }
+        ],
+    }
+    monkeypatch.setattr(esm, "_fetch_pypi_record", lambda name, timeout: data)
+
+    changed = esm.enrich_pypi(record, timeout=1)
+
+    assert changed is True
+    assert record["extensions"]["pypi"]["source_repository"] == "https://github.com/example/sample"
+    assert record["extensions"]["pypi"]["requires_python"] == ">=3.10"
+    assert record["extensions"]["pypi"]["classifiers"] == ["Programming Language :: Python :: 3"]
+    assert record["sources"] == [
+        {
+            "type": "sdist",
+            "url": "https://files.pythonhosted.org/packages/sample-1.0.tar.gz",
+            "sha256": "abc123",
+        }
+    ]

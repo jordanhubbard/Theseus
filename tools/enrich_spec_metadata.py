@@ -3,7 +3,8 @@
 Backfill missing metadata in canonical package records from authoritative APIs.
 
 Current enrichment targets:
-  - PyPI: descriptive.homepage, descriptive.summary, descriptive.maintainers
+  - PyPI: descriptive.homepage, descriptive.summary, descriptive.maintainers,
+    extensions.pypi.source_repository/requires_python/classifiers, sources
   - npm: descriptive.maintainers
   - FreeBSD Ports: descriptive.homepage, descriptive.categories,
     descriptive.maintainers
@@ -104,6 +105,46 @@ def _github_owner_handle(url: str) -> str:
 
 def _fetch_pypi_record(name: str, timeout: int) -> Optional[dict]:
     return importer._fetch_json(importer._PYPI_API.format(name=name), timeout=timeout)
+
+
+def _pypi_download_source(data: dict) -> dict:
+    """Extract the best available PyPI distribution source entry."""
+    urls = data.get("urls") or []
+    if not urls:
+        return {}
+    selected = None
+    for item in urls:
+        if item.get("packagetype") == "sdist":
+            selected = item
+            break
+    if selected is None:
+        selected = urls[0]
+
+    url = (selected.get("url") or "").strip()
+    if not url:
+        return {}
+    digests = selected.get("digests") or {}
+    source_type = (selected.get("packagetype") or "sdist").strip() or "sdist"
+    source = {"type": source_type, "url": url}
+    sha256 = (digests.get("sha256") or "").strip()
+    if sha256:
+        source["sha256"] = sha256
+    return source
+
+
+def _pypi_sources_need_fill(record: dict) -> bool:
+    sources = record.get("sources") or []
+    if not sources:
+        return True
+    for source in sources:
+        source_type = source.get("type")
+        if _is_empty(source_type) or str(source_type).lower() == "none":
+            return True
+        if _is_empty(source.get("url")):
+            return True
+        if source_type == "sdist" and _is_empty(source.get("sha256")):
+            return True
+    return False
 
 
 def _fetch_npm_record(name: str, timeout: int) -> Optional[dict]:
@@ -387,7 +428,17 @@ def enrich_nixpkgs(record: dict, timeout: int) -> bool:
 def enrich_pypi(record: dict, timeout: int) -> bool:
     changed = False
     desc = record.setdefault("descriptive", {})
-    if not (_is_empty(desc.get("homepage")) or _is_empty(desc.get("summary")) or _is_empty(desc.get("maintainers"))):
+    pypi_ext = record.setdefault("extensions", {}).setdefault("pypi", {})
+    needs_fetch = (
+        _is_empty(desc.get("homepage"))
+        or _is_empty(desc.get("summary"))
+        or _is_empty(desc.get("maintainers"))
+        or _is_empty(pypi_ext.get("source_repository"))
+        or _is_empty(pypi_ext.get("requires_python"))
+        or _is_empty(pypi_ext.get("classifiers"))
+        or _pypi_sources_need_fill(record)
+    )
+    if not needs_fetch:
         return False
 
     pkg_name = record["identity"]["ecosystem_id"]
@@ -399,11 +450,7 @@ def enrich_pypi(record: dict, timeout: int) -> bool:
     if _is_empty(desc.get("homepage")):
         homepage = _pypi_homepage(info)
         if not homepage:
-            homepage = (
-                record.get("extensions", {})
-                .get("pypi", {})
-                .get("source_repository", "")
-            )
+            homepage = pypi_ext.get("source_repository", "")
         if homepage:
             desc["homepage"] = homepage
             changed = True
@@ -421,16 +468,40 @@ def enrich_pypi(record: dict, timeout: int) -> bool:
     if _is_empty(desc.get("maintainers")):
         maintainers = importer._pypi_maintainers(info)
         if not maintainers:
-            owner = _github_owner_handle(
-                record.get("extensions", {})
-                .get("pypi", {})
-                .get("source_repository", "")
-            )
+            owner = _github_owner_handle(pypi_ext.get("source_repository", ""))
             if owner:
                 maintainers = [owner]
         if maintainers:
             desc["maintainers"] = maintainers
             changed = True
+    if _is_empty(pypi_ext.get("source_repository")):
+        source_repository = importer._pypi_source_repo(info)
+        if source_repository:
+            pypi_ext["source_repository"] = source_repository
+            changed = True
+    if _is_empty(pypi_ext.get("requires_python")):
+        requires_python = (info.get("requires_python") or "").strip()
+        if requires_python:
+            pypi_ext["requires_python"] = requires_python
+            changed = True
+    if _is_empty(pypi_ext.get("classifiers")):
+        classifiers = (info.get("classifiers") or [])[:10]
+        if classifiers:
+            pypi_ext["classifiers"] = classifiers
+            changed = True
+    if _pypi_sources_need_fill(record):
+        source = _pypi_download_source(data)
+        if source:
+            sources = record.get("sources") or []
+            if not sources or str(sources[0].get("type", "")).lower() == "none":
+                record["sources"] = [source]
+                changed = True
+            else:
+                current = sources[0]
+                for key, value in source.items():
+                    if _is_empty(current.get(key)):
+                        current[key] = value
+                        changed = True
     return changed
 
 
