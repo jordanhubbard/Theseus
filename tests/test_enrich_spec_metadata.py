@@ -156,3 +156,27 @@ def test_enrich_pypi_fills_empty_extension_and_source_fields(monkeypatch):
             "sha256": "abc123",
         }
     ]
+
+
+def test_enrich_pypi_records_curated_source_repository_provenance(monkeypatch):
+    record = {
+        "identity": {"ecosystem_id": "decorator"},
+        "descriptive": {
+            "homepage": "https://pypi.org/project/decorator/",
+            "summary": "Decorators for Humans",
+            "maintainers": ["maintainer@example.com"],
+        },
+        "sources": [{"type": "sdist", "url": "https://files.example/decorator.tar.gz", "sha256": "abc"}],
+        "extensions": {"pypi": {"source_repository": "", "requires_python": ">=3.8", "classifiers": ["x"]}},
+    }
+    data = {"info": {"name": "decorator", "project_urls": None}, "urls": []}
+    monkeypatch.setattr(esm, "_fetch_pypi_record", lambda name, timeout: data)
+
+    changed = esm.enrich_pypi(record, timeout=1)
+
+    assert changed is True
+    assert record["extensions"]["pypi"]["source_repository"] == "https://github.com/micheles/decorator"
+    assert record["extensions"]["pypi"]["source_repository_provenance"] == {
+        "source": "curated_external_github_override",
+        "reason": "PyPI JSON metadata does not expose a source repository URL for this package.",
+    }

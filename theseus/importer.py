@@ -1356,6 +1356,16 @@ def _pypi_homepage_project_url_key(key: str) -> bool:
     }
 
 
+_PYPI_CURATED_SOURCE_REPOSITORIES = {
+    # PyPI's current JSON metadata for these packages does not expose a source
+    # repository URL. Keep the override list small and auditable.
+    "decorator": "https://github.com/micheles/decorator",
+    "pluggy": "https://github.com/pytest-dev/pluggy",
+    "protobuf": "https://github.com/protocolbuffers/protobuf",
+    "pytz": "https://github.com/stub42/pytz",
+}
+
+
 def _looks_like_github_url(url: str) -> bool:
     lower = url.lower()
     return "github.com" in lower or lower.startswith(("github:", "git@github.com:"))
@@ -1414,7 +1424,21 @@ def _pypi_source_repo(info: dict) -> str:
     # Non-GitHub explicit source URLs
     for value in sourceish_urls:
         return value.strip()
+
+    name = (info.get("name") or "").strip().lower().replace("_", "-")
+    if name in _PYPI_CURATED_SOURCE_REPOSITORIES:
+        return _PYPI_CURATED_SOURCE_REPOSITORIES[name]
     return ""
+
+
+def _pypi_source_repo_provenance(info: dict, source_repository: str) -> dict:
+    name = (info.get("name") or "").strip().lower().replace("_", "-")
+    if _PYPI_CURATED_SOURCE_REPOSITORIES.get(name) != source_repository:
+        return {}
+    return {
+        "source": "curated_external_github_override",
+        "reason": "PyPI JSON metadata does not expose a source repository URL for this package.",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1491,6 +1515,14 @@ def import_pypi(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int
             homepage = (info.get("project_url") or info.get("package_url") or "").strip()
 
         source_repository = _pypi_source_repo(info)
+        source_repository_provenance = _pypi_source_repo_provenance(info, source_repository)
+        pypi_extension = {
+            "requires_python": (info.get("requires_python") or "").strip(),
+            "classifiers": (info.get("classifiers") or [])[:10],
+            "source_repository": source_repository,
+        }
+        if source_repository_provenance:
+            pypi_extension["source_repository_provenance"] = source_repository_provenance
 
         rec = {
             "schema_version": SCHEMA_VERSION,
@@ -1539,11 +1571,7 @@ def import_pypi(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int
                 "warnings": [],
             },
             "extensions": {
-                "pypi": {
-                    "requires_python": (info.get("requires_python") or "").strip(),
-                    "classifiers": (info.get("classifiers") or [])[:10],
-                    "source_repository": source_repository,
-                }
+                "pypi": pypi_extension
             },
         }
 

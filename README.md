@@ -18,7 +18,7 @@
 
 Three ecosystems are first-class citizens on Linux and macOS:
 - [**Nixpkgs**](https://github.com/NixOS/nixpkgs) — traversed via `--nixpkgs`, dependency graphs filled by `fill_nixpkgs_deps.py`
-- [**PyPI**](https://pypi.org/) — imported via the PyPI JSON API (`make import-pypi`); source repositories backtracked to GitHub via `project_urls`
+- [**PyPI**](https://pypi.org/) — imported via the PyPI JSON API (`make import-pypi`); source repositories backtracked to GitHub via `project_urls`, with a small curated override list for packages whose PyPI metadata omits the repository
 - [**npm**](https://www.npmjs.com/) — imported via the npm registry API (`make import-npm`); source repositories backtracked to GitHub via the `repository` field
 
 [**FreeBSD Ports**](https://github.com/freebsd/freebsd-ports) is supported as a **build recipe source** — its 20,000+ port Makefiles complement Nixpkgs as input. FreeBSD itself is not a CI target platform.

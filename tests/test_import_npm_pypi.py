@@ -283,6 +283,18 @@ class TestImportPypi:
         rec = json.loads((tmp_path / "openstack.json").read_text())
         assert rec["extensions"]["pypi"]["source_repository"] == "https://opendev.org/openstack/pbr"
 
+    def test_source_repository_uses_curated_override_when_pypi_has_no_repo(self, tmp_path):
+        data = _pypi_response(name="pluggy")
+        data["info"]["home_page"] = ""
+        data["info"]["project_urls"] = None
+        with patch.object(imp, "_fetch_json", return_value=data):
+            imp.import_pypi(["pluggy"], tmp_path)
+        rec = json.loads((tmp_path / "pluggy.json").read_text())
+        assert rec["extensions"]["pypi"]["source_repository"] == "https://github.com/pytest-dev/pluggy"
+        assert rec["extensions"]["pypi"]["source_repository_provenance"]["source"] == (
+            "curated_external_github_override"
+        )
+
 
 # ---------------------------------------------------------------------------
 # import_npm

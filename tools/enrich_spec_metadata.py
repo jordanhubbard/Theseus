@@ -478,6 +478,9 @@ def enrich_pypi(record: dict, timeout: int) -> bool:
         source_repository = importer._pypi_source_repo(info)
         if source_repository:
             pypi_ext["source_repository"] = source_repository
+            source_repository_provenance = importer._pypi_source_repo_provenance(info, source_repository)
+            if source_repository_provenance:
+                pypi_ext["source_repository_provenance"] = source_repository_provenance
             changed = True
     if _is_empty(pypi_ext.get("requires_python")):
         requires_python = (info.get("requires_python") or "").strip()

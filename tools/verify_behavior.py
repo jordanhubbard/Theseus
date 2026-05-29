@@ -2176,14 +2176,31 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.watch:
+        try:
+            sys.stdout.reconfigure(line_buffering=True)
+        except AttributeError:
+            pass
+        print(f"Watching {args.spec.resolve()} — press Ctrl-C to stop.\n", flush=True)
+
     try:
         spec = SpecLoader().load(args.spec)
+    except KeyboardInterrupt:
+        if args.watch:
+            print("\nWatch mode stopped.")
+            return 0
+        raise
     except SpecError as exc:
         print(f"ERROR loading spec: {exc}", file=sys.stderr)
         return 2
 
     try:
         lib = LibraryLoader(lib_dirs=args.lib_dirs).load(spec["library"])
+    except KeyboardInterrupt:
+        if args.watch:
+            print("\nWatch mode stopped.")
+            return 0
+        raise
     except LibraryNotFoundError as exc:
         print(f"ERROR loading library: {exc}", file=sys.stderr)
         return 2
@@ -2255,18 +2272,18 @@ def main(argv=None) -> int:
     import os as _os
     spec_file = args.spec.resolve()
     try:
-        last_mtime = spec_file.stat().st_mtime
+        last_mtime = spec_file.stat().st_mtime_ns
     except OSError:
-        last_mtime = 0.0
-    print(f"Watching {spec_file} — press Ctrl-C to stop.\n")
+        last_mtime = 0
     try:
         # Run immediately on startup
         _os.system("clear" if sys.platform != "win32" else "cls")
+        print("Running spec...", flush=True)
         _run_once()
         while True:
             _time.sleep(0.5)
             try:
-                mtime = spec_file.stat().st_mtime
+                mtime = spec_file.stat().st_mtime_ns
             except OSError:
                 continue
             if mtime != last_mtime:
@@ -2278,6 +2295,7 @@ def main(argv=None) -> int:
                 except SpecError as exc:
                     print(f"ERROR reloading spec: {exc}", file=sys.stderr)
                     continue
+                print("Running spec...", flush=True)
                 _run_once()
     except KeyboardInterrupt:
         print("\nWatch mode stopped.")

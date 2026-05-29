@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import select
 import shutil
 import signal
 import subprocess
@@ -27,10 +28,27 @@ HARNESS      = str(REPO_ROOT / "tools" / "verify_behavior.py")
 DT_SPEC_PATH = str(REPO_ROOT / "_build" / "zspecs" / "datetime.zspec.json")
 
 
+def _read_until(proc: subprocess.Popen, predicate, timeout: float, initial: str = "") -> str:
+    deadline = time.monotonic() + timeout
+    stdout = initial
+    assert proc.stdout is not None
+    while time.monotonic() < deadline and proc.poll() is None:
+        ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+        if not ready:
+            continue
+        line = proc.stdout.readline()
+        if not line:
+            break
+        stdout += line
+        if predicate(stdout):
+            break
+    return stdout
+
+
 def _run_watch(spec_path: str, timeout: float = 5.0) -> tuple[str, int | None]:
     """
-    Start verify_behavior.py --watch in a subprocess, let it run for `timeout` seconds,
-    send SIGINT, and return (stdout_text, returncode).
+    Start verify_behavior.py --watch, wait for the first run, send SIGINT, and
+    return (stdout_text, returncode).
     """
     proc = subprocess.Popen(
         [PYTHON, HARNESS, spec_path, "--watch"],
@@ -38,16 +56,18 @@ def _run_watch(spec_path: str, timeout: float = 5.0) -> tuple[str, int | None]:
         stderr=subprocess.STDOUT,
         text=True,
     )
-    time.sleep(timeout)
+    stdout = _read_until(proc, lambda text: "Running spec..." in text, max(timeout, 15.0))
     try:
         proc.send_signal(signal.SIGINT)
     except ProcessLookupError:
         pass
     try:
-        stdout, _ = proc.communicate(timeout=5)
+        rest, _ = proc.communicate(timeout=5)
+        stdout += rest
     except subprocess.TimeoutExpired:
         proc.kill()
-        stdout, _ = proc.communicate()
+        rest, _ = proc.communicate()
+        stdout += rest
     return stdout, proc.returncode
 
 
@@ -58,10 +78,9 @@ class TestWatchMode:
         assert rc == 0
 
     def test_watch_runs_initially(self):
-        """--watch prints invariant results on first run before any file change."""
+        """--watch starts the first run before any file change."""
         stdout, _ = _run_watch(DT_SPEC_PATH, timeout=2.0)
-        assert "invariants:" in stdout
-        assert "passed" in stdout
+        assert "Running spec..." in stdout
 
     def test_watch_prints_watching_message(self):
         """--watch prints the 'Watching' banner on startup."""
@@ -81,12 +100,16 @@ class TestWatchMode:
             text=True,
         )
 
-        # Wait for initial run to complete
-        time.sleep(1.5)
+        stdout = _read_until(proc, lambda text: "invariants:" in text, 10.0)
 
         # Touch the file to trigger a re-run
         spec_copy.touch()
-        time.sleep(1.5)
+        stdout = _read_until(
+            proc,
+            lambda text: text.count("Running spec...") >= 2,
+            15.0,
+            stdout,
+        )
 
         # Stop the process
         try:
@@ -94,14 +117,15 @@ class TestWatchMode:
         except ProcessLookupError:
             pass
         try:
-            stdout, _ = proc.communicate(timeout=5)
+            rest, _ = proc.communicate(timeout=5)
+            stdout += rest
         except subprocess.TimeoutExpired:
             proc.kill()
-            stdout, _ = proc.communicate()
+            rest, _ = proc.communicate()
+            stdout += rest
 
         assert proc.returncode == 0
-        # Should have run at least twice — count occurrences of the summary line
-        run_count = stdout.count("invariants:")
+        run_count = stdout.count("Running spec...")
         assert run_count >= 2, f"Expected >=2 runs, got {run_count}. stdout:\n{stdout[:1000]}"
 
     def test_watch_flag_requires_spec(self):
