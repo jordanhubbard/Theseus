@@ -240,7 +240,8 @@ No runtime configuration is required. All behavior is controlled by command-line
 
 ### The continuing adventures of Jordan Hubbard and Sir Reginald von Fluffington III
 
-> *Part 6 of an ongoing chronicle. [← Part 5: WebMux](https://github.com/jordanhubbard/webmux#the-totally-true-and-not-at-all-embellished-history-of-webmux)*
+> *Part 12 of an ongoing chronicle. [← Part 11: usdagent](https://github.com/jordanhubbard/usdagent#the-totally-true-and-not-at-all-embellished-history-of-usdagent) | [Part 13: agentOS →](https://github.com/jordanhubbard/agentos#the-totally-true-and-not-at-all-embellished-history-of-agentos)*
+> *[Chronicle index](https://github.com/jordanhubbard/ai-template/blob/main/CHRONICLE.md) · Ordered by first recorded AI-assisted commit.*
 > *Sir Reginald von Fluffington III appears throughout. He does not endorse any of it.*
 
 The programmer had been staring at two package trees for what Sir Reginald would later log under "an unreasonable number of mornings." On one screen: Nixpkgs, a sprawling functional graph of derivations, each one a pure function whose output was theoretically reproducible and in practice slightly different on every machine the programmer owned. On the other: FreeBSD Ports, a directory tree of Makefiles with the texture of sedimentary rock — ancient, load-bearing, and not especially interested in being modernized.
@@ -269,4 +270,4 @@ What happens after the ranking — the extraction phase the tools called "Z," a 
 
 Sir Reginald sat down on the printed schema. He had no notes. His position on the matter was architectural.
 
-As of this writing, Theseus has been used in production by exactly one person, who also wrote it. Sir Reginald continues to withhold his endorsement across all 6 projects, citing "procedural concerns," "insufficient tuna," "a general atmosphere of hubris," and a documented skepticism toward confidence fields that score their own uncertainty higher than 0.9 while the author admits he might be wrong.
+As of this writing, Theseus has been used in production by exactly one person, who also wrote it. Sir Reginald continues to withhold his endorsement across the chronicle, citing "procedural concerns," "insufficient tuna," "a general atmosphere of hubris," and a documented skepticism toward confidence fields that score their own uncertainty higher than 0.9 while the author admits he might be wrong.
