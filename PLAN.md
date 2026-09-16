@@ -1,5 +1,7 @@
 # Theseus Clean-Room Rewrite Initiative — Implementation Plan
 
+> **Status (2026-09-16):** PLAN.md's original success bar (≥3 isolated Python packages) was met, then scaled into hundreds of `status=verified` registry entries. That bit is **legacy isolation, not qualification**. Phase 0 of the refresh is the [corpus autopsy](reports/audit/corpus-autopsy.md) and [ADR 0001](docs/decisions/0001-verification-ladder.md). Do not add packages or run synthesis waves until Phase 1 (format spike) is specified.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Transform Theseus from a behavioral spec verification system (which wraps existing packages) into a clean-room package synthesis engine that produces fully self-contained, dependency-clean reimplementations of OSS packages — no cross-language wrappers, no runtime dependencies on the original package.
@@ -610,9 +612,12 @@ Once Phases 1–6 are complete:
 
 ## Success Criteria
 
-- [ ] `cleanroom/python/` contains ≥3 verified packages with 0 external deps each
-- [ ] `cleanroom/node/` contains ≥1 verified Node.js package
-- [ ] All verified packages are in `theseus_registry.json` with `status: "verified"`
-- [ ] `tools/cleanroom_verify.py` rejects any implementation that imports the original
-- [ ] `make test` passes with full test suite including isolation tests
+Superseded by [ADR 0001](docs/decisions/0001-verification-ladder.md). The checkboxes below were the original toy bar; they are **not** a qualification claim.
+
+- [x] `cleanroom/python/` contains ≥3 packages that passed the isolation harness
+- [x] `cleanroom/node/` contains ≥1 Node.js package that passed the isolation harness
+- [x] Those packages are in `theseus_registry.json` with `status: "verified"` (legacy isolation)
+- [x] `tools/cleanroom_verify.py` rejects any implementation that imports the original
+- [ ] A gold-set package is `qualified` (held-out oracle, empty-workspace regen, twice) — **none today**
+- [x] `make test` passes with full test suite including isolation tests
 - [ ] No `*_rust.zspec.zsdl` wrapper spec is presented as a clean-room implementation

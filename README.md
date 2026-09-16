@@ -4,7 +4,9 @@
 
 [![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
-> ### **2,295 source specs · 16,683 invariants · 1,091 npm packages · libpcap + pcapng covered**
+> ### **2,299 source specs · Layer 2 oracles vs installed libraries · 0 packages qualified**
+>
+> `status=verified` in the registry is **legacy isolation only**. Qualification claims are withdrawn pending the ladder in [ADR 0001](docs/decisions/0001-verification-ladder.md). Autopsy: [reports/audit/corpus-autopsy.md](reports/audit/corpus-autopsy.md).
 
 📖 **[Full User Guide →](https://jordanhubbard.github.io/Theseus/)** — installation, pipeline walkthrough, spec authoring, language reference. The full list of covered libraries lives in the user guide [Index](https://jordanhubbard.github.io/Theseus/#covered-library-index).
 
@@ -12,7 +14,7 @@
 
 ## What Theseus is
 
-**Theseus** is a clean-room package synthesis engine plus a behavioral spec verifier. Given a machine-readable description of what a software package must do, Theseus (a) verifies the description against the real, installed library on every CI run, and (b) can synthesize a complete reimplementation that satisfies the description without runtime dependence on the original — no wrapping, no cross-language call-backs, no shimming. Python packages are reimplemented in Python; Node.js packages in JavaScript. Only other Theseus-verified packages may serve as dependencies, forming a self-contained ecosystem rooted in `theseus_registry.json`.
+**Theseus** is a batch toolchain for characterizing OSS packages and checking those characterizations against the real installed library. It can also attempt clean-room reimplementation from a spec, but **no package is currently qualified as a replacement**. Given a machine-readable description of what a software package must do, Theseus (a) verifies the description against the real, installed library on every CI run, and (b) historically synthesized implementations that passed a shallow isolation harness. Isolation is not API parity. See [ADR 0001](docs/decisions/0001-verification-ladder.md).
 
 **Theseus** also provides a toolchain for normalizing package recipes from four ecosystems into a shared canonical schema, so packages can be compared, ranked, and reasoned about across ecosystems without losing the provenance of each claim.
 
@@ -33,9 +35,9 @@ Terms used throughout the project, defined here before they appear in the rest o
 - **Z-spec** / **zspec** — synonym for behavioral spec; the "Z" was chosen for being terminal (Z is the last letter — after Z, only verification remains).
 - **ZSDL** — *Z-Spec Definition Language*. The YAML-flavoured surface syntax of `.zspec.zsdl` files. Compiles to JSON via `make compile-zsdl`. Full grammar: [docs/zsdl-design.md](docs/zsdl-design.md).
 - **Invariant** — one falsifiable claim about behaviour (e.g. *"`semver.valid('1.2.3')` returns `'1.2.3'`"*). The verification harness asserts each invariant against the real installed library and reports pass/fail.
-- **Compiled bundle** — the compiler emits one `.zspec.json` per source `.zsdl`. The current corpus has 2,295 source specs totalling 16,683 invariants.
+- **Compiled bundle** — the compiler emits one `.zspec.json` per source `.zsdl`. The current corpus has 2,299 source specs. Depth and quality vary; see the [corpus autopsy](reports/audit/corpus-autopsy.md).
 - **Backend** — how the spec runner loads the library under test: `ctypes` (C shared libraries via `ctypes.CDLL`), `python_module` (`importlib.import_module`), `node` (CJS or ESM via `node -e`), `cli` (`subprocess.run`).
-- **Clean-room package** — a Theseus reimplementation registered in `theseus_registry.json` that satisfies its spec without importing the original library.
+- **Clean-room package** — a Theseus reimplementation registered in `theseus_registry.json`. `status=verified` means **legacy isolation** (listed invariants passed with the original blocked). It is not `qualified` replacement. Ladder: [ADR 0001](docs/decisions/0001-verification-ladder.md).
 
 ---
 
@@ -45,16 +47,20 @@ Terms used throughout the project, defined here before they appear in the rest o
 - **No cross-language boundaries.** Python packages → Python. Node.js packages → JavaScript.
 - **Spec-first.** Every package has a behavioral spec before any implementation begins.
 - **Isolation-verified.** Invariants are verified with the original package actively blocked via `THESEUS_BLOCKED_PACKAGE`.
-- **Registry-only dependencies.** Only Theseus-verified packages (in `theseus_registry.json`) may be imported.
+- **Registry-only dependencies.** Only Theseus packages in `theseus_registry.json` may be imported by other Theseus implementations. `status=verified` is legacy isolation, not qualification.
 
-### Clean-Room Packages (verified)
+### Clean-room packages (legacy isolation — not qualified)
 
-| Package | Language | Invariants | Replaces |
+The packages below passed the old isolation harness. None are `qualified` under ADR 0001. The Layer 2 `json` spec (22 public-API invariants) is a stronger oracle than `theseus_json` (3 wrappers).
+
+| Package | Language | Isolation invariants | Replaces (claim withdrawn) |
 |---|---|---|---|
 | `theseus_json` | Python | 3/3 | `json` |
 | `theseus_re` | Python | 3/3 | `re` |
 | `theseus_pathlib` | Python | 3/3 | `pathlib` / `os.path` |
 | `theseus_path_node` | Node.js | 3/3 | Node `path` |
+
+Full withdrawn list: [`reports/audit/withdrawn-verified.json`](reports/audit/withdrawn-verified.json) (396 packages).
 
 ---
 

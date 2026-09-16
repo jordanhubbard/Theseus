@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -244,6 +244,12 @@ orphan-specs: compile-zsdl
 spec-vector-coverage: compile-zsdl
 	$(PYTHON) tools/spec_vector_coverage.py $(if $(SPECS),$(SPECS)) $(if $(JSON),--json) $(if $(MIN_SCORE),--min-score $(MIN_SCORE))
 
+corpus-autopsy:
+	$(PYTHON) tools/corpus_autopsy.py $(if $(OUT),--out-dir "$(OUT)")
+
+corpus-autopsy-check:
+	$(PYTHON) tools/corpus_autopsy.py --check
+
 validate:
 	$(PYTHON) tools/validate_record.py $(or $(PATHS),examples/)
 
@@ -422,6 +428,8 @@ help:
 	@echo "  make verify-all-specs-json  Run all specs and write JSON results (OUT=file optional, SPECS=paths optional)"
 	@echo "  make spec-coverage    Report which extracted candidates have a behavioral spec (EXTRACTION_DIR= required)"
 	@echo "  make orphan-specs     Report which compiled specs have no matching extraction record (EXTRACTION_DIR= required)"
+	@echo "  make corpus-autopsy   Classify specs and registry onto the verification ladder (ADR 0001)"
+	@echo "  make corpus-autopsy-check  Fail if committed reports/audit/corpus-autopsy.json is stale"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo "  make release        Cut a release (BUMP=major|minor|patch, default: patch)"

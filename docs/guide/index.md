@@ -7,20 +7,21 @@ PyPI, and npm into a shared canonical JSON schema, then ranks and extracts the m
 important candidates. [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) is also
 supported as a build recipe source — its 20,000+ port Makefiles complement Nixpkgs.
 
-**Layer 2** provides 2,295 machine-readable behavioral specs — one per OSS library —
+**Layer 2** provides 2,299 machine-readable behavioral specs — one per OSS library —
 that are verified against the real installed library on macOS and Linux. 1,091 of them
-target npm packages; the corpus totals 16,683 invariants. ctypes-backed specs
-include libpcap and pcapng (35 invariants together, all derived from IETF drafts).
+target npm packages. Spec depth varies; clean-room factory specs are typically 3
+invariants and are **not** qualified replacements. See
+[ADR 0001](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0001-verification-ladder.md).
 
 ---
 
 ## Covered library index {#covered-library-index}
 
-The Z-layer covers **2,295** compiled specs (one per source `.zsdl` file).
+The Z-layer covers **2,299** compiled specs (one per source `.zsdl` file).
 The full sorted list is below — click to expand.
 
 <details>
-<summary>Show full list of covered libraries (2,295 entries)</summary>
+<summary>Show full list of covered libraries (2,299 entries)</summary>
 
 ```
 _bisect

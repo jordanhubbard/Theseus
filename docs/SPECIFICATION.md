@@ -31,10 +31,10 @@ The system is a batch toolchain with no server, no daemon, and no external runti
 | **Spec** | A `.zspec.zsdl` source file describing a library's behavior via invariants and provenance metadata. |
 | **ZSDL** | Z-layer Specification Definition Language — a YAML superset with four custom binary-data tags (`!b64`, `!hex`, `!ascii`, `!tuple`). |
 | **Compiled spec** | A `.zspec.json` file produced by compiling a `.zspec.zsdl` file; consumed by the verification harness. |
-| **Invariant** | A zero-argument assertion about a library: call a function with fixed inputs, assert the output equals a fixed expected value. |
+| **Invariant** | One falsifiable claim about behaviour. Layer 2 oracles call the public API with arguments. Legacy clean-room specs used zero-argument wrappers; those are `legacy_isolation`, not qualification (ADR 0001). |
+| **Verified package** | **Legacy isolation only.** `status=verified` means the listed invariants passed with the original package blocked. It does **not** mean the package is `qualified`. See [ADR 0001](docs/decisions/0001-verification-ladder.md) and `theseus_registry.json` `ladder.qualification_claim`. |
 | **Backend** | How a spec's library is loaded: `python_module`, `python_cleanroom`, `ctypes`, `node_module`, `cli`. |
 | **Clean-room implementation** | A new implementation of a library written from a spec alone, without reading the original implementation source. Lives in `cleanroom/python/<name>/` or `cleanroom/node/<name>/`. |
-| **Verified package** | A clean-room implementation that has passed all invariants in an isolated environment where the original package is blocked. Registered in `theseus_registry.json` with `status: verified`. |
 | **Isolation harness** | `cleanroom/python/sitecustomize.py` — Python's auto-loaded site customization file that intercepts imports and raises `ImportError` for any package named in `THESEUS_BLOCKED_PACKAGE`. |
 | **Wave** | A named batch of specs processed together in one synthesis run. Wave names follow the pattern `cr1`, `cr2`, etc. |
 | **Registry** | `theseus_registry.json` — the authoritative list of clean-room packages, their paths, and verification status. |

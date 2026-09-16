@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Verification ladder (ADR 0001) and a reproducible corpus autopsy (`make corpus-autopsy`). `status=verified` is documented as legacy isolation; qualification claims are withdrawn (0 packages qualified).
 - ZSDL `node_chain_eq` kind for fluent builder APIs that need 3+ chained method/property/call steps off an initial value (entry: `module` / `named` / `constructor` / `factory`). Unblocks commander, builder-style CLIs, and stateful npm packages whose APIs don't fit the existing single-call/two-step kinds.
 - ZSDL `node_property_eq` kind — sugar for "construct/call, then read one property". Used for ora, inquirer's `Separator`, meow's `cli.flags`/`cli.input`.
 - ZSDL `node_sandbox_chain_eq` kind — same chain semantics but the script runs in a fresh tempdir cwd seeded by `setup`. Used for filesystem packages (glob, fs-extra, mkdirp, rimraf, find-up).

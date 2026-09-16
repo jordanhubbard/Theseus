@@ -92,3 +92,23 @@ def test_verify_does_not_promote_on_cleanroom_failure(tmp_path, monkeypatch):
 
     info = json.loads(reg_path.read_text(encoding="utf-8"))["packages"]["theseus_pkg"]
     assert info["status"] == "pending"
+
+
+def test_committed_registry_withdraws_qualification_claim():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    data = json.loads((root / "theseus_registry.json").read_text(encoding="utf-8"))
+    withdrawn = json.loads(
+        (root / "reports" / "audit" / "withdrawn-verified.json").read_text(encoding="utf-8")
+    )
+    ladder = data.get("ladder") or {}
+    assert ladder.get("qualification_claim") == "withdrawn"
+    assert ladder.get("qualified") == []
+    verified = [
+        name
+        for name, info in data["packages"].items()
+        if info.get("status") == "verified"
+    ]
+    assert withdrawn["count"] == len(verified)
+    assert withdrawn["count"] >= 1

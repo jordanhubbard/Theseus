@@ -6,9 +6,9 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 1 — Package recipe pipeline:** normalizes Nixpkgs and FreeBSD Ports records into a shared canonical schema, ranks candidates, and produces merged extraction records.
 
-**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,018 source specs covering 7 backend types (node, rust_module, python_cleanroom, python_module, ctypes, cli, node_cleanroom). 812 specs target npm packages; ctypes specs now include libpcap and pcapng (35 invariants together, derived from the IETF capture-file drafts). The wave compiler expands the source set into 10,935 invariant bundles totalling 224k+ invariants.
+**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,299 source specs covering 7 backend types (node 1091, rust_module 479, python_cleanroom 394, python_module 318, ctypes 12, cli 4, node_cleanroom 1). Depth varies: 1,010 are mechanical `oracle_bound` public-API specs; clean-room specs have a median of 3 invariants. See [ADR 0001](decisions/0001-verification-ladder.md) and the [corpus autopsy](../reports/audit/corpus-autopsy.md).
 
-**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, synthesize a complete reimplementation from scratch that satisfies all invariants without ever importing the original package. 392 Python packages are verified as of the current registry.
+**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, historically synthesized a reimplementation that satisfied listed invariants without importing the original package. **Qualification is withdrawn.** `status=verified` is legacy isolation (396 packages). Zero packages are `qualified`. See [ADR 0001](decisions/0001-verification-ladder.md) and [corpus autopsy](../reports/audit/corpus-autopsy.md).
 
 ```
 Source Trees (Nixpkgs, FreeBSD Ports)
@@ -55,7 +55,7 @@ zspecs/theseus_*.zspec.zsdl              ← clean-room specs (python_cleanroom 
   tools/registry.py verify <name>       ← register in theseus_registry.json
         │
         ▼
-  theseus_registry.json                 ← 392 verified packages; gating dependency graph
+  theseus_registry.json                 ← 396 legacy-isolation packages; qualification withdrawn (ADR 0001)
 ```
 
 ---
@@ -578,7 +578,7 @@ python3 tools/registry.py check <name>                # exits 0 if verified, 1 i
 | `cr2` | Node.js clean-room packages | 1 | DONE |
 | `w100`–`w2851` | ZSDL `_extra` wave-series (auto-generated) | ~6,700 | pending |
 
-Total verified packages: **392 Python** (see `theseus_registry.json`). Run `python3 tools/synthesize_waves.py --list` for current state.
+Total registry packages with `status=verified`: **396** (legacy isolation only; **0 qualified**). See [ADR 0001](decisions/0001-verification-ladder.md). Run `python3 tools/synthesize_waves.py --list` for historical wave state.
 
 ---
 
