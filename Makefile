@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -258,6 +258,13 @@ verify-json-spike:
 	$(PYTHON) tools/cleanroom_verify.py _build/zspecs/held_out.zspec.json
 	$(PYTHON) tools/held_out_guard.py
 
+# Gold-set characterization loop (ADR 0003). FAMILY=json for one family.
+characterize:
+	$(PYTHON) tools/characterize.py $(if $(FAMILY),$(FAMILY),--all)
+
+characterize-gold:
+	$(PYTHON) tools/characterize.py --all
+
 validate:
 	$(PYTHON) tools/validate_record.py $(or $(PATHS),examples/)
 
@@ -439,6 +446,8 @@ help:
 	@echo "  make corpus-autopsy   Classify specs and registry onto the verification ladder (ADR 0001)"
 	@echo "  make corpus-autopsy-check  Fail if committed reports/audit/corpus-autopsy.json is stale"
 	@echo "  make verify-json-spike  JSON gold-set: public oracle + held-out oracle + prompt leak guard"
+	@echo "  make characterize      Characterization loop (FAMILY=json or all gold families)"
+	@echo "  make characterize-gold Gold-set characterization for every gold/<family>/"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo "  make release        Cut a release (BUMP=major|minor|patch, default: patch)"

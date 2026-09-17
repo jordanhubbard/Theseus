@@ -75,6 +75,8 @@ held-out oracle, twice. This spike does not claim `qualified`.
 
 ## Uncertainty
 
+Reviewed ledger: [`gold/json/uncertainty.yaml`](uncertainty.yaml). Live probes: [`gold/json/probes.yaml`](probes.yaml). The characterization loop is [ADR 0003](../../docs/decisions/0003-characterization-loop.md).
+
 - Trailing-comma and comment rejection are RFC-required but easy to get wrong;
   those cases live in the held-out oracle, not the public spec.
 - Unicode `ensure_ascii` escaping is specified here; the exact BMP test vector

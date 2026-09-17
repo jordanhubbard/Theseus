@@ -4,7 +4,7 @@ Tests for the node_module_call_eq pattern handler and the semver Z-layer spec.
 Organized as:
   - NodeModuleBackend: LibraryLoader loading node + semver module
   - NodeModuleCallEq: unit tests for the handler via semver functions
-  - SemverSpecIntegration: all 24 invariants pass end-to-end
+  - SemverSpecIntegration: all 26 invariants pass end-to-end
   - SemverCLI: main() exit-code and --verbose / --list / --json-out flags
 """
 import sys
@@ -292,7 +292,7 @@ class TestSemverSpecIntegration:
     def test_invariant_count(self, semver_spec, semver_backend):
         runner = vb.InvariantRunner()
         results = runner.run_all(semver_spec, semver_backend)
-        assert len(results) == 24
+        assert len(results) == 26
 
     def test_no_skips(self, semver_spec, semver_backend):
         runner = vb.InvariantRunner()
@@ -302,7 +302,7 @@ class TestSemverSpecIntegration:
     def test_comparison_category(self, semver_spec, semver_backend):
         runner = vb.InvariantRunner()
         results = runner.run_all(semver_spec, semver_backend, filter_category="comparison")
-        assert len(results) == 8
+        assert len(results) == 10
         assert all(r.passed for r in results)
 
     def test_range_category(self, semver_spec, semver_backend):
@@ -358,5 +358,5 @@ class TestSemverCLI:
         out_file = tmp_path / "results.json"
         vb.main([str(SEMVER_SPEC_PATH), "--json-out", str(out_file)])
         data = json.loads(out_file.read_text())
-        assert len(data) == 24
+        assert len(data) == 26
         assert all(r["passed"] for r in data)

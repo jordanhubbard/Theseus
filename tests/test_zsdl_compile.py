@@ -562,7 +562,7 @@ VERIFY_SCRIPT = REPO_ROOT / "tools" / "verify_behavior.py"
 ZSDL_SPECS = [
     ("zstd", 25),
     ("difflib", 23),
-    ("urllib_parse", 18),
+    ("urllib_parse", 20),
 ]
 
 
@@ -669,7 +669,7 @@ def test_zsdl_difflib_invariant_ids():
 
 
 def test_zsdl_urllib_parse_invariant_ids():
-    """Compiled urllib_parse spec has all 18 expected invariant IDs."""
+    """Compiled urllib_parse spec has all 20 expected invariant IDs."""
     zsdl_path = REPO_ROOT / "zspecs" / "urllib_parse.zspec.zsdl"
     compiled = zc.ZSDLCompiler().compile_file(zsdl_path)
     ids = {inv["id"] for inv in compiled["invariants"]}
@@ -681,6 +681,8 @@ def test_zsdl_urllib_parse_invariant_ids():
         "urllib_parse.urlparse.fragment",
         "urllib_parse.urlparse.port",
         "urllib_parse.urlparse.userinfo",
+        "urllib_parse.urlparse.rfc3986_example",
+        "urllib_parse.urlunparse.roundtrip_shape",
         "urllib_parse.quote.spaces",
         "urllib_parse.quote.empty_safe",
         "urllib_parse.quote_plus.spaces",

@@ -1,6 +1,6 @@
 # Theseus Clean-Room Rewrite Initiative — Implementation Plan
 
-> **Status (2026-09-17):** Phase 0 (corpus autopsy, ADR 0001) and Phase 1 (JSON format spike, ADR 0002) are done. Qualification remains withdrawn (0 packages). Do not run synthesis waves until Phase 2 characterization review is specified. Next: Phase 2 (`theseus-il4`).
+> **Status (2026-09-17):** Phase 0 (corpus autopsy, ADR 0001), Phase 1 (JSON format spike, ADR 0002), and Phase 2 (characterization loop, ADR 0003) are done. Qualification remains withdrawn (0 packages). Do not run synthesis waves until Phase 3 gold-set qualification is specified. Next: Phase 3.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

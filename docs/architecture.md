@@ -8,7 +8,7 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,299 source specs covering 7 backend types (node 1091, rust_module 479, python_cleanroom 394, python_module 318, ctypes 12, cli 4, node_cleanroom 1). Depth varies: 1,010 are mechanical `oracle_bound` public-API specs; clean-room specs have a median of 3 invariants. See [ADR 0001](decisions/0001-verification-ladder.md) and the [corpus autopsy](../reports/audit/corpus-autopsy.md).
 
-**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, historically synthesized a reimplementation that satisfied listed invariants without importing the original package. **Qualification is withdrawn.** `status=verified` is legacy isolation (396 packages). Zero packages are `qualified`. The JSON gold-set spike ([ADR 0002](decisions/0002-json-authority-format.md), `gold/json/`) grades `theseus_json` on `dumps`/`loads` plus a held-out oracle; that is still not qualification. See [ADR 0001](decisions/0001-verification-ladder.md) and [corpus autopsy](../reports/audit/corpus-autopsy.md).
+**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, historically synthesized a reimplementation that satisfied listed invariants without importing the original package. **Qualification is withdrawn.** `status=verified` is legacy isolation (396 packages). Zero packages are `qualified`. The JSON gold-set spike ([ADR 0002](decisions/0002-json-authority-format.md), `gold/json/`) grades `theseus_json` on `dumps`/`loads` plus a held-out oracle; gold-set families now have reviewed uncertainty ledgers ([ADR 0003](decisions/0003-characterization-loop.md)). That is still not qualification. See [ADR 0001](decisions/0001-verification-ladder.md) and [corpus autopsy](../reports/audit/corpus-autopsy.md).
 
 ```
 Source Trees (Nixpkgs, FreeBSD Ports)
@@ -32,9 +32,14 @@ Source Trees (Nixpkgs, FreeBSD Ports)
 
 ── Layer 2: Behavioral Verification ─────────────────────────────────────────
 zspecs/*.zspec.zsdl                      ← behavioral contract sources (one per library, committed)
+gold/<family>/package.md                 ← gold-set authority (Markdown)
+gold/<family>/uncertainty.yaml           ← reviewed uncertainty ledger (ADR 0003)
+gold/<family>/probes.yaml                ← live probes vs installed public API (no source reads)
 _build/zspecs/*.zspec.json               ← compiled from ZSDL (build artifact, not committed)
         │
         ├─► tools/verify_behavior.py     ← harness: run invariants against installed library
+        ├─► tools/live_probe.py          ← black-box calls on the installed library
+        ├─► tools/characterize.py        ← authority + ledger + oracle + probes
         ├─► tools/validate_zspec.py      ← static JSON schema validation of spec files
         ├─► tools/verify_all_specs.py    ← run all specs; write JSON results file
         └─► make verify-all-specs        ← aggregate text report across all specs
@@ -355,6 +360,24 @@ Exit codes: `0` all passed, `1` one or more failed, `2` harness error.
 
 **`--watch`**: polls the spec file every 0.5s; clears the terminal and reruns on each save. Useful for TDD-style spec authoring. Exits 0 on Ctrl-C.
 
+#### `tools/live_probe.py`
+
+Call an installed library's public API. Do not read its source. Used to confirm expected values while authoring gold-set oracles ([ADR 0003](decisions/0003-characterization-loop.md)).
+
+```bash
+python3 tools/live_probe.py --from gold/json/probes.yaml
+python3 tools/live_probe.py --module json --function dumps --args '[42]'
+```
+
+#### `tools/characterize.py`
+
+Run the gold-set characterization loop for one family or `--all`: validate `gold/<family>/package.md` + `uncertainty.yaml`, compile/verify the public oracle, run live probes, and (when declared) the held-out pair + leak guard. Does not mark anything qualified.
+
+```bash
+python3 tools/characterize.py json
+make characterize-gold
+```
+
 #### `tools/validate_zspec.py`
 
 Static validator for spec files. Uses `jsonschema` if installed, stdlib structural checks otherwise.
@@ -452,6 +475,7 @@ Tests live in `tests/`. Run with `make test` (requires `pytest`).
 | File | Tests |
 |------|-------|
 | `tests/test_verify_behavior.py` | Core harness: spec loading, library loading, ctypes backend |
+| `tests/test_characterization_loop.py` | Gold-set ledgers, live probes, `characterize.py` (ADR 0003) |
 | `tests/test_verify_behavior_cli.py` | CLI backend, baseline/diff mode |
 | `tests/test_verify_behavior_curl.py` | curl spec integration |
 | `tests/test_verify_behavior_npm.py` | uuid, minimist, compact JSON comparison |

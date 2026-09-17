@@ -235,6 +235,8 @@ class TestReport:
         assert withdrawn_names == {"theseus_json", "theseus_antigravity_cr"}
         md = autopsy.render_markdown(report)
         assert "withdrawn from qualification" in md.lower() or "Withdrawn" in md
+        assert "characterization" in report
+        assert report["summary"]["gold_characterization_families"] == 0
         doc = autopsy.withdrawn_document(report)
         assert doc["qualification_claim"] == "withdrawn"
         assert doc["count"] == 2
@@ -266,8 +268,8 @@ class TestRealCorpusExhibits:
             return
         rec = _compile_and_classify(path, root, {"packages": {}})
         assert rec["contract_shape"] == "public_api"
-        assert rec["invariant_count"] >= 16
         assert rec["oracle_quality"] in ("moderate", "deep")
+        assert rec["invariant_count"] >= 26
 
     def test_theseus_json_is_cleanroom_public_api(self):
         root = Path(__file__).resolve().parent.parent
@@ -281,7 +283,7 @@ class TestRealCorpusExhibits:
         assert rec["contract_shape"] == "cleanroom_public_api"
         assert rec["ladder"] == "legacy_isolation"
         assert rec["zero_arg_ratio"] == 0.0
-        assert rec["invariant_count"] >= 16
+        assert rec["invariant_count"] >= 26
 
     def test_antigravity_is_presence(self):
         root = Path(__file__).resolve().parent.parent
@@ -310,3 +312,6 @@ class TestCommittedAutopsy:
         assert data["summary"]["withdrawn_from_qualification"] >= 1
         assert wdoc["qualification_claim"] == "withdrawn"
         assert wdoc["count"] == data["summary"]["withdrawn_from_qualification"]
+        # Regenerated after Phase 2; allow missing key only if autopsy not yet rewritten.
+        if "gold_characterization_accepted" in data["summary"]:
+            assert data["summary"]["gold_characterization_accepted"] >= 1

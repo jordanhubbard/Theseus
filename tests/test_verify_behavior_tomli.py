@@ -4,7 +4,7 @@ in tools/verify_behavior.py.
 
 Organized as:
   - TomliSpecLoader: loading the tomli spec via the python_module backend
-  - TestTomliAll: integration runner — all 22 invariants pass, count check
+  - TestTomliAll: integration runner — all 24 invariants pass, count check
   - TestTomliCLI: CLI end-to-end (exit code, verbose, list, json-out)
 """
 import sys
@@ -24,7 +24,7 @@ import verify_behavior as vb
 
 TOMLI_SPEC_PATH = REPO_ROOT / "_build" / "zspecs" / "tomli.zspec.json"
 
-_EXPECTED_COUNT = 22
+_EXPECTED_COUNT = 24
 
 
 # ---------------------------------------------------------------------------
@@ -105,8 +105,8 @@ class TestTomliAll:
     def test_filter_by_loads_category(self, tomli_spec, tomli_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(tomli_spec, tomli_mod, filter_category="loads")
-        # 6 table rows + 4 scalar key + 5 structure invariants + 1 multi_key_section = 16
-        assert len(results) == 16
+        # 8 table rows + 4 scalar key + 5 structure invariants + 1 multi_key_section = 18
+        assert len(results) == 18
         assert all(r.passed for r in results)
 
     def test_filter_by_errors_category(self, tomli_spec, tomli_mod):

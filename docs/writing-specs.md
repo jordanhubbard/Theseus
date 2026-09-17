@@ -26,6 +26,12 @@ make compile-zsdl ZSDL=zspecs/mylib.zspec.zsdl && \
 Compiled JSON files go in `_build/` and are not committed to git. The `.zsdl`
 source is the canonical artifact; commit that.
 
+Gold-set families also run the [characterization loop](characterization-loop.md):
+draft from public docs, confirm values with `tools/live_probe.py` (installed API
+only — never implementation source), review `gold/<family>/uncertainty.yaml`,
+then `python3 tools/characterize.py <family>`. That loop does not qualify a
+replacement (ADR 0001 / 0003).
+
 ---
 
 ## 1. When to use each backend

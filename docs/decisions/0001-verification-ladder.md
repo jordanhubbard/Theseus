@@ -41,7 +41,7 @@ Every spec and every registry package sits on exactly one current rung. Higher r
 |---|---|---|
 | `inventoried` | Recipe / identity metadata exists. No behavioral contract. | Layer 1 records, rust wrapper specs, presence-only shims |
 | `characterized_draft` | A behavioral description exists (ZSDL or future Markdown). Not reviewed as sufficient. | Most Layer 2 specs that are not yet public-API oracles of useful depth |
-| `characterized` | A person accepted the description, including an uncertainty ledger. (Not implemented in Phase 0.) | Future characterization loop |
+| `characterized` | A person accepted the description, including an uncertainty ledger. | Gold-set families under `gold/<family>/` after Phase 2 ([ADR 0003](0003-characterization-loop.md)) |
 | `oracle_bound` | Executable invariants call the **public API with arguments** and pass against the **installed original**. | Layer 2 `python_module` / `node` / `ctypes` / `cli` specs of moderate or deep quality |
 | `spec_sufficient` | An independent review says the spec could support regeneration. Held-out vectors exist and are not in the synthesizer prompt. | Future Phase 1–2 |
 | `regenerated` | Empty-workspace generation passed **generated** tests. Not acceptance. | Future Phase 3 |
@@ -115,7 +115,7 @@ Costs:
 
 - README, AGENTS.md, architecture notes, and the registry description must stop saying “392 verified packages” as if they were replacements.
 - Downstream tools that filter `--verified` still mean “legacy isolation passed.”
-- Re-grading Layer 2 specs onto `characterized` (human review) is future work; the autopsy marks `oracle_bound` mechanically.
+- Re-grading Layer 2 specs onto `characterized` (human review) is done for the intended gold-set families (`gold/<family>/uncertainty.yaml`, ADR 0003). The autopsy still marks most of the corpus `oracle_bound` mechanically.
 
 ## Rejected alternatives
 
@@ -128,7 +128,7 @@ Costs:
 ## Follow-up
 
 - Phase 1 — format spike on JSON: Markdown authority, public-API oracle, held-out vectors, no zero-arg wrappers. **Done** ([ADR 0002](0002-json-authority-format.md), `gold/json/`).
-- Phase 2 — characterization loop with uncertainty review; deepen the best Layer 2 oracles.
+- Phase 2 — characterization loop with uncertainty review; deepen the best Layer 2 oracles. **Done** ([ADR 0003](0003-characterization-loop.md), `docs/characterization-loop.md`, `gold/<family>/`).
 - Phase 3 — gold-set regenerative qualification.
 - Phase 4 — keep or drop replacement as a product claim.
 

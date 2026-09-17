@@ -169,7 +169,7 @@ class TestHashlibAlgorithmsGuaranteedExtended:
 
 
 # ---------------------------------------------------------------------------
-# hashlib — full spec integration (all 41 invariants)
+# hashlib — full spec integration (all 42 invariants)
 # ---------------------------------------------------------------------------
 
 class TestHashlibFullSpec:
@@ -182,7 +182,7 @@ class TestHashlibFullSpec:
         assert not failures, "\n".join(failures)
 
     def test_total_invariant_count(self, hl_spec):
-        assert len(hl_spec["invariants"]) == 41
+        assert len(hl_spec["invariants"]) == 42
 
     def test_no_duplicate_ids(self, hl_spec):
         ids = [i["id"] for i in hl_spec["invariants"]]
@@ -198,7 +198,7 @@ class TestUrllibParseLoading:
         assert url_spec["identity"]["canonical_name"] == "urllib_parse"
 
     def test_invariant_count(self, url_spec):
-        assert len(url_spec["invariants"]) == 18
+        assert len(url_spec["invariants"]) == 20
 
     def test_lib_loads(self, url_lib):
         import urllib.parse

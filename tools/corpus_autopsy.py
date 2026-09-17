@@ -62,6 +62,8 @@ INTENDED_GOLD_SET = frozenset({
     "hmac",
 })
 
+LEDGER_STATUSES = frozenset({"resolved", "deferred", "held_out"})
+
 # Replacement of the original is plausible from a public spec + held-out oracle.
 _HIGH_PURE = frozenset({
     "json", "base64", "binascii", "struct", "csv", "uuid", "hashlib", "hmac",
@@ -494,6 +496,63 @@ def build_families(spec_records: list) -> list:
     return families
 
 
+def scan_characterization(repo_root: Path) -> list:
+    """Classify gold/<family>/ authority + uncertainty ledgers (ADR 0003)."""
+    gold_root = repo_root / "gold"
+    rows = []
+    if not gold_root.is_dir():
+        return rows
+    yaml = zsdl_compile.yaml
+    for path in sorted(gold_root.iterdir()):
+        if not path.is_dir() or not (path / "package.md").is_file():
+            continue
+        rec = {
+            "family": path.name,
+            "intended_gold_set": path.name in INTENDED_GOLD_SET,
+            "has_authority": True,
+            "has_ledger": (path / "uncertainty.yaml").is_file(),
+            "has_probes": (path / "probes.yaml").is_file(),
+            "has_held_out": (path / "held_out.zspec.zsdl").is_file(),
+            "reviewed": False,
+            "item_count": 0,
+            "open_items": [],
+            "status": "missing_ledger",
+        }
+        ledger = path / "uncertainty.yaml"
+        if not rec["has_ledger"]:
+            rows.append(rec)
+            continue
+        try:
+            doc = yaml.safe_load(ledger.read_text(encoding="utf-8")) or {}
+        except Exception as exc:  # noqa: BLE001 — autopsy must classify, not abort
+            rec["status"] = "invalid_ledger"
+            rec["error"] = str(exc)
+            rows.append(rec)
+            continue
+        if not isinstance(doc, dict):
+            rec["status"] = "invalid_ledger"
+            rec["error"] = "top-level must be a mapping"
+            rows.append(rec)
+            continue
+        items = doc.get("items") or []
+        rec["item_count"] = len(items)
+        rec["reviewed"] = bool(doc.get("reviewed"))
+        rec["open_items"] = [
+            item.get("id") for item in items
+            if item.get("status") not in LEDGER_STATUSES
+        ]
+        if rec["open_items"]:
+            rec["status"] = "open"
+        elif not rec["reviewed"]:
+            rec["status"] = "unreviewed"
+        elif not items:
+            rec["status"] = "empty"
+        else:
+            rec["status"] = "accepted"
+        rows.append(rec)
+    return rows
+
+
 def gold_set_candidates(spec_records: list) -> list:
     out = []
     for rec in spec_records:
@@ -552,7 +611,8 @@ def withdrawn_entries(spec_records: list, registry: dict) -> list:
     return out
 
 
-def summarize(spec_records: list, withdrawn: list, gold: list, families: list, errors: list, unmatched: list) -> dict:
+def summarize(spec_records: list, withdrawn: list, gold: list, families: list, errors: list, unmatched: list, characterization=None) -> dict:
+    characterization = characterization or []
     registry_recs = [r for r in spec_records if r.get("in_registry")]
     factory = [r for r in spec_records if r.get("oracle_quality") == "factory_shallow"]
     public_deep = [
@@ -572,6 +632,14 @@ def summarize(spec_records: list, withdrawn: list, gold: list, families: list, e
         "duplicate_families": len(dup_families),
         "gold_set_candidates": len(gold),
         "intended_gold_set": len(INTENDED_GOLD_SET),
+        "gold_characterization_families": len(characterization),
+        "gold_characterization_accepted": sum(
+            1 for row in characterization if row.get("status") == "accepted"
+        ),
+        "gold_characterization_open": sum(
+            1 for row in characterization
+            if row.get("status") in ("open", "unreviewed", "missing_ledger", "empty", "invalid_ledger")
+        ),
         "by_backend": _count(spec_records, "backend"),
         "by_oracle_quality": _count(spec_records, "oracle_quality"),
         "by_contract_shape": _count(spec_records, "contract_shape"),
@@ -630,6 +698,7 @@ def build_report(
     families = build_families(spec_records)
     gold = gold_set_candidates(spec_records)
     withdrawn = withdrawn_entries(spec_records, registry)
+    characterization = scan_characterization(repo_root)
     spec_names = {r["name"] for r in spec_records}
     unmatched = sorted(
         n for n in (registry.get("packages") or {})
@@ -640,11 +709,15 @@ def build_report(
         "schema": SCHEMA,
         "generated_at": generated_at,
         "decision": LADDER_DECISION,
-        "summary": summarize(spec_records, withdrawn, gold, families, errors, unmatched),
+        "summary": summarize(
+            spec_records, withdrawn, gold, families, errors, unmatched,
+            characterization=characterization,
+        ),
         "intended_gold_set": sorted(INTENDED_GOLD_SET),
         "specs": spec_records,
         "families": families,
         "gold_set_candidates": gold,
+        "characterization": characterization,
         "withdrawn_from_qualification": withdrawn,
         "unmatched_registry_packages": unmatched,
         "compile_errors": errors,
@@ -667,6 +740,7 @@ def render_markdown(report: dict) -> str:
     s = report["summary"]
     exhibits = report.get("exhibits") or {}
     gold = report.get("gold_set_candidates") or []
+    characterization = report.get("characterization") or []
     errors = report.get("compile_errors") or []
     families = [f for f in report.get("families") or [] if f.get("duplicate_wave")][:25]
     withdrawn_n = s.get("withdrawn_from_qualification", 0)
@@ -687,6 +761,19 @@ def render_markdown(report: dict) -> str:
                 rec.get("oracle_quality"),
                 rec.get("contract_shape"),
                 rec.get("ladder"),
+            )
+        )
+    char_lines = []
+    for rec in characterization:
+        marker = " *(intended)*" if rec.get("intended_gold_set") else ""
+        char_lines.append(
+            "- `{}`{} — ledger `{}`, {} items, probes {}, held-out {}".format(
+                rec["family"],
+                marker,
+                rec.get("status"),
+                rec.get("item_count"),
+                "yes" if rec.get("has_probes") else "no",
+                "yes" if rec.get("has_held_out") else "no",
             )
         )
     gold_lines = []
@@ -739,6 +826,10 @@ def render_markdown(report: dict) -> str:
         "- **{}** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).".format(
             s.get("duplicate_families")
         ),
+        "- **{}** gold-set families have an accepted uncertainty ledger (ADR 0003); **{}** still open/missing.".format(
+            s.get("gold_characterization_accepted"),
+            s.get("gold_characterization_open"),
+        ),
         "- Registry names with no matching spec: `{}`.".format(
             ", ".join(s.get("unmatched_registry_packages") or []) or "none"
         ),
@@ -788,6 +879,15 @@ def render_markdown(report: dict) -> str:
     parts.extend(gold_lines or ["- (none met the public-API + moderate/deep + high/medium bar)"])
     if len(gold) > 40:
         parts.append("- … {} more in `corpus-autopsy.json`".format(len(gold) - 40))
+    parts.extend([
+        "",
+        "## Gold-set characterization (ADR 0003)",
+        "",
+        "Authority Markdown + reviewed uncertainty ledgers under `gold/<family>/`.",
+        "Accepted ledgers are **not** qualification. Held-out oracles remain Phase 3.",
+        "",
+    ])
+    parts.extend(char_lines or ["- (no gold/<family>/package.md trees found)"])
     parts.extend([
         "",
         "## Largest duplicate-wave families",

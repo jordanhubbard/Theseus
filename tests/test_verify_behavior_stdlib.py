@@ -8,8 +8,8 @@ Organized as:
   - python_call_raises: general exception checking (including re-exported classes)
   - python_encode_decode_roundtrip: base64 encode/decode cycle
   - python_struct_roundtrip: struct pack/unpack cycle
-  - Base64 spec integration (20 invariants)
-  - JSON spec integration (22 invariants)
+  - Base64 spec integration (26 invariants)
+  - JSON spec integration (26 invariants)
   - Struct spec integration (24 invariants)
 """
 import base64 as _base64
@@ -433,7 +433,7 @@ class TestBase64SpecIntegration:
     def test_invariant_count(self, base64_spec, base64_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(base64_spec, base64_mod)
-        assert len(results) == 20
+        assert len(results) == 26
 
     def test_encode_vector_category(self, base64_spec, base64_mod):
         runner = vb.InvariantRunner()
@@ -474,12 +474,12 @@ class TestJsonSpecIntegration:
     def test_invariant_count(self, json_spec, json_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(json_spec, json_mod)
-        assert len(results) == 22
+        assert len(results) == 26
 
     def test_dumps_category(self, json_spec, json_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(json_spec, json_mod, filter_category="dumps_primitives")
-        assert len(results) == 7
+        assert len(results) == 9
         assert all(r.passed for r in results)
 
     def test_error_category(self, json_spec, json_mod):
@@ -511,7 +511,7 @@ class TestStructSpecIntegration:
     def test_invariant_count(self, struct_spec, struct_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(struct_spec, struct_mod)
-        assert len(results) == 45
+        assert len(results) == 46
 
     def test_pack_vector_category(self, struct_spec, struct_mod):
         runner = vb.InvariantRunner()
@@ -534,7 +534,7 @@ class TestStructSpecIntegration:
     def test_error_category(self, struct_spec, struct_mod):
         runner = vb.InvariantRunner()
         results = runner.run_all(struct_spec, struct_mod, filter_category="error")
-        assert len(results) == 2
+        assert len(results) == 3
         assert all(r.passed for r in results)
 
     def test_all_invariant_kinds_known(self, struct_spec):

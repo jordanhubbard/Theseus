@@ -1,6 +1,6 @@
 # Theseus Corpus Autopsy
 
-Generated: `2026-09-17T22:28:56Z`
+Generated: `2026-09-17T23:12:26Z`
 Schema: `theseus-corpus-autopsy/0.1`
 Decision: [`docs/decisions/0001-verification-ladder.md`](../../docs/decisions/0001-verification-ladder.md)
 
@@ -16,6 +16,7 @@ It does **not** claim any package is qualified. See ADR 0001.
 - **178** specs match the 3-invariant clean-room factory (`factory_shallow`).
 - Median invariant count: clean-room **3.0**, public-API **6.0**.
 - **269** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).
+- **17** gold-set families have an accepted uncertainty ledger (ADR 0003); **0** still open/missing.
 - Registry names with no matching spec: `theseus_cProfile_cr`.
 
 ## Verification ladder (as applied to this corpus)
@@ -47,11 +48,11 @@ That is not regenerative qualification.
 
 | Value | Count |
 |---|---:|
-| `moderate` | 824 |
+| `moderate` | 823 |
 | `shallow` | 413 |
 | `presence` | 367 |
 | `wrapper` | 325 |
-| `deep` | 187 |
+| `deep` | 188 |
 | `factory_shallow` | 178 |
 | `self_test` | 4 |
 | `empty` | 1 |
@@ -81,11 +82,11 @@ That is not regenerative qualification.
 
 ## Exhibits
 
-- `json`: backend `python_module`, 22 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
-- `theseus_json`: backend `python_cleanroom`, 22 invariants, oracle `deep`, contract `cleanroom_public_api`, ladder `legacy_isolation`
+- `json`: backend `python_module`, 26 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
+- `theseus_json`: backend `python_cleanroom`, 26 invariants, oracle `deep`, contract `cleanroom_public_api`, ladder `legacy_isolation`
 - `theseus_antigravity_cr`: backend `python_cleanroom`, 3 invariants, oracle `presence`, contract `self_test_wrapper`, ladder `legacy_isolation`
-- `hashlib`: backend `python_module`, 41 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
-- `semver`: backend `node`, 24 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
+- `hashlib`: backend `python_module`, 42 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
+- `semver`: backend `node`, 26 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
 
 `json` (Layer 2, public-API oracle) is the gold-set characterization exhibit.
 `theseus_json` was the Phase 0 factory-wrapper exhibit; ADR 0002 re-grades it on
@@ -98,21 +99,21 @@ These are **not** qualified. They are public-API specs whose current oracle dept
 and feasibility class make them the starting set for Phase 3, if Phase 1–2 succeed.
 The intended gold-set families are: `base64, binascii, difflib, fnmatch, hashlib, hmac, json, libpcap, pcap, pcapng, semver, shlex, struct, tomli, tomllib, urllib_parse, uuid`.
 
-- `struct` *(intended)* — 45 invariants, `deep`, feasibility `high`, backend `python_module`
-- `hashlib` *(intended)* — 41 invariants, `deep`, feasibility `high`, backend `python_module`
-- `fnmatch` *(intended)* — 37 invariants, `deep`, feasibility `high`, backend `python_module`
-- `semver` *(intended)* — 24 invariants, `deep`, feasibility `high`, backend `node`
+- `struct` *(intended)* — 46 invariants, `deep`, feasibility `high`, backend `python_module`
+- `hashlib` *(intended)* — 42 invariants, `deep`, feasibility `high`, backend `python_module`
+- `fnmatch` *(intended)* — 39 invariants, `deep`, feasibility `high`, backend `python_module`
+- `base64` *(intended)* — 26 invariants, `deep`, feasibility `high`, backend `python_module`
+- `json` *(intended)* — 26 invariants, `deep`, feasibility `high`, backend `python_module`
+- `semver` *(intended)* — 26 invariants, `deep`, feasibility `high`, backend `node`
+- `shlex` *(intended)* — 24 invariants, `deep`, feasibility `high`, backend `python_module`
+- `tomli` *(intended)* — 24 invariants, `deep`, feasibility `high`, backend `python_module`
 - `difflib` *(intended)* — 23 invariants, `deep`, feasibility `high`, backend `python_module`
-- `shlex` *(intended)* — 23 invariants, `deep`, feasibility `high`, backend `python_module`
-- `json` *(intended)* — 22 invariants, `deep`, feasibility `high`, backend `python_module`
+- `hmac` *(intended)* — 23 invariants, `deep`, feasibility `high`, backend `python_module`
 - `libpcap` *(intended)* — 22 invariants, `deep`, feasibility `high`, backend `ctypes`
-- `tomli` *(intended)* — 22 invariants, `deep`, feasibility `high`, backend `python_module`
-- `base64` *(intended)* — 20 invariants, `deep`, feasibility `high`, backend `python_module`
-- `hmac` *(intended)* — 20 invariants, `deep`, feasibility `high`, backend `python_module`
-- `urllib_parse` *(intended)* — 18 invariants, `deep`, feasibility `high`, backend `python_module`
-- `uuid` *(intended)* — 18 invariants, `deep`, feasibility `high`, backend `node`
-- `binascii` *(intended)* — 16 invariants, `deep`, feasibility `high`, backend `python_module`
-- `pcapng` *(intended)* — 13 invariants, `moderate`, feasibility `high`, backend `ctypes`
+- `urllib_parse` *(intended)* — 20 invariants, `deep`, feasibility `high`, backend `python_module`
+- `uuid` *(intended)* — 19 invariants, `deep`, feasibility `high`, backend `node`
+- `binascii` *(intended)* — 17 invariants, `deep`, feasibility `high`, backend `python_module`
+- `pcapng` *(intended)* — 16 invariants, `deep`, feasibility `high`, backend `ctypes`
 - `logging` — 39 invariants, `deep`, feasibility `medium`, backend `python_module`
 - `mimetypes` — 37 invariants, `deep`, feasibility `medium`, backend `python_module`
 - `operator` — 37 invariants, `deep`, feasibility `high`, backend `python_module`
@@ -139,6 +140,29 @@ The intended gold-set families are: `base64, binascii, difflib, fnmatch, hashlib
 - `csv` — 25 invariants, `deep`, feasibility `high`, backend `python_module`
 - `elementtree` — 25 invariants, `deep`, feasibility `high`, backend `python_module`
 - … 109 more in `corpus-autopsy.json`
+
+## Gold-set characterization (ADR 0003)
+
+Authority Markdown + reviewed uncertainty ledgers under `gold/<family>/`.
+Accepted ledgers are **not** qualification. Held-out oracles remain Phase 3.
+
+- `base64` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out no
+- `binascii` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `difflib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `fnmatch` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `hashlib` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out no
+- `hmac` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out no
+- `json` *(intended)* — ledger `accepted`, 4 items, probes yes, held-out yes
+- `libpcap` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
+- `pcap` *(intended)* — ledger `accepted`, 1 items, probes no, held-out no
+- `pcapng` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
+- `semver` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `shlex` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `struct` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `tomli` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `tomllib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `urllib_parse` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `uuid` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
 
 ## Largest duplicate-wave families
 

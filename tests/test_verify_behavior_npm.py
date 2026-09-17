@@ -186,7 +186,7 @@ class TestUuidSpecIntegration:
 
     def test_invariant_count(self, uuid_spec, uuid_backend):
         results = vb.InvariantRunner().run_all(uuid_spec, uuid_backend)
-        assert len(results) == 18
+        assert len(results) == 19
 
     def test_cli_exit_0(self):
         assert vb.main([str(UUID_SPEC_PATH)]) == 0
