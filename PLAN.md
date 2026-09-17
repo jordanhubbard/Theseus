@@ -1,6 +1,6 @@
 # Theseus Clean-Room Rewrite Initiative — Implementation Plan
 
-> **Status (2026-09-16):** PLAN.md's original success bar (≥3 isolated Python packages) was met, then scaled into hundreds of `status=verified` registry entries. That bit is **legacy isolation, not qualification**. Phase 0 of the refresh is the [corpus autopsy](reports/audit/corpus-autopsy.md) and [ADR 0001](docs/decisions/0001-verification-ladder.md). Do not add packages or run synthesis waves until Phase 1 (format spike) is specified.
+> **Status (2026-09-17):** Phase 0 (corpus autopsy, ADR 0001) and Phase 1 (JSON format spike, ADR 0002) are done. Qualification remains withdrawn (0 packages). Do not run synthesis waves until Phase 2 characterization review is specified. Next: Phase 2 (`theseus-il4`).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

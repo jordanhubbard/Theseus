@@ -259,8 +259,7 @@ For packages with `status: verified` in the registry, isolation has already been
 # Verify that theseus_json works without the json module available
 THESEUS_BLOCKED_PACKAGE=json PYTHONPATH=cleanroom/python python3 -c "
 import theseus_json
-result = theseus_json.json_loads_int()
-print('loads_int:', result)
+print(theseus_json.loads(theseus_json.dumps({'a': 1})))
 "
 ```
 
@@ -488,9 +487,10 @@ make search BACKEND=python_cleanroom
 
 Pick one that is not yet verified (no `✓`), or start from one that is verified to understand the pattern.
 
-Look at a simple example — `zspecs/theseus_json.zspec.zsdl`:
+Look at the JSON gold-set example — `gold/json/package.md` and `zspecs/theseus_json.zspec.zsdl`:
 
 ```bash
+cat gold/json/package.md
 cat zspecs/theseus_json.zspec.zsdl
 ```
 
@@ -498,45 +498,23 @@ cat zspecs/theseus_json.zspec.zsdl
 spec: theseus_json
 version: ">=3.9"
 backend: python_cleanroom(theseus_json)
+blocks: json
 
 docs: https://www.json.org/json-en.html
 
-provenance:
-  derived_from:
-    - "https://www.json.org/json-en.html — JSON.org specification"
-    - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format"
-  not_derived_from:
-    - "CPython source: Lib/json/__init__.py"
-    - "CPython source: Lib/json/decoder.py"
-    - "CPython source: Lib/json/encoder.py"
+# Public-API oracle: grade dumps/loads with arguments (ADR 0002).
+# Held-out vectors live in gold/json/held_out.zspec.zsdl, not here.
 
-invariants:
-  - id: theseus_json.loads_int
-    kind: python_call_eq
-    describe: "json_loads_int() returns 1"
-    spec:
-      function: json_loads_int
-      args: []
-      expected: 1
-
-  - id: theseus_json.dumps_has_key
-    kind: python_call_eq
-    describe: "json_dumps_has_key() returns True"
-    spec:
-      function: json_dumps_has_key
-      args: []
-      expected: True
-
-  - id: theseus_json.round_trip
-    kind: python_call_eq
-    describe: "json_round_trip() returns True"
-    spec:
-      function: json_round_trip
-      args: []
-      expected: True
+table theseus_json.dumps.primitives:
+  kind: python_call_eq
+  function: dumps
+  columns: [id, args, expected]
+  rows:
+    - [integer, [42], "42"]
+    - [string, ["hello"], "\"hello\""]
 ```
 
-Note that the invariant functions are **zero-argument wrappers** that return a hardcoded expected value. This is the required pattern for clean-room synthesis — see Section 9 for details.
+The oracle calls the public exports with arguments. Do not add zero-argument wrappers such as `json_loads_int`. Passing this oracle is isolation, not qualification.
 
 ### 7.3 Run the full pipeline
 
@@ -847,7 +825,9 @@ invariants:
       expected: "hello"
 ```
 
-**Critical rule:** Clean-room invariant functions must be **zero-argument wrappers** that call the real function internally and return a hardcoded expected value. The LLM synthesizes the zero-argument wrapper; the expected value comes from your knowledge of the spec (not from running the original library).
+**Gold-set (JSON, ADR 0002):** invariants call the public API with arguments (`dumps`, `loads`). Do not add zero-argument self-test wrappers. Held-out vectors stay outside `zspecs/`.
+
+**Legacy factory specs:** still use zero-argument wrappers with hardcoded expected values. Do not copy that pattern for new gold-set work. See `docs/cleanroom-spec-format.md`.
 
 ### 9.3 Synthesize the implementation
 
@@ -859,7 +839,8 @@ make pipeline SYNTH_ZSDL=zspecs/theseus_mylib.zspec.zsdl
 
 | Mistake | What happens | Fix |
 |---------|-------------|-----|
-| Invariant function takes arguments | Synthesis fails silently | Use zero-argument wrappers only |
+| Invariant function takes arguments on a *legacy factory* spec | `TypeError` from the harness | Leave wrappers on unmigrated packages; gold-set specs should call the public API with `args` |
+| Gold-set spec still names `json_loads_int` | Oracle does not grade the public API | Call `dumps`/`loads` with arguments; see `zspecs/theseus_json.zspec.zsdl` |
 | Expected value copied from running the original library | Spec is accurate but not independent | Derive expected values from public docs/RFCs |
 | `provenance.notes` omits "Do NOT import X" | LLM imports the original | Always tell the LLM explicitly what NOT to import |
 | Wrong expected value | Pipeline fails at isolation verify | Re-check the spec's math or documentation |

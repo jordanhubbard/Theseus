@@ -1,0 +1,62 @@
+spec: theseus_json
+version: ">=3.9"
+backend: python_cleanroom(theseus_json)
+blocks: json
+
+docs: https://www.json.org/json-en.html
+
+provenance:
+  derived_from:
+    - "RFC 8259 — held-out vectors not present in zspecs/theseus_json.zspec.zsdl"
+  not_derived_from:
+    - "CPython source: Lib/json/"
+  notes:
+    - "HELD-OUT ORACLE. Do not include these vectors in any synthesis prompt."
+    - "Authority: gold/json/package.md. Public clean-room oracle: zspecs/theseus_json.zspec.zsdl."
+  created_at: "2026-09-17T00:00:00Z"
+
+error_model: python_exceptions
+
+# Distinctive tokens below are what held_out_guard.py searches for in prompts.
+
+table theseus_json.held_out.dumps:
+  kind: python_call_eq
+  category: held_out_dumps
+  id_prefix: held_out.dumps
+  function: dumps
+
+  columns: [id, args, expected]
+  rows:
+    - [empty_object, [{}], "{}"]
+    - [nested, [{a: {b: [1]}}], "{\"a\": {\"b\": [1]}}"]
+    - [quoted, ["say \"hi\""], "\"say \\\"hi\\\"\""]
+    - [nested_array, [[[1]]], "[[1]]"]
+    - [cafe, ["café"], "\"caf\\u00e9\""]
+
+table theseus_json.held_out.loads:
+  kind: python_call_eq
+  category: held_out_loads
+  id_prefix: held_out.loads
+  function: loads
+
+  columns: [id, args, expected]
+  rows:
+    - [padded_int, ["  42  "], 42]
+    - [empty_object, ["{}"], {}]
+    - [u0041, ["\"\\u0041\""], "A"]
+    - [scientific, ["1.5e2"], 150.0]
+    - [nested, ["{\"a\": {\"b\": 1}}"], {a: {b: 1}}]
+
+table theseus_json.held_out.errors:
+  kind: python_call_raises
+  category: held_out_error
+  id_prefix: held_out.loads
+  function: loads
+  expected_exception: JSONDecodeError
+
+  columns: [id, args]
+  rows:
+    - [trailing_comma, ["[1,]"]]
+    - [unclosed_string, ["\"abc"]]
+    - [unexpected_rbracket, ["]"]]
+    - [object_rbracket, ["{]"]]

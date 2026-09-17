@@ -269,7 +269,7 @@ class TestRealCorpusExhibits:
         assert rec["invariant_count"] >= 16
         assert rec["oracle_quality"] in ("moderate", "deep")
 
-    def test_theseus_json_is_factory_shallow(self):
+    def test_theseus_json_is_cleanroom_public_api(self):
         root = Path(__file__).resolve().parent.parent
         path = root / "zspecs" / "theseus_json.zspec.zsdl"
         if not path.is_file():
@@ -277,8 +277,11 @@ class TestRealCorpusExhibits:
         rec = _compile_and_classify(
             path, root, {"packages": {"theseus_json": {"status": "verified"}}}
         )
-        assert rec["oracle_quality"] == "factory_shallow"
-        assert rec["contract_shape"] == "self_test_wrapper"
+        assert rec["oracle_quality"] == "deep"
+        assert rec["contract_shape"] == "cleanroom_public_api"
+        assert rec["ladder"] == "legacy_isolation"
+        assert rec["zero_arg_ratio"] == 0.0
+        assert rec["invariant_count"] >= 16
 
     def test_antigravity_is_presence(self):
         root = Path(__file__).resolve().parent.parent

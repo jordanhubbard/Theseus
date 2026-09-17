@@ -77,6 +77,66 @@ def _get_blocked_package(spec: dict, name: str) -> str:
     return name
 
 
+def _resolve_typed(value):
+    """Resolve compiled ZSDL typed values (tuple tags, nested lists/dicts)."""
+    if isinstance(value, dict) and "type" in value:
+        kind = value.get("type")
+        inner = value.get("value")
+        if kind == "tuple":
+            return tuple(_resolve_typed(x) for x in (inner or []))
+        if kind == "null":
+            return None
+        return inner
+    if isinstance(value, list):
+        return [_resolve_typed(x) for x in value]
+    if isinstance(value, dict):
+        return {k: _resolve_typed(v) for k, v in value.items()}
+    return value
+
+
+def _python_invariant_script(module_name, inv):
+    """Build an isolated -c script for one python_call_eq / python_call_raises invariant."""
+    spec_dict = inv.get("spec", {})
+    fn = spec_dict.get("function", "")
+    args = _resolve_typed(spec_dict.get("args", []))
+    kwargs = _resolve_typed(spec_dict.get("kwargs") or {})
+    kind = inv.get("kind") or "python_call_eq"
+    # Embed repr() literals so the subprocess does not import json or ast.
+    preamble = (
+        "import " + module_name + " as _mod\n"
+        "_fn = getattr(_mod, " + repr(fn) + ")\n"
+        "_args = " + repr(args) + "\n"
+        "_kwargs = " + repr(kwargs) + "\n"
+    )
+    if kind == "python_call_raises":
+        exc_name = (spec_dict.get("expected_exception") or "Exception").rsplit(".", 1)[-1]
+        return preamble + (
+            "_exc_name = " + repr(exc_name) + "\n"
+            "_Exc = getattr(_mod, _exc_name, None)\n"
+            "if _Exc is None:\n"
+            "    _bi = __builtins__\n"
+            "    _Exc = _bi.get(_exc_name) if isinstance(_bi, dict) else getattr(_bi, _exc_name, None)\n"
+            "try:\n"
+            "    _fn(*_args, **_kwargs)\n"
+            "except Exception as _e:\n"
+            "    if _Exc is not None and isinstance(_e, _Exc):\n"
+            "        print('OK')\n"
+            "    elif type(_e).__name__ == _exc_name:\n"
+            "        print('OK')\n"
+            "    else:\n"
+            "        raise SystemExit('raised ' + type(_e).__name__ + ', expected ' + _exc_name)\n"
+            "else:\n"
+            "    raise SystemExit('did not raise ' + _exc_name)\n"
+        )
+    expected = _resolve_typed(spec_dict.get("expected"))
+    return preamble + (
+        "_expected = " + repr(expected) + "\n"
+        "_result = _fn(*_args, **_kwargs)\n"
+        "assert _result == _expected, 'got %r, expected %r' % (_result, _expected)\n"
+        "print('OK')\n"
+    )
+
+
 def _verify_python(spec: dict, name: str, verbose: bool) -> dict:
     impl_dir = _CLEANROOM_PYTHON / name
     if not (impl_dir / "__init__.py").exists():
@@ -108,25 +168,7 @@ def _verify_python(spec: dict, name: str, verbose: bool) -> dict:
     passed, failed, errors = 0, 0, []
     for inv in spec["invariants"]:
         inv_id = inv["id"]
-        spec_dict = inv.get("spec", {})
-        fn = spec_dict.get("function", "")
-        args = spec_dict.get("args", [])
-        expected = spec_dict.get("expected")
-
-        # Embed repr() literals directly so the subprocess does not need to
-        # import json or ast; either may be the blocked package or may import
-        # the blocked package transitively (for example ast -> collections).
-        args_repr = repr(args)
-        expected_repr = repr(expected)
-
-        code = (
-            f"from {name} import {fn} as _fn\n"
-            f"_args = {args_repr}\n"
-            f"_expected = {expected_repr}\n"
-            f"_result = _fn(*_args)\n"
-            f"assert _result == _expected, f'got {{_result!r}}, expected {{_expected!r}}'\n"
-            f"print('OK')\n"
-        )
+        code = _python_invariant_script(name, inv)
 
         r = subprocess.run(
             [sys.executable, "-c", code],

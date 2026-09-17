@@ -1,42 +1,102 @@
 spec: theseus_json
 version: ">=3.9"
 backend: python_cleanroom(theseus_json)
+blocks: json
 
 docs: https://www.json.org/json-en.html
+rfcs:
+  - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format"
+  - "ECMA-404 — The JSON Data Interchange Syntax"
 
 provenance:
   derived_from:
+    - "RFC 8259 — The JavaScript Object Notation (JSON) Data Interchange Format, December 2017"
+    - "ECMA-404 2nd Edition — The JSON Data Interchange Syntax, December 2017"
     - "https://www.json.org/json-en.html — JSON specification"
+    - "https://docs.python.org/3/library/json.html — Python json module documentation (public API shape)"
+  not_derived_from:
+    - "CPython source: Lib/json/__init__.py"
+    - "CPython source: Lib/json/encoder.py"
+    - "CPython source: Lib/json/decoder.py"
+    - "CPython source: Modules/_json.c"
   notes:
     - "Clean-room JSON codec. Do NOT import json, simplejson, or any JSON library."
-    - "Implement a recursive descent parser from scratch using only Python stdlib string/bytes ops."
-    - "json_loads_int: parse '{\"a\": 1}' and return obj['a'] which equals 1."
-    - "json_dumps_has_key: serialize {'a': 1} to a JSON string; return True if 'a' appears in output."
-    - "json_round_trip: loads(dumps({'x': [1,2,3]}))['x'] should equal [1,2,3]; return True."
-  created_at: "2026-04-19T00:00:00Z"
+    - "Export the public API: dumps, loads, JSONDecodeError. Do NOT add zero-argument self-test wrappers."
+    - "dumps default separators are ', ' and ': ' (Python json module default)."
+    - "JSONDecodeError is a ValueError subclass raised by loads on invalid text."
+    - "Authority: gold/json/package.md. Held-out oracle is NOT this file."
+  created_at: "2026-09-17T00:00:00Z"
 
 error_model: python_exceptions
 
-invariant theseus_json.loads_int:
-  description: "parse '{\"a\": 1}' and return obj['a'] == 1"
-  category: loads
-  kind: python_call_eq
-  function: json_loads_int
-  args: []
-  expected: 1
+# Public-API oracle — same vectors as zspecs/json.zspec.zsdl, graded on dumps/loads.
 
-invariant theseus_json.dumps_has_key:
-  description: "dumps({'a': 1}) produces JSON string containing 'a'"
-  category: dumps
+table theseus_json.dumps.primitives:
   kind: python_call_eq
-  function: json_dumps_has_key
-  args: []
-  expected: true
+  category: dumps_primitives
+  rfc: "RFC 8259 §3"
+  id_prefix: dumps
+  function: dumps
 
-invariant theseus_json.round_trip:
-  description: "loads(dumps({'x': [1,2,3]}))['x'] == [1,2,3]"
-  category: round_trip
+  columns: [id, args, expected, rfc]
+  rows:
+    - ["null",   [~],     "null",   ~]
+    - ["true",   [true],  "true",   ~]
+    - ["false",  [false], "false",  ~]
+    - [zero,     [0],     "0",      "RFC 8259 §6"]
+    - [integer,  [42],    "42",     "RFC 8259 §6"]
+    - [negative, [-7],    "-7",     "RFC 8259 §6"]
+    - [string,   ["hello"], "\"hello\"", "RFC 8259 §7"]
+
+table theseus_json.dumps.compound:
   kind: python_call_eq
-  function: json_round_trip
-  args: []
-  expected: true
+  category: dumps_compound
+  id_prefix: dumps
+  function: dumps
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [empty_array, [[]],       "[]",        "RFC 8259 §5"]
+    - [array,       [[1, 2, 3]], "[1, 2, 3]", "RFC 8259 §5"]
+    - [object,      [{a: 1}],   "{\"a\": 1}", "RFC 8259 §4"]
+    - [compact_separators, [[1, 2, 3]], "[1,2,3]", "RFC 8259 §2", {kwargs: {separators: !tuple [",", ":"]}}]
+
+table theseus_json.loads.primitives:
+  kind: python_call_eq
+  category: loads_primitives
+  rfc: "RFC 8259 §3"
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - ["null",   ["null"],  ~,     ~]
+    - ["true",   ["true"],  true,  ~]
+    - ["false",  ["false"], false, ~]
+    - [integer,  ["42"],    42,    "RFC 8259 §6"]
+    - [string,   ["\"hello\""], "hello", "RFC 8259 §7"]
+
+table theseus_json.loads.compound:
+  kind: python_call_eq
+  category: loads_compound
+  id_prefix: loads
+  function: loads
+
+  columns: [id, args, expected, rfc]
+  rows:
+    - [array,  ["[1, 2, 3]"],   [1, 2, 3],  "RFC 8259 §5"]
+    - [object, ["{\"a\": 1}"],  {a: 1},     "RFC 8259 §4"]
+
+table theseus_json.loads.errors:
+  kind: python_call_raises
+  category: error
+  id_prefix: loads
+  function: loads
+  expected_exception: JSONDecodeError
+
+  columns: [id, args, rfc]
+  rows:
+    - [empty_string_raises,   [""],              "RFC 8259 §2"]
+    - [truncated_raises,      ["{"],             "RFC 8259 §4"]
+    - [nan_raises,            ["nan"],           "RFC 8259 §6"]
+    - [trailing_garbage_raises, ["{\"a\": 1} extra"], "RFC 8259 §2"]

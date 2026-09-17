@@ -8,7 +8,7 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,299 source specs covering 7 backend types (node 1091, rust_module 479, python_cleanroom 394, python_module 318, ctypes 12, cli 4, node_cleanroom 1). Depth varies: 1,010 are mechanical `oracle_bound` public-API specs; clean-room specs have a median of 3 invariants. See [ADR 0001](decisions/0001-verification-ladder.md) and the [corpus autopsy](../reports/audit/corpus-autopsy.md).
 
-**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, historically synthesized a reimplementation that satisfied listed invariants without importing the original package. **Qualification is withdrawn.** `status=verified` is legacy isolation (396 packages). Zero packages are `qualified`. See [ADR 0001](decisions/0001-verification-ladder.md) and [corpus autopsy](../reports/audit/corpus-autopsy.md).
+**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, historically synthesized a reimplementation that satisfied listed invariants without importing the original package. **Qualification is withdrawn.** `status=verified` is legacy isolation (396 packages). Zero packages are `qualified`. The JSON gold-set spike ([ADR 0002](decisions/0002-json-authority-format.md), `gold/json/`) grades `theseus_json` on `dumps`/`loads` plus a held-out oracle; that is still not qualification. See [ADR 0001](decisions/0001-verification-ladder.md) and [corpus autopsy](../reports/audit/corpus-autopsy.md).
 
 ```
 Source Trees (Nixpkgs, FreeBSD Ports)
@@ -488,10 +488,15 @@ cleanroom/
   python/
     sitecustomize.py              ← isolation blocker (auto-loaded when PYTHONPATH includes this dir)
     theseus_json/
-      __init__.py                 ← implementation
+      __init__.py                 ← implementation (public dumps/loads; ADR 0002)
     theseus_hashlib/
       __init__.py
     ...                           ← one directory per clean-room package
+
+gold/
+  json/
+    package.md                    ← authority (not an oracle)
+    held_out.zspec.zsdl           ← held-out oracle; not compiled by make compile-zsdl --all
 
 theseus_registry.json             ← registry of clean-room package statuses
 reports/synthesis/
@@ -516,8 +521,8 @@ python3 tools/zsdl_compile.py zspecs/theseus_mylib.zspec.zsdl
 # 3. Synthesize (LLM writes the implementation)
 python3 tools/synthesize_waves.py --wave cr1
 
-# 4. Fix any failures (see docs/cleanroom-spec-format.md for common pitfalls)
-# Most common: LLM generates parameterized invariant functions instead of zero-arg wrappers
+# 4. Fix any failures (see docs/cleanroom-spec-format.md)
+# Gold-set: grade public exports with arguments. Do not add json_loads_int wrappers.
 
 # 5. Verify in isolation
 python3 tools/cleanroom_verify.py _build/zspecs/theseus_mylib.zspec.json
@@ -528,7 +533,7 @@ python3 tools/registry.py register theseus_mylib cleanroom/python/theseus_mylib 
 python3 tools/registry.py verify theseus_mylib
 ```
 
-See `docs/cleanroom-spec-format.md` for spec authoring rules and the critical invariant function constraint.
+See `docs/cleanroom-spec-format.md` for spec authoring rules. Gold-set JSON: `gold/json/package.md` and ADR 0002.
 
 ### Wave System
 

@@ -1,6 +1,6 @@
 # Theseus Corpus Autopsy
 
-Generated: `2026-09-16T23:11:18Z`
+Generated: `2026-09-17T22:28:56Z`
 Schema: `theseus-corpus-autopsy/0.1`
 Decision: [`docs/decisions/0001-verification-ladder.md`](../../docs/decisions/0001-verification-ladder.md)
 
@@ -13,7 +13,7 @@ It does **not** claim any package is qualified. See ADR 0001.
 - **396** registry packages with `status=verified` are **withdrawn from qualification**.
 - **0** packages are `qualified`.
 - **1010** specs look like public-API oracles of moderate/deep depth (Layer 2 asset).
-- **179** specs match the 3-invariant clean-room factory (`factory_shallow`).
+- **178** specs match the 3-invariant clean-room factory (`factory_shallow`).
 - Median invariant count: clean-room **3.0**, public-API **6.0**.
 - **269** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).
 - Registry names with no matching spec: `theseus_cProfile_cr`.
@@ -51,8 +51,8 @@ That is not regenerative qualification.
 | `shallow` | 413 |
 | `presence` | 367 |
 | `wrapper` | 325 |
-| `deep` | 186 |
-| `factory_shallow` | 179 |
+| `deep` | 187 |
+| `factory_shallow` | 178 |
 | `self_test` | 4 |
 | `empty` | 1 |
 
@@ -62,8 +62,8 @@ That is not regenerative qualification.
 |---|---:|
 | `public_api` | 1424 |
 | `wrapper` | 479 |
-| `self_test_wrapper` | 394 |
-| `cleanroom_public_api` | 1 |
+| `self_test_wrapper` | 393 |
+| `cleanroom_public_api` | 2 |
 | `presence` | 1 |
 
 ## By replacement feasibility
@@ -82,13 +82,14 @@ That is not regenerative qualification.
 ## Exhibits
 
 - `json`: backend `python_module`, 22 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
-- `theseus_json`: backend `python_cleanroom`, 3 invariants, oracle `factory_shallow`, contract `self_test_wrapper`, ladder `legacy_isolation`
+- `theseus_json`: backend `python_cleanroom`, 22 invariants, oracle `deep`, contract `cleanroom_public_api`, ladder `legacy_isolation`
 - `theseus_antigravity_cr`: backend `python_cleanroom`, 3 invariants, oracle `presence`, contract `self_test_wrapper`, ladder `legacy_isolation`
 - `hashlib`: backend `python_module`, 41 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
 - `semver`: backend `node`, 24 invariants, oracle `deep`, contract `public_api`, ladder `oracle_bound`
 
-`json` (Layer 2, public API) versus `theseus_json` (Layer 3 factory wrappers)
-is the core evidence that replacement was graded on a weaker spec than characterization.
+`json` (Layer 2, public-API oracle) is the gold-set characterization exhibit.
+`theseus_json` was the Phase 0 factory-wrapper exhibit; ADR 0002 re-grades it on
+`dumps`/`loads` (`cleanroom_public_api`). Other `theseus_*` factory specs are unchanged.
 `theseus_antigravity_cr` is the exhibit that `expected: true` plus isolation is not a package.
 
 ## Gold-set candidates (current Layer 2 oracles)

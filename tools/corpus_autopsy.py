@@ -773,8 +773,9 @@ def render_markdown(report: dict) -> str:
     parts.extend(exhibit_lines or ["- (none of the expected exhibit specs were found)"])
     parts.extend([
         "",
-        "`json` (Layer 2, public API) versus `theseus_json` (Layer 3 factory wrappers)",
-        "is the core evidence that replacement was graded on a weaker spec than characterization.",
+        "`json` (Layer 2, public-API oracle) is the gold-set characterization exhibit.",
+        "`theseus_json` was the Phase 0 factory-wrapper exhibit; ADR 0002 re-grades it on",
+        "`dumps`/`loads` (`cleanroom_public_api`). Other `theseus_*` factory specs are unchanged.",
         "`theseus_antigravity_cr` is the exhibit that `expected: true` plus isolation is not a package.",
         "",
         "## Gold-set candidates (current Layer 2 oracles)",

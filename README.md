@@ -51,11 +51,11 @@ Terms used throughout the project, defined here before they appear in the rest o
 
 ### Clean-room packages (legacy isolation — not qualified)
 
-The packages below passed the old isolation harness. None are `qualified` under ADR 0001. The Layer 2 `json` spec (22 public-API invariants) is a stronger oracle than `theseus_json` (3 wrappers).
+The packages below passed the old isolation harness. None are `qualified` under ADR 0001. `theseus_json` is the ADR 0002 gold-set spike: public `dumps`/`loads` oracle plus a held-out file the synthesizer never sees. That is still not `qualified`.
 
 | Package | Language | Isolation invariants | Replaces (claim withdrawn) |
 |---|---|---|---|
-| `theseus_json` | Python | 3/3 | `json` |
+| `theseus_json` | Python | 22 public-API (`dumps`/`loads`) | `json` |
 | `theseus_re` | Python | 3/3 | `re` |
 | `theseus_pathlib` | Python | 3/3 | `pathlib` / `os.path` |
 | `theseus_path_node` | Node.js | 3/3 | Node `path` |

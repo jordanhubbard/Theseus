@@ -11,7 +11,7 @@ A clean-room spec describes what a package must do via behavioral invariants, th
 Three things make clean-room specs different from ordinary behavioral specs:
 
 1. **Backend is `python_cleanroom` or `node_cleanroom`**, not `python_module`.
-2. **Invariant functions must be zero-argument wrappers** returning a hardcoded expected value. The synthesis LLM frequently violates this rule — it is the most common failure mode.
+2. **Gold-set specs grade the public API** (`dumps`/`loads` with arguments). Legacy factory specs still use zero-arg wrappers; do not copy that pattern for new gold-set work (ADR 0002).
 3. **The original module is actively blocked** during verification via `THESEUS_BLOCKED_PACKAGE`. Any import of the blocked name causes an immediate isolation failure.
 
 ---
@@ -45,51 +45,54 @@ blocks: path
 
 ---
 
-## The Invariant Function Rule
+## Public-API oracles vs legacy wrappers
 
-**This is the most important rule, and the most commonly violated.**
+Gold-set work (JSON spike: [`gold/json/package.md`](../gold/json/package.md), [ADR 0002](decisions/0002-json-authority-format.md)) splits three artifacts:
 
-Every invariant in a clean-room spec names a zero-argument function that returns a hardcoded value. The harness calls `fn()` with no arguments and compares the result to `expected`.
+1. **Authority** — Markdown with typed frontmatter. Not executable.
+2. **Public oracle** — ZSDL that calls the real exports with arguments (`dumps`, `loads`, `python_call_raises`).
+3. **Held-out oracle** — lives under `gold/<family>/`, **not** in `zspecs/`, so `make compile-zsdl --all` and wave synthesis do not ingest it. `tools/held_out_guard.py` fails if distinctive held-out tokens leak into a synthesis prompt.
 
-### Correct pattern
+`cleanroom_verify.py` calls `fn(*args, **kwargs)` and honors typed `!tuple` kwargs. Passing the public oracle is **not** qualification.
+
+### Gold-set pattern (use this)
 
 ```python
-# In the implementation __init__.py:
-def json_loads_int():
-    return loads('{"a": 1}')["a"]   # hardcoded input, hardcoded operation
+# cleanroom/python/theseus_json/__init__.py
+class JSONDecodeError(ValueError):
+    pass
 
-def json_round_trip():
-    return loads(dumps({"x": [1, 2, 3]}))["x"] == [1, 2, 3]
+def dumps(obj, separators=None, ensure_ascii=True, **kwargs):
+    ...
 
-def json_dumps_has_key():
-    return "a" in dumps({"a": 1})
+def loads(s):
+    ...
 ```
 
 ```yaml
-# In the spec:
-invariant theseus_json.loads_int:
-  kind: python_call_eq
-  function: json_loads_int
-  args: []
-  expected: 1
+# zspecs/theseus_json.zspec.zsdl
+function: dumps
+args: [[1, 2, 3]]
+kwargs: {separators: !tuple [",", ":"]}
+expected: "[1,2,3]"
 ```
 
-### Wrong pattern (what the LLM often generates)
+### Legacy factory pattern (do not copy for gold-set)
 
-```python
-# WRONG — parameterized; the harness calls fn() with no args and gets TypeError
-def json_loads_int(s):
-    return loads(s)["a"]
+Older `theseus_*` specs name zero-argument wrappers. The harness still calls `fn(*args)`; empty `args` is what made wrappers look required. Leave those specs until their family is migrated.
 
-# ALSO WRONG — alias to parameterized function
-json_loads_int = loads_dict   # loads_dict(s) has a parameter
+```yaml
+# Legacy — not the gold-set template
+function: json_loads_int
+args: []
+expected: 1
 ```
-
-When synthesis fails with `TypeError: fn() missing 1 required positional argument`, the fix is always the same: rewrite the invariant function as a zero-arg wrapper that hardcodes the input.
 
 ---
 
 ## Annotated Example Spec
+
+The hashlib example below is a **legacy factory** spec (zero-arg wrappers). For JSON-shaped gold-set work, copy `zspecs/theseus_json.zspec.zsdl` instead.
 
 ```yaml
 spec: theseus_hashlib
@@ -208,32 +211,15 @@ git commit -m "feat: add theseus_mylib clean-room package"
 
 ## Common Failure Modes and Fixes
 
-### 1. Parameterized invariant functions
+### 1. Spec grades a wrapper instead of the public API
 
-The most frequent failure. The LLM generates functions with parameters because `json_loads_int(s)` is more natural than `json_loads_int()`. The fix is always manual:
+Gold-set packages must export and test the real names. If the spec still calls `json_loads_int` with `args: []`, rewrite it to call `loads` / `dumps` with arguments (see `zspecs/theseus_json.zspec.zsdl`).
 
-```python
-# Generated (wrong)
-def json_loads_int(s):
-    return loads(s)["a"]
+Legacy factory specs may still fail with `TypeError: fn() missing N required positional argument(s)` when synthesis emits parameterized helpers. Those packages have not been migrated.
 
-# Fix
-def json_loads_int():
-    return loads('{"a": 1}')["a"]
-```
+### 2. Held-out tokens leaked into the synthesis prompt
 
-Check for this pattern whenever `cleanroom_verify.py` reports `TypeError: fn() missing N required positional argument(s)`.
-
-### 2. Function aliased to parameterized version
-
-```python
-# Generated (wrong)
-json_loads_int = loads   # loads(s) requires argument
-
-# Fix
-def json_loads_int():
-    return loads('{"a": 1}')["a"]
-```
+`tools/held_out_guard.py` must stay green. Distinctive held-out vectors (`1.5e2`, trailing commas, BMP `ensure_ascii` examples) must not appear in `zspecs/theseus_json.zspec.zsdl` or `gold/json/package.md`.
 
 ### 3. Wrong expected value in spec
 
@@ -261,7 +247,7 @@ If the synthesis runner times out mid-batch, some package directories may be cre
 2. **No third-party deps.** Only Python stdlib + verified Theseus packages from `theseus_registry.json`.
 3. **No subprocess delegation.** Cannot shell out to the original tool.
 4. **Spec-first.** Spec written and compiled before synthesis begins.
-5. **Zero-arg invariant functions.** Always. No exceptions.
+5. **Gold-set invariants call the public API with arguments.** Do not add zero-arg self-test wrappers on gold-set packages. Legacy factory specs still use wrappers until migrated.
 6. **Isolation-verified.** All invariants must pass with `THESEUS_BLOCKED_PACKAGE` set to the original module name.
 7. **Registry-gated.** Package is not usable as a dependency until `registry.py verify` succeeds.
 
@@ -273,24 +259,18 @@ If the synthesis runner times out mid-batch, some package directories may be cre
 # WRONG: wrapper, not a clean-room rewrite
 import json  # BLOCKED — THESEUS ISOLATION VIOLATION
 
+def dumps(obj, **kwargs):
+    return json.dumps(obj, **kwargs)
+```
+
+```python
+# WRONG on a gold-set package: self-test wrapper instead of the public API
 def json_loads_int():
-    return json.loads('{"a": 1}')["a"]
+    return loads('{"a": 1}')["a"]
 ```
 
 ```python
-# WRONG: parameterized invariant function
-def json_loads_int(s):
-    return loads(s)["a"]
-```
-
-```python
-# WRONG: alias to a parameterized function
-json_loads_int = loads
-```
-
-```python
-# RIGHT: zero-arg wrapper, hardcoded input
-def json_loads_int():
-    # Hand-written recursive descent parser — no import of json
-    return _parse_object('{"a": 1}')["a"]
+# RIGHT: export dumps/loads; the oracle supplies arguments
+def dumps(obj, separators=None, ensure_ascii=True, **kwargs):
+    ...
 ```

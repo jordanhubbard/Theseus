@@ -127,7 +127,7 @@ Costs:
 
 ## Follow-up
 
-- Phase 1 — format spike on JSON: Markdown authority, public-API oracle, held-out vectors, no zero-arg wrappers.
+- Phase 1 — format spike on JSON: Markdown authority, public-API oracle, held-out vectors, no zero-arg wrappers. **Done** ([ADR 0002](0002-json-authority-format.md), `gold/json/`).
 - Phase 2 — characterization loop with uncertainty review; deepen the best Layer 2 oracles.
 - Phase 3 — gold-set regenerative qualification.
 - Phase 4 — keep or drop replacement as a product claim.
