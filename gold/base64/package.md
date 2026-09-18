@@ -12,6 +12,10 @@ exports:
   - b32encode
   - b16encode
 public_oracle: zspecs/base64.zspec.zsdl
+blocks: base64
+cleanroom_oracle: zspecs/theseus_base64_q.zspec.zsdl
+held_out_oracle: gold/base64/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_base64_q
 docs:
   - https://docs.python.org/3/library/base64.html
 rfcs:

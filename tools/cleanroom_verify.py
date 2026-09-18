@@ -77,8 +77,15 @@ def _get_blocked_package(spec: dict, name: str) -> str:
     return name
 
 
+def _cleanroom_python_root():
+    override = os.environ.get("THESEUS_CLEANROOM_PYTHON")
+    if override:
+        return Path(override)
+    return _CLEANROOM_PYTHON
+
+
 def _resolve_typed(value):
-    """Resolve compiled ZSDL typed values (tuple tags, nested lists/dicts)."""
+    """Resolve compiled ZSDL typed values (tuple, bytes_*, nested lists/dicts)."""
     if isinstance(value, dict) and "type" in value:
         kind = value.get("type")
         inner = value.get("value")
@@ -86,6 +93,13 @@ def _resolve_typed(value):
             return tuple(_resolve_typed(x) for x in (inner or []))
         if kind == "null":
             return None
+        if kind == "bytes_b64":
+            import base64 as _b64
+            return _b64.b64decode(inner) if inner else b""
+        if kind == "bytes_ascii":
+            return (inner or "").encode("ascii")
+        if kind == "bytes_hex":
+            return bytes.fromhex(inner) if inner else b""
         return inner
     if isinstance(value, list):
         return [_resolve_typed(x) for x in value]
@@ -129,16 +143,25 @@ def _python_invariant_script(module_name, inv):
             "    raise SystemExit('did not raise ' + _exc_name)\n"
         )
     expected = _resolve_typed(spec_dict.get("expected"))
+    method = spec_dict.get("method") or ""
+    method_args = _resolve_typed(spec_dict.get("method_args") or [])
     return preamble + (
         "_expected = " + repr(expected) + "\n"
         "_result = _fn(*_args, **_kwargs)\n"
+        "_method = " + repr(method) + "\n"
+        "_method_args = " + repr(method_args) + "\n"
+        "if _method:\n"
+        "    _obj = _result\n"
+        "    for _part in _method.split('.'):\n"
+        "        _obj = getattr(_obj, _part)\n"
+        "    _result = _obj(*_method_args) if callable(_obj) else _obj\n"
         "assert _result == _expected, 'got %r, expected %r' % (_result, _expected)\n"
         "print('OK')\n"
     )
 
 
 def _verify_python(spec: dict, name: str, verbose: bool) -> dict:
-    impl_dir = _CLEANROOM_PYTHON / name
+    impl_dir = _cleanroom_python_root() / name
     if not (impl_dir / "__init__.py").exists():
         return {
             "pass": 0,
@@ -158,9 +181,13 @@ def _verify_python(spec: dict, name: str, verbose: bool) -> dict:
             ],
         }
 
+    root = _cleanroom_python_root()
+    pythonpath = str(root)
+    if root != _CLEANROOM_PYTHON:
+        pythonpath = pythonpath + os.pathsep + str(_CLEANROOM_PYTHON)
     env = {
         **os.environ,
-        "PYTHONPATH": str(_CLEANROOM_PYTHON),
+        "PYTHONPATH": pythonpath,
         "PYTHONNOUSERSITE": "1",
         "THESEUS_BLOCKED_PACKAGE": blocked,
     }

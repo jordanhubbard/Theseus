@@ -10,6 +10,10 @@ exports:
   - IS_CHARACTER_JUNK
   - IS_LINE_JUNK
 public_oracle: zspecs/difflib.zspec.zsdl
+blocks: difflib
+cleanroom_oracle: zspecs/theseus_difflib_q.zspec.zsdl
+held_out_oracle: gold/difflib/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_difflib_q
 docs:
   - https://docs.python.org/3/library/difflib.html
 rfcs:

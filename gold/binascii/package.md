@@ -10,6 +10,10 @@ exports:
   - unhexlify
   - Error
 public_oracle: zspecs/binascii.zspec.zsdl
+blocks: binascii
+cleanroom_oracle: zspecs/theseus_binascii_q.zspec.zsdl
+held_out_oracle: gold/binascii/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_binascii_q
 docs:
   - https://docs.python.org/3/library/binascii.html
 rfcs:

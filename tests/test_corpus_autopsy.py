@@ -135,6 +135,8 @@ class TestFamilyKey:
         assert autopsy.family_key("bisect_extra_rust") == "bisect"
         assert autopsy.family_key("json") == "json"
         assert autopsy.family_key("theseus_cProfile_cr") == "cprofile"
+        assert autopsy.family_key("theseus_base64_q") == "base64"
+        assert autopsy.family_key("theseus_urllib_parse_q") == "urllib_parse"
 
 
 class TestFeasibility:

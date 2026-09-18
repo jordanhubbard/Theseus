@@ -149,6 +149,7 @@ _FAMILY_CR_RE = re.compile(r"_cr\d*$")
 _FAMILY_EXTRA_RE = re.compile(r"_extra\d*$")
 _FAMILY_RUST_RE = re.compile(r"_rust$")
 _FAMILY_NODE_RE = re.compile(r"_node$")
+_FAMILY_Q_RE = re.compile(r"_q$")
 _WRAPPER_DIGIT_RE = re.compile(r"\d_")
 
 
@@ -163,6 +164,7 @@ def family_key(name: str) -> str:
     key = _FAMILY_NODE_RE.sub("", key)
     key = _FAMILY_CR_RE.sub("", key)
     key = _FAMILY_EXTRA_RE.sub("", key)
+    key = _FAMILY_Q_RE.sub("", key)
     return key.lower()
 
 
@@ -244,9 +246,11 @@ def is_wrapper_function(fn: str, spec_name: str, backend: str) -> bool:
         return True
     if _WRAPPER_DIGIT_RE.search(fn):
         return True
-    if backend in ("python_cleanroom", "node_cleanroom") and "_" in fn:
-        return True
-    if spec_name.startswith("theseus_") and "_" in fn:
+    stem = spec_name[len("theseus_"):] if spec_name.startswith("theseus_") else spec_name
+    if stem.endswith("_q"):
+        stem = stem[:-2]
+    factory_prefix = stem + "_"
+    if fn.startswith(factory_prefix):
         return True
     return False
 

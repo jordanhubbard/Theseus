@@ -34,10 +34,20 @@ def _save(reg: dict) -> None:
 
 
 def is_allowed(name: str) -> bool:
-    """Return True if name is a verified Theseus package."""
+    """Return True if name is a verified Theseus package (legacy isolation)."""
     reg = load()
     pkg = reg["packages"].get(name)
     return pkg is not None and pkg.get("status") == "verified"
+
+
+def is_qualified(name: str) -> bool:
+    """Return True only if the package is on the qualified ladder rung (ADR 0004)."""
+    reg = load()
+    ladder = reg.get("ladder") or {}
+    if name in (ladder.get("qualified") or []):
+        return True
+    pkg = (reg.get("packages") or {}).get(name) or {}
+    return bool(pkg.get("is_qualified"))
 
 
 def register(name: str, cleanroom_path: str, spec: str, status: str = "pending") -> None:

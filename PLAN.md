@@ -1,10 +1,10 @@
 # Theseus Clean-Room Rewrite Initiative — Implementation Plan
 
-> **Status (2026-09-17):** Phase 0 (corpus autopsy, ADR 0001), Phase 1 (JSON format spike, ADR 0002), and Phase 2 (characterization loop, ADR 0003) are done. Qualification remains withdrawn (0 packages). Do not run synthesis waves until Phase 3 gold-set qualification is specified. Next: Phase 3.
+> **Status (2026-09-18):** Phases 0–10 of the verification-ladder refresh are done. Characterization is the product ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Qualification remains withdrawn: 10 Python gold-set families attempted, **0 qualified** (no dual independent generation). Do not advertise Layer 3 as a rewrite ecosystem. Factory wrappers are frozen. Next work is deepening Layer 2 oracles, not inflating registry counts.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Transform Theseus from a behavioral spec verification system (which wraps existing packages) into a clean-room package synthesis engine that produces fully self-contained, dependency-clean reimplementations of OSS packages — no cross-language wrappers, no runtime dependencies on the original package.
+**Goal (updated):** Theseus characterizes OSS packages and checks those characterizations against the installed library. Clean-room replacement is a research protocol with a kill gate that has fired. The original goal below (self-contained reimplementations at corpus scale) is **not** the shipping claim.
 
 **Architecture:** Each target package gets a ZSDL behavioral spec expressing what it must do (invariants, input/output contracts), then a clean-room implementation written entirely in the target language (Python for Python packages, Node.js for Node.js packages, etc.) that satisfies all invariants without importing the original library. Only other Theseus-rewritten packages may be used as dependencies.
 

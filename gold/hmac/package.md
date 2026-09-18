@@ -10,6 +10,10 @@ exports:
   - compare_digest
   - HMAC
 public_oracle: zspecs/hmac.zspec.zsdl
+blocks: hmac
+cleanroom_oracle: zspecs/theseus_hmac_q.zspec.zsdl
+held_out_oracle: gold/hmac/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_hmac_q
 docs:
   - https://docs.python.org/3/library/hmac.html
 rfcs:

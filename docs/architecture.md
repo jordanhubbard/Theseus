@@ -6,9 +6,9 @@ Theseus is a batch analysis toolchain. There is no server, no database, and no p
 
 **Layer 1 — Package recipe pipeline:** normalizes Nixpkgs and FreeBSD Ports records into a shared canonical schema, ranks candidates, and produces merged extraction records.
 
-**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,299 source specs covering 7 backend types (node 1091, rust_module 479, python_cleanroom 394, python_module 318, ctypes 12, cli 4, node_cleanroom 1). Depth varies: 1,010 are mechanical `oracle_bound` public-API specs; clean-room specs have a median of 3 invariants. See [ADR 0001](decisions/0001-verification-ladder.md) and the [corpus autopsy](../reports/audit/corpus-autopsy.md).
+**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,308 source specs covering 7 backend types (node 1091, rust_module 479, python_cleanroom 403, python_module 318, ctypes 12, cli 4, node_cleanroom 1). Depth varies: 1,010 are mechanical `oracle_bound` public-API specs; clean-room specs have a median of 3 invariants. See [ADR 0001](decisions/0001-verification-ladder.md) and the [corpus autopsy](../reports/audit/corpus-autopsy.md).
 
-**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, historically synthesized a reimplementation that satisfied listed invariants without importing the original package. **Qualification is withdrawn.** `status=verified` is legacy isolation (396 packages). Zero packages are `qualified`. The JSON gold-set spike ([ADR 0002](decisions/0002-json-authority-format.md), `gold/json/`) grades `theseus_json` on `dumps`/`loads` plus a held-out oracle; gold-set families now have reviewed uncertainty ledgers ([ADR 0003](decisions/0003-characterization-loop.md)). That is still not qualification. See [ADR 0001](decisions/0001-verification-ladder.md) and [corpus autopsy](../reports/audit/corpus-autopsy.md).
+**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, historically synthesized a reimplementation that satisfied listed invariants without importing the original package. **Qualification is withdrawn.** Phase 3 ran the held-out protocol ([ADR 0004](decisions/0004-qualification-protocol.md)) against ten Python gold-set families: public + held-out oracles pass in isolation, but **0 packages are `qualified`** (no dual independent generation). The kill gate fired; characterization is the product ([ADR 0005](decisions/0005-characterization-is-the-product.md)). `status=verified` is legacy isolation (396 packages). Gold-set families have reviewed uncertainty ledgers ([ADR 0003](decisions/0003-characterization-loop.md)) and characterization records ([ADR 0006](decisions/0006-characterization-records.md)). See [ADR 0001](decisions/0001-verification-ladder.md) and [corpus autopsy](../reports/audit/corpus-autopsy.md).
 
 ```
 Source Trees (Nixpkgs, FreeBSD Ports)
@@ -40,6 +40,8 @@ _build/zspecs/*.zspec.json               ← compiled from ZSDL (build artifact,
         ├─► tools/verify_behavior.py     ← harness: run invariants against installed library
         ├─► tools/live_probe.py          ← black-box calls on the installed library
         ├─► tools/characterize.py        ← authority + ledger + oracle + probes
+        ├─► tools/qualify.py             ← ADR 0004 protocol; receipts, not product claims
+        ├─► tools/lint_gold_wrappers.py  ← freeze factory wrappers; gold-set public API
         ├─► tools/validate_zspec.py      ← static JSON schema validation of spec files
         ├─► tools/verify_all_specs.py    ← run all specs; write JSON results file
         └─► make verify-all-specs        ← aggregate text report across all specs
@@ -60,7 +62,7 @@ zspecs/theseus_*.zspec.zsdl              ← clean-room specs (python_cleanroom 
   tools/registry.py verify <name>       ← register in theseus_registry.json
         │
         ▼
-  theseus_registry.json                 ← 396 legacy-isolation packages; qualification withdrawn (ADR 0001)
+  theseus_registry.json                 ← 396 legacy-isolation packages; 0 qualified; product = characterization (ADR 0005)
 ```
 
 ---

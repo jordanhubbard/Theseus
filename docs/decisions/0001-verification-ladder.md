@@ -45,7 +45,7 @@ Every spec and every registry package sits on exactly one current rung. Higher r
 | `oracle_bound` | Executable invariants call the **public API with arguments** and pass against the **installed original**. | Layer 2 `python_module` / `node` / `ctypes` / `cli` specs of moderate or deep quality |
 | `spec_sufficient` | An independent review says the spec could support regeneration. Held-out vectors exist and are not in the synthesizer prompt. | Future Phase 1–2 |
 | `regenerated` | Empty-workspace generation passed **generated** tests. Not acceptance. | Future Phase 3 |
-| `qualified` | Held-out oracle passed, isolation held, qualification protocol ran at least twice. Original source was not in the generator context. | None today |
+| `qualified` | Held-out oracle passed, isolation held, qualification protocol ran at least twice. Original source was not in the generator context. | None today (Phase 3 attempted 10 families; dual-generation did not occur — [ADR 0004](0004-qualification-protocol.md), [ADR 0005](0005-characterization-is-the-product.md)) |
 | `legacy_isolation` | Historical `status=verified`: listed invariants passed with the original blocked. **Not a product rung.** Kept as evidence of the old gate. | Essentially the entire current registry |
 
 `status: verified` in `theseus_registry.json` is hereby **isolation evidence only**. It does not mean `oracle_bound`, `spec_sufficient`, `regenerated`, or `qualified`.

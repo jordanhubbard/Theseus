@@ -7,21 +7,24 @@ PyPI, and npm into a shared canonical JSON schema, then ranks and extracts the m
 important candidates. [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) is also
 supported as a build recipe source — its 20,000+ port Makefiles complement Nixpkgs.
 
-**Layer 2** provides 2,299 machine-readable behavioral specs — one per OSS library —
-that are verified against the real installed library on macOS and Linux. 1,091 of them
-target npm packages. Spec depth varies; clean-room factory specs are typically 3
-invariants and are **not** qualified replacements. See
-[ADR 0001](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0001-verification-ladder.md).
+**Layer 2** provides machine-readable behavioral specs — one per OSS library —
+that are verified against the real installed library on macOS and Linux. Spec depth
+varies; clean-room factory specs are typically 3 invariants and are **not**
+qualified replacements. **0 packages are qualified.** Characterization is the
+product. See
+[ADR 0001](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0001-verification-ladder.md)
+and
+[ADR 0005](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0005-characterization-is-the-product.md).
 
 ---
 
 ## Covered library index {#covered-library-index}
 
-The Z-layer covers **2,299** compiled specs (one per source `.zsdl` file).
-The full sorted list is below — click to expand.
+The Z-layer covers **2,308** compiled specs (one per source `.zsdl` file).
+The full sorted list is below — click to expand. Headline counts: [corpus autopsy](https://github.com/jordanhubbard/Theseus/blob/main/reports/audit/corpus-autopsy.md).
 
 <details>
-<summary>Show full list of covered libraries (2,299 entries)</summary>
+<summary>Show full list of covered libraries (see autopsy for current count)</summary>
 
 ```
 _bisect

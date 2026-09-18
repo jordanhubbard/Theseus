@@ -113,15 +113,18 @@ def load_family(family: str):
     }
 
 
-def _compile(zsdl: Path):
+def _compile(zsdl: Path, out_name=None):
     compiler = zsdl_compile.ZSDLCompiler()
     compiled = compiler.compile_file(zsdl)
     out_dir = _REPO_ROOT / "_build" / "zspecs"
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = zsdl.name
-    if stem.endswith(".zsdl"):
-        stem = stem[:-5]
-    out = out_dir / (stem if stem.endswith(".json") else stem + ".json")
+    if out_name:
+        out = out_dir / out_name
+    else:
+        stem = zsdl.name
+        if stem.endswith(".zsdl"):
+            stem = stem[:-5]
+        out = out_dir / (stem if stem.endswith(".json") else stem + ".json")
     out.write_text(json.dumps(compiled, indent=2) + "\n", encoding="utf-8")
     return compiled, out
 
@@ -204,7 +207,9 @@ def characterize(family: str, verbose=False):
     held = meta.get("held_out_oracle")
     if held:
         held_path = _REPO_ROOT / held
-        h_compiled, h_out = _compile(held_path)
+        h_compiled, h_out = _compile(
+            held_path, "held_out_{}.zspec.json".format(family)
+        )
         steps.append(("held_out_oracle", _verify_compiled(h_compiled, h_out)))
         if held_out_guard is not None and cr:
             leaks = held_out_guard.check(_REPO_ROOT / cr, held_path)
@@ -241,6 +246,33 @@ def characterize(family: str, verbose=False):
             family, report["ledger_items"], len(steps)
         ))
     return report
+
+
+def characterization_record(family):
+    """Map a gold-set family onto the characterization-record schema (ADR 0006)."""
+    rec = load_family(family)
+    meta = rec["meta"]
+    probes = None
+    if rec["probes"] is not None:
+        probes = "gold/{}/probes.yaml".format(family)
+    return {
+        "schema_version": "1.0",
+        "kind": "characterization_record",
+        "family": family,
+        "authority": "gold/{}/package.md".format(family),
+        "public_oracle": meta.get("public_oracle"),
+        "cleanroom_oracle": meta.get("cleanroom_oracle"),
+        "held_out_oracle": meta.get("held_out_oracle"),
+        "implementation": meta.get("implementation"),
+        "uncertainty_ledger": "gold/{}/uncertainty.yaml".format(family),
+        "probes": probes,
+        "blocks": meta.get("blocks"),
+        "exports": list(meta.get("exports") or []),
+        "ladder": meta.get("ladder"),
+        "qualification": meta.get("qualification") or "none",
+        "docs": list(meta.get("docs") or []),
+        "rfcs": list(meta.get("rfcs") or []),
+    }
 
 
 def list_families():

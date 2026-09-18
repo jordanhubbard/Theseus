@@ -17,14 +17,14 @@
 
 ## 1. What Theseus Is
 
-Theseus is a toolchain for documenting, verifying, and re-creating open source software behavior without using the original implementation source code.
+Theseus is a toolchain for characterizing open source software behavior and checking that characterization against the installed library, without using the original implementation source as authority.
 
 It answers four questions:
 
 1. **Where does this library's behavior come from?** — Provenance: which RFCs, public docs, and header files were consulted to describe it.
 2. **Is my specification accurate?** — Verification: run the spec's invariants against the real installed library.
 3. **How does library A differ from library B?** — Comparison: compare two specs to find common behavior and divergences.
-4. **Can I build a correct implementation from the spec alone?** — Synthesis: LLM-generate an implementation that satisfies every invariant, with the original package blocked during testing.
+4. **Can I qualify a replacement from the spec alone?** — Research protocol only ([ADR 0004](decisions/0004-qualification-protocol.md)). Isolation plus a held-out oracle, twice, with independent generators. **0 packages are qualified.** Characterization is the product ([ADR 0005](decisions/0005-characterization-is-the-product.md)).
 
 The system requires **Python 3.9+** and has **no external runtime dependencies** (pure stdlib). Local testing, ZSDL compilation, and docs builds use the Python tooling declared in `requirements.txt`. LLM synthesis requires either the `claude` CLI or an OpenAI-compatible endpoint configured in `config.yaml`.
 
@@ -604,9 +604,14 @@ This checks that:
 
 ## 8. Recreating a Package from Its Specification
 
-This section walks through the complete workflow: starting from a behavioral spec for an existing library, and ending with a new implementation that can be verified to be behaviorally equivalent — without ever touching the original source code.
+> **This is a research protocol, not a shipping feature.** The gold-set qualification
+> loop ([ADR 0004](decisions/0004-qualification-protocol.md)) attempted ten Python
+> families. Public and held-out oracles can pass in isolation. **None are `qualified`**
+> because qualification requires two independent empty-workspace generations.
+> Characterization remains the product ([ADR 0005](decisions/0005-characterization-is-the-product.md)).
+> Use `make qualify-check` and `gold/<family>/` — do not treat `status=verified` as a replacement.
 
-The example uses `hashlib` (Python's cryptographic hash library).
+This section walks through characterization plus an *attempted* clean-room codec, using `hashlib` as the example. The factory spec `theseus_hashlib` (zero-arg wrappers) is frozen; the gold-set attempt is `theseus_hashlib_q`.
 
 ### 8.1 Find the spec
 

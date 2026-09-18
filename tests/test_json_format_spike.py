@@ -150,6 +150,8 @@ def test_resolve_typed_nested_tuple():
     assert cv._resolve_typed({"type": "tuple", "value": [",", ":"]}) == (",", ":")
     assert cv._resolve_typed([{"type": "null", "value": None}]) == [None]
     assert cv._resolve_typed({"a": {"type": "tuple", "value": [1, 2]}}) == {"a": (1, 2)}
+    assert cv._resolve_typed({"type": "bytes_ascii", "value": "hi"}) == b"hi"
+    assert cv._resolve_typed({"type": "bytes_hex", "value": "00ff"}) == b"\x00\xff"
 
 
 def test_cleanroom_verify_kwargs_and_raises(tmp_path, monkeypatch):
@@ -200,3 +202,40 @@ def test_cleanroom_verify_kwargs_and_raises(tmp_path, monkeypatch):
     script = cv._python_invariant_script("theseus_sample", spec["invariants"][0])
     assert "import json" not in script
     assert "separators" in script
+
+
+def test_cleanroom_verify_method_and_bytes(tmp_path, monkeypatch):
+    root = tmp_path / "python"
+    impl = root / "theseus_sample"
+    impl.mkdir(parents=True)
+    (impl / "__init__.py").write_text(
+        "def sha256(data=b''):\n"
+        "    class H:\n"
+        "        def hexdigest(self):\n"
+        "            return data.hex()\n"
+        "    return H()\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cv, "_CLEANROOM_PYTHON", root)
+    spec = {
+        "identity": {"canonical_name": "theseus_sample"},
+        "backend_lang": "python_cleanroom",
+        "blocks": "not_a_real_blocked_mod_xyz",
+        "invariants": [
+            {
+                "id": "hex",
+                "kind": "python_call_eq",
+                "spec": {
+                    "function": "sha256",
+                    "args": [{"type": "bytes_ascii", "value": "ab"}],
+                    "method": "hexdigest",
+                    "expected": "6162",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "sample.zspec.json"
+    path.write_text(json.dumps(spec), encoding="utf-8")
+    result = cv.verify(str(path))
+    assert result["fail"] == 0, result.get("errors")
+    assert result["pass"] == 1

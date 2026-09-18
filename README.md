@@ -4,9 +4,9 @@
 
 [![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
-> ### **2,299 source specs · Layer 2 oracles vs installed libraries · 0 packages qualified**
+> ### **Layer 2 oracles vs installed libraries · 0 packages qualified · characterization is the product**
 >
-> `status=verified` in the registry is **legacy isolation only**. Qualification claims are withdrawn pending the ladder in [ADR 0001](docs/decisions/0001-verification-ladder.md). Autopsy: [reports/audit/corpus-autopsy.md](reports/audit/corpus-autopsy.md).
+> `status=verified` in the registry is **legacy isolation only**. The Phase 3 held-out protocol attempted 10 Python gold-set families; none had two independent empty-workspace generations, so **none are `qualified`**. Regenerative replacement is not the shipping claim ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Ladder: [ADR 0001](docs/decisions/0001-verification-ladder.md). Autopsy: [reports/audit/corpus-autopsy.md](reports/audit/corpus-autopsy.md).
 
 📖 **[Full User Guide →](https://jordanhubbard.github.io/Theseus/)** — installation, pipeline walkthrough, spec authoring, language reference. The full list of covered libraries lives in the user guide [Index](https://jordanhubbard.github.io/Theseus/#covered-library-index).
 
@@ -14,7 +14,7 @@
 
 ## What Theseus is
 
-**Theseus** is a batch toolchain for characterizing OSS packages and checking those characterizations against the real installed library. It can also attempt clean-room reimplementation from a spec, but **no package is currently qualified as a replacement**. Given a machine-readable description of what a software package must do, Theseus (a) verifies the description against the real, installed library on every CI run, and (b) historically synthesized implementations that passed a shallow isolation harness. Isolation is not API parity. See [ADR 0001](docs/decisions/0001-verification-ladder.md).
+**Theseus** is a batch toolchain for characterizing OSS packages and checking those characterizations against the real installed library. Clean-room reimplementation from a spec was attempted; **no package is qualified as a replacement**, and the gold-set kill gate has fired ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Isolation is not API parity. See [ADR 0001](docs/decisions/0001-verification-ladder.md) and [ADR 0004](docs/decisions/0004-qualification-protocol.md).
 
 **Theseus** also provides a toolchain for normalizing package recipes from four ecosystems into a shared canonical schema, so packages can be compared, ranked, and reasoned about across ecosystems without losing the provenance of each claim.
 
@@ -35,7 +35,7 @@ Terms used throughout the project, defined here before they appear in the rest o
 - **Z-spec** / **zspec** — synonym for behavioral spec; the "Z" was chosen for being terminal (Z is the last letter — after Z, only verification remains).
 - **ZSDL** — *Z-Spec Definition Language*. The YAML-flavoured surface syntax of `.zspec.zsdl` files. Compiles to JSON via `make compile-zsdl`. Full grammar: [docs/zsdl-design.md](docs/zsdl-design.md).
 - **Invariant** — one falsifiable claim about behaviour (e.g. *"`semver.valid('1.2.3')` returns `'1.2.3'`"*). The verification harness asserts each invariant against the real installed library and reports pass/fail.
-- **Compiled bundle** — the compiler emits one `.zspec.json` per source `.zsdl`. The current corpus has 2,299 source specs. Depth and quality vary; see the [corpus autopsy](reports/audit/corpus-autopsy.md).
+- **Compiled bundle** — the compiler emits one `.zspec.json` per source `.zsdl`. The current corpus has 2,308 source specs. Depth and quality vary; see the [corpus autopsy](reports/audit/corpus-autopsy.md).
 - **Backend** — how the spec runner loads the library under test: `ctypes` (C shared libraries via `ctypes.CDLL`), `python_module` (`importlib.import_module`), `node` (CJS or ESM via `node -e`), `cli` (`subprocess.run`).
 - **Clean-room package** — a Theseus reimplementation registered in `theseus_registry.json`. `status=verified` means **legacy isolation** (listed invariants passed with the original blocked). It is not `qualified` replacement. Ladder: [ADR 0001](docs/decisions/0001-verification-ladder.md).
 
@@ -51,7 +51,7 @@ Terms used throughout the project, defined here before they appear in the rest o
 
 ### Clean-room packages (legacy isolation — not qualified)
 
-The packages below passed the old isolation harness. None are `qualified` under ADR 0001. `theseus_json` is the ADR 0002 gold-set spike: public `dumps`/`loads` oracle plus a held-out file the synthesizer never sees. Gold-set families now have reviewed uncertainty ledgers and a characterization loop ([ADR 0003](docs/decisions/0003-characterization-loop.md)). That is still not `qualified`.
+The packages below passed the old isolation harness. None are `qualified` under ADR 0001. `theseus_json` is the ADR 0002 gold-set spike: public `dumps`/`loads` oracle plus a held-out file the synthesizer never sees. Gold-set families have reviewed uncertainty ledgers ([ADR 0003](docs/decisions/0003-characterization-loop.md)) and a qualification protocol ([ADR 0004](docs/decisions/0004-qualification-protocol.md)). Ten Python families were attempted; 0 qualified. That is still not `qualified`.
 
 | Package | Language | Isolation invariants | Replaces (claim withdrawn) |
 |---|---|---|---|
@@ -275,5 +275,7 @@ The schema grew three example records — `zlib`, `curl`, `openssl` — written 
 What happens after the ranking — the extraction phase the tools called "Z," a letter chosen for its quality of being terminal — is documented elsewhere. What mattered here was the foundation: a schema modest enough to be correct, tools simple enough to trust, and a snapshot format that preserved the provenance of every claim rather than discarding it for the sake of a cleaner output. The programmer had, for once in this project's young life, built something that admitted its own limitations as a structured field rather than a comment that no one would read.
 
 Sir Reginald sat down on the printed schema. He had no notes. His position on the matter was architectural.
+
+Years later the programmer returned to the ship with a larger crew of language models and a troubling inventory: hundreds of planks labeled "verified" that, on inspection, were three coats of varnish on the original hull. Sir Reginald, who had been napping inside a held-out crate the synthesizers were forbidden to open, declined to move. The crew wrote down what the libraries actually *did*, checked those notes against the real fittings, and attempted ten replica keels in an empty dry dock. None of the keels were laid twice by independent shipwrights, so none were certified to sail. The programmer announced that the product was the notes. Sir Reginald's tail, hanging out of the crate, was recorded as an abstention.
 
 As of this writing, Theseus has been used in production by exactly one person, who also wrote it. Sir Reginald continues to withhold his endorsement across the chronicle, citing "procedural concerns," "insufficient tuna," "a general atmosphere of hubris," and a documented skepticism toward confidence fields that score their own uncertainty higher than 0.9 while the author admits he might be wrong.

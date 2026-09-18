@@ -10,6 +10,10 @@ exports:
   - calcsize
   - error
 public_oracle: zspecs/struct.zspec.zsdl
+blocks: struct
+cleanroom_oracle: zspecs/theseus_struct_q.zspec.zsdl
+held_out_oracle: gold/struct/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_struct_q
 docs:
   - https://docs.python.org/3/library/struct.html
 rfcs:

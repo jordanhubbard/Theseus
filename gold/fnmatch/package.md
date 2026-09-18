@@ -10,6 +10,10 @@ exports:
   - filter
   - translate
 public_oracle: zspecs/fnmatch.zspec.zsdl
+blocks: fnmatch
+cleanroom_oracle: zspecs/theseus_fnmatch_q.zspec.zsdl
+held_out_oracle: gold/fnmatch/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_fnmatch_q
 docs:
   - https://docs.python.org/3/library/fnmatch.html
 rfcs:

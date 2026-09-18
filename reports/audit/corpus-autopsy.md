@@ -1,6 +1,6 @@
 # Theseus Corpus Autopsy
 
-Generated: `2026-09-17T23:12:26Z`
+Generated: `2026-09-18T06:28:19Z`
 Schema: `theseus-corpus-autopsy/0.1`
 Decision: [`docs/decisions/0001-verification-ladder.md`](../../docs/decisions/0001-verification-ladder.md)
 
@@ -9,11 +9,11 @@ It does **not** claim any package is qualified. See ADR 0001.
 
 ## Headline
 
-- **2299** source specs classified (0 compile errors).
+- **2308** source specs classified (0 compile errors).
 - **396** registry packages with `status=verified` are **withdrawn from qualification**.
 - **0** packages are `qualified`.
 - **1010** specs look like public-API oracles of moderate/deep depth (Layer 2 asset).
-- **178** specs match the 3-invariant clean-room factory (`factory_shallow`).
+- **176** specs match the 3-invariant clean-room factory (`factory_shallow`).
 - Median invariant count: clean-room **3.0**, public-API **6.0**.
 - **269** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).
 - **17** gold-set families have an accepted uncertainty ledger (ADR 0003); **0** still open/missing.
@@ -24,7 +24,7 @@ It does **not** claim any package is qualified. See ADR 0001.
 | Value | Count |
 |---|---:|
 | `oracle_bound` | 1010 |
-| `inventoried` | 479 |
+| `inventoried` | 488 |
 | `characterized_draft` | 415 |
 | `legacy_isolation` | 395 |
 
@@ -38,7 +38,7 @@ That is not regenerative qualification.
 |---|---:|
 | `node` | 1091 |
 | `rust_module` | 479 |
-| `python_cleanroom` | 394 |
+| `python_cleanroom` | 403 |
 | `python_module` | 318 |
 | `ctypes` | 12 |
 | `cli` | 4 |
@@ -48,12 +48,12 @@ That is not regenerative qualification.
 
 | Value | Count |
 |---|---:|
-| `moderate` | 823 |
-| `shallow` | 413 |
+| `moderate` | 829 |
+| `shallow` | 415 |
 | `presence` | 367 |
 | `wrapper` | 325 |
-| `deep` | 188 |
-| `factory_shallow` | 178 |
+| `deep` | 191 |
+| `factory_shallow` | 176 |
 | `self_test` | 4 |
 | `empty` | 1 |
 
@@ -63,8 +63,8 @@ That is not regenerative qualification.
 |---|---:|
 | `public_api` | 1424 |
 | `wrapper` | 479 |
-| `self_test_wrapper` | 393 |
-| `cleanroom_public_api` | 2 |
+| `self_test_wrapper` | 391 |
+| `cleanroom_public_api` | 13 |
 | `presence` | 1 |
 
 ## By replacement feasibility
@@ -74,7 +74,7 @@ That is not regenerative qualification.
 | `needs_review` | 1265 |
 | `wrapper` | 479 |
 | `medium` | 191 |
-| `high` | 175 |
+| `high` | 184 |
 | `os_binding` | 79 |
 | `stdlib_interpreter` | 71 |
 | `native_core` | 29 |
@@ -146,22 +146,22 @@ The intended gold-set families are: `base64, binascii, difflib, fnmatch, hashlib
 Authority Markdown + reviewed uncertainty ledgers under `gold/<family>/`.
 Accepted ledgers are **not** qualification. Held-out oracles remain Phase 3.
 
-- `base64` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out no
-- `binascii` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
-- `difflib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
-- `fnmatch` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
-- `hashlib` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out no
-- `hmac` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out no
+- `base64` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
+- `binascii` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `difflib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `fnmatch` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `hashlib` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
+- `hmac` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
 - `json` *(intended)* — ledger `accepted`, 4 items, probes yes, held-out yes
 - `libpcap` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
 - `pcap` *(intended)* — ledger `accepted`, 1 items, probes no, held-out no
 - `pcapng` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
 - `semver` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
-- `shlex` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
-- `struct` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `shlex` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `struct` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `tomli` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `tomllib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
-- `urllib_parse` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `urllib_parse` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `uuid` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
 
 ## Largest duplicate-wave families
@@ -170,17 +170,19 @@ Accepted ledgers are **not** qualification. Held-out oracles remain Phase 3.
 - `json` (10) — `json`, `json_extra2_rust`, `json_extra_rust`, `json_rust`, `theseus_json`, `theseus_json_cr`, `theseus_json_cr2`, `theseus_json_cr3`, `theseus_json_cr4`, `theseus_json_cr5`
 - `math` (9) — `math`, `math_extra_rust`, `math_rust`, `theseus_math`, `theseus_math_cr`, `theseus_math_cr2`, `theseus_math_cr3`, `theseus_math_cr4`, `theseus_math_cr5`
 - `re` (9) — `re`, `re_extra_rust`, `re_rust`, `theseus_re`, `theseus_re_cr`, `theseus_re_cr2`, `theseus_re_cr3`, `theseus_re_cr4`, `theseus_re_cr5`
+- `struct` (9) — `struct`, `struct_rust`, `theseus_struct`, `theseus_struct_cr`, `theseus_struct_cr2`, `theseus_struct_cr3`, `theseus_struct_cr4`, `theseus_struct_extra_cr`, `theseus_struct_q`
+- `urllib_parse` (9) — `theseus_urllib_parse`, `theseus_urllib_parse_cr`, `theseus_urllib_parse_cr2`, `theseus_urllib_parse_cr3`, `theseus_urllib_parse_cr4`, `theseus_urllib_parse_q`, `urllib_parse`, `urllib_parse_extra_rust`, `urllib_parse_rust`
+- `base64` (8) — `base64`, `base64_rust`, `theseus_base64`, `theseus_base64_cr`, `theseus_base64_cr2`, `theseus_base64_cr3`, `theseus_base64_cr4`, `theseus_base64_q`
 - `collections` (8) — `collections`, `collections_extra_rust`, `collections_rust`, `theseus_collections_cr`, `theseus_collections_cr2`, `theseus_collections_cr3`, `theseus_collections_cr4`, `theseus_collections_cr5`
 - `contextlib` (8) — `contextlib`, `contextlib_extra_rust`, `contextlib_rust`, `theseus_contextlib`, `theseus_contextlib_cr`, `theseus_contextlib_cr2`, `theseus_contextlib_cr3`, `theseus_contextlib_cr4`
 - `functools` (8) — `functools`, `functools_extra_rust`, `functools_rust`, `theseus_functools_cr`, `theseus_functools_cr2`, `theseus_functools_cr3`, `theseus_functools_cr4`, `theseus_functools_cr5`
 - `io` (8) — `io`, `io_extra2_rust`, `io_extra_rust`, `io_rust`, `theseus_io_cr`, `theseus_io_cr2`, `theseus_io_cr3`, `theseus_io_cr4`
 - `statistics` (8) — `statistics`, `statistics_extra2_rust`, `statistics_extra_rust`, `statistics_rust`, `theseus_statistics`, `theseus_statistics_cr`, `theseus_statistics_cr2`, `theseus_statistics_cr3`
-- `struct` (8) — `struct`, `struct_rust`, `theseus_struct`, `theseus_struct_cr`, `theseus_struct_cr2`, `theseus_struct_cr3`, `theseus_struct_cr4`, `theseus_struct_extra_cr`
-- `urllib_parse` (8) — `theseus_urllib_parse`, `theseus_urllib_parse_cr`, `theseus_urllib_parse_cr2`, `theseus_urllib_parse_cr3`, `theseus_urllib_parse_cr4`, `urllib_parse`, `urllib_parse_extra_rust`, `urllib_parse_rust`
-- `base64` (7) — `base64`, `base64_rust`, `theseus_base64`, `theseus_base64_cr`, `theseus_base64_cr2`, `theseus_base64_cr3`, `theseus_base64_cr4`
 - `csv` (7) — `csv`, `csv_extra_rust`, `csv_rust`, `theseus_csv`, `theseus_csv_cr`, `theseus_csv_cr2`, `theseus_csv_cr3`
 - `decimal` (7) — `decimal`, `decimal_rust`, `theseus_decimal`, `theseus_decimal_cr`, `theseus_decimal_cr2`, `theseus_decimal_cr3`, `theseus_decimal_cr4`
+- `difflib` (7) — `difflib`, `difflib_extra_rust`, `difflib_rust`, `theseus_difflib`, `theseus_difflib_cr`, `theseus_difflib_cr2`, `theseus_difflib_q`
 - `enum` (7) — `enum`, `enum_extra_rust`, `enum_rust`, `theseus_enum_cr`, `theseus_enum_cr2`, `theseus_enum_cr3`, `theseus_enum_cr4`
+- `fnmatch` (7) — `fnmatch`, `fnmatch_extra_rust`, `fnmatch_rust`, `theseus_fnmatch`, `theseus_fnmatch_cr`, `theseus_fnmatch_cr2`, `theseus_fnmatch_q`
 - `itertools` (7) — `itertools`, `itertools_extra_rust`, `itertools_rust`, `theseus_itertools_cr`, `theseus_itertools_cr2`, `theseus_itertools_cr3`, `theseus_itertools_cr4`
 - `operator` (7) — `operator`, `operator_extra_rust`, `operator_rust`, `theseus_operator`, `theseus_operator_cr`, `theseus_operator_cr2`, `theseus_operator_cr3`
 - `textwrap` (7) — `textwrap`, `textwrap_extra_rust`, `textwrap_rust`, `theseus_textwrap`, `theseus_textwrap_cr`, `theseus_textwrap_cr2`, `theseus_textwrap_cr3`
@@ -189,8 +191,6 @@ Accepted ledgers are **not** qualification. Held-out oracles remain Phase 3.
 - `bisect` (6) — `bisect`, `bisect_extra_rust`, `bisect_rust`, `theseus_bisect`, `theseus_bisect_cr`, `theseus_bisect_cr2`
 - `calendar` (6) — `calendar`, `calendar_extra_rust`, `calendar_rust`, `theseus_calendar`, `theseus_calendar_cr`, `theseus_calendar_cr2`
 - `dataclasses` (6) — `dataclasses`, `dataclasses_extra_rust`, `dataclasses_rust`, `theseus_dataclasses_cr`, `theseus_dataclasses_cr2`, `theseus_dataclasses_cr3`
-- `difflib` (6) — `difflib`, `difflib_extra_rust`, `difflib_rust`, `theseus_difflib`, `theseus_difflib_cr`, `theseus_difflib_cr2`
-- `fnmatch` (6) — `fnmatch`, `fnmatch_extra_rust`, `fnmatch_rust`, `theseus_fnmatch`, `theseus_fnmatch_cr`, `theseus_fnmatch_cr2`
 
 ## Withdrawn qualification list
 

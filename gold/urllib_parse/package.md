@@ -13,6 +13,10 @@ exports:
   - parse_qs
   - urlunparse
 public_oracle: zspecs/urllib_parse.zspec.zsdl
+blocks: urllib.parse
+cleanroom_oracle: zspecs/theseus_urllib_parse_q.zspec.zsdl
+held_out_oracle: gold/urllib_parse/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_urllib_parse_q
 docs:
   - https://docs.python.org/3/library/urllib.parse.html
 rfcs:

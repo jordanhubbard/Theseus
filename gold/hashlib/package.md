@@ -13,6 +13,10 @@ exports:
   - blake2b
   - algorithms_guaranteed
 public_oracle: zspecs/hashlib.zspec.zsdl
+blocks: hashlib
+cleanroom_oracle: zspecs/theseus_hashlib_q.zspec.zsdl
+held_out_oracle: gold/hashlib/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_hashlib_q
 docs:
   - https://docs.python.org/3/library/hashlib.html
 rfcs:

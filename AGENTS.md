@@ -16,8 +16,8 @@ Walks Nixpkgs and FreeBSD Ports source trees, normalizes package metadata into a
 **Layer 2 — Z-Layer Behavioral Spec System**
 2,171 machine-readable behavioral specs (ZSDL files) — 968 of them target npm packages — covering Python stdlib, npm, ctypes C libraries (incl. libpcap + pcapng), and Rust PyO3 extension modules. Each spec defines invariants verified against the real installed library. ZSDL gained five new spec kinds across batches 112–132 + the libpcap challenge: `node_chain_eq` (fluent builder chains), `node_property_eq` (sugar for post-construction property reads), `node_sandbox_chain_eq` (chain in a tempdir cwd, for fs packages), `ctypes_chain_eq` (handle-threading C APIs), `ctypes_sandbox_chain_eq` (ctypes chain + binary-blob seeded tempdir, for libpcap/pcapng). Plus two small mode extensions: `entry: bare` for static-data modules, and `class: ""` for modules whose default export IS the constructor. Chain method steps now also accept `tap: true` to call mutators for their side effect without reassigning the threaded value. See `docs/architecture.md §Layer 2` and `docs/writing-specs.md`.
 
-**Layer 3 — Clean-Room Synthesis System** *(qualification withdrawn; see ADR 0001)*
-Given a behavioral spec with a `python_cleanroom` backend, historically synthesized a reimplementation without importing the original. `theseus_registry.json` lists 396 packages with `status=verified`; that bit is **legacy isolation only**. **0 packages are qualified.** Gold-set families have reviewed characterization ledgers (ADR 0003); that is not qualification. See `docs/decisions/0001-verification-ladder.md` and `reports/audit/corpus-autopsy.md`.
+**Layer 3 — Clean-Room Synthesis System** *(qualification withdrawn; characterization is the product — ADR 0005)*
+Given a behavioral spec with a `python_cleanroom` backend, historically synthesized a reimplementation without importing the original. `theseus_registry.json` lists 396 packages with `status=verified`; that bit is **legacy isolation only**. **0 packages are qualified.** Phase 3 attempted 10 Python gold-set families against held-out oracles; none had two independent empty-workspace generations. Gold-set families have reviewed characterization ledgers (ADR 0003) and characterization records (ADR 0006). See [ADR 0001](docs/decisions/0001-verification-ladder.md), [ADR 0004](docs/decisions/0004-qualification-protocol.md), and `reports/audit/corpus-autopsy.md`.
 
 ---
 
@@ -39,6 +39,12 @@ tools/                    CLI scripts (mostly stdlib-only)
   held_out_guard.py       Fail if held-out oracle tokens leak into a synthesis prompt
   live_probe.py           Black-box calls on an installed public API (no source reads)
   characterize.py         Gold-set characterization loop (ADR 0003)
+  qualify.py              Gold-set qualification protocol (ADR 0004); never dual-gen from one session
+  lint_gold_wrappers.py   Freeze factory wrappers; require public-API gold-set specs
+  corpus_autopsy.py       Classify specs onto the ADR 0001 verification ladder
+  characterize.py         Gold-set characterization loop (ADR 0003)
+  qualify.py              Gold-set qualification protocol (ADR 0004); receipts only
+  lint_gold_wrappers.py   Freeze factory wrappers; require public-API gold-set specs
   corpus_autopsy.py       Classify specs onto the ADR 0001 verification ladder
   synthesize_waves.py     Wave-based LLM synthesis of clean-room implementations
   registry.py             Manage theseus_registry.json (register/verify/check)

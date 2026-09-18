@@ -2,6 +2,8 @@
 
 The canonical record schema (`schema/package-recipe.schema.json`) is versioned via the `schema_version` field present in every record. The current version is **`0.2`**.
 
+Gold-set **characterization records** are a separate schema (`schema/characterization-record.schema.json`, [ADR 0006](decisions/0006-characterization-records.md)). They do not bump the recipe version.
+
 ## Compatibility rules
 
 Theseus follows a simple two-rule policy:

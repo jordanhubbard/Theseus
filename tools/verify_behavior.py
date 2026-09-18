@@ -184,6 +184,11 @@ class LibraryLoader:
                 except ImportError:
                     pass
             return mod
+        if backend in ("python_cleanroom", "node_cleanroom"):
+            raise LibraryNotFoundError(
+                "clean-room backend %r is verified by cleanroom_verify.py, not verify_behavior"
+                % backend
+            )
         if backend == "cli":
             cmd = lib_spec["command"]
             found = shutil.which(cmd)

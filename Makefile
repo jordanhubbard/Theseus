@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold qualify qualify-check lint-gold-wrappers validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -265,6 +265,16 @@ characterize:
 characterize-gold:
 	$(PYTHON) tools/characterize.py --all
 
+qualify:
+	$(PYTHON) tools/qualify.py --all
+
+qualify-check:
+	$(PYTHON) tools/qualify.py --all --check
+	$(PYTHON) tools/lint_gold_wrappers.py
+
+lint-gold-wrappers:
+	$(PYTHON) tools/lint_gold_wrappers.py
+
 validate:
 	$(PYTHON) tools/validate_record.py $(or $(PATHS),examples/)
 
@@ -448,6 +458,9 @@ help:
 	@echo "  make verify-json-spike  JSON gold-set: public oracle + held-out oracle + prompt leak guard"
 	@echo "  make characterize      Characterization loop (FAMILY=json or all gold families)"
 	@echo "  make characterize-gold Gold-set characterization for every gold/<family>/"
+	@echo "  make qualify          Gold-set qualification protocol (ADR 0004); writes reports/qualification/"
+	@echo "  make qualify-check    Re-run qualification + factory-wrapper lint (must not mark qualified without dual-gen)"
+	@echo "  make lint-gold-wrappers  Freeze legacy factory wrappers; require public-API gold-set specs"
 	@echo "  make validate       Validate records (PATHS=dir or file, default: examples/)"
 	@echo "  make diff           Diff two snapshots (BEFORE=dir AFTER=dir [OUT=file])"
 	@echo "  make release        Cut a release (BUMP=major|minor|patch, default: patch)"

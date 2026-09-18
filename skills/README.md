@@ -20,6 +20,8 @@ If `config.yaml` is missing, skills should assume default-on behavior.
 | File | Type | Description |
 |------|------|-------------|
 | [PROVENANCE.md](PROVENANCE.md) | Skill | Write a humorous project origin story chapter and chain it into the "Totally True and Not At All Embellished History" chronicle. Includes style guide, character notes, nav link format, and a checklist for adding a new Part. |
+| [characterize/SKILL.md](characterize/SKILL.md) | Skill | Gold-set characterization loop (ADR 0003). Pinned. |
+| [qualify/SKILL.md](qualify/SKILL.md) | Skill | Gold-set qualification protocol (ADR 0004). Pinned. Never mark qualified after one generation. |
 | [config.yaml](config.yaml) | Configuration | Controls optional template conventions, including whether PROVENANCE behavior is enforced. |
 
 ## How to Use a Skill

@@ -1,0 +1,69 @@
+spec: theseus_struct_q
+version: ">=3.9"
+backend: python_cleanroom(theseus_struct_q)
+blocks: struct
+
+docs: https://docs.python.org/3/library/struct.html
+
+provenance:
+  derived_from:
+    - "https://docs.python.org/3/library/struct.html"
+  not_derived_from:
+    - "CPython source: Modules/_struct.c"
+  notes:
+    - "Clean-room struct. Do NOT import struct or _struct."
+    - "Export: pack, unpack, calcsize, error."
+    - "Authority: gold/struct/package.md. Held-out oracle is NOT this file."
+  created_at: "2026-09-18T00:00:00Z"
+
+error_model: python_exceptions
+
+table theseus_struct_q.pack.vectors:
+  kind: python_call_eq
+  category: pack_vector
+  id_prefix: pack
+  function: pack
+
+  columns: [id, args, expected]
+  rows:
+    - [big_endian_uint16_zero,               [">H", 0],         !hex 0000]
+    - [big_endian_uint16_256,                [">H", 256],       !hex 0100]
+    - [little_endian_uint16_256,             ["<H", 256],       !hex 0001]
+    - [network_byte_order_equals_big_endian, ["!H", 256],       !hex 0100]
+    - [big_endian_uint32,                    [">I", 305419896], !hex 12345678]
+    - [uint8_max,                            [">B", 255],       !hex ff]
+    - [int8_minus1,                          [">b", -1],        !hex ff]
+    - [bool_true,                            ["?", true],       !hex 01]
+    - [half_float_zero,                      [">e", 0.0],       !hex 0000]
+    - [pad_bytes_3x,                         ["3x"],            !hex 000000]
+
+table theseus_struct_q.calcsize.vectors:
+  kind: python_call_eq
+  category: calcsize
+  function: calcsize
+  id_prefix: calcsize
+
+  columns: [id, args, expected]
+  rows:
+    - [H,  [">H"],  2]
+    - [I,  [">I"],  4]
+    - [HI, [">HI"], 6]
+
+table theseus_struct_q.unpack.vectors:
+  kind: python_call_eq
+  category: unpack_vector
+  id_prefix: unpack
+  function: unpack
+
+  columns: [id, args, expected]
+  rows:
+    - [big_endian_uint16,    [">H", !hex 0100], !tuple [256]]
+    - [little_endian_uint16, ["<H", !hex 0001], !tuple [256]]
+
+invariant theseus_struct_q.pack.uint8_overflow_raises:
+  description: "pack('>B', 256) raises error"
+  category: error
+  kind: python_call_raises
+  function: pack
+  args: [">B", 256]
+  expected_exception: error

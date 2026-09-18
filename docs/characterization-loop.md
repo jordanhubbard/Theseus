@@ -13,7 +13,7 @@ Each family lives in `gold/<family>/`:
 | `package.md` | Authority (Markdown + YAML frontmatter). Human-reviewable intent. |
 | `uncertainty.yaml` | Reviewed ledger. Every item is `resolved`, `deferred`, or `held_out`. |
 | `probes.yaml` | Optional live probes against the **installed** public API. |
-| `held_out.zspec.zsdl` | Optional independent oracle. JSON has one; other families do not yet. |
+| `held_out.zspec.zsdl` | Optional independent oracle. JSON and the Phase 3 Python gold-set families have one. Native/Node families do not. |
 
 The executable public oracle is the Layer 2 ZSDL named in `public_oracle:` (usually `zspecs/<name>.zspec.zsdl`).
 
@@ -73,7 +73,7 @@ Skipped families are not failures.
 
 - Passing the public oracle is **oracle_bound**, not `qualified`.
 - An accepted ledger is **characterized** review, not empty-workspace regeneration.
-- Held-out oracles for non-JSON gold-set families are Phase 3.
+- Held-out oracles for attempted Python gold-set families live in `gold/<family>/held_out.zspec.zsdl` ([ADR 0004](decisions/0004-qualification-protocol.md)). Qualification still requires two independent generations; that has not happened ([ADR 0005](decisions/0005-characterization-is-the-product.md)).
 
 ## Alias families
 

@@ -105,6 +105,8 @@ def test_committed_registry_withdraws_qualification_claim():
     ladder = data.get("ladder") or {}
     assert ladder.get("qualification_claim") == "withdrawn"
     assert ladder.get("qualified") == []
+    assert ladder.get("is_qualified") is False
+    assert registry.is_qualified("theseus_json") is False
     verified = [
         name
         for name, info in data["packages"].items()
