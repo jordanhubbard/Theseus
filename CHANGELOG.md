@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Phase 11 characterization cohort: 15 high-feasibility Layer 2 families (`bisect`, `operator`, `pprint`, `html`, `msgpack`, `ntpath`, `posixpath`, `ipaddress`, `decimal`, `keyword`, `string`, `calendar`, `fractions`, `csv`, `elementtree`) now have `gold/<family>/` authority + reviewed ledgers + live probes. Not qualified. Intended qualification gold set unchanged.
 - Characterization loop (ADR 0003): `gold/<family>/` authority + reviewed uncertainty ledgers, `tools/live_probe.py` (installed public API only), `tools/characterize.py`, `make characterize-gold`. Intended gold-set Layer 2 oracles deepened toward RFC/KAT completeness. Not qualified.
 - JSON gold-set format spike (ADR 0002): Markdown authority in `gold/json/package.md`, public-API `dumps`/`loads` oracle, held-out oracle outside `zspecs/`, `tools/held_out_guard.py`. `theseus_json` is graded on the public API, not zero-arg wrappers. Not qualified.
 - Verification ladder (ADR 0001) and a reproducible corpus autopsy (`make corpus-autopsy`). `status=verified` is documented as legacy isolation; qualification claims are withdrawn (0 packages qualified).

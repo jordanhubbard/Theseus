@@ -1,6 +1,6 @@
 # Theseus Corpus Autopsy
 
-Generated: `2026-09-18T06:28:19Z`
+Generated: `2026-09-19T09:03:55Z`
 Schema: `theseus-corpus-autopsy/0.1`
 Decision: [`docs/decisions/0001-verification-ladder.md`](../../docs/decisions/0001-verification-ladder.md)
 
@@ -16,7 +16,7 @@ It does **not** claim any package is qualified. See ADR 0001.
 - **176** specs match the 3-invariant clean-room factory (`factory_shallow`).
 - Median invariant count: clean-room **3.0**, public-API **6.0**.
 - **269** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).
-- **17** gold-set families have an accepted uncertainty ledger (ADR 0003); **0** still open/missing.
+- **32** gold/<family>/ trees have an accepted uncertainty ledger (ADR 0003); **0** still open/missing. **17** are the intended qualification set; **15** are the Phase 11 characterization cohort.
 - Registry names with no matching spec: `theseus_cProfile_cr`.
 
 ## Verification ladder (as applied to this corpus)
@@ -114,50 +114,66 @@ The intended gold-set families are: `base64, binascii, difflib, fnmatch, hashlib
 - `uuid` *(intended)* — 19 invariants, `deep`, feasibility `high`, backend `node`
 - `binascii` *(intended)* — 17 invariants, `deep`, feasibility `high`, backend `python_module`
 - `pcapng` *(intended)* — 16 invariants, `deep`, feasibility `high`, backend `ctypes`
+- `operator` — 41 invariants, `deep`, feasibility `high`, backend `python_module`
 - `logging` — 39 invariants, `deep`, feasibility `medium`, backend `python_module`
+- `pprint` — 39 invariants, `deep`, feasibility `high`, backend `python_module`
 - `mimetypes` — 37 invariants, `deep`, feasibility `medium`, backend `python_module`
-- `operator` — 37 invariants, `deep`, feasibility `high`, backend `python_module`
-- `pprint` — 37 invariants, `deep`, feasibility `high`, backend `python_module`
-- `html` — 32 invariants, `deep`, feasibility `high`, backend `python_module`
+- `html` — 33 invariants, `deep`, feasibility `high`, backend `python_module`
+- `ntpath` — 33 invariants, `deep`, feasibility `high`, backend `python_module`
+- `bisect` — 32 invariants, `deep`, feasibility `high`, backend `python_module`
 - `msgpack` — 32 invariants, `deep`, feasibility `high`, backend `python_module`
-- `ntpath` — 32 invariants, `deep`, feasibility `high`, backend `python_module`
-- `bisect` — 31 invariants, `deep`, feasibility `high`, backend `python_module`
+- `posixpath` — 32 invariants, `deep`, feasibility `high`, backend `python_module`
 - `codecs` — 31 invariants, `deep`, feasibility `medium`, backend `python_module`
+- `ipaddress` — 31 invariants, `deep`, feasibility `high`, backend `python_module`
 - `logging_handlers` — 31 invariants, `deep`, feasibility `medium`, backend `python_module`
 - `collections_abc` — 30 invariants, `deep`, feasibility `medium`, backend `python_module`
 - `datetime` — 30 invariants, `deep`, feasibility `medium`, backend `python_module`
-- `ipaddress` — 30 invariants, `deep`, feasibility `high`, backend `python_module`
-- `posixpath` — 30 invariants, `deep`, feasibility `high`, backend `python_module`
+- `string` — 30 invariants, `deep`, feasibility `high`, backend `python_module`
 - `collections` — 29 invariants, `deep`, feasibility `medium`, backend `python_module`
 - `decimal` — 29 invariants, `deep`, feasibility `high`, backend `python_module`
+- `keyword` — 29 invariants, `deep`, feasibility `high`, backend `python_module`
 - `xml_dom` — 29 invariants, `deep`, feasibility `medium`, backend `python_module`
-- `keyword` — 28 invariants, `deep`, feasibility `high`, backend `python_module`
-- `string` — 28 invariants, `deep`, feasibility `high`, backend `python_module`
-- `calendar` — 27 invariants, `deep`, feasibility `high`, backend `python_module`
+- `calendar` — 28 invariants, `deep`, feasibility `high`, backend `python_module`
 - `http_client` — 27 invariants, `deep`, feasibility `medium`, backend `python_module`
+- `csv` — 26 invariants, `deep`, feasibility `high`, backend `python_module`
 - `fractions` — 26 invariants, `deep`, feasibility `high`, backend `python_module`
 - `io` — 26 invariants, `deep`, feasibility `medium`, backend `python_module`
-- `csv` — 25 invariants, `deep`, feasibility `high`, backend `python_module`
 - `elementtree` — 25 invariants, `deep`, feasibility `high`, backend `python_module`
 - … 109 more in `corpus-autopsy.json`
 
 ## Gold-set characterization (ADR 0003)
 
 Authority Markdown + reviewed uncertainty ledgers under `gold/<family>/`.
-Accepted ledgers are **not** qualification. Held-out oracles remain Phase 3.
+Accepted ledgers are **not** qualification. `*(intended)*` is the ADR 0001
+qualification gold set. `*(cohort)*` is the Phase 11 characterization expansion.
 
 - `base64` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
 - `binascii` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `bisect` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `calendar` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `csv` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `decimal` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `difflib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `elementtree` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `fnmatch` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `fractions` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `hashlib` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
 - `hmac` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
+- `html` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `ipaddress` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `json` *(intended)* — ledger `accepted`, 4 items, probes yes, held-out yes
+- `keyword` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `libpcap` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
+- `msgpack` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `ntpath` *(cohort)* — ledger `accepted`, 3 items, probes yes, held-out no
+- `operator` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `pcap` *(intended)* — ledger `accepted`, 1 items, probes no, held-out no
 - `pcapng` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
+- `posixpath` *(cohort)* — ledger `accepted`, 3 items, probes yes, held-out no
+- `pprint` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `semver` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `shlex` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `string` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `struct` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `tomli` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `tomllib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no

@@ -20,6 +20,29 @@ def test_list_families_includes_json_and_intended_set():
     assert not missing, "gold-set families without package.md: {}".format(sorted(missing))
 
 
+def test_phase11_cohort_families_are_characterized():
+    names = set(characterize.list_families())
+    missing = autopsy.CHARACTERIZATION_COHORT - names
+    assert not missing, "Phase 11 cohort missing gold/<family>/: {}".format(sorted(missing))
+    overlap = autopsy.CHARACTERIZATION_COHORT & autopsy.INTENDED_GOLD_SET
+    assert not overlap, overlap
+    for family in sorted(autopsy.CHARACTERIZATION_COHORT):
+        rec = characterize.load_family(family)
+        assert rec["meta"].get("held_out_oracle") in (None, "")
+        assert rec["meta"].get("qualification") in ("none", None)
+        assert rec["probes"] is not None, family
+
+
+def test_characterize_bisect():
+    report = characterize.characterize("bisect")
+    assert report["family"] == "bisect"
+    assert report["qualification"] == "none"
+    names = [step["name"] for step in report["steps"]]
+    assert "public_oracle" in names
+    assert "live_probes" in names
+    assert "held_out_guard" not in names
+
+
 def test_every_gold_family_loads_with_reviewed_ledger():
     for family in characterize.list_families():
         rec = characterize.load_family(family)
@@ -121,6 +144,10 @@ def test_autopsy_scan_real_gold_accepted():
     assert not missing, missing
     for family in autopsy.INTENDED_GOLD_SET:
         assert by_name[family]["status"] == "accepted", family
+    for family in autopsy.CHARACTERIZATION_COHORT:
+        assert by_name[family]["status"] == "accepted", family
+        assert by_name[family]["characterization_cohort"] is True
+        assert by_name[family]["intended_gold_set"] is False
 
 
 def test_autopsy_scan_rejects_open(tmp_path):

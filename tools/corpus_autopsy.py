@@ -62,6 +62,26 @@ INTENDED_GOLD_SET = frozenset({
     "hmac",
 })
 
+# Phase 11: high-feasibility Layer 2 families characterized after the
+# qualification gold set. Not qualification targets (ADR 0005).
+CHARACTERIZATION_COHORT = frozenset({
+    "bisect",
+    "operator",
+    "pprint",
+    "html",
+    "msgpack",
+    "ntpath",
+    "ipaddress",
+    "posixpath",
+    "decimal",
+    "keyword",
+    "string",
+    "calendar",
+    "fractions",
+    "csv",
+    "elementtree",
+})
+
 LEDGER_STATUSES = frozenset({"resolved", "deferred", "held_out"})
 
 # Replacement of the original is plausible from a public spec + held-out oracle.
@@ -513,6 +533,7 @@ def scan_characterization(repo_root: Path) -> list:
         rec = {
             "family": path.name,
             "intended_gold_set": path.name in INTENDED_GOLD_SET,
+            "characterization_cohort": path.name in CHARACTERIZATION_COHORT,
             "has_authority": True,
             "has_ledger": (path / "uncertainty.yaml").is_file(),
             "has_probes": (path / "probes.yaml").is_file(),
@@ -636,6 +657,7 @@ def summarize(spec_records: list, withdrawn: list, gold: list, families: list, e
         "duplicate_families": len(dup_families),
         "gold_set_candidates": len(gold),
         "intended_gold_set": len(INTENDED_GOLD_SET),
+        "characterization_cohort": len(CHARACTERIZATION_COHORT),
         "gold_characterization_families": len(characterization),
         "gold_characterization_accepted": sum(
             1 for row in characterization if row.get("status") == "accepted"
@@ -769,7 +791,12 @@ def render_markdown(report: dict) -> str:
         )
     char_lines = []
     for rec in characterization:
-        marker = " *(intended)*" if rec.get("intended_gold_set") else ""
+        if rec.get("intended_gold_set"):
+            marker = " *(intended)*"
+        elif rec.get("characterization_cohort"):
+            marker = " *(cohort)*"
+        else:
+            marker = ""
         char_lines.append(
             "- `{}`{} — ledger `{}`, {} items, probes {}, held-out {}".format(
                 rec["family"],
@@ -830,9 +857,11 @@ def render_markdown(report: dict) -> str:
         "- **{}** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).".format(
             s.get("duplicate_families")
         ),
-        "- **{}** gold-set families have an accepted uncertainty ledger (ADR 0003); **{}** still open/missing.".format(
+        "- **{}** gold/<family>/ trees have an accepted uncertainty ledger (ADR 0003); **{}** still open/missing. **{}** are the intended qualification set; **{}** are the Phase 11 characterization cohort.".format(
             s.get("gold_characterization_accepted"),
             s.get("gold_characterization_open"),
+            s.get("intended_gold_set"),
+            s.get("characterization_cohort"),
         ),
         "- Registry names with no matching spec: `{}`.".format(
             ", ".join(s.get("unmatched_registry_packages") or []) or "none"
@@ -888,7 +917,8 @@ def render_markdown(report: dict) -> str:
         "## Gold-set characterization (ADR 0003)",
         "",
         "Authority Markdown + reviewed uncertainty ledgers under `gold/<family>/`.",
-        "Accepted ledgers are **not** qualification. Held-out oracles remain Phase 3.",
+        "Accepted ledgers are **not** qualification. `*(intended)*` is the ADR 0001",
+        "qualification gold set. `*(cohort)*` is the Phase 11 characterization expansion.",
         "",
     ])
     parts.extend(char_lines or ["- (no gold/<family>/package.md trees found)"])

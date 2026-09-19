@@ -60,7 +60,7 @@ tools/                    CLI scripts (mostly stdlib-only)
 zspecs/                   ZSDL spec sources (*.zspec.zsdl) — COMMITTED to git
   theseus_*.zspec.zsdl    Clean-room specs (python_cleanroom backend)
   schema/                 JSON Schema for Z-spec files
-gold/                     Gold-set authority + uncertainty ledgers (not compiled by --all)
+gold/                     Characterization authorities (qualification gold set + Phase 11 cohort)
   <family>/package.md     Markdown authority
   <family>/uncertainty.yaml  Reviewed ledger (resolved|deferred|held_out)
   <family>/probes.yaml    Optional live probes

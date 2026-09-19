@@ -76,5 +76,5 @@ The autopsy records characterization as a **gold-tree** scan (`gold/<family>/`),
 
 ## Follow-up
 
-- Phase 3 — gold-set regenerative qualification (held-out oracles beyond JSON, empty workspace, twice).
-- Phase 4 — keep or drop replacement as a product claim.
+- Phase 3 — gold-set regenerative qualification (held-out oracles beyond JSON, empty workspace, twice). **Done; 0 qualified** ([ADR 0004](0004-qualification-protocol.md), [ADR 0005](0005-characterization-is-the-product.md)).
+- Phase 11 — expand `gold/<family>/` characterization to the next high-feasibility Layer 2 cohort. **Done.** Not qualification.

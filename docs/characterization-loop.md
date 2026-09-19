@@ -62,6 +62,17 @@ python3 tools/live_probe.py --module hashlib --function sha256 \
 `libpcap` / `pcap` / `pcapng` skip when the shared library is not installed.
 Skipped families are not failures.
 
+## Qualification gold set vs characterization cohort
+
+`gold/<family>/` holds two groups. Neither is `qualified`.
+
+| Group | Families | Held-out | Purpose |
+|---|---|---|---|
+| Intended qualification set (ADR 0001) | json, base64, hashlib, hmac, struct, binascii, fnmatch, shlex, urllib_parse, difflib, tomli/tomllib, uuid, semver, libpcap/pcap, pcapng | Python families from Phase 3 | Research protocol that fired the kill gate |
+| Phase 11 cohort | bisect, operator, pprint, html, msgpack, ntpath, posixpath, ipaddress, decimal, keyword, string, calendar, fractions, csv, elementtree | none | Product work: reviewed Layer 2 characterization |
+
+Do not add a family to `INTENDED_GOLD_SET` just because it has a `gold/<family>/` tree.
+
 ## Ledger rules
 
 - `reviewed: true` is required before `characterize.py` will accept the family.
