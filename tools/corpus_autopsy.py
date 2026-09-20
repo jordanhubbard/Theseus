@@ -62,8 +62,8 @@ INTENDED_GOLD_SET = frozenset({
     "hmac",
 })
 
-# Phase 11: high-feasibility Layer 2 families characterized after the
-# qualification gold set. Not qualification targets (ADR 0005).
+# High-feasibility Layer 2 families characterized after the qualification
+# gold set (Phase 11 + 2026-09-20 pass). Not qualification targets (ADR 0005).
 CHARACTERIZATION_COHORT = frozenset({
     "bisect",
     "operator",
@@ -80,6 +80,25 @@ CHARACTERIZATION_COHORT = frozenset({
     "fractions",
     "csv",
     "elementtree",
+    "copy",
+    "heapq",
+    "reprlib",
+    "statistics",
+    "enum",
+    "html_entities",
+    "weakref",
+    "html_parser",
+    "idna",
+    "textwrap",
+    "tomlkit",
+    "colorsys",
+    "copyreg",
+    "genericpath",
+    "glob",
+    "pathspec",
+    "quopri",
+    "uu",
+    "ulid",
 })
 
 LEDGER_STATUSES = frozenset({"resolved", "deferred", "held_out"})
@@ -857,7 +876,7 @@ def render_markdown(report: dict) -> str:
         "- **{}** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).".format(
             s.get("duplicate_families")
         ),
-        "- **{}** gold/<family>/ trees have an accepted uncertainty ledger (ADR 0003); **{}** still open/missing. **{}** are the intended qualification set; **{}** are the Phase 11 characterization cohort.".format(
+        "- **{}** gold/<family>/ trees have an accepted uncertainty ledger (ADR 0003); **{}** still open/missing. **{}** are the intended qualification set; **{}** are the characterization cohort.".format(
             s.get("gold_characterization_accepted"),
             s.get("gold_characterization_open"),
             s.get("intended_gold_set"),
@@ -918,7 +937,7 @@ def render_markdown(report: dict) -> str:
         "",
         "Authority Markdown + reviewed uncertainty ledgers under `gold/<family>/`.",
         "Accepted ledgers are **not** qualification. `*(intended)*` is the ADR 0001",
-        "qualification gold set. `*(cohort)*` is the Phase 11 characterization expansion.",
+        "qualification gold set. `*(cohort)*` is the characterization-only expansion.",
         "",
     ])
     parts.extend(char_lines or ["- (no gold/<family>/package.md trees found)"])

@@ -7,7 +7,7 @@ The loop is [docs/characterization-loop.md](../docs/characterization-loop.md). P
 Two groups share this tree:
 
 1. **Intended qualification set** (ADR 0001) — held-out oracles exist for the Python families that Phase 3 attempted. Dual independent generation did not happen ([ADR 0005](../docs/decisions/0005-characterization-is-the-product.md)).
-2. **Phase 11 characterization cohort** — high-feasibility Layer 2 specs taken through the same authority + ledger + live-probe loop. No held-out oracle. Not qualification targets.
+2. **Characterization cohort** — high-feasibility Layer 2 specs taken through the same authority + ledger + live-probe loop. No held-out oracle. Not qualification targets. Grew in Phase 11 and the 2026-09-20 characterization pass.
 
 ## Intended qualification set
 
@@ -31,7 +31,7 @@ Two groups share this tree:
 | `pcap` | `zspecs/libpcap.zspec.zsdl` | alias of `libpcap` |
 | `pcapng` | `zspecs/pcapng.zspec.zsdl` | draft-ietf-opsawg-pcapng |
 
-## Phase 11 characterization cohort
+## Characterization cohort
 
 | Family | Public oracle | Notes |
 |---|---|---|
@@ -50,6 +50,25 @@ Two groups share this tree:
 | `fractions` | `zspecs/fractions.zspec.zsdl` | rationals in lowest terms |
 | `csv` | `zspecs/csv.zspec.zsdl` | RFC 4180 reader / excel dialect |
 | `elementtree` | `zspecs/elementtree.zspec.zsdl` | `xml.etree.ElementTree` |
+| `copy` | `zspecs/copy.zspec.zsdl` | shallow/deep copy of JSON-serializable values |
+| `heapq` | `zspecs/heapq.zspec.zsdl` | nlargest / nsmallest |
+| `reprlib` | `zspecs/reprlib.zspec.zsdl` | size-limited repr |
+| `statistics` | `zspecs/statistics.zspec.zsdl` | mean / median / StatisticsError |
+| `enum` | `zspecs/enum.zspec.zsdl` | functional API; StrEnum 3.11+ |
+| `textwrap` | `zspecs/textwrap.zspec.zsdl` | wrap / fill / dedent |
+| `weakref` | `zspecs/weakref.zspec.zsdl` | getweakrefcount / empty Weak* maps |
+| `html_entities` | `zspecs/html_entities.zspec.zsdl` | `html.entities` name tables |
+| `html_parser` | `zspecs/html_parser.zspec.zsdl` | `html.parser.HTMLParser` |
+| `idna` | `zspecs/idna.zspec.zsdl` | IDNA 2008 encode/decode |
+| `tomlkit` | `zspecs/tomlkit.zspec.zsdl` | TOML 1.0 loads |
+| `colorsys` | `zspecs/colorsys.zspec.zsdl` | RGB/HSV/HLS/YIQ |
+| `copyreg` | `zspecs/copyreg.zspec.zsdl` | pickle support registry |
+| `genericpath` | `zspecs/genericpath.zspec.zsdl` | os.path.commonprefix helpers |
+| `glob` | `zspecs/glob.zspec.zsdl` | pathname expansion + escape |
+| `pathspec` | `zspecs/pathspec.zspec.zsdl` | gitignore-style matching |
+| `quopri` | `zspecs/quopri.zspec.zsdl` | RFC 2045 quoted-printable |
+| `uu` | `zspecs/uu.zspec.zsdl` | uuencode; skipped on 3.13+ |
+| `ulid` | `zspecs/ulid.zspec.zsdl` | Crockford base32 time+entropy IDs |
 
 Required files: `package.md`, `uncertainty.yaml`. Optional: `probes.yaml`, `held_out.zspec.zsdl`.
 

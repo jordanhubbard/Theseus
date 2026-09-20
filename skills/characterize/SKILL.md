@@ -30,7 +30,7 @@ Theseus product work is **characterization**, not replacement ([ADR 0005](../../
 3. Ledger items are `resolved`, `deferred`, or `held_out` only. `reviewed: true`.
 4. Distinctive held-out tokens must not appear in the public Layer 2 oracle or in `package.md`.
 5. Passing the public oracle is `oracle_bound`, not `qualified`.
-6. A `gold/<family>/` tree is not automatically a qualification target. `INTENDED_GOLD_SET` is the research set; the Phase 11 cohort is characterization-only.
+6. A `gold/<family>/` tree is not automatically a qualification target. `INTENDED_GOLD_SET` is the research set; the characterization cohort is characterization-only.
 
 ## Commands
 

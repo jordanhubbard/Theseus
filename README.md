@@ -51,7 +51,7 @@ Terms used throughout the project, defined here before they appear in the rest o
 
 ### Clean-room packages (legacy isolation — not qualified)
 
-The packages below passed the old isolation harness. None are `qualified` under ADR 0001. `theseus_json` is the ADR 0002 gold-set spike: public `dumps`/`loads` oracle plus a held-out file the synthesizer never sees. Gold-set families have reviewed uncertainty ledgers ([ADR 0003](docs/decisions/0003-characterization-loop.md)) and a qualification protocol ([ADR 0004](docs/decisions/0004-qualification-protocol.md)). Ten Python families were attempted; 0 qualified. Phase 11 added 15 more `gold/<family>/` characterizations of high-feasibility Layer 2 specs without claiming qualification.
+The packages below passed the old isolation harness. None are `qualified` under ADR 0001. `theseus_json` is the ADR 0002 gold-set spike: public `dumps`/`loads` oracle plus a held-out file the synthesizer never sees. Gold-set families have reviewed uncertainty ledgers ([ADR 0003](docs/decisions/0003-characterization-loop.md)) and a qualification protocol ([ADR 0004](docs/decisions/0004-qualification-protocol.md)). Ten Python families were attempted; 0 qualified. The characterization cohort under `gold/<family>/` covers additional high-feasibility Layer 2 specs without claiming qualification.
 
 | Package | Language | Isolation invariants | Replaces (claim withdrawn) |
 |---|---|---|---|

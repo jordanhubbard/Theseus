@@ -20,10 +20,10 @@ def test_list_families_includes_json_and_intended_set():
     assert not missing, "gold-set families without package.md: {}".format(sorted(missing))
 
 
-def test_phase11_cohort_families_are_characterized():
+def test_characterization_cohort_families_are_characterized():
     names = set(characterize.list_families())
     missing = autopsy.CHARACTERIZATION_COHORT - names
-    assert not missing, "Phase 11 cohort missing gold/<family>/: {}".format(sorted(missing))
+    assert not missing, "characterization cohort missing gold/<family>/: {}".format(sorted(missing))
     overlap = autopsy.CHARACTERIZATION_COHORT & autopsy.INTENDED_GOLD_SET
     assert not overlap, overlap
     for family in sorted(autopsy.CHARACTERIZATION_COHORT):
@@ -31,6 +31,38 @@ def test_phase11_cohort_families_are_characterized():
         assert rec["meta"].get("held_out_oracle") in (None, "")
         assert rec["meta"].get("qualification") in ("none", None)
         assert rec["probes"] is not None, family
+
+
+def test_characterize_uu_skips_when_removed():
+    report = characterize.characterize("uu")
+    assert report["family"] == "uu"
+    assert report["qualification"] == "none"
+    if report.get("skipped"):
+        assert "uu" in report["reason"]
+    else:
+        names = [step["name"] for step in report["steps"]]
+        assert "public_oracle" in names
+
+
+def test_characterize_uu_skips_when_removed():
+    report = characterize.characterize("uu")
+    assert report["family"] == "uu"
+    assert report["qualification"] == "none"
+    if report.get("skipped"):
+        assert "uu" in report["reason"]
+    else:
+        names = [step["name"] for step in report["steps"]]
+        assert "public_oracle" in names
+
+
+def test_characterize_copy():
+    report = characterize.characterize("copy")
+    assert report["family"] == "copy"
+    assert report["qualification"] == "none"
+    names = [step["name"] for step in report["steps"]]
+    assert "public_oracle" in names
+    assert "live_probes" in names
+    assert "held_out_guard" not in names
 
 
 def test_characterize_bisect():

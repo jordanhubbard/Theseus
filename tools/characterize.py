@@ -58,6 +58,7 @@ LEDGER_STATUSES = frozenset({"resolved", "deferred", "held_out"})
 OPTIONAL_SKIP_IMPORT = {
     "tomli": "tomllib",
     "tomllib": "tomllib",
+    "uu": "uu",  # removed in Python 3.13 (PEP 594)
 }
 
 

@@ -1,6 +1,6 @@
 # Theseus Clean-Room Rewrite Initiative — Implementation Plan
 
-> **Status (2026-09-19):** Phases 0–11 of the verification-ladder refresh are done. Characterization is the product ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Qualification remains withdrawn: 10 Python gold-set families attempted, **0 qualified**. Phase 11 ran the ADR 0003 loop on the next 15 high-feasibility Layer 2 families (bisect, operator, pprint, html, msgpack, ntpath, posixpath, ipaddress, decimal, keyword, string, calendar, fractions, csv, elementtree). Factory wrappers stay frozen. Next work is more Layer 2 characterization depth, not registry counts.
+> **Status (2026-09-20):** Characterization is the product ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Qualification remains withdrawn (**0 qualified**). `gold/<family>/` has 51 accepted trees (17 intended qualification set + 34 characterization-cohort families). Remaining high-feasibility Layer 2 work is npm families not installed in this repo's `package.json` (except `ulid`, now characterized). Do not inflate registry counts.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

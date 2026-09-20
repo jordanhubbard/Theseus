@@ -1,6 +1,6 @@
 # Theseus Corpus Autopsy
 
-Generated: `2026-09-19T09:03:55Z`
+Generated: `2026-09-20T00:52:27Z`
 Schema: `theseus-corpus-autopsy/0.1`
 Decision: [`docs/decisions/0001-verification-ladder.md`](../../docs/decisions/0001-verification-ladder.md)
 
@@ -16,7 +16,7 @@ It does **not** claim any package is qualified. See ADR 0001.
 - **176** specs match the 3-invariant clean-room factory (`factory_shallow`).
 - Median invariant count: clean-room **3.0**, public-API **6.0**.
 - **269** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).
-- **32** gold/<family>/ trees have an accepted uncertainty ledger (ADR 0003); **0** still open/missing. **17** are the intended qualification set; **15** are the Phase 11 characterization cohort.
+- **51** gold/<family>/ trees have an accepted uncertainty ledger (ADR 0003); **0** still open/missing. **17** are the intended qualification set; **34** are the characterization cohort.
 - Registry names with no matching spec: `theseus_cProfile_cr`.
 
 ## Verification ladder (as applied to this corpus)
@@ -48,11 +48,11 @@ That is not regenerative qualification.
 
 | Value | Count |
 |---|---:|
-| `moderate` | 829 |
+| `moderate` | 830 |
 | `shallow` | 415 |
 | `presence` | 367 |
 | `wrapper` | 325 |
-| `deep` | 191 |
+| `deep` | 190 |
 | `factory_shallow` | 176 |
 | `self_test` | 4 |
 | `empty` | 1 |
@@ -145,40 +145,59 @@ The intended gold-set families are: `base64, binascii, difflib, fnmatch, hashlib
 
 Authority Markdown + reviewed uncertainty ledgers under `gold/<family>/`.
 Accepted ledgers are **not** qualification. `*(intended)*` is the ADR 0001
-qualification gold set. `*(cohort)*` is the Phase 11 characterization expansion.
+qualification gold set. `*(cohort)*` is the characterization-only expansion.
 
 - `base64` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
 - `binascii` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `bisect` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `calendar` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `colorsys` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `copy` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `copyreg` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `csv` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `decimal` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `difflib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `elementtree` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `enum` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `fnmatch` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `fractions` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `genericpath` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `glob` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `hashlib` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
+- `heapq` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `hmac` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
 - `html` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `html_entities` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `html_parser` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `idna` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `ipaddress` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `json` *(intended)* — ledger `accepted`, 4 items, probes yes, held-out yes
 - `keyword` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
-- `libpcap` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
+- `libpcap` *(intended)* — ledger `accepted`, 3 items, probes no, held-out no
 - `msgpack` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `ntpath` *(cohort)* — ledger `accepted`, 3 items, probes yes, held-out no
 - `operator` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
-- `pcap` *(intended)* — ledger `accepted`, 1 items, probes no, held-out no
-- `pcapng` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
+- `pathspec` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `pcap` *(intended)* — ledger `accepted`, 2 items, probes no, held-out no
+- `pcapng` *(intended)* — ledger `accepted`, 3 items, probes no, held-out no
 - `posixpath` *(cohort)* — ledger `accepted`, 3 items, probes yes, held-out no
 - `pprint` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `quopri` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `reprlib` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `semver` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `shlex` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `statistics` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `string` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `struct` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `textwrap` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `tomli` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `tomlkit` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `tomllib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `ulid` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `urllib_parse` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
+- `uu` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `uuid` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `weakref` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 
 ## Largest duplicate-wave families
 
