@@ -99,6 +99,18 @@ CHARACTERIZATION_COHORT = frozenset({
     "quopri",
     "uu",
     "ulid",
+    "base_x",
+    "card_validator",
+    "email_validator",
+    "graphlib",
+    "ieee754",
+    "isemail",
+    "jsonpointer",
+    "jsonschema",
+    "nanoid",
+    "punycode",
+    "semver_diff",
+    "unidecode",
 })
 
 LEDGER_STATUSES = frozenset({"resolved", "deferred", "held_out"})

@@ -1,4 +1,4 @@
-# Characterization before / after (2026-09-20)
+# Characterization before / after (2026-09-21)
 
 Authoritative snapshots: [`characterization-baseline.json`](characterization-baseline.json) and [`characterization-after.json`](characterization-after.json).
 
@@ -12,7 +12,8 @@ Authoritative snapshots: [`characterization-baseline.json`](characterization-bas
 | Intended qualification set | 17 |
 | Characterization cohort | 15 (Phase 11) |
 | Remaining high/medium public-API families without gold | 119 |
-| Remaining high+deep `python_module` without gold | 11 (`copy`, `heapq`, `reprlib`, `statistics`, `enum`, `html_entities`, `weakref`, `html_parser`, `idna`, `textwrap`, `tomlkit`) |
+| Remaining high+deep `python_module` without gold | 11 |
+| Remaining high-feasibility families without gold | 31 (python + npm) |
 | Registry packages | 396 (`ladder.product` = characterization) |
 | Gold audit gaps | `libpcap` / `pcap` / `pcapng` have no `probes.yaml` (`live_probe` has no ctypes backend) |
 
@@ -20,7 +21,7 @@ Don't-do constraints in force: do not treat `status=verified` as replacement; do
 
 ## What ran (the 8-step loop, not the don'ts)
 
-For each remaining high-feasibility `python_module` family, and for gold-audit gaps:
+For each remaining high-feasibility Layer 2 family, and for gold-audit gaps:
 
 1. Pick the family.
 2. Public docs / RFCs only (no implementation source).
@@ -33,40 +34,43 @@ For each remaining high-feasibility `python_module` family, and for gold-audit g
 
 ctypes families (`libpcap` / `pcap` / `pcapng`) already had authority + ledgers. The 8-step close for probes is a **deferred** ledger item: `live_probe` has no ctypes backend; the Layer 2 ctypes oracle remains the live check.
 
+`live_probe` node gained ESM `import()` fallback, constructor `new`, a `call` method hop, and `expect.contains` so npm factories could be probed without reading implementation source.
+
 ## Where we are
 
-| Metric | After this pass |
+| Metric | After |
 |---|---|
 | Product claim | characterization (unchanged) |
 | Qualified packages | 0 (unchanged) |
-| `gold/<family>/` trees | **51** |
+| `gold/<family>/` trees | **63** |
 | Intended qualification set | **17** (unchanged) |
-| Characterization cohort | **34** |
-| Remaining high/medium public-API families without gold | **100** |
-| Remaining high-feasibility families without gold | **12**, all `node` and not in this repo's `package.json` |
+| Characterization cohort | **46** |
+| Remaining high/medium public-API families without gold | **88** (all medium) |
+| Remaining high-feasibility families without gold | **0** |
 | Remaining high+deep `python_module` without gold | **0** |
 | Registry packages | **396** (unchanged) |
-| Gold audit gaps | ctypes probe gap unchanged and now on the ledger; `uu` skipped on Python 3.13+ |
+| Gold audit gaps | ctypes probe gap unchanged and on the ledger; `uu` skipped on Python 3.13+ |
 
-Added this pass (19 families): `copy`, `heapq`, `reprlib`, `statistics`, `enum`, `html_entities`, `weakref`, `html_parser`, `idna`, `textwrap`, `tomlkit`, `colorsys`, `copyreg`, `genericpath`, `glob`, `pathspec`, `quopri`, `uu`, `ulid`.
+Added this pass (31 families): `copy`, `heapq`, `reprlib`, `statistics`, `enum`, `html_entities`, `weakref`, `html_parser`, `idna`, `textwrap`, `tomlkit`, `colorsys`, `copyreg`, `genericpath`, `glob`, `pathspec`, `quopri`, `uu`, `ulid`, `base_x`, `card_validator`, `email_validator`, `graphlib`, `ieee754`, `isemail`, `jsonpointer`, `jsonschema`, `nanoid`, `punycode`, `semver_diff`, `unidecode`.
 
-Oracle repairs required so step 7 could pass: enum (StrEnum 3.11+; Flag/StrEnum length via `_member_names_`); weakref (constructor + `__len__`, no `Foo().__len__` function names); glob (no `iglob('…').__class__` function names); quopri (`encodestring(b'hello')` is `b'hello'` — public docs do not require a trailing newline).
+Oracle repairs: enum (StrEnum 3.11+; Flag/StrEnum length via `_member_names_`); weakref (constructor + `__len__`); glob (no `iglob('…').__class__` function names); quopri (`encodestring(b'hello')` is `b'hello'`); `base_x` `esm: true`.
 
 ## Don't-do check
 
 | Constraint | Evidence |
 |---|---|
-| Do not treat `status=verified` as replacement | `theseus_registry.json` `ladder.product` is still `characterization`; `ladder.qualified` is empty; README/ADR 0005 unchanged in claim |
+| Do not treat `status=verified` as replacement | `theseus_registry.json` `ladder.product` is still `characterization`; `ladder.qualified` is empty |
 | Do not add factory wrappers or registry packages | no `cleanroom/` or `theseus_*` factory files added; registry package count 396 → 396 |
 | Do not leak held-out tokens into public oracles | new/edited zspecs do not contain JSON held-out tokens (`1.5e2`, `café`, `[1,]`, `\u0041`, `say "hi"`, `{]`) |
 | Do not put behavioral fields on Layer 1 recipes | `schema/package-recipe.schema.json` not modified |
 
+npm packages added to `package.json` are CI/install-time libraries for live probes, not registry packages.
+
 ## Delta
 
-- Gold trees: 32 → 51 (+19).
-- Remaining high/medium public-API families: 119 → 100 (−19).
-- Remaining high-feasibility Python: 11 high+deep + 7 high/moderate → 0.
-- Remaining high-feasibility overall: 31 → 12 (npm only, and not listed in `package.json`: `base_x`, `card_validator`, `email_validator`, `graphlib`, `ieee754`, `isemail`, `jsonpointer`, `jsonschema`, `nanoid`, `punycode`, `semver_diff`, `unidecode`). `ulid` was already a repo dependency and is now characterized.
+- Gold trees: 32 → 63 (+31).
+- Remaining high/medium public-API families: 119 → 88 (−31).
+- Remaining high-feasibility families: 31 → **0**.
 - Qualification: still 0. Characterization is still the product.
 
-The 8-step loop is **not** finished for the corpus: 100 high/medium public-API families remain, including those 12 high-feasibility npm packages. This comparison is the checkpoint after remaining high-feasibility Python work plus installed `ulid`.
+The requested high-feasibility characterization loop is done. Medium public-API families (88) remain as later product work, not this goal's high-feasibility set.

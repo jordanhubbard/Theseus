@@ -27,9 +27,9 @@ npm_config_cache=/tmp/theseus-npm-cache npm audit --omit=dev --json
 ```
 
 That refresh records npm license metadata for every direct dependency except
-`svg-tags@1.0.0`, whose old npm metadata uses the legacy `licenses` array
-instead of the modern `license` field. The registry metadata still declares MIT
-for `svg-tags`.
+packages whose registry metadata still uses the legacy `licenses` array instead
+of the modern `license` field: `svg-tags@1.0.0` (MIT), `email-validator`
+(MIT), and `unidecode` (BSD).
 
 Direct dependency license evidence:
 

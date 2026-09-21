@@ -38,7 +38,7 @@ def test_package_lock_has_direct_dependency_license_metadata():
         if "license" not in package:
             missing.append(name)
 
-    assert missing == ["svg-tags"]
+    assert missing == ["email-validator", "svg-tags", "unidecode"]
 
 
 def test_dependency_evidence_documents_scanner_exceptions():
@@ -46,6 +46,8 @@ def test_dependency_evidence_documents_scanner_exceptions():
 
     for expected in (
         "svg-tags@1.0.0",
+        "email-validator",
+        "unidecode",
         "node-forge@1.4.0",
         "npm audit --omit=dev",
         "bounded ranges",

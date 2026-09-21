@@ -110,22 +110,76 @@ def probe_python(module_name, function, args, kwargs, method=None, method_args=N
     return {"ok": True, "result": _encode_observed(result), "module_file": origin}
 
 
-def probe_node(module_name, function, args, kwargs):
+def probe_node(module_name, function, args, kwargs, method=None, method_args=None):
     if kwargs:
         raise ValueError("node live probes do not accept kwargs in this spike")
+    # CJS require first; ESM dynamic import() fallback. Optional method hop
+    # (including method: call) matches python live probes for factories.
     script = (
-        "const m = require(process.argv[1]);\n"
-        "const fn = process.argv[2].split('.').reduce((o,p)=>o[p], m);\n"
+        "const modName = process.argv[1];\n"
+        "const fnPath = process.argv[2];\n"
         "const args = JSON.parse(process.argv[3]);\n"
-        "try {\n"
-        "  const r = fn.apply(null, args);\n"
-        "  process.stdout.write(JSON.stringify({ok:true, result:r}));\n"
-        "} catch (e) {\n"
-        "  process.stdout.write(JSON.stringify({ok:false, exc_type:e.name}));\n"
+        "const method = process.argv[4];\n"
+        "const methodArgs = JSON.parse(process.argv[5]);\n"
+        "function walk(obj, path) {\n"
+        "  if (!path || path === '~') return obj;\n"
+        "  let o = obj;\n"
+        "  for (const p of path.split('.')) {\n"
+        "    if (o && o[p] !== undefined) { o = o[p]; continue; }\n"
+        "    if (o && o.default && o.default[p] !== undefined) { o = o.default[p]; continue; }\n"
+        "    return undefined;\n"
+        "  }\n"
+        "  return o;\n"
         "}\n"
+        "function resolveFn(m) {\n"
+        "  if (!fnPath || fnPath === '~' || fnPath === 'default') {\n"
+        "    if (typeof m === 'function') return m;\n"
+        "    if (m && typeof m.default === 'function') return m.default;\n"
+        "    return m && m.default !== undefined ? m.default : m;\n"
+        "  }\n"
+        "  const found = walk(m, fnPath);\n"
+        "  if (found !== undefined) return found;\n"
+        "  if (m && m.default) return walk(m.default, fnPath);\n"
+        "  return found;\n"
+        "}\n"
+        "function applyMethod(r) {\n"
+        "  if (!method) return r;\n"
+        "  if (method === 'call') return r.apply(null, methodArgs);\n"
+        "  let o = r;\n"
+        "  for (const p of method.split('.')) o = o[p];\n"
+        "  if (typeof o === 'function') return o.apply(r, methodArgs);\n"
+        "  return o;\n"
+        "}\n"
+        "function invoke(fn) {\n"
+        "  try { return applyMethod(fn.apply(null, args)); }\n"
+        "  catch (e) {\n"
+        "    if (e instanceof TypeError) return applyMethod(new fn(...args));\n"
+        "    throw e;\n"
+        "  }\n"
+        "}\n"
+        "(async () => {\n"
+        "  let m;\n"
+        "  try { m = require(modName); }\n"
+        "  catch (e) { m = await import(modName); }\n"
+        "  try {\n"
+        "    const r = invoke(resolveFn(m));\n"
+        "    process.stdout.write(JSON.stringify({ok:true, result:r}));\n"
+        "  } catch (e) {\n"
+        "    process.stdout.write(JSON.stringify({ok:false, exc_type:e.name, error:String(e.message||e).slice(0,200)}));\n"
+        "  }\n"
+        "})().catch((e) => {\n"
+        "  process.stdout.write(JSON.stringify({ok:false, exc_type:'NodeError', error:String(e).slice(0,200)}));\n"
+        "});\n"
     )
     proc = subprocess.run(
-        ["node", "-e", script, module_name, function, json.dumps(args)],
+        [
+            "node", "-e", script,
+            module_name,
+            function or "",
+            json.dumps(args),
+            method or "",
+            json.dumps(method_args or []),
+        ],
         capture_output=True,
         text=True,
         timeout=30,
@@ -136,7 +190,7 @@ def probe_node(module_name, function, args, kwargs):
     try:
         return json.loads(proc.stdout)
     except json.JSONDecodeError:
-        return {"ok": False, "exc_type": "NodeError", "error": proc.stdout[:300]}
+        return {"ok": False, "exc_type": "NodeError", "error": (proc.stdout or proc.stderr or "")[:300]}
 
 
 def run_one(backend, module_name, function, args, kwargs, method=None, method_args=None):
@@ -145,9 +199,7 @@ def run_one(backend, module_name, function, args, kwargs, method=None, method_ar
     if backend in ("python_module", "python"):
         return probe_python(module_name, function, args, kwargs, method, method_args)
     if backend in ("node", "cli"):
-        if method:
-            raise ValueError("node live probes do not support method= in this spike")
-        return probe_node(module_name, function, args, kwargs)
+        return probe_node(module_name, function, args, kwargs, method, method_args)
     raise ValueError("unsupported probe backend: {}".format(backend))
 
 
@@ -177,6 +229,19 @@ def check_expect(observed, expect):
         if _values_equal(observed.get("result"), expect["eq"]):
             return True, "eq"
         return False, "got {!r}, expected {!r}".format(observed.get("result"), expect["eq"])
+    if "contains" in expect:
+        if not observed.get("ok"):
+            return False, "raised {} instead of returning".format(observed.get("exc_type"))
+        result = observed.get("result")
+        want = expect["contains"]
+        if not isinstance(result, dict) or not isinstance(want, dict):
+            return False, "contains expects a mapping result, got {!r}".format(result)
+        for key, value in want.items():
+            if not _values_equal(result.get(key), value):
+                return False, "key {} got {!r}, expected {!r}".format(
+                    key, result.get(key), value
+                )
+        return True, "contains"
     return True, "no expect"
 
 

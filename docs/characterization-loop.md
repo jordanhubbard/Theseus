@@ -70,7 +70,7 @@ Skipped families are not failures.
 |---|---|---|---|
 | Intended qualification set (ADR 0001) | json, base64, hashlib, hmac, struct, binascii, fnmatch, shlex, urllib_parse, difflib, tomli/tomllib, uuid, semver, libpcap/pcap, pcapng | Python families from Phase 3 | Research protocol that fired the kill gate |
 | Phase 11 cohort | bisect, operator, pprint, html, msgpack, ntpath, posixpath, ipaddress, decimal, keyword, string, calendar, fractions, csv, elementtree | none | Product work |
-| 2026-09-20 pass | copy, heapq, reprlib, statistics, enum, textwrap, weakref, html_entities, html_parser, idna, tomlkit, colorsys, copyreg, genericpath, glob, pathspec, quopri, uu, ulid | none | Remaining high python_module plus installed npm `ulid` |
+| 2026-09-20 pass | remaining high `python_module` + remaining high `node` (`base_x`, `card_validator`, `email_validator`, `graphlib`, `ieee754`, `isemail`, `jsonpointer`, `jsonschema`, `nanoid`, `punycode`, `semver_diff`, `unidecode`, `ulid`) | none | Remaining high-feasibility Layer 2 |
 
 Do not add a family to `INTENDED_GOLD_SET` just because it has a `gold/<family>/` tree.
 

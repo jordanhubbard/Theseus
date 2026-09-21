@@ -44,15 +44,14 @@ def test_characterize_uu_skips_when_removed():
         assert "public_oracle" in names
 
 
-def test_characterize_uu_skips_when_removed():
-    report = characterize.characterize("uu")
-    assert report["family"] == "uu"
+def test_characterize_nanoid():
+    report = characterize.characterize("nanoid")
+    assert report["family"] == "nanoid"
     assert report["qualification"] == "none"
-    if report.get("skipped"):
-        assert "uu" in report["reason"]
-    else:
-        names = [step["name"] for step in report["steps"]]
-        assert "public_oracle" in names
+    names = [step["name"] for step in report["steps"]]
+    assert "public_oracle" in names
+    assert "live_probes" in names
+    assert "held_out_guard" not in names
 
 
 def test_characterize_copy():
@@ -106,6 +105,18 @@ def test_open_ledger_is_rejected(tmp_path, monkeypatch):
 def test_live_probe_refuses_source_path():
     with pytest.raises(ValueError, match="import name"):
         live_probe.probe_python("Lib/json.py", "dumps", [1], {})
+
+
+def test_live_probe_node_nanoid_custom_alphabet():
+    observed = live_probe.run_one(
+        "node", "nanoid", "customAlphabet", ["a", 5], {}, method="call"
+    )
+    if not observed.get("ok"):
+        err = str(observed.get("error") or "")
+        if "Cannot find module" in err:
+            pytest.skip("nanoid not installed")
+    assert observed["ok"] is True
+    assert observed["result"] == "aaaaa"
 
 
 def test_live_probe_json_dumps_integer():

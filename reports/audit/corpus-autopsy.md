@@ -1,6 +1,6 @@
 # Theseus Corpus Autopsy
 
-Generated: `2026-09-20T00:52:27Z`
+Generated: `2026-09-21T16:44:26Z`
 Schema: `theseus-corpus-autopsy/0.1`
 Decision: [`docs/decisions/0001-verification-ladder.md`](../../docs/decisions/0001-verification-ladder.md)
 
@@ -16,7 +16,7 @@ It does **not** claim any package is qualified. See ADR 0001.
 - **176** specs match the 3-invariant clean-room factory (`factory_shallow`).
 - Median invariant count: clean-room **3.0**, public-API **6.0**.
 - **269** duplicate-wave families (same subject, `_cr` / `_cr2` / `_rust` suffixes).
-- **51** gold/<family>/ trees have an accepted uncertainty ledger (ADR 0003); **0** still open/missing. **17** are the intended qualification set; **34** are the characterization cohort.
+- **63** gold/<family>/ trees have an accepted uncertainty ledger (ADR 0003); **0** still open/missing. **17** are the intended qualification set; **46** are the characterization cohort.
 - Registry names with no matching spec: `theseus_cProfile_cr`.
 
 ## Verification ladder (as applied to this corpus)
@@ -148,9 +148,11 @@ Accepted ledgers are **not** qualification. `*(intended)*` is the ADR 0001
 qualification gold set. `*(cohort)*` is the characterization-only expansion.
 
 - `base64` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
+- `base_x` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `binascii` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `bisect` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `calendar` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `card_validator` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `colorsys` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `copy` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `copyreg` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
@@ -158,11 +160,13 @@ qualification gold set. `*(cohort)*` is the characterization-only expansion.
 - `decimal` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `difflib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `elementtree` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `email_validator` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `enum` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `fnmatch` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `fractions` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `genericpath` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `glob` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `graphlib` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `hashlib` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
 - `heapq` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `hmac` *(intended)* — ledger `accepted`, 3 items, probes yes, held-out yes
@@ -170,11 +174,16 @@ qualification gold set. `*(cohort)*` is the characterization-only expansion.
 - `html_entities` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `html_parser` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `idna` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `ieee754` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `ipaddress` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `isemail` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `json` *(intended)* — ledger `accepted`, 4 items, probes yes, held-out yes
+- `jsonpointer` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `jsonschema` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `keyword` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `libpcap` *(intended)* — ledger `accepted`, 3 items, probes no, held-out no
 - `msgpack` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `nanoid` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `ntpath` *(cohort)* — ledger `accepted`, 3 items, probes yes, held-out no
 - `operator` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `pathspec` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
@@ -182,9 +191,11 @@ qualification gold set. `*(cohort)*` is the characterization-only expansion.
 - `pcapng` *(intended)* — ledger `accepted`, 3 items, probes no, held-out no
 - `posixpath` *(cohort)* — ledger `accepted`, 3 items, probes yes, held-out no
 - `pprint` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `punycode` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `quopri` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `reprlib` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `semver` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `semver_diff` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `shlex` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `statistics` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `string` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
@@ -194,6 +205,7 @@ qualification gold set. `*(cohort)*` is the characterization-only expansion.
 - `tomlkit` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `tomllib` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `ulid` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
+- `unidecode` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `urllib_parse` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out yes
 - `uu` *(cohort)* — ledger `accepted`, 2 items, probes yes, held-out no
 - `uuid` *(intended)* — ledger `accepted`, 2 items, probes yes, held-out no

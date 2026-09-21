@@ -69,6 +69,18 @@ Two groups share this tree:
 | `quopri` | `zspecs/quopri.zspec.zsdl` | RFC 2045 quoted-printable |
 | `uu` | `zspecs/uu.zspec.zsdl` | uuencode; skipped on 3.13+ |
 | `ulid` | `zspecs/ulid.zspec.zsdl` | Crockford base32 time+entropy IDs |
+| `base_x` | `zspecs/base_x.zspec.zsdl` | arbitrary-alphabet base encode |
+| `card_validator` | `zspecs/card_validator.zspec.zsdl` | Luhn + brand (test PANs) |
+| `email_validator` | `zspecs/email_validator.zspec.zsdl` | lightweight email syntax |
+| `graphlib` | `zspecs/graphlib.zspec.zsdl` | directed Graph |
+| `ieee754` | `zspecs/ieee754.zspec.zsdl` | IEEE 754 read/write |
+| `isemail` | `zspecs/isemail.zspec.zsdl` | RFC 5321/5322 email |
+| `jsonpointer` | `zspecs/jsonpointer.zspec.zsdl` | RFC 6901 get |
+| `jsonschema` | `zspecs/jsonschema.zspec.zsdl` | JSON Schema draft-07 |
+| `nanoid` | `zspecs/nanoid.zspec.zsdl` | URL-safe IDs |
+| `punycode` | `zspecs/punycode.zspec.zsdl` | IDNA toASCII/toUnicode |
+| `semver_diff` | `zspecs/semver_diff.zspec.zsdl` | SemVer delta class |
+| `unidecode` | `zspecs/unidecode.zspec.zsdl` | Unicode→ASCII transliteration |
 
 Required files: `package.md`, `uncertainty.yaml`. Optional: `probes.yaml`, `held_out.zspec.zsdl`.
 
