@@ -895,10 +895,20 @@ class PatternRegistry:
     def _python_call_eq(self, spec: dict) -> tuple[bool, str]:
         fn_name = spec["function"]
         obj = self._lib
-        for part in fn_name.split("."):
-            obj = getattr(obj, part, None)
+        parts = fn_name.split(".")
+        for index, part in enumerate(parts):
+            # "gettempdir()" in the middle of a dotted path is a zero-arg call.
+            # A trailing "()" on the final component is the call made below.
+            call_now = part.endswith("()") and index != len(parts) - 1
+            name = part[:-2] if part.endswith("()") else part
+            obj = getattr(obj, name, None)
             if obj is None:
                 return False, f"Module has no attribute {fn_name!r}"
+            if call_now:
+                try:
+                    obj = obj()
+                except Exception as exc:
+                    return False, f"{fn_name}() raised: {exc}"
         fn = obj
         args = [self._resolve_typed(a) for a in spec.get("args", [])]
         kwargs = {k: self._resolve_typed(v) for k, v in spec.get("kwargs", {}).items()}
@@ -911,7 +921,13 @@ class PatternRegistry:
         method = spec.get("method")
         if method:
             method_args = [self._resolve_typed(a) for a in spec.get("method_args", [])]
-            m = getattr(result, method, None)
+            walked = result
+            method_parts = method.split(".")
+            for part in method_parts[:-1]:
+                walked = getattr(walked, part, None)
+                if walked is None:
+                    return False, f"Result {result!r} has no attribute {method!r}"
+            m = getattr(walked, method_parts[-1], None)
             if m is None:
                 return False, f"Result {result!r} has no attribute {method!r}"
             if callable(m):
@@ -934,9 +950,9 @@ class PatternRegistry:
                         return False, f".{method_chain}() raised: {exc}"
                 else:
                     result = mc
-        # Normalize: compare tuple results against list expectations by converting to list
-        r = list(result) if isinstance(result, tuple) and isinstance(expected, list) else result
-        e = list(expected) if isinstance(expected, tuple) and isinstance(result, list) else expected
+        # Normalize: compare tuples and lists symmetrically, including nested pairs.
+        r = _sequence_as_lists(result)
+        e = _sequence_as_lists(expected)
         if r != e:
             return False, f"{fn_name}() returned {result!r}, expected {expected!r}"
         return True, f"{fn_name}() == {result!r}"
@@ -2083,6 +2099,15 @@ def _build_skip_context(lib_version: str) -> dict:
         "platform": platform_str,
         "semver_satisfies": _semver_satisfies,
     }
+
+
+def _sequence_as_lists(value):
+    """Compare tuples and lists as lists, including nested pairs."""
+    if isinstance(value, tuple):
+        return [_sequence_as_lists(item) for item in value]
+    if isinstance(value, list):
+        return [_sequence_as_lists(item) for item in value]
+    return value
 
 
 class InvariantRunner:

@@ -17,6 +17,7 @@ import importlib
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -65,14 +66,24 @@ def _encode_observed(value):
     return value
 
 
+_ENCODED_TYPES = frozenset({"tuple", "bytes_hex", "bytes_ascii", "bytes_b64", "null"})
+
+
+def _as_data(value):
+    """Compare tuples, lists, and encoded receipts as plain data."""
+    if isinstance(value, dict) and set(value) <= {"type", "value"} and value.get("type") in _ENCODED_TYPES:
+        return _as_data(resolve_typed(value))
+    if isinstance(value, tuple):
+        return [_as_data(item) for item in value]
+    if isinstance(value, list):
+        return [_as_data(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _as_data(item) for key, item in value.items()}
+    return value
+
+
 def _values_equal(observed, expected):
-    left = resolve_typed(observed) if isinstance(observed, dict) and "type" in observed else observed
-    right = resolve_typed(expected)
-    if isinstance(left, tuple) and isinstance(right, list):
-        left = list(left)
-    if isinstance(right, tuple) and isinstance(left, list):
-        right = list(right)
-    return left == right
+    return _as_data(observed) == _as_data(resolve_typed(expected))
 
 
 def _apply_method(value, method, method_args):
@@ -87,14 +98,31 @@ def _apply_method(value, method, method_args):
     return obj
 
 
+def _walk_public(mod, function):
+    """Walk a dotted public name, importing a submodule when it is not an attribute."""
+    obj = mod
+    module_name = mod.__name__
+    for part in function.split("."):
+        found = getattr(obj, part, None)
+        if found is None and isinstance(obj, types.ModuleType):
+            try:
+                found = importlib.import_module(module_name + "." + part)
+            except ImportError:
+                found = None
+        if found is None:
+            raise AttributeError(function)
+        obj = found
+        if isinstance(obj, types.ModuleType):
+            module_name = obj.__name__
+    return obj
+
+
 def probe_python(module_name, function, args, kwargs, method=None, method_args=None):
     """Import module_name and call function(*args, **kwargs). Never read source."""
     if "/" in module_name or module_name.endswith(".py") or module_name.endswith(".c"):
         raise ValueError("live probes take an import name, not a source path")
     mod = importlib.import_module(module_name)
-    obj = mod
-    for part in function.split("."):
-        obj = getattr(obj, part)
+    obj = _walk_public(mod, function)
     origin = getattr(mod, "__file__", None)
     # Touching origin is allowed only as a path string in the receipt, not contents.
     try:
@@ -115,6 +143,7 @@ def probe_node(module_name, function, args, kwargs, method=None, method_args=Non
         raise ValueError("node live probes do not accept kwargs in this spike")
     # CJS require first; ESM dynamic import() fallback. Optional method hop
     # (including method: call) matches python live probes for factories.
+    # function "bare" uses the module object itself (ZSDL entry: bare).
     script = (
         "const modName = process.argv[1];\n"
         "const fnPath = process.argv[2];\n"
@@ -132,6 +161,7 @@ def probe_node(module_name, function, args, kwargs, method=None, method_args=Non
         "  return o;\n"
         "}\n"
         "function resolveFn(m) {\n"
+        "  if (fnPath === 'bare') return m;\n"
         "  if (!fnPath || fnPath === '~' || fnPath === 'default') {\n"
         "    if (typeof m === 'function') return m;\n"
         "    if (m && typeof m.default === 'function') return m.default;\n"
@@ -151,6 +181,7 @@ def probe_node(module_name, function, args, kwargs, method=None, method_args=Non
         "  return o;\n"
         "}\n"
         "function invoke(fn) {\n"
+        "  if (fnPath === 'bare') return applyMethod(fn);\n"
         "  try { return applyMethod(fn.apply(null, args)); }\n"
         "  catch (e) {\n"
         "    if (e instanceof TypeError) return applyMethod(new fn(...args));\n"

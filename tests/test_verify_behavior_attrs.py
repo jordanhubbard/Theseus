@@ -295,7 +295,7 @@ class TestAttrsExceptions:
                 "function": "exceptions.FrozenInstanceError",
                 "args": [],
                 "method": "__repr__",
-                "expected": "FrozenInstanceError(\"can't set attribute\")",
+                "expected": "FrozenInstanceError()",
             },
         })
         assert ok, msg

@@ -74,3 +74,20 @@ npm packages added to `package.json` are CI/install-time libraries for live prob
 - Qualification: still 0. Characterization is still the product.
 
 The requested high-feasibility characterization loop is done. Medium public-API families (88) remain as later product work, not this goal's high-feasibility set.
+
+## Medium pass (2026-09-21)
+
+59 of those 88 families now have `gold/<family>/` trees. Each tree is authority + reviewed ledger + live probes. `qualification` stays `none`. Intended qualification set stays 17. Registry stays 396.
+
+Kept only families whose public Layer 2 oracle passes `characterize.py` against the installed library. 29 candidates still fail that oracle (wrong expected values, or call shapes such as `issubclass` / mid-chain arguments the harness does not execute). They have no gold tree:
+
+`abc`, `abc_meta`, `argparse_formatters`, `attrs`, `collections_namedtuple`, `contextlib_suppress`, `contextvars`, `dataclasses_field`, `datetime_timedelta`, `email_errors`, `email_header`, `email_message`, `email_policy`, `email_utils`, `functools_lru`, `gzip`, `http_cookies`, `locale`, `plistlib`, `re_patterns`, `stringprep`, `tarfile`, `urllib_response`, `urllib_robotparser`, `xml_dom`, `xml_minidom`, `xml_parse`, `xml_sax`, `zipfile`.
+
+| Metric | After medium pass |
+|---|---|
+| Qualified packages | 0 |
+| `gold/<family>/` trees | **122** |
+| Intended qualification set | **17** |
+| Characterization cohort | **105** |
+| Remaining medium public-API families without gold | **29** |
+| Registry packages | **396** |

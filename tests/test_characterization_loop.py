@@ -107,6 +107,47 @@ def test_live_probe_refuses_source_path():
         live_probe.probe_python("Lib/json.py", "dumps", [1], {})
 
 
+def test_live_probe_node_bare_html_tags():
+    observed = live_probe.run_one(
+        "node", "html-tags", "bare", [], {}, method="default.length"
+    )
+    if not observed.get("ok"):
+        err = str(observed.get("error") or "")
+        if "Cannot find module" in err:
+            pytest.skip("html-tags not installed")
+    assert observed["ok"] is True
+    assert observed["result"] == 115
+
+
+def test_live_probe_getopt_nested_tuples():
+    observed = live_probe.run_one(
+        "python_module", "getopt", "getopt", [["-a"], "a"], {},
+        method="__getitem__", method_args=[0],
+    )
+    assert observed["ok"] is True
+    assert live_probe.check_expect(observed, {"eq": [["-a", ""]]})[0]
+
+
+def test_live_probe_packaging_version_submodule():
+    pytest.importorskip("packaging")
+    observed = live_probe.run_one(
+        "python_module", "packaging", "version.Version", ["1.2.3"], {},
+        method="major",
+    )
+    assert observed["ok"] is True
+    assert observed["result"] == 1
+
+
+def test_characterize_getopt():
+    report = characterize.characterize("getopt")
+    assert report["family"] == "getopt"
+    assert report["qualification"] == "none"
+    names = [step["name"] for step in report["steps"]]
+    assert "public_oracle" in names
+    assert "live_probes" in names
+    assert "held_out_guard" not in names
+
+
 def test_live_probe_node_nanoid_custom_alphabet():
     observed = live_probe.run_one(
         "node", "nanoid", "customAlphabet", ["a", 5], {}, method="call"
