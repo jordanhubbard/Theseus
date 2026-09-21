@@ -31,6 +31,7 @@ import struct as _struct
 import subprocess
 import sys
 import tempfile
+import types
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -145,6 +146,9 @@ class LibraryLoader:
                 "docutils": [
                     "docutils.core",
                     "docutils.nodes",
+                ],
+                "xml.sax": [
+                    "xml.sax.handler",
                 ],
                 "dns": [
                     "dns.name",
@@ -871,6 +875,10 @@ class PatternRegistry:
                 return val.encode("ascii") if val else b""
             if t == "bytes_hex":
                 return bytes.fromhex(val) if val else b""
+            if t == "bytes_io":
+                import io
+                raw = val.encode("ascii") if isinstance(val, str) else b""
+                return io.BytesIO(raw)
             if t == "str":
                 return str(val) if val is not None else ""
             if t == "int":
@@ -917,39 +925,29 @@ class PatternRegistry:
             result = fn(*args, **kwargs)
         except Exception as exc:
             return False, f"{fn_name}() raised: {exc}"
-        # Optional method chaining: call result.method(*method_args)
-        method = spec.get("method")
-        if method:
-            method_args = [self._resolve_typed(a) for a in spec.get("method_args", [])]
-            walked = result
-            method_parts = method.split(".")
-            for part in method_parts[:-1]:
-                walked = getattr(walked, part, None)
-                if walked is None:
-                    return False, f"Result {result!r} has no attribute {method!r}"
-            m = getattr(walked, method_parts[-1], None)
-            if m is None:
-                return False, f"Result {result!r} has no attribute {method!r}"
-            if callable(m):
-                try:
-                    result = m(*method_args)
-                except Exception as exc:
-                    return False, f"{fn_name}().{method}() raised: {exc}"
-            else:
-                result = m
-            # Optional second chain: result.method_chain()
-            method_chain = spec.get("method_chain")
-            if method_chain:
-                mc = getattr(result, method_chain, None)
-                if mc is None:
-                    return False, f"Result {result!r} has no attribute {method_chain!r}"
-                if callable(mc):
-                    try:
-                        result = mc()
-                    except Exception as exc:
-                        return False, f".{method_chain}() raised: {exc}"
-                else:
-                    result = mc
+        # Optional hops: method, method_chain, method_chain_2, method_chain_chain.
+        # Each hop may be a dotted path. Args apply to the last component.
+        # A class object (from __class__) is not called when another hop follows.
+        hops = [
+            ("method", "method_args"),
+            ("method_chain", "method_chain_args"),
+            ("method_chain_2", "method_chain_2_args"),
+            ("method_chain_3", "method_chain_3_args"),
+            ("method_chain_chain", "method_chain_chain_args"),
+            ("method_chain_chain_chain", "method_chain_chain_chain_args"),
+        ]
+        active = [(name, arg_key) for name, arg_key in hops if spec.get(name)]
+        for index, (hop_name, arg_key) in enumerate(active):
+            hop_path = spec.get(hop_name)
+            hop_args = [self._resolve_typed(a) for a in spec.get(arg_key, [])]
+            more = index != len(active) - 1
+            try:
+                hopped = _apply_call_hop(result, hop_path, hop_args, more_hops=more)
+            except Exception as exc:
+                return False, f"{fn_name}().{hop_path}() raised: {exc}"
+            # tap: call for the side effect and keep the previous value (parser.feed).
+            if not spec.get(hop_name + "_tap"):
+                result = hopped
         # Normalize: compare tuples and lists symmetrically, including nested pairs.
         r = _sequence_as_lists(result)
         e = _sequence_as_lists(expected)
@@ -2099,6 +2097,32 @@ def _build_skip_context(lib_version: str) -> dict:
         "platform": platform_str,
         "semver_satisfies": _semver_satisfies,
     }
+
+
+def _apply_call_hop(value, path, args, more_hops):
+    """Read or call one dotted hop. Args apply only to the last component."""
+    obj = value
+    parts = str(path).split(".")
+    for part in parts[:-1]:
+        obj = getattr(obj, part)
+    leaf = getattr(obj, parts[-1])
+    if not callable(leaf):
+        return leaf
+    if args:
+        return leaf(*args)
+    # __class__ yields a class. Calling it would construct, not continue the chain.
+    if more_hops and isinstance(leaf, type):
+        return leaf
+    call_types = (
+        types.MethodType,
+        types.BuiltinMethodType,
+        types.FunctionType,
+        types.BuiltinFunctionType,
+        types.MethodWrapperType,
+    )
+    if more_hops and not isinstance(leaf, call_types):
+        return leaf
+    return leaf(*args)
 
 
 def _sequence_as_lists(value):

@@ -8,11 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- `python_call_eq` walks dotted `method` names, evaluates zero-arg `name()` steps in a dotted function path, and compares nested tuples and lists symmetrically.
+- `python_call_eq` walks dotted method hops (`method`, `method_chain`, `method_chain_2`, `method_chain_3`), supports `method_tap` for side-effect calls, evaluates zero-arg `name()` steps, compares nested tuples and lists, and accepts a `bytes_io` argument tag.
 - Node and Python live probes: `function: bare` reads the module object, dotted function paths import public submodules, and nested tuple receipts compare equal to lists.
 
 ### Added
-- Medium-feasibility characterization (2026-09-21): 59 public-API Layer 2 families whose oracles pass the installed library now have `gold/<family>/` authority, reviewed ledgers, and live probes. Not qualified. Intended qualification gold set unchanged. 29 medium candidates remain because their Layer 2 oracles fail against the installed library.
+- Medium-feasibility characterization (2026-09-21): all 88 medium public-API Layer 2 families now have `gold/<family>/` authority, reviewed ledgers, and live probes. 29 oracles were repaired so their expected values and call shapes match the installed library. Not qualified. Intended qualification gold set unchanged. Remaining high/medium public-API families without a gold tree: 0.
 - Characterization pass 2026-09-20/21: remaining high-feasibility Layer 2 families (Python stdlib/pip plus npm `base-x`, `card-validator`, `email-validator`, `graphlib`, `ieee754`, `isemail`, `jsonpointer`, `jsonschema`, `nanoid`, `punycode`, `semver-diff`, `unidecode`, `ulid`) now have `gold/<family>/` authority + ledger + probes. `live_probe` node backend gained ESM/import fallback, constructor `new`, and a `call` method hop. `base_x` oracle uses `esm: true`. Not qualified.
 - Phase 11 characterization cohort: 15 high-feasibility Layer 2 families (`bisect`, `operator`, `pprint`, `html`, `msgpack`, `ntpath`, `posixpath`, `ipaddress`, `decimal`, `keyword`, `string`, `calendar`, `fractions`, `csv`, `elementtree`) now have `gold/<family>/` authority + reviewed ledgers + live probes. Not qualified. Intended qualification gold set unchanged.
 - Characterization loop (ADR 0003): `gold/<family>/` authority + reviewed uncertainty ledgers, `tools/live_probe.py` (installed public API only), `tools/characterize.py`, `make characterize-gold`. Intended gold-set Layer 2 oracles deepened toward RFC/KAT completeness. Not qualified.

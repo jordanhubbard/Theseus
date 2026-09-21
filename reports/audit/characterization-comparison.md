@@ -89,5 +89,7 @@ Kept only families whose public Layer 2 oracle passes `characterize.py` against 
 | `gold/<family>/` trees | **122** |
 | Intended qualification set | **17** |
 | Characterization cohort | **105** |
-| Remaining medium public-API families without gold | **29** |
+| Remaining medium public-API families without gold | **0** (after oracle repair) |
 | Registry packages | **396** |
+
+The 29 failing oracles were then repaired from live probes (dotted call hops, `method_tap` for parser `feed`, and expected values taken from the installed library) and given gold trees. High- and medium-feasibility public-API families without a gold tree: **0**. Qualification remains 0.

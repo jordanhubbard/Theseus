@@ -71,7 +71,7 @@ Skipped families are not failures.
 | Intended qualification set (ADR 0001) | json, base64, hashlib, hmac, struct, binascii, fnmatch, shlex, urllib_parse, difflib, tomli/tomllib, uuid, semver, libpcap/pcap, pcapng | Python families from Phase 3 | Research protocol that fired the kill gate |
 | Phase 11 cohort | bisect, operator, pprint, html, msgpack, ntpath, posixpath, ipaddress, decimal, keyword, string, calendar, fractions, csv, elementtree | none | Product work |
 | 2026-09-20 pass | remaining high `python_module` + remaining high `node` (`base_x`, `card_validator`, `email_validator`, `graphlib`, `ieee754`, `isemail`, `jsonpointer`, `jsonschema`, `nanoid`, `punycode`, `semver_diff`, `unidecode`, `ulid`) | none | Remaining high-feasibility Layer 2 |
-| 2026-09-21 medium pass | 59 medium public-API families whose Layer 2 oracle passes the installed library (stdlib plus npm `base64-js`, `csv-parse`, `csv-stringify`, `html-tags`, `html-to-text`, `htmlentities`, `htmlparser2`, `http-cache-semantics`, `http-errors`, `http-status-codes`, `markdown-it`, `markdown-table`, `xml-js`, `yaml`) | none | Medium-feasibility product work |
+| 2026-09-21 medium pass | 88 medium public-API families (59 whose oracles already passed, then 29 after oracle repair) | none | Medium-feasibility product work. Remaining high/medium public-API families without a gold tree: 0 |
 
 Do not add a family to `INTENDED_GOLD_SET` just because it has a `gold/<family>/` tree.
 
