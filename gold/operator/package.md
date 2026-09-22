@@ -21,6 +21,10 @@ exports:
   - is_
   - is_not
 public_oracle: zspecs/operator.zspec.zsdl
+blocks: operator
+cleanroom_oracle: zspecs/theseus_operator_q.zspec.zsdl
+held_out_oracle: gold/operator/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_operator_q
 docs:
   - "https://docs.python.org/3/library/operator.html"
 rfcs:

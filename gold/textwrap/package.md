@@ -11,6 +11,10 @@ exports:
   - indent
   - shorten
 public_oracle: zspecs/textwrap.zspec.zsdl
+blocks: textwrap
+cleanroom_oracle: zspecs/theseus_textwrap_q.zspec.zsdl
+held_out_oracle: gold/textwrap/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_textwrap_q
 docs:
   - "https://docs.python.org/3/library/textwrap.html"
 rfcs:

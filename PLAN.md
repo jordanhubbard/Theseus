@@ -1,6 +1,6 @@
 # Theseus Clean-Room Rewrite Initiative — Implementation Plan
 
-> **Status (2026-09-21):** Characterization is the product ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Qualification remains withdrawn (**0 qualified**). `gold/<family>/` has 151 accepted trees (17 intended qualification set + 134 characterization-cohort families). Remaining high- and medium-feasibility public-API Layer 2 families without a gold tree: **0**. Do not inflate registry counts.
+> **Status (2026-09-21):** Characterization is the product ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Qualification remains withdrawn as a product claim (**12 qualified** of 12 attempts; numeric kill gate cleared, product ADR not superseded). `gold/<family>/` has 151 accepted trees (17 intended qualification set + 134 characterization-cohort families). Remaining high- and medium-feasibility public-API Layer 2 families without a gold tree: **0**. Do not inflate registry counts.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

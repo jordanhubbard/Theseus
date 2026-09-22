@@ -12,6 +12,10 @@ exports:
   - insort_right
   - insort
 public_oracle: zspecs/bisect.zspec.zsdl
+blocks: bisect
+cleanroom_oracle: zspecs/theseus_bisect_q.zspec.zsdl
+held_out_oracle: gold/bisect/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_bisect_q
 docs:
   - "https://docs.python.org/3/library/bisect.html"
 rfcs:

@@ -12,6 +12,10 @@ exports:
   - rgb_to_yiq
   - yiq_to_rgb
 public_oracle: zspecs/colorsys.zspec.zsdl
+blocks: colorsys
+cleanroom_oracle: zspecs/theseus_colorsys_q.zspec.zsdl
+held_out_oracle: gold/colorsys/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_colorsys_q
 docs:
   - "https://docs.python.org/3/library/colorsys.html"
 rfcs:

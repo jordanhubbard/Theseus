@@ -760,7 +760,18 @@ def withdrawn_entries(spec_records: list, registry: dict) -> list:
     return out
 
 
-def summarize(spec_records: list, withdrawn: list, gold: list, families: list, errors: list, unmatched: list, characterization=None) -> dict:
+def qualified_count(repo_root: Path) -> int:
+    path = repo_root / "reports" / "qualification" / "summary.json"
+    if not path.is_file():
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    return int(data.get("qualified") or 0)
+
+
+def summarize(spec_records: list, withdrawn: list, gold: list, families: list, errors: list, unmatched: list, characterization=None, qualified=0) -> dict:
     characterization = characterization or []
     registry_recs = [r for r in spec_records if r.get("in_registry")]
     factory = [r for r in spec_records if r.get("oracle_quality") == "factory_shallow"]
@@ -775,7 +786,7 @@ def summarize(spec_records: list, withdrawn: list, gold: list, families: list, e
         "unmatched_registry_packages": unmatched,
         "registry_classified": len(registry_recs),
         "withdrawn_from_qualification": len(withdrawn),
-        "qualified": 0,
+        "qualified": qualified,
         "oracle_bound_public_api": len(public_deep),
         "factory_shallow": len(factory),
         "duplicate_families": len(dup_families),
@@ -862,6 +873,7 @@ def build_report(
         "summary": summarize(
             spec_records, withdrawn, gold, families, errors, unmatched,
             characterization=characterization,
+            qualified=qualified_count(repo_root),
         ),
         "intended_gold_set": sorted(INTENDED_GOLD_SET),
         "specs": spec_records,
@@ -967,7 +979,7 @@ def render_markdown(report: dict) -> str:
         "",
         "- **{}** source specs classified ({} compile errors).".format(s.get("spec_count"), s.get("compile_errors")),
         "- **{}** registry packages with `status=verified` are **withdrawn from qualification**.".format(withdrawn_n),
-        "- **0** packages are `qualified`.",
+        "- **{}** packages are `qualified`.".format(s.get("qualified")),
         "- **{}** specs look like public-API oracles of moderate/deep depth (Layer 2 asset).".format(
             s.get("oracle_bound_public_api")
         ),

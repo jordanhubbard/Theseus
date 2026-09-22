@@ -10,6 +10,10 @@ exports:
   - kwlist
   - softkwlist
 public_oracle: zspecs/keyword.zspec.zsdl
+blocks: keyword
+cleanroom_oracle: zspecs/theseus_keyword_q.zspec.zsdl
+held_out_oracle: gold/keyword/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_keyword_q
 docs:
   - "https://docs.python.org/3/library/keyword.html"
 rfcs:

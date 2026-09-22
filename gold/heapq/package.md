@@ -11,6 +11,10 @@ exports:
   - heappush
   - heappop
 public_oracle: zspecs/heapq.zspec.zsdl
+blocks: heapq
+cleanroom_oracle: zspecs/theseus_heapq_q.zspec.zsdl
+held_out_oracle: gold/heapq/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_heapq_q
 docs:
   - "https://docs.python.org/3/library/heapq.html"
 rfcs:

@@ -10,6 +10,10 @@ exports:
   - encode
   - decode
 public_oracle: zspecs/quopri.zspec.zsdl
+blocks: quopri
+cleanroom_oracle: zspecs/theseus_quopri_q.zspec.zsdl
+held_out_oracle: gold/quopri/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_quopri_q
 docs:
   - "https://docs.python.org/3/library/quopri.html"
 rfcs:

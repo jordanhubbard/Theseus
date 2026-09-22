@@ -8,6 +8,10 @@ exports:
   - escape
   - unescape
 public_oracle: zspecs/html.zspec.zsdl
+blocks: html
+cleanroom_oracle: zspecs/theseus_html_q.zspec.zsdl
+held_out_oracle: gold/html/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_html_q
 docs:
   - "https://docs.python.org/3/library/html.html"
 rfcs:

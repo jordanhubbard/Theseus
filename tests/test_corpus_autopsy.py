@@ -310,7 +310,9 @@ class TestCommittedAutopsy:
         assert withdrawn.is_file()
         data = json.loads(path.read_text(encoding="utf-8"))
         wdoc = json.loads(withdrawn.read_text(encoding="utf-8"))
-        assert data["summary"]["qualified"] == 0
+        qsum = json.loads((root / "reports" / "qualification" / "summary.json").read_text(encoding="utf-8"))
+        assert data["summary"]["qualified"] == qsum["qualified"]
+        assert qsum["qualified"] >= 2
         assert data["summary"]["withdrawn_from_qualification"] >= 1
         assert wdoc["qualification_claim"] == "withdrawn"
         assert wdoc["count"] == data["summary"]["withdrawn_from_qualification"]

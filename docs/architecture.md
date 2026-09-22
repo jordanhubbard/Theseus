@@ -62,7 +62,7 @@ zspecs/theseus_*.zspec.zsdl              ← clean-room specs (python_cleanroom 
   tools/registry.py verify <name>       ← register in theseus_registry.json
         │
         ▼
-  theseus_registry.json                 ← 396 legacy-isolation packages; 0 qualified; product = characterization (ADR 0005)
+  theseus_registry.json                 ← 396 legacy-isolation packages; 12 qualified; product = characterization (ADR 0005)
 ```
 
 ---
@@ -609,7 +609,7 @@ python3 tools/registry.py check <name>                # exits 0 if verified, 1 i
 | `cr2` | Node.js clean-room packages | 1 | DONE |
 | `w100`–`w2851` | ZSDL `_extra` wave-series (auto-generated) | ~6,700 | pending |
 
-Total registry packages with `status=verified`: **396** (legacy isolation only; **0 qualified**). See [ADR 0001](decisions/0001-verification-ladder.md). Run `python3 tools/synthesize_waves.py --list` for historical wave state.
+Total registry packages with `status=verified`: **396** (legacy isolation only; **12 qualified**: `theseus_base64_q`, `theseus_fnmatch_q`, `theseus_json`, `theseus_shlex_q`, `theseus_binascii_q`, `theseus_difflib_q`, `theseus_hashlib_q`, `theseus_hmac_q`, `theseus_struct_q`, `theseus_urllib_parse_q`, `theseus_bisect_q`, `theseus_colorsys_q`). See [ADR 0001](decisions/0001-verification-ladder.md). Run `python3 tools/synthesize_waves.py --list` for historical wave state.
 
 ---
 

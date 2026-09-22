@@ -59,7 +59,7 @@ Oracle repairs: enum (StrEnum 3.11+; Flag/StrEnum length via `_member_names_`); 
 
 | Constraint | Evidence |
 |---|---|
-| Do not treat `status=verified` as replacement | `theseus_registry.json` `ladder.product` is still `characterization`; `ladder.qualified` is empty |
+| Do not treat `status=verified` as replacement | `theseus_registry.json` `ladder.product` is still `characterization`; `ladder.qualified` lists only dual-generation packages (`theseus_base64_q`, `theseus_fnmatch_q`, `theseus_json`, `theseus_shlex_q`, `theseus_binascii_q`, `theseus_difflib_q`, `theseus_hashlib_q`, `theseus_hmac_q`, `theseus_struct_q`, `theseus_urllib_parse_q`, `theseus_bisect_q`, `theseus_colorsys_q`) |
 | Do not add factory wrappers or registry packages | no `cleanroom/` or `theseus_*` factory files added; registry package count 396 → 396 |
 | Do not leak held-out tokens into public oracles | new/edited zspecs do not contain JSON held-out tokens (`1.5e2`, `café`, `[1,]`, `\u0041`, `say "hi"`, `{]`) |
 | Do not put behavioral fields on Layer 1 recipes | `schema/package-recipe.schema.json` not modified |

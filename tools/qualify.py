@@ -17,7 +17,12 @@ Qualification requires ALL of:
   * two independent empty-workspace generations with different impl hashes
 
 A single generation cannot mark a package qualified (independent_generation=false).
+Pass both generations with --run1 and --run2. Those directories are the only
+empty-workspace pair this tool will accept. --second-impl still compares a
+second tree to the in-repo implementation, and that pair is not qualified.
 This tool records receipts; it does not invent a second generator.
+A single-family run merges the new receipt into the on-disk set so the
+summary keeps every other family.
 """
 from __future__ import annotations
 
@@ -127,7 +132,11 @@ def input_closure(family, meta):
     return {"files": hashed, "sha256": _sha256_bytes(blob)}
 
 
-def qualify_family(family, second_impl=None, verbose=False):
+def _impl_ready(path: Path):
+    return (path / "__init__.py").is_file() or path.is_file()
+
+
+def qualify_family(family, second_impl=None, run1_impl=None, verbose=False):
     rec = characterize.load_family(family)
     meta = rec["meta"]
     skip = characterize._skip_reason(family)
@@ -151,7 +160,7 @@ def qualify_family(family, second_impl=None, verbose=False):
 
     cr_zsdl = _REPO_ROOT / meta["cleanroom_oracle"]
     held_zsdl = _REPO_ROOT / meta["held_out_oracle"]
-    impl = _REPO_ROOT / meta["implementation"]
+    impl = Path(run1_impl) if run1_impl else (_REPO_ROOT / meta["implementation"])
     if not cr_zsdl.is_file() or not held_zsdl.is_file():
         return {
             "family": family,
@@ -160,7 +169,7 @@ def qualify_family(family, second_impl=None, verbose=False):
             "reason": "oracle files missing",
             "qualified": False,
         }
-    if not (impl / "__init__.py").is_file() and not impl.is_file():
+    if not _impl_ready(impl):
         return {
             "family": family,
             "attempted": False,
@@ -179,8 +188,9 @@ def qualify_family(family, second_impl=None, verbose=False):
 
     leaks = held_out_guard.check(cr_zsdl, held_zsdl)
     guard_ok = not leaks
-    public_result = _verify_cleanroom(public_path)
-    held_result = _verify_cleanroom(held_path)
+    run1_root = impl.parent if run1_impl else None
+    public_result = _verify_cleanroom(public_path, run1_root)
+    held_result = _verify_cleanroom(held_path, run1_root)
 
     impl_hash_1 = _hash_tree(impl)
     run2 = None
@@ -197,14 +207,19 @@ def qualify_family(family, second_impl=None, verbose=False):
     public_ok = public_result.get("fail", 1) == 0 and public_result.get("pass", 0) > 0
     held_ok = held_result.get("fail", 1) == 0 and held_result.get("pass", 0) > 0
     isolation_ok = public_ok and held_ok
-    independent = bool(
+    hashes_differ = bool(run2 and impl_hash_2 and impl_hash_1 != impl_hash_2)
+    run2_ok = bool(
         run2
-        and impl_hash_2
-        and impl_hash_1 != impl_hash_2
         and run2["public"].get("fail", 1) == 0
         and run2["held_out"].get("fail", 1) == 0
     )
-    qualified = bool(public_ok and held_ok and guard_ok and independent)
+    empty_workspace_pair = bool(run1_impl and second_impl)
+    independent = bool(hashes_differ and run2_ok and (empty_workspace_pair or second_impl))
+    # In-repo run 1 was produced beside the held-out file. Only two external
+    # generations count as the empty-workspace pair ADR 0004 requires.
+    qualified = bool(
+        public_ok and held_ok and guard_ok and independent and empty_workspace_pair
+    )
     closure = input_closure(family, meta)
 
     receipt = {
@@ -235,6 +250,9 @@ def qualify_family(family, second_impl=None, verbose=False):
         "isolation": isolation_ok,
         "impl_hash_run1": impl_hash_1,
         "impl_hash_run2": impl_hash_2,
+        "run1_root": str(impl) if run1_impl else meta.get("implementation"),
+        "run2_root": str(second_impl) if second_impl else None,
+        "empty_workspace_pair": empty_workspace_pair,
         "independent_generation": independent,
         "input_closure": closure,
         "qualified": qualified,
@@ -274,6 +292,33 @@ def write_receipt(receipt):
     path = RECEIPT_DIR / "{}.json".format(receipt["family"])
     path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def _saved_generation_roots(family):
+    path = RECEIPT_DIR / "{}.json".format(family)
+    if not path.is_file():
+        return None, None
+    rec = json.loads(path.read_text(encoding="utf-8"))
+    if not rec.get("empty_workspace_pair"):
+        return None, None
+    run1 = rec.get("run1_root")
+    run2 = rec.get("run2_root")
+    if not run1 or not run2:
+        return None, None
+    if not Path(run1).exists() or not Path(run2).exists():
+        return None, None
+    return run1, run2
+
+
+def load_saved_receipts():
+    rows = []
+    if not RECEIPT_DIR.is_dir():
+        return rows
+    for path in sorted(RECEIPT_DIR.glob("*.json")):
+        if path.name == "summary.json":
+            continue
+        rows.append(json.loads(path.read_text(encoding="utf-8")))
+    return rows
 
 
 def summarize(receipts):
@@ -319,6 +364,12 @@ def check_receipts(summary, receipts):
                     rec.get("family")
                 )
             )
+        if rec.get("qualified") and not rec.get("empty_workspace_pair"):
+            errors.append(
+                "{} marked qualified without an empty-workspace pair".format(
+                    rec.get("family")
+                )
+            )
         if rec.get("qualified") and rec.get("package_qualification_field") not in (
             "none",
             None,
@@ -344,7 +395,18 @@ def main(argv=None):
     parser.add_argument("family", nargs="?")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--check", action="store_true", help="Re-run and validate receipts")
-    parser.add_argument("--second-impl", help="Optional second implementation root for run 2")
+    parser.add_argument(
+        "--run1",
+        help="External empty-workspace implementation for generation 1",
+    )
+    parser.add_argument(
+        "--run2",
+        help="External empty-workspace implementation for generation 2",
+    )
+    parser.add_argument(
+        "--second-impl",
+        help="Second tree compared with the in-repo implementation; not an empty-workspace pair",
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args(argv)
 
@@ -356,11 +418,26 @@ def main(argv=None):
         if not args.all and not args.check:
             parser.error("provide FAMILY, --all, or --check")
 
+    run2_arg = args.run2 or args.second_impl
+    if args.run2 and args.second_impl and args.run2 != args.second_impl:
+        parser.error("pass only one of --run2 and --second-impl")
+    if bool(args.run1) != bool(args.run2):
+        parser.error("--run1 and --run2 must be passed together")
+
     receipts = []
     for family in families:
+        run1 = args.run1
+        run2 = run2_arg
+        if args.check and not run1:
+            saved1, saved2 = _saved_generation_roots(family)
+            if saved1 and saved2:
+                run1, run2 = saved1, saved2
         try:
             receipt = qualify_family(
-                family, second_impl=args.second_impl, verbose=args.verbose
+                family,
+                second_impl=run2,
+                run1_impl=run1,
+                verbose=args.verbose,
             )
         except Exception as exc:
             receipt = {
@@ -374,7 +451,7 @@ def main(argv=None):
         write_receipt(receipt)
         receipts.append(receipt)
 
-    summary = summarize(receipts)
+    summary = summarize(load_saved_receipts())
     RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
     summary_path = RECEIPT_DIR / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

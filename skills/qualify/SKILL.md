@@ -35,10 +35,13 @@ Qualification is a research protocol, not the shipping product.
 
 ```bash
 python3 tools/qualify.py <family>
+python3 tools/qualify.py <family> --run1 <gen-a-pkg> --run2 <gen-b-pkg>
 python3 tools/qualify.py --all
 make qualify-check
 python3 tools/lint_gold_wrappers.py
 ```
+
+`--run1` and `--run2` are two external empty-workspace package directories (each contains the implementation). Both are required before a receipt can set `qualified`. `--second-impl` only compares a second tree with the in-repo implementation and cannot qualify. A single-family run rewrites that family's receipt and rebuilds `summary.json` from every receipt on disk.
 
 ## Receipts
 

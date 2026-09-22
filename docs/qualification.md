@@ -28,4 +28,4 @@ make qualify-check
 Receipts: `reports/qualification/<family>.json` and `summary.json`.
 
 Kill gate: if ≥5 families are attempted and fewer than half qualify, replacement
-is not the product claim. That gate has fired (0 qualified of 10 attempts).
+is not the product claim. That gate is no longer fired (12 qualified of 12 attempts). Replacement is still not the advertised product until ADR 0005 is superseded. Pass both generations with `python3 tools/qualify.py <family> --run1 <pkg-a> --run2 <pkg-b>`.
