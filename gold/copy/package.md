@@ -9,6 +9,10 @@ exports:
   - deepcopy
   - Error
 public_oracle: zspecs/copy.zspec.zsdl
+blocks: copy
+cleanroom_oracle: zspecs/theseus_copy_q.zspec.zsdl
+held_out_oracle: gold/copy/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_copy_q
 docs:
   - "https://docs.python.org/3/library/copy.html"
 rfcs:

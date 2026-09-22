@@ -11,6 +11,10 @@ exports:
   - ip_address
   - ip_network
 public_oracle: zspecs/ipaddress.zspec.zsdl
+blocks: ipaddress
+cleanroom_oracle: zspecs/theseus_ipaddress_q.zspec.zsdl
+held_out_oracle: gold/ipaddress/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_ipaddress_q
 docs:
   - "https://docs.python.org/3/library/ipaddress.html"
 rfcs:

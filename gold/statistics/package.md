@@ -13,6 +13,10 @@ exports:
   - pvariance
   - StatisticsError
 public_oracle: zspecs/statistics.zspec.zsdl
+blocks: statistics
+cleanroom_oracle: zspecs/theseus_statistics_q.zspec.zsdl
+held_out_oracle: gold/statistics/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_statistics_q
 docs:
   - "https://docs.python.org/3/library/statistics.html"
 rfcs:

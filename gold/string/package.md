@@ -16,6 +16,10 @@ exports:
   - printable
   - capwords
 public_oracle: zspecs/string.zspec.zsdl
+blocks: string
+cleanroom_oracle: zspecs/theseus_string_q.zspec.zsdl
+held_out_oracle: gold/string/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_string_q
 docs:
   - "https://docs.python.org/3/library/string.html"
 rfcs:

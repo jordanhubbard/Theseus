@@ -13,6 +13,10 @@ exports:
   - MONDAY
   - SUNDAY
 public_oracle: zspecs/calendar.zspec.zsdl
+blocks: calendar
+cleanroom_oracle: zspecs/theseus_calendar_q.zspec.zsdl
+held_out_oracle: gold/calendar/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_calendar_q
 docs:
   - "https://docs.python.org/3/library/calendar.html"
 rfcs:

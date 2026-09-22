@@ -7,6 +7,10 @@ qualification: none
 exports:
   - guess_type
 public_oracle: zspecs/mimetypes.zspec.zsdl
+blocks: mimetypes
+cleanroom_oracle: zspecs/theseus_mimetypes_q.zspec.zsdl
+held_out_oracle: gold/mimetypes/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_mimetypes_q
 docs:
   - "https://docs.python.org/3/library/mimetypes.html"
 rfcs:

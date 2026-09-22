@@ -7,7 +7,13 @@ qualification: none
 exports:
   - chain
   - islice
+  - product
+  - combinations
 public_oracle: zspecs/itertools.zspec.zsdl
+blocks: itertools
+cleanroom_oracle: zspecs/theseus_itertools_q.zspec.zsdl
+held_out_oracle: gold/itertools/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_itertools_q
 docs:
   - "https://docs.python.org/3/library/itertools.html"
 rfcs:

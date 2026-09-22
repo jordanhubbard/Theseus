@@ -7,6 +7,10 @@ qualification: none
 exports:
   - Fraction
 public_oracle: zspecs/fractions.zspec.zsdl
+blocks: fractions
+cleanroom_oracle: zspecs/theseus_fractions_q.zspec.zsdl
+held_out_oracle: gold/fractions/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_fractions_q
 docs:
   - "https://docs.python.org/3/library/fractions.html"
 rfcs:

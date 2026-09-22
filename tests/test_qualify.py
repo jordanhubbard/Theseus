@@ -85,6 +85,19 @@ QUALIFIED_FAMILIES = {
     "urllib_parse",
     "bisect",
     "colorsys",
+    "heapq",
+    "html",
+    "keyword",
+    "operator",
+    "quopri",
+    "textwrap",
+    "calendar",
+    "string",
+    "statistics",
+    "pprint",
+    "copy",
+    "fractions",
+    "glob",
 }
 
 
@@ -131,6 +144,19 @@ def test_registry_is_qualified_tracks_dual_generation_not_legacy_status():
         "theseus_urllib_parse_q",
         "theseus_bisect_q",
         "theseus_colorsys_q",
+        "theseus_heapq_q",
+        "theseus_html_q",
+        "theseus_keyword_q",
+        "theseus_operator_q",
+        "theseus_quopri_q",
+        "theseus_textwrap_q",
+        "theseus_calendar_q",
+        "theseus_string_q",
+        "theseus_statistics_q",
+        "theseus_pprint_q",
+        "theseus_copy_q",
+        "theseus_fractions_q",
+        "theseus_glob_q",
     ]
     assert data["ladder"]["product"] == "characterization"
     assert registry.is_qualified("theseus_base64_q") is True
@@ -145,3 +171,16 @@ def test_registry_is_qualified_tracks_dual_generation_not_legacy_status():
     assert registry.is_qualified("theseus_urllib_parse_q") is True
     assert registry.is_qualified("theseus_bisect_q") is True
     assert registry.is_qualified("theseus_colorsys_q") is True
+    assert registry.is_qualified("theseus_heapq_q") is True
+    assert registry.is_qualified("theseus_html_q") is True
+    assert registry.is_qualified("theseus_keyword_q") is True
+    assert registry.is_qualified("theseus_operator_q") is True
+    assert registry.is_qualified("theseus_quopri_q") is True
+    assert registry.is_qualified("theseus_textwrap_q") is True
+    assert registry.is_qualified("theseus_calendar_q") is True
+    assert registry.is_qualified("theseus_string_q") is True
+    assert registry.is_qualified("theseus_statistics_q") is True
+    assert registry.is_qualified("theseus_pprint_q") is True
+    assert registry.is_qualified("theseus_copy_q") is True
+    assert registry.is_qualified("theseus_fractions_q") is True
+    assert registry.is_qualified("theseus_glob_q") is True

@@ -9,6 +9,10 @@ exports:
   - iglob
   - escape
 public_oracle: zspecs/glob.zspec.zsdl
+blocks: glob
+cleanroom_oracle: zspecs/theseus_glob_q.zspec.zsdl
+held_out_oracle: gold/glob/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_glob_q
 docs:
   - "https://docs.python.org/3/library/glob.html"
 rfcs:

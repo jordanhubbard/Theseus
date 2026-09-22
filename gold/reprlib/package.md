@@ -8,6 +8,10 @@ exports:
   - repr
   - Repr
 public_oracle: zspecs/reprlib.zspec.zsdl
+blocks: reprlib
+cleanroom_oracle: zspecs/theseus_reprlib_q.zspec.zsdl
+held_out_oracle: gold/reprlib/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_reprlib_q
 docs:
   - "https://docs.python.org/3/library/reprlib.html"
 rfcs:

@@ -10,6 +10,10 @@ exports:
   - isreadable
   - isrecursive
 public_oracle: zspecs/pprint.zspec.zsdl
+blocks: pprint
+cleanroom_oracle: zspecs/theseus_pprint_q.zspec.zsdl
+held_out_oracle: gold/pprint/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_pprint_q
 docs:
   - "https://docs.python.org/3/library/pprint.html"
 rfcs:

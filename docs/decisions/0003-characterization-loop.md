@@ -76,7 +76,7 @@ The autopsy records characterization as a **gold-tree** scan (`gold/<family>/`),
 
 ## Follow-up
 
-- Phase 3 — gold-set regenerative qualification (held-out oracles beyond JSON, empty workspace, twice). **Done; 12 of 12 later qualified, numeric kill gate cleared, product ADR not superseded** ([ADR 0004](0004-qualification-protocol.md), [ADR 0005](0005-characterization-is-the-product.md)).
+- Phase 3 — gold-set regenerative qualification (held-out oracles beyond JSON, empty workspace, twice). **Done; 25 of 25 later qualified, numeric kill gate cleared, product ADR not superseded** ([ADR 0004](0004-qualification-protocol.md), [ADR 0005](0005-characterization-is-the-product.md)).
 - Phase 11 — expand `gold/<family>/` characterization to the next high-feasibility Layer 2 cohort. **Done.** Not qualification.
 - 2026-09-20 — remaining high-feasibility `python_module` and `node` families through the same loop. Remaining product work is medium-feasibility public-API specs. Not qualification.
 - 2026-09-21 — 59 medium public-API families whose Layer 2 oracles pass the installed library. Not qualification.

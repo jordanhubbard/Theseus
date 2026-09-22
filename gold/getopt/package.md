@@ -7,6 +7,10 @@ qualification: none
 exports:
   - getopt
 public_oracle: zspecs/getopt.zspec.zsdl
+blocks: getopt
+cleanroom_oracle: zspecs/theseus_getopt_q.zspec.zsdl
+held_out_oracle: gold/getopt/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_getopt_q
 docs:
   - "https://docs.python.org/3/library/getopt.html"
 rfcs:
