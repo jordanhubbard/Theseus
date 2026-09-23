@@ -6,7 +6,11 @@ ladder: oracle_bound
 qualification: none
 exports:
   - PurePosixPath
-public_oracle: zspecs/pathlib.zspec.zsdl
+public_oracle: zspecs/theseus_pathlib_q.zspec.zsdl
+blocks: pathlib
+cleanroom_oracle: zspecs/theseus_pathlib_q.zspec.zsdl
+held_out_oracle: gold/pathlib/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_pathlib_q
 docs:
   - "https://docs.python.org/3/library/pathlib.html"
 rfcs:
@@ -15,23 +19,23 @@ rfcs:
 
 # pathlib
 
-All invariants use PurePosixPath — a pure, platform-independent class requiring no filesystem access. PurePosixPath is deterministic and safe to run anywhere; no real filesystem operations are performed. String coercion: PurePosixPath objects compare correctly against str via str() or the 'method: __str__' pattern. This file is the **authority** for a characterization-cohort family. It is not an implementation and it is not an executable oracle. The oracle is `zspecs/pathlib.zspec.zsdl`.
+PurePosixPath(text).name is the final path component. PurePosixPath(text).suffix is the final dotted extension, including the dot, or an empty string when there is none. This file is the **authority** for a characterization-cohort family. It is not an implementation and it is not an executable oracle.
 
 ## Public surface
 
-Exports listed in the frontmatter are the characterization surface. Layer 2 invariants call those names with arguments against the installed library.
+Exports listed in the frontmatter are the characterization surface.
 
 ## What is in scope
 
-The live probes in `probes.yaml`, confirmed against the installed library. The rest of the public contract stays in the Layer 2 oracle.
+PurePosixPath(text).name is the final path component. PurePosixPath(text).suffix is the final dotted extension, including the dot, or an empty string when there is none.
 
 ## What is not in scope
 
-I/O, process-global configuration, and error paths that the probes do not call. No held-out oracle and no clean-room attempt.
+Filesystem I/O methods and PureWindowsPath.
 
 ## Characterization loop
 
-Draft from public docs/RFCs. Confirm expected values with `tools/live_probe.py` against the installed library. Do not read implementation source into a generation prompt. Review `uncertainty.yaml` until every item is `resolved`, `deferred`, or `held_out`. Passing the public oracle is **not** qualification (ADR 0001). This family is characterization-only: no held-out oracle and no clean-room attempt.
+Draft from public docs. Confirm expected values with a live probe against the installed library. Do not read implementation source into a generation prompt. Passing the public oracle is **not** qualification (ADR 0001).
 
 ## Provenance
 

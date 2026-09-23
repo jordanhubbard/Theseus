@@ -14,6 +14,10 @@ exports:
   - isabs
   - normpath
 public_oracle: zspecs/ntpath.zspec.zsdl
+blocks: ntpath
+cleanroom_oracle: zspecs/theseus_ntpath_q.zspec.zsdl
+held_out_oracle: gold/ntpath/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_ntpath_q
 docs:
   - "https://docs.python.org/3/library/os.path.html"
 rfcs:

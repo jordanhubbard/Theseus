@@ -7,6 +7,10 @@ qualification: none
 exports:
   - Counter
 public_oracle: zspecs/collections.zspec.zsdl
+blocks: collections
+cleanroom_oracle: zspecs/theseus_collections_q.zspec.zsdl
+held_out_oracle: gold/collections/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_collections_q
 docs:
   - "https://docs.python.org/3/library/collections.html"
 rfcs:

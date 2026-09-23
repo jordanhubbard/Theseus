@@ -7,6 +7,10 @@ qualification: none
 exports:
   - parseaddr
 public_oracle: zspecs/email_utils.zspec.zsdl
+blocks: email.utils
+cleanroom_oracle: zspecs/theseus_email_utils_q.zspec.zsdl
+held_out_oracle: gold/email_utils/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_email_utils_q
 docs:
   - "https://docs.python.org/3/library/email.utils.html"
 rfcs:

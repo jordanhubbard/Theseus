@@ -7,6 +7,10 @@ qualification: none
 exports:
   - nullcontext
 public_oracle: zspecs/contextlib.zspec.zsdl
+blocks: contextlib
+cleanroom_oracle: zspecs/theseus_contextlib_q.zspec.zsdl
+held_out_oracle: gold/contextlib/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_contextlib_q
 docs:
   - "https://docs.python.org/3/library/contextlib.html"
 rfcs:

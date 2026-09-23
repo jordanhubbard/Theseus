@@ -7,6 +7,10 @@ qualification: none
 exports:
   - date
 public_oracle: zspecs/datetime.zspec.zsdl
+blocks: datetime
+cleanroom_oracle: zspecs/theseus_datetime_q.zspec.zsdl
+held_out_oracle: gold/datetime/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_datetime_q
 docs:
   - "https://docs.python.org/3/library/datetime.html"
 rfcs:

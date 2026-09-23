@@ -11,7 +11,7 @@ It does **not** claim any package is qualified. See ADR 0001.
 
 - **2308** source specs classified (0 compile errors).
 - **396** registry packages with `status=verified` are **withdrawn from qualification**.
-- **25** packages are `qualified`.
+- **102** packages are `qualified`.
 - **1010** specs look like public-API oracles of moderate/deep depth (Layer 2 asset).
 - **176** specs match the 3-invariant clean-room factory (`factory_shallow`).
 - Median invariant count: clean-room **3.0**, public-API **6.0**.

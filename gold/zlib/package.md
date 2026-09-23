@@ -1,0 +1,42 @@
+---
+family: zlib
+version: "0.1.0"
+kind: library
+ladder: oracle_bound
+qualification: none
+exports:
+  - crc32
+public_oracle: zspecs/theseus_zlib_q.zspec.zsdl
+blocks: zlib
+cleanroom_oracle: zspecs/theseus_zlib_q.zspec.zsdl
+held_out_oracle: gold/zlib/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_zlib_q
+docs:
+  - "https://docs.python.org/3/library/zlib.html"
+rfcs:
+  []
+---
+
+# zlib
+
+crc32(data) is the ISO-HDLC CRC-32 of the bytes, returned as an unsigned integer in 0..4294967295. The initial CRC value is 0. This file is the **authority** for a characterization-cohort family. It is not an implementation and it is not an executable oracle.
+
+## Public surface
+
+Exports listed in the frontmatter are the characterization surface.
+
+## What is in scope
+
+crc32(data) is the ISO-HDLC CRC-32 of the bytes, returned as an unsigned integer in 0..4294967295. The initial CRC value is 0.
+
+## What is not in scope
+
+Compression and decompression.
+
+## Characterization loop
+
+Draft from public docs. Confirm expected values with a live probe against the installed library. Do not read implementation source into a generation prompt. Passing the public oracle is **not** qualification (ADR 0001).
+
+## Provenance
+
+Derived from the docs in the frontmatter and the public Layer 2 oracle. Not derived from implementation source files.

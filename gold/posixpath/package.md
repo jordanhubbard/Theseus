@@ -13,6 +13,10 @@ exports:
   - isabs
   - normpath
 public_oracle: zspecs/posixpath.zspec.zsdl
+blocks: posixpath
+cleanroom_oracle: zspecs/theseus_posixpath_q.zspec.zsdl
+held_out_oracle: gold/posixpath/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_posixpath_q
 docs:
   - "https://docs.python.org/3/library/os.path.html"
 rfcs:

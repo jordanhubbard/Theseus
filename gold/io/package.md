@@ -5,9 +5,12 @@ kind: library
 ladder: oracle_bound
 qualification: none
 exports:
-  - DEFAULT_BUFFER_SIZE
-  - StringIO
-public_oracle: zspecs/io.zspec.zsdl
+  - BytesIO
+public_oracle: zspecs/theseus_io_q.zspec.zsdl
+blocks: io
+cleanroom_oracle: zspecs/theseus_io_q.zspec.zsdl
+held_out_oracle: gold/io/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_io_q
 docs:
   - "https://docs.python.org/3/library/io.html"
 rfcs:
@@ -16,23 +19,23 @@ rfcs:
 
 # io
 
-io.StringIO() is an in-memory text stream; read/write methods accept and return str. io.BytesIO() is an in-memory binary stream; read/write methods accept and return bytes. io.DEFAULT_BUFFER_SIZE is platform-dependent but typically 131072 on macOS. This file is the **authority** for a characterization-cohort family. It is not an implementation and it is not an executable oracle. The oracle is `zspecs/io.zspec.zsdl`.
+BytesIO(data) stores a bytes buffer. getvalue() returns the whole buffer. read() returns the unread bytes from the start when nothing has been read yet. This file is the **authority** for a characterization-cohort family. It is not an implementation and it is not an executable oracle.
 
 ## Public surface
 
-Exports listed in the frontmatter are the characterization surface. Layer 2 invariants call those names with arguments against the installed library.
+Exports listed in the frontmatter are the characterization surface.
 
 ## What is in scope
 
-The live probes in `probes.yaml`, confirmed against the installed library. The rest of the public contract stays in the Layer 2 oracle.
+BytesIO(data) stores a bytes buffer. getvalue() returns the whole buffer. read() returns the unread bytes from the start when nothing has been read yet.
 
 ## What is not in scope
 
-I/O, process-global configuration, and error paths that the probes do not call. No held-out oracle and no clean-room attempt.
+Text IO, file wrappers, and incremental codecs.
 
 ## Characterization loop
 
-Draft from public docs/RFCs. Confirm expected values with `tools/live_probe.py` against the installed library. Do not read implementation source into a generation prompt. Review `uncertainty.yaml` until every item is `resolved`, `deferred`, or `held_out`. Passing the public oracle is **not** qualification (ADR 0001). This family is characterization-only: no held-out oracle and no clean-room attempt.
+Draft from public docs. Confirm expected values with a live probe against the installed library. Do not read implementation source into a generation prompt. Passing the public oracle is **not** qualification (ADR 0001).
 
 ## Provenance
 

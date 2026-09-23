@@ -5,8 +5,12 @@ kind: library
 ladder: oracle_bound
 qualification: none
 exports:
-  - sub
-public_oracle: zspecs/re.zspec.zsdl
+  - escape
+public_oracle: zspecs/theseus_re_q.zspec.zsdl
+blocks: re
+cleanroom_oracle: zspecs/theseus_re_q.zspec.zsdl
+held_out_oracle: gold/re/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_re_q
 docs:
   - "https://docs.python.org/3/library/re.html"
 rfcs:
@@ -15,23 +19,23 @@ rfcs:
 
 # re
 
-re.findall() with capturing groups returns a list of tuples; the harness serialises these as lists of lists in JSON. re.sub() backreferences and named groups are tested to verify PCRE-compatible group syntax. re.escape() output format: Python 3.7+ only escapes characters that have special meaning in regex patterns. This file is the **authority** for a characterization-cohort family. It is not an implementation and it is not an executable oracle. The oracle is `zspecs/re.zspec.zsdl`.
+escape(pattern) backslash-escapes every character that is not an ASCII letter, digit, or underscore. This file is the **authority** for a characterization-cohort family. It is not an implementation and it is not an executable oracle.
 
 ## Public surface
 
-Exports listed in the frontmatter are the characterization surface. Layer 2 invariants call those names with arguments against the installed library.
+Exports listed in the frontmatter are the characterization surface.
 
 ## What is in scope
 
-The live probes in `probes.yaml`, confirmed against the installed library. The rest of the public contract stays in the Layer 2 oracle.
+escape(pattern) backslash-escapes every character that is not an ASCII letter, digit, or underscore.
 
 ## What is not in scope
 
-I/O, process-global configuration, and error paths that the probes do not call. No held-out oracle and no clean-room attempt.
+Matching, compiling, and substitution.
 
 ## Characterization loop
 
-Draft from public docs/RFCs. Confirm expected values with `tools/live_probe.py` against the installed library. Do not read implementation source into a generation prompt. Review `uncertainty.yaml` until every item is `resolved`, `deferred`, or `held_out`. Passing the public oracle is **not** qualification (ADR 0001). This family is characterization-only: no held-out oracle and no clean-room attempt.
+Draft from public docs. Confirm expected values with a live probe against the installed library. Do not read implementation source into a generation prompt. Passing the public oracle is **not** qualification (ADR 0001).
 
 ## Provenance
 

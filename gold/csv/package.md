@@ -11,6 +11,10 @@ exports:
   - QUOTE_MINIMAL
   - list_dialects
 public_oracle: zspecs/csv.zspec.zsdl
+blocks: csv
+cleanroom_oracle: zspecs/theseus_csv_q.zspec.zsdl
+held_out_oracle: gold/csv/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_csv_q
 docs:
   - "https://docs.python.org/3/library/csv.html"
 rfcs:

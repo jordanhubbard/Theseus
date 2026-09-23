@@ -7,6 +7,10 @@ qualification: none
 exports:
   - encode
 public_oracle: zspecs/codecs.zspec.zsdl
+blocks: codecs
+cleanroom_oracle: zspecs/theseus_codecs_q.zspec.zsdl
+held_out_oracle: gold/codecs/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_codecs_q
 docs:
   - "https://docs.python.org/3/library/codecs.html"
 rfcs:

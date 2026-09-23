@@ -8,6 +8,10 @@ exports:
   - Decimal
   - getcontext
 public_oracle: zspecs/decimal.zspec.zsdl
+blocks: decimal
+cleanroom_oracle: zspecs/theseus_decimal_q.zspec.zsdl
+held_out_oracle: gold/decimal/held_out.zspec.zsdl
+implementation: cleanroom/python/theseus_decimal_q
 docs:
   - "https://docs.python.org/3/library/decimal.html"
 rfcs:
