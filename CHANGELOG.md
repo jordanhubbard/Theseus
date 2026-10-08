@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - OSS knowledge fabric ([ADR 0007](docs/decisions/0007-knowledge-fabric.md)): git-backed fingerprints under `fabric/packages/` with provenance, repository, license, and bidirectional dependencies. `theseus/fabric.py` + `tools/fabric.py` ingest from `specs/` and `examples/`, query the working tree or `git show <rev>:…`, and derive reverse deps. Makefile targets: `fabric-ingest`, `fabric-stats`, `fabric-show`, `fabric-deps`, `fabric-rdeps`, `fabric-query`, `fabric-validate`, `fabric-history`.
+- Fingerprint schema 1.1: parallel recipe ingest (`--jobs` / `FABRIC_JOBS`), `tracking` (maintainers, source paths, commits, distributions, dropped tokens), resolved vs dangling dependency edges, and `evidence.recreation=secondary` so recreation specs stay linked without outranking metadata collection.
 
 ### Fixed
 - `python_call_eq` walks dotted method hops (`method`, `method_chain`, `method_chain_2`, `method_chain_3`), supports `method_tap` for side-effect calls, evaluates zero-arg `name()` steps, compares nested tuples and lists, and accepts a `bytes_io` argument tag.

@@ -33,7 +33,8 @@ make fabric-rdeps PKG=urllib3     # who depends on it
 make fabric-query FABRIC_LICENSE=MIT
 make fabric-query FABRIC_REPO=github.com/psf
 make fabric-query FABRIC_ECOSYSTEM=pypi
-make fabric-ingest                # rebuild from specs/ + examples/
+make fabric-ingest                # rebuild from specs/ + examples/ (parallel)
+make fabric-ingest FABRIC_JOBS=4
 make fabric-validate
 make fabric-history PKG=requests
 ```

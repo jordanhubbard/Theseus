@@ -114,7 +114,7 @@ scripts/                  Release automation (scripts/release.sh)
 This is the main ongoing activity. Grow fingerprint coverage: confident repositories, licenses, and a connected bidirectional dependency graph, committed under `fabric/packages/`.
 
 ```bash
-make fabric-ingest
+make fabric-ingest                 # parallel; FABRIC_JOBS=1 for serial
 make fabric-stats
 make fabric-show PKG=requests
 make fabric-deps PKG=requests

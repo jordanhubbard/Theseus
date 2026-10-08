@@ -28,11 +28,16 @@ Theseus's **product** is a git-backed OSS knowledge fabric.
 
 A fingerprint records, for one canonical package:
 
-- provenance of every claim (which recipe, which importer, what confidence)
+- provenance of every claim (which recipe, which importer, source path, source commit, confidence)
+- tracking (maintainers, categories, distributions, dropped dependency tokens)
 - source repository, when it can be stated with confidence
 - license (raw tokens plus a light SPDX mapping)
-- outbound dependencies (runtime / build / host / test)
+- outbound dependencies with resolved vs dangling edges (runtime / build / host / test)
 - ecosystem sightings (Nixpkgs, FreeBSD Ports, PyPI, npm, …)
+
+Ingest priority is provenance, tracking, and dependencies. Recreation-from-spec
+stays linked as `evidence.recreation: secondary` when a ZSDL file exists. Recipes
+are converted in parallel (`tools/fabric.py ingest --jobs`).
 
 Reverse dependencies are **derived** from the committed outbound graph,
 not stored as a second source of truth.

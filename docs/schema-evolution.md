@@ -6,10 +6,11 @@ Gold-set **characterization records** are a separate schema (`schema/characteriz
 
 OSS **fingerprints** are a separate schema (`schema/fingerprint.schema.json`, [ADR 0007](decisions/0007-knowledge-fabric.md)). They are the product records stored in git under `fabric/packages/`. They do not bump the recipe version.
 
-## Fingerprint schema (`1.0`)
+## Fingerprint schema (`1.1`)
 
 | Version | Changes |
 |---------|---------|
+| 1.1 | Provenance/tracking/dependency ingest is primary. Adds `priority`, `tracking` (maintainers, source paths, source commits, distributions, dropped dep tokens, resolved/dangling counts), `depends_on.resolved` / `resolved_to`, and `evidence.recreation=secondary`. Behavioral specs remain linked. Writers emit `1.1`; readers still accept `1.0`. Recipes convert in parallel (`--jobs`). |
 | 1.0 | Initial fingerprint schema: `identity`, `repository`, `license`, `ecosystems`, `depends_on`, `evidence`, `provenance`. Reverse dependencies are derived, not stored. |
 
 ## Compatibility rules

@@ -10,18 +10,26 @@ SQL store.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Iterable, Iterator, Optional
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+SUPPORTED_SCHEMA_VERSIONS = ("1.0", "1.1")
 FINGERPRINT_KIND = "oss_fingerprint"
 PACKAGES_RELDIR = "fabric/packages"
 GENERATED_BY = "theseus.fabric"
+PRIORITY = {
+    "primary": ["provenance", "tracking", "dependencies"],
+    "secondary": ["recreation"],
+}
 
 _SCOPES = ("runtime", "build", "host", "test")
 _REPO_HOSTS = (
@@ -296,6 +304,60 @@ def extract_depends_on(recipe: dict) -> list:
     return out
 
 
+def extract_dropped_dependencies(recipe: dict) -> list:
+    deps = recipe.get("dependencies") or {}
+    dropped = []
+    seen = set()
+    for scope in _SCOPES:
+        for item in deps.get(scope) or []:
+            if not isinstance(item, str):
+                continue
+            name = item.strip()
+            if not _is_noisy_dep(name):
+                continue
+            key = (name, scope)
+            if key in seen:
+                continue
+            seen.add(key)
+            dropped.append({
+                "name": name,
+                "scope": scope,
+                "reason": "unresolved_token",
+            })
+    return dropped
+
+
+def extract_distributions(recipe: dict) -> list:
+    out = []
+    seen = set()
+    for source in recipe.get("sources") or []:
+        if not isinstance(source, dict):
+            continue
+        item = {}
+        for key in ("type", "url", "sha256", "filename", "size"):
+            if source.get(key) is not None:
+                item[key] = source[key]
+        if not item:
+            continue
+        marker = (item.get("type"), item.get("url"), item.get("sha256"))
+        if marker in seen:
+            continue
+        seen.add(marker)
+        out.append(item)
+    return out
+
+
+def _uniq_str(values) -> list:
+    out = []
+    seen = set()
+    for value in values or []:
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
+
+
 def _zsdl_for(root: Path, canonical_name: str) -> Optional[str]:
     rel = "zspecs/%s.zspec.zsdl" % canonical_name
     if (root / rel).is_file():
@@ -333,7 +395,11 @@ def recipe_to_fingerprint(recipe: dict, source_path: str, root: Optional[Path] =
         "version": identity.get("version"),
         "canonical_id": canonical_id,
     }
-    evidence = {"recipes": [source_path], "behavioral_spec": None}
+    evidence = {
+        "recipes": [source_path],
+        "behavioral_spec": None,
+        "recreation": "secondary",
+    }
     if root is not None:
         evidence["behavioral_spec"] = _zsdl_for(root, name)
 
@@ -342,6 +408,24 @@ def recipe_to_fingerprint(recipe: dict, source_path: str, root: Optional[Path] =
     if not isinstance(confidence, (int, float)):
         confidence = 0.5
     imported_at = src_prov.get("imported_at") or _now_iso()
+    source_path_orig = src_prov.get("source_path")
+    source_commit = src_prov.get("source_repo_commit")
+    build_kind = (recipe.get("build") or {}).get("system_kind")
+
+    tracking = {
+        "ingested_at": _now_iso(),
+        "recipe_count": 1,
+        "maintainers": _uniq_str(descriptive.get("maintainers") or []),
+        "categories": _uniq_str(descriptive.get("categories") or []),
+        "source_paths": _uniq_str([source_path_orig] if source_path_orig else []),
+        "source_repo_commits": _uniq_str([source_commit] if source_commit else []),
+        "build_systems": _uniq_str([build_kind] if build_kind else []),
+        "distributions": extract_distributions(recipe),
+        "dropped_dependencies": extract_dropped_dependencies(recipe),
+        "dep_edges": 0,
+        "dep_resolved": 0,
+        "dep_dangling": 0,
+    }
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -358,6 +442,11 @@ def recipe_to_fingerprint(recipe: dict, source_path: str, root: Optional[Path] =
         "ecosystems": [eco],
         "depends_on": extract_depends_on(recipe),
         "evidence": evidence,
+        "priority": {
+            "primary": list(PRIORITY["primary"]),
+            "secondary": list(PRIORITY["secondary"]),
+        },
+        "tracking": tracking,
         "provenance": {
             "generated_by": GENERATED_BY,
             "imported_at": imported_at,
@@ -368,6 +457,10 @@ def recipe_to_fingerprint(recipe: dict, source_path: str, root: Optional[Path] =
                     "kind": "package_recipe",
                     "imported_at": src_prov.get("imported_at"),
                     "generated_by": src_prov.get("generated_by"),
+                    "source_path": source_path_orig,
+                    "source_repo_commit": source_commit,
+                    "confidence": src_prov.get("confidence"),
+                    "unmapped": list(src_prov.get("unmapped") or []),
                 }
             ],
             "warnings": list(src_prov.get("warnings") or []),
@@ -438,6 +531,18 @@ def merge_fingerprints(parts: list) -> dict:
     summary = base.get("summary")
     spec = (base.get("evidence") or {}).get("behavioral_spec")
     imported_at = (base.get("provenance") or {}).get("imported_at") or _now_iso()
+    track = dict(base.get("tracking") or {})
+    maintainers = list(track.get("maintainers") or [])
+    categories = list(track.get("categories") or [])
+    source_paths = list(track.get("source_paths") or [])
+    source_commits = list(track.get("source_repo_commits") or [])
+    build_systems = list(track.get("build_systems") or [])
+    distributions = list(track.get("distributions") or [])
+    dropped = list(track.get("dropped_dependencies") or [])
+    dist_keys = {
+        (d.get("type"), d.get("url"), d.get("sha256")) for d in distributions if isinstance(d, dict)
+    }
+    drop_keys = {(d.get("name"), d.get("scope")) for d in dropped if isinstance(d, dict)}
 
     for extra in parts[1:]:
         ident = extra.get("identity") or {}
@@ -463,6 +568,28 @@ def merge_fingerprints(parts: list) -> dict:
         extra_spec = (extra.get("evidence") or {}).get("behavioral_spec")
         if extra_spec and not spec:
             spec = extra_spec
+        extra_track = extra.get("tracking") or {}
+        maintainers = _uniq_str(maintainers + list(extra_track.get("maintainers") or []))
+        categories = _uniq_str(categories + list(extra_track.get("categories") or []))
+        source_paths = _uniq_str(source_paths + list(extra_track.get("source_paths") or []))
+        source_commits = _uniq_str(source_commits + list(extra_track.get("source_repo_commits") or []))
+        build_systems = _uniq_str(build_systems + list(extra_track.get("build_systems") or []))
+        for dist in extra_track.get("distributions") or []:
+            if not isinstance(dist, dict):
+                continue
+            marker = (dist.get("type"), dist.get("url"), dist.get("sha256"))
+            if marker in dist_keys:
+                continue
+            dist_keys.add(marker)
+            distributions.append(dist)
+        for drop in extra_track.get("dropped_dependencies") or []:
+            if not isinstance(drop, dict):
+                continue
+            marker = (drop.get("name"), drop.get("scope"))
+            if marker in drop_keys:
+                continue
+            drop_keys.add(marker)
+            dropped.append(drop)
         for src in (extra.get("provenance") or {}).get("sources") or []:
             sources.append(src)
         for warn in (extra.get("provenance") or {}).get("warnings") or []:
@@ -494,7 +621,30 @@ def merge_fingerprints(parts: list) -> dict:
         "raw": raw,
         "confidence": 0.9 if spdx else 0.0,
     }
-    base["evidence"] = {"recipes": recipes, "behavioral_spec": spec}
+    base["evidence"] = {
+        "recipes": recipes,
+        "behavioral_spec": spec,
+        "recreation": "secondary",
+    }
+    base["priority"] = {
+        "primary": list(PRIORITY["primary"]),
+        "secondary": list(PRIORITY["secondary"]),
+    }
+    base["tracking"] = {
+        "ingested_at": _now_iso(),
+        "recipe_count": len(recipes),
+        "maintainers": maintainers,
+        "categories": categories,
+        "source_paths": source_paths,
+        "source_repo_commits": source_commits,
+        "build_systems": build_systems,
+        "distributions": distributions,
+        "dropped_dependencies": dropped,
+        "dep_edges": 0,
+        "dep_resolved": 0,
+        "dep_dangling": 0,
+    }
+    base["schema_version"] = SCHEMA_VERSION
     base["provenance"] = {
         "generated_by": GENERATED_BY,
         "imported_at": imported_at,
@@ -534,36 +684,119 @@ def load_recipe(path: Path) -> Optional[dict]:
     return data
 
 
-def ingest(root: Path, recipe_dirs: Iterable[Path], out_dir: Optional[Path] = None) -> dict:
-    """Convert package-recipe records into committed fingerprints."""
+def _recipe_relpath(root: Path, path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(root))
+    except ValueError:
+        return str(path)
+
+
+def convert_recipe_path(root: Path, path: Path):
+    """Load one recipe file and convert it. None means skip."""
+    recipe = load_recipe(path)
+    if recipe is None:
+        return None
+    name = (recipe.get("identity") or {}).get("canonical_name")
+    if not name:
+        return None
+    return name, recipe_to_fingerprint(recipe, _recipe_relpath(root, path), root=root)
+
+
+def worker_count(jobs: int, nfiles: int) -> int:
+    if nfiles <= 1:
+        return 1
+    if jobs is not None and jobs > 0:
+        return max(1, int(jobs))
+    cpus = os.cpu_count() or 2
+    return max(2, min(8, cpus, nfiles))
+
+
+def build_name_index(records: list) -> dict:
+    index = {}
+    for rec in records:
+        ident = rec.get("identity") or {}
+        cname = ident.get("canonical_name")
+        if not cname:
+            continue
+        index[normalize_name(cname)] = cname
+        for alias in ident.get("aliases") or []:
+            key = normalize_name(alias)
+            if key and key not in index:
+                index[key] = cname
+        for eco in rec.get("ecosystems") or []:
+            eid = eco.get("ecosystem_id")
+            if not eid:
+                continue
+            key = normalize_name(eid)
+            if key and key not in index:
+                index[key] = cname
+    return index
+
+
+def resolve_dependencies(records: list) -> None:
+    """Annotate outbound deps with resolved/dangling against the fabric index."""
+    index = build_name_index(records)
+    for rec in records:
+        resolved = 0
+        dangling = 0
+        for dep in rec.get("depends_on") or []:
+            target = index.get(normalize_name(dep.get("name") or ""))
+            if target:
+                dep["resolved"] = True
+                dep["resolved_to"] = target
+                resolved += 1
+            else:
+                dep["resolved"] = False
+                if "resolved_to" in dep:
+                    del dep["resolved_to"]
+                dangling += 1
+        tracking = rec.setdefault("tracking", {})
+        tracking["dep_edges"] = resolved + dangling
+        tracking["dep_resolved"] = resolved
+        tracking["dep_dangling"] = dangling
+
+
+def ingest(
+    root: Path,
+    recipe_dirs: Iterable[Path],
+    out_dir: Optional[Path] = None,
+    jobs: int = 0,
+) -> dict:
+    """Convert package-recipe records into committed fingerprints in parallel."""
     root = Path(root).resolve()
     dest = Path(out_dir) if out_dir is not None else packages_dir(root)
     dest.mkdir(parents=True, exist_ok=True)
+    files = list(iter_recipe_files(recipe_dirs))
+    workers = worker_count(jobs, len(files))
+    if workers <= 1:
+        converted = [convert_recipe_path(root, path) for path in files]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            converted = list(pool.map(partial(convert_recipe_path, root), files))
     grouped = defaultdict(list)
     skipped = 0
-    for path in iter_recipe_files(recipe_dirs):
-        recipe = load_recipe(path)
-        if recipe is None:
+    for item in converted:
+        if item is None:
             skipped += 1
             continue
-        try:
-            rel = str(path.resolve().relative_to(root))
-        except ValueError:
-            rel = str(path)
-        grouped[recipe["identity"]["canonical_name"]].append(
-            recipe_to_fingerprint(recipe, rel, root=root)
-        )
-    written = []
+        name, fingerprint = item
+        grouped[name].append(fingerprint)
+    records = []
     for name in sorted(grouped, key=lambda n: n.lower()):
-        record = merge_fingerprints(grouped[name])
-        path = dest / package_filename(name)
-        write_fingerprint(path, record)
+        records.append(merge_fingerprints(grouped[name]))
+    resolve_dependencies(records)
+    written = []
+    for record in records:
+        name = record["identity"]["canonical_name"]
+        write_fingerprint(dest / package_filename(name), record)
         written.append(name)
     return {
         "written": len(written),
         "packages": written,
         "skipped": skipped,
         "out_dir": str(dest),
+        "jobs": workers,
+        "recipes": len(files),
     }
 
 
@@ -744,6 +977,13 @@ class FabricStore:
         with_deps = 0
         with_rdeps = 0
         with_spec = 0
+        with_commit = 0
+        with_maintainers = 0
+        with_distributions = 0
+        dep_resolved = 0
+        dep_dangling = 0
+        dep_edges = 0
+        dropped_deps = 0
         ecosystems = defaultdict(int)
         licenses = defaultdict(int)
         rdep_names = set()
@@ -759,6 +999,17 @@ class FabricStore:
                 with_deps += 1
             if (rec.get("evidence") or {}).get("behavioral_spec"):
                 with_spec += 1
+            tracking = rec.get("tracking") or {}
+            if tracking.get("source_repo_commits"):
+                with_commit += 1
+            if tracking.get("maintainers"):
+                with_maintainers += 1
+            if tracking.get("distributions"):
+                with_distributions += 1
+            dep_resolved += int(tracking.get("dep_resolved") or 0)
+            dep_dangling += int(tracking.get("dep_dangling") or 0)
+            dep_edges += int(tracking.get("dep_edges") or 0)
+            dropped_deps += len(tracking.get("dropped_dependencies") or [])
             for eco in rec.get("ecosystems") or []:
                 ecosystems[eco.get("ecosystem") or "unknown"] += 1
             for dep in rec.get("depends_on") or []:
@@ -775,6 +1026,13 @@ class FabricStore:
             "with_depends_on": with_deps,
             "with_dependents": with_rdeps,
             "with_behavioral_spec": with_spec,
+            "with_source_commit": with_commit,
+            "with_maintainers": with_maintainers,
+            "with_distributions": with_distributions,
+            "dep_edges": dep_edges,
+            "dep_resolved": dep_resolved,
+            "dep_dangling": dep_dangling,
+            "dropped_dependencies": dropped_deps,
             "missing_repository": total - with_repo,
             "missing_license": total - with_license,
             "ecosystems": dict(sorted(ecosystems.items())),
@@ -802,8 +1060,15 @@ def validate_fingerprint(record: dict, filename: Optional[str] = None) -> list:
     errors = []
     if not isinstance(record, dict):
         return ["not an object"]
-    if record.get("schema_version") != SCHEMA_VERSION:
-        errors.append("schema_version must be %s" % SCHEMA_VERSION)
+    if record.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS:
+        errors.append(
+            "schema_version must be one of %s" % (SUPPORTED_SCHEMA_VERSIONS,)
+        )
+    if record.get("schema_version") == SCHEMA_VERSION:
+        if not isinstance(record.get("tracking"), dict):
+            errors.append("tracking is required")
+        if not isinstance(record.get("priority"), dict):
+            errors.append("priority is required")
     if record.get("kind") != FINGERPRINT_KIND:
         errors.append("kind must be %s" % FINGERPRINT_KIND)
     identity = record.get("identity")

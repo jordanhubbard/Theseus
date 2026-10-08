@@ -30,6 +30,7 @@ FABRIC_REPO ?=
 FABRIC_ECOSYSTEM ?=
 FABRIC_NAME ?=
 FABRIC_REV ?=
+FABRIC_JOBS ?= 0
 
 E2E_PACKAGE ?=
 E2E_RECORD ?=
@@ -61,7 +62,7 @@ start: fabric-stats
 fabric: fabric-stats
 
 fabric-ingest:
-	$(PYTHON) tools/fabric.py ingest $(FABRIC_SRC)
+	$(PYTHON) tools/fabric.py ingest $(FABRIC_SRC) --jobs $(FABRIC_JOBS)
 
 fabric-stats:
 	$(PYTHON) tools/fabric.py stats $(if $(FABRIC_REV),--rev $(FABRIC_REV)) $(if $(JSON),--json)
@@ -475,7 +476,7 @@ help:
 	@echo "  make fabric-deps    Outbound dependencies (PKG=name)"
 	@echo "  make fabric-rdeps   Reverse dependencies (PKG=name)"
 	@echo "  make fabric-query   Filter fingerprints (FABRIC_LICENSE=, FABRIC_REPO=, FABRIC_ECOSYSTEM=, FABRIC_NAME=)"
-	@echo "  make fabric-ingest  Rebuild fabric/packages from FABRIC_SRC (default: specs examples)"
+	@echo "  make fabric-ingest  Rebuild fabric/packages from FABRIC_SRC (FABRIC_JOBS=0 auto, 1 serial)"
 	@echo "  make fabric-validate  Validate committed fingerprints"
 	@echo "  make fabric-history Git log for one fingerprint (PKG=name)"
 	@echo "  make stop           No-op (batch tool, no daemon)"
@@ -561,3 +562,4 @@ help:
 	@echo "  IMPORT_OUT          Output snapshot dir for import-pypi/npm (default: ./snapshots/YYYY-MM-DD)"
 	@echo "  IMPORT_TIMEOUT      HTTP timeout for PyPI/npm fetches in secs (default: 15)"
 	@echo "  SYNC_TARGETS        Space-separated rsync destinations (default: freebsd.local ubuntu.local)"
+	@echo "  FABRIC_JOBS         Parallel recipe ingest workers (0=auto, 1=serial)"

@@ -56,13 +56,26 @@ def _summary_line(rec: dict) -> str:
 def cmd_ingest(args: argparse.Namespace) -> int:
     root = repo_root_from(_REPO_ROOT)
     dirs = [Path(p) for p in args.dirs] if args.dirs else [root / "specs", root / "examples"]
-    result = ingest(root, dirs, out_dir=Path(args.out) if args.out else None)
+    result = ingest(
+        root,
+        dirs,
+        out_dir=Path(args.out) if args.out else None,
+        jobs=args.jobs,
+    )
     if args.json:
         _print_json(result, True)
     else:
-        print("Wrote %d fingerprints to %s (skipped %d non-recipe files)." % (
-            result["written"], result["out_dir"], result["skipped"],
-        ))
+        print(
+            "Wrote %d fingerprints from %d recipes to %s "
+            "(skipped %d, jobs=%d)."
+            % (
+                result["written"],
+                result.get("recipes", 0),
+                result["out_dir"],
+                result["skipped"],
+                result.get("jobs", 1),
+            )
+        )
     return 0
 
 
@@ -154,6 +167,14 @@ def cmd_stats(args: argparse.Namespace) -> int:
     print("  with depends_on:       %d" % stats["with_depends_on"])
     print("  with dependents:       %d" % stats["with_dependents"])
     print("  with behavioral spec:  %d" % stats["with_behavioral_spec"])
+    print("  with source commit:    %d" % stats.get("with_source_commit", 0))
+    print("  with maintainers:      %d" % stats.get("with_maintainers", 0))
+    print("  with distributions:    %d" % stats.get("with_distributions", 0))
+    print("  dep edges resolved:    %d / %d" % (
+        stats.get("dep_resolved", 0), stats.get("dep_edges", 0),
+    ))
+    print("  dep edges dangling:    %d" % stats.get("dep_dangling", 0))
+    print("  dropped dep tokens:    %d" % stats.get("dropped_dependencies", 0))
     print("  missing repository:    %d" % stats["missing_repository"])
     print("  missing license:       %d" % stats["missing_license"])
     print("  ecosystems:")
@@ -213,6 +234,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_ingest = sub.add_parser("ingest", help="Build fingerprints from package-recipe records.", parents=[common])
     p_ingest.add_argument("dirs", nargs="*", help="Recipe directories (default: specs examples).")
     p_ingest.add_argument("--out", default=None, help="Output directory (default: fabric/packages).")
+    p_ingest.add_argument(
+        "--jobs",
+        type=int,
+        default=0,
+        help="Parallel recipe workers (0 = auto, 1 = serial).",
+    )
     p_ingest.set_defaults(func=cmd_ingest)
 
     p_show = sub.add_parser("show", help="Print one fingerprint.", parents=[common])

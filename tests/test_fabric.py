@@ -147,6 +147,10 @@ class TestExtractors:
         names = [d["name"] for d in deps]
         assert names == ["openssl"]
         assert deps[0]["scope"] == "runtime"
+        dropped = fab.extract_dropped_dependencies(rec)
+        dropped_names = {d["name"] for d in dropped}
+        assert "${LUA_PKGNAMEPREFIX}lzlib" in dropped_names
+        assert "lib/lua/5.*/zlib.so" in dropped_names
 
 
 class TestRecipeConversion:
@@ -169,6 +173,10 @@ class TestRecipeConversion:
         assert ("click", "runtime") in scopes
         assert ("setuptools", "build") in scopes
         assert fp["provenance"]["sources"][0]["path"] == "specs/flask.json"
+        assert fp["schema_version"] == "1.1"
+        assert fp["priority"]["primary"] == ["provenance", "tracking", "dependencies"]
+        assert fp["evidence"]["recreation"] == "secondary"
+        assert "maintainers" in fp["tracking"]
 
     def test_merge_unions_ecosystems_and_deps(self):
         a = fab.recipe_to_fingerprint(
@@ -195,6 +203,8 @@ class TestRecipeConversion:
         assert ecos == {"nixpkgs", "freebsd_ports"}
         assert any(d["name"] == "openssl" for d in merged["depends_on"])
         assert "Zlib" in merged["license"]["spdx"]
+        assert merged["tracking"]["recipe_count"] == 2
+        assert merged["evidence"]["recreation"] == "secondary"
 
     def test_merge_prefers_clean_summary(self):
         a = fab.recipe_to_fingerprint(
@@ -251,6 +261,10 @@ class TestIngestAndQuery:
         assert dep_names == {"urllib3", "certifi"}
         rdep_names = {d["name"] for d in store.rdeps("urllib3")}
         assert rdep_names == {"requests"}
+        runtime = store.deps("requests", scope="runtime")
+        by_name = {d["name"]: d for d in runtime}
+        assert by_name["urllib3"]["resolved"] is True
+        assert by_name["urllib3"]["resolved_to"] == "urllib3"
 
         mit = store.query(license="MIT")
         assert { (r["identity"]["canonical_name"]) for r in mit } == {"urllib3"}
@@ -280,6 +294,9 @@ class TestIngestAndQuery:
         store = fab.FabricStore(tmp_path)
         assert store.get("blinker") is None
         assert [d["name"] for d in store.rdeps("blinker")] == ["flask"]
+        dep = store.deps("flask", scope="runtime")[0]
+        assert dep["name"] == "blinker"
+        assert dep["resolved"] is False
 
     def test_query_by_repo_and_ecosystem(self, tmp_path):
         recipes = tmp_path / "recipes"
@@ -317,6 +334,80 @@ class TestIngestAndQuery:
         result = fab.ingest(tmp_path, [recipes], out_dir=tmp_path / "fabric" / "packages")
         assert result["written"] == 1
         assert result["skipped"] >= 1
+
+    def test_tracking_provenance_and_distributions(self, tmp_path):
+        recipes = tmp_path / "recipes"
+        _write_recipe(
+            recipes / "flask.json",
+            name="flask",
+            summary="A simple framework",
+            homepage="https://github.com/pallets/flask",
+            license=["BSD-3-Clause"],
+            extensions={"pypi": {"source_repository": "https://github.com/pallets/flask"}},
+            sources=[{
+                "type": "sdist",
+                "url": "https://files.pythonhosted.org/flask.tgz",
+                "sha256": "abc",
+            }],
+            provenance={
+                "confidence": 0.9,
+                "generated_by": "bootstrap_canonical_recipes.py",
+                "imported_at": "2026-03-29T19:55:18+00:00",
+                "source_path": "https://pypi.org/pypi/flask/json",
+                "source_repo_commit": "deadbeef",
+                "warnings": [],
+            },
+            dependencies={
+                "build": ["${NOT_A_DEP}"],
+                "host": [],
+                "runtime": ["werkzeug"],
+                "test": [],
+            },
+        )
+        (tmp_path / "zspecs").mkdir()
+        (tmp_path / "zspecs" / "flask.zspec.zsdl").write_text("spec: flask\n", encoding="utf-8")
+        fab.ingest(tmp_path, [recipes], out_dir=tmp_path / "fabric" / "packages", jobs=1)
+        rec = fab.FabricStore(tmp_path).get("flask")
+        src = rec["provenance"]["sources"][0]
+        assert src["source_path"] == "https://pypi.org/pypi/flask/json"
+        assert src["source_repo_commit"] == "deadbeef"
+        assert rec["tracking"]["source_paths"] == ["https://pypi.org/pypi/flask/json"]
+        assert rec["tracking"]["source_repo_commits"] == ["deadbeef"]
+        assert rec["tracking"]["distributions"][0]["sha256"] == "abc"
+        assert rec["tracking"]["dropped_dependencies"][0]["name"] == "${NOT_A_DEP}"
+        assert rec["evidence"]["behavioral_spec"] == "zspecs/flask.zspec.zsdl"
+        assert rec["evidence"]["recreation"] == "secondary"
+        assert rec["priority"]["primary"][0] == "provenance"
+
+    def test_parallel_ingest_matches_serial(self, tmp_path):
+        recipes = tmp_path / "recipes"
+        for name in ("alpha", "beta", "gamma", "delta"):
+            _write_recipe(
+                recipes / ("%s.json" % name),
+                name=name,
+                dependencies={
+                    "build": [],
+                    "host": [],
+                    "runtime": ["alpha"] if name != "alpha" else [],
+                    "test": [],
+                },
+            )
+        serial_dir = tmp_path / "serial"
+        parallel_dir = tmp_path / "parallel"
+        a = fab.ingest(tmp_path, [recipes], out_dir=serial_dir, jobs=1)
+        b = fab.ingest(tmp_path, [recipes], out_dir=parallel_dir, jobs=4)
+        assert a["written"] == b["written"] == 4
+        assert b["jobs"] == 4
+        for name in ("alpha", "beta", "gamma", "delta"):
+            left = json.loads((serial_dir / ("%s.json" % name)).read_text(encoding="utf-8"))
+            right = json.loads((parallel_dir / ("%s.json" % name)).read_text(encoding="utf-8"))
+            left["tracking"]["ingested_at"] = "ts"
+            right["tracking"]["ingested_at"] = "ts"
+            assert left == right
+        beta = json.loads((parallel_dir / "beta.json").read_text(encoding="utf-8"))
+        dep = [d for d in beta["depends_on"] if d["name"] == "alpha"][0]
+        assert dep["resolved"] is True
+        assert dep["resolved_to"] == "alpha"
 
 
 class TestGitBackend:
@@ -443,3 +534,26 @@ class TestCommittedFabric:
         assert stats["packages"] == len(store)
         assert stats["with_license"] >= 1
         assert "pypi" in stats["ecosystems"] or stats["ecosystems"]
+        assert stats["dep_edges"] >= stats["dep_resolved"]
+        assert "dep_dangling" in stats
+
+    def test_priority_tracking_and_recreation_kept(self, store):
+        flask = store.get("flask")
+        assert flask["schema_version"] == "1.1"
+        assert flask["priority"]["primary"] == ["provenance", "tracking", "dependencies"]
+        assert flask["priority"]["secondary"] == ["recreation"]
+        assert flask["evidence"]["recreation"] == "secondary"
+        assert flask["tracking"]["source_paths"]
+        assert flask["tracking"]["maintainers"]
+        werk = [d for d in flask["depends_on"] if d["name"] == "werkzeug"][0]
+        assert werk["resolved"] is True
+        assert werk["resolved_to"] == "werkzeug"
+        blinker = [d for d in flask["depends_on"] if d["name"] == "blinker"][0]
+        assert blinker["resolved"] is False
+        requests = store.get("requests")
+        assert requests["evidence"]["behavioral_spec"] == "zspecs/requests.zspec.zsdl"
+        assert requests["evidence"]["recreation"] == "secondary"
+        zlib = store.get("zlib")
+        assert zlib["evidence"]["behavioral_spec"] == "zspecs/zlib.zspec.zsdl"
+        assert zlib["tracking"]["recipe_count"] == 3
+        assert zlib["tracking"]["source_repo_commits"]

@@ -24,12 +24,15 @@ edges at query time so they cannot drift from the committed graph.
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "kind": "oss_fingerprint",
+  "priority": { "primary": ["provenance", "tracking", "dependencies"], "secondary": ["recreation"] },
   "identity": { "canonical_name": "requests", "canonical_id": "pkg:requests" },
   "repository": { "url": "https://github.com/psf/requests", "confidence": 0.95 },
   "license": { "spdx": ["Apache-2.0"], "raw": ["Apache-2.0"] },
-  "depends_on": [{ "name": "urllib3", "scope": "runtime", "ecosystem": "pypi" }],
+  "depends_on": [{ "name": "urllib3", "scope": "runtime", "resolved": true, "resolved_to": "urllib3" }],
+  "tracking": { "source_paths": ["https://pypi.org/pypi/requests/json"], "dep_resolved": 4, "dep_dangling": 0 },
+  "evidence": { "behavioral_spec": "zspecs/requests.zspec.zsdl", "recreation": "secondary" },
   "provenance": { "sources": [{ "path": "specs/requests.json", "kind": "package_recipe" }] }
 }
 ```
@@ -47,7 +50,8 @@ mapping, not a legal determination.
 ## Commands
 
 ```bash
-make fabric-ingest              # specs/ + examples/ → fabric/packages/
+make fabric-ingest              # specs/ + examples/ → fabric/packages/ (parallel)
+make fabric-ingest FABRIC_JOBS=4
 make fabric-stats               # how much we know
 make fabric-show PKG=requests
 make fabric-deps PKG=requests   # who it depends on
@@ -76,7 +80,7 @@ Nixpkgs / Ports / PyPI / npm recipes
   specs/ + examples/   →  committed package recipes
         │
         ▼
-  tools/fabric.py ingest
+  tools/fabric.py ingest --jobs N   ← parallel recipe conversion
         │
         ▼
   fabric/packages/*.json   ← git is the database
@@ -86,8 +90,9 @@ Nixpkgs / Ports / PyPI / npm recipes
         └─ rdeps (derived inbound)
 ```
 
-Layer 2 ZSDL specs, when present, are linked as `evidence.behavioral_spec`.
-They enrich a fingerprint; they do not define it.
+Layer 2 ZSDL specs, when present, are linked as `evidence.behavioral_spec`
+with `evidence.recreation: secondary`. Recreation-from-spec is not dropped;
+it is outranked by provenance, tracking, and the dependency graph.
 
 ## Coverage metric
 
