@@ -1,20 +1,22 @@
 # Theseus User Guide
 
-**Theseus** is a two-layer toolchain for working with OSS package metadata.
+**Theseus** is a git-backed OSS knowledge fabric. It fingerprints packages:
+provenance, repository, license, and bidirectional dependencies, stored as
+committed JSON under `fabric/packages/`. Git is the database. See the
+[Knowledge Fabric](fabric.md) chapter and
+[ADR 0007](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0007-knowledge-fabric.md).
 
 **Layer 1** normalizes package recipes from [Nixpkgs](https://github.com/NixOS/nixpkgs),
-PyPI, and npm into a shared canonical JSON schema, then ranks and extracts the most
-important candidates. [FreeBSD Ports](https://github.com/freebsd/freebsd-ports) is also
-supported as a build recipe source — its 20,000+ port Makefiles complement Nixpkgs.
+PyPI, and npm into a shared canonical JSON schema that **feeds the fabric**.
+[FreeBSD Ports](https://github.com/freebsd/freebsd-ports) is also supported as a
+build recipe source.
 
-**Layer 2** provides machine-readable behavioral specs — one per OSS library —
-that are verified against the real installed library on macOS and Linux. Spec depth
-varies; clean-room factory specs are typically 3 invariants and are **not**
-qualified replacements. **0 packages are qualified.** Characterization is the
-product. See
-[ADR 0001](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0001-verification-ladder.md)
+**Layer 2** provides optional behavioral specs — machine-readable contracts
+verified against the real installed library. Spec-driven recreation did not
+scale; replacement is not the shipping claim. See
+[ADR 0005](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0005-characterization-is-the-product.md)
 and
-[ADR 0005](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0005-characterization-is-the-product.md).
+[ADR 0001](https://github.com/jordanhubbard/Theseus/blob/main/docs/decisions/0001-verification-ladder.md).
 
 ---
 

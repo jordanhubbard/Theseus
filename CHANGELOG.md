@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- OSS knowledge fabric ([ADR 0007](docs/decisions/0007-knowledge-fabric.md)): git-backed fingerprints under `fabric/packages/` with provenance, repository, license, and bidirectional dependencies. `theseus/fabric.py` + `tools/fabric.py` ingest from `specs/` and `examples/`, query the working tree or `git show <rev>:…`, and derive reverse deps. Makefile targets: `fabric-ingest`, `fabric-stats`, `fabric-show`, `fabric-deps`, `fabric-rdeps`, `fabric-query`, `fabric-validate`, `fabric-history`.
+
 ### Fixed
 - `python_call_eq` walks dotted method hops (`method`, `method_chain`, `method_chain_2`, `method_chain_3`), supports `method_tap` for side-effect calls, evaluates zero-arg `name()` steps, compares nested tuples and lists, and accepts a `bytes_io` argument tag.
 - Node and Python live probes: `function: bare` reads the module object, dotted function paths import public submodules, and nested tuple receipts compare equal to lists.

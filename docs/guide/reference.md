@@ -544,6 +544,10 @@ Arguments:
 | `RANK_MIN_REFS` | `2` | Minimum reverse-dep count to include |
 | `BULK_TOP` | `100` | Packages to process in bulk-build |
 | `BULK_JOBS` | `2` | Parallel build threads |
+| `PKG` | (none) | Package name for `make fabric-show` / `fabric-deps` / `fabric-rdeps` / `fabric-history` |
+| `FABRIC_LICENSE` / `FABRIC_REPO` / `FABRIC_ECOSYSTEM` / `FABRIC_NAME` | (none) | Filters for `make fabric-query` |
+| `FABRIC_REV` | (none) | Git revision for fabric queries (`--rev`) |
+| `FABRIC_SRC` | `specs examples` | Ingest inputs for `make fabric-ingest` |
 | `ZSPEC` | `_build/zspecs/zlib.zspec.json` | Spec for `make verify-behavior` |
 | `ZSDL` | (all) | ZSDL file for `make compile-zsdl` |
 | `FILTER` | (none) | Invariant id filter for `make verify-behavior` |

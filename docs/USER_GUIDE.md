@@ -12,19 +12,22 @@
 8. [Recreating a Package from Its Specification](#8-recreating-a-package-from-its-specification)
 9. [Writing Your Own Specifications](#9-writing-your-own-specifications)
 10. [Reference: All Commands](#10-reference-all-commands)
+11. [Knowledge Fabric](#11-knowledge-fabric)
 
 ---
 
 ## 1. What Theseus Is
 
-Theseus is a toolchain for characterizing open source software behavior and checking that characterization against the installed library, without using the original implementation source as authority.
+Theseus is a git-backed OSS knowledge fabric. It fingerprints packages so you
+can see provenance, repository, license, and dependencies in both directions.
+The committed tree under `fabric/packages/` is the database ([ADR 0007](decisions/0007-knowledge-fabric.md)).
 
-It answers four questions:
+It answers:
 
-1. **Where does this library's behavior come from?** — Provenance: which RFCs, public docs, and header files were consulted to describe it.
-2. **Is my specification accurate?** — Verification: run the spec's invariants against the real installed library.
-3. **How does library A differ from library B?** — Comparison: compare two specs to find common behavior and divergences.
-4. **Can I qualify a replacement from the spec alone?** — Research protocol only ([ADR 0004](decisions/0004-qualification-protocol.md)). Isolation plus a held-out oracle, twice, with independent generators. **0 packages are qualified.** Characterization is the product ([ADR 0005](decisions/0005-characterization-is-the-product.md)).
+1. **Where did this package come from, and under what license?** — Fingerprints plus recipe provenance.
+2. **What does it depend on, and what depends on it?** — Outbound `depends_on` and derived reverse deps.
+3. **Where does this library's documented behavior come from?** — Optional Layer 2 spec provenance (RFCs, public docs).
+4. **Can I recreate it from a spec?** — Research protocol only. Spec-driven synthesis is brittle; replacement is not the shipping claim ([ADR 0005](decisions/0005-characterization-is-the-product.md)).
 
 The system requires **Python 3.9+** and has **no external runtime dependencies** (pure stdlib). Local testing, ZSDL compilation, and docs builds use the Python tooling declared in `requirements.txt`. LLM synthesis requires either the `claude` CLI or an OpenAI-compatible endpoint configured in `config.yaml`.
 
@@ -124,15 +127,17 @@ Verification, search, comparison, and provenance reports do **not** require LLM 
 
 ## 3. Quick Start
 
-Run the demo to see what ecosystem analysis looks like:
+Run the demo to see fabric coverage, then ecosystem analysis on the examples:
 
 ```bash
 make start
+make fabric-show PKG=requests
+make fabric-rdeps PKG=urllib3
 ```
 
-This produces two reports in `reports/`:
+`make start` prints `fabric-stats`, then writes:
 - `reports/demo-overlap/` — overlap between Nixpkgs and FreeBSD Ports
-- `reports/demo-candidates.json` — ranked list of synthesis candidates
+- `reports/demo-candidates.json` — ranked list of recipe candidates
 
 To see all available commands:
 
@@ -286,6 +291,18 @@ python3 tools/registry.py list
 ---
 
 ## 5. Searching for Packages
+
+The knowledge fabric is the first place to look for identity, license, and
+dependency questions:
+
+```bash
+make fabric-query FABRIC_NAME=json
+make fabric-query FABRIC_LICENSE=Apache-2.0
+make fabric-query FABRIC_REPO=github.com/pallets
+make fabric-show PKG=requests
+```
+
+Layer 2 spec search (below) is for behavioral oracles, not identity.
 
 ### 5.1 Search by name or keyword
 
@@ -866,6 +883,20 @@ For full authoring rules, see `docs/cleanroom-spec-format.md`.
 | `make clean` | Remove `_build/`, test caches |
 | `make help` | Print all available targets |
 
+### Knowledge fabric
+
+| Command | Description |
+|---------|-------------|
+| `make fabric-stats` | Coverage of committed fingerprints |
+| `make fabric-show PKG=<name>` | Print one fingerprint |
+| `make fabric-deps PKG=<name>` | Outbound dependencies |
+| `make fabric-rdeps PKG=<name>` | Who depends on this package |
+| `make fabric-query FABRIC_LICENSE=<id>` | Filter by license |
+| `make fabric-query FABRIC_REPO=<substr>` | Filter by repository URL |
+| `make fabric-ingest` | Rebuild `fabric/packages/` from recipes |
+| `make fabric-validate` | Validate committed fingerprints |
+| `python3 tools/fabric.py --rev HEAD~1 stats` | Query a historical git snapshot |
+
 ### Discovery
 
 | Command | Description |
@@ -939,6 +970,32 @@ For full authoring rules, see `docs/cleanroom-spec-format.md`.
 | `make import-pypi PYPI_SEED=<file>` | Fetch PyPI metadata |
 | `make import-npm NPM_SEED=<file>` | Fetch npm metadata |
 | `make import-cargo CARGO_SEED=<file>` | Fetch Cargo crate metadata |
+
+---
+
+## 11. Knowledge Fabric
+
+Git is the database. Each fingerprint is `fabric/packages/<name>.json`.
+
+```bash
+make fabric-stats
+make fabric-show PKG=flask
+make fabric-deps PKG=flask
+make fabric-rdeps PKG=werkzeug
+make fabric-query FABRIC_LICENSE=MIT FABRIC_ECOSYSTEM=pypi
+python3 tools/fabric.py --rev HEAD show zlib
+```
+
+Outbound dependencies are stored. Reverse dependencies are derived from that
+graph at query time. Ingest from committed recipes:
+
+```bash
+make fabric-ingest    # specs/ + examples/ → fabric/packages/
+```
+
+Then commit the JSON. That commit *is* the write. See
+[docs/knowledge-fabric.md](knowledge-fabric.md) and
+[ADR 0007](decisions/0007-knowledge-fabric.md).
 
 ---
 

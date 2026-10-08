@@ -4,6 +4,14 @@ The canonical record schema (`schema/package-recipe.schema.json`) is versioned v
 
 Gold-set **characterization records** are a separate schema (`schema/characterization-record.schema.json`, [ADR 0006](decisions/0006-characterization-records.md)). They do not bump the recipe version.
 
+OSS **fingerprints** are a separate schema (`schema/fingerprint.schema.json`, [ADR 0007](decisions/0007-knowledge-fabric.md)). They are the product records stored in git under `fabric/packages/`. They do not bump the recipe version.
+
+## Fingerprint schema (`1.0`)
+
+| Version | Changes |
+|---------|---------|
+| 1.0 | Initial fingerprint schema: `identity`, `repository`, `license`, `ecosystems`, `depends_on`, `evidence`, `provenance`. Reverse dependencies are derived, not stored. |
+
 ## Compatibility rules
 
 Theseus follows a simple two-rule policy:

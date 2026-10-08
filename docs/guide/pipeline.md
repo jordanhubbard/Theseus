@@ -1,7 +1,8 @@
 # Package Recipe Pipeline
 
 The package recipe pipeline (Layer 1) normalizes package metadata from Nixpkgs and
-FreeBSD Ports into a shared canonical JSON schema. It then ranks packages by importance
+FreeBSD Ports into a shared canonical JSON schema. Those recipes are the ingest
+source for the [knowledge fabric](fabric.md). The pipeline also ranks packages
 and produces merged extraction records for the top candidates.
 
 ---
@@ -26,6 +27,10 @@ Source Trees (Nixpkgs, FreeBSD Ports, PyPI, npm)
         └─► tools/extract_candidates.py  → reports/extractions/
                 │
                 └─► tools/spec_coverage.py   → coverage report
+
+Committed recipes (specs/, examples/) also feed:
+
+        tools/fabric.py ingest  →  fabric/packages/*.json   ← git is the database
 ```
 
 **Additional tools:**

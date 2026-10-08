@@ -2,22 +2,35 @@
 
 ## Overview
 
-Theseus is a batch analysis toolchain. There is no server, no database, and no persistent state beyond the files you write to disk. The pipeline has three layers:
+Theseus is a batch analysis toolchain. There is no server and no SQL database. Persistent state is git: committed JSON files.
 
-**Layer 1 — Package recipe pipeline:** normalizes Nixpkgs and FreeBSD Ports records into a shared canonical schema, ranks candidates, and produces merged extraction records.
+**Layer 0 — OSS knowledge fabric (the product):** fingerprints under `fabric/packages/`. Each file is identity, provenance, repository, license, ecosystem sightings, and outbound dependencies. Reverse dependencies are derived at query time. Historical reads use `git show <rev>:…`. See [knowledge-fabric.md](knowledge-fabric.md) and [ADR 0007](decisions/0007-knowledge-fabric.md).
 
-**Layer 2 — Z-layer behavioral spec system:** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. 2,308 source specs covering 7 backend types (node 1091, rust_module 479, python_cleanroom 403, python_module 318, ctypes 12, cli 4, node_cleanroom 1). Depth varies: 1,010 are mechanical `oracle_bound` public-API specs; clean-room specs have a median of 3 invariants. See [ADR 0001](decisions/0001-verification-ladder.md) and the [corpus autopsy](../reports/audit/corpus-autopsy.md).
+**Layer 1 — Package recipe pipeline (ingest):** normalizes Nixpkgs, FreeBSD Ports, PyPI, and npm records into a shared canonical recipe schema, ranks candidates, and produces merged extraction records that feed the fabric.
 
-**Layer 3 — Clean-room synthesis system:** given a behavioral spec with a `python_cleanroom` or `node_cleanroom` backend, historically synthesized a reimplementation that satisfied listed invariants without importing the original package. **Qualification is withdrawn.** Phase 3 ran the held-out protocol ([ADR 0004](decisions/0004-qualification-protocol.md)) against ten Python gold-set families: public + held-out oracles pass in isolation, but **0 packages are `qualified`** (no dual independent generation). The kill gate fired; characterization is the product ([ADR 0005](decisions/0005-characterization-is-the-product.md)). `status=verified` is legacy isolation (396 packages). Gold-set families have reviewed uncertainty ledgers ([ADR 0003](decisions/0003-characterization-loop.md)) and characterization records ([ADR 0006](decisions/0006-characterization-records.md)). The characterization cohort under `gold/<family>/` grew beyond the intended qualification set without expanding that research set. See [ADR 0001](decisions/0001-verification-ladder.md) and [corpus autopsy](../reports/audit/corpus-autopsy.md).
+**Layer 2 — Z-layer behavioral spec system (optional evidence):** machine-readable contracts that describe how OSS libraries actually behave; verified against the installed library by a test harness. Linked from a fingerprint as `evidence.behavioral_spec` when a matching ZSDL file exists. Depth varies. See [ADR 0001](decisions/0001-verification-ladder.md) and the [corpus autopsy](../reports/audit/corpus-autopsy.md).
+
+**Layer 3 — Clean-room synthesis system (research):** historically synthesized reimplementations from specs. **Replacement is not the shipping claim** ([ADR 0005](decisions/0005-characterization-is-the-product.md), [ADR 0007](decisions/0007-knowledge-fabric.md)). `status=verified` is legacy isolation. Gold-set families have reviewed uncertainty ledgers ([ADR 0003](decisions/0003-characterization-loop.md)) and characterization records ([ADR 0006](decisions/0006-characterization-records.md)).
 
 ```
-Source Trees (Nixpkgs, FreeBSD Ports)
+Source Trees (Nixpkgs, FreeBSD Ports, PyPI, npm)
         │
         ▼
   tools/bootstrap_canonical_recipes.py   ← walks source trees; run by user
         │
         ▼
-  snapshots/<date>/                ← one JSON file per package per ecosystem
+    snapshots/<date>/                ← ephemeral: one JSON file per package per ecosystem
+        │
+        ├─► specs/ + examples/           ← committed recipes
+        │         │
+        │         ▼
+        │   tools/fabric.py ingest       ← git is the database
+        │         │
+        │         ▼
+        │   fabric/packages/*.json       ← fingerprints (provenance, repo, license, deps)
+        │         ├─ show / query / stats
+        │         ├─ deps (outbound)
+        │         └─ rdeps (derived inbound)
         │
         ├─► tools/overlap_report.py      ← compare ecosystems; write reports/overlap/
         ├─► tools/top_candidates.py      ← rank packages; write reports/top-candidates.json
@@ -465,6 +478,7 @@ Tests live in `tests/`. Run with `make test` (requires `pytest`).
 |------|-------|
 | `tests/conftest.py` | Adds repo root and `tools/` to `sys.path` |
 | `tests/test_schema.py` | JSON Schema structure and all example records |
+| `tests/test_fabric.py` | Fingerprint ingest, git-backed queries, deps/rdeps, committed fabric |
 | `tests/test_bootstrap.py` | Bootstrap importer parsing functions and import runners |
 | `tests/test_overlap_report.py` | Overlap report logic |
 | `tests/test_top_candidates.py` | Candidate scoring and ranking |
@@ -617,6 +631,6 @@ Total registry packages with `status=verified`: **396** (legacy isolation only; 
 
 `.github/workflows/ci.yml` runs on every push and pull request to `main`.
 
-**Matrix job** (`test`): ubuntu-latest + macos-latest × Python 3.9/3.10/3.11/3.12 × Node 22. Steps: checkout, setup-python, setup-node, `npm install`, `make validate-zspecs`, `make test`, `python3 tools/validate_record.py examples/ --quiet`.
+**Matrix job** (`test`): ubuntu-latest + macos-latest × Python 3.9/3.10/3.11/3.12 × Node 22. Steps: checkout, setup-python, setup-node, `npm install`, `make validate-zspecs`, `make test`, `python3 tools/validate_record.py examples/ --quiet`, `make fabric-validate`.
 
 CI targets are ubuntu-latest and macos-latest only. FreeBSD Ports is used as a build recipe source but FreeBSD is not a CI target platform.

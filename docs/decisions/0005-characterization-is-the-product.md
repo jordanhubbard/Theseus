@@ -1,6 +1,6 @@
 # ADR 0005: Characterization Is the Product
 
-- Status: Accepted
+- Status: Accepted (product claim superseded by [ADR 0007](0007-knowledge-fabric.md); kill-gate conclusion stands)
 - Date: 2026-09-18
 - Decision owners: Theseus maintainers
 - Depends on: [ADR 0001](0001-verification-ladder.md), [ADR 0004](0004-qualification-protocol.md)

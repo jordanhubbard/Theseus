@@ -1,14 +1,16 @@
-# Theseus Clean-Room Rewrite Initiative — Implementation Plan
+# Theseus Implementation Plan
 
-> **Status (2026-09-21):** Characterization is the product ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Qualification remains withdrawn as a product claim (**102 qualified** of 102 attempts; numeric kill gate cleared, product ADR not superseded). `gold/<family>/` has 151 accepted trees (17 intended qualification set + 134 characterization-cohort families). Remaining high- and medium-feasibility public-API Layer 2 families without a gold tree: **0**. Do not inflate registry counts.
+> **Status (2026-10-07):** The product is an OSS knowledge fabric stored in git ([ADR 0007](docs/decisions/0007-knowledge-fabric.md)). Fingerprints live at `fabric/packages/`. Spec-driven recreation remains brittle and is not the shipping claim ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Prefer growing repository/license/graph coverage over synthesis waves.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal (updated):** Theseus characterizes OSS packages and checks those characterizations against the installed library. Clean-room replacement is a research protocol with a kill gate that has fired. The original goal below (self-contained reimplementations at corpus scale) is **not** the shipping claim.
+**Goal:** Fingerprint as much OSS as possible — provenance, repository, license, outbound dependencies, and derived reverse dependencies — with git as the database. Behavioral specs are optional evidence. Clean-room replacement is a research protocol, not the product.
 
-**Architecture:** Each target package gets a ZSDL behavioral spec expressing what it must do (invariants, input/output contracts), then a clean-room implementation written entirely in the target language (Python for Python packages, Node.js for Node.js packages, etc.) that satisfies all invariants without importing the original library. Only other Theseus-rewritten packages may be used as dependencies.
+**Architecture:** Package recipes (Layer 1) ingest into committed fingerprints (Layer 0). Queries (`show`, `deps`, `rdeps`, `query`, `stats`) read the working tree or `git show <rev>:path`. Layer 2 ZSDL specs and Layer 3 synthesis remain in-tree as supporting/historical work.
 
-**Tech Stack:** Python 3.9+, ZSDL spec language, existing synthesize_waves.py pipeline, pytest for verification, Node.js for JS targets.
+**Tech Stack:** Python 3.9+ (stdlib-only runtime), git, JSON fingerprints, pytest. Optional: ZSDL, Node.js for spec verification.
+
+The remainder of this file is the historical clean-room rewrite plan. Do not treat its checkboxes as current product work.
 
 ---
 

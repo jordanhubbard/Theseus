@@ -8,29 +8,37 @@ For deeper documentation on any topic, follow the links into `docs/`.
 
 ## What This Project Does
 
-Theseus is a three-layer toolchain:
+Theseus fingerprints OSS packages into a **git-backed knowledge fabric**. The product question is how much software we can *know* (provenance, repository, license, bidirectional dependencies), not how much we can recreate from a spec. See [ADR 0007](docs/decisions/0007-knowledge-fabric.md) and `docs/knowledge-fabric.md`. Git is the database: `fabric/packages/<name>.json`.
 
-**Layer 1 — Package Recipe Pipeline**
-Walks Nixpkgs and FreeBSD Ports source trees, normalizes package metadata into a canonical JSON schema, ranks packages by importance, and produces merged extraction records for the top candidates. See `docs/architecture.md §Layer 1`.
+**Layer 0 — Knowledge fabric (the product)**
+Committed fingerprints under `fabric/packages/`. Query with `tools/fabric.py` / `make fabric-*`. Reverse deps are derived from outbound `depends_on`. Historical reads use `--rev`. Schema: `schema/fingerprint.schema.json`.
 
-**Layer 2 — Z-Layer Behavioral Spec System**
-2,171 machine-readable behavioral specs (ZSDL files) — 968 of them target npm packages — covering Python stdlib, npm, ctypes C libraries (incl. libpcap + pcapng), and Rust PyO3 extension modules. Each spec defines invariants verified against the real installed library. ZSDL gained five new spec kinds across batches 112–132 + the libpcap challenge: `node_chain_eq` (fluent builder chains), `node_property_eq` (sugar for post-construction property reads), `node_sandbox_chain_eq` (chain in a tempdir cwd, for fs packages), `ctypes_chain_eq` (handle-threading C APIs), `ctypes_sandbox_chain_eq` (ctypes chain + binary-blob seeded tempdir, for libpcap/pcapng). Plus two small mode extensions: `entry: bare` for static-data modules, and `class: ""` for modules whose default export IS the constructor. Chain method steps now also accept `tap: true` to call mutators for their side effect without reassigning the threaded value. See `docs/architecture.md §Layer 2` and `docs/writing-specs.md`.
+**Layer 1 — Package Recipe Pipeline (ingest)**
+Walks Nixpkgs and FreeBSD Ports source trees (plus PyPI and npm APIs), normalizes metadata into a canonical recipe schema, ranks packages, and produces merged extraction records. Those recipes are the ingest source for the fabric. See `docs/architecture.md §Layer 1`.
 
-**Layer 3 — Clean-Room Synthesis System** *(qualification withdrawn; characterization is the product — ADR 0005)*
-Given a behavioral spec with a `python_cleanroom` backend, historically synthesized a reimplementation without importing the original. `theseus_registry.json` lists 396 packages with `status=verified`; that bit is **legacy isolation only**. **102 packages are qualified** (`theseus_base64_q`, `theseus_fnmatch_q`, `theseus_json`, `theseus_shlex_q`, `theseus_binascii_q`, `theseus_difflib_q`, `theseus_hashlib_q`, `theseus_hmac_q`, `theseus_struct_q`, `theseus_urllib_parse_q`, `theseus_bisect_q`, `theseus_colorsys_q`, `theseus_heapq_q`, `theseus_html_q`, `theseus_keyword_q`, `theseus_operator_q`, `theseus_quopri_q`, `theseus_textwrap_q`, `theseus_calendar_q`, `theseus_string_q`, `theseus_statistics_q`, `theseus_pprint_q`, `theseus_copy_q`, `theseus_fractions_q`, `theseus_glob_q`, `theseus_reprlib_q`, `theseus_getopt_q`, `theseus_ipaddress_q`, `theseus_mimetypes_q`, `theseus_itertools_q`, `theseus_posixpath_q`, `theseus_ntpath_q`, `theseus_contextlib_q`, `theseus_collections_q`, `theseus_datetime_q`, `theseus_csv_q`, `theseus_math_q`, `theseus_email_utils_q`, `theseus_decimal_q`, `theseus_codecs_q`, `theseus_array_q`, `theseus_re_q`, `theseus_io_q`, `theseus_pyuuid_q`, `theseus_pathlib_q`, `theseus_stat_q`, `theseus_http_cookies_q`, `theseus_ast_q`, `theseus_queue_q`, `theseus_secrets_q`, `theseus_types_q`, `theseus_time_q`, `theseus_deque_q`, `theseus_zlib_q`, `theseus_hexlify_q`, `theseus_xml_etree_q`, `theseus_wsgiref_q`, `theseus_unicodedata_q`, `theseus_cmath_q`, `theseus_pickle_q`, `theseus_adler32_q`, `theseus_close_matches_q`, `theseus_unhexlify_q`, `theseus_cleandoc_q`, `theseus_cmd_q`, `theseus_gettext_q`, `theseus_fnmatchcase_q`, `theseus_shorten_q`, `theseus_template_q`, `theseus_ordereddict_q`, `theseus_chainmap_q`, `theseus_threadlock_q`, `theseus_comb_q`, `theseus_perm_q`, `theseus_lcm_q`, `theseus_prod_q`, `theseus_hypot_q`, `theseus_isqrt_q`, `theseus_ceil_q`, `theseus_floor_q`, `theseus_indent_q`, `theseus_unquote_q`, `theseus_quoteplus_q`, `theseus_semaphore_q`, `theseus_stringio_q`, `theseus_tdelta_q`, `theseus_optionxform_q`, `theseus_usagefmt_q`, `theseus_b16encode_q`, `theseus_category_q`, `theseus_loggername_q`, `theseus_ctxvar_q`, `theseus_zipinfo_q`, `theseus_tarinfo_q`, `theseus_dist_q`, `theseus_trunc_q`, `theseus_fabs_q`, `theseus_copysign_q`, `theseus_medianlow_q`, `theseus_datamode_q`, `theseus_bisectleft_q`, `theseus_nlargest_q`) by ADR 0004 dual-generation receipts. 102 of 102 attempts qualified, so the numeric kill gate is no longer fired. ADR 0005 is not superseded, so the product stays characterization. Gold-set families have reviewed characterization ledgers (ADR 0003) and characterization records (ADR 0006). See [ADR 0001](docs/decisions/0001-verification-ladder.md), [ADR 0004](docs/decisions/0004-qualification-protocol.md), and `reports/audit/corpus-autopsy.md`.
+**Layer 2 — Z-Layer Behavioral Spec System (optional evidence)**
+Machine-readable behavioral specs (ZSDL files) covering Python stdlib, npm, ctypes C libraries (incl. libpcap + pcapng), and Rust PyO3 extension modules. Each spec defines invariants verified against the real installed library. When a matching `.zspec.zsdl` exists, ingest links it as `evidence.behavioral_spec`. Spec kinds include `node_chain_eq`, `node_property_eq`, `node_sandbox_chain_eq`, `ctypes_chain_eq`, `ctypes_sandbox_chain_eq`, plus `entry: bare`, `class: ""`, and chain `tap: true`. See `docs/architecture.md §Layer 2` and `docs/writing-specs.md`.
+
+**Layer 3 — Clean-Room Synthesis System** *(research only; replacement is not the product — ADR 0005, ADR 0007)*
+Historically synthesized reimplementations from specs. `status=verified` is **legacy isolation only**. Qualification receipts exist for a gold-set protocol ([ADR 0004](docs/decisions/0004-qualification-protocol.md)) but do not define the shipping claim. Prefer growing fabric coverage over expanding synthesis waves. See [ADR 0001](docs/decisions/0001-verification-ladder.md) and `reports/audit/corpus-autopsy.md`.
 
 ---
 
 ## Repository Map
 
 ```
-theseus/                  Python package (importer, drivers, store, agent)
+fabric/                   Git-backed OSS knowledge fabric (the database)
+  packages/*.json         One fingerprint per canonical package
+
+theseus/                  Python package (fabric, importer, drivers, store, agent)
+  fabric.py               Fingerprint ingest, git-backed queries, deps/rdeps
   importer.py             Bootstrap importer: walks Nixpkgs/FreeBSD Ports trees
   drivers/                Nixpkgs, FreeBSD Ports, PyPI, npm output renderers
   store.py                Artifact store interface (S3/MinIO-compatible)
   agent.py                AI provider wrapper (urllib only, no third-party HTTP)
 
 tools/                    CLI scripts (mostly stdlib-only)
+  fabric.py               CLI for ingest/show/deps/rdeps/query/stats/validate/history
   zsdl_compile.py         ZSDL → JSON compiler (requires pyyaml)
   verify_behavior.py      Layer 2 harness: run invariants vs. installed library
   verify_all_specs.py     Run all specs; write JSON results
@@ -81,8 +89,8 @@ theseus_registry.json     Registry of clean-room packages and verification statu
 reports/synthesis/
   wave_state.json         Synthesis wave progress (persisted across runs)
 
-schema/                   JSON Schema for canonical package records
-specs/                    239 canonical package records (JSON)
+schema/                   JSON Schema (fingerprint + package-recipe)
+specs/                    Canonical package recipes (fabric ingest source, ~232 JSON files)
 examples/                 Sample records: curl, openssl, zlib
 tests/                    Test suite (pytest)
 docs/                     Architecture, ZSDL design, spec-authoring guides
@@ -97,13 +105,28 @@ scripts/                  Release automation (scripts/release.sh)
 2. **Never commit `_build/`** — compiled JSON specs are build artifacts.
 3. **Never commit `node_modules/`, `snapshots/`, `reports/`** — all gitignored.
 4. **ZSDL is the source of truth** — edit `zspecs/*.zspec.zsdl`, not the compiled JSON.
-5. **Understand which layer you're working in** — Layer 2 (verification) and Layer 3 (synthesis) have different workflows and constraints.
+5. **Understand which layer you're working in** — Layer 0 (fabric/git database) is the product. Layer 1 feeds it. Layer 2 specs are optional evidence. Layer 3 synthesis is research only.
 
 ---
 
-## Layer 3 — Clean-Room Synthesis (Primary Current Work)
+## Layer 0 — Knowledge Fabric (Primary Current Work)
 
-This is the main ongoing activity. The goal is to grow the registry of verified Python packages.
+This is the main ongoing activity. Grow fingerprint coverage: confident repositories, licenses, and a connected bidirectional dependency graph, committed under `fabric/packages/`.
+
+```bash
+make fabric-ingest
+make fabric-stats
+make fabric-show PKG=requests
+make fabric-deps PKG=requests
+make fabric-rdeps PKG=urllib3
+python3 tools/fabric.py --rev HEAD stats
+```
+
+Do not add a SQL database. Git is the store. Reverse edges are derived, never authored.
+
+## Layer 3 — Clean-Room Synthesis (Research Only)
+
+Not the product. Historical activity that grew a registry of isolation-verified Python packages. Do not expand synthesis waves unless a fingerprint-first task explicitly needs a spec as evidence.
 
 ### Gold-set rule (JSON spike, ADR 0002)
 
@@ -371,6 +394,8 @@ make release BUMP=major
 ## What NOT to Do
 
 - Do not add runtime pip dependencies to `tools/` or `theseus/`
+- Do not add a SQL/SQLite store for fingerprints — git is the database
+- Do not author reverse-dependency indexes; derive them from `depends_on`
 - Do not commit `_build/`, `node_modules/`, `snapshots/`, `stubs/`, `output/`
 - Do not add zero-arg self-test wrappers on gold-set packages; grade `dumps`/`loads` (or the real exports) with arguments. Legacy factory specs still use wrappers until migrated.
 - Do not add new specs to `wave_state.json` with `status: "pending"` — leave them absent
@@ -385,7 +410,9 @@ make release BUMP=major
 
 | Document | What it covers |
 |----------|---------------|
-| `docs/architecture.md` | Full pipeline diagram, all three layers, tools reference, test file index |
+| `docs/knowledge-fabric.md` | Git-backed OSS fingerprints: schema, queries, coverage |
+| `docs/decisions/0007-knowledge-fabric.md` | Product pivot: knowledge fabric; git is the database |
+| `docs/architecture.md` | Pipeline diagram, layers 0–3, tools reference, test file index |
 | `docs/cleanroom-spec-format.md` | Clean-room spec authoring, gold-set public-API oracles vs legacy factory wrappers |
 | `docs/decisions/0001-verification-ladder.md` | Qualification withdrawn; verification ladder |
 | `docs/decisions/0002-json-authority-format.md` | JSON gold-set: Markdown authority, public oracle, held-out oracle |
@@ -394,7 +421,7 @@ make release BUMP=major
 | `docs/writing-specs.md` | Layer 2 spec authoring: backend selection, invariant kinds, tables, skip_if, test vector discipline |
 | `docs/zsdl-design.md` | ZSDL language reference: complete syntax for headers, tables, invariants, all field types |
 | `docs/schema-evolution.md` | Package recipe schema versioning rules and version history |
-| `PLAN.md` | Implementation plan for the clean-room initiative; wave series history |
+| `PLAN.md` | Current fabric goal plus historical clean-room wave plan |
 | `CHANGELOG.md` | Release history |
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->

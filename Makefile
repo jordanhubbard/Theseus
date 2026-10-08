@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold qualify qualify-check lint-gold-wrappers validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold qualify qualify-check lint-gold-wrappers validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report fabric fabric-ingest fabric-stats fabric-show fabric-deps fabric-rdeps fabric-query fabric-validate fabric-history help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -23,6 +23,13 @@ CARGO_SEED ?= ./reports/cargo-seed.txt
 IMPORT_OUT ?= ./snapshots/$(shell date +%Y-%m-%d)
 IMPORT_TIMEOUT ?= 15
 PYTHON ?= python3
+FABRIC_SRC ?= specs examples
+PKG ?=
+FABRIC_LICENSE ?=
+FABRIC_REPO ?=
+FABRIC_ECOSYSTEM ?=
+FABRIC_NAME ?=
+FABRIC_REV ?=
 
 E2E_PACKAGE ?=
 E2E_RECORD ?=
@@ -35,11 +42,11 @@ all:
 	@$(PYTHON) --version > /dev/null 2>&1 || (echo "Error: Python 3.10+ required" && exit 1)
 	@$(PYTHON) -c "import sys; assert sys.version_info >= (3, 9), 'Python 3.9+ required'" 2>/dev/null \
 		|| (echo "Error: Python 3.9+ required" && exit 1)
-	@echo "Theseus is ready. Runtime code is stdlib-only."
+	@echo "Theseus is ready. Runtime code is stdlib-only. Git is the database."
 	@echo "Install Python tooling in a venv with 'python -m pip install -r requirements.txt' before tests/docs."
-	@echo "Run 'make test' to verify. Run 'make start' for a quick demo on examples/."
+	@echo "Run 'make fabric-stats' for fabric coverage. Run 'make test' to verify. Run 'make start' for a demo."
 
-start:
+start: fabric-stats
 	@if [ -d "$(SNAPSHOT)" ]; then \
 		echo "Running analysis on snapshot: $(SNAPSHOT)"; \
 		$(PYTHON) tools/overlap_report.py "$(SNAPSHOT)" --out "$(REPORT_OUT)"; \
@@ -50,6 +57,40 @@ start:
 		$(PYTHON) tools/top_candidates.py examples --out reports/demo-candidates.json; \
 		echo "Demo reports written to reports/demo-overlap/ and reports/demo-candidates.json"; \
 	fi
+
+fabric: fabric-stats
+
+fabric-ingest:
+	$(PYTHON) tools/fabric.py ingest $(FABRIC_SRC)
+
+fabric-stats:
+	$(PYTHON) tools/fabric.py stats $(if $(FABRIC_REV),--rev $(FABRIC_REV)) $(if $(JSON),--json)
+
+fabric-show:
+	@test -n "$(PKG)" || (echo "Usage: make fabric-show PKG=<name>" && exit 1)
+	$(PYTHON) tools/fabric.py show "$(PKG)" $(if $(FABRIC_REV),--rev $(FABRIC_REV))
+
+fabric-deps:
+	@test -n "$(PKG)" || (echo "Usage: make fabric-deps PKG=<name>" && exit 1)
+	$(PYTHON) tools/fabric.py deps "$(PKG)" $(if $(FABRIC_REV),--rev $(FABRIC_REV)) $(if $(JSON),--json)
+
+fabric-rdeps:
+	@test -n "$(PKG)" || (echo "Usage: make fabric-rdeps PKG=<name>" && exit 1)
+	$(PYTHON) tools/fabric.py rdeps "$(PKG)" $(if $(FABRIC_REV),--rev $(FABRIC_REV)) $(if $(JSON),--json)
+
+fabric-query:
+	$(PYTHON) tools/fabric.py query $(if $(FABRIC_REV),--rev $(FABRIC_REV)) $(if $(JSON),--json) \
+		$(if $(FABRIC_NAME),--name "$(FABRIC_NAME)") \
+		$(if $(FABRIC_LICENSE),--license "$(FABRIC_LICENSE)") \
+		$(if $(FABRIC_REPO),--repo "$(FABRIC_REPO)") \
+		$(if $(FABRIC_ECOSYSTEM),--ecosystem "$(FABRIC_ECOSYSTEM)")
+
+fabric-validate:
+	$(PYTHON) tools/fabric.py validate $(if $(FABRIC_REV),--rev $(FABRIC_REV)) $(if $(JSON),--json)
+
+fabric-history:
+	@test -n "$(PKG)" || (echo "Usage: make fabric-history PKG=<name>" && exit 1)
+	$(PYTHON) tools/fabric.py history "$(PKG)" $(if $(JSON),--json)
 
 stop:
 	@echo "No running processes to stop (Theseus is a batch analysis tool)."
@@ -423,11 +464,20 @@ provenance-report:
 	  $(if $(PROV_OUT),--out "$(PROV_OUT)")
 
 help:
-	@echo "Theseus — canonical package recipe toolchain"
+	@echo "Theseus — OSS knowledge fabric (git is the database)"
 	@echo ""
 	@echo "Targets:"
 	@echo "  make / make all     Check Python version, print usage"
-	@echo "  make start          Run analysis (SNAPSHOT=path, or demo on examples/)"
+	@echo "  make start          Fabric stats, then analysis (SNAPSHOT=path, or demo on examples/)"
+	@echo "  make fabric         Alias for fabric-stats"
+	@echo "  make fabric-stats   Coverage of committed fingerprints (FABRIC_REV=, JSON=1)"
+	@echo "  make fabric-show    Print one fingerprint (PKG=name)"
+	@echo "  make fabric-deps    Outbound dependencies (PKG=name)"
+	@echo "  make fabric-rdeps   Reverse dependencies (PKG=name)"
+	@echo "  make fabric-query   Filter fingerprints (FABRIC_LICENSE=, FABRIC_REPO=, FABRIC_ECOSYSTEM=, FABRIC_NAME=)"
+	@echo "  make fabric-ingest  Rebuild fabric/packages from FABRIC_SRC (default: specs examples)"
+	@echo "  make fabric-validate  Validate committed fingerprints"
+	@echo "  make fabric-history Git log for one fingerprint (PKG=name)"
 	@echo "  make stop           No-op (batch tool, no daemon)"
 	@echo "  make restart        stop + start"
 	@echo "  make test           Validate Z-specs then run test suite (requires pytest)"

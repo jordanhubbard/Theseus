@@ -4,9 +4,9 @@
 
 [![CI](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanhubbard/Theseus/actions/workflows/ci.yml)
 
-> ### **Layer 2 oracles vs installed libraries · 0 packages qualified · characterization is the product**
+> ### **OSS knowledge fabric · git is the database · characterization is supporting evidence**
 >
-> `status=verified` in the registry is **legacy isolation only**. The Phase 3 held-out protocol attempted 10 Python gold-set families; none had two independent empty-workspace generations, so **none are `qualified`**. Regenerative replacement is not the shipping claim ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Ladder: [ADR 0001](docs/decisions/0001-verification-ladder.md). Autopsy: [reports/audit/corpus-autopsy.md](reports/audit/corpus-autopsy.md).
+> Theseus fingerprints packages: provenance, repository, license, and bidirectional dependencies, stored as committed JSON under `fabric/packages/`. Spec-driven recreation was attempted and did not scale; regenerative replacement is not the shipping claim ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md), [ADR 0007](docs/decisions/0007-knowledge-fabric.md)). `make fabric-stats` is the coverage dashboard.
 
 📖 **[Full User Guide →](https://jordanhubbard.github.io/Theseus/)** — installation, pipeline walkthrough, spec authoring, language reference. The full list of covered libraries lives in the user guide [Index](https://jordanhubbard.github.io/Theseus/#covered-library-index).
 
@@ -14,16 +14,16 @@
 
 ## What Theseus is
 
-**Theseus** is a batch toolchain for characterizing OSS packages and checking those characterizations against the real installed library. Clean-room reimplementation from a spec was attempted; **no package is qualified as a replacement**, and the gold-set kill gate has fired ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Isolation is not API parity. See [ADR 0001](docs/decisions/0001-verification-ladder.md) and [ADR 0004](docs/decisions/0004-qualification-protocol.md).
+**Theseus** is a git-backed **OSS knowledge fabric**. It fingerprints open-source packages so we can answer: where did this come from, which repository is it, what license does it carry, what does it depend on, and what depends on it. The committed tree under [`fabric/packages/`](fabric/packages/) is the database — not SQLite, not a server. See [docs/knowledge-fabric.md](docs/knowledge-fabric.md) and [ADR 0007](docs/decisions/0007-knowledge-fabric.md).
 
-**Theseus** also provides a toolchain for normalizing package recipes from four ecosystems into a shared canonical schema, so packages can be compared, ranked, and reasoned about across ecosystems without losing the provenance of each claim.
+Package recipes from four ecosystems feed that fabric:
 
-Three ecosystems are first-class citizens on Linux and macOS:
 - [**Nixpkgs**](https://github.com/NixOS/nixpkgs) — traversed via `--nixpkgs`, dependency graphs filled by `fill_nixpkgs_deps.py`
-- [**PyPI**](https://pypi.org/) — imported via the PyPI JSON API (`make import-pypi`); source repositories backtracked to GitHub via `project_urls`, with a small curated override list for packages whose PyPI metadata omits the repository
-- [**npm**](https://www.npmjs.com/) — imported via the npm registry API (`make import-npm`); source repositories backtracked to GitHub via the `repository` field
+- [**PyPI**](https://pypi.org/) — imported via the PyPI JSON API (`make import-pypi`); source repositories backtracked to GitHub via `project_urls`
+- [**npm**](https://www.npmjs.com/) — imported via the npm registry API (`make import-npm`); source repositories backtracked via the `repository` field
+- [**FreeBSD Ports**](https://github.com/freebsd/freebsd-ports) — build-recipe source (20,000+ port Makefiles). FreeBSD is not a CI target platform.
 
-[**FreeBSD Ports**](https://github.com/freebsd/freebsd-ports) is supported as a **build recipe source** — its 20,000+ port Makefiles complement Nixpkgs as input. FreeBSD itself is not a CI target platform.
+Behavioral specs (Layer 2) remain as optional evidence attached to a fingerprint when they exist. Clean-room recreation from those specs was attempted; it is brittle, few components can be built entirely from a spec, and replacement is not the shipping claim ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Isolation is not API parity.
 
 ---
 
@@ -31,25 +31,43 @@ Three ecosystems are first-class citizens on Linux and macOS:
 
 Terms used throughout the project, defined here before they appear in the rest of the README:
 
-- **Behavioral spec** — a machine-readable file declaring what a software package must do (its observable invariants), independent of the original's source code. Every spec lives at `zspecs/<name>.zspec.zsdl`.
+- **Fingerprint** — one committed JSON file under `fabric/packages/` recording a package's identity, provenance, repository, license, ecosystem sightings, and outbound dependencies. Reverse dependencies are derived from that graph.
+- **Knowledge fabric** — the set of fingerprints plus the queries over them (`show`, `deps`, `rdeps`, `query`, `stats`). Git history is the audit trail.
+- **Package recipe** — a Layer 1 canonical record (`specs/`, `examples/`) used as ingest input. Schema: `schema/package-recipe.schema.json`.
+- **Behavioral spec** — optional Layer 2 evidence: a machine-readable file declaring observable invariants. Lives at `zspecs/<name>.zspec.zsdl`. Linked from a fingerprint when present.
 - **Z-spec** / **zspec** — synonym for behavioral spec; the "Z" was chosen for being terminal (Z is the last letter — after Z, only verification remains).
 - **ZSDL** — *Z-Spec Definition Language*. The YAML-flavoured surface syntax of `.zspec.zsdl` files. Compiles to JSON via `make compile-zsdl`. Full grammar: [docs/zsdl-design.md](docs/zsdl-design.md).
 - **Invariant** — one falsifiable claim about behaviour (e.g. *"`semver.valid('1.2.3')` returns `'1.2.3'`"*). The verification harness asserts each invariant against the real installed library and reports pass/fail.
-- **Compiled bundle** — the compiler emits one `.zspec.json` per source `.zsdl`. The current corpus has 2,308 source specs. Depth and quality vary; see the [corpus autopsy](reports/audit/corpus-autopsy.md).
+- **Compiled bundle** — the compiler emits one `.zspec.json` per source `.zsdl`. Depth and quality vary; see the [corpus autopsy](reports/audit/corpus-autopsy.md).
 - **Backend** — how the spec runner loads the library under test: `ctypes` (C shared libraries via `ctypes.CDLL`), `python_module` (`importlib.import_module`), `node` (CJS or ESM via `node -e`), `cli` (`subprocess.run`).
-- **Clean-room package** — a Theseus reimplementation registered in `theseus_registry.json`. `status=verified` means **legacy isolation** (listed invariants passed with the original blocked). It is not `qualified` replacement. Ladder: [ADR 0001](docs/decisions/0001-verification-ladder.md).
+- **Clean-room package** — a historical Theseus reimplementation registered in `theseus_registry.json`. `status=verified` means **legacy isolation**, not `qualified` replacement. Ladder: [ADR 0001](docs/decisions/0001-verification-ladder.md).
 
 ---
 
 ### Core Principles
 
-- **No wrapping.** A clean-room implementation must not `import` (or `require`) the original package.
-- **No cross-language boundaries.** Python packages → Python. Node.js packages → JavaScript.
-- **Spec-first.** Every package has a behavioral spec before any implementation begins.
-- **Isolation-verified.** Invariants are verified with the original package actively blocked via `THESEUS_BLOCKED_PACKAGE`.
-- **Registry-only dependencies.** Only Theseus packages in `theseus_registry.json` may be imported by other Theseus implementations. `status=verified` is legacy isolation, not qualification.
+- **Git is the database.** Fingerprints are committed files. Queries read the tree (or `git show <rev>:…`). No parallel SQL store.
+- **Know before recreating.** Provenance, repository, license, and bidirectional dependencies are the product. Specs are evidence, not the goal.
+- **Admit uncertainty.** Repository URLs and license SPDX IDs carry confidence. Ambiguous GitHub hits stay in `candidates`, not `url`.
+- **Derive reverse edges.** Store outbound `depends_on` only; `rdeps` is computed so inbound links cannot drift.
+- **No wrapping** (Layer 3 research only). A clean-room implementation must not `import` (or `require`) the original package.
+- **Isolation-verified** (Layer 3 research only). Invariants run with the original blocked via `THESEUS_BLOCKED_PACKAGE`. `status=verified` is legacy isolation, not qualification.
 
-### Clean-room packages (legacy isolation — not qualified)
+### Knowledge fabric (the product)
+
+```bash
+make fabric-stats                 # coverage: repos, licenses, graph
+make fabric-show PKG=requests     # one fingerprint
+make fabric-deps PKG=requests     # outbound dependencies
+make fabric-rdeps PKG=urllib3     # who depends on urllib3
+make fabric-query FABRIC_LICENSE=MIT
+make fabric-query FABRIC_REPO=github.com/psf
+make fabric-ingest                # rebuild fabric/packages/ from specs/ + examples/
+```
+
+Each package is `fabric/packages/<name>.json`. `git log -- fabric/packages/requests.json` is that row's history. Details: [docs/knowledge-fabric.md](docs/knowledge-fabric.md).
+
+### Clean-room packages (historical research — not the product)
 
 The packages below passed the old isolation harness. None are `qualified` under ADR 0001. `theseus_json` is the ADR 0002 gold-set spike: public `dumps`/`loads` oracle plus a held-out file the synthesizer never sees. Gold-set families have reviewed uncertainty ledgers ([ADR 0003](docs/decisions/0003-characterization-loop.md)) and a qualification protocol ([ADR 0004](docs/decisions/0004-qualification-protocol.md)). One hundred two Python families were attempted; 102 (`adler32`, `array`, `ast`, `b16encode`, `base64`, `binascii`, `bisect`, `bisectleft`, `calendar`, `category`, `ceil`, `chainmap`, `cleandoc`, `close_matches`, `cmath`, `cmd`, `codecs`, `collections`, `colorsys`, `comb`, `contextlib`, `copy`, `copysign`, `csv`, `ctxvar`, `datamode`, `datetime`, `decimal`, `deque`, `difflib`, `dist`, `email_utils`, `fabs`, `floor`, `fnmatch`, `fnmatchcase`, `fractions`, `getopt`, `gettext`, `glob`, `hashlib`, `heapq`, `hexlify`, `hmac`, `html`, `http_cookies`, `hypot`, `indent`, `io`, `ipaddress`, `isqrt`, `itertools`, `json`, `keyword`, `lcm`, `loggername`, `math`, `medianlow`, `mimetypes`, `nlargest`, `ntpath`, `operator`, `optionxform`, `ordereddict`, `pathlib`, `perm`, `pickle`, `posixpath`, `pprint`, `prod`, `pyuuid`, `queue`, `quopri`, `quoteplus`, `re`, `reprlib`, `secrets`, `semaphore`, `shlex`, `shorten`, `stat`, `statistics`, `string`, `stringio`, `struct`, `tarinfo`, `tdelta`, `template`, `textwrap`, `threadlock`, `time`, `trunc`, `types`, `unhexlify`, `unicodedata`, `unquote`, `urllib_parse`, `usagefmt`, `wsgiref`, `xml_etree`, `zipinfo`, `zlib`) have dual-generation receipts. The numeric kill gate is no longer fired. ADR 0005 is not superseded, so replacement is not the product claim. The characterization cohort under `gold/<family>/` covers high-feasibility Layer 2 specs and the medium public-API families whose oracles pass the installed library, without claiming qualification.
 
@@ -149,10 +167,11 @@ license metadata, and scanner scope for ephemeral agent worktrees.
 make test
 ```
 
-### Demo on built-in examples
+### Demo on the committed fabric
 
 ```bash
-make start        # runs analysis on examples/ — no snapshot needed
+make start        # fabric coverage, then analysis on examples/
+make fabric-stats
 ```
 
 ### Verify behavioral specs
@@ -169,17 +188,17 @@ make verify-behavior ZSPEC=_build/zspecs/zlib.zspec.json  # single spec
 ## Project Layout
 
 ```
-theseus/        Python package: importer, drivers, remote, store, agent, config
-tools/          CLI analysis and verification scripts
-zspecs/         Z-spec sources (*.zspec.zsdl) — committed
-_build/zspecs/  Compiled specs (*.zspec.json) — build artifact, not committed
-schema/         JSON Schema for canonical package records
-zspecs/schema/  JSON Schema for Z-spec files
-examples/       Sample canonical records (curl, openssl, zlib)
-specs/          Canonical package records (232 packages)
-docs/           Architecture, ZSDL design, spec-authoring guide
+fabric/         Git-backed knowledge fabric (packages/*.json) — the database
+theseus/        Python package: fabric, importer, drivers, remote, store, agent
+tools/          CLI: fabric.py plus recipe, spec, and research scripts
+specs/          Canonical package recipes (ingest source, 232 packages)
+examples/       Hand-written sample recipes (curl, openssl, zlib)
+schema/         JSON Schema (fingerprints + package recipes)
+zspecs/         Optional Layer 2 Z-spec sources (*.zspec.zsdl)
+_build/zspecs/  Compiled specs — build artifact, not committed
+docs/           Architecture, fabric, ZSDL, spec-authoring guide
 docs/guide/     User guide source (built to GitHub Pages)
-tests/          Test suite (13,900+ tests)
+tests/          Test suite
 scripts/        Release automation
 ```
 
@@ -189,19 +208,21 @@ scripts/        Release automation
 
 ```
 make / make all          Check Python version, print usage
-make start               Run analysis on SNAPSHOT= or demo on examples/
+make start               Fabric stats, then analysis on SNAPSHOT= or examples/
+make fabric-stats        Coverage of the committed knowledge fabric
+make fabric-show         One fingerprint (PKG=name)
+make fabric-deps         Outbound dependencies (PKG=name)
+make fabric-rdeps        Reverse dependencies (PKG=name)
+make fabric-query        Filter by FABRIC_LICENSE=, FABRIC_REPO=, FABRIC_ECOSYSTEM=, FABRIC_NAME=
+make fabric-ingest       Rebuild fabric/packages/ from specs/ + examples/
+make fabric-validate     Validate committed fingerprints
 make test                Validate Z-specs then run test suite
 make compile-zsdl        Compile zspecs/*.zspec.zsdl → _build/zspecs/*.zspec.json
-make verify-all-specs    Run every spec; text summary
-make verify-all-specs-json  Run every spec; write JSON results
 make verify-behavior     Run one spec (ZSPEC=path)
-make validate-e2e        Build from source + verify spec end-to-end (E2E_RECORD=, E2E_ZSPEC=)
 make import-pypi         Fetch PyPI metadata with source_repository backtracking
 make import-npm          Fetch npm metadata with source_repository backtracking
-make spec-coverage       Coverage report (EXTRACTION_DIR= required)
 make validate-zspecs     Validate Z-spec JSON files against schema
 make clean               Remove build artifacts
-make release             Cut a release (BUMP=major|minor|patch)
 make help                Full target and variable reference
 ```
 
@@ -209,7 +230,7 @@ make help                Full target and variable reference
 
 ## Schema
 
-The canonical record format (`schema/package-recipe.schema.json`) captures identity, dependencies, build system, sources, patches, platforms, features, tests, provenance, and an optional `behavioral_spec` pointer. See [docs/architecture.md](docs/architecture.md) for the full design.
+Fingerprints (`schema/fingerprint.schema.json`) capture identity, repository, license, ecosystems, outbound dependencies, evidence links, and provenance. Package recipes (`schema/package-recipe.schema.json`) remain the ingest format (identity, build, sources, patches, platforms, tests, provenance, optional `behavioral_spec`). See [docs/knowledge-fabric.md](docs/knowledge-fabric.md) and [docs/architecture.md](docs/architecture.md).
 
 ---
 
@@ -277,5 +298,7 @@ What happens after the ranking — the extraction phase the tools called "Z," a 
 Sir Reginald sat down on the printed schema. He had no notes. His position on the matter was architectural.
 
 Years later the programmer returned to the ship with a larger crew of language models and a troubling inventory: hundreds of planks labeled "verified" that, on inspection, were three coats of varnish on the original hull. Sir Reginald, who had been napping inside a held-out crate the synthesizers were forbidden to open, declined to move. The crew wrote down what the libraries actually *did*, checked those notes against the real fittings, and attempted ten replica keels in an empty dry dock. None of the keels were laid twice by independent shipwrights, so none were certified to sail. The programmer announced that the product was the notes. The crew then catalogued fifteen more fittings that had always been honest Layer 2 oracles and still were not ships. Sir Reginald's tail, hanging out of the crate, was recorded as an abstention.
+
+Later still the programmer admitted the notes-as-product story had the same shape as the replica-keel story: a lot of ceremony around a thing almost nobody could actually *build*. Sir Reginald, who had relocated from the held-out crate to the `.git` directory and was shedding on the objects, suggested an alternative so obvious it was slightly insulting. Stop asking whether the ship can be rebuilt from a description of how it sails. Ask whether you know whose ship it is, where the plans live, what license is painted on the transom, and which other vessels are lashed to it. Put each answer in a file. Let git be the harbourmaster's ledger. The programmer called this a "knowledge fabric," which was a grand name for a directory of JSON, and Sir Reginald called it "finally writing things down in the one database that was already there." He did not get up.
 
 As of this writing, Theseus has been used in production by exactly one person, who also wrote it. Sir Reginald continues to withhold his endorsement across the chronicle, citing "procedural concerns," "insufficient tuna," "a general atmosphere of hubris," and a documented skepticism toward confidence fields that score their own uncertainty higher than 0.9 while the author admits he might be wrong.
