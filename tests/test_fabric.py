@@ -121,6 +121,191 @@ class TestExtractors:
         assert "https://github.com/brimworks/lua-zlib" in repo["candidates"]
         assert "https://github.com/ruby/zlib" in repo["candidates"]
 
+    def test_npm_source_repository_field(self):
+        rec = _recipe(
+            "lodash",
+            eco="npm",
+            homepage="https://lodash.com/",
+            extensions={"npm": {"source_repository": "https://github.com/lodash/lodash"}},
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://github.com/lodash/lodash"
+        assert repo["source"] == "npm.source_repository"
+
+    def test_nixpkgs_source_repository_field(self):
+        rec = _recipe(
+            "ninja",
+            eco="nixpkgs",
+            homepage="https://ninja-build.org/",
+            extensions={"nixpkgs": {"source_repository": "https://github.com/ninja-build/ninja"}},
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://github.com/ninja-build/ninja"
+        assert repo["source"] == "nixpkgs.source_repository"
+
+    def test_freedesktop_gitlab_homepage(self):
+        rec = _recipe(
+            "libxrandr",
+            homepage="https://gitlab.freedesktop.org/xorg/lib/libxrandr",
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://gitlab.freedesktop.org/xorg/lib/libxrandr"
+        assert repo["source"] == "homepage"
+
+    def test_cgit_maps_to_gitlab_freedesktop(self):
+        rec = _recipe("glu", homepage="https://cgit.freedesktop.org/mesa/glu/")
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://gitlab.freedesktop.org/mesa/glu"
+
+    def test_gnu_savannah_from_software_homepage(self):
+        rec = _recipe("bash", homepage="https://www.gnu.org/software/bash/")
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://git.savannah.gnu.org/git/bash.git"
+        assert repo["source"] == "gnu_savannah_convention"
+
+    def test_github_pages_homepage(self):
+        rec = _recipe("harfbuzz", homepage="https://harfbuzz.github.io/")
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://github.com/harfbuzz/harfbuzz"
+
+    def test_unique_git_clone_source(self):
+        rec = _recipe(
+            "cmake",
+            homepage="https://www.cmake.org",
+            sources=[{"type": "git", "url": "https://gitlab.kitware.com/cmake/cmake.git"}],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://gitlab.kitware.com/cmake/cmake"
+        assert repo["source"] == "sources.git"
+
+    def test_unexpanded_unknown_vars_are_not_repos(self):
+        rec = _recipe(
+            "libzip",
+            homepage="https://libzip.org/",
+            sources=[{
+                "type": "master_sites",
+                "url": "https://github.com/${GH_ACCOUNT}/${GH_PROJECT}/releases/",
+            }],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] is None
+
+    def test_portname_github_corroborated_by_homepage(self):
+        rec = _recipe(
+            "libzip",
+            homepage="https://libzip.org/",
+            sources=[{
+                "type": "master_sites",
+                "url": "https://github.com/nih-at/${PORTNAME}/releases/download/v${DISTVERSION}/",
+            }],
+            extensions={"freebsd_ports": {"raw_vars": {"PORTNAME": "libzip"}}},
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://github.com/nih-at/libzip"
+        assert repo["source"] == "homepage_corroborated_github"
+
+    def test_unique_owner_named_github(self):
+        rec = _recipe(
+            "itstool",
+            homepage="https://itstool.org/",
+            sources=[{"type": "homepage", "url": "https://github.com/itstool/itstool"}],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://github.com/itstool/itstool"
+        assert repo["source"] == "unique_named_forge"
+
+    def test_unique_gnome_gitlab(self):
+        rec = _recipe(
+            "json-glib",
+            homepage="https://live.gnome.org/JsonGlib",
+            sources=[{"type": "homepage", "url": "https://gitlab.gnome.org/GNOME/json-glib"}],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://gitlab.gnome.org/GNOME/json-glib"
+        assert repo["source"] == "unique_named_forge"
+
+    def test_savannah_preferred_over_language_binding(self):
+        rec = _recipe(
+            "readline",
+            homepage="https://tiswww.case.edu/php/chet/readline/rltop.html",
+            sources=[
+                {"type": "homepage", "url": "https://github.com/ruby/readline"},
+                {"type": "homepage", "url": "https://savannah.gnu.org/projects/readline/"},
+            ],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://git.savannah.gnu.org/git/readline.git"
+        assert "https://github.com/ruby/readline" in repo["candidates"]
+
+    def test_openssl_ambiguous_github_not_promoted(self):
+        rec = _recipe(
+            "openssl",
+            homepage="https://cran.r-project.org/package=openssl",
+            sources=[
+                {"type": "homepage", "url": "https://github.com/ruby/openssl"},
+                {"type": "master_sites", "url": "https://github.com/openssl/openssl/releases/download/${DISTNAME}/"},
+                {"type": "homepage", "url": "https://www.github.com/quictls/quictls"},
+            ],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] is None
+        assert "https://github.com/ruby/openssl" in repo["candidates"]
+        assert "https://github.com/openssl/openssl" in repo["candidates"]
+
+    def test_federico_bzip2_gitlab_not_promoted(self):
+        rec = _recipe(
+            "bzip2",
+            homepage="https://www.sourceware.org/bzip2",
+            sources=[{"type": "homepage", "url": "https://gitlab.com/federicomenaquintero/bzip2/"}],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] is None
+        assert "https://gitlab.com/federicomenaquintero/bzip2" in repo["candidates"]
+
+    def test_madler_unzip_not_promoted(self):
+        rec = _recipe(
+            "unzip",
+            homepage="http://www.info-zip.org",
+            sources=[{
+                "type": "archive",
+                "url": "https://github.com/madler/unzip/commit/41beb477c5744bc396fa1162ee0c14218ec12213.patch",
+            }],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] is None
+
+    def test_wayland_freedesktop_subdomain(self):
+        rec = _recipe("wayland", homepage="https://wayland.freedesktop.org/")
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://gitlab.freedesktop.org/wayland/wayland"
+        assert repo["source"] == "freedesktop_gitlab_convention"
+
+    def test_wayland_protocols_from_gitlab_portname(self):
+        rec = _recipe(
+            "wayland-protocols",
+            homepage="https://wayland.freedesktop.org/",
+            sources=[{
+                "type": "master_sites",
+                "url": "https://gitlab.freedesktop.org/wayland/${PORTNAME}/-/releases/${DISTVERSION}/downloads/",
+            }],
+            extensions={"freebsd_ports": {"raw_vars": {"PORTNAME": "wayland-protocols"}}},
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://gitlab.freedesktop.org/wayland/wayland-protocols"
+
+    def test_llvm_owner_matches_with_version_var(self):
+        rec = _recipe(
+            "llvm",
+            homepage="https://llvm.org/",
+            sources=[{
+                "type": "master_sites",
+                "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-${DISTVERSION}/",
+            }],
+        )
+        repo = fab.extract_repository(rec)
+        assert repo["url"] == "https://github.com/llvm/llvm-project"
+        assert repo["source"] == "github_owner_matches_package"
+
     def test_license_alias_zlib(self):
         rec = _recipe("zlib", license=["ZLIB"])
         lic = fab.extract_license(rec)
@@ -503,6 +688,17 @@ class TestCommittedFabric:
         assert rec["identity"]["canonical_name"] == "zlib"
         tokens = rec["license"]["spdx"] + rec["license"]["raw"]
         assert any("zlib" in t.lower() for t in tokens)
+        url = (rec.get("repository") or {}).get("url") or ""
+        assert "ruby/zlib" not in url
+        assert "lua-zlib" not in url
+
+    def test_ambiguous_c_library_forks_not_promoted(self, store):
+        bzip = ((store.get("bzip2") or {}).get("repository") or {}).get("url") or ""
+        assert "federicomenaquintero" not in bzip
+        ossl = ((store.get("openssl") or {}).get("repository") or {}).get("url") or ""
+        assert "ruby/openssl" not in ossl
+        unzip = ((store.get("unzip") or {}).get("repository") or {}).get("url") or ""
+        assert "madler/unzip" not in unzip
 
     def test_requests_depends_on_urllib3(self, store):
         names = {d["name"] for d in store.deps("requests", scope="runtime")}

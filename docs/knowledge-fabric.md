@@ -38,10 +38,19 @@ edges at query time so they cannot drift from the committed graph.
 ```
 
 Repository URLs are recorded only when an explicit ecosystem field
-(`pypi.source_repository`, npm/cargo `repository`) or a repository-host
-homepage supports the claim. Ambiguous GitHub URLs harvested from recipe
-`sources` stay in `repository.candidates` so the fabric does not
-confidently attach `github.com/ruby/zlib` to `zlib`.
+(`pypi.source_repository`, `npm.source_repository`, Nixpkgs
+`fetchFromGitHub`/`fetchFromGitLab`, Ports `USE_GITHUB`/`USE_GITLAB`) or a
+repository-host homepage supports the claim. Ports `${PORTNAME}` in a
+`MASTER_SITES` forge URL is expanded from the recipe; leftover make
+variables in the owner/repo path are still rejected. Unique named GitLab
+URLs (GNOME, freedesktop, salsa, kitware) and `github.com/<pkg>/<pkg>`
+are promoted; `{name}.freedesktop.org` maps to
+`gitlab.freedesktop.org/<name>/<name>`; Savannah wins over language-binding
+GitHub forks. Ambiguous GitHub URLs stay in `repository.candidates` so the
+fabric does not attach `github.com/ruby/zlib` to `zlib` or `madler/unzip`
+to Info-ZIP. GitLab forges used by Unix libraries count as repository hosts.
+GNU `gnu.org/software/<name>` homepages map to Savannah git when the name
+matches.
 
 Conflicting license tokens across ecosystems are unioned and kept in
 `license.raw`. SPDX-like values in `license.spdx` are a convenience

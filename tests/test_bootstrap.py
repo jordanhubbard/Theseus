@@ -50,6 +50,25 @@ NIX_NO_DERIVATION = """\
 lib.makeOverridable (args: args.value + 1)
 """
 
+NIX_FETCH_GITHUB = """\
+{ lib, stdenv, fetchFromGitHub }:
+stdenv.mkDerivation rec {
+  pname = "ninja";
+  version = "1.13.0";
+  src = fetchFromGitHub {
+    owner = "ninja-build";
+    repo = "ninja";
+    rev = "v${version}";
+    hash = "sha256-abc";
+  };
+  meta = with lib; {
+    description = "Small build system";
+    homepage = "https://ninja-build.org/";
+    license = licenses.asl20;
+  };
+}
+"""
+
 NIX_NAME_VERSION_IN_NAME = """\
 { lib, stdenv }:
 stdenv.mkDerivation {
@@ -74,6 +93,17 @@ LIB_DEPENDS=\tlibssl.so:security/openssl libz.so:archivers/zlib
 BUILD_DEPENDS=\tpkgconf:devel/pkgconf
 USES=\tssl tar:xz
 OPTIONS_DEFINE=\tIDN LDAP
+"""
+
+PORTS_GITHUB = """\
+PORTNAME=\tninja
+PORTVERSION=\t1.13.0
+CATEGORIES=\tdevel
+COMMENT=\tSmall build system
+WWW=\thttps://ninja-build.org/
+LICENSE=\tAPACHE20
+USE_GITHUB=\tyes
+GH_ACCOUNT=\tninja-build
 """
 
 PORTS_CMAKE = """\
@@ -304,6 +334,16 @@ def test_parse_nix_file_basic(tmp_path):
     assert "zlib" in rec["dependencies"]["host"]
 
 
+def test_parse_nix_file_fetchfromgithub_repository(tmp_path):
+    (tmp_path / "pkgs" / "ninja").mkdir(parents=True)
+    nix_file = tmp_path / "pkgs" / "ninja" / "default.nix"
+    nix_file.write_text(NIX_FETCH_GITHUB, encoding="utf-8")
+    rec = bc.parse_nix_file(nix_file, tmp_path)
+    assert rec["extensions"]["nixpkgs"]["source_repository"] == (
+        "https://github.com/ninja-build/ninja"
+    )
+
+
 def test_parse_nix_file_returns_none_for_non_derivation(tmp_path):
     (tmp_path / "lib").mkdir()
     nix_file = tmp_path / "lib" / "default.nix"
@@ -370,6 +410,16 @@ def test_parse_ports_makefile_basic(tmp_path):
     assert "zlib" in rec["dependencies"]["host"]
     assert "pkgconf" in rec["dependencies"]["build"]
     assert "IDN" in rec["features"]["options_define"]
+
+
+def test_parse_ports_makefile_use_github(tmp_path):
+    (tmp_path / "devel" / "ninja").mkdir(parents=True)
+    mf = tmp_path / "devel" / "ninja" / "Makefile"
+    mf.write_text(PORTS_GITHUB, encoding="utf-8")
+    rec = bc.parse_ports_makefile(mf, tmp_path)
+    assert rec["extensions"]["freebsd_ports"]["source_repository"] == (
+        "https://github.com/ninja-build/ninja"
+    )
 
 
 def test_parse_ports_makefile_cmake(tmp_path):

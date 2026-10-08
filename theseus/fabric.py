@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from typing import Iterable, Iterator, Optional
+from urllib.parse import urlparse
 
 
 SCHEMA_VERSION = "1.1"
@@ -35,10 +36,70 @@ _SCOPES = ("runtime", "build", "host", "test")
 _REPO_HOSTS = (
     "github.com",
     "gitlab.com",
+    "gitlab.freedesktop.org",
+    "gitlab.gnome.org",
+    "gitlab.kitware.com",
+    "salsa.debian.org",
+    "invent.kde.org",
+    "code.videolan.org",
+    "gitlab.xiph.org",
     "bitbucket.org",
     "codeberg.org",
     "git.savannah.gnu.org",
+    "savannah.gnu.org",
+    "cgit.freedesktop.org",
+    "git.sr.ht",
     "sr.ht",
+    "pagure.io",
+)
+_FORGE_TWO_PART = {
+    "github.com",
+    "bitbucket.org",
+    "codeberg.org",
+}
+_FORGE_GITLAB = {
+    "gitlab.com",
+    "gitlab.freedesktop.org",
+    "gitlab.gnome.org",
+    "gitlab.kitware.com",
+    "salsa.debian.org",
+    "invent.kde.org",
+    "code.videolan.org",
+    "gitlab.xiph.org",
+}
+# gitlab.com itself is too noisy (language forks). Named unique promotion
+# is restricted to these hosted forges plus github.com/<pkg>/<pkg>.
+_TRUSTED_NAMED_GITLAB = {
+    "gitlab.freedesktop.org",
+    "gitlab.gnome.org",
+    "gitlab.kitware.com",
+    "salsa.debian.org",
+    "invent.kde.org",
+    "code.videolan.org",
+    "gitlab.xiph.org",
+}
+_UNEXPANDED_URL = re.compile(r"\$\{|\$\(")
+_GNU_SOFTWARE = re.compile(
+    r"^https?://(?:www\.)?gnu\.org/software/([A-Za-z0-9+._-]+)/?",
+    re.IGNORECASE,
+)
+_SKIP_HOMEPAGE_HOSTS = {
+    "cran.r-project.org",
+    "rforge.net",
+    "bioconductor.org",
+}
+_PATH_JUNK = (
+    "/-/",
+    "/commit/",
+    "/commits/",
+    "/blob/",
+    "/tree/",
+    "/releases/",
+    "/archive/",
+    "/compare/",
+    "/pull/",
+    "/issues/",
+    "/wiki/",
 )
 _LICENSE_ALIASES = {
     "zlib": "Zlib",
@@ -151,22 +212,114 @@ def _strip_git_suffix(path_part: str) -> str:
     return part
 
 
-def normalize_repo_url(url: str) -> Optional[str]:
+def _recipe_portname(recipe: dict) -> str:
+    ports = (recipe.get("extensions") or {}).get("freebsd_ports") or {}
+    raw = ports.get("raw_vars") if isinstance(ports, dict) else None
+    if isinstance(raw, dict):
+        name = (raw.get("PORTNAME") or "").strip()
+        if name and "${" not in name:
+            return name
+    return ((recipe.get("identity") or {}).get("canonical_name") or "").strip()
+
+
+def _expand_recipe_url(url: str, recipe: Optional[dict] = None) -> str:
+    text = url.strip()
+    if not recipe:
+        return text
+    portname = _recipe_portname(recipe)
+    if not portname:
+        return text
+    text = text.replace("${PORTNAME}", portname)
+    text = text.replace("${PORTNAME:tl}", portname.lower())
+    text = text.replace("${PORTNAME:S/2//}", portname.replace("2", "", 1))
+    return text
+
+
+def _pkg_tokens(name: str) -> set:
+    pkg = (name or "").lower().replace("+", "")
+    tokens = {pkg}
+    if pkg.startswith("lib") and len(pkg) > 4:
+        tokens.add(pkg[3:])
+    return tokens
+
+
+def _url_owner_repo(url: str) -> tuple:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    parts = [p for p in (parsed.path or "").strip("/").split("/") if p]
+    last = parts[-1].lower() if parts else ""
+    if last.endswith(".git"):
+        last = last[:-4]
+    owner = parts[0].lower() if parts else ""
+    return host, owner, last
+
+
+def _name_matches_repo(package_name: str, last: str) -> bool:
+    pkg = (package_name or "").lower().replace("+", "")
+    last = (last or "").lower()
+    if last in _pkg_tokens(package_name) or pkg == last:
+        return True
+    if last.startswith("lib") and last[3:] == pkg:
+        return True
+    return False
+
+
+def normalize_repo_url(url: str, recipe: Optional[dict] = None) -> Optional[str]:
     if not url:
         return None
-    text = url.strip()
+    text = _expand_recipe_url(url, recipe)
+    leftover = _UNEXPANDED_URL.search(text)
+    if leftover:
+        prefix = text[: leftover.start()].rstrip("/-_")
+        if prefix.count("/") >= 4:
+            text = prefix
+        else:
+            return None
+    if _UNEXPANDED_URL.search(text):
+        return None
     if text.startswith("git+"):
         text = text[4:]
     if text.startswith("git://"):
         text = "https://" + text[6:]
-    match = _GITHUBISH.match(text)
-    if match:
-        host, owner, repo = match.group(1), match.group(2), match.group(3)
-        repo = _strip_git_suffix(repo.split("#", 1)[0])
-        return "https://%s/%s/%s" % (host.lower(), owner, repo)
-    for host in _REPO_HOSTS:
-        if host in text.lower():
-            cleaned = text.split("#", 1)[0].rstrip("/")
+    text = text.split("#", 1)[0].strip()
+    if not re.match(r"^https?://", text, re.IGNORECASE):
+        match = _GITHUBISH.match(text)
+        if match:
+            host, owner, repo = match.group(1), match.group(2), match.group(3)
+            repo = _strip_git_suffix(repo)
+            return "https://%s/%s/%s" % (host.lower(), owner, repo)
+        return None
+    parsed = urlparse(text)
+    host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    path = parsed.path or ""
+    for marker in _PATH_JUNK:
+        if marker in path:
+            path = path.split(marker, 1)[0]
+    path = path.strip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    parts = [p for p in path.split("/") if p]
+    if host == "cgit.freedesktop.org" and len(parts) >= 2:
+        return "https://gitlab.freedesktop.org/%s/%s" % (parts[0], parts[1])
+    if "savannah.gnu.org" in host:
+        if len(parts) >= 2 and parts[0] in ("projects", "git", "cgit"):
+            return "https://git.savannah.gnu.org/git/%s.git" % _strip_git_suffix(parts[1])
+        return None
+    if host in _FORGE_TWO_PART:
+        if len(parts) < 2:
+            return None
+        return "https://%s/%s/%s" % (host, parts[0], _strip_git_suffix(parts[1]))
+    if host in _FORGE_GITLAB:
+        if len(parts) < 2:
+            return None
+        kept = parts[:4]
+        kept[-1] = _strip_git_suffix(kept[-1])
+        return "https://%s/%s" % (host, "/".join(kept))
+    for known in _REPO_HOSTS:
+        if known == host or host.endswith("." + known):
+            cleaned = text.rstrip("/")
             if cleaned.endswith(".git"):
                 cleaned = cleaned[:-4]
             return cleaned
@@ -178,7 +331,10 @@ def _explicit_repository(recipe: dict) -> Optional[tuple]:
     extensions = recipe.get("extensions") or {}
     for eco_key, field in (
         ("pypi", "source_repository"),
+        ("npm", "source_repository"),
         ("npm", "repository"),
+        ("nixpkgs", "source_repository"),
+        ("freebsd_ports", "source_repository"),
         ("cargo", "repository"),
         ("crates", "repository"),
     ):
@@ -189,9 +345,160 @@ def _explicit_repository(recipe: dict) -> Optional[tuple]:
         if isinstance(value, dict):
             value = value.get("url") or value.get("git")
         if isinstance(value, str) and value.strip():
-            url = normalize_repo_url(value) or value.strip()
-            return url, "%s.%s" % (eco_key, field)
+            url = normalize_repo_url(value, recipe) or (
+                None if _UNEXPANDED_URL.search(value) else value.strip()
+            )
+            if url:
+                return url, "%s.%s" % (eco_key, field)
     return None
+
+
+def _homepage_tokens(homepage: str) -> list:
+    if not homepage or not isinstance(homepage, str):
+        return []
+    return [tok for tok in re.split(r"[\s,]+", homepage.strip()) if tok]
+
+
+def _github_pages_repo(homepage: str, package_name: str) -> Optional[str]:
+    parsed = urlparse(homepage.strip())
+    host = (parsed.hostname or "").lower()
+    match = re.match(r"^([a-z0-9-]+)\.github\.io$", host)
+    if not match:
+        return None
+    user = match.group(1)
+    path = (parsed.path or "").strip("/")
+    repo = path.split("/")[0] if path else user
+    pkg = (package_name or "").lower().replace("+", "")
+    if user == pkg or repo.lower() == pkg:
+        return "https://github.com/%s/%s" % (user, repo)
+    return None
+
+
+def _gnu_savannah_repo(homepage: str, package_name: str) -> Optional[str]:
+    token = homepage.strip()
+    match = _GNU_SOFTWARE.match(token)
+    if not match:
+        return None
+    gnu = match.group(1).lower()
+    pkg = (package_name or "").lower()
+    if gnu == pkg or pkg.startswith(gnu + "-") or gnu.startswith(pkg.split("-")[0]):
+        return "https://git.savannah.gnu.org/git/%s.git" % gnu
+    return None
+
+
+def _freedesktop_project_homepage(homepage: str, package_name: str) -> Optional[str]:
+    parsed = urlparse(homepage.strip())
+    host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    match = re.match(r"^([a-z0-9-]+)\.freedesktop\.org$", host)
+    if not match:
+        return None
+    project = match.group(1)
+    pkg = (package_name or "").lower().replace("+", "")
+    if project == pkg:
+        return "https://gitlab.freedesktop.org/%s/%s" % (project, project)
+    return None
+
+
+def _homepage_corroborates(homepage: str, package_name: str) -> bool:
+    if not homepage:
+        return False
+    parsed = urlparse(homepage.strip())
+    host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if host in _SKIP_HOMEPAGE_HOSTS:
+        return False
+    pkg = (package_name or "").lower().replace("+", "")
+    first = host.split(".")[0]
+    return first == pkg or first == pkg + "build"
+
+
+def _unique_list(urls: list) -> Optional[str]:
+    ordered = []
+    seen = set()
+    for url in urls:
+        if url and url not in seen:
+            seen.add(url)
+            ordered.append(url)
+    if len(ordered) == 1:
+        return ordered[0]
+    return None
+
+
+def _github_name_owners(candidates: list, package_name: str) -> set:
+    """GitHub owners whose repo name is or contains the package name."""
+    pkg = (package_name or "").lower().replace("+", "")
+    tokens = _pkg_tokens(package_name)
+    owners = set()
+    for url in candidates:
+        host, owner, last = _url_owner_repo(url)
+        if host != "github.com" or not owner:
+            continue
+        if last in tokens or pkg in last:
+            owners.add(owner)
+    return owners
+
+
+def _ambiguous_github_name(candidates: list, package_name: str) -> bool:
+    return len(_github_name_owners(candidates, package_name)) > 1
+
+
+def _savannah_among_candidates(candidates: list, package_name: str) -> Optional[str]:
+    hits = []
+    tokens = _pkg_tokens(package_name)
+    for url in candidates:
+        host, _owner, last = _url_owner_repo(url)
+        if "savannah.gnu.org" in host and last in tokens:
+            hits.append("https://git.savannah.gnu.org/git/%s.git" % last)
+    return _unique_list(hits)
+
+
+def _unique_trusted_named(candidates: list, package_name: str) -> Optional[str]:
+    hits = []
+    tokens = _pkg_tokens(package_name)
+    ambiguous = _ambiguous_github_name(candidates, package_name)
+    for url in candidates:
+        host, owner, last = _url_owner_repo(url)
+        if not _name_matches_repo(package_name, last):
+            continue
+        if host in _TRUSTED_NAMED_GITLAB or "savannah.gnu.org" in host:
+            hits.append(url)
+        elif (
+            host in _FORGE_TWO_PART
+            and not ambiguous
+            and (owner in tokens or owner == last)
+        ):
+            hits.append(url)
+    return _unique_list(hits)
+
+
+def _unique_github_owned_by_pkg(candidates: list, package_name: str) -> Optional[str]:
+    if _ambiguous_github_name(candidates, package_name):
+        return None
+    tokens = _pkg_tokens(package_name)
+    owned = []
+    for url in candidates:
+        host, owner, _last = _url_owner_repo(url)
+        if host == "github.com" and owner in tokens:
+            owned.append(url)
+    return _unique_list(owned)
+
+
+def _homepage_corroborated_github(
+    candidates: list, homepage: str, package_name: str
+) -> Optional[str]:
+    if not _homepage_corroborates(homepage, package_name):
+        return None
+    if _ambiguous_github_name(candidates, package_name):
+        return None
+    hits = []
+    for url in candidates:
+        host, _owner, last = _url_owner_repo(url)
+        if host == "github.com" and _name_matches_repo(package_name, last):
+            hits.append(url)
+    return _unique_list(hits)
 
 
 def _candidate_urls(recipe: dict) -> list:
@@ -199,10 +506,11 @@ def _candidate_urls(recipe: dict) -> list:
     seen = set()
 
     def add(url):
-        norm = normalize_repo_url(url)
-        if norm and norm not in seen:
-            seen.add(norm)
-            found.append(norm)
+        for token in _homepage_tokens(url) if url else []:
+            norm = normalize_repo_url(token, recipe)
+            if norm and norm not in seen:
+                seen.add(norm)
+                found.append(norm)
 
     homepage = (recipe.get("descriptive") or {}).get("homepage")
     if isinstance(homepage, str):
@@ -215,33 +523,75 @@ def _candidate_urls(recipe: dict) -> list:
     return found
 
 
+def _unique_git_clone_url(recipe: dict) -> Optional[str]:
+    found = []
+    seen = set()
+    for source in recipe.get("sources") or []:
+        if not isinstance(source, dict):
+            continue
+        raw = source.get("url") or ""
+        if ".patch" in raw or "/commit/" in raw:
+            continue
+        if source.get("type") not in ("git", "git-clone") and not raw.rstrip("/").endswith(".git"):
+            continue
+        norm = normalize_repo_url(raw, recipe)
+        if norm and norm not in seen:
+            seen.add(norm)
+            found.append(norm)
+    if len(found) == 1:
+        return found[0]
+    return None
+
+
 def extract_repository(recipe: dict) -> dict:
     explicit = _explicit_repository(recipe)
     candidates = _candidate_urls(recipe)
-    if explicit:
-        url, source = explicit
+    ident = (recipe.get("identity") or {}).get("canonical_name") or ""
+    homepage = (recipe.get("descriptive") or {}).get("homepage") or ""
+
+    def result(url, source, confidence):
         kind = "git" if url and any(h in url.lower() for h in _REPO_HOSTS) else None
         extra = [c for c in candidates if c != url]
         return {
             "url": url,
             "kind": kind,
             "web": url,
-            "confidence": 0.95,
+            "confidence": confidence,
             "source": source,
             "candidates": extra,
         }
-    homepage = (recipe.get("descriptive") or {}).get("homepage")
-    from_home = normalize_repo_url(homepage) if isinstance(homepage, str) else None
-    if from_home:
-        extra = [c for c in candidates if c != from_home]
-        return {
-            "url": from_home,
-            "kind": "git",
-            "web": from_home,
-            "confidence": 0.8,
-            "source": "homepage",
-            "candidates": extra,
-        }
+
+    if explicit:
+        url, source = explicit
+        return result(url, source, 0.95)
+    for token in _homepage_tokens(homepage):
+        from_home = normalize_repo_url(token, recipe)
+        if from_home:
+            return result(from_home, "homepage", 0.8)
+        pages = _github_pages_repo(token, ident)
+        if pages:
+            return result(pages, "github_pages", 0.75)
+        gnu = _gnu_savannah_repo(token, ident)
+        if gnu:
+            return result(gnu, "gnu_savannah_convention", 0.75)
+        fdo = _freedesktop_project_homepage(token, ident)
+        if fdo:
+            return result(fdo, "freedesktop_gitlab_convention", 0.75)
+    clone = _unique_git_clone_url(recipe)
+    if clone:
+        return result(clone, "sources.git", 0.85)
+    savannah = _savannah_among_candidates(candidates, ident)
+    if savannah:
+        return result(savannah, "savannah_among_candidates", 0.8)
+    trusted = _unique_trusted_named(candidates, ident)
+    if trusted:
+        return result(trusted, "unique_named_forge", 0.75)
+    owned = _unique_github_owned_by_pkg(candidates, ident)
+    if owned:
+        return result(owned, "github_owner_matches_package", 0.7)
+    corroborated = _homepage_corroborated_github(candidates, homepage, ident)
+    if corroborated:
+        return result(corroborated, "homepage_corroborated_github", 0.7)
     return {
         "url": None,
         "kind": None,

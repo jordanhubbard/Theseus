@@ -124,6 +124,54 @@ def _nix_build_system(content: str) -> str:
     return "autotools"
 
 
+def _nix_quoted_attr(window: str, attr: str) -> str | None:
+    return _str_match(window, rf'\b{re.escape(attr)}\s*=\s*"([^"]+)"')
+
+
+def _nix_source_repository(content: str) -> str:
+    """Best-effort source repo from fetchFromGitHub / fetchFromGitLab / etc."""
+    fetchers = (
+        ("fetchFromGitHub", "github.com"),
+        ("fetchFromGitLab", "gitlab.com"),
+        ("fetchFromBitbucket", "bitbucket.org"),
+        ("fetchFromSourcehut", "git.sr.ht"),
+        ("fetchFromGitea", ""),
+    )
+    for fetcher, default_host in fetchers:
+        pos = content.find(fetcher)
+        if pos < 0:
+            continue
+        window = content[pos:pos + 1600]
+        owner = _nix_quoted_attr(window, "owner") or _nix_quoted_attr(window, "group")
+        repo = _nix_quoted_attr(window, "repo")
+        domain = _nix_quoted_attr(window, "domain") or default_host
+        if owner and repo and domain:
+            return "https://%s/%s/%s" % (domain, owner, repo)
+    return ""
+
+
+def _ports_source_repository(vars: dict) -> str:
+    """Best-effort source repo from USE_GITHUB / USE_GITLAB."""
+    use_gh = (vars.get("USE_GITHUB") or "").strip().lower()
+    uses = (vars.get("USES") or "").lower().split()
+    githubish = use_gh in ("yes", "nodefault") or any(
+        token.split(":")[0] == "github" for token in uses
+    )
+    if githubish:
+        account = (vars.get("GH_ACCOUNT") or vars.get("PORTNAME") or "").strip()
+        project = (vars.get("GH_PROJECT") or vars.get("PORTNAME") or "").strip()
+        if account and project and "${" not in account and "${" not in project:
+            return "https://github.com/%s/%s" % (account, project)
+    use_gl = (vars.get("USE_GITLAB") or "").strip().lower()
+    if use_gl in ("yes", "nodefault"):
+        site = (vars.get("GL_SITE") or "https://gitlab.com").strip().rstrip("/")
+        account = (vars.get("GL_ACCOUNT") or vars.get("PORTNAME") or "").strip()
+        project = (vars.get("GL_PROJECT") or vars.get("PORTNAME") or "").strip()
+        if account and project and "${" not in account and "${" not in project:
+            return "%s/%s/%s" % (site, account, project)
+    return ""
+
+
 def _nix_list_contents(content: str, var: str) -> list[str]:
     """Extract items from a Nix list binding: var = [ a b.c ... ];"""
     m = re.search(rf'\b{re.escape(var)}\s*=\s*\[([^\]]*)\]', content, re.DOTALL)
@@ -267,6 +315,8 @@ def parse_nix_file(path: Path, nixpkgs_root: Path) -> dict | None:
     if warnings:
         confidence = round(confidence * 0.95, 2)
 
+    repo = _nix_source_repository(content)
+
     return {
         "schema_version": SCHEMA_VERSION,
         "identity": {
@@ -314,7 +364,10 @@ def parse_nix_file(path: Path, nixpkgs_root: Path) -> dict | None:
             "warnings": warnings,
         },
         "extensions": {
-            "nixpkgs": {"recipe_file": path.name},
+            "nixpkgs": {
+                "recipe_file": path.name,
+                **({"source_repository": repo} if repo else {}),
+            },
         },
     }
 
@@ -570,6 +623,7 @@ def parse_ports_makefile(path: Path, ports_root: Path) -> dict | None:
         confidence = round(confidence * 0.95, 2)
 
     raw_vars_sample = {k: vars[k] for k in ("CATEGORIES", "PORTNAME") if k in vars}
+    ports_repo = _ports_source_repository(vars)
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -620,7 +674,10 @@ def parse_ports_makefile(path: Path, ports_root: Path) -> dict | None:
             "warnings": warnings,
         },
         "extensions": {
-            "freebsd_ports": {"raw_vars": raw_vars_sample},
+            "freebsd_ports": {
+                "raw_vars": raw_vars_sample,
+                **({"source_repository": ports_repo} if ports_repo else {}),
+            },
         },
     }
 
