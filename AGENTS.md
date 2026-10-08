@@ -30,8 +30,9 @@ Historically synthesized reimplementations from specs. `status=verified` is **le
 fabric/                   Git-backed OSS knowledge fabric (the database)
   packages/*.json         One fingerprint per canonical package
 
-theseus/                  Python package (fabric, importer, drivers, store, agent)
+theseus/                  Python package (fabric, importer, refresh, drivers, store, agent)
   fabric.py               Fingerprint ingest, git-backed queries, deps/rdeps
+  refresh.py              Corpus-first restock from live PyPI/npm/Nixpkgs/Ports
   importer.py             Bootstrap importer: walks Nixpkgs/FreeBSD Ports trees
   drivers/                Nixpkgs, FreeBSD Ports, PyPI, npm output renderers
   store.py                Artifact store interface (S3/MinIO-compatible)
@@ -39,6 +40,7 @@ theseus/                  Python package (fabric, importer, drivers, store, agen
 
 tools/                    CLI scripts (mostly stdlib-only)
   fabric.py               CLI for ingest/show/deps/rdeps/query/stats/validate/history
+  refresh_recipes.py      Restock specs/ from live upstreams (`make refresh`)
   zsdl_compile.py         ZSDL → JSON compiler (requires pyyaml)
   verify_behavior.py      Layer 2 harness: run invariants vs. installed library
   verify_all_specs.py     Run all specs; write JSON results
@@ -114,6 +116,8 @@ scripts/                  Release automation (scripts/release.sh)
 This is the main ongoing activity. Grow fingerprint coverage: confident repositories, licenses, and a connected bidirectional dependency graph, committed under `fabric/packages/`.
 
 ```bash
+make refresh                       # restock specs/ from live upstreams, then ingest
+make reingest                      # alias for make refresh
 make fabric-ingest                 # parallel; FABRIC_JOBS=1 for serial
 make fabric-stats
 make fabric-show PKG=requests
@@ -121,6 +125,11 @@ make fabric-deps PKG=requests
 make fabric-rdeps PKG=urllib3
 python3 tools/fabric.py --rev HEAD stats
 ```
+
+`make refresh` is the supported restock. It re-fetches the committed `specs/`
+corpus from PyPI, npm, and Nixpkgs/Ports (local checkout or GitHub raw). Do not
+require a `snapshots/` directory to keep fingerprints current. `make fabric-ingest`
+alone only re-derives fingerprints from recipes that are already on disk.
 
 Do not add a SQL database. Git is the store. Reverse edges are derived, never authored.
 

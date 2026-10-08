@@ -168,6 +168,7 @@ def parse_nix_file(path: Path, nixpkgs_root: Path) -> dict | None:
         "buildRubyGem",
         "buildPhpPackage",
         "stdenv.mkDerivation",
+        "makeSetupHook",
     )):
         return None
 
@@ -358,6 +359,35 @@ def _resolve_masterdir(val: str, port_dir: Path, ports_root: Path) -> Path | Non
     return resolved if resolved.is_dir() else None
 
 
+def masterdir_source_path(val: str, source_path: str) -> str | None:
+    """Return ``category/port`` for a MASTERDIR value without a local tree.
+
+    ``source_path`` is the slave's ``category/portname``. Unresolvable make
+    variables return None.
+    """
+    parts = Path(source_path).parts
+    if len(parts) < 2:
+        return None
+    port_dir = Path(*parts)
+    text = (val or "").strip()
+    text = text.replace("${.CURDIR:H:H}", str(port_dir.parent.parent).replace("\\", "/"))
+    text = text.replace("${.CURDIR:H}", str(port_dir.parent).replace("\\", "/"))
+    text = text.replace("${.CURDIR}", str(port_dir).replace("\\", "/"))
+    if "${" in text:
+        return None
+    collapsed: list[str] = []
+    for part in Path(text).parts:
+        if part == "..":
+            if not collapsed:
+                return None
+            collapsed.pop()
+        elif part not in (".",):
+            collapsed.append(part)
+    if len(collapsed) < 2:
+        return None
+    return "/".join(collapsed[-2:]) if len(collapsed) > 2 else "/".join(collapsed)
+
+
 def _ports_vars(content: str) -> dict[str, str]:
     """
     Parse Makefile variable assignments, handling continuation lines.
@@ -429,7 +459,13 @@ def parse_ports_makefile(path: Path, ports_root: Path) -> dict | None:
                 # Master uses ?= for overridable fields; slave vars win on conflict.
                 merged = {**master_vars, **vars}
                 vars = merged
-                warnings.append(f"slave port; merged from {master_dir.relative_to(ports_root)}")
+                try:
+                    rel_master = str(
+                        master_dir.resolve().relative_to(ports_root.resolve())
+                    )
+                except ValueError:
+                    rel_master = str(master_dir)
+                warnings.append(f"slave port; merged from {rel_master}")
             except OSError:
                 warnings.append(f"slave port; master Makefile not readable: {master_mf}")
         else:
@@ -1144,15 +1180,36 @@ def import_ports(ports_root: Path, out_dir: Path, commit: str | None) -> int:
 # HTTP utilities (stdlib only — no third-party deps)
 # ---------------------------------------------------------------------------
 
-def _fetch_json(url: str, timeout: int = 15) -> dict | None:
+_HTTP_USER_AGENT = "theseus/0.1 package-recipe-importer"
+
+
+def _fetch_bytes(url: str, timeout: int = 15) -> bytes | None:
     from urllib.request import urlopen, Request
     from urllib.error import URLError, HTTPError
     try:
-        req = Request(url, headers={"User-Agent": "theseus/0.1 package-recipe-importer"})
+        req = Request(url, headers={"User-Agent": _HTTP_USER_AGENT})
         with urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except (URLError, HTTPError, json.JSONDecodeError, Exception):
+            return resp.read()
+    except (URLError, HTTPError, Exception):
         return None
+
+
+def _fetch_json(url: str, timeout: int = 15) -> dict | None:
+    raw = _fetch_bytes(url, timeout=timeout)
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError, Exception):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _fetch_text(url: str, timeout: int = 15) -> str | None:
+    raw = _fetch_bytes(url, timeout=timeout)
+    if not raw:
+        return None
+    return raw.decode("utf-8", errors="replace")
 
 
 # ---------------------------------------------------------------------------
@@ -1448,6 +1505,127 @@ def _pypi_source_repo_provenance(info: dict, source_repository: str) -> dict:
 _PYPI_API = "https://pypi.org/pypi/{name}/json"
 
 
+def pypi_record(pkg_name: str, *, timeout: int = 15) -> dict | None:
+    """Fetch one PyPI package and return a canonical recipe, or None on failure."""
+    url = _PYPI_API.format(name=pkg_name)
+    data = _fetch_json(url, timeout=timeout)
+    if not data:
+        return None
+
+    info = data.get("info", {})
+    name = info.get("name", pkg_name)
+    version = info.get("version", "")
+    canonical_name = name.lower().replace("_", "-")
+
+    # Source URL: prefer sdist tarball
+    source_url = ""
+    source_sha256 = ""
+    for u in data.get("urls", []):
+        if u.get("packagetype") == "sdist":
+            source_url = u.get("url", "")
+            source_sha256 = u.get("digests", {}).get("sha256", "")
+            break
+    if not source_url and data.get("urls"):
+        u = data["urls"][0]
+        source_url = u.get("url", "")
+        source_sha256 = u.get("digests", {}).get("sha256", "")
+
+    # Runtime deps from requires_dist (skip optional/extra deps)
+    runtime_deps: list[str] = []
+    seen: set[str] = set()
+    for req in info.get("requires_dist") or []:
+        if "extra ==" in req or "extra==" in req:
+            continue
+        dep = _parse_pep508(req)
+        if dep:
+            norm = dep.lower().replace("_", "-")
+            if norm not in seen:
+                seen.add(norm)
+                runtime_deps.append(norm)
+
+    # License
+    license_str = (info.get("license") or "").strip()
+    licenses = [license_str] if license_str else []
+
+    # Homepage
+    homepage = (info.get("home_page") or "").strip()
+    if not homepage:
+        for key in (
+            "Homepage", "homepage",
+            "home_page",
+            "Documentation", "documentation",
+            "Source", "source",
+            "Repository", "repository",
+        ):
+            hp = ((info.get("project_urls") or {}).get(key) or "").strip()
+            if hp:
+                homepage = hp
+                break
+    if not homepage:
+        homepage = (info.get("project_url") or info.get("package_url") or "").strip()
+
+    source_repository = _pypi_source_repo(info)
+    source_repository_provenance = _pypi_source_repo_provenance(info, source_repository)
+    pypi_extension = {
+        "requires_python": (info.get("requires_python") or "").strip(),
+        "classifiers": (info.get("classifiers") or [])[:10],
+        "source_repository": source_repository,
+    }
+    if source_repository_provenance:
+        pypi_extension["source_repository_provenance"] = source_repository_provenance
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "identity": {
+            "canonical_name": canonical_name,
+            "canonical_id": f"pkg:{canonical_name}",
+            "version": version,
+            "ecosystem": "pypi",
+            "ecosystem_id": name,
+        },
+        "descriptive": {
+            "summary": (info.get("summary") or "").strip(),
+            "homepage": homepage,
+            "license": licenses,
+            "categories": ["python"],
+            "maintainers": _pypi_maintainers(info),
+        },
+        "conflicts": [],
+        "sources": ([{
+            "type": "sdist",
+            "url": source_url,
+            "sha256": source_sha256,
+        }] if source_url else []),
+        "dependencies": {
+            "build": ["setuptools", "wheel"],
+            "host": [],
+            "runtime": runtime_deps,
+            "test": [],
+        },
+        "build": {
+            "system_kind": "pypi",
+            "configure_args": [],
+            "make_args": [],
+        },
+        "features": {},
+        "platforms": {"include": [], "exclude": []},
+        "patches": [],
+        "tests": {},
+        "provenance": {
+            "generated_by": GENERATED_BY,
+            "imported_at": IMPORTED_AT,
+            "source_path": url,
+            "source_repo_commit": None,
+            "confidence": 0.9,
+            "unmapped": [],
+            "warnings": [],
+        },
+        "extensions": {
+            "pypi": pypi_extension
+        },
+    }
+
+
 def import_pypi(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int:
     """Fetch metadata for each package name from PyPI and write canonical records.
 
@@ -1456,125 +1634,11 @@ def import_pypi(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int
     out_dir.mkdir(parents=True, exist_ok=True)
     count = 0
     for pkg_name in packages:
-        url = _PYPI_API.format(name=pkg_name)
-        data = _fetch_json(url, timeout=timeout)
-        if not data:
+        rec = pypi_record(pkg_name, timeout=timeout)
+        if not rec:
             print(f"  pypi: SKIP {pkg_name} (fetch failed)", file=sys.stderr)
             continue
-
-        info = data.get("info", {})
-        name = info.get("name", pkg_name)
-        version = info.get("version", "")
-        canonical_name = name.lower().replace("_", "-")
-
-        # Source URL: prefer sdist tarball
-        source_url = ""
-        source_sha256 = ""
-        for u in data.get("urls", []):
-            if u.get("packagetype") == "sdist":
-                source_url = u.get("url", "")
-                source_sha256 = u.get("digests", {}).get("sha256", "")
-                break
-        if not source_url and data.get("urls"):
-            u = data["urls"][0]
-            source_url = u.get("url", "")
-            source_sha256 = u.get("digests", {}).get("sha256", "")
-
-        # Runtime deps from requires_dist (skip optional/extra deps)
-        runtime_deps: list[str] = []
-        seen: set[str] = set()
-        for req in info.get("requires_dist") or []:
-            if "extra ==" in req or "extra==" in req:
-                continue
-            dep = _parse_pep508(req)
-            if dep:
-                norm = dep.lower().replace("_", "-")
-                if norm not in seen:
-                    seen.add(norm)
-                    runtime_deps.append(norm)
-
-        # License
-        license_str = (info.get("license") or "").strip()
-        licenses = [license_str] if license_str else []
-
-        # Homepage
-        homepage = (info.get("home_page") or "").strip()
-        if not homepage:
-            for key in (
-                "Homepage", "homepage",
-                "home_page",
-                "Documentation", "documentation",
-                "Source", "source",
-                "Repository", "repository",
-            ):
-                hp = ((info.get("project_urls") or {}).get(key) or "").strip()
-                if hp:
-                    homepage = hp
-                    break
-        if not homepage:
-            homepage = (info.get("project_url") or info.get("package_url") or "").strip()
-
-        source_repository = _pypi_source_repo(info)
-        source_repository_provenance = _pypi_source_repo_provenance(info, source_repository)
-        pypi_extension = {
-            "requires_python": (info.get("requires_python") or "").strip(),
-            "classifiers": (info.get("classifiers") or [])[:10],
-            "source_repository": source_repository,
-        }
-        if source_repository_provenance:
-            pypi_extension["source_repository_provenance"] = source_repository_provenance
-
-        rec = {
-            "schema_version": SCHEMA_VERSION,
-            "identity": {
-                "canonical_name": canonical_name,
-                "canonical_id": f"pkg:{canonical_name}",
-                "version": version,
-                "ecosystem": "pypi",
-                "ecosystem_id": name,
-            },
-            "descriptive": {
-                "summary": (info.get("summary") or "").strip(),
-                "homepage": homepage,
-                "license": licenses,
-                "categories": ["python"],
-                "maintainers": _pypi_maintainers(info),
-            },
-            "conflicts": [],
-            "sources": ([{
-                "type": "sdist",
-                "url": source_url,
-                "sha256": source_sha256,
-            }] if source_url else []),
-            "dependencies": {
-                "build": ["setuptools", "wheel"],
-                "host": [],
-                "runtime": runtime_deps,
-                "test": [],
-            },
-            "build": {
-                "system_kind": "pypi",
-                "configure_args": [],
-                "make_args": [],
-            },
-            "features": {},
-            "platforms": {"include": [], "exclude": []},
-            "patches": [],
-            "tests": {},
-            "provenance": {
-                "generated_by": GENERATED_BY,
-                "imported_at": IMPORTED_AT,
-                "source_path": url,
-                "source_repo_commit": None,
-                "confidence": 0.9,
-                "unmapped": [],
-                "warnings": [],
-            },
-            "extensions": {
-                "pypi": pypi_extension
-            },
-        }
-
+        canonical_name = rec["identity"]["canonical_name"]
         out_path = out_dir / f"{canonical_name}.json"
         out_path.write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         count += 1
@@ -1600,6 +1664,103 @@ def _npm_canonical_name(pkg_name: str) -> str:
     return pkg_name
 
 
+def npm_record(pkg_name: str, *, timeout: int = 15) -> dict | None:
+    """Fetch one npm package and return a canonical recipe, or None on failure."""
+    url_name = pkg_name.replace("/", "%2F")
+    url = _NPM_API.format(name=url_name)
+    data = _fetch_json(url, timeout=timeout)
+    if not data:
+        return None
+
+    latest_ver = (data.get("dist-tags") or {}).get("latest", "")
+    versions = data.get("versions") or {}
+    ver_data = versions.get(latest_ver, {})
+    if not ver_data and versions:
+        latest_ver = list(versions.keys())[-1]
+        ver_data = versions[latest_ver]
+
+    canonical_name = _npm_canonical_name(pkg_name)
+
+    dist = ver_data.get("dist") or {}
+    source_url = dist.get("tarball", "")
+    source_integrity = dist.get("integrity", "")
+
+    runtime_deps = list((ver_data.get("dependencies") or {}).keys())
+    build_deps = list((ver_data.get("devDependencies") or {}).keys())
+    host_deps = list((ver_data.get("peerDependencies") or {}).keys())
+
+    license_val = ver_data.get("license") or data.get("license") or ""
+    if isinstance(license_val, dict):
+        license_val = license_val.get("type", "")
+    licenses = [str(license_val)] if license_val else []
+
+    homepage = (ver_data.get("homepage") or data.get("homepage") or "").strip()
+    description = (ver_data.get("description") or data.get("description") or "").strip()
+
+    repo = ver_data.get("repository") or data.get("repository") or {}
+    if isinstance(repo, str):
+        repo = {"url": repo}
+    repo_url = (repo.get("url") or "").strip()
+    source_repository = _normalize_github_url(repo_url) if repo_url else ""
+
+    keywords = (ver_data.get("keywords") or data.get("keywords") or [])[:10]
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "identity": {
+            "canonical_name": canonical_name,
+            "canonical_id": f"pkg:{canonical_name}",
+            "version": latest_ver,
+            "ecosystem": "npm",
+            "ecosystem_id": pkg_name,
+        },
+        "descriptive": {
+            "summary": description,
+            "homepage": homepage or repo_url,
+            "license": licenses,
+            "categories": ["javascript"],
+            "maintainers": _npm_maintainers(ver_data, data),
+        },
+        "conflicts": [],
+        "sources": ([{
+            "type": "tarball",
+            "url": source_url,
+            "integrity": source_integrity,
+        }] if source_url else []),
+        "dependencies": {
+            "build": build_deps,
+            "host": host_deps,
+            "runtime": runtime_deps,
+            "test": [],
+        },
+        "build": {
+            "system_kind": "npm",
+            "configure_args": [],
+            "make_args": [],
+        },
+        "features": {},
+        "platforms": {"include": [], "exclude": []},
+        "patches": [],
+        "tests": {},
+        "provenance": {
+            "generated_by": GENERATED_BY,
+            "imported_at": IMPORTED_AT,
+            "source_path": url,
+            "source_repo_commit": None,
+            "confidence": 0.85,
+            "unmapped": [],
+            "warnings": [],
+        },
+        "extensions": {
+            "npm": {
+                "engines": ver_data.get("engines") or {},
+                "keywords": keywords,
+                "source_repository": source_repository,
+            }
+        },
+    }
+
+
 def import_npm(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int:
     """Fetch metadata for each package name from the npm registry and write canonical records.
 
@@ -1608,101 +1769,11 @@ def import_npm(packages: list[str], out_dir: Path, *, timeout: int = 15) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     count = 0
     for pkg_name in packages:
-        url_name = pkg_name.replace("/", "%2F")
-        url = _NPM_API.format(name=url_name)
-        data = _fetch_json(url, timeout=timeout)
-        if not data:
+        rec = npm_record(pkg_name, timeout=timeout)
+        if not rec:
             print(f"  npm: SKIP {pkg_name} (fetch failed)", file=sys.stderr)
             continue
-
-        latest_ver = (data.get("dist-tags") or {}).get("latest", "")
-        versions = data.get("versions") or {}
-        ver_data = versions.get(latest_ver, {})
-        if not ver_data and versions:
-            latest_ver = list(versions.keys())[-1]
-            ver_data = versions[latest_ver]
-
-        canonical_name = _npm_canonical_name(pkg_name)
-
-        dist = ver_data.get("dist") or {}
-        source_url = dist.get("tarball", "")
-        source_integrity = dist.get("integrity", "")
-
-        runtime_deps = list((ver_data.get("dependencies") or {}).keys())
-        build_deps = list((ver_data.get("devDependencies") or {}).keys())
-        host_deps = list((ver_data.get("peerDependencies") or {}).keys())
-
-        license_val = ver_data.get("license") or data.get("license") or ""
-        if isinstance(license_val, dict):
-            license_val = license_val.get("type", "")
-        licenses = [str(license_val)] if license_val else []
-
-        homepage = (ver_data.get("homepage") or data.get("homepage") or "").strip()
-        description = (ver_data.get("description") or data.get("description") or "").strip()
-
-        repo = ver_data.get("repository") or data.get("repository") or {}
-        if isinstance(repo, str):
-            repo = {"url": repo}
-        repo_url = (repo.get("url") or "").strip()
-        source_repository = _normalize_github_url(repo_url) if repo_url else ""
-
-        keywords = (ver_data.get("keywords") or data.get("keywords") or [])[:10]
-
-        rec = {
-            "schema_version": SCHEMA_VERSION,
-            "identity": {
-                "canonical_name": canonical_name,
-                "canonical_id": f"pkg:{canonical_name}",
-                "version": latest_ver,
-                "ecosystem": "npm",
-                "ecosystem_id": pkg_name,
-            },
-            "descriptive": {
-                "summary": description,
-                "homepage": homepage or repo_url,
-                "license": licenses,
-                "categories": ["javascript"],
-                "maintainers": _npm_maintainers(ver_data, data),
-            },
-            "conflicts": [],
-            "sources": ([{
-                "type": "tarball",
-                "url": source_url,
-                "integrity": source_integrity,
-            }] if source_url else []),
-            "dependencies": {
-                "build": build_deps,
-                "host": host_deps,
-                "runtime": runtime_deps,
-                "test": [],
-            },
-            "build": {
-                "system_kind": "npm",
-                "configure_args": [],
-                "make_args": [],
-            },
-            "features": {},
-            "platforms": {"include": [], "exclude": []},
-            "patches": [],
-            "tests": {},
-            "provenance": {
-                "generated_by": GENERATED_BY,
-                "imported_at": IMPORTED_AT,
-                "source_path": url,
-                "source_repo_commit": None,
-                "confidence": 0.85,
-                "unmapped": [],
-                "warnings": [],
-            },
-            "extensions": {
-                "npm": {
-                    "engines": ver_data.get("engines") or {},
-                    "keywords": keywords,
-                    "source_repository": source_repository,
-                }
-            },
-        }
-
+        canonical_name = rec["identity"]["canonical_name"]
         out_path = out_dir / f"{canonical_name}.json"
         out_path.write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         count += 1

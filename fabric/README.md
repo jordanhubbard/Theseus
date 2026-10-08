@@ -18,6 +18,8 @@ as source of truth. Ingest from package recipes, commit the fingerprints,
 query the tree.
 
 ```bash
+make refresh           # restock specs/ from live upstreams, then ingest
+make reingest          # alias for make refresh
 make fabric-ingest     # specs/ + examples/ → fabric/packages/
 make fabric-stats      # coverage of the committed graph
 make fabric-show PKG=requests

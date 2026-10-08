@@ -5,6 +5,37 @@ FreeBSD Ports into a shared canonical JSON schema. Those recipes are the ingest
 source for the [knowledge fabric](fabric.md). The pipeline also ranks packages
 and produces merged extraction records for the top candidates.
 
+## Refresh (the supported restock)
+
+Upstream collections move constantly. Re-ingest is a first-class action: it
+re-fetches the **committed corpus** in `specs/` from live sources, then rebuilds
+fingerprints. You do **not** need a `snapshots/` directory from a previous run.
+
+```bash
+make refresh              # restock specs/ + fabric-ingest
+make reingest             # alias for make refresh
+make refresh-recipes      # rewrite specs/ only
+make refresh DRY_RUN=1    # fetch and report, do not write
+make refresh NO_REMOTE=1 NIXPKGS_ROOT=/path/to/nixpkgs PORTS_ROOT=/path/to/ports
+make refresh REFRESH_ECOSYSTEMS=pypi,npm
+```
+
+| Ecosystem | How it is refreshed |
+|-----------|---------------------|
+| PyPI | `https://pypi.org/pypi/{name}/json` for every `pypi` recipe |
+| npm | `https://registry.npmjs.org/{name}` for every `npm` recipe |
+| Nixpkgs | Local checkout (`NIXPKGS_ROOT`) if present; otherwise GitHub raw (`NixOS/nixpkgs`) |
+| FreeBSD Ports | Local checkout (`PORTS_ROOT` or `/usr/ports`); otherwise GitHub raw (`freebsd/freebsd-ports`) |
+
+The package list is `specs/*.json`. Refresh updates those files in place (canonical
+names stay put) and `make fabric-ingest` derives `fabric/packages/`. Hand fixtures
+under `examples/` are not restocked. Cargo is imported only when a recipe already
+names that ecosystem.
+
+`reports/` seed lists and `snapshots/` remain available for **growing** the corpus
+(bootstrap a full tree walk, rank, bulk-build). They are not required to keep
+existing fingerprints current.
+
 ---
 
 ## Architecture

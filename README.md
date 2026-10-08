@@ -62,7 +62,9 @@ make fabric-deps PKG=requests     # outbound dependencies
 make fabric-rdeps PKG=urllib3     # who depends on urllib3
 make fabric-query FABRIC_LICENSE=MIT
 make fabric-query FABRIC_REPO=github.com/psf
-make fabric-ingest                # rebuild fabric/packages/ from specs/ + examples/
+make refresh                      # restock specs/ from live upstreams, then ingest
+make reingest                     # alias for make refresh
+make fabric-ingest                # rebuild fabric/packages/ from already-committed recipes
 ```
 
 Each package is `fabric/packages/<name>.json`. `git log -- fabric/packages/requests.json` is that row's history. Details: [docs/knowledge-fabric.md](docs/knowledge-fabric.md).
@@ -214,6 +216,8 @@ make fabric-show         One fingerprint (PKG=name)
 make fabric-deps         Outbound dependencies (PKG=name)
 make fabric-rdeps        Reverse dependencies (PKG=name)
 make fabric-query        Filter by FABRIC_LICENSE=, FABRIC_REPO=, FABRIC_ECOSYSTEM=, FABRIC_NAME=
+make refresh             Restock specs/ from live PyPI/npm/Nixpkgs/Ports, then ingest
+make reingest            Alias for make refresh
 make fabric-ingest       Rebuild fabric/packages/ from specs/ + examples/
 make fabric-validate     Validate committed fingerprints
 make test                Validate Z-specs then run test suite
@@ -300,5 +304,7 @@ Sir Reginald sat down on the printed schema. He had no notes. His position on th
 Years later the programmer returned to the ship with a larger crew of language models and a troubling inventory: hundreds of planks labeled "verified" that, on inspection, were three coats of varnish on the original hull. Sir Reginald, who had been napping inside a held-out crate the synthesizers were forbidden to open, declined to move. The crew wrote down what the libraries actually *did*, checked those notes against the real fittings, and attempted ten replica keels in an empty dry dock. None of the keels were laid twice by independent shipwrights, so none were certified to sail. The programmer announced that the product was the notes. The crew then catalogued fifteen more fittings that had always been honest Layer 2 oracles and still were not ships. Sir Reginald's tail, hanging out of the crate, was recorded as an abstention.
 
 Later still the programmer admitted the notes-as-product story had the same shape as the replica-keel story: a lot of ceremony around a thing almost nobody could actually *build*. Sir Reginald, who had relocated from the held-out crate to the `.git` directory and was shedding on the objects, suggested an alternative so obvious it was slightly insulting. Stop asking whether the ship can be rebuilt from a description of how it sails. Ask whether you know whose ship it is, where the plans live, what license is painted on the transom, and which other vessels are lashed to it. Put each answer in a file. Let git be the harbourmaster's ledger. The programmer called this a "knowledge fabric," which was a grand name for a directory of JSON, and Sir Reginald called it "finally writing things down in the one database that was already there." He did not get up.
+
+The docks, of course, refused to stay still. PyPI renamed a tarball. npm shipped a patch. Nixpkgs moved a derivation two directories to the left and called it `by-name`. The programmer, who had previously restocked the ledger by rummaging for a snapshot directory that git was specifically instructed to forget, added a tide table: `make refresh`. Sir Reginald described this as "asking the harbour what is actually tied up today, rather than what was tied up in March," and returned to the objects.
 
 As of this writing, Theseus has been used in production by exactly one person, who also wrote it. Sir Reginald continues to withhold his endorsement across the chronicle, citing "procedural concerns," "insufficient tuna," "a general atmosphere of hubris," and a documented skepticism toward confidence fields that score their own uncertainty higher than 0.9 while the author admits he might be wrong.

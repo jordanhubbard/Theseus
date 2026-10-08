@@ -26,6 +26,8 @@ not stored, so they cannot drift.
 ## Commands
 
 ```bash
+make refresh                      # restock specs/ from live upstreams, then ingest
+make reingest                     # alias for make refresh
 make fabric-stats                 # coverage dashboard
 make fabric-show PKG=requests
 make fabric-deps PKG=requests     # who it depends on
@@ -38,6 +40,11 @@ make fabric-ingest FABRIC_JOBS=4
 make fabric-validate
 make fabric-history PKG=requests
 ```
+
+`make refresh` is the supported way to keep fingerprints current. It re-fetches
+the committed `specs/` corpus from PyPI, npm, and Nixpkgs/Ports (local tree or
+GitHub raw) and then runs ingest. `make fabric-ingest` alone only re-derives
+fingerprints from already-committed recipes.
 
 ## What is recorded
 

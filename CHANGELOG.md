@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Recipe restock as a first-class action: `make refresh` / `make reingest` re-fetch the committed `specs/` corpus from live PyPI and npm APIs and from Nixpkgs/Ports (local checkout or GitHub raw), then rebuild `fabric/packages/`. No `snapshots/` directory is required. `theseus/refresh.py`, `tools/refresh_recipes.py`.
 - OSS knowledge fabric ([ADR 0007](docs/decisions/0007-knowledge-fabric.md)): git-backed fingerprints under `fabric/packages/` with provenance, repository, license, and bidirectional dependencies. `theseus/fabric.py` + `tools/fabric.py` ingest from `specs/` and `examples/`, query the working tree or `git show <rev>:…`, and derive reverse deps. Makefile targets: `fabric-ingest`, `fabric-stats`, `fabric-show`, `fabric-deps`, `fabric-rdeps`, `fabric-query`, `fabric-validate`, `fabric-history`.
 - Fingerprint schema 1.1: parallel recipe ingest (`--jobs` / `FABRIC_JOBS`), `tracking` (maintainers, source paths, commits, distributions, dropped tokens), resolved vs dangling dependency edges, and `evidence.recreation=secondary` so recreation specs stay linked without outranking metadata collection.
 

@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold qualify qualify-check lint-gold-wrappers validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report fabric fabric-ingest fabric-stats fabric-show fabric-deps fabric-rdeps fabric-query fabric-validate fabric-history help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold qualify qualify-check lint-gold-wrappers validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report fabric fabric-ingest fabric-stats fabric-show fabric-deps fabric-rdeps fabric-query fabric-validate fabric-history refresh refresh-recipes reingest help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -31,6 +31,12 @@ FABRIC_ECOSYSTEM ?=
 FABRIC_NAME ?=
 FABRIC_REV ?=
 FABRIC_JOBS ?= 0
+REFRESH_JOBS ?= 8
+REFRESH_TIMEOUT ?= 15
+REFRESH_ECOSYSTEMS ?=
+PORTS_ROOT ?=
+NIXPKGS_REF ?= master
+PORTS_REF ?= main
 
 E2E_PACKAGE ?=
 E2E_RECORD ?=
@@ -63,6 +69,25 @@ fabric: fabric-stats
 
 fabric-ingest:
 	$(PYTHON) tools/fabric.py ingest $(FABRIC_SRC) --jobs $(FABRIC_JOBS)
+
+# Restock committed recipes from live upstreams, then rebuild fingerprints.
+# The corpus in specs/ is the index — no snapshots/ directory required.
+# Nixpkgs/Ports use a local checkout when NIXPKGS_ROOT / PORTS_ROOT exist,
+# otherwise GitHub raw. Override with --no-remote (NO_REMOTE=1).
+refresh-recipes:
+	$(PYTHON) tools/refresh_recipes.py --specs specs \
+		$(if $(wildcard $(NIXPKGS_ROOT)),--nixpkgs "$(NIXPKGS_ROOT)") \
+		$(if $(and $(PORTS_ROOT),$(wildcard $(PORTS_ROOT))),--ports "$(PORTS_ROOT)") \
+		--jobs $(REFRESH_JOBS) --timeout $(REFRESH_TIMEOUT) \
+		--nixpkgs-ref "$(NIXPKGS_REF)" --ports-ref "$(PORTS_REF)" \
+		$(if $(REFRESH_ECOSYSTEMS),--ecosystems "$(REFRESH_ECOSYSTEMS)") \
+		$(if $(DRY_RUN),--dry-run) \
+		$(if $(NO_REMOTE),--no-remote) \
+		$(if $(JSON),--json)
+
+refresh: refresh-recipes fabric-ingest
+
+reingest: refresh
 
 fabric-stats:
 	$(PYTHON) tools/fabric.py stats $(if $(FABRIC_REV),--rev $(FABRIC_REV)) $(if $(JSON),--json)
@@ -477,6 +502,9 @@ help:
 	@echo "  make fabric-rdeps   Reverse dependencies (PKG=name)"
 	@echo "  make fabric-query   Filter fingerprints (FABRIC_LICENSE=, FABRIC_REPO=, FABRIC_ECOSYSTEM=, FABRIC_NAME=)"
 	@echo "  make fabric-ingest  Rebuild fabric/packages from FABRIC_SRC (FABRIC_JOBS=0 auto, 1 serial)"
+	@echo "  make refresh        Restock specs/ from live upstreams, then fabric-ingest"
+	@echo "  make refresh-recipes  Restock specs/ only (NIXPKGS_ROOT=, PORTS_ROOT=, NO_REMOTE=1, DRY_RUN=1)"
+	@echo "  make reingest      Alias for make refresh"
 	@echo "  make fabric-validate  Validate committed fingerprints"
 	@echo "  make fabric-history Git log for one fingerprint (PKG=name)"
 	@echo "  make stop           No-op (batch tool, no daemon)"
@@ -563,3 +591,10 @@ help:
 	@echo "  IMPORT_TIMEOUT      HTTP timeout for PyPI/npm fetches in secs (default: 15)"
 	@echo "  SYNC_TARGETS        Space-separated rsync destinations (default: freebsd.local ubuntu.local)"
 	@echo "  FABRIC_JOBS         Parallel recipe ingest workers (0=auto, 1=serial)"
+	@echo "  REFRESH_JOBS        Parallel recipe refresh workers (default: 8)"
+	@echo "  REFRESH_TIMEOUT     HTTP timeout for refresh fetches (default: 15)"
+	@echo "  REFRESH_ECOSYSTEMS  Comma subset: pypi,npm,nixpkgs,freebsd_ports"
+	@echo "  PORTS_ROOT          FreeBSD Ports checkout for refresh (default: /usr/ports if present)"
+	@echo "  NIXPKGS_REF / PORTS_REF  GitHub refs for raw fallback (master / main)"
+	@echo "  NO_REMOTE           Set to skip GitHub raw when local trees are missing"
+	@echo "  DRY_RUN             Set to fetch/report without writing specs/"

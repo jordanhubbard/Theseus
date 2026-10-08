@@ -15,8 +15,17 @@ Theseus is a batch analysis toolchain. There is no server and no SQL database. P
 ```
 Source Trees (Nixpkgs, FreeBSD Ports, PyPI, npm)
         │
+        ├─► make refresh / make reingest     ← supported restock (no snapshots/ required)
+        │         PyPI + npm JSON APIs
+        │         Nixpkgs/Ports checkout or GitHub raw
+        │         ▼
+        │   specs/*.json                     ← committed corpus (the index)
+        │         │
+        │         ▼
+        │   tools/fabric.py ingest           ← git is the database
+        │
         ▼
-  tools/bootstrap_canonical_recipes.py   ← walks source trees; run by user
+  tools/bootstrap_canonical_recipes.py   ← optional: grow the corpus from full tree walks
         │
         ▼
     snapshots/<date>/                ← ephemeral: one JSON file per package per ecosystem
@@ -122,6 +131,22 @@ Three common `MASTERDIR` patterns are resolved:
 If `MASTERDIR` contains unresolvable make variables or the resolved path does not exist, the port is still imported with a warning rather than silently skipped.
 
 ### Tools
+
+#### `tools/refresh_recipes.py`
+
+Corpus-first restock (`make refresh` / `make reingest`). Re-fetches every
+committed recipe in `specs/` from live PyPI and npm APIs and from Nixpkgs /
+FreeBSD Ports (local checkout when `NIXPKGS_ROOT` / `PORTS_ROOT` exist,
+otherwise GitHub raw). Writes updated recipes in place, preserving
+`canonical_name`, then `make fabric-ingest` rebuilds fingerprints. Does not
+require a `snapshots/` directory. Hand fixtures under `examples/` are left
+alone.
+
+```bash
+make refresh
+make refresh-recipes DRY_RUN=1
+python3 tools/refresh_recipes.py --specs specs --jobs 8
+```
 
 #### `tools/overlap_report.py`
 
@@ -479,6 +504,7 @@ Tests live in `tests/`. Run with `make test` (requires `pytest`).
 | `tests/conftest.py` | Adds repo root and `tools/` to `sys.path` |
 | `tests/test_schema.py` | JSON Schema structure and all example records |
 | `tests/test_fabric.py` | Fingerprint ingest, git-backed queries, deps/rdeps, committed fabric |
+| `tests/test_refresh_recipes.py` | Corpus-first restock from PyPI/npm/Nixpkgs/Ports (local or GitHub raw) |
 | `tests/test_bootstrap.py` | Bootstrap importer parsing functions and import runners |
 | `tests/test_overlap_report.py` | Overlap report logic |
 | `tests/test_top_candidates.py` | Candidate scoring and ranking |

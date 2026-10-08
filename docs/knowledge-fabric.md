@@ -50,6 +50,8 @@ mapping, not a legal determination.
 ## Commands
 
 ```bash
+make refresh                    # restock specs/ from live upstreams, then ingest
+make reingest                   # alias for make refresh
 make fabric-ingest              # specs/ + examples/ → fabric/packages/ (parallel)
 make fabric-ingest FABRIC_JOBS=4
 make fabric-stats               # how much we know
@@ -71,13 +73,14 @@ resulting JSON; that commit *is* the write.
 ## How records enter the fabric
 
 ```
-Nixpkgs / Ports / PyPI / npm recipes
+Nixpkgs / Ports / PyPI / npm  (live)
         │
         ▼
-  theseus/importer.py  →  snapshots/ (ephemeral)
-        │
+  make refresh   →  theseus/refresh.py
+        │             PyPI + npm JSON APIs
+        │             Nixpkgs/Ports checkout or GitHub raw
         ▼
-  specs/ + examples/   →  committed package recipes
+  specs/         ←  committed corpus (the index)
         │
         ▼
   tools/fabric.py ingest --jobs N   ← parallel recipe conversion

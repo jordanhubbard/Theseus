@@ -1,6 +1,6 @@
 # Theseus Implementation Plan
 
-> **Status (2026-10-07):** The product is an OSS knowledge fabric stored in git ([ADR 0007](docs/decisions/0007-knowledge-fabric.md)). Fingerprints live at `fabric/packages/`. Spec-driven recreation remains brittle and is not the shipping claim ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Prefer growing repository/license/graph coverage over synthesis waves.
+> **Status (2026-10-07):** The product is an OSS knowledge fabric stored in git ([ADR 0007](docs/decisions/0007-knowledge-fabric.md)). Fingerprints live at `fabric/packages/`. Restock with `make refresh` / `make reingest` (live PyPI, npm, Nixpkgs, Ports → `specs/` → fabric ingest). Spec-driven recreation remains brittle and is not the shipping claim ([ADR 0005](docs/decisions/0005-characterization-is-the-product.md)). Prefer growing repository/license/graph coverage over synthesis waves.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

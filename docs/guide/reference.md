@@ -548,6 +548,13 @@ Arguments:
 | `FABRIC_LICENSE` / `FABRIC_REPO` / `FABRIC_ECOSYSTEM` / `FABRIC_NAME` | (none) | Filters for `make fabric-query` |
 | `FABRIC_REV` | (none) | Git revision for fabric queries (`--rev`) |
 | `FABRIC_SRC` | `specs examples` | Ingest inputs for `make fabric-ingest` |
+| `REFRESH_JOBS` | `8` | Parallel workers for `make refresh` / `make refresh-recipes` |
+| `REFRESH_TIMEOUT` | `15` | HTTP timeout (seconds) for recipe restock |
+| `REFRESH_ECOSYSTEMS` | (all) | Comma subset: `pypi,npm,nixpkgs,freebsd_ports` |
+| `PORTS_ROOT` | `/usr/ports` if present | FreeBSD Ports checkout for refresh |
+| `NIXPKGS_REF` / `PORTS_REF` | `master` / `main` | GitHub refs when trees are fetched via raw |
+| `NO_REMOTE` | (unset) | Skip GitHub raw fallback |
+| `DRY_RUN` | (unset) | Fetch/report without writing `specs/` |
 | `ZSPEC` | `_build/zspecs/zlib.zspec.json` | Spec for `make verify-behavior` |
 | `ZSDL` | (all) | ZSDL file for `make compile-zsdl` |
 | `FILTER` | (none) | Invariant id filter for `make verify-behavior` |

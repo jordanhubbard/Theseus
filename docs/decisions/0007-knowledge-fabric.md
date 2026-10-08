@@ -62,6 +62,9 @@ characterization depth and not qualified reimplementations.
 - README, AGENTS.md, PLAN.md, architecture, and the user guide describe
   the fabric first.
 - `make start` reports fabric coverage.
+- `make refresh` / `make reingest` restock committed recipes from live
+  upstreams and rebuild fingerprints. Keeping the fabric current does not
+  require a prior `snapshots/` directory.
 - New work prefers ingesting, querying, and tightening fingerprints
   over expanding synthesis waves.
 - A later reversal requires a superseding ADR.

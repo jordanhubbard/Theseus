@@ -893,7 +893,8 @@ For full authoring rules, see `docs/cleanroom-spec-format.md`.
 | `make fabric-rdeps PKG=<name>` | Who depends on this package |
 | `make fabric-query FABRIC_LICENSE=<id>` | Filter by license |
 | `make fabric-query FABRIC_REPO=<substr>` | Filter by repository URL |
-| `make fabric-ingest` | Rebuild `fabric/packages/` from recipes |
+| `make refresh` / `make reingest` | Restock `specs/` from live upstreams, then rebuild fingerprints |
+| `make fabric-ingest` | Rebuild `fabric/packages/` from already-committed recipes |
 | `make fabric-validate` | Validate committed fingerprints |
 | `python3 tools/fabric.py --rev HEAD~1 stats` | Query a historical git snapshot |
 
@@ -990,6 +991,7 @@ Outbound dependencies are stored. Reverse dependencies are derived from that
 graph at query time. Ingest from committed recipes:
 
 ```bash
+make refresh          # restock specs/ from live upstreams, then ingest
 make fabric-ingest    # specs/ + examples/ → fabric/packages/
 ```
 
