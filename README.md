@@ -259,6 +259,8 @@ make sync           # rsync to SYNC_TARGETS (excludes snapshots/)
 
 No runtime configuration is required. All behavior is controlled by command-line arguments and Makefile variables.
 
+Track work with [GitHub Issues](https://github.com/jordanhubbard/Theseus/issues) (`gh issue list`). Do not use Beads or Dolt.
+
 ---
 
 ## License
