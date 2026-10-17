@@ -13,8 +13,8 @@ The loop:
   1. Validate authority + ledger
   2. Compile and verify the public Layer 2 oracle against the installed library
   3. Run live probes (installed API only; no implementation source)
-  4. If a held-out oracle exists, compile + verify it and run held_out_guard
-     when a clean-room public spec is also declared
+  4. With --include-research, also verify clean-room/held-out oracles and
+     run held_out_guard. Research implementations must be available.
 
 Does not mark anything qualified (ADR 0001 / 0003).
 """
@@ -173,7 +173,7 @@ def _skip_reason(family):
     return None
 
 
-def characterize(family: str, verbose=False):
+def characterize(family: str, verbose=False, include_research=False):
     rec = load_family(family)
     meta = rec["meta"]
     skip = _skip_reason(family)
@@ -200,13 +200,13 @@ def characterize(family: str, verbose=False):
         print("skip public verify:", public_result.get("reason"))
 
     cr = meta.get("cleanroom_oracle")
-    if cr:
+    if cr and include_research:
         cr_path = _REPO_ROOT / cr
         c_compiled, c_out = _compile(cr_path)
         steps.append(("cleanroom_oracle", _verify_compiled(c_compiled, c_out)))
 
     held = meta.get("held_out_oracle")
-    if held:
+    if held and include_research:
         held_path = _REPO_ROOT / held
         h_compiled, h_out = _compile(
             held_path, "held_out_{}.zspec.json".format(family)
@@ -292,6 +292,8 @@ def main(argv=None):
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--verbose", "-v", action="store_true")
+    parser.add_argument("--include-research", action="store_true",
+                        help="Also verify optional clean-room and held-out research oracles")
     args = parser.parse_args(argv)
     if args.list:
         for name in list_families():
@@ -303,7 +305,7 @@ def main(argv=None):
     failed = []
     for family in families:
         try:
-            characterize(family, verbose=args.verbose)
+            characterize(family, verbose=args.verbose, include_research=args.include_research)
         except Exception as exc:
             failed.append((family, str(exc)))
             print("FAIL {}: {}".format(family, exc), file=sys.stderr)
