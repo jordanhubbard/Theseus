@@ -117,9 +117,8 @@ class TestTypingExtensionsVersion:
 
 class TestTypingExtensionsNames:
     def test_Literal_present(self, registry):
-        # Match the spec's substring approach — the exact internal class name
-        # has shifted across typing_extensions releases (_TypedCacheSpecialForm
-        # vs _SpecialForm depending on version + Python release).
+        # Exercise literal arguments; internal special-form class names vary
+        # across Python and typing_extensions versions.
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
