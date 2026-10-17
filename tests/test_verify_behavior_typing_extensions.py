@@ -123,9 +123,10 @@ class TestTypingExtensionsNames:
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
-                "function": "Literal.__class__.__name__.__contains__",
-                "args": ["SpecialForm"],
-                "expected": True,
+                "function": "Literal.__getitem__",
+                "args": [1],
+                "method": "__args__",
+                "expected": [1],
             },
         })
         assert ok, msg
