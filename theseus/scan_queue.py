@@ -11,7 +11,8 @@ import json
 import os
 import re
 import tempfile
-from collections import defaultdict
+from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -123,7 +124,7 @@ def _atomic_json(path: Path, data: dict) -> None:
             os.unlink(tmp)
 
 
-def run(root: Path, queue: dict, *, limit: int = 20, timeout: int = 15,
+def run(root: Path, queue: dict, *, limit: int = 20, timeout: int = 15, jobs: int = 1,
         ecosystems: Optional[list] = None, packages: Optional[list] = None,
         refresh_covered: bool = False) -> dict:
     """One finite batch in priority order; failures leave old evidence unchanged.
@@ -133,6 +134,8 @@ def run(root: Path, queue: dict, *, limit: int = 20, timeout: int = 15,
     """
     if not 1 <= limit <= 500 or not 1 <= timeout <= 120:
         raise ValueError('limit must be 1..500 and timeout 1..120 seconds')
+    if not 1 <= jobs <= 16:
+        raise ValueError('jobs must be 1..16')
     if queue.get('schema') != 'theseus-scan-queue@1':
         raise ValueError('unsupported queue schema')
     root = Path(root)
@@ -148,6 +151,7 @@ def run(root: Path, queue: dict, *, limit: int = 20, timeout: int = 15,
             existing[_key(ident['canonical_name'], eco)] = (path, record)
             if eco == ident.get('ecosystem') and ident.get('ecosystem_id'):
                 existing[_key(ident['ecosystem_id'], eco)] = (path, record)
+    selected = []
     for entry in entries:
         ecosystem, name = entry['ecosystem'], entry['name']
         key = _key(name, ecosystem)
@@ -162,14 +166,43 @@ def run(root: Path, queue: dict, *, limit: int = 20, timeout: int = 15,
         if len(attempted) >= limit:
             break
         attempted.add(key)
+        selected.append(entry)
+
+    def fetch(entry):
+        ecosystem, name = entry['ecosystem'], entry['name']
+        if not (_NPM.fullmatch(name) if ecosystem == 'npm' else _NAME.fullmatch(name)):
+            raise ValueError('invalid registry package name')
+        loader = importer.pypi_record if ecosystem == 'pypi' else importer.npm_record
+        record = loader(name, timeout=timeout)
+        if not record:
+            raise ValueError('registry metadata unavailable')
+        return record
+
+    def fetched():
+        # At most jobs metadata results are in flight or retained. Commit in rank
+        # order on the caller thread; workers never mutate recipes or the fabric.
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            remaining = iter(selected)
+            pending = deque((entry, pool.submit(fetch, entry)) for entry in
+                            [next(remaining, None) for _ in range(min(jobs, len(selected)))])
+            while pending:
+                entry, future = pending.popleft()
+                try:
+                    record, error = future.result(), None
+                except Exception as exc:
+                    record, error = None, exc
+                yield entry, record, error
+                entry = next(remaining, None)
+                if entry is not None:
+                    pending.append((entry, pool.submit(fetch, entry)))
+
+    for entry, record, error in fetched():
+        ecosystem, name = entry['ecosystem'], entry['name']
+        key = _key(name, ecosystem)
         result = dict(name=name, ecosystem=ecosystem, ref_count=entry['ref_count'])
         try:
-            if not (_NPM.fullmatch(name) if ecosystem == 'npm' else _NAME.fullmatch(name)):
-                raise ValueError('invalid registry package name')
-            fetch = importer.pypi_record if ecosystem == 'pypi' else importer.npm_record
-            record = fetch(name, timeout=timeout)
-            if not record:
-                raise ValueError('registry metadata unavailable')
+            if error is not None:
+                raise error
             ident = record.get('identity') or {}
             if ident.get('ecosystem') != ecosystem or normalized(ident.get('ecosystem_id') or ident.get('canonical_name', ''), ecosystem) != key[1]:
                 raise ValueError('registry returned a different package identity')
@@ -204,6 +237,6 @@ def run(root: Path, queue: dict, *, limit: int = 20, timeout: int = 15,
                 row.update(state='failed', error='fingerprint validation failed: %s' % errors)
     return dict(schema='theseus-scan-run@1', source_sha256=queue['source_sha256'],
                 stale_plan=queue['source_sha256'] != current['source_sha256'],
-                attempted=len(results), scanned=sum(r['state'] == 'scanned' for r in results),
+                jobs=jobs, attempted=len(results), scanned=sum(r['state'] == 'scanned' for r in results),
                 failed=sum(r['state'] == 'failed' for r in results), results=results,
                 ingestion=ingestion)

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Repair full-corpus CI contracts across supported Python/platform versions, add structured public-API fixtures and retain availability-specific checks.
+- Bound registry scan concurrency while preserving priority writes; stop inventing PyPI build dependencies, retain raw dependency/license metadata, refresh 117 recipes and scan the next 20 referenced packages.
+
 ### Added
 - A derived dependency-reference scan queue with finite PyPI/npm metadata batches,
   covered/manual states, scoped npm identities, safe retry behavior and source digests.

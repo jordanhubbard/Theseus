@@ -134,3 +134,41 @@ def test_batch_ingest_preserves_unchanged_fingerprint_bytes(tmp_path):
     data['summary']='Actual new evidence'
     fabric.write_fingerprint(path,data)
     assert json.loads(path.read_text())['summary']=='Actual new evidence'
+
+
+def test_bounded_parallel_metadata_fetch_commits_and_reports_in_priority_order(tmp_path):
+    from threading import Barrier, Lock, current_thread, main_thread
+    from theseus import scan_queue
+    recipe(tmp_path, 'consumer', {'runtime': ['one', 'two', 'three', 'four']})
+    queue = plan(tmp_path)
+    records = {name: recipe(tmp_path / 'upstream', name, covered=False) for name in ['one', 'two', 'three', 'four']}
+    barrier, lock = Barrier(2), Lock()
+    active, peak = 0, 0
+    writes = []
+    atomic = scan_queue._atomic_json
+    def fetch(name, timeout):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        barrier.wait(timeout=5)
+        with lock:
+            active -= 1
+        return records[name]
+    def write(path, data):
+        assert current_thread() is main_thread()
+        writes.append(data['identity']['canonical_name'])
+        atomic(path, data)
+    with patch.object(scan_queue.importer, 'pypi_record', side_effect=fetch), patch.object(scan_queue, '_atomic_json', side_effect=write):
+        report = run(tmp_path, queue, jobs=2)
+    expected = [e['name'] for e in queue['entries'] if e['state'] == 'pending']
+    assert report['scanned'] == 4 and report['failed'] == 0
+    assert [r['name'] for r in report['results']] == writes == expected
+    assert peak == 2
+    assert run(tmp_path, queue, jobs=2)['attempted'] == 0
+
+
+@pytest.mark.parametrize('jobs', [0, 17])
+def test_invalid_worker_bounds_are_rejected_before_fetch(tmp_path, jobs):
+    with pytest.raises(ValueError, match='jobs'):
+        run(tmp_path, plan(tmp_path), jobs=jobs)

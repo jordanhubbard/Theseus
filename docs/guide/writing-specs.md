@@ -381,3 +381,22 @@ _PACKAGE_ALIASES: dict[str, str] = {
     "my_package":  "mylib",  # underscore variant
 }
 ```
+
+## Portable Python fixtures and version contracts
+
+Use structured fixtures for values from the declared library: `{type: module_attr,
+value: opmap, key: LOAD_CONST}` looks up `dis.opmap["LOAD_CONST"]` when the
+library is `dis`. `{type: module_call, value: find_spec, args: [json]}` calls
+`importlib.util.find_spec` when that is the declared library. Dotted attribute
+paths are supported; expression strings and arbitrary imports are rejected.
+`{type: builtin, value: len}` supplies a whitelisted builtin callable, for example
+to `inspect.signature`. These are public API fixtures, not serialized source code.
+
+Prefer round trips and documented public properties over host release numbers,
+private implementation class names, numeric OS constants, MIME database choices,
+or exact compression headers. Gate a feature introduced in Python 3.10 or 3.12
+at its documented availability, rather than skipping a whole module/platform.
+When metadata changes between supported versions, retain explicit checks for both
+contracts using complementary `skip_if` version conditions. FreeBSD's versioned
+`sys.platform` is normalized to `freebsd` in skip contexts. C string version
+functions may declare `args_int: [0]` where the API requires a selector.

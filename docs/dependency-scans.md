@@ -5,7 +5,7 @@ use the dependency frontier:
 
 ```sh
 make scan-queue
-make scan SCAN_LIMIT=20
+make scan SCAN_LIMIT=20 SCAN_JOBS=4
 make scan SCAN_ECOSYSTEM=pypi SCAN_LIMIT=20
 ```
 
@@ -22,7 +22,7 @@ preserved. Counts are catalog references, not download counts, global popularity
 or references measured in oss-tracker's project database. Each plan carries a
 source digest, exact referrers and covered/pending/manual states.
 
-Batches are finite, execute in reference order, and skip packages already covered
+Batches are finite, fetch metadata with bounded concurrency (1–16 workers), commit recipes in reference order, and skip packages already covered
 when resuming an older queue. Registry failures preserve prior evidence and fail
 the command visibly; successful items are still ingested. Recipes use atomic
 replacement. Scoped npm registry IDs map to Theseus's filesystem-safe canonical
@@ -83,23 +83,50 @@ existing importer can consume new packages without a submodule or importer chang
 
 ## Recorded verification (2026-10-20)
 
-Two finite batches added 20 missing Python and 20 missing npm packages, including
-SciPy, `@types/node` and `@babel/core`; one explicit scan refreshed existing NumPy.
-The fabric validates all 272 fingerprints. The refreshed frontier has 643 pending
-registry entries and 278 manual entries; covered entries are skipped on resume.
-Those are snapshot counts, not a maintained reverse index or a promise of complete
-OSS coverage.
+Three finite batches added 20 missing Python and 40 missing npm packages,
+including SciPy, `@types/node`, `@babel/core`, Chai and Vitest; one explicit scan
+refreshed NumPy. A metadata repair refreshed all 117 PyPI recipes without registry
+failures. The fabric validates 292 fingerprints. The latest derived frontier has
+846 pending registry entries, 187 covered targets and 278 manual entries. Scanning
+new packages exposes further references; these are snapshot counts, not a promise
+of complete OSS coverage.
 
-The queue/fabric/refresh/ranking tests pass all 100 cases; strict documentation
-build passes. The existing oss-tracker importer accepted all 272 canonical recipes
-without errors in a disposable in-memory database, including NumPy and SciPy. No
-oss-tracker deployment or application database was changed.
+The published CI repair branch is included, together with corrections to public
+API contracts that previously pinned Python 3.14/macOS observations. The local
+suite passes 4901 tests with 913 optional dependency skips. Clean Linux containers
+pass the full available corpus on Python 3.9 and 3.12; explicit availability gates
+cover versioned APIs without disabling the corpus check. Hosted matrix and FreeBSD
+CI remain the merge authority. Structured fixture regression tests cover module
+references, callable inputs, None-valued attributes, dotted membership, FreeBSD
+platform normalization and C version-function arguments.
 
-The full local suite has the same six historical characterization/qualification
-failures as the baseline: 4880 passed and 913 optional skips after this work,
-compared with 4866 passed and 913 skips before it. They are tracked by
-[Theseus #11](https://github.com/jordanhubbard/Theseus/issues/11); the separate
-[repair PR #12](https://github.com/jordanhubbard/Theseus/pull/12) still has failing
-Linux/FreeBSD CI. This queue work does not modify research authorities to bypass
-those gates. The repository's no-failing-test-push rule keeps this change local
-until that baseline is repaired.
+oss-tracker's existing importer accepted all 292 canonical recipes without failures
+in a disposable in-memory database (0.184 seconds including schema setup), including
+NumPy 2.5.4 and SciPy 1.18.1. Production Git sync must
+be verified against the exact merged main commit; local catalog changes alone do
+not establish deployment or application import success.
+
+## Ingestion throughput and metadata limits
+
+`SCAN_JOBS` defaults to four at the CLI. At most that many requests/results are
+retained concurrently; writes stay serialized and atomic in priority order.
+The scanner ingests the catalog once after a batch, rather than rebuilding it
+for each fetched package. Timestamp-only fabric rewrites are avoided. Existing
+recipe refresh already supports parallel requests through `--jobs`.
+
+PyPI JSON does not establish build requirements: the importer leaves build
+edges empty and records this limitation instead of assigning setuptools/wheel
+to every package. Original `requires_dist`, SPDX `license_expression` and legacy
+license text are retained for audit. Runtime edges remain a simplified registry
+projection; conditional markers and extras require the retained raw metadata.
+No package source is downloaded to infer missing facts.
+
+The next throughput limits remain distinct from registry fetching: plans read the
+catalog to derive reference counts, fabric ingestion validates the full batch,
+and optional behavioral qualification starts many library/Node processes. Keep
+those expensive behavioral gates separate from ordinary metadata ingestion.
+Use a fresh compilation directory for corpus qualification: an existing ignored
+`_build/zspecs` directory can retain JSON for removed source files (12 stale files
+were present in the inspected development checkout). Hosted jobs use clean
+checkouts. No compiler output or behavioral report is an authoritative package
+recipe, and a missing library stays explicitly skipped rather than passing.

@@ -17,6 +17,7 @@ def main(argv=None):
     parser.add_argument('--queue', type=Path, default=ROOT / 'reports/scan-queue.json')
     parser.add_argument('--report', type=Path, default=ROOT / 'reports/scan-results.json')
     parser.add_argument('--limit', type=int, default=20)
+    parser.add_argument('--jobs', type=int, default=4, help='Bounded concurrent registry requests (1..16)')
     parser.add_argument('--timeout', type=int, default=15)
     parser.add_argument('--ecosystem', action='append', choices=['pypi', 'npm'])
     parser.add_argument('--package', action='append', help='Exact ecosystem:name from queue')
@@ -29,7 +30,7 @@ def main(argv=None):
             print(json.dumps(dict(queue=str(args.queue), counts=result['counts'])))
         else:
             result = run(args.root, json.loads(args.queue.read_text()), limit=args.limit,
-                         timeout=args.timeout, ecosystems=args.ecosystem, packages=args.package,
+                         timeout=args.timeout, jobs=args.jobs, ecosystems=args.ecosystem, packages=args.package,
                          refresh_covered=args.refresh_covered)
             _atomic_json(args.report, result)
             print(json.dumps(result, indent=2))

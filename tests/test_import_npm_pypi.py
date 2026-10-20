@@ -164,11 +164,13 @@ class TestImportPypi:
         rec = json.loads((tmp_path / "requests.json").read_text())
         assert rec["build"]["system_kind"] == "pypi"
 
-    def test_build_deps_include_setuptools(self, tmp_path):
+    def test_registry_metadata_does_not_invent_build_requirements(self, tmp_path):
         with patch.object(imp, "_fetch_json", return_value=_pypi_response()):
             imp.import_pypi(["requests"], tmp_path)
         rec = json.loads((tmp_path / "requests.json").read_text())
-        assert "setuptools" in rec["dependencies"]["build"]
+        assert rec["dependencies"]["build"] == []
+        assert rec["extensions"]["pypi"]["build_requirements_state"] == "unavailable_from_registry_metadata"
+        assert any("Build requirements" in warning for warning in rec["provenance"]["warnings"])
 
     def test_no_requires_dist_gives_empty_runtime(self, tmp_path):
         data = _pypi_response()
@@ -518,3 +520,17 @@ class TestSeedFromPorts:
         _write_port_record(tmp_path, "${pypi-name:tl}", "devel/py-badport", pypi_source=True)
         names = seed_pypi(tmp_path)
         assert not any("$" in n for n in names)
+
+
+def test_pypi_keeps_spdx_expression_raw_license_and_conditional_dependencies():
+    data = _pypi_response(license_='Legacy free text')
+    data['info']['license_expression'] = 'MIT AND BSD-3-Clause'
+    data['info']['requires_dist'] = ['requests>=2; python_version >= "3.9"', 'pytest; extra == "test"']
+    with patch.object(imp, '_fetch_json', return_value=data):
+        record = imp.pypi_record('requests')
+    assert record['descriptive']['license'] == ['MIT AND BSD-3-Clause']
+    metadata = record['extensions']['pypi']
+    assert metadata['license_text'] == 'Legacy free text'
+    assert metadata['license_expression'] == 'MIT AND BSD-3-Clause'
+    assert metadata['requires_dist'] == data['info']['requires_dist']
+    assert record['dependencies']['build'] == []

@@ -1602,7 +1602,8 @@ def pypi_record(pkg_name: str, *, timeout: int = 15) -> dict | None:
 
     # License
     license_str = (info.get("license") or "").strip()
-    licenses = [license_str] if license_str else []
+    license_expression = (info.get("license_expression") or "").strip()
+    licenses = [license_expression or license_str] if license_expression or license_str else []
 
     # Homepage
     homepage = (info.get("home_page") or "").strip()
@@ -1626,6 +1627,10 @@ def pypi_record(pkg_name: str, *, timeout: int = 15) -> dict | None:
     pypi_extension = {
         "requires_python": (info.get("requires_python") or "").strip(),
         "classifiers": (info.get("classifiers") or [])[:10],
+        "requires_dist": info.get("requires_dist") or [],
+        "license_expression": license_expression,
+        "license_text": license_str,
+        "build_requirements_state": "unavailable_from_registry_metadata",
         "source_repository": source_repository,
     }
     if source_repository_provenance:
@@ -1654,7 +1659,7 @@ def pypi_record(pkg_name: str, *, timeout: int = 15) -> dict | None:
             "sha256": source_sha256,
         }] if source_url else []),
         "dependencies": {
-            "build": ["setuptools", "wheel"],
+            "build": [],
             "host": [],
             "runtime": runtime_deps,
             "test": [],
@@ -1675,7 +1680,7 @@ def pypi_record(pkg_name: str, *, timeout: int = 15) -> dict | None:
             "source_repo_commit": None,
             "confidence": 0.9,
             "unmapped": [],
-            "warnings": [],
+            "warnings": ["Build requirements are unavailable from PyPI JSON metadata; no build dependencies inferred."],
         },
         "extensions": {
             "pypi": pypi_extension

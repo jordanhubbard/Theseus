@@ -27,6 +27,7 @@ SCAN_QUEUE ?= reports/scan-queue.json
 SCAN_REPORT ?= reports/scan-results.json
 SCAN_LIMIT ?= 20
 SCAN_TIMEOUT ?= 15
+SCAN_JOBS ?= 4
 SCAN_ECOSYSTEM ?=
 FABRIC_SRC ?= specs examples
 PKG ?=
@@ -100,7 +101,7 @@ scan-queue:
 
 scan: scan-queue
 	$(PYTHON) tools/scan_queue.py run --queue "$(SCAN_QUEUE)" --report "$(SCAN_REPORT)" \
-		--limit "$(SCAN_LIMIT)" --timeout "$(SCAN_TIMEOUT)" \
+		--limit "$(SCAN_LIMIT)" --timeout "$(SCAN_TIMEOUT)" --jobs "$(SCAN_JOBS)" \
 		$(if $(SCAN_ECOSYSTEM),--ecosystem "$(SCAN_ECOSYSTEM)")
 	$(PYTHON) tools/scan_queue.py plan --queue "$(SCAN_QUEUE)"
 

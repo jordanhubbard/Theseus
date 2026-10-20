@@ -637,6 +637,8 @@ class TestSkipIfContext:
         ctx = vb._build_skip_context("1.0")
         if sys.platform.startswith("linux"):
             assert ctx["platform"] == "linux"
+        elif sys.platform.startswith("freebsd"):
+            assert ctx["platform"] == "freebsd"
         else:
             assert ctx["platform"] == sys.platform
 
