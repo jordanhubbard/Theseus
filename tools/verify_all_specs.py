@@ -146,6 +146,9 @@ def main(argv: list[str] | None = None) -> int:
                 any_failed = True
         elif s["failed"]:
             print(f"FAIL  ({s['failed']}/{s['total']} failed)")
+            for invariant in result["invariants"]:
+                if not invariant["passed"]:
+                    print(f"    {invariant['id']}: {invariant['message']}")
             any_failed = True
         else:
             print(f"OK    ({s['passed']} passed, {s['skipped']} skipped)")

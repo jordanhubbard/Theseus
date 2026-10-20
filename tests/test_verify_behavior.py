@@ -545,6 +545,8 @@ class TestInvariantRunner:
         expected_platform = sys.platform
         if expected_platform.startswith("linux"):
             expected_platform = "linux"
+        elif expected_platform.startswith("freebsd"):
+            expected_platform = "freebsd"
         spec_copy = dict(zlib_spec, invariants=[
             dict(zlib_spec["invariants"][0], skip_if=f'platform == "{expected_platform}"')
         ])

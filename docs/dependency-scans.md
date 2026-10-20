@@ -74,7 +74,12 @@ Recurring source sync is opt-in: `THESEUS_SYNC_ENABLED=true`, with
 `THESEUS_SYNC_INTERVAL_SECONDS` defaulting to 86400, through the existing
 scheduled automation. Defaults have sync disabled and no Git URL. Deployment
 Compose mounts `${DEPLOY_STATE_DIR}/theseus` read-only at `/data/theseus`; a
-read-only mount must be updated outside the container, then imported. The OSRB
+read-only mount must be updated outside the container, then imported. A deployment
+that supports a configurable `THESEUS_LOCAL_PATH` can instead select a dedicated
+writable checkout under its existing persistent storage mount (for example
+`/data/storage/theseus-git`), set `THESEUS_GIT_URL` to the catalog repository and
+`THESEUS_GIT_REF=main`, and enable the existing recurring sync. Do not point it
+at an operator development checkout. The OSRB
 Compose variant uses `THESEUS_HOST_PATH`. These settings describe the repository's
 supported paths, not a claim that a particular deployment has imported this batch.
 
@@ -93,7 +98,7 @@ of complete OSS coverage.
 
 The published CI repair branch is included, together with corrections to public
 API contracts that previously pinned Python 3.14/macOS observations. The local
-suite passes 4901 tests with 913 optional dependency skips. Clean Linux containers
+suite passes 4902 tests with 913 optional dependency skips. Clean Linux containers
 pass the full available corpus on Python 3.9 and 3.12; explicit availability gates
 cover versioned APIs without disabling the corpus check. Hosted matrix and FreeBSD
 CI remain the merge authority. Structured fixture regression tests cover module
@@ -130,3 +135,9 @@ Use a fresh compilation directory for corpus qualification: an existing ignored
 were present in the inspected development checkout). Hosted jobs use clean
 checkouts. No compiler output or behavioral report is an authoritative package
 recipe, and a missing library stays explicitly skipped rather than passing.
+
+Corpus failures print their invariant IDs and messages in the CI log as well as
+writing JSON. This makes failures inside the FreeBSD guest diagnosable even when
+its temporary pytest artifacts are unavailable to the host upload step. Platform
+checks use explicit Linux, Darwin and FreeBSD contracts; floating-point identities
+allow documented double-precision rounding rather than host-specific last bits.
