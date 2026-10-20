@@ -61,3 +61,22 @@ strings across ecosystems are unioned, not silently dropped.
 `make fabric-stats` reports how many fingerprints have a repository, a license,
 outbound deps, inbound dependents, and an optional Layer 2 spec. Growing those
 counts is the work.
+
+
+## Prioritized dependency scans
+
+`make scan-queue` derives `reports/scan-queue.json` from committed recipes and
+fingerprints. Each dependency is ranked by the number of distinct consuming
+canonical packages, deduplicated across scopes, recipe copies and fingerprints.
+Registry namespaces stay separate, PyPI spelling aliases normalize, and scoped
+npm names remain intact. Counts describe this catalog; they are not download
+statistics, global popularity or references in a separate application's database.
+
+`make scan SCAN_LIMIT=20` fetches one finite batch of missing PyPI/npm metadata,
+rebuilds and validates fingerprints, then refreshes the frontier. Add
+`SCAN_ECOSYSTEM=pypi` to restrict the batch. Existing recipes/fingerprints are
+covered and skipped; unsupported sources remain explicit manual work, with no
+attempt to guess a registry from a native package name. Reports are derived,
+gitignored artifacts. New dependency discoveries can grow the remaining queue.
+Metadata ingestion is not behavioral verification, a vulnerability scan or license
+approval, and does not download implementation source.

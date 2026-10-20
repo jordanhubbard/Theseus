@@ -1,4 +1,4 @@
-.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold qualify qualify-check lint-gold-wrappers validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report fabric fabric-ingest fabric-stats fabric-show fabric-deps fabric-rdeps fabric-query fabric-validate fabric-history refresh refresh-recipes reingest help
+.PHONY: all start stop restart test clean report candidates extract filldeps validate validate-zspecs diff sync rank bulk-build seed import-pypi import-npm import-cargo compile-zsdl verify-behavior docker-build verify-behavior-docker verify-all-specs verify-all-specs-json spec-coverage orphan-specs spec-vector-coverage corpus-autopsy corpus-autopsy-check verify-json-spike characterize characterize-gold qualify qualify-check lint-gold-wrappers validate-e2e release docs docs-serve pipeline pipeline-all synthesize synthesize-all synthesize-report synthesize-waves synthesize-waves-list synthesize-waves-status synthesize-waves-next search compare provenance-report fabric fabric-ingest fabric-stats fabric-show fabric-deps fabric-rdeps fabric-query fabric-validate fabric-history scan-queue scan refresh refresh-recipes reingest help
 
 SNAPSHOT ?= ./snapshots/$(shell date +%Y-%m-%d)
 REPORT_OUT ?= ./reports/overlap
@@ -23,6 +23,11 @@ CARGO_SEED ?= ./reports/cargo-seed.txt
 IMPORT_OUT ?= ./snapshots/$(shell date +%Y-%m-%d)
 IMPORT_TIMEOUT ?= 15
 PYTHON ?= python3
+SCAN_QUEUE ?= reports/scan-queue.json
+SCAN_REPORT ?= reports/scan-results.json
+SCAN_LIMIT ?= 20
+SCAN_TIMEOUT ?= 15
+SCAN_ECOSYSTEM ?=
 FABRIC_SRC ?= specs examples
 PKG ?=
 FABRIC_LICENSE ?=
@@ -88,6 +93,16 @@ refresh-recipes:
 refresh: refresh-recipes fabric-ingest
 
 reingest: refresh
+
+# A derived frontier, not a second database or a manually maintained reverse index.
+scan-queue:
+	$(PYTHON) tools/scan_queue.py plan --queue "$(SCAN_QUEUE)"
+
+scan: scan-queue
+	$(PYTHON) tools/scan_queue.py run --queue "$(SCAN_QUEUE)" --report "$(SCAN_REPORT)" \
+		--limit "$(SCAN_LIMIT)" --timeout "$(SCAN_TIMEOUT)" \
+		$(if $(SCAN_ECOSYSTEM),--ecosystem "$(SCAN_ECOSYSTEM)")
+	$(PYTHON) tools/scan_queue.py plan --queue "$(SCAN_QUEUE)"
 
 fabric-stats:
 	$(PYTHON) tools/fabric.py stats $(if $(FABRIC_REV),--rev $(FABRIC_REV)) $(if $(JSON),--json)
@@ -496,6 +511,8 @@ help:
 	@echo "  make / make all     Check Python version, print usage"
 	@echo "  make start          Fabric stats, then analysis (SNAPSHOT=path, or demo on examples/)"
 	@echo "  make fabric         Alias for fabric-stats"
+	@echo "  make scan-queue     Rank dependency gaps by distinct consuming packages"
+	@echo "  make scan           Scan a finite prioritized registry batch (SCAN_LIMIT=20)"
 	@echo "  make fabric-stats   Coverage of committed fingerprints (FABRIC_REV=, JSON=1)"
 	@echo "  make fabric-show    Print one fingerprint (PKG=name)"
 	@echo "  make fabric-deps    Outbound dependencies (PKG=name)"

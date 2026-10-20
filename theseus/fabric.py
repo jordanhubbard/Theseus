@@ -191,6 +191,17 @@ def dump_fingerprint(record: dict) -> str:
 
 def write_fingerprint(path: Path, record: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+            candidate = json.loads(dump_fingerprint(record))
+            # Preserve the last substantive write when only the collector clock changed.
+            previous.get("tracking", {}).pop("ingested_at", None)
+            candidate.get("tracking", {}).pop("ingested_at", None)
+            if previous == candidate:
+                return
+        except (ValueError, OSError, AttributeError):
+            pass
     path.write_text(dump_fingerprint(record), encoding="utf-8")
 
 
@@ -618,7 +629,7 @@ def extract_license(recipe: dict) -> dict:
     return {"spdx": spdx, "raw": raw, "confidence": confidence}
 
 
-def _is_noisy_dep(name: str) -> bool:
+def _is_noisy_dep(name: str, ecosystem: Optional[str] = None) -> bool:
     if not name or not name.strip():
         return True
     text = name.strip()
@@ -626,6 +637,8 @@ def _is_noisy_dep(name: str) -> bool:
         return True
     if text in ("#", "-"):
         return True
+    if ecosystem == "npm" and re.fullmatch(r"@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+", text):
+        return False
     if "/" in text or text.endswith(".so"):
         return True
     return False
@@ -641,7 +654,7 @@ def extract_depends_on(recipe: dict) -> list:
             if not isinstance(item, str):
                 continue
             name = item.strip()
-            if _is_noisy_dep(name):
+            if _is_noisy_dep(name, ecosystem):
                 continue
             key = (normalize_name(name), scope, ecosystem or "")
             if key in seen:
@@ -663,7 +676,7 @@ def extract_dropped_dependencies(recipe: dict) -> list:
             if not isinstance(item, str):
                 continue
             name = item.strip()
-            if not _is_noisy_dep(name):
+            if not _is_noisy_dep(name, (recipe.get("identity") or {}).get("ecosystem")):
                 continue
             key = (name, scope)
             if key in seen:

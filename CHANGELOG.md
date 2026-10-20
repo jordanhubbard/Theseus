@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- A derived dependency-reference scan queue with finite PyPI/npm metadata batches,
+  covered/manual states, scoped npm identities, safe retry behavior and source digests.
+  `make scan-queue` ranks distinct consuming packages; `make scan` fills gaps and
+  rebuilds fingerprints. Ingest keeps unchanged fingerprint bytes stable.
+- Forty missing package recipes/fingerprints, including SciPy, and a refreshed
+  NumPy recipe. Scoped npm dependency edges now remain connected in the fabric.
 - Repository extraction for the knowledge fabric now reads `npm.source_repository`, Nixpkgs `fetchFromGitHub`/`fetchFromGitLab`, and Ports `USE_GITHUB`/`USE_GITLAB`; expands Ports `${PORTNAME}` in forge URLs; recognizes GitLab forges used by Unix libraries (freedesktop, GNOME, salsa, kitware); maps GNU software homepages and Savannah project pages to Savannah git; maps `{name}.freedesktop.org` to GitLab; and still refuses ambiguous GitHub hits such as `ruby/zlib`.
 - Recipe restock as a first-class action: `make refresh` / `make reingest` re-fetch the committed `specs/` corpus from live PyPI and npm APIs and from Nixpkgs/Ports (local checkout or GitHub raw), then rebuild `fabric/packages/`. No `snapshots/` directory is required. `theseus/refresh.py`, `tools/refresh_recipes.py`.
 - OSS knowledge fabric ([ADR 0007](docs/decisions/0007-knowledge-fabric.md)): git-backed fingerprints under `fabric/packages/` with provenance, repository, license, and bidirectional dependencies. `theseus/fabric.py` + `tools/fabric.py` ingest from `specs/` and `examples/`, query the working tree or `git show <rev>:…`, and derive reverse deps. Makefile targets: `fabric-ingest`, `fabric-stats`, `fabric-show`, `fabric-deps`, `fabric-rdeps`, `fabric-query`, `fabric-validate`, `fabric-history`.
