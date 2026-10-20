@@ -37,7 +37,7 @@ gold/<family>/probes.yaml         ← keep the probes that should stay green
 gold/<family>/uncertainty.yaml    ← resolve, defer, or hold out every leftover claim
         │
         ▼
-tools/characterize.py <family>    ← compile + verify oracle + probes + optional held-out
+tools/characterize.py <family>    ← compile + verify oracle + probes (--include-research adds clean-room/held-out)
 ```
 
 Do **not** open implementation source (`mod.__file__`, CPython `Lib/`, npm `.js`) to fill an expected value. If a value cannot be justified from public docs plus a black-box call, put it on the ledger as `deferred` or `held_out`.
@@ -94,3 +94,7 @@ Do not add a family to `INTENDED_GOLD_SET` just because it has a `gold/<family>/
 |---|---|
 | `tomllib` | `zspecs/tomli.zspec.zsdl` (stdlib name; 3.11+) |
 | `pcap` | `zspecs/libpcap.zspec.zsdl` |
+
+The default characterization checks installed public APIs and live probes. Use
+`--include-research` explicitly to verify optional clean-room and held-out oracles;
+that mode requires the research implementations and fails if they are missing.

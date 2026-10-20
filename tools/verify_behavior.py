@@ -925,6 +925,18 @@ class PatternRegistry:
             result = fn(*args, **kwargs)
         except Exception as exc:
             return False, f"{fn_name}() raised: {exc}"
+        try:
+            result = self._apply_python_hops(result, spec)
+        except Exception as exc:
+            return False, f"{fn_name}() method chain raised: {exc}"
+        # Normalize: compare tuples and lists symmetrically, including nested pairs.
+        r = _sequence_as_lists(result)
+        e = _sequence_as_lists(expected)
+        if r != e:
+            return False, f"{fn_name}() returned {result!r}, expected {expected!r}"
+        return True, f"{fn_name}() == {result!r}"
+
+    def _apply_python_hops(self, result, spec):
         # Optional hops: method, method_chain, method_chain_2, method_chain_chain.
         # Each hop may be a dotted path. Args apply to the last component.
         # A class object (from __class__) is not called when another hop follows.
@@ -941,19 +953,11 @@ class PatternRegistry:
             hop_path = spec.get(hop_name)
             hop_args = [self._resolve_typed(a) for a in spec.get(arg_key, [])]
             more = index != len(active) - 1
-            try:
-                hopped = _apply_call_hop(result, hop_path, hop_args, more_hops=more)
-            except Exception as exc:
-                return False, f"{fn_name}().{hop_path}() raised: {exc}"
+            hopped = _apply_call_hop(result, hop_path, hop_args, more_hops=more)
             # tap: call for the side effect and keep the previous value (parser.feed).
             if not spec.get(hop_name + "_tap"):
                 result = hopped
-        # Normalize: compare tuples and lists symmetrically, including nested pairs.
-        r = _sequence_as_lists(result)
-        e = _sequence_as_lists(expected)
-        if r != e:
-            return False, f"{fn_name}() returned {result!r}, expected {expected!r}"
-        return True, f"{fn_name}() == {result!r}"
+        return result
 
     # --- python_call_raises ---
     # Calls module.function(*args, **kwargs) and checks that it raises the named exception.
@@ -974,6 +978,7 @@ class PatternRegistry:
         expected_exc = spec["expected_exception"]
         try:
             result = fn(*args, **kwargs)
+            result = self._apply_python_hops(result, spec)
         except Exception as exc:
             qualname = f"{type(exc).__module__}.{type(exc).__qualname__}"
             short = type(exc).__name__

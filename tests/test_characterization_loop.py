@@ -28,7 +28,9 @@ def test_characterization_cohort_families_are_characterized():
     assert not overlap, overlap
     for family in sorted(autopsy.CHARACTERIZATION_COHORT):
         rec = characterize.load_family(family)
-        assert rec["meta"].get("held_out_oracle") in (None, "")
+        held_out = rec["meta"].get("held_out_oracle")
+        if held_out:
+            assert (ROOT / held_out).is_file()
         assert rec["meta"].get("qualification") in ("none", None)
         assert rec["probes"] is not None, family
 
@@ -198,7 +200,7 @@ def test_json_layer2_avoids_held_out_tokens():
 
 
 def test_characterize_json():
-    report = characterize.characterize("json")
+    report = characterize.characterize("json", include_research=True)
     assert report["family"] == "json"
     assert report["qualification"] == "none"
     names = [step["name"] for step in report["steps"]]
@@ -245,3 +247,12 @@ def test_autopsy_scan_rejects_open(tmp_path):
     rows = autopsy.scan_characterization(tmp_path)
     assert rows[0]["status"] == "open"
     assert "a" in rows[0]["open_items"]
+
+
+def test_research_oracles_are_explicit():
+    # The default characterization uses installed public APIs, independently
+    # of optional regeneration artifacts recorded by later research runs.
+    report = characterize.characterize("copy")
+    assert "cleanroom_oracle" not in [step["name"] for step in report["steps"]]
+    assert "held_out_oracle" not in [step["name"] for step in report["steps"]]
+    assert "live_probes" in [step["name"] for step in report["steps"]]

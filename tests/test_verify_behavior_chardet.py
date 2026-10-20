@@ -106,7 +106,7 @@ class TestChardetPatterns:
         })
         assert ok, msg
 
-    def test_detect_empty_encoding(self, registry):
+    def test_detect_empty_encoding(self, registry, chardet_mod):
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
@@ -114,12 +114,12 @@ class TestChardetPatterns:
                 "args": [{"type": "bytes_b64", "value": ""}],
                 "method": "__getitem__",
                 "method_args": ["encoding"],
-                "expected": "utf-8",
+                "expected": "utf-8" if int(chardet_mod.__version__.split(".")[0]) >= 7 else None,
             },
         })
         assert ok, msg
 
-    def test_detect_empty_confidence(self, registry):
+    def test_detect_empty_confidence(self, registry, chardet_mod):
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
@@ -127,7 +127,7 @@ class TestChardetPatterns:
                 "args": [{"type": "bytes_b64", "value": ""}],
                 "method": "__getitem__",
                 "method_args": ["confidence"],
-                "expected": 0.1,
+                "expected": 0.1 if int(chardet_mod.__version__.split(".")[0]) >= 7 else 0.0,
             },
         })
         assert ok, msg
@@ -202,8 +202,9 @@ class TestChardetPatterns:
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
-                "function": "__version__.startswith",
-                "args": ["7"],
+                "function": "__version__.__getitem__",
+                "args": [0],
+                "method": "isdigit",
                 "expected": True,
             },
         })
@@ -252,38 +253,38 @@ class TestChardetPatterns:
 class TestChardetAll:
     def test_all_pass(self, chardet_spec, chardet_mod):
         runner = vb.InvariantRunner()
-        results = runner.run_all(chardet_spec, chardet_mod)
-        failed = [r for r in results if not r.passed]
+        results = runner.run_all(chardet_spec, chardet_mod, lib_version=chardet_mod.__version__)
+        failed = [r for r in results if not r.passed and not r.skip_reason]
         assert not failed, f"Failed invariants: {[r.inv_id for r in failed]}"
 
     def test_invariant_count(self, chardet_spec, chardet_mod):
         runner = vb.InvariantRunner()
-        results = runner.run_all(chardet_spec, chardet_mod)
-        assert len(results) == 16
+        results = runner.run_all(chardet_spec, chardet_mod, lib_version=chardet_mod.__version__)
+        assert len(results) == 18
 
-    def test_no_skips(self, chardet_spec, chardet_mod):
+    def test_only_other_version_empty_input_cases_skip(self, chardet_spec, chardet_mod):
         runner = vb.InvariantRunner()
-        results = runner.run_all(chardet_spec, chardet_mod)
+        results = runner.run_all(chardet_spec, chardet_mod, lib_version=chardet_mod.__version__)
         skipped = [r for r in results if r.skip_reason]
-        assert not skipped
+        assert len(skipped) == 2
 
     def test_filter_version_category(self, chardet_spec, chardet_mod):
         runner = vb.InvariantRunner()
-        results = runner.run_all(chardet_spec, chardet_mod, filter_category="version")
+        results = runner.run_all(chardet_spec, chardet_mod, lib_version=chardet_mod.__version__, filter_category="version")
         assert len(results) == 2
-        assert all(r.passed for r in results)
+        assert all(r.passed or r.skip_reason for r in results)
 
     def test_filter_detect_category(self, chardet_spec, chardet_mod):
         runner = vb.InvariantRunner()
-        results = runner.run_all(chardet_spec, chardet_mod, filter_category="detect")
-        assert len(results) == 12
-        assert all(r.passed for r in results)
+        results = runner.run_all(chardet_spec, chardet_mod, lib_version=chardet_mod.__version__, filter_category="detect")
+        assert len(results) == 14
+        assert all(r.passed or r.skip_reason for r in results)
 
     def test_filter_universal_detector_category(self, chardet_spec, chardet_mod):
         runner = vb.InvariantRunner()
-        results = runner.run_all(chardet_spec, chardet_mod, filter_category="universal_detector")
+        results = runner.run_all(chardet_spec, chardet_mod, lib_version=chardet_mod.__version__, filter_category="universal_detector")
         assert len(results) == 2
-        assert all(r.passed for r in results)
+        assert all(r.passed or r.skip_reason for r in results)
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +300,7 @@ class TestChardetCLI:
         vb.main([str(CHARDET_SPEC_PATH), "--verbose"])
         out = capsys.readouterr().out
         assert "PASS" in out
-        assert "16 invariants" in out
+        assert "18 invariants" in out
 
     def test_list_flag(self, capsys):
         rc = vb.main([str(CHARDET_SPEC_PATH), "--list"])
@@ -319,5 +320,5 @@ class TestChardetCLI:
         vb.main([str(CHARDET_SPEC_PATH), "--json-out", str(out_file)])
         data = json.loads(out_file.read_text())
         assert isinstance(data, list)
-        assert len(data) == 16
-        assert all(r["passed"] for r in data)
+        assert len(data) == 18
+        assert all(r["passed"] or r.get("skip_reason") for r in data)

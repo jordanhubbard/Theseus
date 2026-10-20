@@ -544,3 +544,20 @@ class TestStructSpecIntegration:
     def test_cli_exit_0(self):
         rc = vb.main([str(STRUCT_SPEC)])
         assert rc == 0
+
+
+def test_python_call_raises_checks_instance_method():
+    import json
+    registry = vb.PatternRegistry(json, {})
+    spec = {"function": "JSONDecoder", "method": "decode",
+            "method_args": ["{"], "expected_exception": "json.JSONDecodeError"}
+    ok, message = registry.run({"kind": "python_call_raises", "spec": spec})
+    assert ok, message
+    spec["method_args"] = ["{}"]
+    ok, message = registry.run({"kind": "python_call_raises", "spec": spec})
+    assert not ok
+    assert "without raising" in message
+    spec["method_args"] = [None]
+    ok, message = registry.run({"kind": "python_call_raises", "spec": spec})
+    assert not ok
+    assert "TypeError" in message
