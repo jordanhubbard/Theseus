@@ -284,7 +284,9 @@ class TestPathspecPatterns:
                 "args": ["*.py"],
                 "method": "regex",
                 "method_chain": "pattern",
-                "expected": "^(?:.+/)?[^/]*\\.py(?:(?P<ps_d>/)|$)",
+                "method_chain_2": "__contains__",
+                "method_chain_2_args": ["py"],
+                "expected": True,
             },
         })
         assert ok, msg

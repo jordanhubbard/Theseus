@@ -40,3 +40,12 @@ def test_characterization_records_match_schema_required_keys():
         assert (ROOT / rec["authority"]).is_file()
         assert (ROOT / rec["public_oracle"]).is_file()
         assert (ROOT / rec["uncertainty_ledger"]).is_file()
+
+
+def test_zero_arg_public_constructor_is_not_a_factory_wrapper():
+    compiled = {"invariants": [{"kind": "python_call_eq", "spec": {
+        "function": "Lock", "method": "locked", "expected": False}}]}
+    assert lint._zero_arg_eq_count(compiled, {"Lock"}) == (0, 1)
+    assert lint._zero_arg_eq_count(compiled, {"other"}) == (1, 1)
+    compiled["invariants"][0]["spec"].pop("method")
+    assert lint._zero_arg_eq_count(compiled, {"Lock"}) == (1, 1)

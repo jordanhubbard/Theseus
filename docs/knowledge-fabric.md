@@ -61,6 +61,8 @@ mapping, not a legal determination.
 ```bash
 make refresh                    # restock specs/ from live upstreams, then ingest
 make reingest                   # alias for make refresh
+make scan-queue                 # rank missing dependencies by recorded references
+make scan SCAN_LIMIT=20          # fetch one finite metadata batch, then ingest
 make fabric-ingest              # specs/ + examples/ → fabric/packages/ (parallel)
 make fabric-ingest FABRIC_JOBS=4
 make fabric-stats               # how much we know
@@ -114,3 +116,5 @@ and an optional behavioral spec. Growing those numerators — especially
 confident repositories and a connected dependency graph — is the work.
 
 See [ADR 0007](decisions/0007-knowledge-fabric.md).
+
+See [prioritized dependency scans and oss-tracker consumption](dependency-scans.md).

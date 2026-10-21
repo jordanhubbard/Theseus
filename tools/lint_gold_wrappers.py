@@ -18,12 +18,13 @@ for extra in (_REPO_ROOT, _REPO_ROOT / "tools"):
         sys.path.insert(0, str(extra))
 
 import zsdl_compile  # noqa: E402
+import characterize  # noqa: E402
 
 FREEZE_PATH = _REPO_ROOT / "reports" / "audit" / "factory-wrapper-freeze.json"
 ZSPECS = _REPO_ROOT / "zspecs"
 
 
-def _zero_arg_eq_count(compiled):
+def _zero_arg_eq_count(compiled, public_exports=()):
     n = 0
     eq = 0
     for inv in compiled.get("invariants") or []:
@@ -34,7 +35,12 @@ def _zero_arg_eq_count(compiled):
         spec = inv.get("spec") or {}
         args = spec.get("args")
         if args in ([], None):
-            n += 1
+            # Public constructors may take only keywords or expose state via
+            # an instance method. They are not zero-argument self-test wrappers.
+            public_constructor = (spec.get("function") in public_exports and
+                                  (spec.get("kwargs") or spec.get("method")))
+            if not public_constructor:
+                n += 1
     return n, eq
 
 
@@ -68,7 +74,13 @@ def lint(write_freeze=False):
         backend = compiled.get("backend_lang") or ""
         if backend not in ("python_cleanroom", "node_cleanroom", ""):
             continue
-        zeros, eq_n = _zero_arg_eq_count(compiled)
+        public_exports = ()
+        if _is_gold_cleanroom(path) and _zero_arg_eq_count(compiled)[0]:
+            family = path.name[len("theseus_"):].split(".zspec")[0]
+            if family.endswith("_q"):
+                family = family[:-2]
+            public_exports = characterize.load_family(family)["meta"].get("exports") or ()
+        zeros, eq_n = _zero_arg_eq_count(compiled, public_exports)
         wrapperish = eq_n > 0 and zeros >= max(1, int(0.9 * eq_n))
         if _is_gold_cleanroom(path):
             gold.append(rel)

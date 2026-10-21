@@ -219,3 +219,14 @@ class TestAllSpecsIntegration:
         bl.write_text(json.dumps(inv_list))
         # Identical baseline → 0 regressions
         assert vb._diff_results(bl, inv_list) == 0
+
+
+def test_failure_diagnostics_are_visible_when_guest_artifacts_are_unavailable(tmp_path, monkeypatch, capsys):
+    result = {'spec': 'fixture.zspec.json', 'canonical_name': 'fixture', 'lib_version': '1', 'error': None,
+              'invariants': [{'id': 'fixture.rounding', 'passed': False, 'message': 'actual differs from expected', 'skip_reason': None}],
+              'summary': {'total': 1, 'passed': 0, 'failed': 1, 'skipped': 0}}
+    monkeypatch.setattr(vas, 'collect_specs', lambda paths: [Path('fixture.zspec.json')])
+    monkeypatch.setattr(vas, 'run_spec', lambda path: result)
+    assert vas.main(['--out', str(tmp_path / 'results.json')]) == 1
+    assert 'fixture.rounding: actual differs from expected' in capsys.readouterr().out
+    assert json.loads((tmp_path / 'results.json').read_text())['summary']['failed'] == 1

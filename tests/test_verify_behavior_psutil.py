@@ -13,6 +13,7 @@ Organized as:
   - TestPsutilPlatform: platform category invariants
   - TestPsutilAll: all 17 psutil invariants pass
 """
+import os
 import sys
 from pathlib import Path
 
@@ -257,12 +258,12 @@ class TestPsutilDisk:
 # ---------------------------------------------------------------------------
 
 class TestPsutilProcess:
-    def test_pid_zero_exists(self, registry):
+    def test_current_pid_exists(self, registry):
         ok, msg = registry.run({
             "kind": "python_call_eq",
             "spec": {
                 "function": "pid_exists",
-                "args": [0],
+                "args": [os.getpid()],
                 "expected": True,
             },
         })

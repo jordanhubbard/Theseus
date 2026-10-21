@@ -31,8 +31,9 @@ invariant chardet.version.starts_with_digit:
   description: "__version__ is a non-empty string beginning with a digit"
   category: version
   kind: python_call_eq
-  function: __version__.startswith
-  args: ["7"]
+  function: __version__.__getitem__
+  args: [0]
+  method: isdigit
   expected: true
 
 invariant chardet.version.contains_dot:
@@ -109,6 +110,7 @@ invariant chardet.detect_empty.encoding:
   method: "__getitem__"
   method_args: ["encoding"]
   expected: "utf-8"
+  skip_if: 'not semver_satisfies(lib_version, ">=7")'
 
 invariant chardet.detect_empty.confidence:
   description: "chardet.detect(b'')['confidence'] == 0.1 in chardet 7.x"
@@ -119,6 +121,7 @@ invariant chardet.detect_empty.confidence:
   method: "__getitem__"
   method_args: ["confidence"]
   expected: 0.1
+  skip_if: 'not semver_satisfies(lib_version, ">=7")'
 
 # ---------------------------------------------------------------------------
 # detect — UTF-8 BOM
@@ -229,3 +232,26 @@ synthesis:
   notes: Synthesis succeeded in 1 iteration(s). 16 invariants passing.
   infeasible_reason: null
   invariant_annotations: {}
+
+# Pre-7 detection reports no encoding for empty input.
+invariant chardet.detect_empty.legacy_encoding:
+  description: "chardet 5/6 cannot detect an encoding from empty input"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: ""}]
+  method: __getitem__
+  method_args: [encoding]
+  expected: null
+  skip_if: 'semver_satisfies(lib_version, ">=7")'
+
+invariant chardet.detect_empty.legacy_confidence:
+  description: "chardet 5/6 reports zero confidence for empty input"
+  category: detect
+  kind: python_call_eq
+  function: detect
+  args: [{type: bytes_b64, value: ""}]
+  method: __getitem__
+  method_args: [confidence]
+  expected: 0.0
+  skip_if: 'semver_satisfies(lib_version, ">=7")'

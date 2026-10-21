@@ -542,7 +542,9 @@ class PatternRegistry:
         # return a C string, so we set c_char_p here if not already set.
         if hasattr(fn, "restype") and fn.restype is not ctypes.c_char_p:
             fn.restype = ctypes.c_char_p
-        result = fn()
+        args = [int(value) for value in spec.get("args_int", [])]
+        fn.argtypes = [ctypes.c_int] * len(args)
+        result = fn(*args)
         if result is None:
             return False, f"{fn_name}() returned NULL"
         if not result.startswith(prefix):
@@ -786,7 +788,9 @@ class PatternRegistry:
         attr = spec["attribute"]
         must_contain = spec["must_contain"]
         try:
-            actual_set = getattr(self._lib, attr)
+            actual_set = self._lib
+            for part in attr.split("."):
+                actual_set = getattr(actual_set, part)
         except AttributeError:
             return False, f"Module has no attribute {attr!r}"
         missing = [item for item in must_contain if item not in actual_set]
@@ -869,6 +873,30 @@ class PatternRegistry:
         if isinstance(v, dict) and "type" in v:
             t = v["type"]
             val = v.get("value")
+            if t == "module_call":
+                path = str(val)
+                if not _re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", path):
+                    raise ValueError("invalid module call reference")
+                value = self._lib
+                for part in path.split("."):
+                    value = getattr(value, part)
+                args = [self._resolve_typed(a) for a in v.get("args", [])]
+                return value(*args)
+            if t == "module_attr":
+                path = str(val)
+                if not _re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", path):
+                    raise ValueError("invalid module attribute reference")
+                value = self._lib
+                for part in path.split("."):
+                    value = getattr(value, part)
+                return value[v["key"]] if "key" in v else value
+            if t == "builtin":
+                import builtins
+                allowed = {"len", "str", "int", "float", "type", "tuple", "list", "dict",
+                           "Exception", "ValueError", "ImportError", "OSError"}
+                if val not in allowed:
+                    raise ValueError("unsupported builtin reference")
+                return getattr(builtins, val)
             if t == "bytes_b64":
                 return base64.b64decode(val) if val else b""
             if t == "bytes_ascii":
@@ -909,8 +937,9 @@ class PatternRegistry:
             # A trailing "()" on the final component is the call made below.
             call_now = part.endswith("()") and index != len(parts) - 1
             name = part[:-2] if part.endswith("()") else part
-            obj = getattr(obj, name, None)
-            if obj is None:
+            missing = object()
+            obj = getattr(obj, name, missing)
+            if obj is missing:
                 return False, f"Module has no attribute {fn_name!r}"
             if call_now:
                 try:
@@ -925,6 +954,18 @@ class PatternRegistry:
             result = fn(*args, **kwargs)
         except Exception as exc:
             return False, f"{fn_name}() raised: {exc}"
+        try:
+            result = self._apply_python_hops(result, spec)
+        except Exception as exc:
+            return False, f"{fn_name}() method chain raised: {exc}"
+        # Normalize: compare tuples and lists symmetrically, including nested pairs.
+        r = _sequence_as_lists(result)
+        e = _sequence_as_lists(expected)
+        if r != e:
+            return False, f"{fn_name}() returned {result!r}, expected {expected!r}"
+        return True, f"{fn_name}() == {result!r}"
+
+    def _apply_python_hops(self, result, spec):
         # Optional hops: method, method_chain, method_chain_2, method_chain_chain.
         # Each hop may be a dotted path. Args apply to the last component.
         # A class object (from __class__) is not called when another hop follows.
@@ -941,19 +982,11 @@ class PatternRegistry:
             hop_path = spec.get(hop_name)
             hop_args = [self._resolve_typed(a) for a in spec.get(arg_key, [])]
             more = index != len(active) - 1
-            try:
-                hopped = _apply_call_hop(result, hop_path, hop_args, more_hops=more)
-            except Exception as exc:
-                return False, f"{fn_name}().{hop_path}() raised: {exc}"
+            hopped = _apply_call_hop(result, hop_path, hop_args, more_hops=more)
             # tap: call for the side effect and keep the previous value (parser.feed).
             if not spec.get(hop_name + "_tap"):
                 result = hopped
-        # Normalize: compare tuples and lists symmetrically, including nested pairs.
-        r = _sequence_as_lists(result)
-        e = _sequence_as_lists(expected)
-        if r != e:
-            return False, f"{fn_name}() returned {result!r}, expected {expected!r}"
-        return True, f"{fn_name}() == {result!r}"
+        return result
 
     # --- python_call_raises ---
     # Calls module.function(*args, **kwargs) and checks that it raises the named exception.
@@ -974,6 +1007,7 @@ class PatternRegistry:
         expected_exc = spec["expected_exception"]
         try:
             result = fn(*args, **kwargs)
+            result = self._apply_python_hops(result, spec)
         except Exception as exc:
             qualname = f"{type(exc).__module__}.{type(exc).__qualname__}"
             short = type(exc).__name__
@@ -2092,6 +2126,8 @@ def _build_skip_context(lib_version: str) -> dict:
     # Normalize "linux2" → "linux" for cleaner expressions
     if platform_str.startswith("linux"):
         platform_str = "linux"
+    elif platform_str.startswith("freebsd"):
+        platform_str = "freebsd"
     return {
         "lib_version": lib_version,
         "platform": platform_str,

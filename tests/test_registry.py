@@ -104,9 +104,17 @@ def test_committed_registry_withdraws_qualification_claim():
     )
     ladder = data.get("ladder") or {}
     assert ladder.get("qualification_claim") == "withdrawn"
-    assert ladder.get("qualified") == []
+    # Research receipts may qualify individual attempts without changing the
+    # withdrawn shipping claim (ADR 0005 and ADR 0007).
+    receipts = [json.loads(path.read_text(encoding="utf-8"))
+                for path in (root / "reports" / "qualification").glob("*.json")]
+    qualified = {"theseus_json" if r.get("family") == "json" else
+                 "theseus_{}_q".format(r.get("family"))
+                 for r in receipts if r.get("qualified") and
+                 r.get("independent_generation") and r.get("empty_workspace_pair")}
+    assert set(ladder.get("qualified") or []) == qualified
     assert ladder.get("is_qualified") is False
-    assert registry.is_qualified("theseus_json") is False
+    assert registry.is_qualified("theseus_json") == ("theseus_json" in qualified)
     verified = [
         name
         for name, info in data["packages"].items()

@@ -745,7 +745,8 @@ class TestCommittedFabric:
         assert werk["resolved"] is True
         assert werk["resolved_to"] == "werkzeug"
         blinker = [d for d in flask["depends_on"] if d["name"] == "blinker"][0]
-        assert blinker["resolved"] is False
+        assert blinker["resolved"] is True
+        assert blinker["resolved_to"] == "blinker"
         requests = store.get("requests")
         assert requests["evidence"]["behavioral_spec"] == "zspecs/requests.zspec.zsdl"
         assert requests["evidence"]["recreation"] == "secondary"

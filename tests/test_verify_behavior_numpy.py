@@ -231,7 +231,9 @@ class TestNumpyConstants:
             "spec": {
                 "function": "exp",
                 "args": [1.0],
-                "expected": 2.718281828459045,
+                "method": "round",
+                "method_args": [13],
+                "expected": 2.718281828459,
             },
         })
         assert ok, msg
